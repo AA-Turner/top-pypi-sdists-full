@@ -143,6 +143,8 @@ class ProjectEnvironmentVariables(pulumi.CustomResource):
         """
         Provides a resource for managing a number of Project Environment Variables.
 
+        > Removing entries from the `variables` attribute deletes the corresponding Environment Variables from the Vercel Project. Destroying this resource deletes all Environment Variables it manages. Environment Variables not managed by this resource are left unchanged.
+
         This resource defines multiple Environment Variables on a Vercel Project.
 
         For more detailed information, please see the [Vercel documentation](https://vercel.com/docs/concepts/projects/environment-variables).
@@ -150,7 +152,7 @@ class ProjectEnvironmentVariables(pulumi.CustomResource):
         > Terraform currently provides this Project Environment Variables resource (multiple Environment Variables), a single Project Environment Variable Resource, and a Project resource with Environment Variables defined in-line via the `environment` field.
         At this time you cannot use a Vercel Project resource with in-line `environment` in conjunction with any `ProjectEnvironmentVariables` or `ProjectEnvironmentVariable` resources. Doing so will cause a conflict of settings and will overwrite Environment Variables.
 
-        > **Note:** Starting in provider version `4.8.0`, Project Environment Variables require an explicit `sensitive` value. Variables targeting only `development` must set `sensitive = false`. If your team enforces sensitive environment variables, variables targeting `preview`, `production`, or custom environments must set `sensitive = true`. When that team policy is enabled, a variable cannot target `development` together with `preview`, `production`, or custom environments.
+        > **Note:** Starting in provider version `4.8.0`, environment variables require an explicit `sensitive` value. Secrets (`sensitive = true`) are supported in all target environments, including Development. Team environment variable policies are enforced by the Vercel API at apply time.
 
         ## Example Usage
 
@@ -208,6 +210,8 @@ class ProjectEnvironmentVariables(pulumi.CustomResource):
         """
         Provides a resource for managing a number of Project Environment Variables.
 
+        > Removing entries from the `variables` attribute deletes the corresponding Environment Variables from the Vercel Project. Destroying this resource deletes all Environment Variables it manages. Environment Variables not managed by this resource are left unchanged.
+
         This resource defines multiple Environment Variables on a Vercel Project.
 
         For more detailed information, please see the [Vercel documentation](https://vercel.com/docs/concepts/projects/environment-variables).
@@ -215,7 +219,7 @@ class ProjectEnvironmentVariables(pulumi.CustomResource):
         > Terraform currently provides this Project Environment Variables resource (multiple Environment Variables), a single Project Environment Variable Resource, and a Project resource with Environment Variables defined in-line via the `environment` field.
         At this time you cannot use a Vercel Project resource with in-line `environment` in conjunction with any `ProjectEnvironmentVariables` or `ProjectEnvironmentVariable` resources. Doing so will cause a conflict of settings and will overwrite Environment Variables.
 
-        > **Note:** Starting in provider version `4.8.0`, Project Environment Variables require an explicit `sensitive` value. Variables targeting only `development` must set `sensitive = false`. If your team enforces sensitive environment variables, variables targeting `preview`, `production`, or custom environments must set `sensitive = true`. When that team policy is enabled, a variable cannot target `development` together with `preview`, `production`, or custom environments.
+        > **Note:** Starting in provider version `4.8.0`, environment variables require an explicit `sensitive` value. Secrets (`sensitive = true`) are supported in all target environments, including Development. Team environment variable policies are enforced by the Vercel API at apply time.
 
         ## Example Usage
 

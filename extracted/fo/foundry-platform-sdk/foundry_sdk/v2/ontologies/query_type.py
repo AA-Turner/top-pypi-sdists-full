@@ -72,6 +72,9 @@ class QueryTypeClient:
         """
         Gets a specific query type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param query_api_name: The API name of the query type. To find the API name, use the **List query types** endpoint or check the **Ontology Manager**.
@@ -139,6 +142,9 @@ class QueryTypeClient:
 
         The maximum batch size for this endpoint is 100.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param requests:
@@ -199,6 +205,9 @@ class QueryTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -309,6 +318,9 @@ class AsyncQueryTypeClient:
         """
         Gets a specific query type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param query_api_name: The API name of the query type. To find the API name, use the **List query types** endpoint or check the **Ontology Manager**.
@@ -376,6 +388,9 @@ class AsyncQueryTypeClient:
 
         The maximum batch size for this endpoint is 100.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param requests:
@@ -436,6 +451,9 @@ class AsyncQueryTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

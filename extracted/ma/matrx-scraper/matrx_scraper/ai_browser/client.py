@@ -47,6 +47,8 @@ import os
 from typing import Any
 
 import httpx
+from matrx_api import MATRX_HEADERS, MatrxApi, MatrxApiError, OrganizationContextError, ServiceCredential
+from matrx_api.generated import web
 
 from matrx_scraper.ai_browser.actions import (
     GET_HTML_CAP,
@@ -105,7 +107,7 @@ class RemoteBrowserClient:
         self._organization_id = (organization_id or "").strip() or None
         self._timeout = timeout or _DEFAULT_TIMEOUT
         self._client = client
-        self._owns_client = client is None
+        self._api_client: MatrxApi | None = None
 
     @classmethod
     def from_env(
@@ -133,24 +135,12 @@ class RemoteBrowserClient:
             organization_id=organization_id,
         )
 
-    async def _ensure_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
-        return self._client
+    def _api(self) -> MatrxApi:
+        """The ``matrx_api`` client for the scraper deployment — refuses to exist without an organization.
 
-    async def aclose(self) -> None:
-        if self._owns_client and self._client is not None:
-            await self._client.aclose()
-            self._client = None
-
-    async def __aenter__(self) -> RemoteBrowserClient:
-        await self._ensure_client()
-        return self
-
-    async def __aexit__(self, *_: Any) -> None:
-        await self.aclose()
-
-    def _headers(self) -> dict[str, str]:
+        The wire identity is ``Authorization: Bearer <token>``, ``X-Organization-Id`` and ``X-Matrx-User-Id``
+        (pinned by ``tests/test_remote_browser_client_wire_golden.py``).
+        """
         if not self._organization_id:
             raise BrowserClientError(
                 "This browser call names no organization, and the scraper admits "
@@ -158,51 +148,49 @@ class RemoteBrowserClient:
                 "RemoteBrowserClient with organization_id=<the organization this "
                 "work belongs to>; it is never defaulted."
             )
-        h: dict[str, str] = {
-            "Accept": "application/json",
-            "X-Organization-Id": self._organization_id,
-        }
-        if self._auth_token:
-            h["Authorization"] = f"Bearer {self._auth_token}"
-        if self._acting_user_id:
-            h["X-Matrx-User-Id"] = self._acting_user_id
-        return h
+        if self._api_client is None:
+            self._api_client = MatrxApi(
+                credentials=ServiceCredential(self._auth_token) if self._auth_token else None,
+                organization_id=self._organization_id,
+                base_urls={"scraper": self._base_url},
+                headers={MATRX_HEADERS["acting_user"]: self._acting_user_id} if self._acting_user_id else None,
+                http_client=self._client,
+                connect_timeout=self._timeout.connect if self._timeout.connect is not None else 10.0,
+                total_timeout=self._timeout.read,
+                retry_attempts=1,
+            )
+        return self._api_client
 
-    async def _post(self, path: str, json: dict[str, Any]) -> dict[str, Any]:
-        client = await self._ensure_client()
-        url = f"{self._base_url}/api/scraper{path}"
-        try:
-            resp = await client.post(url, json=json, headers=self._headers())
-        except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
-        if resp.status_code >= 400:
-            try:
-                detail = resp.json()
-            except Exception:
-                detail = resp.text[:500]
-            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
-        try:
-            return resp.json()
-        except Exception as exc:
-            raise BrowserClientError(f"non-JSON response from {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
+    async def aclose(self) -> None:
+        if self._api_client is not None:
+            await self._api_client.aclose()  # a caller-supplied httpx client is never closed here
+            self._api_client = None
 
-    async def _delete(self, path: str) -> dict[str, Any]:
-        client = await self._ensure_client()
-        url = f"{self._base_url}/api/scraper{path}"
+    async def __aenter__(self) -> RemoteBrowserClient:
+        return self
+
+    async def __aexit__(self, *_: Any) -> None:
+        await self.aclose()
+
+    async def _call(self, operation: Any, **kwargs: Any) -> dict[str, Any]:
+        api = self._api()
         try:
-            resp = await client.delete(url, headers=self._headers())
-        except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
-        if resp.status_code >= 400:
-            try:
-                detail = resp.json()
-            except Exception:
-                detail = resp.text[:500]
-            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
-        try:
-            return resp.json()
-        except Exception as exc:
-            raise BrowserClientError(f"non-JSON response from {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
+            payload = await operation(api, **kwargs)
+        except OrganizationContextError as exc:
+            raise BrowserClientError(str(exc)) from exc
+        except MatrxApiError as exc:
+            url = f"{self._base_url}{exc.path}"
+            if exc.status == 0:
+                raise BrowserClientError(
+                    f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc.message)}"
+                ) from exc
+            detail = exc.server_detail
+            if isinstance(detail, str):
+                detail = detail[:500]
+            raise BrowserClientError(f"{redact_url_secrets(url)} returned {exc.status}: {detail}") from exc
+        if not isinstance(payload, dict):
+            raise BrowserClientError(f"non-JSON response from {redact_url_secrets(self._base_url)}")
+        return payload
 
     # ── Actions ────────────────────────────────────────────────────────────
 
@@ -232,7 +220,7 @@ class RemoteBrowserClient:
             body["viewport"] = viewport
         if proxy:
             body["proxy"] = proxy
-        return NavigateResult(**await self._post("/browser/navigate", body))
+        return NavigateResult(**await self._call(web.navigate, body=body))
 
     async def click(
         self,
@@ -243,9 +231,9 @@ class RemoteBrowserClient:
         timeout_ms: int = 10_000,
     ) -> ClickResult:
         return ClickResult(
-            **await self._post(
-                "/browser/click",
-                {
+            **await self._call(
+                web.click,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "wait_after_ms": wait_after_ms,
@@ -263,9 +251,9 @@ class RemoteBrowserClient:
         timeout_ms: int = 10_000,
     ) -> FillResult:
         return FillResult(
-            **await self._post(
-                "/browser/fill",
-                {
+            **await self._call(
+                web.fill,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "value": value,
@@ -285,9 +273,9 @@ class RemoteBrowserClient:
         timeout_ms: int = 10_000,
     ) -> TypeResult:
         return TypeResult(
-            **await self._post(
-                "/browser/type",
-                {
+            **await self._call(
+                web.type_text,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "text": text,
@@ -308,9 +296,9 @@ class RemoteBrowserClient:
         timeout_ms: int = 10_000,
     ) -> SelectOptionResult:
         return SelectOptionResult(
-            **await self._post(
-                "/browser/select_option",
-                {
+            **await self._call(
+                web.select_option,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "value": value,
@@ -331,9 +319,9 @@ class RemoteBrowserClient:
         return_base64: bool = True,
     ) -> ScreenshotResult:
         return ScreenshotResult(
-            **await self._post(
-                "/browser/screenshot",
-                {
+            **await self._call(
+                web.screenshot,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "full_page": full_page,
@@ -354,9 +342,9 @@ class RemoteBrowserClient:
         timeout_ms: int = 10_000,
     ) -> WaitForResult:
         return WaitForResult(
-            **await self._post(
-                "/browser/wait_for",
-                {
+            **await self._call(
+                web.wait_for,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "text": text,
@@ -374,9 +362,9 @@ class RemoteBrowserClient:
         include_html: bool = False,
     ) -> GetElementResult:
         return GetElementResult(
-            **await self._post(
-                "/browser/get_element",
-                {
+            **await self._call(
+                web.get_element,
+                body={
                     "session_id": session_id,
                     "selector": selector,
                     "include_html": include_html,
@@ -393,9 +381,9 @@ class RemoteBrowserClient:
         limit_per_selector: int = ROW_COUNT_CAP,
     ) -> QuerySelectorsResult:
         return QuerySelectorsResult(
-            **await self._post(
-                "/browser/query_selectors",
-                {
+            **await self._call(
+                web.query_selectors,
+                body={
                     "session_id": session_id,
                     "selectors": selectors,
                     "attributes": attributes,
@@ -412,9 +400,9 @@ class RemoteBrowserClient:
         allow_eval_js: bool = False,
     ) -> EvalJsResult:
         return EvalJsResult(
-            **await self._post(
-                "/browser/eval_js",
-                {
+            **await self._call(
+                web.eval_js,
+                body={
                     "session_id": session_id,
                     "expression": expression,
                     "allow_eval_js": allow_eval_js,
@@ -431,9 +419,9 @@ class RemoteBrowserClient:
         selector: str | None = None,
     ) -> ScrollResult:
         return ScrollResult(
-            **await self._post(
-                "/browser/scroll",
-                {
+            **await self._call(
+                web.scroll,
+                body={
                     "session_id": session_id,
                     "direction": direction,
                     "pixels": pixels,
@@ -449,9 +437,9 @@ class RemoteBrowserClient:
         cap: int = GET_HTML_CAP,
     ) -> GetHtmlResult:
         return GetHtmlResult(
-            **await self._post(
-                "/browser/get_html",
-                {"session_id": session_id, "cap": cap},
+            **await self._call(
+                web.get_html,
+                body={"session_id": session_id, "cap": cap},
             )
         )
 
@@ -463,29 +451,17 @@ class RemoteBrowserClient:
         cap: int = GET_TEXT_CAP,
     ) -> GetTextResult:
         return GetTextResult(
-            **await self._post(
-                "/browser/get_text",
-                {"session_id": session_id, "selector": selector, "cap": cap},
+            **await self._call(
+                web.get_text,
+                body={"session_id": session_id, "selector": selector, "cap": cap},
             )
         )
 
     async def close(self, session_id: str) -> dict[str, Any]:
-        return await self._delete(f"/browser/sessions/{session_id}")
+        return await self._call(web.close_session, path={"session_id": session_id})
 
     async def list_sessions(self) -> dict[str, Any]:
-        client = await self._ensure_client()
-        url = f"{self._base_url}/api/scraper/browser/sessions"
-        try:
-            resp = await client.get(url, headers=self._headers())
-        except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
-        if resp.status_code >= 400:
-            try:
-                detail = resp.json()
-            except Exception:
-                detail = resp.text[:500]
-            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
-        return resp.json()
+        return await self._call(web.list_sessions)
 
 
 __all__ = ["RemoteBrowserClient", "BrowserClientError"]

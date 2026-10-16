@@ -58,6 +58,11 @@ class UnstructuredGrid(Tidy3dBaseModel, ABC):
     def min_mesh_size(self) -> float:
         """Minimum mesh size used by this grid specification."""
 
+    @property
+    @abstractmethod
+    def smallest_requested_dl(self) -> float:
+        """Smallest mesh size this specification asks for anywhere."""
+
 
 class UniformUnstructuredGrid(UnstructuredGrid):
     """Uniform grid.
@@ -115,6 +120,11 @@ class UniformUnstructuredGrid(UnstructuredGrid):
     @property
     def min_mesh_size(self) -> float:
         """Minimum mesh size used by this grid specification."""
+        return self.dl
+
+    @property
+    def smallest_requested_dl(self) -> float:
+        """Smallest mesh size this specification asks for anywhere."""
         return self.dl
 
 
@@ -324,6 +334,15 @@ class DistanceUnstructuredGrid(UnstructuredGrid):
             elif isinstance(ref, GridRefinementLine):
                 dl_array.append(ref.dl_near)
         return min(dl_array)
+
+    @property
+    def smallest_requested_dl(self) -> float:
+        """Smallest mesh size this specification asks for anywhere.
+
+        Unlike ``min_mesh_size``, which also clamps cylinder radii, this
+        includes ``dl_bulk`` because it may be finer than ``dl_interface``.
+        """
+        return min(self.min_mesh_size, self.dl_bulk)
 
 
 UnstructuredGridType = UniformUnstructuredGrid | DistanceUnstructuredGrid

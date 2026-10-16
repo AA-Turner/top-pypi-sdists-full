@@ -1,50 +1,43 @@
 Metadata-Version: 2.4
 Name: cognite-sdk
-Version: 8.21.0
+Version: 8.22.0
 Summary: Cognite Python SDK
+Author: Erlend Vollset, Håkon Treider, Anders Albert
+Author-email: Erlend Vollset <erlend.vollset@cognite.com>, Håkon Treider <hakon.treider@cognite.com>, Anders Albert <anders.albert@cognite.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Author: Erlend Vollset
-Author-email: erlend.vollset@cognite.com
-Requires-Python: >= 3.10, <4
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.15
+Requires-Dist: httpx2>=2,<3
+Requires-Dist: msal>=1.31,<2
+Requires-Dist: protobuf>=5
+Requires-Dist: packaging>=20
+Requires-Dist: pip>=20
+Requires-Dist: typing-extensions>=4.5.0
+Requires-Dist: tzdata>=2024.1 ; sys_platform == 'emscripten' or sys_platform == 'win32'
+Requires-Dist: numpy>=1.25,<2.3 ; python_full_version == '3.10.*' and extra == 'all'
+Requires-Dist: numpy>=1.25,<2.5 ; python_full_version == '3.11.*' and extra == 'all'
+Requires-Dist: numpy>=1.26 ; python_full_version >= '3.12' and extra == 'all'
+Requires-Dist: sympy ; extra == 'all'
+Requires-Dist: pandas>=2.1 ; extra == 'all'
+Requires-Dist: geopandas>=0.14 ; extra == 'all'
+Requires-Dist: shapely>=1.7.0 ; extra == 'all'
+Requires-Dist: pyyaml>=6,<7 ; extra == 'all'
+Requires-Dist: geopandas>=0.14 ; extra == 'geo'
+Requires-Dist: shapely>=1.7.0 ; extra == 'geo'
+Requires-Dist: pandas>=2.1 ; extra == 'geo'
+Requires-Dist: numpy>=1.25,<2.3 ; python_full_version == '3.10.*' and extra == 'numpy'
+Requires-Dist: numpy>=1.25,<2.5 ; python_full_version == '3.11.*' and extra == 'numpy'
+Requires-Dist: numpy>=1.26 ; python_full_version >= '3.12' and extra == 'numpy'
+Requires-Dist: pandas>=2.1 ; extra == 'pandas'
+Requires-Dist: sympy ; extra == 'sympy'
+Requires-Dist: pyyaml>=6,<7 ; extra == 'yaml'
+Requires-Python: >=3.10, <4
+Project-URL: Documentation, https://cognite-sdk-python.readthedocs-hosted.com
 Provides-Extra: all
 Provides-Extra: geo
 Provides-Extra: numpy
 Provides-Extra: pandas
 Provides-Extra: sympy
 Provides-Extra: yaml
-Requires-Dist: PyYAML (>=6,<7) ; extra == "all"
-Requires-Dist: PyYAML (>=6,<7) ; extra == "yaml"
-Requires-Dist: geopandas (>=0.14) ; extra == "all"
-Requires-Dist: geopandas (>=0.14) ; extra == "geo"
-Requires-Dist: httpx2 (>=2,<3)
-Requires-Dist: msal (>=1.31,<2)
-Requires-Dist: numpy (>=1.25,<2.3) ; (python_version == "3.10") and (extra == "all")
-Requires-Dist: numpy (>=1.25,<2.3) ; (python_version == "3.10") and (extra == "numpy")
-Requires-Dist: numpy (>=1.25,<2.5) ; (python_version == "3.11") and (extra == "all")
-Requires-Dist: numpy (>=1.25,<2.5) ; (python_version == "3.11") and (extra == "numpy")
-Requires-Dist: numpy (>=1.26) ; (python_version >= "3.12") and (extra == "all")
-Requires-Dist: numpy (>=1.26) ; (python_version >= "3.12") and (extra == "numpy")
-Requires-Dist: packaging (>=20)
-Requires-Dist: pandas (>=2.1) ; extra == "all"
-Requires-Dist: pandas (>=2.1) ; extra == "geo"
-Requires-Dist: pandas (>=2.1) ; extra == "pandas"
-Requires-Dist: pip (>=20)
-Requires-Dist: protobuf (>=5)
-Requires-Dist: shapely (>=1.7.0) ; extra == "all"
-Requires-Dist: shapely (>=1.7.0) ; extra == "geo"
-Requires-Dist: sympy ; extra == "all"
-Requires-Dist: sympy ; extra == "sympy"
-Requires-Dist: typing_extensions (>=4.5.0)
-Requires-Dist: tzdata (>=2024.1) ; sys_platform == "win32" or sys_platform == "emscripten"
-Project-URL: Documentation, https://cognite-sdk-python.readthedocs-hosted.com
 Description-Content-Type: text/markdown
 
 <a href="https://cognite.com/">
@@ -146,4 +139,3 @@ To help you upgrade your code(base) quickly and safely to a newer major version 
 
 ## Contributing
 Want to contribute? Check out [CONTRIBUTING](https://github.com/cognitedata/cognite-sdk-python/blob/master/CONTRIBUTING.md).
-

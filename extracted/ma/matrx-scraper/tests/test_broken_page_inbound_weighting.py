@@ -28,7 +28,7 @@ def _run(site: SiteAggregates):
 
 @pytest.mark.parametrize(
     ("inlinks", "sitemap", "score"),
-    [(1072, False, 5), (10, False, 5), (0, True, 5), (3, False, 15), (1, False, 15), (0, False, 40)],
+    [(1072, False, 5), (10, False, 5), (0, True, 5), (3, False, 15), (1, False, 15)],
 )
 def test_score_follows_the_contract(inlinks, sitemap, score):
     outcome = _run(_site(inlinks, sitemap=sitemap))
@@ -50,9 +50,35 @@ def test_no_link_graph_is_unknown_not_zero():
 
 
 def test_unloaded_sitemap_is_not_absent():
-    outcome = _run(_site(0, sitemap=None))
+    site = _site(0, sitemap=None)
+    site.ever_worked_page_ids = {PAGE}
+    outcome = _run(site)
     assert outcome.evidence["in_sitemap"] is None
     assert outcome.score == 40
+
+
+def test_an_address_nothing_vouches_for_is_not_a_broken_page():
+    # THE EVIDENCE RULE (Arman, 2026-10-14): a hand-seeded /services/service-1
+    # that never existed, with no links, no sitemap entry and no Google
+    # presence, is not a defect.
+    site = _site(0, sitemap=False)
+    site.ever_worked_page_ids = set()
+    outcome = _run(site)
+    assert outcome.status == "n_a"
+    assert "It isn't a broken page" in outcome.reasoning
+
+
+@pytest.mark.parametrize("vouch", ["ever_worked", "google"])
+def test_a_past_life_or_google_makes_it_real(vouch):
+    from matrx_scraper.web_crawl.analysis import GscPeriod, PageGscStats
+
+    site = _site(0, sitemap=False)
+    site.ever_worked_page_ids = {PAGE} if vouch == "ever_worked" else set()
+    if vouch == "google":
+        site.gsc.bound = True
+        site.gsc.by_page[PAGE] = PageGscStats(quarter=GscPeriod(impressions=40))
+    outcome = _run(site)
+    assert outcome.status == "fail" and outcome.score == 40
 
 
 def test_a_working_page_passes_untouched():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: composio
-Version: 0.27.0
+Version: 0.28.0
 Summary: SDK for integrating Composio with your applications.
 Home-page: https://github.com/composiohq/composio
 Author: Composio
@@ -8,11 +8,11 @@ Author-email: tech@composio.dev
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<4
+Requires-Python: >=3.11,<3.16
 Description-Content-Type: text/markdown
 Requires-Dist: pysher>=1.0.8
 Requires-Dist: pydantic>=2.11.9
-Requires-Dist: composio-client==2.0.0rc14
+Requires-Dist: composio-client==2.0.0rc17
 Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: openai>=2.48.0
 Requires-Dist: json-schema-to-pydantic>=0.4.11
@@ -44,7 +44,7 @@ Composio gives your AI agents 1000+ pre-authenticated toolkits, per-user session
 
 ## Install
 
-Requires Python 3.10+.
+Requires Python 3.11 through 3.15.
 
 ```bash
 pip install composio

@@ -3,7 +3,7 @@
 //! Instead of parsing a modifier's content recursively, parsing records each run of modifier
 //! delimiters as a [`Delim`] token and carries on. [`resolve`] then pairs the tokens across the whole
 //! message with a delimiter stack, and applies each pair to the finished tree as a range: wrapping
-//! whole nodes where the range covers them, and splitting at block boundaries where it does not.
+//! the inline content it covers, and splitting at every block, so no modifier holds a block.
 //! Nothing about a modifier depends on where it sits relative to other rules.
 
 pub mod delim;
@@ -12,11 +12,12 @@ pub mod pair;
 use std::collections::HashMap;
 
 use crate::{
-	block::List,
-	inline::link::Link,
 	node::{
-		Element, Id, Ids, Modifier, Node, ParsedNode, ParsedNodes, SpannedNode, SpannedNodes,
-		SpannedParsedNode, flatten,
+		Block, Blocks, Element, Elements, Id, Ids, Inline, Inlines, SpannedBlock, SpannedElement,
+		SpannedInline,
+		block::{Heading, List, Small, list::item::Item},
+		flatten,
+		inline::link::Link,
 	},
 	rule::RuleSet,
 	span::{Span, Spanned},
@@ -67,11 +68,11 @@ impl Collect {
 
 	/// Walk `seq` in document order, recording every delimiter in it and in its containers.
 	#[tracing::instrument(name = "collect", level = Level::TRACE, skip_all)]
-	fn seq<S: Span>(&mut self, seq: &[SpannedParsedNode<'_, S>]) {
+	fn seq<S: Span>(&mut self, seq: &[SpannedElement<'_, S>]) {
 		for node in seq {
 			match &node.value {
-				ParsedNode::Delim(delim) => self.delim(*delim),
-				ParsedNode::Element(element) => self.element(element),
+				Element::Delim(delim) => self.delim(*delim),
+				element => self.element(element),
 			}
 		}
 	}
@@ -94,13 +95,13 @@ impl Collect {
 		}
 	}
 
-	/// Move past `element`: through the sequences of a container, or over a leaf, which counts as
-	/// one and reads as its first and last characters.
-	fn element<S: Span>(&mut self, element: &Element<'_, S, ParsedNode<'_, S>>) {
+	/// Move past `element`, which is not a delimiter: through the sequences of a container, or over
+	/// a leaf, which counts as one and reads as its first and last characters.
+	fn element<S: Span>(&mut self, element: &Element<'_, S>) {
 		// A delimiter just before a block reads its first character, as `*` does in `*1. foo`;
 		// one ending a block reads the line ending.
 		if element.is_container() {
-			for content in element.sequences() {
+			for (_, content) in element.sequences() {
 				self.prev = Neighbor::LINE_END;
 				self.seq(content);
 				self.chars(Neighbor::LINE_END, Neighbor::LINE_END);
@@ -161,19 +162,17 @@ enum Placement {
 	Here,
 	/// Inside the piece, which is a container.
 	Inside,
+	/// Not at all, as a blank line between blocks is left uncovered.
+	Nowhere,
 }
 
-/// Where a range covering `piece` is wrapped, given whether it covers `siblings` of it too and
-/// whether it `opens_here`, among them.
-fn placement<S: Span>(piece: &ParsedNode<'_, S>, siblings: bool, opens_here: bool) -> Placement {
-	match piece {
-		_ if siblings || opens_here => Placement::Here,
-		// split across several items, a spoiler around a whole list would be one spoiler per item
-		ParsedNode::Element(Element::List(List { items, .. })) if items.len() != 1 => {
-			Placement::Here
-		}
-		// so `# **foo**` stays a bold inside a heading
-		ParsedNode::Element(element) if element.is_container() => Placement::Inside,
+/// Where a range covering `piece`, in a sequence holding `content`, is wrapped. Among blocks it
+/// never wraps the block itself, so no modifier holds one.
+fn placement<S: Span>(piece: &Element<'_, S>, content: Content) -> Placement {
+	match (content, piece) {
+		(Content::Blocks, Element::Empty) => Placement::Nowhere,
+		(Content::Blocks, element) if element.is_container() => Placement::Inside,
+		// leftover delimiters among blocks are wrapped inside the paragraph made for them
 		_ => Placement::Here,
 	}
 }
@@ -199,54 +198,35 @@ struct Place<'a> {
 }
 
 impl Place<'_> {
-	/// Decide where every range covering a piece of `seq` is wrapped, and find how far into the
-	/// ranges `seq` as a whole reaches.
+	/// Decide where every range covering a piece of `seq`, which holds `content`, is wrapped, and
+	/// find how far into the ranges `seq` as a whole reaches.
 	#[tracing::instrument(name = "place", level = Level::TRACE, skip_all)]
-	fn seq<S: Span>(&mut self, seq: &[SpannedParsedNode<'_, S>]) -> (Option<Reach>, SeqInfo) {
-		// the ranges whose opening delimiter the sequence holds
-		let mut opens = Vec::new();
+	fn seq<S: Span>(
+		&mut self,
+		seq: &[SpannedElement<'_, S>],
+		content: Content,
+	) -> (Option<Reach>, SeqInfo) {
 		let mut reach = None;
-		let mut pieces = Vec::with_capacity(seq.len());
+		let mut info = Vec::with_capacity(seq.len());
 		for piece in seq {
-			let (piece_reach, seqs) = self.piece(&piece.value, &mut opens);
-			pieces.push((piece_reach.and_then(|reach| reach.cover(self.ranges)), seqs));
+			let (piece_reach, seqs) = self.piece(&piece.value);
+			let cover = piece_reach.and_then(|reach| reach.cover(self.ranges));
 			reach = Reach::join(reach, piece_reach);
+			// a piece's placement is the same for every range, so the ranges wrapped around it are
+			// all of those covering it, or none
+			let wrap = (placement(&piece.value, content) == Placement::Here)
+				.then_some(cover)
+				.flatten();
+			info.push(PieceInfo { wrap, seqs });
 		}
-
-		// how many pieces each range covers whole
-		let mut covered: HashMap<RangeId, usize> = HashMap::new();
-		for range in pieces
-			.iter()
-			.flat_map(|&(cover, _)| self.ranges.ancestors(cover))
-		{
-			*covered.entry(range).or_default() += 1;
-		}
-
-		let info = seq
-			.iter()
-			.zip(pieces)
-			.map(|(piece, (cover, seqs))| PieceInfo {
-				// once a range goes inside a piece, every range within it does too, so the ranges
-				// wrapped around a piece are the outermost of those covering it
-				wrap: self.ranges.ancestors(cover).find(|&range| {
-					placement(&piece.value, covered[&range] >= 2, opens.contains(&range))
-						== Placement::Here
-				}),
-				seqs,
-			})
-			.collect();
 		(reach, info)
 	}
 
 	/// Walk past `node`, tracking which range is open: the reach of its leaves, and what is decided
-	/// for the sequences inside it. A delimiter adds the ranges it opens to `opens`.
-	fn piece<S: Span>(
-		&mut self,
-		node: &ParsedNode<'_, S>,
-		opens: &mut Vec<RangeId>,
-	) -> (Option<Reach>, Vec<SeqInfo>) {
+	/// for the sequences inside it.
+	fn piece<S: Span>(&mut self, node: &Element<'_, S>) -> (Option<Reach>, Vec<SeqInfo>) {
 		match node {
-			ParsedNode::Delim(delim) => {
+			Element::Delim(delim) => {
 				let matched = self.matches.of(delim);
 				if let Some(&outer) = matched.closes.last() {
 					self.open = self.ranges[outer].parent;
@@ -256,20 +236,19 @@ impl Place<'_> {
 				if let Some(&inner) = matched.opens.last() {
 					self.open = Some(inner);
 				}
-				opens.extend(&matched.opens);
 				(reach, Vec::new())
 			}
-			ParsedNode::Element(element) if element.is_container() => {
+			element if element.is_container() => {
 				let mut reach = None;
 				let mut seqs = Vec::new();
-				for content in element.sequences() {
-					let (content_reach, info) = self.seq(content);
+				for (content, nodes) in element.sequences() {
+					let (content_reach, info) = self.seq(nodes, content);
 					reach = Reach::join(reach, content_reach);
 					seqs.push(info);
 				}
 				(reach, seqs)
 			}
-			ParsedNode::Element(_) => (Some(Reach::leaf(self.open)), Vec::new()),
+			_ => (Some(Reach::leaf(self.open)), Vec::new()),
 		}
 	}
 }
@@ -285,21 +264,144 @@ struct Rebuild<'a> {
 	ids: &'a mut Ids,
 }
 
-impl Rebuild<'_> {
-	/// Rebuild `seq`, whose ancestors already apply the outermost `applied` ranges covering it.
-	#[tracing::instrument(name = "rebuild", level = Level::TRACE, skip(self, seq, info))]
-	fn seq<'data, S: Span>(
+impl<'a> Rebuild<'a> {
+	/// A rebuild of `ranges`, claiming their spoiler ids from `ids`.
+	fn new(
+		matches: &'a Matches,
+		ranges: &'a RangeTree,
+		allowed: RuleSet,
+		ids: &'a mut Ids,
+	) -> Self {
+		// claimed before rebuilding, so link text resolved along the way takes ids after these
+		let base = ids.reserve(ranges.len());
+		Self {
+			matches,
+			ranges,
+			allowed,
+			base,
+			ids,
+		}
+	}
+
+	/// The ranges wrapped around a piece whose innermost is `wrap`, innermost first, less what the
+	/// `applied` outermost of them an ancestor already applies.
+	fn around(&self, wrap: Option<RangeId>, applied: usize) -> Vec<RangeId> {
+		self.ranges
+			.ancestors(wrap)
+			.take_while(|&range| self.ranges[range].depth > applied)
+			.collect()
+	}
+
+	/// Rebuild a sequence of blocks, whose ancestors already apply the outermost `applied` ranges
+	/// covering it. No range is wrapped around a block, only inside it.
+	#[tracing::instrument(name = "rebuild_blocks", level = Level::TRACE, skip(self, seq, info))]
+	fn blocks<'data, S: Span>(
 		&mut self,
-		seq: Vec<SpannedParsedNode<'data, S>>,
+		seq: Vec<SpannedElement<'data, S>>,
 		info: SeqInfo,
 		applied: usize,
-		content: Content,
-	) -> Vec<SpannedNode<'data, S>> {
+	) -> Vec<SpannedBlock<'data, S>> {
+		let mut blocks = Vec::with_capacity(seq.len());
+		for (piece, info) in seq.into_iter().zip(info) {
+			let span = piece.span.clone();
+			if let Some(value) = self.block(piece, info, applied) {
+				blocks.push(Spanned { value, span });
+			}
+		}
+		blocks
+	}
+
+	/// Rebuild one piece of a sequence of blocks, given what [`Place`] decided for it. [`None`] for
+	/// a paragraph left with nothing in it.
+	fn block<'data, S: Span>(
+		&mut self,
+		piece: SpannedElement<'data, S>,
+		info: PieceInfo,
+		applied: usize,
+	) -> Option<Block<'data, S>> {
+		// in the order of `Element::sequences`
+		let mut seqs = info.seqs.into_iter();
+		let mut next = move || seqs.next().expect("placed");
+		let Spanned { value, span } = piece;
+		Some(match value {
+			Element::Paragraph(content) => {
+				let content = self.inline_content(content, next(), applied);
+				// nothing but delimiters, all of which were spent
+				if content.value.is_empty() {
+					return None;
+				}
+				Block::Paragraph(content)
+			}
+			Element::Heading(Heading { level, content }) => Block::Heading(Heading {
+				level,
+				content: self.inline_content(content, next(), applied),
+			}),
+			Element::Small(Small { content }) => Block::Small(Small {
+				content: self.inline_content(content, next(), applied),
+			}),
+			Element::Quote(content) => Block::Quote(self.block_content(content, next(), applied)),
+			Element::List(List { kind, items }) => Block::List(List {
+				kind,
+				items: Spanned {
+					value: items
+						.value
+						.into_iter()
+						.map(|item| Item {
+							content: self.block_content(item.content, next(), applied),
+						})
+						.collect(),
+					span: items.span,
+				},
+			}),
+			Element::Empty => Block::Empty,
+			// Inline content among blocks -- leftover delimiters, the only kind the grammar puts
+			// here -- gets a paragraph, with the ranges around it inside.
+			value => {
+				let around = self.around(info.wrap, applied);
+				let inline = self.inline(Spanned {
+					value,
+					span: span.clone(),
+				})?;
+				Block::Paragraph(Spanned {
+					value: wrap(
+						vec![(inline, around)],
+						self.ranges,
+						self.base,
+						&HashMap::new(),
+					),
+					span,
+				})
+			}
+		})
+	}
+
+	/// [`Self::blocks`] for the content of a container.
+	fn block_content<'data, S: Span>(
+		&mut self,
+		nodes: Elements<'data, S>,
+		info: SeqInfo,
+		applied: usize,
+	) -> Blocks<'data, S> {
+		Spanned {
+			value: self.blocks(nodes.value, info, applied),
+			span: nodes.span,
+		}
+	}
+
+	/// Rebuild a sequence of inline content, whose ancestors already apply the outermost `applied`
+	/// ranges covering it, wrapping it in the rest.
+	#[tracing::instrument(name = "rebuild_inlines", level = Level::TRACE, skip(self, seq, info))]
+	fn inlines<'data, S: Span>(
+		&mut self,
+		seq: Vec<SpannedElement<'data, S>>,
+		info: SeqInfo,
+		applied: usize,
+	) -> Vec<SpannedInline<'data, S>> {
 		let mut items = Vec::with_capacity(seq.len());
 		// the delimiters directly in this sequence, whose spans a node wrapped here takes in
 		let mut delimiters: HashMap<RangeId, Vec<S>> = HashMap::new();
 		for (piece, info) in seq.into_iter().zip(info) {
-			if let ParsedNode::Delim(delim) = &piece.value {
+			if let Element::Delim(delim) = &piece.value {
 				let matched = self.matches.of(delim);
 				for &range in matched.opens.iter().chain(&matched.closes) {
 					delimiters
@@ -309,95 +411,61 @@ impl Rebuild<'_> {
 				}
 			}
 
-			// wrapped around it here, innermost first, less what an ancestor already applies
-			let wrap: Vec<RangeId> = self
-				.ranges
-				.ancestors(info.wrap)
-				.take_while(|&range| self.ranges[range].depth > applied)
-				.collect();
-			if let Some(node) = self.piece(piece, info.seqs, applied + wrap.len(), content) {
-				items.push((node, wrap));
+			let around = self.around(info.wrap, applied);
+			if let Some(inline) = self.inline(piece) {
+				items.push((inline, around));
 			}
 		}
 
 		wrap(items, self.ranges, self.base, &delimiters)
 	}
 
-	/// [`Self::seq`] for the content of a container.
-	fn content<'data, S: Span>(
+	/// [`Self::inlines`] for the content of a container.
+	fn inline_content<'data, S: Span>(
 		&mut self,
-		nodes: ParsedNodes<'data, S>,
+		nodes: Elements<'data, S>,
 		info: SeqInfo,
 		applied: usize,
-		content: Content,
-	) -> SpannedNodes<'data, S> {
+	) -> Inlines<'data, S> {
 		Spanned {
-			value: self.seq(nodes.value, info, applied, content),
+			value: self.inlines(nodes.value, info, applied),
 			span: nodes.span,
 		}
 	}
 
-	/// Rebuild `piece`, given what [`Place`] decided for its sequences.
-	fn piece<'data, S: Span>(
+	/// Rebuild one piece of inline content. Leftover delimiters come back as text; [`None`] if a
+	/// delimiter was spent entirely.
+	fn inline<'data, S: Span>(
 		&mut self,
-		piece: SpannedParsedNode<'data, S>,
-		seqs: Vec<SeqInfo>,
-		applied: usize,
-		content: Content,
-	) -> Option<SpannedNode<'data, S>> {
+		piece: SpannedElement<'data, S>,
+	) -> Option<SpannedInline<'data, S>> {
 		let Spanned { value, span } = piece;
 		let value = match value {
-			ParsedNode::Delim(delim) => {
+			Element::Delim(delim) => {
 				let leftover = self.matches.of(&delim).leftover;
 				if leftover == 0 {
 					return None;
 				}
-				let text = Node::Element(Element::Text(
-					delim.ch.char().to_string().repeat(leftover).into(),
-				));
-				// leftover delimiters are text, and text cannot sit among blocks
-				if content == Content::Blocks {
-					Node::Element(Element::Paragraph(Spanned {
-						value: vec![Spanned {
-							value: text,
-							span: span.clone(),
-						}],
-						span: span.clone(),
-					}))
-				} else {
-					text
-				}
+				Inline::Text(delim.ch.char().to_string().repeat(leftover).into())
 			}
-			ParsedNode::Element(element) => Node::Element(self.element(element, seqs, applied)?),
+			Element::Emoji(emoji) => Inline::Emoji(emoji),
+			Element::Timestamp(timestamp) => Inline::Timestamp(timestamp),
+			Element::Mention(mention) => Inline::Mention(mention),
+			// link text is a scope of its own
+			Element::Link(link) => Inline::Link(resolve_link(link, self.allowed, self.ids)),
+			Element::Code(code) => Inline::Code(code),
+			Element::CodeBlock(code_block) => Inline::CodeBlock(code_block),
+			Element::Text(text) => Inline::Text(text),
+			Element::Heading(_)
+			| Element::List(_)
+			| Element::Paragraph(_)
+			| Element::Quote(_)
+			| Element::Small(_)
+			| Element::Empty => {
+				unreachable!("inline content is parsed with the inline rules alone")
+			}
 		};
 		Some(Spanned { value, span })
-	}
-
-	/// Rebuild the sequences of `element`, given what [`Place`] decided for each. [`None`] for a
-	/// paragraph left with nothing in it.
-	fn element<'data, S: Span>(
-		&mut self,
-		element: Element<'data, S, ParsedNode<'data, S>>,
-		seqs: Vec<SeqInfo>,
-		applied: usize,
-	) -> Option<Element<'data, S, Node<'data, S>>> {
-		let mut seqs = seqs.into_iter();
-		let element = match element {
-			// link text is a scope of its own
-			Element::Link(link) => Element::Link(resolve_link(link, self.allowed, self.ids)),
-			// `map_children` visits the same sequences as `sequences`, in the same order
-			element => element.map_children(|nodes, content| {
-				let info = seqs.next().expect("placed");
-				self.content(nodes, info, applied, content)
-			}),
-		};
-		// nothing but delimiters, all of which were spent
-		if let Element::Paragraph(content) = &element
-			&& content.value.is_empty()
-		{
-			return None;
-		}
-		Some(element)
 	}
 }
 
@@ -407,11 +475,11 @@ impl Rebuild<'_> {
 /// A wrapping node spans its content and, of `delimiters` -- the spans of the delimiters beside
 /// `items` -- its own. A spoiler's id is the one of `base`'s block for its range.
 fn wrap<'data, S: Span>(
-	items: Vec<(SpannedNode<'data, S>, Vec<RangeId>)>,
+	items: Vec<(SpannedInline<'data, S>, Vec<RangeId>)>,
 	ranges: &RangeTree,
 	base: Id,
 	delimiters: &HashMap<RangeId, Vec<S>>,
-) -> Vec<SpannedNode<'data, S>> {
+) -> Vec<SpannedInline<'data, S>> {
 	let mut out = Vec::with_capacity(items.len());
 	let mut items = items.into_iter().peekable();
 
@@ -435,7 +503,7 @@ fn wrap<'data, S: Span>(
 		for delimiter in delimiters.get(&range).into_iter().flatten() {
 			span.merge(delimiter);
 		}
-		let mut modifier = Modifier::new(
+		let mut modifier = Inline::modifier(
 			ranges[range].kind,
 			Spanned {
 				value: content,
@@ -443,11 +511,11 @@ fn wrap<'data, S: Span>(
 			},
 		);
 		// every fragment of one range is one spoiler
-		if let Modifier::Spoiler(spoiler) = &mut modifier {
+		if let Inline::Spoiler(spoiler) = &mut modifier {
 			spoiler.id = base.nth(range);
 		}
 		out.push(Spanned {
-			value: Node::Modifier(modifier),
+			value: modifier,
 			span,
 		});
 	}
@@ -457,10 +525,10 @@ fn wrap<'data, S: Span>(
 
 /// Resolve link text on its own: the scope around it reads the link as one atom.
 fn resolve_link<'data, S: Span>(
-	link: Link<S, ParsedNode<'data, S>>,
+	link: Link<S, Element<'data, S>>,
 	allowed: RuleSet,
 	ids: &mut Ids,
-) -> Link<S, Node<'data, S>> {
+) -> Link<S, Inline<'data, S>> {
 	Link {
 		text: link.text.map(|text| Spanned {
 			value: resolve_inline(text.value, allowed, ids),
@@ -473,37 +541,34 @@ fn resolve_link<'data, S: Span>(
 
 /// Flatten every sequence, bottom up, merging the text that leftover delimiters split.
 #[tracing::instrument(level = Level::TRACE, skip_all)]
-fn flatten_all<S: Span>(nodes: &mut Vec<SpannedNode<'_, S>>) {
-	for node in nodes.iter_mut() {
-		match &mut node.value {
-			Node::Modifier(modifier) => flatten_all(&mut modifier.content_mut().value),
-			Node::Element(element) => {
-				for content in element.sequences_mut() {
-					flatten_all(&mut content.value);
+fn flatten_blocks<S: Span>(blocks: &mut [SpannedBlock<'_, S>]) {
+	for block in blocks {
+		match &mut block.value {
+			Block::Paragraph(content)
+			| Block::Heading(Heading { content, .. })
+			| Block::Small(Small { content }) => flatten(&mut content.value),
+			Block::Quote(content) => flatten_blocks(&mut content.value),
+			Block::List(list) => {
+				for item in &mut list.items.value {
+					flatten_blocks(&mut item.content.value);
 				}
 			}
+			Block::Empty => {}
 		}
 	}
-	flatten(nodes);
 }
 
-/// Pair every [`ParsedNode::Delim`] in a parsed tree and apply the resulting ranges, producing the
-/// finished tree.
+/// The passes before the rebuild: pair the delimiters in `nodes`, a scope holding `content`, and
+/// decide where each range is wrapped.
 ///
 /// # Errors
-/// With [`Unmatched::Reject`], the offsets of any openers that block syntax was recognized after
-/// but that matched nothing. Their lines are paragraphs -- `__# a` is not a heading -- so the
-/// caller must parse again with them disabled, as [`crate::parse`] does.
-///
-/// Spoilers take their ids from `ids`.
-#[tracing::instrument(level = Level::TRACE, skip(nodes, ids), err(level = Level::TRACE, Debug))]
-pub fn resolve<'data, S: Span>(
-	nodes: Vec<SpannedParsedNode<'data, S>>,
+/// As [`resolve`].
+fn place<S: Span>(
+	nodes: &[SpannedElement<'_, S>],
 	allowed: RuleSet,
 	content: Content,
 	unmatched: Unmatched,
-	ids: &mut Ids,
-) -> Result<Vec<SpannedNode<'data, S>>, Vec<Offset>> {
+) -> Result<(Matches, RangeTree, SeqInfo), Vec<Offset>> {
 	// a token still pending at the end keeps the line ending it was created with
 	let mut collect = Collect {
 		tokens: Vec::new(),
@@ -511,7 +576,7 @@ pub fn resolve<'data, S: Span>(
 		prev: Neighbor::LINE_END,
 		leaves: 0,
 	};
-	collect.seq(&nodes);
+	collect.seq(nodes);
 	let tokens = collect.tokens;
 	let (matches, ranges) = pair(&tokens, allowed);
 
@@ -534,33 +599,45 @@ pub fn resolve<'data, S: Span>(
 		ranges: &ranges,
 		open: None,
 	};
-	let (_, info) = place.seq(&nodes);
-
-	// claimed before rebuilding, so link text resolved along the way takes ids after these
-	let base = ids.reserve(ranges.len());
-	let mut rebuild = Rebuild {
-		matches: &matches,
-		ranges: &ranges,
-		allowed,
-		base,
-		ids,
-	};
-	let mut nodes = rebuild.seq(nodes, info, 0, content);
-
-	flatten_all(&mut nodes);
-	Ok(nodes)
+	let (_, info) = place.seq(nodes, content);
+	Ok((matches, ranges, info))
 }
 
-/// Resolve a scope of inline content, like link text. It holds no block syntax, so no opener in
-/// it goes unmatched, and this cannot fail.
+/// Pair every [`Element::Delim`] in a parsed scope of blocks, like a message, and apply the
+/// resulting ranges, producing the finished tree.
+///
+/// # Errors
+/// With [`Unmatched::Reject`], the offsets of any openers that block syntax was recognized after
+/// but that matched nothing. Their lines are paragraphs -- `__# a` is not a heading -- so the
+/// caller must parse again with them disabled, as [`crate::parse`] does.
+///
+/// Spoilers take their ids from `ids`.
+#[tracing::instrument(level = Level::TRACE, skip(nodes, ids), err(level = Level::TRACE, Debug))]
+pub fn resolve<'data, S: Span>(
+	nodes: Vec<SpannedElement<'data, S>>,
+	allowed: RuleSet,
+	unmatched: Unmatched,
+	ids: &mut Ids,
+) -> Result<Vec<SpannedBlock<'data, S>>, Vec<Offset>> {
+	let (matches, ranges, info) = place(&nodes, allowed, Content::Blocks, unmatched)?;
+	let mut blocks = Rebuild::new(&matches, &ranges, allowed, ids).blocks(nodes, info, 0);
+	flatten_blocks(&mut blocks);
+	Ok(blocks)
+}
+
+/// [`resolve`] for a scope of inline content, like link text. It holds no block syntax, so no
+/// opener in it goes unmatched, and this cannot fail.
 #[must_use]
 pub fn resolve_inline<'data, S: Span>(
-	nodes: Vec<SpannedParsedNode<'data, S>>,
+	nodes: Vec<SpannedElement<'data, S>>,
 	allowed: RuleSet,
 	ids: &mut Ids,
-) -> Vec<SpannedNode<'data, S>> {
-	resolve(nodes, allowed, Content::Inline, Unmatched::Text, ids)
-		.unwrap_or_else(|_| unreachable!("only a rejecting resolve fails"))
+) -> Vec<SpannedInline<'data, S>> {
+	let (matches, ranges, info) = place(&nodes, allowed, Content::Inline, Unmatched::Text)
+		.unwrap_or_else(|_| unreachable!("only a rejecting resolve fails"));
+	let mut inlines = Rebuild::new(&matches, &ranges, allowed, ids).inlines(nodes, info, 0);
+	flatten(&mut inlines);
+	inlines
 }
 
 #[cfg(test)]
@@ -568,11 +645,8 @@ mod test {
 	use pretty_assertions::assert_eq;
 
 	use crate::{
-		bold, code_block, heading, italic, link, list, list_item,
-		node::{Element, Node},
-		paragraph, spanned_vec, spoiler,
-		test_utils::parsed,
-		text,
+		bold, code_block, heading, italic, link, list, list_item, node::Block, paragraph,
+		spanned_vec, spoiler, test_utils::parsed, text,
 	};
 
 	#[test]
@@ -678,19 +752,63 @@ mod test {
 		// a closer after a line ending still closes, so this one is matched
 		assert_eq!(
 			parsed("*1. a\n*b"),
-			spanned_vec![italic!(list!(1: [list_item!("a")])), paragraph!("b")]
+			spanned_vec![
+				list!(1: [list_item!(paragraph!(italic!("a")))]),
+				paragraph!("b")
+			]
 		);
 	}
 
+	/// A modifier never holds a block: it goes inside each block it covers.
 	#[test]
-	fn a_modifier_wraps_the_blocks_it_covers() {
+	fn a_modifier_splits_into_the_blocks_it_covers() {
 		assert_eq!(
 			parsed("*1. foo\n2. bar*"),
-			spanned_vec![italic!(list!(1: [list_item!("foo"), list_item!("bar")]))]
+			spanned_vec![list!(1: [
+				list_item!(paragraph!(italic!("foo"))),
+				list_item!(paragraph!(italic!("bar")))
+			])]
 		);
 		assert_eq!(
 			parsed("||1. foo\n2. bar||"),
-			spanned_vec![spoiler!(id = 0; list!(1: [list_item!("foo"), list_item!("bar")]))]
+			spanned_vec![list!(1: [
+				list_item!(paragraph!(spoiler!(id = 0; "foo"))),
+				list_item!(paragraph!(spoiler!(id = 0; "bar")))
+			])]
+		);
+		// the blank line between paragraphs stays uncovered
+		assert_eq!(
+			parsed("||a\n\nb||"),
+			spanned_vec![
+				paragraph!(spoiler!(id = 0; "a")),
+				Block::Empty,
+				paragraph!(spoiler!(id = 0; "b"))
+			]
+		);
+	}
+
+	/// Split into blocks, nested modifiers keep their order.
+	#[test]
+	fn a_split_modifier_keeps_its_nesting() {
+		assert_eq!(
+			parsed("||**a\n- b**||"),
+			spanned_vec![
+				paragraph!(spoiler!(id = 1; bold!("a"))),
+				list!(-[list_item!(paragraph!(spoiler!(id = 1; bold!("b"))))])
+			]
+		);
+	}
+
+	/// Leftover delimiters between blocks get a paragraph, with the modifier inside it.
+	#[test]
+	fn leftover_delimiters_among_blocks_are_wrapped_inside_their_paragraph() {
+		assert_eq!(
+			parsed("*a\n___\nb*"),
+			spanned_vec![
+				paragraph!(italic!("a")),
+				paragraph!(italic!("___")),
+				paragraph!(italic!("b"))
+			]
 		);
 	}
 
@@ -710,47 +828,54 @@ mod test {
 		);
 	}
 
-	/// A range wraps whatever blocks lie between its delimiters, whichever container they sit in.
+	/// A range covers whatever lies between its delimiters, whichever container it sits in.
 	#[test]
 	fn a_modifier_crosses_containers() {
 		assert_eq!(
 			parsed("||\n- a\n- b||"),
-			spanned_vec![spoiler!(list!(-[list_item!("a"), list_item!("b")]))]
+			spanned_vec![list!(-[
+				list_item!(paragraph!(spoiler!("a"))),
+				list_item!(paragraph!(spoiler!("b")))
+			])]
 		);
 		assert_eq!(
 			parsed("*a\n> b\n> c*"),
-			spanned_vec![italic!(
-				paragraph!("a"),
-				Node::Element(Element::Quote(spanned_vec![
-					paragraph!("b"),
-					paragraph!("c")
-				]))
-			)]
+			spanned_vec![
+				paragraph!(italic!("a")),
+				Block::Quote(spanned_vec![
+					paragraph!(italic!("b")),
+					paragraph!(italic!("c"))
+				])
+			]
 		);
 		assert_eq!(
 			parsed("> *- a\n> - b*"),
-			spanned_vec![Node::Element(Element::Quote(spanned_vec![italic!(list!(
-				-[list_item!("a"), list_item!("b")]
-			))]))]
+			spanned_vec![Block::Quote(spanned_vec![list!(-[
+				list_item!(paragraph!(italic!("a"))),
+				list_item!(paragraph!(italic!("b")))
+			])])]
 		);
 		assert_eq!(
 			parsed("*>>> a\nb*"),
-			spanned_vec![italic!(Node::Element(Element::Quote(spanned_vec![
-				paragraph!("a"),
-				paragraph!("b")
-			])))]
+			spanned_vec![Block::Quote(spanned_vec![
+				paragraph!(italic!("a")),
+				paragraph!(italic!("b"))
+			])]
 		);
 		assert_eq!(
 			parsed("**# h\nb**"),
-			spanned_vec![bold!(heading!(1, "h"), paragraph!("b"))]
+			spanned_vec![heading!(1, [bold!("h")]), paragraph!(bold!("b"))]
 		);
 		assert_eq!(
 			parsed("- *a\n- b*"),
-			spanned_vec![italic!(list!(-[list_item!("a"), list_item!("b")]))]
+			spanned_vec![list!(-[
+				list_item!(paragraph!(italic!("a"))),
+				list_item!(paragraph!(italic!("b")))
+			])]
 		);
 	}
 
-	/// A range ending partway through a block covers what it can whole, and the rest in place.
+	/// A range ending partway through a block wraps only the part it covers.
 	#[test]
 	fn a_modifier_ending_mid_block_splits() {
 		assert_eq!(
@@ -767,14 +892,17 @@ mod test {
 	fn a_block_spanning_modifier_keeps_its_inline_rules() {
 		assert_eq!(
 			parsed("*foo **bar**\n- x*"),
-			spanned_vec![italic!(
-				paragraph!(text!("foo "), bold!("bar")),
-				list!(-[list_item!("x")])
-			)]
+			spanned_vec![
+				paragraph!(italic!(text!("foo "), bold!("bar"))),
+				list!(-[list_item!(paragraph!(italic!("x")))])
+			]
 		);
 		assert_eq!(
 			parsed("_foo_bar\n- x_"),
-			spanned_vec![italic!(paragraph!("foo_bar"), list!(-[list_item!("x")]))]
+			spanned_vec![
+				paragraph!(italic!("foo_bar")),
+				list!(-[list_item!(paragraph!(italic!("x")))])
+			]
 		);
 	}
 }

@@ -78,6 +78,9 @@ class OntologyInterfaceClient:
         Perform functions on object fields in the specified ontology and of the specified interface type. Any
         properties specified in the query must be shared property type API names defined on the interface.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -147,6 +150,9 @@ class OntologyInterfaceClient:
         """
         Gets a specific interface type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -207,6 +213,9 @@ class OntologyInterfaceClient:
         """
         Get an outgoing interface link type for an interface type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager** application.
@@ -266,6 +275,9 @@ class OntologyInterfaceClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -344,6 +356,9 @@ class OntologyInterfaceClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology: The API name of the ontology. To find the API name, use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology: OntologyIdentifier
@@ -446,6 +461,9 @@ class OntologyInterfaceClient:
 
         Note that null value properties will not be returned.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology: The API name of the ontology. To find the API name, use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -516,6 +534,9 @@ class OntologyInterfaceClient:
     ) -> ontologies_models.ListOutgoingInterfaceLinkTypesResponse:
         """
         List the outgoing interface link types for an interface type.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -623,6 +644,9 @@ class OntologyInterfaceClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -817,6 +841,9 @@ class AsyncOntologyInterfaceClient:
         Perform functions on object fields in the specified ontology and of the specified interface type. Any
         properties specified in the query must be shared property type API names defined on the interface.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -886,6 +913,9 @@ class AsyncOntologyInterfaceClient:
         """
         Gets a specific interface type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -946,6 +976,9 @@ class AsyncOntologyInterfaceClient:
         """
         Get an outgoing interface link type for an interface type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager** application.
@@ -1005,6 +1038,9 @@ class AsyncOntologyInterfaceClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -1083,6 +1119,9 @@ class AsyncOntologyInterfaceClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology: The API name of the ontology. To find the API name, use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology: OntologyIdentifier
@@ -1185,6 +1224,9 @@ class AsyncOntologyInterfaceClient:
 
         Note that null value properties will not be returned.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology: The API name of the ontology. To find the API name, use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology: OntologyIdentifier
         :param interface_type: The API name of the interface type. To find the API name, use the **List interface types** endpoint or check the **Ontology Manager**.
@@ -1255,6 +1297,9 @@ class AsyncOntologyInterfaceClient:
     ) -> typing.Awaitable[ontologies_models.ListOutgoingInterfaceLinkTypesResponse]:
         """
         List the outgoing interface link types for an interface type.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -1362,6 +1407,9 @@ class AsyncOntologyInterfaceClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

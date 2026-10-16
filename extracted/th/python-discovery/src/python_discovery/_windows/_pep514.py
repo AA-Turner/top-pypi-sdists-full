@@ -125,7 +125,10 @@ def load_exe(hive_name: str, company: str, company_key: Any, tag: str) -> tuple[
     try:
         with winreg.OpenKeyEx(company_key, rf"{tag}\InstallPath") as ip_key, ip_key:  # ty: ignore[unresolved-attribute]
             if (exe := _resolve_exe(ip_key, key_path)) is not None and os.path.exists(exe):
-                return exe, get_value(ip_key, "ExecutableArguments")
+                if (args := get_value(ip_key, "ExecutableArguments")) is None or isinstance(args, str):
+                    return exe, args if args and args.strip() else None
+                msg(f"{key_path}/ExecutableArguments", f"expected a string, got {type(args).__name__}")
+                return None
             msg(key_path, f"could not load exe with value {exe}")
     except OSError:
         msg(f"{key_path}/InstallPath", "missing")

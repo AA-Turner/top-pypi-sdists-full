@@ -78,6 +78,9 @@ class WidgetSetClient:
     ) -> widgets_models.WidgetSet:
         """
         Get the WidgetSet with the specified rid.
+
+        Required scopes: [api:widgets-read]
+
         :param widget_set_rid: A Resource Identifier (RID) identifying a widget set.
         :type widget_set_rid: WidgetSetRid
         :param preview: Enables the use of preview functionality.
@@ -180,6 +183,9 @@ class AsyncWidgetSetClient:
     ) -> typing.Awaitable[widgets_models.WidgetSet]:
         """
         Get the WidgetSet with the specified rid.
+
+        Required scopes: [api:widgets-read]
+
         :param widget_set_rid: A Resource Identifier (RID) identifying a widget set.
         :type widget_set_rid: WidgetSetRid
         :param preview: Enables the use of preview functionality.

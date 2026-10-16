@@ -1,0 +1,1544 @@
+use std::sync::Arc;
+
+use super::connection::{Connection, FinalSessionNames, RefreshContext};
+use super::error::*;
+use super::global_state::{DatabaseDriverV1, PutGetResultsetFlavor, WrapperPresets};
+use super::query::{
+    build_async_stream, build_reader_from_rowset_data, download_column_metadata,
+    upload_column_metadata,
+};
+use crate::apis::operation_ctx::{OperationCtx, run_opt};
+use crate::chunks::{ChunkDownloadData, ChunkFormatKind, PrefetchConfig, override_reader_schema};
+use crate::handle_manager::Handle;
+use crate::query_types::statement_type::{
+    DML_AFFECTED_ROWS_COLUMN_PREFIXES, DML_AFFECTED_ROWS_COLUMNS, QueryType, ResultKind,
+};
+use crate::rest::snowflake::query_response::{Data, FieldMetadata, RowType, RowsetData, Stats};
+use crate::rest::snowflake::snowflake_get_query_result;
+use arrow::array::{RecordBatch, RecordBatchReader};
+use arrow::datatypes::{Field, Schema, SchemaRef};
+use snafu::{OptionExt, ResultExt};
+use tokio::sync::Mutex;
+
+// --- Public types ---
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ColumnMetadata {
+    pub name: String,
+    pub r#type: String,
+    pub precision: Option<i64>,
+    pub scale: Option<i64>,
+    pub length: Option<i64>,
+    pub byte_length: Option<i64>,
+    pub nullable: bool,
+    pub dimension: Option<i64>,
+    pub fixed: bool,
+    pub column_src_database: String,
+    pub column_src_schema: String,
+    pub column_src_table: String,
+    pub is_auto_increment: bool,
+    pub ext_col_type_name: String,
+    pub udt_output_type: String,
+    pub fields: Vec<ColumnMetadata>,
+}
+
+/// Metadata for a single result set (maps to proto ResultSetDescriptor).
+#[derive(Clone)]
+pub struct ResultSetDescriptor {
+    pub query_id: String,
+    pub columns: Vec<ColumnMetadata>,
+    pub rows_affected: Option<i64>,
+    pub row_count: Option<i64>,
+    pub statement_type_id: Option<i64>,
+    pub sql_state: Option<String>,
+    pub stats: Option<Stats>,
+    pub query_result_format: Option<String>,
+    pub number_of_binds: i32,
+    pub array_bind_supported: bool,
+    pub binds: Vec<ColumnMetadata>,
+    pub final_session_names: FinalSessionNames,
+}
+
+/// A result set handle paired with its descriptor.
+pub struct ResultSetInfo {
+    pub handle: Handle,
+    pub descriptor: ResultSetDescriptor,
+}
+
+/// Async consumer of a result set's Arrow batches.
+///
+/// Dropping the fetcher aborts in-flight chunk prefetch. Fetchers built from
+/// already-materialized batches (no prefetch coordinator) abort nothing on drop.
+pub struct AsyncArrowBatchFetcher {
+    inner: crate::chunks::AsyncArrowBatchFetcher,
+}
+
+impl AsyncArrowBatchFetcher {
+    pub(super) fn from_chunks(inner: crate::chunks::AsyncArrowBatchFetcher) -> Self {
+        Self { inner }
+    }
+
+    pub fn from_batches(schema: SchemaRef, batches: Vec<RecordBatch>) -> Self {
+        Self::from_chunks(crate::chunks::AsyncArrowBatchFetcher::from_batches(
+            schema, batches,
+        ))
+    }
+
+    pub fn schema(&self) -> SchemaRef {
+        self.inner.schema()
+    }
+
+    fn override_schema(&mut self, schema: SchemaRef) {
+        self.inner.override_schema(schema);
+    }
+
+    pub async fn next_batch(&mut self) -> Result<Option<RecordBatch>, ApiError> {
+        self.inner.next_batch().await.context(ChunkFetchSnafu)
+    }
+}
+
+/// Result of executing a query (maps to proto ExecuteQueryResponse).
+///
+/// `request_id` is the client-generated UUID sent as `?requestId=` on the
+/// submission HTTP request, exposed to language wrappers via
+/// `ExecuteQueryResponse.request_id` so Snowpark can log it. It is `None` only
+/// on paths that never submitted the query themselves — `connection_get_query_result`
+/// fetches a result by query ID and has no submission UUID to report.
+pub enum ExecuteQueryResult {
+    Single {
+        info: ResultSetInfo,
+        request_id: Option<uuid::Uuid>,
+    },
+    Multi {
+        parent: ResultSetDescriptor,
+        query_ids: Vec<String>,
+        statement_type_ids: Vec<i64>,
+        request_id: Option<uuid::Uuid>,
+    },
+}
+
+#[derive(Clone)]
+pub enum InlineData {
+    /// Base64-encoded Arrow IPC stream.
+    ArrowIpc(String),
+    /// JSON rowset (rows of nullable string cells).
+    Json(Vec<Vec<Option<String>>>),
+    None,
+}
+
+#[derive(Clone)]
+pub struct ChunkData {
+    pub format: ChunkFormatKind,
+    pub inline: InlineData,
+    pub remote_chunks: Vec<ChunkDownloadData>,
+}
+
+impl From<&RowsetData> for ChunkData {
+    fn from(data: &RowsetData) -> Self {
+        match data {
+            RowsetData::ArrowSingleChunk { chunk_base64 } => ChunkData {
+                format: ChunkFormatKind::ArrowIpc,
+                inline: InlineData::ArrowIpc(chunk_base64.clone()),
+                remote_chunks: Vec::new(),
+            },
+            RowsetData::ArrowMultiChunk {
+                initial_base64_opt,
+                chunk_download_data,
+            } => ChunkData {
+                format: ChunkFormatKind::ArrowIpc,
+                inline: initial_base64_opt
+                    .as_ref()
+                    .map(|b| InlineData::ArrowIpc(b.clone()))
+                    .unwrap_or(InlineData::None),
+                remote_chunks: chunk_download_data.clone(),
+            },
+            RowsetData::JsonRowset { rowset, .. } => ChunkData {
+                format: ChunkFormatKind::Json,
+                inline: InlineData::Json(rowset.clone()),
+                remote_chunks: Vec::new(),
+            },
+            RowsetData::JsonMultiChunk {
+                rowset,
+                chunk_download_data,
+                ..
+            } => ChunkData {
+                format: ChunkFormatKind::Json,
+                inline: InlineData::Json(rowset.clone()),
+                remote_chunks: chunk_download_data.clone(),
+            },
+            RowsetData::Upload(_)
+            | RowsetData::Download(_)
+            | RowsetData::SchemaOnly { .. }
+            | RowsetData::NoData => ChunkData {
+                format: ChunkFormatKind::ArrowIpc,
+                inline: InlineData::None,
+                remote_chunks: Vec::new(),
+            },
+        }
+    }
+}
+
+pub struct ChunkDataWithDescriptor {
+    pub chunk_data: ChunkData,
+    pub descriptor: ResultSetDescriptor,
+}
+
+// --- Internal types ---
+
+/// Resources captured at result set creation time that are needed to build
+/// the Arrow stream lazily. Snapshotted up front so the stream can be
+/// constructed even after the originating connection has been closed.
+pub(super) struct ReaderContext {
+    pub http_client: reqwest::Client,
+    pub prefetch_config: PrefetchConfig,
+    pub xp_backend: Option<Arc<dyn crate::xp_backend::SnowflakeBackend>>,
+}
+
+/// A handle-managed result set. The Arrow stream is built lazily from the stored
+/// `RowsetData` when `result_set_get_stream` is called. Since the data is
+/// preserved, the stream can be rebuilt on each call.
+pub(super) struct ResultSet {
+    pub descriptor: ResultSetDescriptor,
+    pub data: RowsetData,
+    pub reader_ctx: ReaderContext,
+}
+
+// --- Response parsing helpers ---
+
+/// The statement type id to classify a response by: the server-provided
+/// `statementTypeId`, falling back to the file-transfer `command` when the
+/// server omits it (PUT/GET responses sometimes do). Both `response_to_descriptor`
+/// and `calculate_rows_affected` key off this so classification never diverges.
+fn effective_statement_type_id(data: &Data) -> Option<i64> {
+    data.statement_type_id.or(match data.command.as_deref() {
+        Some("UPLOAD") => Some(QueryType::PUT_FILES.raw()),
+        Some("DOWNLOAD") => Some(QueryType::GET_FILES.raw()),
+        _ => None,
+    })
+}
+
+/// Calculate rows affected from a query response, keyed off the statement's
+/// [`ResultKind`] (the shared `query_types::statement_type` classifier).
+///
+/// - `UpdateCount` (DML): sum the affected-row columns from the rowset.
+/// - `Cursor` (SELECT / SHOW / file transfers / ...): [`cursor_reported_rows`].
+/// - `NoResult` (DDL / TCL / unknown): `None`. Snowflake returns `total: 1` as a
+///   generic success marker for these; surfacing it as `rows_affected = 1` is
+///   misleading, so we report "not applicable" instead.
+///
+/// COPY and UNLOAD are wrapper-specific. JDBC and Node.js sum COPY `rows_loaded`
+/// (matching snowflake-jdbc `getUpdateCount` / Node `getNumUpdatedRows`) and
+/// report 0 for UNLOAD, the update count snowflake-jdbc returns for a plain
+/// unload. ODBC/Python report the status-row count in `data.total`.
+pub(super) fn calculate_rows_affected(
+    data: &Data,
+    statement_type_id: Option<i64>,
+    flavor: &PutGetResultsetFlavor,
+) -> Option<i64> {
+    let query_type = QueryType::from_raw(statement_type_id);
+    if matches!(
+        flavor,
+        PutGetResultsetFlavor::Jdbc | PutGetResultsetFlavor::NodeJs
+    ) {
+        if query_type == QueryType::COPY {
+            return Some(sum_copy_rows_loaded(data));
+        }
+        if query_type.belongs_to(QueryType::UNLOAD) {
+            return Some(0);
+        }
+    }
+    match query_type.result_kind() {
+        ResultKind::UpdateCount => Some(sum_dml_affected_rows(data)),
+        ResultKind::Cursor => cursor_reported_rows(data, flavor),
+        ResultKind::NoResult => None,
+    }
+}
+
+/// Rows the wrapper should report for a cursor result.
+///
+/// `data.total` is rows produced. `ROWS_PER_RESULTSET` can cap the payload so
+/// `data.returned` is smaller. ODBC `SQLRowCount` is the size of the result
+/// set `SQLFetch` will yield, so ODBC prefers `returned`. Python and JDBC keep
+/// `total` as their reported row count.
+fn cursor_reported_rows(data: &Data, flavor: &PutGetResultsetFlavor) -> Option<i64> {
+    match flavor {
+        PutGetResultsetFlavor::Odbc => data.returned.or(data.total),
+        _ => data.total,
+    }
+}
+
+/// Sum the `rows_loaded` column of a COPY status rowset (one row per file).
+/// Returns 0 when the rowset is not inline JSON (Arrow / remote chunks), which
+/// is not materialised here; the common single-file COPY is inline.
+fn sum_copy_rows_loaded(data: &Data) -> i64 {
+    let (Some(rowset), Some(row_types)) = (&data.rowset, &data.row_type) else {
+        return 0;
+    };
+    let Some(col_idx) = row_types
+        .iter()
+        .position(|col| col.name.eq_ignore_ascii_case("rows_loaded"))
+    else {
+        return 0;
+    };
+
+    let mut rows_loaded = 0i64;
+    for row in rowset {
+        if let Some(Some(value)) = row.get(col_idx)
+            && let Ok(count) = value.parse::<i64>()
+        {
+            rows_loaded += count;
+        }
+    }
+    rows_loaded
+}
+
+/// Sum the integer cells of the DML affected-row columns in the first rowset row.
+fn sum_dml_affected_rows(data: &Data) -> i64 {
+    let (Some(rowset), Some(row_types)) = (&data.rowset, &data.row_type) else {
+        return 0;
+    };
+    if rowset.is_empty() || rowset[0].is_empty() {
+        return 0;
+    }
+
+    let mut affected_rows = 0i64;
+    for (idx, col) in row_types.iter().enumerate() {
+        let col_name = col.name.to_lowercase();
+        if (DML_AFFECTED_ROWS_COLUMNS.contains(&col_name.as_str())
+            || DML_AFFECTED_ROWS_COLUMN_PREFIXES
+                .iter()
+                .any(|p| col_name.starts_with(p)))
+            && let Some(Some(value)) = rowset[0].get(idx)
+            && let Ok(count) = value.parse::<i64>()
+        {
+            affected_rows += count;
+        }
+    }
+    affected_rows
+}
+
+pub(super) fn response_to_descriptor(
+    data: &Data,
+    wrapper_presets: &WrapperPresets,
+) -> ResultSetDescriptor {
+    let query_id = data.query_id.clone().unwrap_or_default();
+    let statement_type_id = effective_statement_type_id(data);
+    let rows_affected = calculate_rows_affected(
+        data,
+        statement_type_id,
+        &wrapper_presets.put_get_resultset_flavor,
+    );
+    let columns = data
+        .row_type
+        .as_ref()
+        .map(|row_types| row_types_to_columns(row_types))
+        .unwrap_or_else(|| put_get_columns(data.command.as_deref(), wrapper_presets));
+    let binds = data
+        .meta_data_of_binds
+        .as_ref()
+        .map(|row_types| row_types_to_columns(row_types))
+        .unwrap_or_default();
+
+    ResultSetDescriptor {
+        query_id,
+        columns,
+        rows_affected,
+        row_count: cursor_reported_rows(data, &wrapper_presets.put_get_resultset_flavor),
+        statement_type_id,
+        sql_state: data.sql_state.clone(),
+        stats: data.stats.clone(),
+        query_result_format: data.query_result_format.clone(),
+        number_of_binds: data.number_of_binds.unwrap_or(0),
+        array_bind_supported: data.array_bind_supported.unwrap_or(false),
+        binds,
+        final_session_names: FinalSessionNames::from(data),
+    }
+}
+
+fn field_metadata_to_columns(fields: Option<&Vec<FieldMetadata>>) -> Vec<ColumnMetadata> {
+    fields
+        .map(|fs| {
+            fs.iter()
+                .map(|f| ColumnMetadata {
+                    name: f.name.clone().unwrap_or_default(),
+                    r#type: f.type_.clone(),
+                    precision: f.precision.map(|v| v as i64),
+                    scale: f.scale.map(|v| v as i64),
+                    length: f.length.map(|v| v as i64),
+                    byte_length: f.byte_length.map(|v| v as i64),
+                    nullable: f.nullable,
+                    dimension: None,
+                    fixed: false,
+                    column_src_database: String::new(),
+                    column_src_schema: String::new(),
+                    column_src_table: String::new(),
+                    is_auto_increment: false,
+                    ext_col_type_name: f
+                        .ext_type_name
+                        .as_ref()
+                        .filter(|s| !s.is_empty())
+                        .cloned()
+                        .unwrap_or_default(),
+                    udt_output_type: String::new(),
+                    fields: field_metadata_to_columns(f.fields.as_ref()),
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Convert Snowflake `rowType`/`metaDataOfBinds` entries into [`ColumnMetadata`].
+fn row_types_to_columns(row_types: &[RowType]) -> Vec<ColumnMetadata> {
+    row_types
+        .iter()
+        .map(|rt| {
+            let dimension = rt
+                .dimension
+                .filter(|&d| d > 0)
+                .or(rt.vector_dimension)
+                .map(|v| v as i64);
+            ColumnMetadata {
+                name: rt.name.clone(),
+                r#type: rt.type_.clone(),
+                precision: rt.precision.map(|v| v as i64),
+                scale: rt.scale.map(|v| v as i64),
+                length: rt.length.map(|v| v as i64),
+                byte_length: rt.byte_length.map(|v| v as i64),
+                nullable: rt.nullable,
+                dimension,
+                fixed: rt.fixed.unwrap_or(false),
+                column_src_database: rt.database.clone().unwrap_or_default(),
+                column_src_schema: rt.schema.clone().unwrap_or_default(),
+                column_src_table: rt.table.clone().unwrap_or_default(),
+                is_auto_increment: rt.is_auto_increment.unwrap_or(false),
+                ext_col_type_name: rt
+                    .ext_type_name
+                    .as_ref()
+                    .filter(|s| !s.is_empty())
+                    .cloned()
+                    .unwrap_or_default(),
+                udt_output_type: rt.output_type.clone().unwrap_or_default(),
+                fields: field_metadata_to_columns(rt.fields.as_ref()),
+            }
+        })
+        .collect()
+}
+
+/// Return client-synthesized column metadata for PUT/GET commands,
+/// which don't include `rowType` in the Snowflake response.
+fn put_get_columns(command: Option<&str>, wrapper_presets: &WrapperPresets) -> Vec<ColumnMetadata> {
+    match command {
+        Some("UPLOAD") => upload_column_metadata(wrapper_presets),
+        Some("DOWNLOAD") => download_column_metadata(wrapper_presets),
+        _ => Vec::new(),
+    }
+}
+
+/// Build [`ReaderContext`] by snapshotting the HTTP client and prefetch
+/// config from an active connection.
+pub(super) async fn resolve_reader_ctx(
+    conn: &Arc<Mutex<Connection>>,
+) -> Result<ReaderContext, ApiError> {
+    let conn_guard = conn.lock().await;
+    let http_client = conn_guard
+        .http_client
+        .clone()
+        .context(ConnectionNotInitializedSnafu)?;
+    let session_params = conn_guard.session_parameters.read().await;
+    let prefetch_config = PrefetchConfig::from_session_params(&session_params);
+    Ok(ReaderContext {
+        http_client,
+        prefetch_config,
+        xp_backend: conn_guard.xp_backend_arc().context(QuerySnafu)?,
+    })
+}
+
+/// Fetch a query result from Snowflake by query_id via the connection,
+/// returning the raw response `Data` for further processing.
+pub(super) async fn fetch_query_response_data(
+    conn_ptr: &Arc<Mutex<Connection>>,
+    query_id: &str,
+) -> Result<Data, ApiError> {
+    let (query_parameters, http_client, retry_policy, xp_backend) = {
+        let conn = conn_ptr.lock().await;
+        (
+            conn.query_transport_parameters()?,
+            conn.http_client
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            conn.retry_policy.clone(),
+            conn.xp_backend_arc().context(QuerySnafu)?,
+        )
+    };
+
+    let response = {
+        let mut refresh_ctx = RefreshContext::from_arc(conn_ptr).await?;
+        let mut last_error = None;
+        loop {
+            let session_token = refresh_ctx.refresh_token(last_error).await?;
+            match snowflake_get_query_result(
+                &http_client,
+                &query_parameters,
+                session_token.reveal(),
+                query_id,
+                &retry_policy,
+                xp_backend.as_deref(),
+            )
+            .await
+            {
+                Ok(response) => break response,
+                Err(err) => {
+                    last_error = Some(err);
+                }
+            }
+        }
+    };
+
+    if response.success {
+        let conn = conn_ptr.lock().await;
+        conn.update_session_params_cache(
+            "",
+            response.data.parameters.as_ref(),
+            &super::connection::FinalSessionNames {
+                database: response.data.final_database_name.clone(),
+                schema: response.data.final_schema_name.clone(),
+                warehouse: response.data.final_warehouse_name.clone(),
+                role: response.data.final_role_name.clone(),
+            },
+        )
+        .await;
+    }
+
+    Ok(response.data)
+}
+
+struct ReaderInputs {
+    data: RowsetData,
+    http_client: reqwest::Client,
+    prefetch_config: PrefetchConfig,
+    nullable_flags: Option<Vec<bool>>,
+    columns: Vec<ColumnMetadata>,
+    xp_backend: Option<Arc<dyn crate::xp_backend::SnowflakeBackend>>,
+}
+
+fn geo_type_name(column: &ColumnMetadata) -> Option<&'static str> {
+    let type_name = if column.ext_col_type_name.is_empty() {
+        column.r#type.as_str()
+    } else {
+        column.ext_col_type_name.as_str()
+    };
+    if type_name.eq_ignore_ascii_case("GEOGRAPHY") {
+        Some("GEOGRAPHY")
+    } else if type_name.eq_ignore_ascii_case("GEOMETRY") {
+        Some("GEOMETRY")
+    } else {
+        None
+    }
+}
+
+fn inject_geo_type_names(schema: SchemaRef, columns: &[ColumnMetadata]) -> SchemaRef {
+    if columns.len() != schema.fields().len() {
+        return schema;
+    }
+    let needs_injection = schema.fields().iter().zip(columns).any(|(field, column)| {
+        geo_type_name(column).is_some_and(|type_name| {
+            field.metadata().get("extTypeName").map(String::as_str) != Some(type_name)
+        })
+    });
+    if !needs_injection {
+        return schema;
+    }
+    let fields: Vec<Field> = schema
+        .fields()
+        .iter()
+        .zip(columns)
+        .map(|(field, column)| {
+            let Some(type_name) = geo_type_name(column) else {
+                return field.as_ref().clone();
+            };
+            let mut metadata = field.metadata().clone();
+            metadata.insert("extTypeName".to_string(), type_name.to_string());
+            field.as_ref().clone().with_metadata(metadata)
+        })
+        .collect();
+    Arc::new(Schema::new_with_metadata(fields, schema.metadata().clone()))
+}
+
+/// Resolves `result_handle` and snapshots the inputs needed to lazily build a
+/// reader, then releases the per-result-set lock so the (possibly network-bound)
+/// build never holds the guard across an `.await`.
+async fn snapshot_reader_inputs(
+    driver: &DatabaseDriverV1,
+    result_handle: Handle,
+) -> Result<ReaderInputs, ApiError> {
+    let rs_ptr = driver
+        .results
+        .get_obj(result_handle)
+        .with_context(|| InvalidArgumentSnafu {
+            argument: "result_handle: ResultSet handle not found".to_string(),
+        })?;
+    let rs = rs_ptr.lock().await;
+    let nullable_flags: Vec<bool> = rs.descriptor.columns.iter().map(|c| c.nullable).collect();
+    Ok(ReaderInputs {
+        data: rs.data.clone(),
+        http_client: rs.reader_ctx.http_client.clone(),
+        prefetch_config: rs.reader_ctx.prefetch_config.clone(),
+        nullable_flags: Some(nullable_flags).filter(|f| !f.is_empty()),
+        columns: rs.descriptor.columns.clone(),
+        xp_backend: rs.reader_ctx.xp_backend.clone(),
+    })
+}
+
+// --- DatabaseDriverV1 impl ---
+
+impl DatabaseDriverV1 {
+    /// Builds a fresh Arrow [`RecordBatchReader`] for this result set, lazily
+    /// from the stored `RowsetData`, so it can be requested multiple times. The
+    /// protobuf layer wraps it in an `FFI_ArrowArrayStream` at the C boundary.
+    ///
+    /// Awaiting this only builds the reader and never blocks. Iterating it,
+    /// however, must happen in a synchronous context: chunked result sets pull
+    /// chunks via a blocking channel receiver, so draining from within an async
+    /// runtime would call `blocking_recv` and panic. Drain after returning from
+    /// `block_on` (keeping the runtime alive), on a dedicated `std::thread`, or
+    /// via `tokio::task::spawn_blocking`.
+    pub async fn result_set_get_stream(
+        &self,
+        result_handle: Handle,
+    ) -> Result<Box<dyn RecordBatchReader + Send>, ApiError> {
+        let inputs = snapshot_reader_inputs(self, result_handle).await?;
+        let reader = build_reader_from_rowset_data(
+            inputs.data,
+            inputs.http_client,
+            &inputs.prefetch_config,
+            &self.wrapper_presets,
+            inputs.nullable_flags.as_deref(),
+            inputs.xp_backend,
+        )
+        .await
+        .context(QueryResponseProcessSnafu)?;
+        let original_schema = reader.schema();
+        let schema = inject_geo_type_names(original_schema.clone(), &inputs.columns);
+        if Arc::ptr_eq(&schema, &original_schema) {
+            return Ok(reader);
+        }
+        Ok(override_reader_schema(reader, schema))
+    }
+
+    /// Builds a fresh [`AsyncArrowBatchFetcher`] for this result set. Dropping
+    /// the fetcher aborts in-flight chunk prefetch.
+    pub async fn result_set_get_async_stream(
+        &self,
+        result_handle: Handle,
+    ) -> Result<AsyncArrowBatchFetcher, ApiError> {
+        let inputs = snapshot_reader_inputs(self, result_handle).await?;
+        let mut fetcher = build_async_stream(
+            inputs.data,
+            inputs.http_client,
+            &inputs.prefetch_config,
+            &self.wrapper_presets,
+            inputs.nullable_flags.as_deref(),
+            inputs.xp_backend,
+        )
+        .await?;
+        let schema = inject_geo_type_names(fetcher.schema(), &inputs.columns);
+        fetcher.override_schema(schema);
+        Ok(fetcher)
+    }
+
+    /// Returns chunk metadata (inline data + remote chunk URLs) for this result set.
+    ///
+    /// Derives `ChunkData` from the stored `RowsetData` on demand.
+    pub async fn result_set_get_chunks(
+        &self,
+        result_handle: Handle,
+    ) -> Result<ChunkDataWithDescriptor, ApiError> {
+        let rs_ptr = self
+            .results
+            .get_obj(result_handle)
+            .with_context(|| InvalidArgumentSnafu {
+                argument: "ResultSet handle not found".to_string(),
+            })?;
+        let result_set = rs_ptr.lock().await;
+
+        let chunk_data = (&result_set.data).into();
+
+        Ok(ChunkDataWithDescriptor {
+            chunk_data,
+            descriptor: result_set.descriptor.clone(),
+        })
+    }
+
+    pub fn result_set_release(&self, result_handle: Handle) -> Result<(), ApiError> {
+        if !self.results.delete_handle(result_handle) {
+            return InvalidArgumentSnafu {
+                argument: "ResultSet handle not found".to_string(),
+            }
+            .fail();
+        }
+        Ok(())
+    }
+
+    /// Builds an `ExecuteQueryResult` from pre-resolved `RowsetData`.
+    ///
+    /// Callers must resolve PUT/GET transfers and convert `Data` into `RowsetData`
+    /// before calling this method. `request_id` is the submission UUID, or `None`
+    /// for callers that did not submit the query themselves.
+    pub(super) fn build_execute_result(
+        &self,
+        rowset_data: RowsetData,
+        descriptor: ResultSetDescriptor,
+        reader_ctx: ReaderContext,
+        request_id: Option<uuid::Uuid>,
+    ) -> ExecuteQueryResult {
+        let result_set_handle = self.create_result_set(descriptor.clone(), rowset_data, reader_ctx);
+        ExecuteQueryResult::Single {
+            info: ResultSetInfo {
+                handle: result_set_handle,
+                descriptor,
+            },
+            request_id,
+        }
+    }
+
+    /// Creates a ResultSet and registers it in the handle manager.
+    pub(super) fn create_result_set(
+        &self,
+        descriptor: ResultSetDescriptor,
+        data: RowsetData,
+        reader_ctx: ReaderContext,
+    ) -> Handle {
+        let result_set = ResultSet {
+            descriptor,
+            data,
+            reader_ctx,
+        };
+        self.results.add_handle(Mutex::new(result_set))
+    }
+
+    /// Registers a pre-built Arrow RecordBatch as a streamable ResultSet.
+    ///
+    /// Serializes the batch to Arrow IPC, base64-encodes it as `ArrowSingleChunk`,
+    /// and stores it in the handle manager. Used by synthetic result-set paths
+    /// (e.g., `connection_get_objects`) that build results in memory rather than
+    /// fetching from Snowflake.
+    pub fn register_arrow_batch_as_result_set(
+        &self,
+        batch: &arrow::array::RecordBatch,
+        http_client: reqwest::Client,
+    ) -> Result<ResultSetInfo, ApiError> {
+        use arrow::ipc::writer::StreamWriter;
+        use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+
+        let schema = batch.schema();
+        let mut buf = Vec::new();
+        {
+            let mut writer = StreamWriter::try_new(&mut buf, &schema).context(ArrowParseSnafu)?;
+            writer.write(batch).context(ArrowParseSnafu)?;
+            writer.finish().context(ArrowParseSnafu)?;
+        }
+
+        let chunk_base64 = BASE64.encode(&buf);
+        let data = RowsetData::ArrowSingleChunk { chunk_base64 };
+
+        let descriptor = ResultSetDescriptor {
+            query_id: String::new(),
+            columns: Vec::new(),
+            rows_affected: Some(-1),
+            row_count: None,
+            statement_type_id: None,
+            sql_state: None,
+            stats: None,
+            query_result_format: Some("arrow".to_owned()),
+            number_of_binds: 0,
+            array_bind_supported: false,
+            binds: Vec::new(),
+            final_session_names: FinalSessionNames::default(),
+        };
+
+        let reader_ctx = ReaderContext {
+            http_client,
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+
+        let handle = self.create_result_set(descriptor.clone(), data, reader_ctx);
+        Ok(ResultSetInfo { handle, descriptor })
+    }
+
+    /// Creates a ResultSet by fetching data from Snowflake by query_id.
+    ///
+    /// This path is used for multi-statement child results and async query result
+    /// retrieval — neither of which involves PUT/GET file transfers.
+    pub async fn create_result_set_from_sfqid(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        conn_handle: Handle,
+        query_id: String,
+    ) -> Result<ResultSetInfo, ApiError> {
+        let fetch = async {
+            let conn_ptr =
+                self.connections
+                    .get_obj(conn_handle)
+                    .with_context(|| InvalidArgumentSnafu {
+                        argument: "Connection handle not found".to_string(),
+                    })?;
+            let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+
+            let data = fetch_query_response_data(&conn_ptr, &query_id).await?;
+            let descriptor = response_to_descriptor(&data, &self.wrapper_presets);
+            let reader_ctx = resolve_reader_ctx(&conn_ptr).await?;
+            let handle =
+                self.create_result_set(descriptor.clone(), data.into_rowset_data(), reader_ctx);
+
+            Ok(ResultSetInfo { handle, descriptor })
+        };
+        // Labelled with the RPC name, not this function's, so the operation is
+        // named the same way in logs as it is in the proto.
+        run_opt(operation_ctx, "connection_get_result_set", fetch).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::apis::database_driver_v1::global_state::DriverProviders;
+    use crate::file_manager::UploadResult;
+    use crate::rest::snowflake::query_response::Data;
+    use arrow::array::{Array, Int64Array, RecordBatch, StringArray};
+    use arrow::datatypes::{DataType, Field, Schema};
+
+    const JSON_ROWSET: &str = r#"{
+        "queryResultFormat": "json",
+        "rowset": [["1", "alice"], ["2", "bob"]],
+        "rowtype": [
+            {"name": "ID", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0},
+            {"name": "NAME", "type": "TEXT", "nullable": true, "length": 100, "byteLength": 400}
+        ]
+    }"#;
+
+    // Arrow metadata only; the rows ship separately as the base64 IPC stream.
+    const ARROW_DATA: &str = r#"{
+        "queryResultFormat": "arrow",
+        "rowtype": [
+            {"name": "ID", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0},
+            {"name": "NAME", "type": "TEXT", "nullable": true, "length": 100, "byteLength": 400}
+        ]
+    }"#;
+
+    const GEO_ARROW_DATA: &str = r#"{
+        "queryResultFormat": "arrow",
+        "rowtype": [
+            {"name": "GEOGRAPHY_COL", "type": "TEXT", "extTypeName": "GEOGRAPHY", "nullable": true},
+            {"name": "GEOMETRY_COL", "type": "TEXT", "extTypeName": "GEOMETRY", "nullable": true}
+        ]
+    }"#;
+
+    /// Two-row `ID`/`NAME` batch encoded as a base64 Arrow IPC stream.
+    fn arrow_ipc_rowset_base64() -> String {
+        use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("ID", DataType::Int64, false),
+            Field::new("NAME", DataType::Utf8, true),
+        ]));
+        let columns: Vec<Arc<dyn Array>> = vec![
+            Arc::new(Int64Array::from(vec![1_i64, 2])),
+            Arc::new(StringArray::from(vec!["alice", "bob"])),
+        ];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns)
+            .expect("failed to build Arrow record batch fixture");
+
+        let mut buf: Vec<u8> = Vec::new();
+        {
+            let mut writer = arrow_ipc::writer::StreamWriter::try_new(&mut buf, schema.as_ref())
+                .expect("failed to create Arrow IPC stream writer");
+            writer.write(&batch).expect("failed to write Arrow batch");
+            writer.finish().expect("failed to finish Arrow IPC stream");
+        }
+        BASE64.encode(&buf)
+    }
+
+    fn arrow_ipc_geo_base64() -> String {
+        use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+
+        let text_metadata: std::collections::HashMap<String, String> =
+            [("logicalType".to_string(), "TEXT".to_string())].into();
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("GEOGRAPHY_COL", DataType::Utf8, true).with_metadata(text_metadata.clone()),
+            Field::new("GEOMETRY_COL", DataType::Utf8, true).with_metadata(text_metadata),
+        ]));
+        let columns: Vec<Arc<dyn Array>> = vec![
+            Arc::new(StringArray::from(vec!["POINT(-122.35 37.55)"])),
+            Arc::new(StringArray::from(vec!["POINT(1820.12 890.56)"])),
+        ];
+        let batch = RecordBatch::try_new(Arc::clone(&schema), columns)
+            .expect("failed to build Arrow record batch fixture");
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = arrow_ipc::writer::StreamWriter::try_new(&mut buf, schema.as_ref())
+                .expect("failed to create Arrow IPC stream writer");
+            writer.write(&batch).expect("failed to write Arrow batch");
+            writer.finish().expect("failed to finish Arrow IPC stream");
+        }
+        BASE64.encode(&buf)
+    }
+
+    /// Drains a `result_set_get_stream` reader and asserts the canonical
+    /// two-row `ID`/`NAME` fixture. Prefetched readers pull batches via
+    /// `blocking_recv`, which panics inside a Tokio runtime, so this drains in
+    /// a sync context — callers must keep their runtime alive across the call.
+    fn assert_id_name_reader(reader: Box<dyn RecordBatchReader + Send>) {
+        let schema = reader.schema();
+        assert_eq!(schema.fields().len(), 2);
+        assert_eq!(schema.field(0).name(), "ID");
+        assert_eq!(schema.field(0).data_type(), &DataType::Int64);
+        assert_eq!(schema.field(1).name(), "NAME");
+        assert_eq!(schema.field(1).data_type(), &DataType::Utf8);
+
+        let batches = reader
+            .collect::<Result<Vec<_>, _>>()
+            .expect("draining the reader should not error");
+
+        assert_eq!(batches.len(), 1);
+        assert_id_name_batch(&batches[0]);
+    }
+
+    fn assert_id_name_batch(batch: &RecordBatch) {
+        assert_eq!(batch.num_rows(), 2);
+        let ids = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .expect("column 0 should be Int64");
+        assert_eq!(ids.value(0), 1);
+        assert_eq!(ids.value(1), 2);
+        let names = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .expect("column 1 should be Utf8");
+        assert_eq!(names.value(0), "alice");
+        assert_eq!(names.value(1), "bob");
+    }
+
+    #[test]
+    fn result_set_get_stream_returns_reader_without_ffi() {
+        let driver = DatabaseDriverV1::new();
+        let data: Data = serde_json::from_str(JSON_ROWSET)
+            .expect("fixture must deserialize into query_response::Data");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        let handle = driver.create_result_set(descriptor, data.into_rowset_data(), reader_ctx);
+
+        let runtime = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
+        let reader: Box<dyn RecordBatchReader + Send> = runtime
+            .block_on(driver.result_set_get_stream(handle))
+            .expect("result_set_get_stream should succeed for an inline JSON rowset");
+
+        assert_id_name_reader(reader);
+        drop(runtime);
+    }
+
+    #[test]
+    fn result_set_get_stream_reads_arrow_rowset() {
+        let driver = DatabaseDriverV1::new();
+        let data: Data = serde_json::from_str(ARROW_DATA)
+            .expect("fixture must deserialize into query_response::Data");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        // `ArrowMultiChunk` routes through `PrefetchChunkReader` (the
+        // `blocking_recv` path in `prefetch.rs`), unlike `ArrowSingleChunk`,
+        // which hands back a plain `StreamReader`. An inline initial batch with
+        // no remote chunks keeps the test network-free while still exercising
+        // the Arrow prefetch/drain path.
+        let rowset_data = RowsetData::ArrowMultiChunk {
+            initial_base64_opt: Some(arrow_ipc_rowset_base64()),
+            chunk_download_data: Vec::new(),
+        };
+        let handle = driver.create_result_set(descriptor, rowset_data, reader_ctx);
+
+        let runtime = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
+        let reader: Box<dyn RecordBatchReader + Send> = runtime
+            .block_on(driver.result_set_get_stream(handle))
+            .expect("result_set_get_stream should succeed for an inline Arrow rowset");
+
+        assert_id_name_reader(reader);
+        drop(runtime);
+    }
+
+    #[test]
+    fn result_set_streams_preserve_geo_type_names() {
+        let driver = DatabaseDriverV1::new();
+        let data: Data = serde_json::from_str(GEO_ARROW_DATA)
+            .expect("fixture must deserialize into query_response::Data");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        let rowset_data = RowsetData::ArrowSingleChunk {
+            chunk_base64: arrow_ipc_geo_base64(),
+        };
+        let handle = driver.create_result_set(descriptor, rowset_data, reader_ctx);
+
+        let runtime = tokio::runtime::Runtime::new().expect("failed to build tokio runtime");
+        let reader = runtime
+            .block_on(driver.result_set_get_stream(handle))
+            .expect("result_set_get_stream should preserve geography metadata");
+        assert_eq!(
+            reader
+                .schema()
+                .field(0)
+                .metadata()
+                .get("extTypeName")
+                .map(String::as_str),
+            Some("GEOGRAPHY")
+        );
+        assert_eq!(
+            reader
+                .schema()
+                .field(1)
+                .metadata()
+                .get("extTypeName")
+                .map(String::as_str),
+            Some("GEOMETRY")
+        );
+        let fetcher = runtime
+            .block_on(driver.result_set_get_async_stream(handle))
+            .expect("result_set_get_async_stream should preserve geography metadata");
+        assert_eq!(
+            fetcher
+                .schema()
+                .field(0)
+                .metadata()
+                .get("extTypeName")
+                .map(String::as_str),
+            Some("GEOGRAPHY")
+        );
+        assert_eq!(
+            fetcher
+                .schema()
+                .field(1)
+                .metadata()
+                .get("extTypeName")
+                .map(String::as_str),
+            Some("GEOMETRY")
+        );
+    }
+
+    fn descriptor_with_columns(columns: Vec<ColumnMetadata>) -> ResultSetDescriptor {
+        ResultSetDescriptor {
+            query_id: String::new(),
+            columns,
+            rows_affected: Some(-1),
+            row_count: None,
+            statement_type_id: None,
+            sql_state: None,
+            stats: None,
+            query_result_format: None,
+            number_of_binds: 0,
+            array_bind_supported: false,
+            binds: Vec::new(),
+            final_session_names: FinalSessionNames::default(),
+        }
+    }
+
+    fn sample_upload_result() -> UploadResult {
+        UploadResult {
+            source: "local.csv".to_owned(),
+            target: "@stage/local.csv.gz".to_owned(),
+            source_size: 10,
+            target_size: 4,
+            source_compression: "NONE".to_owned(),
+            target_compression: "GZIP".to_owned(),
+            status: "UPLOADED".to_owned(),
+            message: String::new(),
+        }
+    }
+
+    async fn assert_stream_matches_async_fetcher(
+        driver: &DatabaseDriverV1,
+        descriptor: ResultSetDescriptor,
+        rowset_data: RowsetData,
+        label: &str,
+    ) {
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        let handle = driver.create_result_set(descriptor, rowset_data, reader_ctx);
+        let stream = driver
+            .result_set_get_stream(handle)
+            .await
+            .unwrap_or_else(|err| panic!("{label}: stream should open, got {err:?}"));
+        let mut fetcher = driver
+            .result_set_get_async_stream(handle)
+            .await
+            .unwrap_or_else(|err| panic!("{label}: async fetcher should open, got {err:?}"));
+        assert_eq!(stream.schema(), fetcher.schema(), "{label} schema");
+        let stream_batches =
+            tokio::task::spawn_blocking(move || stream.collect::<Result<Vec<_>, _>>())
+                .await
+                .unwrap_or_else(|err| {
+                    panic!("{label}: spawn_blocking for stream drain failed: {err:?}")
+                })
+                .unwrap_or_else(|err| {
+                    panic!("{label}: draining the stream should not error, got {err:?}")
+                });
+        let mut fetcher_batches = Vec::new();
+        while let Some(batch) = fetcher
+            .next_batch()
+            .await
+            .unwrap_or_else(|err| panic!("{label}: next_batch should succeed, got {err:?}"))
+        {
+            fetcher_batches.push(batch);
+        }
+        assert_eq!(stream_batches, fetcher_batches, "{label} batches");
+    }
+
+    #[tokio::test]
+    async fn async_fetcher_matches_sync_stream_for_prefetched_and_drained_rowsets() {
+        let arrow_data: Data = serde_json::from_str(ARROW_DATA)
+            .expect("fixture must deserialize into query_response::Data");
+        let cases = [
+            (
+                "ArrowMultiChunk",
+                WrapperPresets::default(),
+                response_to_descriptor(&arrow_data, &WrapperPresets::default()),
+                RowsetData::ArrowMultiChunk {
+                    initial_base64_opt: Some(arrow_ipc_rowset_base64()),
+                    chunk_download_data: Vec::new(),
+                },
+            ),
+            (
+                "NoData",
+                WrapperPresets::default(),
+                descriptor_with_columns(Vec::new()),
+                RowsetData::NoData,
+            ),
+            (
+                "jdbc PUT",
+                WrapperPresets::jdbc(),
+                descriptor_with_columns(upload_column_metadata(&WrapperPresets::jdbc())),
+                RowsetData::Upload(vec![sample_upload_result()]),
+            ),
+        ];
+
+        for (label, wrapper_presets, descriptor, rowset_data) in cases {
+            let driver = DatabaseDriverV1::with_providers(DriverProviders {
+                wrapper_presets,
+                ..Default::default()
+            });
+            assert_stream_matches_async_fetcher(&driver, descriptor, rowset_data, label).await;
+        }
+    }
+
+    #[tokio::test]
+    async fn async_fetcher_schema_carries_descriptor_nullability() {
+        let driver = DatabaseDriverV1::new();
+        let arrow_data: Data = serde_json::from_str(ARROW_DATA)
+            .expect("fixture must deserialize into query_response::Data");
+        let reader_ctx = ReaderContext {
+            http_client: reqwest::Client::new(),
+            prefetch_config: PrefetchConfig::default(),
+            xp_backend: None,
+        };
+        let handle = driver.create_result_set(
+            response_to_descriptor(&arrow_data, &WrapperPresets::default()),
+            RowsetData::ArrowMultiChunk {
+                initial_base64_opt: Some(arrow_ipc_rowset_base64()),
+                chunk_download_data: Vec::new(),
+            },
+            reader_ctx,
+        );
+
+        let schema = driver
+            .result_set_get_async_stream(handle)
+            .await
+            .expect("async fetcher should open for an inline Arrow rowset")
+            .schema();
+
+        let nullability: Vec<Option<&str>> = schema
+            .fields()
+            .iter()
+            .map(|field| field.metadata().get("nullable").map(String::as_str))
+            .collect();
+        assert_eq!(nullability, vec![Some("false"), Some("true")]);
+    }
+
+    #[tokio::test]
+    async fn result_set_get_async_stream_rejects_unknown_handle() {
+        let driver = DatabaseDriverV1::new();
+        let unknown = Handle { id: 999, magic: 0 };
+
+        match driver.result_set_get_async_stream(unknown).await {
+            Err(ApiError::InvalidArgument { .. }) => {}
+            Err(other) => panic!("expected InvalidArgument, got {other:?}"),
+            Ok(_) => panic!("an unregistered handle must not open a fetcher"),
+        }
+    }
+
+    #[test]
+    fn response_to_descriptor_sets_row_count_from_total() {
+        let json = r#"{
+            "queryResultFormat": "json",
+            "total": 42,
+            "rowset": [["1"]],
+            "rowtype": [
+                {"name": "ID", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0}
+            ]
+        }"#;
+        let data: Data = serde_json::from_str(json).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(descriptor.row_count, Some(42));
+    }
+
+    #[test]
+    fn response_to_descriptor_odbc_cursor_uses_returned_not_total() {
+        let json = r#"{
+            "statementTypeId": 4096,
+            "queryResultFormat": "json",
+            "total": 15,
+            "returned": 10,
+            "rowset": [["0"],["1"],["2"],["3"],["4"],["5"],["6"],["7"],["8"],["9"]],
+            "rowtype": [
+                {"name": "N", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0}
+            ]
+        }"#;
+        let data: Data = serde_json::from_str(json).expect("fixture must deserialize");
+        let odbc = response_to_descriptor(&data, &WrapperPresets::odbc());
+        assert_eq!(odbc.rows_affected, Some(10));
+        assert_eq!(odbc.row_count, Some(10));
+        let python = response_to_descriptor(&data, &WrapperPresets::python());
+        assert_eq!(python.rows_affected, Some(15));
+        assert_eq!(python.row_count, Some(15));
+    }
+
+    #[test]
+    fn response_to_descriptor_leaves_row_count_none_without_total() {
+        let data: Data = serde_json::from_str(JSON_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(descriptor.row_count, None);
+    }
+
+    #[test]
+    fn response_to_descriptor_carries_json_query_result_format() {
+        let data: Data = serde_json::from_str(JSON_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(descriptor.query_result_format.as_deref(), Some("json"));
+    }
+
+    #[test]
+    fn response_to_descriptor_carries_arrow_query_result_format() {
+        let data: Data = serde_json::from_str(ARROW_DATA).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(descriptor.query_result_format.as_deref(), Some("arrow"));
+    }
+
+    #[test]
+    fn response_to_descriptor_leaves_query_result_format_none_when_absent() {
+        let json = r#"{
+            "rowset": [["1"]],
+            "rowtype": [
+                {"name": "ID", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0}
+            ]
+        }"#;
+        let data: Data = serde_json::from_str(json).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(descriptor.query_result_format, None);
+    }
+
+    #[test]
+    fn response_to_descriptor_copies_final_session_names() {
+        let json = r#"{
+            "queryResultFormat": "json",
+            "finalDatabaseName": "MY_DB",
+            "finalSchemaName": "PUBLIC",
+            "finalWarehouseName": "COMPUTE_WH",
+            "finalRoleName": "SYSADMIN",
+            "rowset": [["1"]],
+            "rowtype": [
+                {"name": "ID", "type": "FIXED", "nullable": false, "precision": 38, "scale": 0}
+            ]
+        }"#;
+        let data: Data = serde_json::from_str(json).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::default());
+        assert_eq!(
+            descriptor.final_session_names.database.as_deref(),
+            Some("MY_DB")
+        );
+        assert_eq!(
+            descriptor.final_session_names.schema.as_deref(),
+            Some("PUBLIC")
+        );
+        assert_eq!(
+            descriptor.final_session_names.warehouse.as_deref(),
+            Some("COMPUTE_WH")
+        );
+        assert_eq!(
+            descriptor.final_session_names.role.as_deref(),
+            Some("SYSADMIN")
+        );
+    }
+
+    /// COPY status rowset: two files loading 2 and 3 rows; `total` is the file
+    /// count (2). statementTypeId 13824 == 0x3600 (`QueryType::COPY`).
+    const COPY_STATUS_ROWSET: &str = r#"{
+        "statementTypeId": 13824,
+        "total": 2,
+        "rowset": [
+            ["a.csv", "LOADED", "2", "2", "0"],
+            ["b.csv", "LOADED", "3", "3", "0"]
+        ],
+        "rowtype": [
+            {"name": "file", "type": "TEXT", "nullable": false},
+            {"name": "status", "type": "TEXT", "nullable": false},
+            {"name": "rows_parsed", "type": "FIXED", "nullable": false, "scale": 0, "precision": 10},
+            {"name": "rows_loaded", "type": "FIXED", "nullable": false, "scale": 0, "precision": 10},
+            {"name": "error_count", "type": "FIXED", "nullable": false, "scale": 0, "precision": 10}
+        ]
+    }"#;
+
+    #[test]
+    fn response_to_descriptor_copy_jdbc_sums_rows_loaded() {
+        let data: Data =
+            serde_json::from_str(COPY_STATUS_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::jdbc());
+        assert_eq!(descriptor.rows_affected, Some(5));
+    }
+
+    #[test]
+    fn response_to_descriptor_copy_nodejs_sums_rows_loaded() {
+        let data: Data =
+            serde_json::from_str(COPY_STATUS_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::nodejs());
+        assert_eq!(descriptor.rows_affected, Some(5));
+    }
+
+    #[test]
+    fn response_to_descriptor_copy_odbc_uses_file_count() {
+        let data: Data =
+            serde_json::from_str(COPY_STATUS_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::odbc());
+        assert_eq!(descriptor.rows_affected, Some(2));
+    }
+
+    #[test]
+    fn response_to_descriptor_copy_python_uses_file_count() {
+        let data: Data =
+            serde_json::from_str(COPY_STATUS_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::python());
+        assert_eq!(descriptor.rows_affected, Some(2));
+    }
+
+    #[test]
+    fn response_to_descriptor_copy_jdbc_without_inline_rowset_is_zero() {
+        let data: Data = serde_json::from_str(r#"{ "statementTypeId": 13824, "total": 2 }"#)
+            .expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::jdbc());
+        assert_eq!(descriptor.rows_affected, Some(0));
+    }
+
+    /// UNLOAD `DETAILED_OUTPUT = TRUE` rowset: two files holding 3 and 4 rows;
+    /// `total` is the file count (2). statementTypeId 14080 == 0x3700
+    /// (`QueryType::UNLOAD`).
+    const UNLOAD_DETAILED_ROWSET: &str = r#"{
+        "statementTypeId": 14080,
+        "total": 2,
+        "rowset": [
+            ["data_0_0_0.csv.gz", "64", "3"],
+            ["data_0_1_0.csv.gz", "80", "4"]
+        ],
+        "rowtype": [
+            {"name": "FILE_NAME", "type": "TEXT", "nullable": false},
+            {"name": "FILE_SIZE", "type": "FIXED", "nullable": false, "scale": 0, "precision": 19},
+            {"name": "ROW_COUNT", "type": "FIXED", "nullable": false, "scale": 0, "precision": 19}
+        ]
+    }"#;
+
+    #[test]
+    fn response_to_descriptor_unload_odbc_uses_file_count() {
+        let data: Data =
+            serde_json::from_str(UNLOAD_DETAILED_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::odbc());
+        assert_eq!(descriptor.rows_affected, Some(2));
+    }
+
+    #[test]
+    fn response_to_descriptor_unload_python_uses_file_count() {
+        let data: Data =
+            serde_json::from_str(UNLOAD_DETAILED_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::python());
+        assert_eq!(descriptor.rows_affected, Some(2));
+    }
+
+    #[test]
+    fn response_to_descriptor_unload_jdbc_keeps_zero() {
+        let data: Data =
+            serde_json::from_str(UNLOAD_DETAILED_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::jdbc());
+        assert_eq!(descriptor.rows_affected, Some(0));
+    }
+
+    #[test]
+    fn response_to_descriptor_unload_nodejs_keeps_zero() {
+        let data: Data =
+            serde_json::from_str(UNLOAD_DETAILED_ROWSET).expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::nodejs());
+        assert_eq!(descriptor.rows_affected, Some(0));
+    }
+
+    #[test]
+    fn response_to_descriptor_partitioned_unload_jdbc_keeps_zero() {
+        let data: Data = serde_json::from_str(
+            &UNLOAD_DETAILED_ROWSET
+                .replace(r#""statementTypeId": 14080"#, r#""statementTypeId": 14081"#),
+        )
+        .expect("fixture must deserialize");
+        let descriptor = response_to_descriptor(&data, &WrapperPresets::jdbc());
+        assert_eq!(descriptor.rows_affected, Some(0));
+    }
+
+    #[test]
+    fn row_types_to_columns_keeps_wire_type_and_ext_type_name_separate() {
+        use crate::rest::snowflake::query_response::RowType;
+
+        let row_types = vec![RowType {
+            name: "geo_col".to_string(),
+            type_: "object".to_string(),
+            nullable: true,
+            ext_type_name: Some("GEOGRAPHY".to_string()),
+            output_type: Some("binary".to_string()),
+            ..Default::default()
+        }];
+
+        let columns = row_types_to_columns(&row_types);
+
+        assert_eq!(columns.len(), 1);
+        assert_eq!(columns[0].name, "geo_col");
+        assert_eq!(columns[0].r#type, "object");
+        assert_eq!(columns[0].ext_col_type_name, "GEOGRAPHY");
+        assert_eq!(columns[0].udt_output_type, "binary");
+    }
+
+    #[test]
+    fn row_types_to_columns_populates_vector_element_field() {
+        let row_type: RowType = serde_json::from_str(
+            r#"{
+                "name": "EMBEDDING",
+                "type": "vector",
+                "nullable": false,
+                "vectorDimension": 768,
+                "fields": [
+                    {"name": null, "type": "real", "nullable": false, "scale": null, "precision": null}
+                ]
+            }"#,
+        )
+        .expect("fixture must deserialize");
+
+        let columns = row_types_to_columns(&[row_type]);
+
+        assert_eq!(columns[0].dimension, Some(768));
+        assert_eq!(columns[0].fields.len(), 1);
+        assert_eq!(columns[0].fields[0].r#type, "real");
+        assert_eq!(columns[0].fields[0].name, "");
+        assert!(!columns[0].fields[0].nullable);
+    }
+
+    #[test]
+    fn row_types_to_columns_populates_map_key_and_value_fields() {
+        let row_type: RowType = serde_json::from_str(
+            r#"{
+                "name": "M",
+                "type": "map",
+                "nullable": true,
+                "fields": [
+                    {"name": null, "type": "text", "nullable": false, "length": 16777216},
+                    {"name": null, "type": "fixed", "nullable": true, "precision": 38, "scale": 0}
+                ]
+            }"#,
+        )
+        .expect("fixture must deserialize");
+
+        let columns = row_types_to_columns(&[row_type]);
+
+        assert_eq!(columns[0].fields.len(), 2);
+        assert_eq!(columns[0].fields[0].r#type, "text");
+        assert_eq!(columns[0].fields[0].length, Some(16777216));
+        assert_eq!(columns[0].fields[1].r#type, "fixed");
+        assert_eq!(columns[0].fields[1].precision, Some(38));
+        assert_eq!(columns[0].fields[1].scale, Some(0));
+        assert!(columns[0].fields[1].nullable);
+    }
+
+    #[test]
+    fn row_types_to_columns_recurses_into_nested_structured_fields() {
+        let row_type: RowType = serde_json::from_str(
+            r#"{
+                "name": "ADDRESSES",
+                "type": "array",
+                "nullable": true,
+                "fields": [
+                    {"name": null, "type": "object", "nullable": true, "fields": [
+                        {"name": "city", "type": "text", "nullable": false, "length": 100},
+                        {"name": "zip", "type": "fixed", "nullable": true, "precision": 38, "scale": 0}
+                    ]}
+                ]
+            }"#,
+        )
+        .expect("fixture must deserialize");
+
+        let columns = row_types_to_columns(&[row_type]);
+
+        let element = &columns[0].fields[0];
+        assert_eq!(element.r#type, "object");
+        assert_eq!(element.fields.len(), 2);
+        assert_eq!(element.fields[0].name, "city");
+        assert_eq!(element.fields[0].length, Some(100));
+        assert_eq!(element.fields[1].name, "zip");
+    }
+
+    #[test]
+    fn row_types_to_columns_leaves_fields_empty_when_wire_omits_them() {
+        let row_type: RowType = serde_json::from_str(
+            r#"{"name": "C", "type": "text", "nullable": true, "length": 16777216}"#,
+        )
+        .expect("fixture must deserialize");
+
+        let columns = row_types_to_columns(&[row_type]);
+
+        assert!(columns[0].fields.is_empty());
+    }
+
+    #[test]
+    fn row_types_to_columns_keeps_nested_wire_type_and_ext_type_name_separate() {
+        let row_type: RowType = serde_json::from_str(
+            r#"{
+                "name": "ARR",
+                "type": "array",
+                "nullable": true,
+                "fields": [
+                    {"name": null, "type": "object", "nullable": true, "extTypeName": "GEOGRAPHY"}
+                ]
+            }"#,
+        )
+        .expect("fixture must deserialize");
+
+        let columns = row_types_to_columns(&[row_type]);
+
+        assert_eq!(columns[0].fields[0].r#type, "object");
+        assert_eq!(columns[0].fields[0].ext_col_type_name, "GEOGRAPHY");
+    }
+}

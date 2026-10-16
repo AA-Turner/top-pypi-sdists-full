@@ -18,7 +18,7 @@ mod connection;
 pub mod dlp;
 pub mod params;
 pub use params::{
-    parse_image_formats, parse_sftp_config, parse_threat_detection_risk_levels,
+    parse_client_size, parse_image_formats, parse_sftp_config, parse_threat_detection_risk_levels,
     ConnectionParameters, SftpConfig,
 };
 mod cursor;
@@ -34,7 +34,6 @@ mod multi_channel;
 mod pipe;
 mod recording;
 mod registry;
-pub mod resource_browser;
 mod security;
 mod session;
 pub mod session_owner;
@@ -45,7 +44,6 @@ pub mod share_control;
 pub mod share_registry;
 pub mod share_viewer;
 mod sync_control;
-pub mod terminal_mouse;
 mod throughput;
 pub mod video;
 
@@ -75,7 +73,6 @@ pub use events::{
     connect_with_event_adapter, EventBasedHandler, EventCallback, HandlerEvent, InstructionSender,
 };
 pub use fps_valve::FpsValve;
-pub use guacr_terminal::format_clipboard_instructions;
 pub use handler::{HandlerStats, HealthStatus, ProtocolHandler};
 pub use hooks::{FrameTap, SessionHooks, ThreatSignal, ThreatSignalRx, ThreatSignalTx};
 pub use host_key::{calculate_fingerprint, HostKeyConfig, HostKeyResult, HostKeyVerifier};
@@ -101,6 +98,7 @@ pub use pipe::{
     PipeStream,
     PipeStreamManager,
     // Pipe stream constants
+    BELL_AUDIO_STREAM,
     PIPE_AUTOFLUSH,
     PIPE_INTERPRET_OUTPUT,
     PIPE_NAME_STDIN,
@@ -112,7 +110,7 @@ pub use pipe::{
 };
 pub use recording::{
     GuacamoleSesRecorder, MultiFormatRecorder, RecordingConfig, RecordingDirection, RecordingError,
-    RecordingFormat, SessionRecorder,
+    RecordingFormat, SesPayload, SessionRecorder,
 };
 pub use registry::ProtocolHandlerRegistry;
 pub use security::{
@@ -128,6 +126,7 @@ pub use security::{
     is_mysql_import_query,
     is_postgres_copy_in,
     is_postgres_copy_out,
+    mouse_buttons_blocked,
     DatabaseSecuritySettings,
     HandlerSecuritySettings,
     QueryType,
@@ -142,7 +141,8 @@ pub use security::{
     CLIPBOARD_MIN_SIZE,
 };
 pub use session::{
-    record_client_input, send_and_record, send_bell, send_disconnect, send_name, send_ready,
+    record_client_input, record_client_input_attributed, record_server_output, send_and_record,
+    send_bell, send_disconnect, send_msg_best_effort, send_name, send_ready,
 };
 pub use session_owner::SessionOwnerSender;
 pub use session_stats::{FpsCounter, SessionStats};
@@ -153,7 +153,6 @@ pub use share_registry::{
     PRIV_VIEW,
 };
 pub use sync_control::{SyncFlowControl, TerminalOutputBuffer};
-pub use terminal_mouse::{handle_mouse_event, MouseEventOutput};
 pub use throughput::ThroughputTracker;
 pub use video::{EncodedFrame, VideoOutput};
 

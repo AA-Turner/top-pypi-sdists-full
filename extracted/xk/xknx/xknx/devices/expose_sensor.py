@@ -30,7 +30,7 @@ from xknx.typing import DPTParsable
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -40,10 +40,11 @@ class ExposeSensor(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        value_type: DPTParsable | type[DPTBase],
+        name: str | None = None,
         group_address: GroupAddressesType = None,
         respond_to_read: bool = True,
-        value_type: DPTParsable | type[DPTBase] | None = None,
         cooldown: float = 0,
         periodic_send: float = 0,
         device_updated_cb: DeviceCallbackType[ExposeSensor] | None = None,
@@ -53,11 +54,12 @@ class ExposeSensor(Device):
 
         Args:
         xknx: XKNX instance to use for communication.
-        name: Name of the device.
+        value_type: DPT type or identifier used to encode the sensor value.
+            ``"binary"`` sends and receives a plain boolean (DPT 1).
+        name: Name of the device. Defaults to the class name and the value type.
         group_address: KNX group address to send the value to.
         respond_to_read: If True, respond to GroupValueRead telegrams with the
             current value.
-        value_type: DPT type or identifier used to encode the sensor value.
         cooldown: Minimum time in seconds between sending values to the KNX
             bus. If multiple updates occur during this period, only the last
             value is sent when the cooldown ends. ``0`` (default) disables cooldown.
@@ -67,7 +69,12 @@ class ExposeSensor(Device):
             updated.
 
         """
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
+        if name is None:
+            type_name = (
+                value_type.__name__ if isinstance(value_type, type) else value_type
+            )
+            self._name = f"{type(self).__name__} {type_name}"
         self.respond_to_read = respond_to_read
         self.sensor_value: RemoteValueSensor | RemoteValueSwitch
         if value_type == "binary":
@@ -81,11 +88,11 @@ class ExposeSensor(Device):
         else:
             self.sensor_value = RemoteValueSensor(
                 xknx,
+                value_type=value_type,
                 group_address=group_address,
                 sync_state=False,
                 device_name=self.name,
                 after_update_cb=self.after_update,
-                value_type=value_type,
             )
         # the next payload to be sent after cooldown or the last sent payload
         self._payload_after_cooldown: DPTArray | DPTBinary | None = None
@@ -130,7 +137,7 @@ class ExposeSensor(Device):
             self.xknx.task_registry.remove_task(self._periodic_send_task)
             self._periodic_send_task = None
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.sensor_value.process(telegram)
         # reset periodic send timer
@@ -140,7 +147,7 @@ class ExposeSensor(Device):
         ):
             self._periodic_send_task.restart()
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GROUP READ telegram."""
         if not self.respond_to_read:
             return

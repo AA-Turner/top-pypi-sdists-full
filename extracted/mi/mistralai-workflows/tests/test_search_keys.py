@@ -107,13 +107,23 @@ class TestValidateSearchKeyPaths:
         with pytest.raises(WorkflowsException, match="must not contain ':'"):
             validate_search_key_paths(ReportPayload, ["customer:name"])
 
+    def test_rejects_trailing_equals(self) -> None:
+        with pytest.raises(WorkflowsException, match="must not end with '='"):
+            validate_search_key_paths(ReportPayload, ["id="])
+
     def test_rejects_unknown_field(self) -> None:
-        with pytest.raises(WorkflowsException, match="not a field of"):
+        with pytest.raises(WorkflowsException, match="is not present in the workflow's input"):
             validate_search_key_paths(ReportPayload, ["does_not_exist"])
 
     def test_rejects_unknown_nested_field(self) -> None:
         with pytest.raises(WorkflowsException, match="not a field of Customer"):
             validate_search_key_paths(ReportPayload, ["customer.missing"])
+
+    def test_unknown_root_reports_input_not_generated_model_name(self) -> None:
+        # The wrapper model generated for a multi-param entrypoint is an SDK detail;
+        # the error must speak in terms of the workflow's input parameters.
+        with pytest.raises(WorkflowsException, match="not present in the workflow's input"):
+            validate_search_key_paths(MultiParamInput, ["someobject.id"])
 
     def test_rejects_traversing_into_scalar(self) -> None:
         with pytest.raises(WorkflowsException, match="must be a nested model"):
@@ -221,7 +231,7 @@ class TestValidateSearchKeyPaths:
         for path in ("customer:", "does_not_exist", "tags", "customer.missing"):
             assert f"- `{path}`:" in message
         assert "must not contain ':'" in message
-        assert "is not a field of ReportPayload" in message
+        assert "'does_not_exist' is not present in the workflow's input" in message
         assert "is not a field of Customer" in message
         assert "leaf must be a scalar" in message
 
@@ -252,8 +262,14 @@ class TestExtractSearchKeyMetadata:
         params = {"id": "x", "customer": {"name": "acme"}}
         assert extract_search_key_metadata(params, ["customer.tier"]) == {}
 
-    def test_skips_none_value(self) -> None:
-        assert extract_search_key_metadata({"note": None}, ["note"]) == {}
+    def test_none_value_is_extracted_as_none(self) -> None:
+        assert extract_search_key_metadata({"note": None}, ["note"]) == {"note": None}
+
+    def test_none_intermediate_leaves_nested_path_skipped(self) -> None:
+        assert extract_search_key_metadata({"context": None}, ["context.region"]) == {}
+        assert extract_search_key_metadata({"context": {"region": None}}, ["context.region"]) == {
+            "context.region": None
+        }
 
     def test_returns_empty_for_no_search_keys(self) -> None:
         assert extract_search_key_metadata({"id": "x"}, []) == {}
@@ -374,7 +390,7 @@ class TestAliasedFields:
             validate_search_key_paths(Outer, ["inner.customer_id"])
 
     def test_define_time_rejects_alias_path_string(self) -> None:
-        with pytest.raises(WorkflowsException, match="not a field of AliasedInput"):
+        with pytest.raises(WorkflowsException, match="is not present in the workflow's input"):
             validate_search_key_paths(AliasedInput, ["customerId"])
 
     def test_define_time_accepts_plain_field_alongside_aliased(self) -> None:
@@ -385,3 +401,11 @@ class TestAliasedFields:
         wire = {"customerId": "c-123", "customerName": "acme"}
         assert extract_search_key_metadata(wire, ["customer_id", "name"]) == {}
         assert extract_search_key_metadata(wire, ["plain"]) == {}
+
+    def test_lexical_error_suppresses_missing_root_report(self) -> None:
+        # A colon already makes the path meaningless; do not also complain about its root segment.
+        with pytest.raises(WorkflowsException) as exc_info:
+            validate_search_key_paths(ReportPayload, ["customer:name"])
+        message = exc_info.value.message
+        assert "must not contain ':'" in message
+        assert "not present in the workflow's input" not in message

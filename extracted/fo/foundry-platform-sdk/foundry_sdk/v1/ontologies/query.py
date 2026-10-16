@@ -73,6 +73,9 @@ class QueryClient:
         """
         Executes a Query using the given parameters. Optional parameters do not need to be supplied.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the Query. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
         :param query_api_name: The API name of the Query to execute.
@@ -180,6 +183,9 @@ class AsyncQueryClient:
     ) -> typing.Awaitable[ontologies_models.ExecuteQueryResponse]:
         """
         Executes a Query using the given parameters. Optional parameters do not need to be supplied.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the Query. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid

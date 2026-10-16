@@ -63,6 +63,12 @@ from .utils import create_test_worker
 _REGISTER_PATCH = "mistralai.workflows.core._registration.registration_activity.get_worker_client"
 
 
+def _sdk_error(status_code: int) -> SDKError:
+    response = AsyncMock()
+    response.status_code = status_code
+    return SDKError("error", response)
+
+
 @pytest.fixture(autouse=True)
 def _reset_observed_tokens() -> Generator[None, None, None]:
     _fixtures._observed_tokens.clear()
@@ -289,11 +295,10 @@ class TestExecutionRegistration:
         assert hashes[0] != hashes[1]
 
     @pytest.mark.asyncio
-    async def test_registration_not_found_does_not_fail_workflow(self) -> None:
+    @pytest.mark.parametrize("status_code", [404, 405, 500])
+    async def test_registration_error_retries_then_fails_workflow(self, status_code: int) -> None:
         tracker = _RegistrationTracker()
-        mock_response = AsyncMock()
-        mock_response.status_code = 404
-        tracker._mock_client.register_execution_async = AsyncMock(side_effect=SDKError("Not Found", mock_response))
+        tracker._mock_client.register_execution_async.side_effect = _sdk_error(status_code)
 
         async with _env_with_converter() as env:
             with tracker.activate():
@@ -307,81 +312,55 @@ class TestExecutionRegistration:
                     handle = await env.client.start_workflow(
                         wf.name,
                         _make_initial_arg(),
-                        id="test-reg-not-found",
-                        task_queue="test-task-queue",
-                    )
-                    await handle.result()
-
-        assert len(_fixtures._observed_tokens) == 1
-        assert _fixtures._observed_tokens[0] is None
-
-    @pytest.mark.asyncio
-    async def test_registration_method_not_allowed_does_not_fail_workflow(self) -> None:
-        tracker = _RegistrationTracker()
-        mock_response = AsyncMock()
-        mock_response.status_code = 405
-        tracker._mock_client.register_execution_async = AsyncMock(
-            side_effect=SDKError("Method Not Allowed", mock_response)
-        )
-
-        async with _env_with_converter() as env:
-            with tracker.activate():
-                async with create_test_worker(
-                    env,
-                    workflows=[SingleActivityWorkflow],
-                    activities=[capture_token, _register_execution],
-                    interceptors=_make_interceptors(),
-                ):
-                    wf = get_workflow_definition(SingleActivityWorkflow)
-                    handle = await env.client.start_workflow(
-                        wf.name,
-                        _make_initial_arg(),
-                        id="test-reg-method-not-allowed",
-                        task_queue="test-task-queue",
-                    )
-                    await handle.result()
-
-        assert len(_fixtures._observed_tokens) == 1
-        assert _fixtures._observed_tokens[0] is None
-
-    @pytest.mark.asyncio
-    async def test_registration_server_error_fails_workflow(self) -> None:
-        tracker = _RegistrationTracker()
-        mock_response = AsyncMock()
-        mock_response.status_code = 500
-        tracker._mock_client.register_execution_async = AsyncMock(
-            side_effect=SDKError("Internal Server Error", mock_response)
-        )
-
-        async with _env_with_converter() as env:
-            with tracker.activate():
-                async with create_test_worker(
-                    env,
-                    workflows=[SingleActivityWorkflow],
-                    activities=[capture_token, _register_execution],
-                    interceptors=_make_interceptors(),
-                ):
-                    wf = get_workflow_definition(SingleActivityWorkflow)
-                    handle = await env.client.start_workflow(
-                        wf.name,
-                        _make_initial_arg(),
-                        id="test-reg-server-error",
+                        id="test-reg-error",
                         task_queue="test-task-queue",
                     )
                     with pytest.raises(WorkflowFailureError):
                         await handle.result()
 
+        assert tracker._mock_client.register_execution_async.await_count == 3
+        assert _fixtures._observed_tokens == []
+
     @pytest.mark.asyncio
     async def test_search_key_metadata_is_extracted_and_sent(self) -> None:
-        # `note` is declared but unset (None) → omitted.
         payload = SearchKeyInput(id="pr-402", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump()
         metadata = await _run_and_get_search_key_metadata(SearchKeyWorkflow, payload)
-        assert metadata == {"id": "pr-402", "customer.name": "acme", "customer.tier": "2"}
+        assert metadata == {"id": "pr-402", "customer.name": "acme", "customer.tier": "2", "note": None}
+
+    @pytest.mark.asyncio
+    async def test_backend_rejecting_nulls_registers_without_them(self) -> None:
+        payload = SearchKeyInput(id="pr-402", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump()
+        tracker = _RegistrationTracker()
+
+        async def reject_nulls(**kwargs: Any) -> RegisterExecutionResponse:
+            if kwargs["search_key_metadata"] and any(value is None for value in kwargs["search_key_metadata"].values()):
+                tracker.calls.append(kwargs)
+                raise _sdk_error(422)
+            return await tracker._capture_call(**kwargs)
+
+        tracker._mock_client.register_execution_async = AsyncMock(side_effect=reject_nulls)
+        arg = _make_initial_arg_with_payload(payload)
+        async with _env_with_converter() as env:
+            with tracker.activate():
+                async with create_test_worker(
+                    env,
+                    workflows=[SearchKeyWorkflow],
+                    activities=[capture_token, _register_execution],
+                    interceptors=_make_interceptors(),
+                ):
+                    wf = get_workflow_definition(SearchKeyWorkflow)
+                    handle = await env.client.start_workflow(
+                        wf.name, arg, id="test-reg-search-keys-422", task_queue="test-task-queue"
+                    )
+                    await handle.result()
+
+        assert [call["search_key_metadata"] for call in tracker.calls] == [
+            {"id": "pr-402", "customer.name": "acme", "customer.tier": "2", "note": None},
+            {"id": "pr-402", "customer.name": "acme", "customer.tier": "2"},
+        ]
 
     @pytest.mark.asyncio
     async def test_search_key_metadata_multi_param_roots_at_param_names(self) -> None:
-        # Multi-param entrypoints root paths at the parameter name; `context.region`
-        # is declared but unset (None) → omitted.
         payload = {
             "payload": SearchKeyInput(id="pr-402", customer=SearchKeyCustomer(name="acme", tier=2)).model_dump(),
             "context": SearchKeyContext(tenant_name="globex").model_dump(),
@@ -391,6 +370,7 @@ class TestExecutionRegistration:
             "payload.id": "pr-402",
             "payload.customer.name": "acme",
             "context.tenant_name": "globex",
+            "context.region": None,
         }
 
     @pytest.mark.asyncio

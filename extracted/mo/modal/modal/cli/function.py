@@ -3,21 +3,24 @@ import dataclasses
 import json as json_lib
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncGenerator, cast
+from typing import Any, AsyncGenerator, Sequence, cast
 
 import click
 from click import UsageError
+from rich.box import SIMPLE, SIMPLE_HEAD
+from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 
 from modal._environments import ensure_env
 from modal._function_variants import _FunctionOptionsInfo, _list_function_variants
 from modal._functions import _Function
+from modal._logs import _fetch_time_range, _seconds_to_timestamp, _timestamp_to_seconds
 from modal._object import _get_environment_name
 from modal._utils.async_utils import async_map_ordered, synchronizer
-from modal._utils.time_utils import parse_duration
+from modal._utils.time_utils import parse_duration, timestamp_to_localized_str
 from modal.client import _Client
-from modal.exception import NotFoundError
+from modal.exception import LogsFetchError, NotFoundError
 from modal.output import OutputManager
 from modal.retries import Retries
 from modal.secret import _Secret
@@ -25,7 +28,7 @@ from modal.types import CloudBucketMountInfo, FunctionAutoscalerSettings, Functi
 from modal_proto import api_pb2
 
 from ._help import ModalGroup
-from ._logs import _parse_time_arg, _run_logs_command, _validate_logs_args
+from ._logs import _parse_fetch_range, _parse_time_arg, _run_logs_command, _validate_logs_args
 from ._stats import (
     _DEFAULT_STATS_WINDOW,
     STATS_HEADING_STYLE,
@@ -33,6 +36,7 @@ from ._stats import (
     STATS_SECTION_STYLE,
     _count_with_percentage,
     _distribution_map_json,
+    _export_metrics,
     _metric_rows,
     _percentile_table,
     _timestamp,
@@ -48,9 +52,11 @@ from .utils import (
     env_option,
     grouped_utc_timestamp,
     humanize_filesize,
+    parse_int,
 )
 
 function_cli = ModalGroup(name="function", help="Inspect Modal Functions.")
+
 
 _INPUT_METRIC_ORDER = ("Execution time (s)", "End-to-end latency (s)")
 _CONTAINER_METRIC_ORDER = (
@@ -60,6 +66,7 @@ _CONTAINER_METRIC_ORDER = (
     "GPU Utilization (%)",
 )
 _DEFAULT_CALL_TAIL = 10
+_MAX_CALL_FETCH_INPUTS = 1_000_000
 _MAX_CALL_TAIL = 1000
 _FAILURE_STATUSES = {
     api_pb2.FUNCTION_CALL_INPUT_STATUS_FAILURE: "Failure",
@@ -206,18 +213,20 @@ async def info(
     enabled = "Enabled"
     disabled = "Disabled"
 
-    rows: list[str | Text | tuple[str | Text, str | Text]] = []
+    rows: list[str | Text | tuple[str | Text, str | Text] | None] = []
 
     if function_proto.is_class:
-        rows.append(("Cls Name:", function_proto.function_name))
+        rows.append((Text("Cls Name:", style="bold"), function_proto.function_name))
     else:
-        rows.append(("Function Name:", function_proto.function_name))
+        rows.append((Text("Function Name:", style="bold"), function_proto.function_name))
 
-    rows.append(("Object ID:", f.object_id))
-    rows.append(("App ID:", handle_metadata.app_id))
-    rows.append(("Image ID:", str(info.image_info.image_id)))
+    rows.append(None)
+    rows.append((Text("Object ID:", style="bold"), f.object_id))
+    rows.append((Text("App ID:", style="bold"), handle_metadata.app_id))
+    rows.append((Text("Image ID:", style="bold"), str(info.image_info.image_id)))
 
     # --- Resources ---
+    rows.append(None)
     rows.append("Resources:")
     rows.append(
         (
@@ -255,6 +264,7 @@ async def info(
     )
 
     # --- Autoscaling ---
+    rows.append(None)
     rows.append("Autoscaling:")
     rows.append(
         (
@@ -283,6 +293,7 @@ async def info(
         )
     )
 
+    rows.append(None)
     rows.append("Execution:")
     if info.startup_timeout:
         rows.append(("  Startup Timeout:", f"{info.startup_timeout} seconds"))
@@ -291,6 +302,7 @@ async def info(
     rows.append(("  Max Retries:", not_configured if info.max_retries is None else str(info.max_retries)))
 
     if info.concurrency_info:
+        rows.append(None)
         rows.append("Concurrency:")
         rows.append(("  Max Inputs:", str(info.concurrency_info.max_inputs)))
         rows.append(
@@ -303,11 +315,13 @@ async def info(
         )
 
     if info.batching_info:
+        rows.append(None)
         rows.append("Batching:")
         rows.append(("  Max Batch Size:", str(info.batching_info.max_batch_size)))
         rows.append(("  Wait Time:", f"{info.batching_info.wait_ms} milliseconds"))
 
     # --- Scheduling ---
+    rows.append(None)
     rows.append("Scheduling:")
     rows.append(("  Compute Region(s):", not_configured if not info.regions else " | ".join(info.regions)))
     rows.append(("  Nonpreemptible Capacity:", not_configured if not info.nonpreemptible else enabled))
@@ -316,6 +330,7 @@ async def info(
     rows.append(("  Routing Region:", not_configured if not info.routing_region else info.routing_region))
 
     if info.cluster_info:
+        rows.append(None)
         rows.append("Clustering:")
         rows.append(("  Cluster Size:", str(info.cluster_info.size)))
         rows.append(("  RDMA:", enabled if info.cluster_info.rdma else disabled))
@@ -323,8 +338,10 @@ async def info(
             rows.append(("  Fabric Size:", str(info.cluster_info.fabric_size)))
 
     if info.schedule is not None:
+        rows.append(None)
         rows.append(("Schedule:", info.schedule))
 
+    rows.append(None)
     rows.append("Security:")
     rows.append(("  Outbound Networking:", disabled if info.block_network else enabled))
     rows.append(("  Modal API Access:", disabled if info.restrict_modal_access else enabled))
@@ -332,6 +349,7 @@ async def info(
 
     # --- Web Functions ---
     if info.web_info is not None:
+        rows.append(None)
         rows.append("Web Info:")
 
         if info.web_info.web_url:
@@ -339,7 +357,9 @@ async def info(
             if info.web_info.method:
                 url_str = f"  URL ({info.web_info.method}):"
 
-            rows.append((url_str, info.web_info.web_url))
+            url_text = Text(info.web_info.web_url, overflow="fold")
+            url_text.stylize(style=Style(link=info.web_info.web_url), end=len(info.web_info.web_url))
+            rows.append((url_str, url_text))
 
         rows.append(("  Authentication:", disabled if info.web_info.unauthenticated else enabled))
 
@@ -347,6 +367,7 @@ async def info(
     if info.method_names is not None:
         assert info.method_details is not None
 
+        rows.append(None)
         rows.append("Methods:")
 
         for method_name in info.method_names:
@@ -362,10 +383,14 @@ async def info(
                 if web_info.method:
                     url_str = f"    URL ({web_info.method}):"
 
-                rows.append((url_str, web_info.web_url))
+                url_text = Text(web_info.web_url, overflow="fold")
+                url_text.stylize(style=Style(link=web_info.web_url), end=len(web_info.web_url))
+
+                rows.append((url_str, url_text))
 
     # --- Mounts ---
     if info.volumes:
+        rows.append(None)
         rows.append("Volume Mounts:")
         for mount_path, volume in info.volumes.items():
             assert volume.volume_id is not None
@@ -384,6 +409,7 @@ async def info(
             rows.append((f"  {mount_path}", volume_text))
 
     if info.cloud_bucket_mounts:
+        rows.append(None)
         rows.append("Cloud Bucket Mounts:")
         for mount_path, cbm in info.cloud_bucket_mounts.items():
             extra = []
@@ -401,6 +427,7 @@ async def info(
 
     # --- Secrets ---
     if info.secrets:
+        rows.append(None)
         rows.append("Secrets:")
 
         async def _hydrate(secret_id: str) -> tuple[str, _Secret | None]:
@@ -440,18 +467,20 @@ async def info(
 
             rows.append((f"  {secret_identifier}", ", ".join(display_keys)))
 
+    t = Table(box=SIMPLE_HEAD, show_header=False)
     for row in rows:
-        t = Table().grid(padding=(0, 0, 3, 3), expand=True)
+        if row is None:
+            t.add_row()
+            continue
 
         if not isinstance(row, tuple):
             if isinstance(row, str):
-                row = Text(row)
+                row = Text(row, style="bold")
 
             if not tty:
                 output_manager.print(row)
             else:
                 t.add_row(row)
-                output_manager.print(t)
 
             continue
 
@@ -464,9 +493,11 @@ async def info(
         if isinstance(left, str):
             left = Text(left, overflow="fold")
         if isinstance(right, str):
-            right = Text(right, overflow="fold", justify="right")
+            right = Text(right, overflow="fold")
 
         t.add_row(left, right)
+
+    if tty:
         output_manager.print(t)
 
 
@@ -702,8 +733,8 @@ async def stats(
     ```
     """
     now = datetime.now(timezone.utc)
-    until_dt = _parse_time_arg(until, default=now)
-    since_dt = _parse_time_arg(since, default=until_dt - _DEFAULT_STATS_WINDOW)
+    until_dt = _parse_time_arg(until, default=now, now=now)
+    since_dt = _parse_time_arg(since, default=until_dt - _DEFAULT_STATS_WINDOW, now=now)
     if since_dt >= until_dt:
         raise UsageError("--since must be before --until.")
 
@@ -917,10 +948,11 @@ def _options_cell(options: _FunctionOptionsInfo | None) -> Text:
     "-n",
     "--tail",
     type=click.IntRange(min=1, max=_MAX_CALL_TAIL),
-    default=_DEFAULT_CALL_TAIL,
-    show_default=True,
-    help="Show up to the last N Function inputs.",
+    default=None,
+    help="Show up to the last N Function inputs. Defaults to 10. Cannot be combined with --since or --until.",
 )
+@click.option("--since", help="Fetch inputs enqueued at or after this time (e.g. '2h' or an ISO 8601 datetime).")
+@click.option("--until", help="Fetch inputs enqueued before this time (e.g. '1h' or an ISO 8601 datetime).")
 @click.option(
     "--all-variants",
     is_flag=True,
@@ -939,13 +971,15 @@ def _options_cell(options: _FunctionOptionsInfo | None) -> Text:
 @synchronizer.create_blocking
 async def calls(
     function_identifier: str,
-    tail: int = _DEFAULT_CALL_TAIL,
+    tail: int | None = None,
     all_variants: bool = False,
     show_function_call_id: bool = False,
     json_output: bool = False,
     no_color: bool = False,
     *,
     env: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
 ) -> None:
     """Show recent inputs for a Modal Function.
 
@@ -953,10 +987,22 @@ async def calls(
     ``APP_NAME/FUNCTION_NAME``. Each unique input corresponds to one entry
     in the output.
 
+    Use ``--since`` and/or ``--until`` to fetch all inputs in the time range,
+    oldest first. ``--until`` defaults to now. If ``--since`` is omitted, the preceeding hour
+    is fetched. If timezones are omitted, the time is interpreted as local time.
+
+    ``--tail`` cannot be combined with either date option.
+    By default, ``--tail`` returns the latest 10 inputs, newest first.
+
+
     Examples:
 
     ```
     modal function calls my-app/my-function
+    ```
+
+    ```
+    modal function calls my-app/my-function --since 2h --until 1h
     ```
 
     Show recent calls across all variants of a Cls:
@@ -971,6 +1017,11 @@ async def calls(
     modal function calls my-app/my-function --no-color
     ```
     """
+    fetch_range = None
+    if since is not None or until is not None:
+        if tail is not None:
+            raise UsageError("--tail cannot be combined with --since or --until.")
+        fetch_range = _parse_fetch_range(since, until)
     environment_name = _get_environment_name(ensure_env(env))
     client = await _Client.from_env()
     function_id, _, _ = await _resolve_function_id(
@@ -979,13 +1030,66 @@ async def calls(
         environment_name,
         command="calls",
     )
-    response = await client._stub.FunctionCallFetch(
-        api_pb2.FunctionCallFetchRequest(
-            function_id=function_id,
-            tail=api_pb2.FunctionCallFetchRequest.Tail(count=tail),
-            all_variants=all_variants,
+    if fetch_range is None:
+        response = await client._stub.FunctionCallFetch(
+            api_pb2.FunctionCallFetchRequest(
+                function_id=function_id,
+                tail=api_pb2.FunctionCallFetchRequest.Tail(count=tail if tail is not None else _DEFAULT_CALL_TAIL),
+                all_variants=all_variants,
+            )
         )
-    )
+        calls: Sequence[api_pb2.FunctionCallInputInfo] = response.function_call_inputs
+    else:
+        since_dt, until_dt = fetch_range
+
+        async def count_ranges(start: float, end: float, bucket_secs: int) -> list[tuple[float, float, int]]:
+            counted = await client._stub.FunctionCallCount(
+                api_pb2.FunctionCallCountRequest(
+                    function_id=function_id,
+                    since=_seconds_to_timestamp(start),
+                    until=_seconds_to_timestamp(end),
+                    bucket_secs=bucket_secs,
+                    all_variants=all_variants,
+                )
+            )
+            if sum(bucket.count for bucket in counted.buckets) > _MAX_CALL_FETCH_INPUTS:
+                raise UsageError(
+                    f"Cannot fetch more than {_MAX_CALL_FETCH_INPUTS:,} inputs. Consider narrowing the range."
+                )
+            return [
+                (
+                    _timestamp_to_seconds(b.bucket_start_at),
+                    _timestamp_to_seconds(b.bucket_start_at) + bucket_secs,
+                    b.count,
+                )
+                for b in counted.buckets
+            ]
+
+        async def fetch_interval(start: float, end: float, limit: int) -> Sequence[api_pb2.FunctionCallInputInfo]:
+            fetched = await client._stub.FunctionCallFetch(
+                api_pb2.FunctionCallFetchRequest(
+                    function_id=function_id,
+                    range=api_pb2.FunctionCallFetchRequest.Range(
+                        since=_seconds_to_timestamp(start), until=_seconds_to_timestamp(end), limit=limit
+                    ),
+                    all_variants=all_variants,
+                )
+            )
+            return fetched.function_call_inputs
+
+        try:
+            calls = [
+                item
+                async for item in _fetch_time_range(
+                    since_dt,
+                    until_dt,
+                    count_ranges,
+                    fetch_interval,
+                    max_concurrent_counts=10,
+                )
+            ]
+        except LogsFetchError:
+            raise UsageError("Too many inputs to fetch in time range. Consider narrowing the range.")
 
     if json_output:
         OutputManager.get().print_json(
@@ -1007,18 +1111,16 @@ async def calls(
                         ),
                         "status": _function_call_status(call.status, True),
                     }
-                    for call in response.function_call_inputs
+                    for call in calls
                 ]
             )
         )
         return
 
-    show_service_method_name = bool(response.function_call_inputs) and all(
-        call.HasField("service_method_name") for call in response.function_call_inputs
-    )
+    show_service_method_name = bool(calls) and all(call.HasField("service_method_name") for call in calls)
     rows: list[list[Text | str]] = []
     previous_enqueued_date = None
-    for call in response.function_call_inputs:
+    for call in calls:
         if call.HasField("enqueued_at"):
             enqueued_at, enqueued_date = grouped_utc_timestamp(call.enqueued_at, previous_enqueued_date)
             previous_enqueued_date = enqueued_date
@@ -1053,6 +1155,12 @@ async def calls(
         rows.append(row)
 
     title = f"Function calls for {function_id}"
+    date_range = ""
+    if fetch_range is not None:
+        since_dt, until_dt = fetch_range
+        since_label = since_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        until_label = until_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        date_range += f" · [{since_label}, {until_label}) UTC"
     if all_variants:
         title += " · all variants"
     output = OutputManager.get()
@@ -1060,7 +1168,7 @@ async def calls(
     output.print(Text(title))
     output.print(
         Text(
-            f"Displaying {len(rows):,} {'row' if len(rows) == 1 else 'rows'}",
+            f"Displaying {len(rows):,} {'row' if len(rows) == 1 else 'rows'}{date_range}",
             style=STATS_METADATA_STYLE if not no_color else "",
         )
     )
@@ -1206,3 +1314,338 @@ async def variants(
                 style="dim",
             )
         )
+
+
+autoscaler_cli = ModalGroup(name="autoscaler", help="View and Configure Autoscaler settings for Modal Functions.")
+function_cli.add_command(autoscaler_cli)
+
+
+@autoscaler_cli.command("settings", no_args_is_help=True)
+@click.argument("function_identifier", metavar="FUNCTION")
+@click.option("--json", "json", is_flag=True, default=False, help="Output as JSON.")
+@env_option
+@synchronizer.create_blocking
+async def autoscaler_info(function_identifier: str, json: bool = False, env: str | None = None):
+    """Show the current Autsocaling settings for the provided Function.
+
+    In addition to the current settings, this command also shows any active overrides to these
+    settings, along with metadata about who overrode the setting, and when. FUNCTION may be a
+    Function ID or a deployed Function name in the form ``APP_NAME/FUNCTION_NAME``.
+
+    If a setting's value is the default and not overridden, its value is omitted in the output.
+
+    Examples:
+
+    Show autoscaling settings for a deployed Function:
+
+    ```
+    modal function autoscaler settings my-app/my-function
+    ```
+
+    Show autoscaling settings using a Function ID:
+
+    ```
+    modal function autoscaler settings fu-1234
+    ```
+    """
+
+    environment_name = _get_environment_name(ensure_env(env))
+    client = await _Client.from_env()
+    function_id, handle_metadata, _ = await _resolve_function_id(
+        client,
+        function_identifier,
+        environment_name,
+        object_type="Function",
+        command="autoscaler settings",
+    )
+
+    if not handle_metadata.base_function_id and len(handle_metadata.class_parameter_info.schema) > 0:
+        raise ValueError(
+            f"`{function_identifier}` is a modal.Cls with parameters. Provide a specific "
+            "parameterization via a Function ID. See `modal function variants`."
+        )
+
+    autoscaler_response = await client._stub.FunctionGetSchedulingParams(
+        api_pb2.FunctionGetSchedulingParamsRequest(function_id=function_id)
+    )
+
+    autoscaler_settings = FunctionAutoscalerSettings._from_proto(autoscaler_response.autoscaler_configuration.settings)
+    override_events = autoscaler_response.autoscaler_configuration.override_events
+
+    output_manager = OutputManager.get()
+
+    if json:
+        current_settings = dataclasses.asdict(autoscaler_settings)
+
+        override_events_json: list[dict[str, str]] = []
+        for k, v in override_events.items():
+            if v.user_id:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_name": v.requested_by,
+                    "actor_id": v.user_id,
+                    "actor_type": "user",
+                }
+            elif v.service_user_id:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_name": v.requested_by,
+                    "actor_id": v.service_user_id,
+                    "actor_type": "service-user",
+                }
+            else:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_id": "unknown",
+                    "actor_name": "unknown",
+                    "actor_type": "unknown",
+                }
+
+            override_events_json.append(obj)
+
+        output_manager.print_json(
+            json_lib.dumps(
+                {
+                    "current_settings": current_settings,
+                    "override_events": override_events_json,
+                }
+            )
+        )
+
+        return
+
+    human_readable = {
+        "min_containers": "Min Containers",
+        "max_containers": "Max Containers",
+        "buffer_containers": "Buffer Containers",
+        "scaledown_window": "Scaledown Window",
+    }
+
+    if override_events:
+        t = Table("Setting", "Value", "Overridden By", box=SIMPLE)
+    else:
+        t = Table("Setting", "Value", box=SIMPLE)
+
+    for key, pretty in human_readable.items():
+        value = getattr(autoscaler_settings, key)
+        value_str = str(value)
+
+        override_meta = "-"
+        if key in override_events:
+            override = override_events[key]
+            override_meta = f"{override.requested_by} at {timestamp_to_localized_str(override.timestamp, isotz=False)}"
+
+        if key == "scaledown_window":
+            value_str = f"{value} seconds"
+
+        if key not in override_events and not value:
+            value_str = "-"
+
+        if override_events:
+            t.add_row(pretty, value_str, override_meta)
+        else:
+            t.add_row(pretty, value_str)
+
+    output_manager.print(t)
+
+
+@autoscaler_cli.command("update", no_args_is_help=True)
+@click.argument("function_identifier", metavar="FUNCTION")
+@click.option("--max-containers", "max_containers", default=None, help="Maximum concurrent containers.")
+@click.option("--min-containers", "min_containers", default=None, help="Minimum number of containers to keep running.")
+@click.option(
+    "--buffer-containers",
+    "buffer_containers",
+    default=None,
+    help="Extra containers to keep warm beyond current demand.",
+)
+@click.option(
+    "--scaledown-window",
+    "scaledown_window",
+    default=None,
+    help="Maximum duration (in seconds) idle containers wait before scaling down.",
+)
+@env_option
+@synchronizer.create_blocking
+async def autoscaler_update(
+    function_identifier: str,
+    max_containers: str | None = None,
+    min_containers: str | None = None,
+    buffer_containers: str | None = None,
+    scaledown_window: str | None = None,
+    env: str | None = None,
+):
+    """Update the current Autsocaling settings for the provided Function.
+
+    FUNCTION may be a Function ID or a deployed Function name in the form ``APP_NAME/FUNCTION_NAME``.
+
+    Settings can be modified using the `--max-containers`, `--min-containers`, `--buffer-containers`,
+    and `--scaledown-window` options.
+
+    If provided, Max Containers should be a positive integer, Min/Buffer Containers should be
+    nonnegative integers, and Scaledown window should be a positive integer measured in seconds.
+
+    Examples:
+
+    Update Max Containers for a deployed Function:
+
+    ```
+    modal function autoscaler update my-app/my-function --max-containers 10
+    ```
+
+    Update both Min and Buffer Containers for a Function by ID:
+
+    ```
+    modal function autoscaler update fu-1234 --min-containers 3 --buffer-containers 2
+    ```
+    """
+
+    environment_name = _get_environment_name(ensure_env(env))
+    client = await _Client.from_env()
+
+    updates: dict[str, int] = {}
+    for k, v in {
+        "min_containers": min_containers,
+        "max_containers": max_containers,
+        "buffer_containers": buffer_containers,
+        "scaledown_window": scaledown_window,
+    }.items():
+        if v is None:
+            continue
+
+        try:
+            updates[k] = parse_int(
+                v,
+                allow_negative=False,
+                allow_zero=k in {"min_containers", "buffer_containers"},
+            )
+        except ValueError as e:
+            option_name = f"--{k.replace('_', '-')}"
+            raise click.UsageError(f"Invalid input for {option_name!r}: {e}")
+
+    output_manager = OutputManager.get()
+    if not updates:
+        output_manager.print("No autoscaler settings specified.")
+        return
+
+    function_id, handle_metadata, _ = await _resolve_function_id(
+        client,
+        function_identifier,
+        environment_name,
+        object_type="Function",
+        command="autoscaler update",
+    )
+
+    if not handle_metadata.base_function_id and len(handle_metadata.class_parameter_info.schema) > 0:
+        raise ValueError(
+            f"`{function_identifier}` is a modal.Cls with parameters. Provide a specific "
+            "parameterization via a Function ID. See `modal function variants`."
+        )
+
+    f: _Function = _Function._new_hydrated(function_id, client, handle_metadata)
+    await f.autoscaler.update(**updates)
+
+    output_manager.print(f"[green]✓[/green] Updated autoscaler settings for Function {handle_metadata.function_name}")
+
+
+@function_cli.command("metrics", no_args_is_help=True)
+@click.argument("identifier", metavar="FUNCTION")
+@click.option("--since", help="Start time: ISO 8601 or relative duration (e.g. 2h). Naive times are local.")
+@click.option("--until", help="End time; same syntax as --since. Defaults to now.")
+@click.option(
+    "--group",
+    "groups",
+    multiple=True,
+    type=str,
+    help="Metric group; repeat to select multiple. Defaults to all. Valid values are "
+    "'containers', 'cpu', 'memory', 'network', 'gpu', 'calls'.",
+)
+@click.option(
+    "--bucket-size",
+    type=str,
+    metavar="DURATION",
+    help=(
+        "Bucket width: 1m, 2m, 3m, 4m, 5m, 6m, 10m, 12m, 15m, 20m, 30m, "
+        "1h, 2h, 3h, 4h, 8h, 12h, 1d. By default, a value is chosen that splits the time range "
+        "into approximately 100 buckets."
+    ),
+)
+@click.option("--json", "json_output", is_flag=True, help="Fetch metric samples and output JSON.")
+@click.option("--csv", "csv_output", is_flag=True, help="Fetch metric samples and output CSV.")
+@click.option("--all-variants", is_flag=True, help="Aggregate the root Function and its variants.")
+@env_option
+@synchronizer.create_blocking
+async def metrics(
+    identifier: str,
+    since: str | None,
+    until: str | None,
+    groups: tuple[str, ...],
+    bucket_size: str | None,
+    json_output: bool,
+    csv_output: bool,
+    env: str | None,
+    all_variants: bool = False,
+) -> None:
+    """Preview and export metrics for a Modal Function.
+
+    Function may be an Object ID or a deployed Function name in the form
+    ``APP_NAME/FUNCTION_NAME``.
+
+    Each metric is a time series over the window from ``--since`` to ``--until``
+    (default: the last hour, maximum: 31 days). Samples are aggregated into
+    fixed-width buckets.
+
+    Set the width with ``--bucket-size``. Each series is limited to 500 buckets, so long windows
+    need wider buckets. Time bounds are rounded down to bucket boundaries in UTC.
+    Results may include data before --since and exclude data between the last boundary and --until.
+
+    Series are grouped by name. Specify which metrics to return with ``--group``.
+
+    By default, prints a schema summarizing the date range, bucket size, and time series that would
+    be returned. Use ``--json`` or ``--csv`` to output the raw samples instead.
+
+    Preview available Function metrics:
+
+    ```shell
+    modal function metrics my-app/my-function
+    ```
+
+    Export calls metrics for the last two hours as JSON:
+
+    ```shell
+    modal function metrics my-app/my-function --group calls --since 2h --json > metrics.json
+    ```
+
+    Export CPU, memory, network, and GPU metrics:
+
+    ```shell
+    modal function metrics my-app/my-function --group cpu --group memory --group network --group gpu --json
+    ```
+
+    Save container metrics with five-minute buckets as CSV:
+
+    ```shell
+    modal function metrics fu-abc123 --group containers --bucket-size 5m --csv > metrics.csv
+    ```
+
+    Export all metrics groups across all parametrized variants:
+
+    ```shell
+    modal function metrics my-app/MyClass.* --all-variants --json > metrics.json
+    ```
+    """
+    await _export_metrics(
+        identifier,
+        since,
+        until,
+        groups,
+        bucket_size,
+        json_output,
+        csv_output,
+        env,
+        is_server=False,
+        all_variants=all_variants,
+    )

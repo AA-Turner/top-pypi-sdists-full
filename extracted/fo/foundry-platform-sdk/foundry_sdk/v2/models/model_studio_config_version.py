@@ -72,6 +72,9 @@ class ModelStudioConfigVersionClient:
     ) -> models_models.ModelStudioConfigVersion:
         """
         Creates a new Model Studio configuration version.
+
+        Required scopes: [api:models-write]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param name: Human readable name of the configuration version and experiment.
@@ -144,6 +147,9 @@ class ModelStudioConfigVersionClient:
     ) -> models_models.ModelStudioConfigVersion:
         """
         Gets a specific Model Studio configuration version.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param model_studio_config_version_version: The version number of this configuration.
@@ -197,6 +203,9 @@ class ModelStudioConfigVersionClient:
     ) -> typing.Optional[models_models.ModelStudioConfigVersion]:
         """
         Gets the latest configuration version for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.
@@ -249,6 +258,9 @@ class ModelStudioConfigVersionClient:
     ) -> core.ResourceIterator[models_models.ModelStudioConfigVersion]:
         """
         Lists all configuration versions for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param page_size: The page size to use for the endpoint.
@@ -364,6 +376,9 @@ class AsyncModelStudioConfigVersionClient:
     ) -> typing.Awaitable[models_models.ModelStudioConfigVersion]:
         """
         Creates a new Model Studio configuration version.
+
+        Required scopes: [api:models-write]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param name: Human readable name of the configuration version and experiment.
@@ -436,6 +451,9 @@ class AsyncModelStudioConfigVersionClient:
     ) -> typing.Awaitable[models_models.ModelStudioConfigVersion]:
         """
         Gets a specific Model Studio configuration version.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param model_studio_config_version_version: The version number of this configuration.
@@ -489,6 +507,9 @@ class AsyncModelStudioConfigVersionClient:
     ) -> typing.Awaitable[typing.Optional[models_models.ModelStudioConfigVersion]]:
         """
         Gets the latest configuration version for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.
@@ -541,6 +562,9 @@ class AsyncModelStudioConfigVersionClient:
     ) -> core.AsyncResourceIterator[models_models.ModelStudioConfigVersion]:
         """
         Lists all configuration versions for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param page_size: The page size to use for the endpoint.

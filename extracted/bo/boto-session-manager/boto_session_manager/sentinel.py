@@ -40,7 +40,7 @@ NOTHING = _Nothing()
 
 
 def resolve_kwargs(
-    _mapper: T.Optional[dict[str, str]] = None,
+    _mapper: dict[str, str] | None = None,
     **kwargs,
 ) -> dict[str, T.Any]:
     """Return a dict of *kwargs* with all ``NOTHING`` values removed.

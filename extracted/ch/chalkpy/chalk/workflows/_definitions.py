@@ -34,6 +34,7 @@ class TaskDefinition(Generic[P, R]):
         retry_delay: timedelta | None,
         timeout: timedelta,
         description: str | None,
+        image: object | None = None,
     ):
         super().__init__()
         self.fn = fn
@@ -42,6 +43,11 @@ class TaskDefinition(Generic[P, R]):
         self.retry_delay = retry_delay
         self.timeout = timeout
         self.description = description
+        # Opaque here: the deploy tooling (e.g. `chalkcompute`) reads it to give the task a worker of its own.
+        self.image = image
+        # Queue of the worker serving this task, when it is not the workflow's own. Set by the
+        # worker process at startup; a routed task runs as a child workflow on this queue.
+        self.task_queue: str | None = None
         self.is_async = inspect.iscoroutinefunction(fn)
         self.filename = fn.__code__.co_filename
         self.qualname = fn.__qualname__
@@ -152,6 +158,7 @@ def task(
     retry_delay: Duration | None = None,
     timeout: Duration | None = None,
     description: str | None = None,
+    image: object | None = None,
 ) -> Callable[[Callable[P, Any]], TaskDefinition[P, Any]]: ...
 
 
@@ -164,6 +171,7 @@ def task(
     retry_delay: Duration | None = None,
     timeout: Duration | None = None,
     description: str | None = None,
+    image: object | None = None,
 ) -> Any:
     """Mark a function as a workflow task.
 
@@ -184,6 +192,11 @@ def task(
         Maximum duration of a single attempt. Defaults to 10 minutes.
     description
         Human-readable description; defaults to the function's docstring.
+    image
+        Container image to run the task on, such as a `chalkcompute.Image`. Workers
+        deployed with `chalkcompute.deploy_workflow_worker` serve each distinct image
+        from its own scale-to-zero worker; the task then runs as a child workflow on
+        that worker's task queue. Ignored when the workflow runs in-process.
 
     Examples
     --------
@@ -201,6 +214,7 @@ def task(
             retry_delay=parse_chalk_duration(retry_delay) if retry_delay is not None else None,
             timeout=parse_chalk_duration(timeout) if timeout is not None else _DEFAULT_TASK_TIMEOUT,
             description=description if description is not None else inspect.getdoc(f),
+            image=image,
         )
         _register(TASK_REGISTRY, definition, kind="task")
         return definition

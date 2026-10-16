@@ -33,6 +33,36 @@ pub fn convert_bgr_to_rgba_simd(bgr: &[u8], rgba: &mut [u8], width: u32, height:
     convert_bgr_to_rgba_scalar(bgr, rgba, pixel_count);
 }
 
+/// Convert 32-bit BGRA/BGRX to RGBA.
+///
+/// Distinct from [`convert_bgr_to_rgba_simd`], which reads a 24-bit source. Callers with a
+/// fourth source byte per pixel are an X11 framebuffer grab (`ZPixmap` at depth 24, which
+/// X11 hands back in a 32bpp slot) and RDP's cursor bitmaps.
+///
+/// The source's fourth byte is discarded rather than copied: on a depth-24 X11 visual it is
+/// undefined padding, so carrying it into alpha renders the frame transparent whenever the
+/// pad happens to be zero. Output alpha is always opaque.
+///
+/// `rgba` may be longer than the frame -- it typically comes from a buffer pool -- and bytes
+/// past `width * height * 4` are left untouched.
+///
+/// This is a scalar loop. It is deliberately not named `_simd`; see the note on
+/// [`convert_bgr_to_rgba_simd`], whose SIMD arms are unimplemented.
+pub fn convert_bgra_to_rgba(bgra: &[u8], rgba: &mut [u8], width: u32, height: u32) {
+    let pixel_count = (width as usize) * (height as usize);
+
+    assert!(rgba.len() >= pixel_count * 4);
+    assert!(bgra.len() >= pixel_count * 4);
+
+    for i in 0..pixel_count {
+        let idx = i * 4;
+        rgba[idx] = bgra[idx + 2]; // R
+        rgba[idx + 1] = bgra[idx + 1]; // G
+        rgba[idx + 2] = bgra[idx]; // B
+        rgba[idx + 3] = 255; // A
+    }
+}
+
 /// Scalar fallback implementation (always works, but slower)
 fn convert_bgr_to_rgba_scalar(bgr: &[u8], rgba: &mut [u8], pixel_count: usize) {
     for i in 0..pixel_count {

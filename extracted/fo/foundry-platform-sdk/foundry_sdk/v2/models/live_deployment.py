@@ -69,6 +69,9 @@ class LiveDeploymentClient:
         """
         Creates a new live deployment for a model version with the specified runtime configuration. The deployment will begin provisioning compute resources and deploying the target model version.
 
+
+        Required scopes: [api:models-write]
+
         :param deployment_type: The target model source for the live deployment. Determines which model and version selection strategy to use when creating the deployment.
         :type deployment_type: CreateLiveDeploymentTarget
         :param runtime_configuration: The compute resource configuration for the deployment.
@@ -138,6 +141,9 @@ class LiveDeploymentClient:
         """
         Disables the live deployment and removes its running replicas while retaining its model and runtime configuration.
 
+
+        Required scopes: [api:models-write]
+
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
         :param preview: Enables the use of preview functionality.
@@ -186,6 +192,9 @@ class LiveDeploymentClient:
     ) -> models_models.LiveDeployment:
         """
         Retrieves a live deployment by its Resource Identifier (RID), including its deployed model version and runtime configuration.
+
+
+        Required scopes: [api:models-read]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
@@ -239,6 +248,9 @@ class LiveDeploymentClient:
         """
         Lists direct live deployments for the specified Model, optionally filtered by branch. Only direct deployments (those tracking the latest model version on a branch) are returned.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid: The Resource Identifier (RID) of the Model to list live deployments for.
         :type model_rid: ModelRid
         :param branch: If provided, only return the live deployment associated with this branch.
@@ -290,6 +302,9 @@ class LiveDeploymentClient:
     ) -> models_models.LiveDeployment:
         """
         Updates the runtime configuration of the live deployment. The deployment will apply the new configuration to the running replicas.
+
+
+        Required scopes: [api:models-write]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
@@ -365,6 +380,9 @@ class LiveDeploymentClient:
         """
         Starts the live deployment. If the deployment is already starting or running, this operation has no effect.
 
+
+        Required scopes: [api:models-write]
+
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
         :param preview: Enables the use of preview functionality.
@@ -417,6 +435,9 @@ class LiveDeploymentClient:
     ) -> models_models.TransformLiveDeploymentResponse:
         """
         Performs inference on the live deployment.
+
+
+        Required scopes: [api:models-execute]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
@@ -554,6 +575,9 @@ class AsyncLiveDeploymentClient:
         """
         Creates a new live deployment for a model version with the specified runtime configuration. The deployment will begin provisioning compute resources and deploying the target model version.
 
+
+        Required scopes: [api:models-write]
+
         :param deployment_type: The target model source for the live deployment. Determines which model and version selection strategy to use when creating the deployment.
         :type deployment_type: CreateLiveDeploymentTarget
         :param runtime_configuration: The compute resource configuration for the deployment.
@@ -623,6 +647,9 @@ class AsyncLiveDeploymentClient:
         """
         Disables the live deployment and removes its running replicas while retaining its model and runtime configuration.
 
+
+        Required scopes: [api:models-write]
+
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
         :param preview: Enables the use of preview functionality.
@@ -671,6 +698,9 @@ class AsyncLiveDeploymentClient:
     ) -> typing.Awaitable[models_models.LiveDeployment]:
         """
         Retrieves a live deployment by its Resource Identifier (RID), including its deployed model version and runtime configuration.
+
+
+        Required scopes: [api:models-read]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
@@ -724,6 +754,9 @@ class AsyncLiveDeploymentClient:
         """
         Lists direct live deployments for the specified Model, optionally filtered by branch. Only direct deployments (those tracking the latest model version on a branch) are returned.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid: The Resource Identifier (RID) of the Model to list live deployments for.
         :type model_rid: ModelRid
         :param branch: If provided, only return the live deployment associated with this branch.
@@ -775,6 +808,9 @@ class AsyncLiveDeploymentClient:
     ) -> typing.Awaitable[models_models.LiveDeployment]:
         """
         Updates the runtime configuration of the live deployment. The deployment will apply the new configuration to the running replicas.
+
+
+        Required scopes: [api:models-write]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
@@ -850,6 +886,9 @@ class AsyncLiveDeploymentClient:
         """
         Starts the live deployment. If the deployment is already starting or running, this operation has no effect.
 
+
+        Required scopes: [api:models-write]
+
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid
         :param preview: Enables the use of preview functionality.
@@ -902,6 +941,9 @@ class AsyncLiveDeploymentClient:
     ) -> typing.Awaitable[models_models.TransformLiveDeploymentResponse]:
         """
         Performs inference on the live deployment.
+
+
+        Required scopes: [api:models-execute]
 
         :param live_deployment_rid:
         :type live_deployment_rid: LiveDeploymentRid

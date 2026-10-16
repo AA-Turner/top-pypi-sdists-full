@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import abc
 import inspect
-import sys
 import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -20,6 +19,7 @@ from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb2
 
 if TYPE_CHECKING:
     from chalk.features._encoding.converter import TPrimitive
+
 from chalk.utils.duration import Duration, parse_chalk_duration_s
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.source_parsing import should_skip_source_code_parsing
@@ -32,19 +32,15 @@ _DISABLE_UNDERSCORE_ORIGIN_TRACKING: ContextVar[bool] = ContextVar(
     default=False,
 )
 
-if sys.version_info < (3, 11):
-    # On python < 3.11, this can cause a significant perf regression, so we always skip parsing
-    CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN = True
-else:
-    CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN = env_var_bool("CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN")
-    """
-    If this environment variable is set, then `Underscore` expressions will not attempt to record their
-    location within a class.
+CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN = env_var_bool("CHALK_SKIP_PRECISE_UNDERSCORE_SOURCE_COLUMN")
+"""
+If this environment variable is set, then `Underscore` expressions will not attempt to record their
+location within a class.
 
-    For feature classes with thousands of members, this can add up to several seconds of validation time.
-    However, if this is enabled, then error messages cannot include accurate line/column numbers for
-    underscore expressions.
-    """
+For feature classes with thousands of members, this can add up to several seconds of validation time.
+However, if this is enabled, then error messages cannot include accurate line/column numbers for
+underscore expressions.
+"""
 
 
 @dataclass

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal
-
 import httpx
 
 from ... import _legacy_response
@@ -14,6 +12,8 @@ from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
 from ..._base_client import make_request_options
 from ...types.account_holders import entity_create_params
+from ...types.transaction_monitoring import EntityType
+from ...types.transaction_monitoring.entity_type import EntityType
 from ...types.account_holders.account_holder_entity import AccountHolderEntity
 from ...types.account_holders.entity_create_response import EntityCreateResponse
 
@@ -51,7 +51,7 @@ class Entities(SyncAPIResource):
         government_id: str,
         last_name: str,
         phone_number: str,
-        type: Literal["BENEFICIAL_OWNER_INDIVIDUAL", "CONTROL_PERSON"],
+        type: EntityType,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -68,7 +68,8 @@ class Entities(SyncAPIResource):
 
         Args:
           address: Individual's current address - PO boxes, UPS drops, and FedEx drops are not
-              acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+              acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB
+              and KYC workflows.
 
           dob: Individual's date of birth, as an RFC 3339 date.
 
@@ -199,7 +200,7 @@ class AsyncEntities(AsyncAPIResource):
         government_id: str,
         last_name: str,
         phone_number: str,
-        type: Literal["BENEFICIAL_OWNER_INDIVIDUAL", "CONTROL_PERSON"],
+        type: EntityType,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -216,7 +217,8 @@ class AsyncEntities(AsyncAPIResource):
 
         Args:
           address: Individual's current address - PO boxes, UPS drops, and FedEx drops are not
-              acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+              acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB
+              and KYC workflows.
 
           dob: Individual's date of birth, as an RFC 3339 date.
 

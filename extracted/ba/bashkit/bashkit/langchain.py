@@ -23,7 +23,7 @@ Use with a LangChain agent::
 
 Wrap a ScriptedTool for multi-tool orchestration::
 
-    >>> from bashkit import ScriptedTool
+    >>> from bashkit.scripted import ScriptedTool
     >>> from bashkit.langchain import create_scripted_tool
     >>>
     >>> st = ScriptedTool("api")
@@ -57,7 +57,7 @@ except ImportError:
 
 
 from bashkit import BashTool as NativeBashTool
-from bashkit import ScriptedTool as NativeScriptedTool
+from bashkit.scripted import ScriptedTool as NativeScriptedTool
 
 
 class BashToolInput(BaseModel):
@@ -93,6 +93,9 @@ if LANGCHAIN_AVAILABLE:
             max_commands: int | None = None,
             max_loop_iterations: int | None = None,
             timeout_seconds: float | None = None,
+            python: bool = False,
+            typescript: bool = False,
+            env: dict[str, str] | None = None,
             files: dict[str, str | Callable[[], str]] | None = None,
             mounts: list[dict[str, Any]] | None = None,
             allowed_mount_paths: list[str] | None = None,
@@ -106,6 +109,9 @@ if LANGCHAIN_AVAILABLE:
                 max_commands=max_commands,
                 max_loop_iterations=max_loop_iterations,
                 timeout_seconds=timeout_seconds,
+                python=python,
+                typescript=typescript,
+                env=env,
                 files=files,
                 mounts=mounts,
                 allowed_mount_paths=allowed_mount_paths,
@@ -153,7 +159,7 @@ if LANGCHAIN_AVAILABLE:
         registered sub-tools in one call.
 
         Example:
-            >>> from bashkit import ScriptedTool
+            >>> from bashkit.scripted import ScriptedTool
             >>> st = ScriptedTool("k8s")
             >>> st.add_tool("get_pods", "List pods", callback=my_callback)
             >>> tool = ScriptedToolLangChain(st)
@@ -210,6 +216,9 @@ def create_bash_tool(
     max_commands: int | None = None,
     max_loop_iterations: int | None = None,
     timeout_seconds: float | None = None,
+    python: bool = False,
+    typescript: bool = False,
+    env: dict[str, str] | None = None,
     files: dict[str, str | Callable[[], str]] | None = None,
     mounts: list[dict[str, Any]] | None = None,
     allowed_mount_paths: list[str] | None = None,
@@ -259,6 +268,9 @@ def create_bash_tool(
         max_commands=max_commands,
         max_loop_iterations=max_loop_iterations,
         timeout_seconds=timeout_seconds,
+        python=python,
+        typescript=typescript,
+        env=env,
         files=files,
         mounts=mounts,
         allowed_mount_paths=allowed_mount_paths,
@@ -280,7 +292,7 @@ def create_scripted_tool(scripted_tool: NativeScriptedTool) -> ScriptedToolLangC
         ImportError: If langchain-core is not installed
 
     Example:
-        >>> from bashkit import ScriptedTool
+        >>> from bashkit.scripted import ScriptedTool
         >>> from bashkit.langchain import create_scripted_tool
         >>>
         >>> st = ScriptedTool("api")

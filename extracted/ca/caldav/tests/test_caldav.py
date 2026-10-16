@@ -29,6 +29,7 @@ from proxy.http.proxy import HttpProxyBasePlugin
 
 from caldav import get_davclient
 
+from .search_cache_delay import SearchCacheDelay
 from .test_servers import get_registry
 from .test_servers.config_loader import load_test_server_config
 
@@ -1259,6 +1260,49 @@ class _TestSchedulingBase:
         with pytest.raises(error.ScheduleTagMismatchError):
             event.save(increase_seqno=False)
 
+    def testScheduleTagIgnoredWithPreconditionEtag(self):
+        """
+        save(precondition="etag") on a stale copy sends If-Match even with a
+        Schedule-Tag cached, and the 412 raises ETagMismatchError.
+        https://github.com/python-caldav/caldav/issues/762
+        """
+        self._skip_unless_support("scheduling.schedule-tag")
+        if len(self.principals) < 2:
+            pytest.skip("need 2 principals for Schedule-Tag to be assigned")
+
+        cal = self._getCalendar(0)
+        organizer_addr = self.principals[0].get_vcal_address()
+        attendee_addr = self.principals[1].get_vcal_address()
+        uid = str(uuid.uuid4())
+        ical = (
+            "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\n"
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid}\r\n"
+            "DTSTAMP:20260101T000000Z\r\n"
+            "DTSTART:20320601T100000Z\r\nDURATION:PT1H\r\n"
+            "SUMMARY:Original\r\n"
+            f"ORGANIZER:{organizer_addr}\r\n"
+            f"ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:{attendee_addr}\r\n"
+            "END:VEVENT\r\nEND:VCALENDAR\r\n"
+        )
+        cal.save_event(ical)
+        self._auto_scheduled_event_uids.append(uid)
+
+        stale = cal.event_by_uid(uid)
+        stale.load()
+        if not stale.etag or stale.etag.startswith("W/"):
+            pytest.skip("server gave no strong ETag, so there is no If-Match to send")
+        assert stale.schedule_tag is not None, "server did not return Schedule-Tag"
+
+        fresh = cal.event_by_uid(uid)
+        fresh.load()
+        fresh.icalendar_component["SUMMARY"] = "Changed elsewhere"
+        fresh.save(increase_seqno=False)
+
+        stale.icalendar_component["DESCRIPTION"] = "Stale edit"
+        with pytest.raises(error.ETagMismatchError):
+            stale.save(increase_seqno=False, precondition="etag")
+
     def testScheduleTagMatchSucceeds(self):
         """
         save() with the correct (current) tag must
@@ -1411,10 +1455,13 @@ class RepeatedFunctionalTestsBaseClass:
         if foo.get("enable"):
             rate_delay = foo.get("interval", 0) / foo.get("count", 1)
             self.caldav.request = _delay_decorator(self.caldav.request, t=rate_delay)
-        foo = self.is_supported("search-cache", dict)
-        if foo.get("behaviour") == "delay":
+        ## A search waits only for what is left of the search-cache delay
+        ## since the last write (see search_cache_delay.py)
+        search_cache = SearchCacheDelay.from_features(self.caldav.features)
+        if search_cache:
             Calendar._search = Calendar.search
-            Calendar.search = _delay_decorator(Calendar.search, t=foo["delay"])
+            Calendar.search = search_cache.wrap_search(Calendar.search)
+            self.caldav.request = search_cache.wrap_request(self.caldav.request)
         delay = write_delay(self.caldav.features)
         if delay:
             ## Every write goes through the client request(); sleep after the
@@ -1515,6 +1562,8 @@ class RepeatedFunctionalTestsBaseClass:
         for calid in (
             self.testcal_id,
             self.testcal_id2,
+            self.testcal_id + "-utf8",
+            self.testcal_id + "-unicode",
             self.testcal_id + "-tasks",
             self.testcal_id + "-journals",
         ):
@@ -1524,8 +1573,12 @@ class RepeatedFunctionalTestsBaseClass:
                 "Yep",
                 "Yapp",
                 "Yølp",
+                "Yølp UTF-8",
+                "Yølp Unicode",
                 self.testcal_id,
                 self.testcal_id2,
+                self.testcal_id + "-utf8",
+                self.testcal_id + "-unicode",
                 self.testcal_id + "-tasks",
                 self.testcal_id + "-journals",
             ):
@@ -1620,11 +1673,6 @@ class RepeatedFunctionalTestsBaseClass:
             else:
                 kwargs["cal_id"] = self.testcal_id
 
-        ## TODO: when the calendar already exists, MKCALENDAR fails and the
-        ## existing one is reused with whatever display name it has - a
-        ## requested name is not enforced.  Combined with tests passing their
-        ## own name for testcal_id (testUtf8Event, testUnicodeEvent), that
-        ## leaks a wrong name into later runs on wipe-calendar servers.
         ret, was_created = get_or_create_test_calendar(
             self.caldav,
             self.principal,
@@ -2070,17 +2118,29 @@ END:VCALENDAR"""
     def testCreateDeleteCalendar(self):
         self.skip_unless_support("create-calendar")
         self.skip_unless_support("delete-calendar")
-        # Always try to delete the calendar first in case a previous test run
-        # was interrupted and left the calendar behind
-        self._teardownCalendar(cal_id=self.testcal_id)
-        c = self.principal.make_calendar(name="Yep", cal_id=self.testcal_id)
-
-        assert c.url is not None
-        events = c.get_events()
-        assert len(events) == 0
-        events = self.principal.calendar(name="Yep", cal_id=self.testcal_id).get_events()
-        assert len(events) == 0
-        c.delete()
+        if self.is_supported("delete-calendar.free-namespace"):
+            cal_id = self.testcal_id
+            name = "Yep"
+            # Always try to delete the calendar first in case a previous test run
+            # was interrupted and left the calendar behind
+            self._teardownCalendar(cal_id=cal_id)
+        else:
+            ## Deleting doesn't free the id (Nextcloud's trashbin), so a fixed
+            ## id can be created only once, and deleting the shared test
+            ## calendar would take it away from the tests reusing it.  A
+            ## fresh id per run instead, leaving one calendar per run in the
+            ## trashbin; its own name keeps it apart from the shared "Yep".
+            cal_id = f"pythoncaldav-test-{uuid.uuid4().hex[:8]}"
+            name = "Yep-createdelete"
+        c = self.principal.make_calendar(name=name, cal_id=cal_id)
+        try:
+            assert c.url is not None
+            events = c.get_events()
+            assert len(events) == 0
+            events = self.principal.calendar(name=name, cal_id=cal_id).get_events()
+            assert len(events) == 0
+        finally:
+            c.delete()
 
         if not self.is_supported("create-calendar.auto"):
             # Two separate pytest.raises blocks: with both probes in a single
@@ -2452,12 +2512,21 @@ END:VCALENDAR"""
         ## ADDING yet another object ... and it should also be reported
         if is_time_based:
             time.sleep(1)
-        c.add_event(near_now_ics(ev3))
+        obj3 = c.add_event(near_now_ics(ev3))
         if is_time_based:
             time.sleep(1)
         my_changed_objects = c.get_objects_by_sync_token(sync_token=my_changed_objects.sync_token)
         if not is_fragile:
-            assert len(list(my_changed_objects)) == 1
+            ## Nextcloud may also report a trashed ev3 from an earlier run as
+            ## removed when the same UID is added again; don't count it
+            changed = [
+                o
+                for o in my_changed_objects
+                if o.url.canonical() not in my_changed_objects.deleted_urls
+            ]
+            assert len(changed) == 1
+            if self.is_supported("save-load.stable-url"):
+                assert changed[0].url.canonical() == obj3.url.canonical()
 
         if is_time_based:
             time.sleep(1)
@@ -2489,6 +2558,27 @@ END:VCALENDAR"""
         my_changed_objects = c.get_objects_by_sync_token(sync_token=my_changed_objects.sync_token)
         if not is_fragile:
             assert len(list(my_changed_objects)) == 0
+
+    def testObjectBySyncTokenNeverIssued(self):
+        """
+        A sync token the server never issued must be refused with the
+        DAV:valid-sync-token precondition (RFC 6578 section 3.2), so the
+        client knows to start over with a full sync.  The tokens are the
+        ones caldav-server-tester probes with.
+        """
+        ## 'quirk' is a status other than 403, whose precondition the
+        ## library doesn't read, so only 'full' can pass
+        if self.is_supported("sync-token.invalid-token", str) != "full":
+            self.skip_unless_support("sync-token.invalid-token")
+            pytest.skip("sync-token.invalid-token is a quirk on this server")
+        c = self._fixCalendar()
+        c.add_event(near_now_ics(ev1))
+        for token in ("http://example.invalid/never-issued", "0" * 40):
+            with pytest.raises(error.DAVError) as e:
+                c.objects_by_sync_token(sync_token=token, disable_fallback=True)
+            assert dav.ValidSyncToken.tag in getattr(e.value, "preconditions", []), (
+                f"token {token!r}: {e.value!r}"
+            )
 
     def testSync(self):
         """
@@ -3979,20 +4069,10 @@ END:VCALENDAR"""
         # TODO: split up in creating a calendar with non-ascii name
         # and an event with non-ascii description
         self.skip_unless_support("create-calendar")
+        cal_id = self.testcal_id + "-utf8"
         if self.cleanup_regime in ("light", "pre"):
-            self._teardownCalendar(cal_id=self.testcal_id)
-
-        ## TODO: this reuses the shared fixture cal_id under another display
-        ## name.  If this test is the one creating the calendar, it stays named
-        ## "Yølp"; under the wipe-calendar cleanup regime (Bedework 3) it is
-        ## never deleted, so testCreateEvent's principal.calendar(name="Yep")
-        ## fails in every later run (observed 2026-10-06).  An existing
-        ## calendar is reused without a rename, so the name does not heal.
-        ## Fix: give this test a cal_id of its own, as the async twin does
-        ## (pythoncaldav-async-utf8-test), point the _teardownCalendar call
-        ## above at it, and add it to _cleanup's teardown list so a calendar
-        ## left by an interrupted run is removed.  Same for testUnicodeEvent.
-        c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
+            self._teardownCalendar(cal_id=cal_id)
+        c = self._fixCalendar(name="Yølp UTF-8", cal_id=cal_id)
 
         # add event
         e1 = c.add_event(
@@ -4013,16 +4093,15 @@ END:VCALENDAR"""
             assert len(events) == 1
 
         if self.cleanup_regime == "post":
-            self._teardownCalendar(cal_id=self.testcal_id)
+            self._teardownCalendar(cal_id=cal_id)
 
     def testUnicodeEvent(self):
         self.skip_unless_support("save-load.event")
         self.skip_unless_support("create-calendar")
+        cal_id = self.testcal_id + "-unicode"
         if self.cleanup_regime in ("light", "pre"):
-            self._teardownCalendar(cal_id=self.testcal_id)
-        ## TODO: may create the shared fixture calendar as "Yølp" - see
-        ## testUtf8Event.
-        c = self._fixCalendar(name="Yølp", cal_id=self.testcal_id)
+            self._teardownCalendar(cal_id=cal_id)
+        c = self._fixCalendar(name="Yølp Unicode", cal_id=cal_id)
 
         # add event
         e1 = c.add_event(
@@ -4574,7 +4653,10 @@ END:VCALENDAR"""
         ## search.time-range.event.old-dates) can still serve the time ranges.
         ## The integer passed to search()/summary_on() is a day offset from this
         ## anchor day; the values just need to be distinct future days.
-        base = (datetime.now() + timedelta(days=2)).replace(
+        ## UTC, so that no DST change between the days shifts the wall clock
+        ## (a series rescheduled to 08:00 local on a CET day would land at
+        ## 09:00 on the CEST days before it).
+        base = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
             hour=8, minute=7, second=6, microsecond=0
         )
 

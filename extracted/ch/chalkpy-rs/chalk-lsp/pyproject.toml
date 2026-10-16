@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "chalk-lsp"
+description = "Language server for Chalk feature pipelines"
+# Placeholder: .buildkite/lsp-wheel-release.yml rewrites this to the release
+# version (the chalk-lsp-vX.Y.Z tag without the "v") before building.
+version = "0.0.0"
+requires-python = ">=3.8"
+authors = [
+    { name = "Chalk AI, Inc." }
+]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Rust",
+]
+
+[project.urls]
+Homepage = "https://chalk.ai"
+Documentation = "https://docs.chalk.ai"
+
+[tool.maturin]
+# Ship the chalk-lsp binary itself (installed into the environment's bin/),
+# not a Python extension module.
+bindings = "bin"
+strip = true

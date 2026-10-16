@@ -51,6 +51,7 @@ from astropy.utils.exceptions import (
     AstropyUserWarning,
     AstropyWarning,
 )
+from astropy.utils.shapes import simplify_basic_index
 
 from . import docstrings
 from ._wcs import (
@@ -732,6 +733,12 @@ reduce these to 2 dimensions using the naxis kwarg.
     def __deepcopy__(self, memo):
         from copy import deepcopy
 
+        # Snapshot the instance dict up front so that we are not sensitive
+        # to it changing while this method runs (e.g. lazy caches inserted
+        # by another thread); unlike iteration, dict.copy() is atomic on
+        # free-threaded builds as it holds the dict's per-object lock
+        state = self.__dict__.copy()
+
         new_copy = self.__class__()
         new_copy.naxis = deepcopy(self.naxis, memo)
         WCSBase.__init__(
@@ -741,7 +748,7 @@ reduce these to 2 dimensions using the naxis kwarg.
             deepcopy(self.wcs, memo),
             (deepcopy(self.det2im1, memo), deepcopy(self.det2im2, memo)),
         )
-        for key, val in self.__dict__.items():
+        for key, val in state.items():
             new_copy.__dict__[key] = deepcopy(val, memo)
         return new_copy
 
@@ -2967,8 +2974,11 @@ reduce these to 2 dimensions using the naxis kwarg.
              be translated to standard (this is partially dependent on
              whether ``fix`` was applied).
 
-          3. Quantities will be converted to the units used internally,
-             basically SI with the addition of degrees.
+          3. Unless the `WCS` was created with ``preserve_units=True``,
+             quantities will be converted to the units used internally,
+             basically SI with the addition of degrees. If
+             ``preserve_units=True``, quantities are written in the
+             original units given by ``CUNITia``.
 
           4. Floating-point quantities may be given to a different decimal
              precision.
@@ -3375,8 +3385,6 @@ reduce these to 2 dimensions using the naxis kwarg.
 
         Parameters
         ----------
-        wcs : `~astropy.wcs.WCS`
-            The WCS with naxis to be chopped to naxis-1
         dropax : int
             The index of the WCS to drop, counting from 0 (i.e., python convention,
             not FITS convention)
@@ -3400,8 +3408,6 @@ reduce these to 2 dimensions using the naxis kwarg.
 
         Parameters
         ----------
-        wcs : `~astropy.wcs.WCS`
-            The WCS to have its axes swapped
         ax0 : int
         ax1 : int
             The indices of the WCS to be swapped, counting from 0 (i.e., python
@@ -3437,8 +3443,19 @@ reduce these to 2 dimensions using the naxis kwarg.
         ----------
         view : tuple
             A tuple containing the same number of slices as the WCS system.
-            The ``step`` method, the third argument to a slice, is not
-            presently supported.
+            If the shape of the data is known (for example if ``array_shape``
+            is set), negative values for the ``start`` and ``stop`` attributes
+            of the slices are interpreted relative to the end of the axis, as
+            for Numpy arrays. If the shape is not known, a negative ``start``
+            raises a `ValueError`, since the offset of the sliced WCS relative
+            to the original one cannot be determined. A negative ``stop`` is
+            still allowed in this case, since it only determines the number of
+            pixels along the sliced axis, which is unknown anyway, and does not
+            affect the coordinate transformation.
+            The ``step`` attribute of the slices can be `None` or a positive
+            integer, in which case the pixel grid is downsampled by that
+            factor. Negative steps, which would reverse an axis, are not
+            supported.
         numpy_order : bool, default: True
             Use numpy order, i.e. slice the WCS so that an identical slice
             applied to a numpy array will slice the array and WCS in the same
@@ -3451,16 +3468,19 @@ reduce these to 2 dimensions using the naxis kwarg.
         wcs_new : `~astropy.wcs.WCS`
             A new resampled WCS axis
         """
-        if view is Ellipsis:
-            return self.deepcopy()
-
-        if hasattr(view, "__len__") and len(view) > self.wcs.naxis:
-            raise ValueError("Must have # of slices <= # of WCS axes")
-        elif not hasattr(view, "__len__"):  # view MUST be an iterable
-            view = [view]
-
-        if len(view) < self.wcs.naxis:
-            view = list(view) + [slice(None) for i in range(self.wcs.naxis - len(view))]
+        # If the shape of the data is known, this resolves negative values and
+        # default values in the slices, otherwise it just checks the slices
+        # and fills in any missing dimensions. The shape is stored in FITS
+        # order so needs to be reversed if the view is in Numpy order.
+        shape = [n or None for n in self._naxis]
+        if numpy_order:
+            shape.reverse()
+        try:
+            view = simplify_basic_index(view, shape=shape)
+        except TypeError:
+            # Non-integer slice values are tolerated, in which case the values
+            # cannot be resolved so the shape is treated as unknown.
+            view = simplify_basic_index(view, shape=[None] * self.naxis)
 
         if not numpy_order:
             view = view[::-1]

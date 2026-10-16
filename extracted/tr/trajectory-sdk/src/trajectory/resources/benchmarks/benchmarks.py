@@ -64,6 +64,7 @@ class Benchmarks(APIResource):
     self,
     *,
     include_holodeck: bool | Omit = omit,
+    latest_only: bool | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -74,10 +75,12 @@ class Benchmarks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> SyncPage[BenchmarkListItem]:
-    """List Benchmarks
+    """List benchmarks newest first; `search` matches the name or benchmark ID.
 
     Args:
       include_holodeck: Include Holodeck benchmarks in the library.
+
+      latest_only: Return only the latest version of each agent's benchmark name.
 
       extra_headers: Send extra headers
 
@@ -94,6 +97,7 @@ class Benchmarks(APIResource):
         params=maybe_transform(
           {
             "include_holodeck": include_holodeck,
+            "latest_only": latest_only,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,

@@ -17,8 +17,7 @@ classifiers = [
   "Topic :: System :: Hardware :: Hardware Drivers",
 ]
 dependencies = [
-  "async_timeout>=4.0.0; python_version<'3.11'",
-  "typing_extensions; python_version<'3.11'",
+  "typing_extensions; python_version<'3.13'",
   "cryptography>=35.0.0",
   "ifaddr>=0.1.7",
 ]
@@ -27,11 +26,30 @@ dynamic = ["version"]
 keywords = ["KNX", "EIB", "Home Assistant", "home automation"]
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.10.0"
+requires-python = ">=3.11.0"
 
 [project.urls]
 homepage = "https://xknx.io/"
 repository = "https://github.com/XKNX/xknx.git"
+
+[project.scripts]
+xknx = "xknx.cli:main"
+
+
+[dependency-groups]
+dev = [
+  "coverage",
+  "freezegun>=1.5",
+  "mypy>=2.3",
+  "prek>=0.4",
+  "pylint>=4.0",
+  "pytest>=9.1",
+  "pytest-asyncio>=1.4",
+  "pytest-cov>=7.1",
+  "pytest-icdiff>=0.9",
+  "ruff>=0.16",
+  "tzdata>=2026.3",
+]
 
 
 [tool.setuptools.dynamic]
@@ -48,7 +66,7 @@ quiet-level = 2
 
 [tool.mypy]
 pretty = true
-python_version = "3.10"
+python_version = "3.11"
 show_error_codes = true
 strict = true
 # additional flags to strict mode
@@ -93,7 +111,7 @@ disable = [
   "unused-argument",                # generic callbacks and setup methods create a lot of warnings
   "wrong-import-order",             # handled by ruff
 ]
-# disabled for tests via command line options in tox.ini:
+# disabled for tests via command line options in the pylint-test hook:
 #   - protected-access
 #   - abstract-class-instantiated
 enable = ["use-symbolic-message-instead"]
@@ -138,13 +156,14 @@ lint.select = [
   "W",     # pydocstyle warning
 ]
 lint.ignore = [
-  "ANN401", # any-type - mypy should handle this where necessary
+  "ANN401",   # any-type - mypy should handle this where necessary
+  "ASYNC109", # async-function-with-timeout - timeout is part of the public API
   "D202",
   "D203",
   "D212",
-  "E501",   # line too long
-  "SIM102", # collapsible-if
-  "SIM105", #suppressible-exception
+  "E501",     # line too long
+  "SIM102",   # collapsible-if
+  "SIM105",   # suppressible-exception
 ]
 extend-exclude = ["script"]
 
@@ -154,6 +173,7 @@ combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
 "examples/*" = ["T20"] # print-used
+"xknx/cli/*" = ["T20"] # print-used - CLI output
 "test/*" = [
   "RUF012",
   "SLF",    # private member access

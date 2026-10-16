@@ -53,6 +53,14 @@ int png_linear_premult(0);
 int tiff_half(0);
 int tiff_multithread(1);
 int dds_bc5normal(0);
+#if OIIO_USE_HWY
+// hwy enabled at build time, but allow env var to override at runtime While
+// we're still testing, default to disabled. We intend to change the default
+// to be enabled in time for the release of 3.2.
+int enable_hwy = Strutil::stoi(Sysutil::getenv("OPENIMAGEIO_ENABLE_HWY", "0"));
+#else
+int enable_hwy = 0;  // Not enabled at build time
+#endif
 int limit_channels(1024);
 int limit_imagesize_MB(std::min(32 * 1024,
                                 int(Sysutil::physical_memory() >> 20)));
@@ -222,9 +230,7 @@ oiio_build_compiler()
     using Strutil::fmt::format;
 
     std::string comp;
-#if OIIO_INTEL_CLASSIC_COMPILER_VERSION
-    comp = format("Intel icc {}", OIIO_INTEL_CLASSIC_COMPILER_VERSION);
-#elif OIIO_INTEL_LLVM_COMPILER
+#if OIIO_INTEL_LLVM_COMPILER
     comp = format("Intel icx {}.{}", __clang_major__, __clang_minor__);
 #elif OIIO_APPLE_CLANG_VERSION
     comp = format("Apple clang {}.{}", __clang_major__, __clang_minor__);
@@ -411,6 +417,12 @@ attribute(string_view name, TypeDesc type, const void* val)
     }
     if (name == "dds:bc5normal" && type == TypeInt) {
         dds_bc5normal = *(const int*)val;
+        return true;
+    }
+    if (name == "enable_hwy" && type == TypeInt) {
+#if OIIO_USE_HWY
+        enable_hwy = *(const int*)val;
+#endif
         return true;
     }
     if (name == "limits:channels" && type == TypeInt) {
@@ -629,6 +641,10 @@ getattribute(string_view name, TypeDesc type, void* val)
     }
     if (name == "dds:bc5normal" && type == TypeInt) {
         *(int*)val = dds_bc5normal;
+        return true;
+    }
+    if (name == "enable_hwy" && type == TypeInt) {
+        *(int*)val = enable_hwy;
         return true;
     }
     if (name == "oiio:print_uncaught_errors" && type == TypeInt) {
@@ -1016,7 +1032,7 @@ convert_image(int nchannels, int width, int height, int depth, const void* src,
         for (int y = 0; y < height; ++y) {
             const char* f = (const char*)src
                             + (z * src_zstride + y * src_ystride);
-            char* t = (char*)dst + (z * dst_zstride + y * dst_ystride);
+            char* t       = (char*)dst + (z * dst_zstride + y * dst_ystride);
             if (contig) {
                 // Special case: pixels within each row are contiguous
                 // in both src and dst and we're copying all channels.
@@ -1050,9 +1066,8 @@ parallel_convert_image(int nchannels, int width, int height, int depth,
 {
     if (nthreads <= 0)
         nthreads = oiio_threads;
-    nthreads
-        = clamp(int((int64_t(width) * height * depth * nchannels) / 100000), 1,
-                nthreads);
+    nthreads = clamp(int((int64_t(width) * height * depth * nchannels) / 100000),
+                     1, nthreads);
     if (nthreads <= 1)
         return convert_image(nchannels, width, height, depth, src, src_type,
                              src_xstride, src_ystride, src_zstride, dst,
@@ -1093,7 +1108,7 @@ copy_image(int nchannels, int width, int height, int depth, const void* src,
         for (int y = 0; y < height; ++y) {
             const char* f = (const char*)src
                             + (z * src_zstride + y * src_ystride);
-            char* t = (char*)dst + (z * dst_zstride + y * dst_ystride);
+            char* t       = (char*)dst + (z * dst_zstride + y * dst_ystride);
             if (contig) {
                 // Special case: pixels within each row are contiguous
                 // in both src and dst and we're copying all channels.

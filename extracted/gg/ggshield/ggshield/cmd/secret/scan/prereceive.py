@@ -12,7 +12,11 @@ from ggshield.cmd.secret.scan.secret_scan_common_options import (
     add_secret_scan_common_options,
     create_output_handler,
 )
-from ggshield.cmd.utils.common_decorators import fail_on_server_error_option
+from ggshield.cmd.utils.common_decorators import (
+    GitUsage,
+    fail_on_server_error_option,
+    uses_git,
+)
 from ggshield.cmd.utils.context_obj import ContextObj
 from ggshield.core import ui
 from ggshield.core.cache import ReadOnlyCache
@@ -24,6 +28,7 @@ from ggshield.core.git_hooks.prereceive import (
     get_prereceive_timeout,
     parse_stdin,
 )
+from ggshield.core.os_truststore import setup_truststore
 from ggshield.core.scan import ScanContext, ScanMode
 from ggshield.utils.git_shell import get_list_commit_SHA
 from ggshield.verticals.secret.output import (
@@ -44,6 +49,7 @@ def _execute_prereceive(
     client: GGClient,
     exclusion_regexes: Set[Pattern[str]],
 ) -> None:
+    setup_truststore()
     try:
         scan_context = ScanContext(
             scan_mode=ScanMode.PRE_RECEIVE,
@@ -70,6 +76,7 @@ def _execute_prereceive(
         sys.exit(handle_exception(error))
 
 
+@uses_git(GitUsage.REQUIRED)
 @click.command()
 @click.argument("prereceive_args", nargs=-1, type=click.UNPROCESSED)
 @click.option(
@@ -132,7 +139,8 @@ def prereceive_cmd(
 
     ui.display_verbose(f"Commits to scan: {len(commit_list)}")
 
-    process = multiprocessing.Process(
+    context = multiprocessing.get_context("fork" if sys.platform == "linux" else None)
+    process = context.Process(
         target=_execute_prereceive,
         kwargs={
             "config": config,

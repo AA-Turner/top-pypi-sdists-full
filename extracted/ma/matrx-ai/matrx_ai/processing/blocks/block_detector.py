@@ -1434,10 +1434,22 @@ def _literal_context_ranges(source: str) -> list[tuple[int, int]]:
     return [(start, end) for start, end, _tag in _xml_regions(source)]
 
 
+_XML_TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*(?:\s[^<>]*)?/?>")
+
+
+def _is_bare_xml_tag_piece(content: str) -> bool:
+    """A tag-container piece that is ONLY opening/closing tags and whitespace (twin of the TS ``isBareXmlTagPiece``)."""
+    return "<" in content and not _XML_TAG_RE.sub("", content).strip()
+
+
 def _recover_embedded_kind_json_blocks(
     blocks: list[DetectedBlock],
 ) -> list[DetectedBlock]:
-    """Losslessly promote embedded self-described objects to JSON blocks."""
+    """Losslessly promote embedded self-described objects to JSON blocks.
+
+    THE WRAPPING TAG IS CONSUMED (twin of the TS splitter): a piece of a generic tag container that
+    holds nothing but the tag itself is the wrapper's chrome, never content.
+    """
     recovered: list[DetectedBlock] = []
     for block in blocks:
         if block.type in _ROOT_KIND_BLOCK_TYPES or (
@@ -1458,7 +1470,10 @@ def _recover_embedded_kind_json_blocks(
             continue
         cursor = 0
         for start, end, _kind in regions:
-            if start > cursor:
+            if start > cursor and not (
+                block.metadata.get("genericXmlContainer")
+                and _is_bare_xml_tag_piece(block.content[cursor:start])
+            ):
                 recovered.append(
                     DetectedBlock(
                         type=block.type,
@@ -1476,7 +1491,10 @@ def _recover_embedded_kind_json_blocks(
                 )
             )
             cursor = end
-        if cursor < len(block.content):
+        if cursor < len(block.content) and not (
+            block.metadata.get("genericXmlContainer")
+            and _is_bare_xml_tag_piece(block.content[cursor:])
+        ):
             recovered.append(
                 DetectedBlock(
                     type=block.type,

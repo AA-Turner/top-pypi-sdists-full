@@ -2183,13 +2183,16 @@ def regression_test(
                 sandbox = SandboxCli()
             except (OSError, ValueError, SandboxError) as exc:
                 case_error = f"Invalid reproduction case: {exc}"
+        if case_error is None and repro_case is not None:
+            case_error = _repro_case_command_error(cmd, repro_case.expectations.command)
         if case_error is not None:
             write_github_output("success", False)
             write_github_output("error", case_error)
             exit_with_error(case_error)
         assert repro_case is not None
-        catalog_path = str(repro_case.catalog_path)
-        state_path = str(repro_case.state_path) if repro_case.state_path else None
+        if repro_case.expectations.command == "read":
+            catalog_path = str(repro_case.catalog_path)
+            state_path = str(repro_case.state_path) if repro_case.state_path else None
         # The sandbox is the controlled upstream; replaying one side's traffic
         # to the other would bypass the per-side baseline restore.
         if enable_http_replay or enable_http_metrics:
@@ -2675,7 +2678,7 @@ def regression_test(
             stream_large_bodies=http_replay_max_body,
         )
         control_sandbox = _check_sandbox_twin_gaps(
-            sandbox, sandbox_scenario, control_sandbox
+            sandbox, sandbox_scenario, control_sandbox, repro_case
         )
 
         replay_from: Path | None = None
@@ -2705,7 +2708,7 @@ def regression_test(
             stream_large_bodies=http_replay_max_body,
         )
         target_sandbox = _check_sandbox_twin_gaps(
-            sandbox, sandbox_scenario, target_sandbox
+            sandbox, sandbox_scenario, target_sandbox, repro_case
         )
 
         # Both dumps have served their purpose by now -- metrics parsed, replay
@@ -3025,9 +3028,9 @@ def _repro_case_argument_error(
             "--repro-case-dir and --sandbox-scenario must be given together, "
             "and --repro-goal needs them"
         )
-    if command not in (Command.READ, Command.READ_WITH_STATE):
-        # Only a read is judged against the case.
-        return "Reproduction cases run only `--command read`"
+    if command not in (Command.READ, Command.READ_WITH_STATE, Command.CHECK):
+        # Only a read or a CHECK is judged against a case.
+        return "Reproduction cases run only `--command read` or `--command check`"
     if skip_compare:
         return "Reproduction cases need comparison mode; drop --skip-compare"
     if connection_id:
@@ -3039,6 +3042,14 @@ def _repro_case_argument_error(
     if selected_streams:
         # The filter rewrites the catalog file in place, i.e. the committed case.
         return "The reproduction case's catalog selects its own streams"
+    return None
+
+
+def _repro_case_command_error(command: Command, case_command: str) -> str | None:
+    """Why `--command` is not the command the case is judged by, if it is not."""
+    runs = "check" if command is Command.CHECK else "read"
+    if runs != case_command:
+        return f"This case runs only `--command {case_command}`"
     return None
 
 
@@ -3055,12 +3066,20 @@ def _restore_sandbox_baseline(
 
 
 def _check_sandbox_twin_gaps(
-    sandbox: SandboxCli | None, scenario_id: str | None, side: SandboxSide
+    sandbox: SandboxCli | None,
+    scenario_id: str | None,
+    side: SandboxSide,
+    repro_case: ReproCase | None = None,
 ) -> SandboxSide:
     """Gate one side on the twin supporting every request it made."""
     if sandbox is None or not scenario_id:
         return side
-    side = check_twin_gaps(sandbox, scenario_id, side)
+    side = check_twin_gaps(
+        sandbox,
+        scenario_id,
+        side,
+        repro_case.injected_failures if repro_case else (),
+    )
     for gap in side.twin_gaps:
         print_error(f"Twin gap: {gap}")
     if side.gap_check_error:
@@ -3117,6 +3136,8 @@ def regression_case_setup(
         "scenario_id": scenario_id,
         "config_path": str(config_file),
         "case_dir": str(case.directory),
+        # From a fixed set, so case content cannot inject an output line.
+        "command": case.expectations.command,
     }
     write_github_outputs(outputs)
     print_json(outputs)

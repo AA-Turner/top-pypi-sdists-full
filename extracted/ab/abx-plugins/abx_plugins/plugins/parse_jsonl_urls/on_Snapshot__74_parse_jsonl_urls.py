@@ -6,7 +6,7 @@
 Parse JSONL bookmark files and extract URLs.
 
 This is a standalone extractor that can run without ArchiveBox.
-It reads JSONL-format bookmark exports from SNAP_DIR/staticfile/*.txt or an HTTP URL.
+It reads captured staticfile text, imported .txt files, or an HTTP URL.
 
 Usage: ./on_Snapshot__74_parse_jsonl_urls.py --url=<url>
 Output: Appends discovered URLs to SNAP_DIR/parse_jsonl_urls/urls.jsonl
@@ -30,9 +30,8 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
-    iter_staticfile_text_inputs,
     load_config,
-    read_file_url_text,
+    read_snapshot_source_text,
     write_text_atomic,
 )
 
@@ -134,28 +133,6 @@ def json_object_to_entry(link: dict) -> dict | None:
     return entry
 
 
-def fetch_content(url: str) -> str:
-    """Fetch content from snapshot source artifacts or an HTTP URL."""
-    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
-    if source_paths:
-        return "\n".join(
-            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
-        )
-    file_content = read_file_url_text(url)
-    if file_content is not None:
-        return file_content
-    if not url.startswith(("http://", "https://")):
-        return ""
-    timeout = CONFIG.TIMEOUT
-    user_agent = CONFIG.USER_AGENT
-
-    import urllib.request
-
-    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="replace")
-
-
 def emit_result(status: str, output_str: str) -> None:
     """Emit final ArchiveResult JSONL plus a short stderr summary."""
     emit_archive_result_record(status, output_str)
@@ -188,7 +165,12 @@ def main(
     """Parse JSONL bookmark file and extract URLs."""
     print("parsing 1 files for urls...")
     try:
-        content = fetch_content(url)
+        content = read_snapshot_source_text(
+            url,
+            snap_dir=SNAP_DIR,
+            timeout=CONFIG.TIMEOUT,
+            user_agent=CONFIG.USER_AGENT,
+        )
     except Exception as e:
         if url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no staticfile import
@@ -204,7 +186,7 @@ def main(
     urls_found = []
     all_tags = set()
 
-    for line in content.splitlines():
+    for line in content.split("\n"):
         line = line.strip()
         if not line:
             continue

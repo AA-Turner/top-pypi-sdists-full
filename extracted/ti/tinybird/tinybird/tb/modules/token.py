@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import click
@@ -201,7 +201,7 @@ def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, f
     obj: Dict[str, Any] = ctx.ensure_object(dict)
     client: TinyB = obj["client"]
 
-    expiration_time = int((ttl + datetime.now(timezone.utc)).timestamp())
+    expiration_time = int((ttl + datetime.now(UTC)).timestamp())
     if len(scope) != len(resource):
         raise CLITokenException(FeedbackManager.error_number_of_scopes_and_resources_mismatch())
 

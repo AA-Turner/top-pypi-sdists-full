@@ -68,6 +68,9 @@ class ResourceRoleClient:
     ) -> None:
         """
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param roles:
@@ -125,6 +128,9 @@ class ResourceRoleClient:
         """
         List the roles on a resource.
 
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param include_inherited: Whether to include inherited roles on the resource.
@@ -178,6 +184,9 @@ class ResourceRoleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> None:
         """
+
+
+        Required scopes: [api:filesystem-write]
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -281,6 +290,9 @@ class AsyncResourceRoleClient:
     ) -> typing.Awaitable[None]:
         """
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param roles:
@@ -338,6 +350,9 @@ class AsyncResourceRoleClient:
         """
         List the roles on a resource.
 
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param include_inherited: Whether to include inherited roles on the resource.
@@ -391,6 +406,9 @@ class AsyncResourceRoleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[None]:
         """
+
+
+        Required scopes: [api:filesystem-write]
 
         :param resource_rid:
         :type resource_rid: ResourceRid

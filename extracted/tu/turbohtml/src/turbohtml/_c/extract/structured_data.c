@@ -20,7 +20,9 @@
 
 #include "core/vec.h"
 #include "tokenizer/binding.h" /* Py_BEGIN_CRITICAL_SECTION shim for the GIL/pre-3.13 build */
+#include "tokenizer/xml_names.h"
 #include "dom/nodes.h"
+#include "url/url.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +53,27 @@ static int ucs4_ieq_trimmed(const Py_UCS4 *value, Py_ssize_t len, const char *li
         }
     }
     return 1;
+}
+
+static int json_ld_type_with_parameters(const Py_UCS4 *value, Py_ssize_t len) {
+    Py_ssize_t start = 0;
+    while (start < len && is_space(value[start])) {
+        start++;
+    }
+    Py_ssize_t type_len = (Py_ssize_t)sizeof(JSON_LD_TYPE) - 1;
+    if (len - start <= type_len) {
+        return 0;
+    }
+    for (Py_ssize_t index = 0; index < type_len; index++) {
+        if (lower_ascii(value[start + index]) != (Py_UCS4)(unsigned char)JSON_LD_TYPE[index]) {
+            return 0;
+        }
+    }
+    Py_ssize_t pos = start + type_len;
+    while (pos + 1 < len && is_space(value[pos])) {
+        pos++;
+    }
+    return value[pos] == ';';
 }
 
 /* Whether the UCS4 run begins with the ASCII literal `prefix`. */
@@ -127,6 +150,15 @@ static int resolve_in_place(PyObject *base, PyObject **value) {
     }
     Py_SETREF(*value, resolved);
     return 0;
+}
+
+/* An explicitly empty RDFa IRI names the current document; other extractors keep empty URL fields empty. */
+static int resolve_rdfa_in_place(PyObject *base, PyObject **value) {
+    if (PyUnicode_GET_LENGTH(*value) == 0) {
+        Py_SETREF(*value, Py_NewRef(base));
+        return 0;
+    }
+    return resolve_in_place(base, value);
 }
 
 /* A named attribute's value as a new str, the empty string when the attribute is absent or valueless (the way
@@ -724,7 +756,8 @@ static PyObject *gather_json_ld(PyObject *self) {
             continue;
         }
         if (!ucs4_ieq_trimmed(type_attr->value, type_attr->value_len, JSON_LD_TYPE,
-                              (Py_ssize_t)sizeof(JSON_LD_TYPE) - 1)) {
+                              (Py_ssize_t)sizeof(JSON_LD_TYPE) - 1) &&
+            !json_ld_type_with_parameters(type_attr->value, type_attr->value_len)) {
             continue;
         }
         PyObject *text = str_from_accessor(th_node_text, tree, node);
@@ -762,9 +795,9 @@ static const th_node_attr *social_meta_attr(th_tree *tree, th_node *node) {
     return NULL;
 }
 
-/* Map every <meta property=og:*> / <meta name=twitter:*> key to its content value (last occurrence wins). A URL-valued
-   key's content is absolutized against `base` when the caller passed one (base is NULL otherwise, leaving every value
-   verbatim). NULL only on the excluded allocation-failure path. */
+/* Map every <meta property=og:*> / <meta name=twitter:*> key to its content value (first og: and last twitter:
+   occurrence wins). A URL-valued key's content is absolutized against `base` when the caller passed one (base is NULL
+   otherwise, leaving every value verbatim). NULL only on the excluded allocation-failure path. */
 static PyObject *gather_opengraph(PyObject *self, PyObject *base, int strip_prefix) {
     PyObject *result = PyDict_New();
     if (result == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -802,7 +835,12 @@ static PyObject *gather_opengraph(PyObject *self, PyObject *base, int strip_pref
                 break;                                  /* GCOVR_EXCL_LINE */
             }
         }
-        int set_failed = PyDict_SetItem(result, key, content) < 0;
+        int set_failed;
+        if (strip_prefix || ucs4_has_prefix(key_attr->value, key_attr->value_len, "og:", 3)) {
+            set_failed = PyDict_SetDefault(result, key, content) == NULL;
+        } else {
+            set_failed = PyDict_SetItem(result, key, content) < 0;
+        }
         Py_DECREF(key);
         Py_DECREF(content);
         if (set_failed) { /* GCOVR_EXCL_BR_LINE: insert fails only on unforceable allocation */
@@ -858,9 +896,8 @@ static PyObject *gather_microdata(PyObject *self, PyObject *base) {
     return items;
 }
 
-/* The RDFa 1.1 initial context: the prefix -> IRI mappings a page inherits without declaring a @prefix, so schema:,
-   dc:, foaf:, and the other well-known vocabularies expand out of the box (W3C rdfa-1.1 context). A page @prefix
-   overrides an entry of the same name for its subtree. */
+/* The RDFa 1.1 initial-context prefixes a page inherits without @prefix, so schema:, sosa:, and other vocabularies
+   expand out of the box. A page @prefix overrides an entry of the same name for its subtree. */
 typedef struct {
     const char *prefix;
     const char *iri;
@@ -947,44 +984,214 @@ typedef struct {
     Py_ssize_t item_depth;
 } rdfa_ctx;
 
-/* Expand an RDFa TERMorCURIEorAbsIRI token to its IRI: a bare term (no colon) joins the in-scope @vocab, a prefixed
-   token prefix:reference joins the prefix's IRI when the prefix is declared, and anything else (an undeclared prefix,
-   an absolute IRI, or a bare term with no @vocab in scope) is kept verbatim. NULL only on the excluded
-   allocation-failure path. */
+static int rdfa_matches_term(PyObject *token, const char *term, Py_ssize_t len) {
+    int kind = PyUnicode_KIND(token);
+    void *data = PyUnicode_DATA(token);
+    for (Py_ssize_t index = 0; index < len; index++) {
+        Py_UCS4 codepoint = PyUnicode_READ(kind, data, index);
+        if ((unsigned int)(codepoint - 'A') < 26) {
+            codepoint += 'a' - 'A';
+        }
+        if (codepoint != (Py_UCS4)(unsigned char)term[index]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static const char *rdfa_initial_prefix_iri(PyObject *prefix) {
+    static const struct {
+        const char *prefix;
+        Py_ssize_t len;
+        const char *iri;
+    } additions[] = {
+        {"jsonld", 6, "http://www.w3.org/ns/json-ld#"}, {"odrl", 4, "http://www.w3.org/ns/odrl/2/"},
+        {"sosa", 4, "http://www.w3.org/ns/sosa/"},      {"ssn", 3, "http://www.w3.org/ns/ssn/"},
+        {"time", 4, "http://www.w3.org/2006/time#"},
+    };
+    Py_ssize_t len = PyUnicode_GET_LENGTH(prefix);
+    for (size_t index = 0; index < sizeof(additions) / sizeof(additions[0]); index++) {
+        if (len == additions[index].len && PyUnicode_CompareWithASCIIString(prefix, additions[index].prefix) == 0) {
+            return additions[index].iri;
+        }
+    }
+    return NULL;
+}
+
+/* RDFa @property/@typeof permit terms, CURIEs, and absolute IRIs, but not SafeCURIEs; malformed terms are ignored.
+   Bare terms join @vocab or the initial context; unknown terms and undeclared prefixes are kept verbatim. */
 static PyObject *rdfa_expand_term(PyObject *token, PyObject *vocab, PyObject *prefixes) {
     Py_ssize_t length = PyUnicode_GET_LENGTH(token);
     Py_ssize_t colon = PyUnicode_FindChar(token, (Py_UCS4)':', 0, length, 1);
     if (colon < 0) {
+        if (!is_name_start(PyUnicode_READ_CHAR(token, 0))) {
+            return Py_NewRef(Py_None);
+        }
+        for (Py_ssize_t index = 1; index < length; index++) {
+            Py_UCS4 code = PyUnicode_READ_CHAR(token, index);
+            if (code != '/' && !is_name_char(code)) {
+                return Py_NewRef(Py_None);
+            }
+        }
         if (vocab != NULL) {
             return PyUnicode_Concat(vocab, token);
         }
+        if (length == 4 && rdfa_matches_term(token, "role", 4)) {
+            return PyUnicode_FromString("http://www.w3.org/1999/xhtml/vocab#role");
+        }
+        if (length == 7 && rdfa_matches_term(token, "license", 7)) {
+            return PyUnicode_FromString("http://www.w3.org/1999/xhtml/vocab#license");
+        }
+        if (length == 11 && rdfa_matches_term(token, "describedby", 11)) {
+            return PyUnicode_FromString("http://www.w3.org/2007/05/powder-s#describedby");
+        }
         return Py_NewRef(token);
+    }
+    if (PyUnicode_READ_CHAR(token, 0) == '[') {
+        return Py_NewRef(Py_None);
+    }
+    if (colon == 0) {
+        PyObject *reference = PyUnicode_Substring(token, 1, length);
+        if (reference == NULL) { /* GCOVR_EXCL_BR_LINE: substring fails only on unforceable allocation */
+            return NULL;         /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        PyObject *result = th_str_format("http://www.w3.org/1999/xhtml/vocab#%U", reference);
+        Py_DECREF(reference);
+        return result;
     }
     PyObject *prefix = PyUnicode_Substring(token, 0, colon);
     if (prefix == NULL) { /* GCOVR_EXCL_BR_LINE: substring fails only on unforceable allocation */
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     PyObject *iri = PyDict_GetItemWithError(prefixes, prefix);
-    Py_DECREF(prefix);
     if (iri == NULL) {
         if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: lookup fails only on an unforceable error */
+            Py_DECREF(prefix);  /* GCOVR_EXCL_LINE: error path */
             return NULL;        /* GCOVR_EXCL_LINE: error path */
         }
+        for (Py_ssize_t index = 0; index < colon; index++) {
+            Py_UCS4 code = PyUnicode_READ_CHAR(prefix, index);
+            if (Py_UNICODE_TOLOWER(code) != code) {
+                PyObject *lower = PyObject_CallMethod(prefix, "lower", NULL);
+                if (lower == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+                    Py_DECREF(prefix); /* GCOVR_EXCL_LINE: allocation-failure path */
+                    return NULL;       /* GCOVR_EXCL_LINE */
+                }
+                Py_DECREF(prefix);
+                prefix = lower;
+                iri = PyDict_GetItemWithError(prefixes, prefix);
+                break;
+            }
+        }
+    }
+    if (iri == NULL && PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: lookup fails only on unforceable error */
+        Py_DECREF(prefix);                 /* GCOVR_EXCL_LINE: error path */
+        return NULL;                       /* GCOVR_EXCL_LINE */
+    }
+    const char *initial_iri = iri == NULL ? rdfa_initial_prefix_iri(prefix) : NULL;
+    Py_DECREF(prefix);
+    if (iri == NULL && initial_iri == NULL) {
         return Py_NewRef(token);
+    }
+    PyObject *base = NULL;
+    PyObject *mapping = iri;
+    if (mapping != NULL && PyTuple_CheckExact(mapping)) {
+        base = PyTuple_GET_ITEM(mapping, 2);
+        iri = PyTuple_GET_ITEM(mapping, 0);
     }
     PyObject *reference = PyUnicode_Substring(token, colon + 1, length);
     if (reference == NULL) { /* GCOVR_EXCL_BR_LINE: substring fails only on unforceable allocation */
         return NULL;         /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    PyObject *result = PyUnicode_Concat(iri, reference);
+    if (base != NULL && PyTuple_GET_ITEM(mapping, 1) != Py_None) {
+        int simple = 1;
+        for (Py_ssize_t index = 0; index < PyUnicode_GET_LENGTH(reference); index++) {
+            Py_UCS4 code = PyUnicode_READ_CHAR(reference, index);
+            if (!((code >= (Py_UCS4)'a' && code <= (Py_UCS4)'z') || (code >= (Py_UCS4)'A' && code <= (Py_UCS4)'Z') ||
+                  (code >= (Py_UCS4)'0' && code <= (Py_UCS4)'9') || code == (Py_UCS4)'_' || code == (Py_UCS4)'-')) {
+                simple = 0;
+                break;
+            }
+        }
+        if (simple) {
+            iri = PyTuple_GET_ITEM(mapping, 1);
+            base = NULL;
+        }
+    }
+    PyObject *result = iri != NULL ? PyUnicode_Concat(iri, reference) : th_str_format("%s%U", initial_iri, reference);
     Py_DECREF(reference);
+    if (result != NULL && base != NULL && resolve_in_place(base, &result) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+        Py_DECREF(result); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;       /* GCOVR_EXCL_LINE */
+    }
     return result;
+}
+
+/* RDFa 1.1 requires CURIE expansion before IRI fallback for @about/@resource. An invalid SafeCURIE has no IRI and
+   cannot fall back. */
+static PyObject *rdfa_resource_iri(PyObject *value, rdfa_ctx ctx) {
+    Py_ssize_t length = PyUnicode_GET_LENGTH(value);
+    int safe = length > 0 && PyUnicode_READ_CHAR(value, 0) == (Py_UCS4)'[';
+    if (safe && (length < 3 || PyUnicode_READ_CHAR(value, length - 1) != (Py_UCS4)']')) {
+        Py_DECREF(value);
+        return Py_NewRef(Py_None);
+    }
+    PyObject *curie = value;
+    if (safe) {
+        curie = PyUnicode_Substring(value, 1, length - 1);
+        if (curie == NULL) {  /* GCOVR_EXCL_BR_LINE: substring fails only on unforceable allocation */
+            Py_DECREF(value); /* GCOVR_EXCL_LINE: allocation-failure path */
+            return NULL;      /* GCOVR_EXCL_LINE */
+        }
+    }
+    Py_ssize_t colon = PyUnicode_FindChar(curie, (Py_UCS4)':', 0, PyUnicode_GET_LENGTH(curie), 1);
+    Py_ssize_t curie_length = PyUnicode_GET_LENGTH(curie);
+    int iri = colon < 0 || (colon + 2 < curie_length && PyUnicode_READ_CHAR(curie, colon + 1) == (Py_UCS4)'/' &&
+                            PyUnicode_READ_CHAR(curie, colon + 2) == (Py_UCS4)'/');
+    if (iri) {
+        if (safe) {
+            Py_DECREF(curie);
+            Py_DECREF(value);
+            return Py_NewRef(Py_None);
+        }
+        if (ctx.base != NULL && resolve_rdfa_in_place(ctx.base, &value) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            Py_DECREF(value);                                                  /* GCOVR_EXCL_LINE */
+            return NULL;                                                       /* GCOVR_EXCL_LINE */
+        }
+        return value;
+    }
+    PyObject *expanded = rdfa_expand_term(curie, NULL, ctx.prefixes);
+    if (expanded == NULL) {   /* GCOVR_EXCL_BR_LINE: expansion fails only on unforceable allocation */
+        if (safe) {           /* GCOVR_EXCL_LINE: allocation-failure path */
+            Py_DECREF(curie); /* GCOVR_EXCL_LINE */
+        } /* GCOVR_EXCL_LINE: allocation-failure path */
+        Py_DECREF(value); /* GCOVR_EXCL_LINE */
+        return NULL;      /* GCOVR_EXCL_LINE */
+    }
+    if (expanded != curie) {
+        if (safe) {
+            Py_DECREF(curie);
+        }
+        Py_DECREF(value);
+        return expanded;
+    }
+    Py_DECREF(expanded);
+    if (safe) {
+        Py_DECREF(curie);
+        Py_DECREF(value);
+        return Py_NewRef(Py_None);
+    }
+    if (ctx.base != NULL && resolve_rdfa_in_place(ctx.base, &value) < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        Py_DECREF(value); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;      /* GCOVR_EXCL_LINE */
+    }
+    return value;
 }
 
 /* Merge the whitespace-separated `prefix: iri` pairs of a @prefix attribute into `prefixes`. A `prefix:` token names a
    prefix (the trailing colon is dropped) and the next token is its IRI; a token that is neither is skipped, and a
    trailing `prefix:` with no IRI is dropped (RDFa 1.1 processing). -1 only on the excluded allocation-failure path. */
-static int parse_prefix_decls(PyObject *prefixes, const Py_UCS4 *value, Py_ssize_t len) {
+static int parse_prefix_decls(PyObject *prefixes, const Py_UCS4 *value, Py_ssize_t len, PyObject *base) {
     PyObject *pending = NULL;
     Py_ssize_t cursor = 0;
     while (cursor < len) {
@@ -999,10 +1206,22 @@ static int parse_prefix_decls(PyObject *prefixes, const Py_UCS4 *value, Py_ssize
             break;
         }
         if (pending == NULL) {
-            if (value[cursor - 1] == (Py_UCS4)':') {
+            if (cursor - start > 1 && value[cursor - 1] == (Py_UCS4)':') {
                 pending = ucs4_to_str(&value[start], cursor - start - 1);
                 if (pending == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                     return -1;         /* GCOVR_EXCL_LINE: allocation-failure path */
+                }
+                for (Py_ssize_t index = start; index < cursor - 1; index++) {
+                    if (Py_UNICODE_TOLOWER(value[index]) == value[index]) {
+                        continue;
+                    }
+                    PyObject *lower = PyObject_CallMethod(pending, "lower", NULL);
+                    Py_DECREF(pending);
+                    pending = lower;
+                    if (pending == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+                        return -1;         /* GCOVR_EXCL_LINE: allocation-failure path */
+                    }
+                    break;
                 }
             }
             continue;
@@ -1011,6 +1230,29 @@ static int parse_prefix_decls(PyObject *prefixes, const Py_UCS4 *value, Py_ssize
         if (iri == NULL) {      /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             Py_DECREF(pending); /* GCOVR_EXCL_LINE: allocation-failure path */
             return -1;          /* GCOVR_EXCL_LINE */
+        }
+        if (base != NULL && th_url_scheme_colon(value, start, cursor) < 0) {
+            PyObject *resolved = Py_NewRef(Py_None);
+            if (PyUnicode_READ_CHAR(iri, PyUnicode_GET_LENGTH(iri) - 1) == (Py_UCS4)'/') {
+                Py_SETREF(resolved, Py_NewRef(iri));
+                if (resolve_in_place(base, &resolved) < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+                    Py_DECREF(pending);                      /* GCOVR_EXCL_LINE */
+                    Py_DECREF(iri);                          /* GCOVR_EXCL_LINE */
+                    Py_DECREF(resolved);                     /* GCOVR_EXCL_LINE */
+                    return -1;                               /* GCOVR_EXCL_LINE */
+                }
+                if (resolved == iri) {
+                    Py_SETREF(resolved, Py_NewRef(Py_None));
+                }
+            }
+            PyObject *relative = PyTuple_Pack(3, iri, resolved, base);
+            Py_DECREF(resolved);
+            if (relative == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+                Py_DECREF(pending); /* GCOVR_EXCL_LINE */
+                Py_DECREF(iri);     /* GCOVR_EXCL_LINE */
+                return -1;          /* GCOVR_EXCL_LINE */
+            }
+            Py_SETREF(iri, relative);
         }
         int failed = PyDict_SetItem(prefixes, pending, iri) < 0;
         Py_DECREF(pending);
@@ -1027,7 +1269,8 @@ static int parse_prefix_decls(PyObject *prefixes, const Py_UCS4 *value, Py_ssize
 /* The child's in-scope @vocab: a new str for a non-empty @vocab, NULL (the vocabulary cleared) for an empty or
    valueless one, or the parent's borrowed value when the child declares none. *owned records whether *out is a new
    reference the caller must release. -1 only on the excluded allocation-failure path. */
-static int resolve_child_vocab(th_tree *tree, th_node *child, PyObject *parent, PyObject **out, int *owned) {
+static int resolve_child_vocab(th_tree *tree, th_node *child, PyObject *parent, PyObject *base, PyObject **out,
+                               int *owned) {
     Py_ssize_t index = th_node_attr_find(tree, child, "vocab", 5);
     if (index < 0) {
         *out = parent;
@@ -1044,6 +1287,12 @@ static int resolve_child_vocab(th_tree *tree, th_node *child, PyObject *parent, 
     if (value == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;       /* GCOVR_EXCL_LINE: allocation-failure path */
     }
+    if (base != NULL && th_url_scheme_colon(attr->value, 0, attr->value_len) < 0) {
+        if (resolve_in_place(base, &value) < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            Py_DECREF(value);                     /* GCOVR_EXCL_LINE: allocation-failure path */
+            return -1;                            /* GCOVR_EXCL_LINE */
+        }
+    }
     *out = value;
     *owned = 1;
     return 0;
@@ -1052,7 +1301,8 @@ static int resolve_child_vocab(th_tree *tree, th_node *child, PyObject *parent, 
 /* The child's in-scope prefix map: a copy of the parent's updated with the child's @prefix declarations, or the
    parent's borrowed map when the child declares none. *owned records whether *out is a new reference to release. -1
    only on the excluded allocation-failure path. */
-static int resolve_child_prefixes(th_tree *tree, th_node *child, PyObject *parent, PyObject **out, int *owned) {
+static int resolve_child_prefixes(th_tree *tree, th_node *child, PyObject *parent, PyObject *base, PyObject **out,
+                                  int *owned) {
     Py_ssize_t index = th_node_attr_find(tree, child, "prefix", 6);
     if (index < 0 || child->attrs[index].value == NULL) {
         *out = parent;
@@ -1063,8 +1313,8 @@ static int resolve_child_prefixes(th_tree *tree, th_node *child, PyObject *paren
     if (copy == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
-    if (parse_prefix_decls(copy, child->attrs[index].value, child->attrs[index].value_len) < 0) { /* GCOVR_EXCL_BR_LINE:
-                                                                                 allocation-failure path */
+    int prefix_rc = parse_prefix_decls(copy, child->attrs[index].value, child->attrs[index].value_len, base);
+    if (prefix_rc < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         Py_DECREF(copy); /* GCOVR_EXCL_LINE: allocation-failure path */
         return -1;       /* GCOVR_EXCL_LINE */
     }
@@ -1089,13 +1339,13 @@ static void release_child_ctx(rdfa_ctx *child_ctx, int vocab_owned, int prefixes
 static int resolve_child_ctx(th_tree *tree, th_node *child, rdfa_ctx parent, rdfa_ctx *child_ctx, int *vocab_owned,
                              int *prefixes_owned) {
     PyObject *vocab = NULL;
-    int vocab_rc = resolve_child_vocab(tree, child, parent.vocab, &vocab, vocab_owned);
+    int vocab_rc = resolve_child_vocab(tree, child, parent.vocab, parent.base, &vocab, vocab_owned);
     if (vocab_rc < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     PyObject *prefixes = NULL;
-    if (resolve_child_prefixes(tree, child, parent.prefixes, &prefixes, prefixes_owned) < 0) { /* GCOVR_EXCL_BR_LINE:
-                                                                                        allocation-failure path */
+    int prefixes_rc = resolve_child_prefixes(tree, child, parent.prefixes, parent.base, &prefixes, prefixes_owned);
+    if (prefixes_rc < 0) {                                         /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         rdfa_ctx partial = {vocab, NULL, NULL, parent.item_depth}; /* GCOVR_EXCL_LINE: allocation-failure path */
         release_child_ctx(&partial, *vocab_owned, 0);              /* GCOVR_EXCL_LINE */
         return -1;                                                 /* GCOVR_EXCL_LINE */
@@ -1109,7 +1359,7 @@ static int resolve_child_ctx(th_tree *tree, th_node *child, rdfa_ctx parent, rdf
 
 /* The resource subject of a typeof element: its @about, else @resource, else @href, else @src (resolved against base
    when set), or None for a blank node when it names none. NULL only on the excluded allocation-failure path. */
-static PyObject *rdfa_subject(th_tree *tree, th_node *element, PyObject *base) {
+static PyObject *rdfa_subject(th_tree *tree, th_node *element, rdfa_ctx ctx) {
     static const char *const names[] = {"about", "resource", "href", "src"};
     static const Py_ssize_t lens[] = {5, 8, 4, 3};
     for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
@@ -1120,11 +1370,18 @@ static PyObject *rdfa_subject(th_tree *tree, th_node *element, PyObject *base) {
         if (iri == NULL) { /* GCOVR_EXCL_BR_LINE: attr_url_or_empty fails only on allocation */
             return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        if (base != NULL) {
-            if (resolve_in_place(base, &iri) < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-                Py_DECREF(iri);                     /* GCOVR_EXCL_LINE: allocation-failure path */
-                return NULL;                        /* GCOVR_EXCL_LINE */
-            }
+        if (index < 2) {
+            iri = rdfa_resource_iri(iri, ctx);
+        } else if (ctx.base != NULL && resolve_rdfa_in_place(ctx.base, &iri) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            Py_DECREF(iri);                                                         /* GCOVR_EXCL_LINE */
+            return NULL;                                                            /* GCOVR_EXCL_LINE */
+        }
+        if (iri == NULL) { /* GCOVR_EXCL_BR_LINE: expansion fails only on unforceable allocation */
+            return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (iri == Py_None) {
+            Py_DECREF(iri);
+            continue;
         }
         return iri;
     }
@@ -1159,6 +1416,10 @@ static PyObject *expand_typeof(th_tree *tree, th_node *element, rdfa_ctx ctx) {
             Py_DECREF(tokens);  /* GCOVR_EXCL_LINE: allocation-failure path */
             Py_DECREF(result);  /* GCOVR_EXCL_LINE */
             return NULL;        /* GCOVR_EXCL_LINE */
+        }
+        if (expanded == Py_None) {
+            Py_DECREF(expanded);
+            continue;
         }
         int failed = PyList_Append(result, expanded) < 0;
         Py_DECREF(expanded);
@@ -1197,11 +1458,18 @@ static PyObject *rdfa_value(th_tree *tree, module_state *state, th_node *element
         if (iri == NULL) { /* GCOVR_EXCL_BR_LINE: attr_url_or_empty fails only on allocation */
             return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        if (ctx.base != NULL) {
-            if (resolve_in_place(ctx.base, &iri) < 0) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
-                Py_DECREF(iri);                         /* GCOVR_EXCL_LINE: allocation-failure path */
-                return NULL;                            /* GCOVR_EXCL_LINE */
-            }
+        if (index == 0) {
+            iri = rdfa_resource_iri(iri, ctx);
+        } else if (ctx.base != NULL && resolve_rdfa_in_place(ctx.base, &iri) < 0) { /* GCOVR_EXCL_BR_LINE: allocation */
+            Py_DECREF(iri);                                                         /* GCOVR_EXCL_LINE */
+            return NULL;                                                            /* GCOVR_EXCL_LINE */
+        }
+        if (iri == NULL) { /* GCOVR_EXCL_BR_LINE: expansion fails only on unforceable allocation */
+            return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (iri == Py_None) {
+            Py_DECREF(iri);
+            continue;
         }
         return iri;
     }
@@ -1235,7 +1503,7 @@ static PyObject *build_rdfa_item(th_tree *tree, module_state *state, th_node *el
         Py_DECREF(properties); /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;           /* GCOVR_EXCL_LINE */
     }
-    PyObject *resource = rdfa_subject(tree, element, ctx.base);
+    PyObject *resource = rdfa_subject(tree, element, ctx);
     if (resource == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation-failure path */
         Py_DECREF(type_list);  /* GCOVR_EXCL_LINE: allocation-failure path */
         Py_DECREF(properties); /* GCOVR_EXCL_LINE */
@@ -1264,6 +1532,10 @@ static int rdfa_add_property(PyObject *properties, const Py_UCS4 *names, Py_ssiz
         PyObject *key = rdfa_expand_term(PyList_GET_ITEM(tokens, token), ctx.vocab, ctx.prefixes);
         if (key == NULL) { /* GCOVR_EXCL_BR_LINE: expansion fails only on unforceable allocation */
             goto done;     /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (key == Py_None) {
+            Py_DECREF(key);
+            continue;
         }
         PyObject *bucket = PyDict_GetItemWithError(properties, key);
         if (bucket != NULL) {
@@ -1733,15 +2005,7 @@ static PyObject *resolve_base(PyObject *self, PyObject *base_url) {
         return NULL;
     }
     Py_DECREF(probe);
-    PyObject *base = th_document_base_url(self, base_url);
-    if (base == NULL) {
-        if (!PyErr_ExceptionMatches(PyExc_ValueError)) { /* GCOVR_EXCL_BR_LINE: only allocation past a validated base */
-            return NULL;                                 /* GCOVR_EXCL_LINE: allocation-failure path */
-        }
-        PyErr_Clear(); /* a malformed <base href> falls back to base_url rather than failing */
-        return Py_NewRef(base_url);
-    }
-    return base;
+    return th_document_base_url(self, base_url);
 }
 
 /* Parse the optional base_url the opengraph/microdata/structured_data methods share, `spec` naming the method for the

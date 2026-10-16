@@ -15,14 +15,14 @@ use crate::{
 
 use super::{
 	Input,
-	inline::link,
+	node::inline::link,
 	rule::{Rule, RuleSet},
 };
 
 /// A precomputed hint about whether a grammar's necessary bytes are present in the remaining
 /// input. Used to skip O(N) inner-parse work when the grammar cannot possibly match.
 ///
-/// Set once per top-level [`crate::inline::inline`] call via
+/// Set once per top-level [`crate::node::inline::inline`] call via
 /// [`Grammar::precheck_hint`] and propagated to child contexts so the scan is amortized.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ByteHint {

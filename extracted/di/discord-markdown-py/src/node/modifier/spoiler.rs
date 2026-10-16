@@ -3,7 +3,7 @@
 use derive_where::derive_where;
 
 use crate::{
-	node::{Id, SpannedNodes},
+	node::{Id, Inlines},
 	span::Span,
 	unparse::Unparse,
 };
@@ -21,17 +21,14 @@ pub struct Spoiler<'data, S: Span> {
 	/// A spoiler split across blocks -- as `||1. foo\n2. ba||r` splits into one in each item -- is
 	/// one spoiler in fragments, which share their id so that they can be revealed together.
 	pub id: Id,
-	pub content: SpannedNodes<'data, S>,
+	pub content: Inlines<'data, S>,
 }
 
 /// Unparse spoiler content back to markdown.
 ///
 /// # Errors
 /// If formatting fails
-pub fn unparse<S: Span>(
-	content: &SpannedNodes<S>,
-	f: &mut std::fmt::Formatter,
-) -> std::fmt::Result {
+pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	write!(f, "{}{}{}", DELIMITER, content.unparse(), DELIMITER)
 }
 

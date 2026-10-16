@@ -1,0 +1,57 @@
+/*
+ * Copyright 2026 Daniel Cederberg and William Zhang
+ *
+ * This file is part of the SparseDiffEngine project.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#ifndef CSR_matrix_H
+#define CSR_matrix_H
+
+/* CSR_matrix (Compressed Sparse Row) matrix Format
+ *
+ * For an m x n matrix with nnz nonzeros:
+ * - p: array of size (m + 1) indicating start of each row
+ * - i: array of size nnz containing column indices
+ * - x: array of size nnz containing values
+ * - m: number of rows
+ * - n: number of columns
+ * - nnz: number of nonzero entries
+ */
+typedef struct CSR_matrix
+{
+    int *p;
+    int *i;
+    double *x;
+    int m;
+    int n;
+    int nnz;
+} CSR_matrix;
+
+/* constructors and destructors */
+CSR_matrix *new_CSR_matrix(int m, int n, int nnz);
+CSR_matrix *new_csr(const CSR_matrix *A);
+void free_CSR_matrix(CSR_matrix *matrix);
+void copy_CSR_matrix(const CSR_matrix *A, CSR_matrix *C);
+
+/* Shrink a capacity-built CSR to its true size: realloc i and x down to
+   p[m] and set nnz. Call once, after the pattern is complete and before
+   the matrix is published to any consumer. */
+void CSR_trim(CSR_matrix *A);
+
+/* transpose functionality (iwork must be of size A->n) */
+CSR_matrix *transpose(const CSR_matrix *A, int *iwork);
+CSR_matrix *AT_alloc(const CSR_matrix *A, int *iwork);
+void AT_fill_values(const CSR_matrix *A, CSR_matrix *AT, int *iwork);
+
+#endif /* CSR_matrix_H */

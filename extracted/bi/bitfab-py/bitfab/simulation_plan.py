@@ -141,8 +141,11 @@ class SimulationPlan:
         http_client: SimulationPlanReader,
         enabled: bool = True,
         on_discard: Discard | None = None,
+        can_read: Callable[[], bool] | None = None,
     ) -> None:
         self._http_client = http_client
+        self._can_read = can_read
+        self._read_started = False
         self._enabled = enabled
         self._on_discard = on_discard
         self._uncounted: OrderedDict[str, int] = OrderedDict()
@@ -162,6 +165,13 @@ class SimulationPlan:
     def disabled(self) -> bool:
         return not self._enabled or os.environ.get(DISABLE_ENV, "").strip() != ""
 
+    def _idle(self) -> bool:
+        return (
+            not self._read_started
+            and self._can_read is not None
+            and not self._can_read()
+        )
+
     @property
     def loaded(self) -> bool:
         return self._content_off is not None
@@ -171,9 +181,15 @@ class SimulationPlan:
             self._content_off is None
             and self._first_read_finished.is_set()
             and not self.disabled()
+            and not self._idle()
         )
 
     def refresh(self) -> None:
+        if self._idle():
+            return
+        self._start_read()
+
+    def _start_read(self) -> None:
         if self._stop.is_set() or self.disabled():
             return
         with self._lock:
@@ -194,6 +210,7 @@ class SimulationPlan:
             self._refresh_after = time.monotonic() + RETRY_SECONDS
             self._first_read_finished.set()
             return
+        self._read_started = True
         self._thread = thread
 
     def wait(self, timeout: float) -> None:
@@ -209,6 +226,7 @@ class SimulationPlan:
             and not self._first_read_finished.is_set()
             and not self._stop.is_set()
             and not self.disabled()
+            and not self._idle()
             and (deadline is None or time.monotonic() < deadline)
         )
 
@@ -279,7 +297,7 @@ class SimulationPlan:
     def send(
         self, payload: dict[str, Any], trace_function_key: str | None, submit: Submit
     ) -> None:
-        self.refresh()
+        self._start_read()
         if (
             self.disabled()
             or trace_function_key is None
@@ -299,7 +317,7 @@ class SimulationPlan:
             self._submit(payload, trace_function_key, submit)
 
     def send_trace(self, payload: dict[str, Any], submit: Submit) -> None:
-        self.refresh()
+        self._start_read()
         if self._stop.is_set() or self.disabled():
             submit(payload)
             return

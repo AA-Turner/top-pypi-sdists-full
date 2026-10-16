@@ -13,7 +13,9 @@ ExperimentalFeatureFormat = Literal["table", "json", "markdown"]
 ExperimentalFeatureId = Literal[
     "behavior.batch-generation-jobs",
     "behavior.remote-reference-lock",
+    "cli-option.generate-client",
     "cli-option.generate-schema-validators",
+    "cli-option.generate-server",
     "cli-option.install-skill",
     "cli-option.schema-validator-type",
     "cli-option.use-missing-sentinel",
@@ -80,12 +82,37 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         message="The HTTPX2-backed HTTP client is experimental and may change as compatibility is validated.",
         since_version="0.71.1",
         note=(
-            "datamodel-code-generator[http] remains the stable HTTPX backend and is not deprecated; "
-            "datamodel-code-generator[httpx2] is experimental. The default HTTP backend policy is auto: stable "
+            "`datamodel-code-generator[http]` remains the stable HTTPX backend and is not deprecated; "
+            "`datamodel-code-generator[httpx2]` is experimental. The default HTTP backend policy is auto: stable "
             "httpx is selected when its client module is installed, including when both pairs are installed, and "
-            "experimental httpx2 is selected only when that module is absent. Use --http-backend httpx2 or "
-            "HTTPBackend.HTTPX2 to require the experimental pair. Explicit selections and paired dependency "
+            "experimental httpx2 is selected only when that module is absent. Use `--http-backend httpx2` or "
+            "`HTTPBackend.HTTPX2` to require the experimental pair. Explicit selections and paired dependency "
             "errors do not fall back."
+        ),
+    ),
+    "cli-option.generate-client": ExperimentalFeature(
+        id="cli-option.generate-client",
+        kind="cli-option",
+        target=(
+            "--generate-client httpx2 and the --client-* options (and their [tool.datamodel-codegen] keys and "
+            "generate() options)"
+        ),
+        message=(
+            "HTTPX2 client generation from the CLI is experimental; its options and generated package may change."
+        ),
+        since_version="0.84.0",
+        note=(
+            "`--generate-client httpx2` generates the models at `--output` and a client package at "
+            "`--client-output`; `--client-package` and `--client-model-package` name their import paths, and the "
+            "other `--client-*` options configure the package. Like model options, they can be set in "
+            "`[tool.datamodel-codegen]` of `pyproject.toml`, in its profiles, and in its jobs. `--check`, "
+            "`--diff-against`, `--watch`, `--output-format json`, and the `uv add` and next-step notice on stderr "
+            "work as with `--generate-server`. `generate()` takes them as `generate_client` and the `client_*` "
+            "options, and returns every generated file without an output. It needs Python 3.11 or later, both to "
+            "run and as `--target-python-version`, `--use-missing-sentinel` for `pydantic_v2.dataclass` models, "
+            "`--target-pydantic-version 2.14` with `--use-missing-sentinel`, and `--use-msgspec-tagged-unions` and "
+            "`--use-msgspec-nullable-enum-alias` for `msgspec.Struct` models; one left unset takes that value, as "
+            "with `--generate-server`."
         ),
     ),
     "cli-option.generate-schema-validators": ExperimentalFeature(
@@ -100,6 +127,35 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
             "The option currently targets Pydantic v2 BaseModel output and covers selected object-level rules such as "
             "patternProperties, required-only oneOf/anyOf/not groups, and simple if/then/else required-property "
             "conditions."
+        ),
+    ),
+    "cli-option.generate-server": ExperimentalFeature(
+        id="cli-option.generate-server",
+        kind="cli-option",
+        target=(
+            "--generate-server fastapi and the --server-* options (and their [tool.datamodel-codegen] keys and "
+            "generate() options)"
+        ),
+        message=(
+            "FastAPI server generation from the CLI is experimental; its options and generated package may change."
+        ),
+        since_version="0.84.0",
+        note=(
+            "`--generate-server fastapi` generates the models at `--output` and a server package at "
+            "`--server-output`, whose `main.py` serves the application with the implementations in the `services` "
+            "package beside it; generation writes each missing module of `services` once, with stubs, and never "
+            "overwrites one. `--server-package` and `--server-model-package` name their import paths, and the "
+            "other `--server-*` options configure the package. Like model options, they can be set in "
+            "`[tool.datamodel-codegen]` of `pyproject.toml`, in its profiles, and in its jobs. `--check` compares "
+            "without writing, `--diff-against` compares the files two inputs render, `--watch` regenerates after "
+            "input changes, `--output-format json` uses the model generation, check, and input-diff payloads, and "
+            "generation prints a `uv add` command and the next steps to stderr. `generate()` takes them as "
+            "`generate_server` and the `server_*` options, and returns every generated file without an output, "
+            "writing no stubs. It needs Python 3.11 or later, both to run and as `--target-python-version`, "
+            "`--use-missing-sentinel` for `pydantic_v2.dataclass` models, `--target-pydantic-version 2.14` with "
+            "`--use-missing-sentinel`, and `--openapi-scopes` with `api`. A setting left unset, by the options, "
+            "`pyproject.toml`, `generate()`, and the preset, takes that value, and the command line prints how to "
+            "set it; one set otherwise is refused."
         ),
     ),
     "cli-option.install-skill": ExperimentalFeature(
@@ -136,12 +192,13 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         target="--use-missing-sentinel",
         message=(
             "Pydantic MISSING sentinel output is experimental because it depends on "
-            "pydantic.experimental.missing_sentinel."
+            "pydantic.experimental.missing_sentinel, or on pydantic.MISSING for a 2.14 target."
         ),
         since_version="0.66.1",
         note=(
-            "The option requires Pydantic v2 BaseModel output and a target Pydantic version that supports the "
-            "MISSING sentinel."
+            "The option requires Pydantic v2 BaseModel or dataclass output and a target Pydantic version that "
+            "supports the MISSING sentinel. Server and client generation require it for Pydantic v2 dataclass output, "
+            "and `--target-pydantic-version 2.14` with it."
         ),
     ),
     "cli-option.use-type-alias": ExperimentalFeature(

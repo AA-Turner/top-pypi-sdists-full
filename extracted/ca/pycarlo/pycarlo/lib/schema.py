@@ -1430,12 +1430,10 @@ class AudienceEntryOrString(sgqlc.types.Scalar):
 
 
 class AuditLogActorRole(pycarlo.lib.types.Enum):
-    """Actor type for audit-log entries.  The audit log is keyed on actor
-    email; this enum scopes the result set to entries whose actor
-    (resolved by email) is a regular user (``USER``) or an internal
-    agent user (``AGENT``). Service/system actors are not included
-    here; if needed in the future, additional values can be added
-    without breaking existing callers.
+    """Role of the identity that acted in an audit-log entry.  ``AGENT``
+    is a Monte Carlo agent identity, such as an automated agent run.
+    ``USER`` is everyone else. An agent chat acts on behalf of the
+    user who chats, so its entries are ``USER`` entries.
 
     Enumeration Choices:
 
@@ -1445,6 +1443,36 @@ class AuditLogActorRole(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("AGENT", "USER")
+
+
+class AuditLogEventType(pycarlo.lib.types.Enum):
+    """Event types in the account audit log.  ``API_CALLED`` is a GraphQL
+    API call. ``USER_LOGIN`` and ``USER_LOGOUT`` are sign-ins and
+    sign-outs. The ``PII_*`` values are views and exports of PII scan
+    results. ``AGENT_MCP_TOOL_CALLED`` is a call an agent made to a
+    tool on one of the account's MCP servers.
+
+    Enumeration Choices:
+
+    * `AGENT_MCP_TOOL_CALLED`None
+    * `API_CALLED`None
+    * `PII_INVENTORY_EXPORTED`None
+    * `PII_INVENTORY_VIEWED`None
+    * `PII_SAMPLE_ROWS_VIEWED`None
+    * `USER_LOGIN`None
+    * `USER_LOGOUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AGENT_MCP_TOOL_CALLED",
+        "API_CALLED",
+        "PII_INVENTORY_EXPORTED",
+        "PII_INVENTORY_VIEWED",
+        "PII_SAMPLE_ROWS_VIEWED",
+        "USER_LOGIN",
+        "USER_LOGOUT",
+    )
 
 
 class AuthType(pycarlo.lib.types.Enum):
@@ -2672,6 +2700,17 @@ class CustomSQLTemplateModelQueryResultType(pycarlo.lib.types.Enum):
     )
 
 
+class CustomerMcpAuthConfigType(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `CUSTOMER_GITHUB_APP`None
+    * `MONTE_CARLO_GITHUB_APP`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CUSTOMER_GITHUB_APP", "MONTE_CARLO_GITHUB_APP")
+
+
 class CustomerMcpAuthenticationMethod(pycarlo.lib.types.Enum):
     """Authentication type for customer MCP servers.
 
@@ -2679,12 +2718,13 @@ class CustomerMcpAuthenticationMethod(pycarlo.lib.types.Enum):
 
     * `API_KEY`None
     * `AWS_IAM_AGENT`None
+    * `GITHUB_APP`None
     * `NONE`None
     * `OAUTH2`None
     """
 
     __schema__ = schema
-    __choices__ = ("API_KEY", "AWS_IAM_AGENT", "NONE", "OAUTH2")
+    __choices__ = ("API_KEY", "AWS_IAM_AGENT", "GITHUB_APP", "NONE", "OAUTH2")
 
 
 class CustomerMcpAuthorizationStatus(pycarlo.lib.types.Enum):
@@ -2797,6 +2837,22 @@ class CustomerMcpUserIdFieldType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("EMAIL", "USER_ID")
+
+
+class CustomerMcpVendor(pycarlo.lib.types.Enum):
+    """A vendor whose MCP server Monte Carlo recognizes from its URL, and
+    whose integration credentials a server can be created with.
+
+    Enumeration Choices:
+
+    * `DATABRICKS`None
+    * `DBT_CLOUD`None
+    * `GITHUB`None
+    * `LINEAR`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DATABRICKS", "DBT_CLOUD", "GITHUB", "LINEAR")
 
 
 class DashboardType(pycarlo.lib.types.Enum):
@@ -6572,6 +6628,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `AgentObservabilityAccess`None
     * `AgentObservabilityContent`None
     * `AiAgentsAccess`None
+    * `AiAgentsMcpServersAccess`None
     * `AiAgentsTriageEdit`None
     * `AiAgentsTroubleshootingAccess`None
     * `AlertsAccess`None
@@ -6709,6 +6766,7 @@ class Permission(pycarlo.lib.types.Enum):
         "AgentObservabilityAccess",
         "AgentObservabilityContent",
         "AiAgentsAccess",
+        "AiAgentsMcpServersAccess",
         "AiAgentsTriageEdit",
         "AiAgentsTroubleshootingAccess",
         "AlertsAccess",
@@ -6940,6 +6998,22 @@ class PiiInventoryAccessMode(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ENFORCE", "OFF", "SHADOW")
+
+
+class PiiMatchStrength(pycarlo.lib.types.Enum):
+    """Pattern match strength of a PII finding. HIGH is a match rate of
+    at least 0.8, MEDIUM is at least 0.2 and below 0.8, and LOW is
+    below 0.2.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM")
 
 
 class PiiMonitorMode(pycarlo.lib.types.Enum):
@@ -7989,6 +8063,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `AgentObservabilityRead`None
     * `AgentObservabilityWrite`None
     * `AiAgentsAll`None
+    * `AiAgentsMcpServersAll`None
+    * `AiAgentsMcpServersPropose`None
+    * `AiAgentsMcpServersRead`None
+    * `AiAgentsMcpServersWrite`None
     * `AiAgentsPropose`None
     * `AiAgentsRead`None
     * `AiAgentsTriageAll`None
@@ -8227,6 +8305,10 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "AgentObservabilityRead",
         "AgentObservabilityWrite",
         "AiAgentsAll",
+        "AiAgentsMcpServersAll",
+        "AiAgentsMcpServersPropose",
+        "AiAgentsMcpServersRead",
+        "AiAgentsMcpServersWrite",
         "AiAgentsPropose",
         "AiAgentsRead",
         "AiAgentsTriageAll",
@@ -13851,6 +13933,32 @@ class CustomSqlRuleAlertConditionInput(sgqlc.types.Input):
     """Lower threshold value"""
 
 
+class CustomerMcpAuthConfigSecretInput(sgqlc.types.Input):
+    """A named secret of an auth config, such as a GitHub App
+    private_key.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("name", "value")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Secret name the auth config declares"""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """Secret value (write-only)"""
+
+
+class CustomerMcpAuthConfigUnionInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("org", "app_id", "installation_id", "type")
+    org = sgqlc.types.Field(String, graphql_name="org")
+
+    app_id = sgqlc.types.Field(String, graphql_name="appId")
+
+    installation_id = sgqlc.types.Field(String, graphql_name="installationId")
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(CustomerMcpAuthConfigType), graphql_name="type")
+
+
 class CustomerMcpAuthHeaderInput(sgqlc.types.Input):
     """A custom authentication header for an API-key MCP server.  Values
     are write-only secrets stored in Vault; they are sent literally
@@ -16362,7 +16470,7 @@ class JobMonitorAlertConditionInput(sgqlc.types.Input):
 
 class JobTableFilterUnionInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("full_table_id", "databases", "schemas", "type", "negated")
+    __field_names__ = ("full_table_id", "databases", "schemas", "database", "type", "negated")
     full_table_id = sgqlc.types.Field(String, graphql_name="fullTableId")
 
     databases = sgqlc.types.Field(
@@ -16372,6 +16480,11 @@ class JobTableFilterUnionInput(sgqlc.types.Input):
     schemas = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="schemas"
     )
+
+    database = sgqlc.types.Field(String, graphql_name="database")
+    """The database the schemas belong to, matched exactly. Leave it out
+    to match the schemas in any database.
+    """
 
     type = sgqlc.types.Field(sgqlc.types.non_null(JobAssetFilterType), graphql_name="type")
 
@@ -21157,6 +21270,12 @@ class CollectionPreferenceNode(sgqlc.types.Interface):
     """The ID of the object."""
 
 
+class CustomerMcpAuthConfigInterface(sgqlc.types.Interface):
+    __schema__ = schema
+    __field_names__ = ("type",)
+    type = sgqlc.types.Field(sgqlc.types.non_null(CustomerMcpAuthConfigType), graphql_name="type")
+
+
 class DataSourceInputInterface(sgqlc.types.Interface):
     __schema__ = schema
     __field_names__ = ("type", "connection_type", "schema")
@@ -23027,6 +23146,7 @@ class AccountAuditLog(sgqlc.types.Type):
         "api_call_references",
         "api_call_source",
         "client_ip",
+        "agent_activity",
     )
     timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="timestamp")
     """Timestamp of the event"""
@@ -23050,7 +23170,7 @@ class AccountAuditLog(sgqlc.types.Type):
     """URL on which the event occurred"""
 
     event_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="eventType")
-    """Event type"""
+    """Event type, one of the AuditLogEventType values"""
 
     api_name = sgqlc.types.Field(String, graphql_name="apiName")
     """API name in case of GraphQL API calls"""
@@ -23070,6 +23190,76 @@ class AccountAuditLog(sgqlc.types.Type):
 
     client_ip = sgqlc.types.Field(String, graphql_name="clientIp")
     """Client IP address"""
+
+    agent_activity = sgqlc.types.Field("AccountAuditLogAgentActivity", graphql_name="agentActivity")
+    """Details of the agent activity. Set for agent activity events, null
+    for other events.
+    """
+
+
+class AccountAuditLogAgentActivity(sgqlc.types.Type):
+    """Details of an agent activity event, such as a tool call an agent
+    made.  Tool arguments and results are never recorded.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_id",
+        "thread_id",
+        "surface",
+        "is_automated",
+        "tool_name",
+        "tool_source",
+        "access",
+        "outcome",
+        "server_id",
+        "server_name",
+    )
+    agent_id = sgqlc.types.Field(String, graphql_name="agentId")
+    """Name of the agent: `operations`, `troubleshooting`, `monitoring`,
+    `triage`, `monitor_tuning`, `cost`, `performance`, `pr`,
+    `remediation` or `health`. Other values may appear.
+    """
+
+    thread_id = sgqlc.types.Field(String, graphql_name="threadId")
+    """ID of the agent run's conversation thread"""
+
+    surface = sgqlc.types.Field(String, graphql_name="surface")
+    """Where the request entered: `web_ui`, `slack`, `msteams`, `mcp`,
+    `api` or `in_product`
+    """
+
+    is_automated = sgqlc.types.Field(Boolean, graphql_name="isAutomated")
+    """True for an automated agent run, false for a run a user started.
+    Null when unknown.
+    """
+
+    tool_name = sgqlc.types.Field(String, graphql_name="toolName")
+    """Name of the tool the agent called"""
+
+    tool_source = sgqlc.types.Field(String, graphql_name="toolSource")
+    """Where the tool lives: `customer_mcp` for a tool on a customer-
+    defined MCP server.
+    """
+
+    access = sgqlc.types.Field(String, graphql_name="access")
+    """`read` or `write`, from the tool's read-only hint. Null when the
+    server gives no hint.
+    """
+
+    outcome = sgqlc.types.Field(String, graphql_name="outcome")
+    """Result of the call: `success`, `error` or `cancelled`"""
+
+    server_id = sgqlc.types.Field(String, graphql_name="serverId")
+    """ID of the MCP server. Set only for tools on a customer-defined MCP
+    server.
+    """
+
+    server_name = sgqlc.types.Field(String, graphql_name="serverName")
+    """Current name of the MCP server. Renaming the server changes this
+    on earlier entries. Set only for tools on a customer-defined MCP
+    server. Null when the server was deleted.
+    """
 
 
 class AccountAuditLogSummaryGroup(sgqlc.types.Type):
@@ -33673,9 +33863,15 @@ class CreateOrUpdateJobMonitor(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("job_monitor", "persist_blocked_by")
+    __field_names__ = ("job_monitor", "yaml", "persist_blocked_by")
     job_monitor = sgqlc.types.Field("JobMonitor", graphql_name="jobMonitor")
     """The saved monitor. Null on a dry run."""
+
+    yaml = sgqlc.types.Field(String, graphql_name="yaml")
+    """The monitor as monitors-as-code YAML. It names the integration and
+    jobs instead of using their ids, so it can be applied to another
+    account.
+    """
 
     persist_blocked_by = sgqlc.types.Field(String, graphql_name="persistBlockedBy")
     """On a dry run, the permission a save would require that the caller
@@ -35219,6 +35415,31 @@ class CustomUserEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class CustomerMcpIntegrationSource(sgqlc.types.Type):
+    """An integration whose credentials a new MCP server can be created
+    with
+    """
+
+    __schema__ = schema
+    __field_names__ = ("source_type", "uuid", "display_name", "eligible", "ineligible_reason")
+    source_type = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomerMcpVendor), graphql_name="sourceType"
+    )
+    """Integration vendor"""
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Integration UUID"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Integration name"""
+
+    eligible = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="eligible")
+    """Whether the credentials can be copied"""
+
+    ineligible_reason = sgqlc.types.Field(String, graphql_name="ineligibleReason")
+    """Why the credentials cannot be copied, when not eligible"""
+
+
 class CustomerMcpServerAuthorizationOutput(sgqlc.types.Type):
     """A user's OAuth authorization on a customer MCP server"""
 
@@ -35267,6 +35488,8 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         "oauth_resource",
         "oauth_audience",
         "oauth_client_secret_configured",
+        "auth_config",
+        "auth_config_secret_names",
         "pkce_client_secret_required",
         "oauth_config_revision",
         "connection_status",
@@ -35366,6 +35589,19 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         sgqlc.types.non_null(Boolean), graphql_name="oauthClientSecretConfigured"
     )
     """Whether a client secret is stored (the secret itself is never
+    exposed)
+    """
+
+    auth_config = sgqlc.types.Field(CustomerMcpAuthConfigInterface, graphql_name="authConfig")
+    """Vendor-specific auth settings, such as the GitHub App of a
+    GITHUB_APP server
+    """
+
+    auth_config_secret_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="authConfigSecretNames",
+    )
+    """Names of the auth config's stored secrets (values are never
     exposed)
     """
 
@@ -42283,6 +42519,46 @@ class GenieCollectorStatus(sgqlc.types.Type):
     """
 
 
+class GenieSpaceConfiguration(sgqlc.types.Type):
+    """A Databricks Genie space's configuration, read live from the
+    workspace.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "space_id",
+        "serialized_space",
+        "etag",
+        "title",
+        "description",
+        "warehouse_id",
+    )
+    space_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spaceId")
+    """The Genie space id."""
+
+    serialized_space = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="serializedSpace"
+    )
+    """The space's configuration as the JSON string Databricks returns,
+    unchanged: tables, instructions, example SQL, SQL functions and
+    benchmarks.
+    """
+
+    etag = sgqlc.types.Field(String, graphql_name="etag")
+    """Opaque version token. It changes when the space's configuration
+    changes.
+    """
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """The space's title."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """The space's description."""
+
+    warehouse_id = sgqlc.types.Field(String, graphql_name="warehouseId")
+    """The SQL warehouse the space runs on."""
+
+
 class GetAccountAuditLogSummaryResponse(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("groups", "truncated")
@@ -45187,6 +45463,7 @@ class JobMonitor(sgqlc.types.Type):
         "is_paused",
         "is_draft",
         "is_template_managed",
+        "auto_triage",
         "namespace",
         "created_time",
         "updated_time",
@@ -45274,6 +45551,15 @@ class JobMonitor(sgqlc.types.Type):
         sgqlc.types.non_null(Boolean), graphql_name="isTemplateManaged"
     )
     """Whether the monitor is managed by monitors-as-code."""
+
+    auto_triage = sgqlc.types.Field(Boolean, graphql_name="autoTriage")
+    """Raw per-monitor automated-triage override: true forces triage on
+    for this monitor, false forces it off, null inherits the
+    domain/account setting. Read from the top-level monitor that owns
+    the override, so a generated child rule reports its parent's
+    value. Set via the monitor create/update mutation's ``autoTriage``
+    input.
+    """
 
     namespace = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="namespace")
 
@@ -46971,6 +47257,8 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
         "registration_endpoint",
         "token_endpoint_auth_methods",
         "error",
+        "vendor",
+        "integration_sources",
     )
     auth_metadata_found = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="authMetadataFound"
@@ -47034,6 +47322,20 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
 
     error = sgqlc.types.Field(String, graphql_name="error")
     """Error message when auth_metadata_found is False"""
+
+    vendor = sgqlc.types.Field(CustomerMcpVendor, graphql_name="vendor")
+    """Vendor recognized from the URL, if any"""
+
+    integration_sources = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpIntegrationSource))
+        ),
+        graphql_name="integrationSources",
+    )
+    """Integrations of the recognized vendor whose credentials a new
+    server can be created with. Empty unless the user can edit MCP
+    servers and integrations.
+    """
 
 
 class MemoryExtractionStatus(sgqlc.types.Type):
@@ -50512,6 +50814,20 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="assumableRoleArn", default=None),
                 ),
                 (
+                    "auth_config",
+                    sgqlc.types.Arg(
+                        CustomerMcpAuthConfigUnionInput, graphql_name="authConfig", default=None
+                    ),
+                ),
+                (
+                    "auth_config_secrets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthConfigSecretInput)),
+                        graphql_name="authConfigSecrets",
+                        default=None,
+                    ),
+                ),
+                (
                     "auth_headers",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthHeaderInput)),
@@ -50530,6 +50846,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(UUID, graphql_name="dataCollectorUuid", default=None),
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
+                (
+                    "integration_source_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="integrationSourceUuid", default=None),
+                ),
                 (
                     "mcp_server_url",
                     sgqlc.types.Arg(String, graphql_name="mcpServerUrl", default=None),
@@ -50617,6 +50937,13 @@ class Mutation(sgqlc.types.Type):
     * `assumable_role_arn` (`String`): IAM role the agent assumes to
       call the server (COLLECTION_AGENT only). Stored in Vault, never
       exposed.
+    * `auth_config` (`CustomerMcpAuthConfigUnionInput`): Vendor-
+      specific auth settings (GITHUB_APP: a CUSTOMER_GITHUB_APP
+      config). Its type field picks the member.
+    * `auth_config_secrets` (`[CustomerMcpAuthConfigSecretInput!]`):
+      Secrets of the auth config, such as the GitHub App private_key.
+      Replaces all stored secrets; omit to keep them. Stored in Vault,
+      never exposed.
     * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
       headers (API_KEY only), sent literally. May be combined with
       api_key; names must not collide with it.
@@ -50626,6 +50953,11 @@ class Mutation(sgqlc.types.Type):
       agent calls the server (COLLECTION_AGENT only). Inferred when
       the account has exactly one data collector with a remote agent.
     * `description` (`String`): Optional description
+    * `integration_source_uuid` (`UUID`): Create the server with
+      credentials copied once from this integration, one of the URL's
+      integrationSources. The auth type follows the integration.
+      Cannot be combined with other credentials. The URL may be
+      narrowed to the vendor's read-only endpoint.
     * `mcp_server_url` (`String`): URL of the customer's MCP server.
       Required unless transport is COLLECTION_AGENT, where it defaults
       to the AWS MCP Server in the agent's region.
@@ -50675,6 +51007,20 @@ class Mutation(sgqlc.types.Type):
                 (
                     "assumable_role_arn",
                     sgqlc.types.Arg(String, graphql_name="assumableRoleArn", default=None),
+                ),
+                (
+                    "auth_config",
+                    sgqlc.types.Arg(
+                        CustomerMcpAuthConfigUnionInput, graphql_name="authConfig", default=None
+                    ),
+                ),
+                (
+                    "auth_config_secrets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthConfigSecretInput)),
+                        graphql_name="authConfigSecrets",
+                        default=None,
+                    ),
                 ),
                 (
                     "auth_headers",
@@ -50775,6 +51121,13 @@ class Mutation(sgqlc.types.Type):
     * `assumable_role_arn` (`String`): IAM role the agent assumes to
       call the server (COLLECTION_AGENT only). Replaces the stored
       role; never exposed.
+    * `auth_config` (`CustomerMcpAuthConfigUnionInput`): Vendor-
+      specific auth settings (GITHUB_APP: a CUSTOMER_GITHUB_APP
+      config). Its type field picks the member.
+    * `auth_config_secrets` (`[CustomerMcpAuthConfigSecretInput!]`):
+      Secrets of the auth config, such as the GitHub App private_key.
+      Replaces all stored secrets; omit to keep them. Stored in Vault,
+      never exposed.
     * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
       headers to add or replace (API_KEY only). An entry without a
       value keeps the stored value; omitted names are preserved.
@@ -50841,6 +51194,20 @@ class Mutation(sgqlc.types.Type):
                 (
                     "api_key_header_name",
                     sgqlc.types.Arg(String, graphql_name="apiKeyHeaderName", default=None),
+                ),
+                (
+                    "auth_config",
+                    sgqlc.types.Arg(
+                        CustomerMcpAuthConfigUnionInput, graphql_name="authConfig", default=None
+                    ),
+                ),
+                (
+                    "auth_config_secrets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpAuthConfigSecretInput)),
+                        graphql_name="authConfigSecrets",
+                        default=None,
+                    ),
                 ),
                 (
                     "auth_headers",
@@ -50924,6 +51291,13 @@ class Mutation(sgqlc.types.Type):
     * `api_key` (`String`): API key to use during the test
     * `api_key_header_name` (`String`): HTTP header name for the API
       key (default: 'Authorization')
+    * `auth_config` (`CustomerMcpAuthConfigUnionInput`): Vendor-
+      specific auth settings (GITHUB_APP: a CUSTOMER_GITHUB_APP
+      config). Its type field picks the member.
+    * `auth_config_secrets` (`[CustomerMcpAuthConfigSecretInput!]`):
+      Secrets of the auth config, such as the GitHub App private_key.
+      Replaces all stored secrets; omit to keep them. Stored in Vault,
+      never exposed.
     * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
       headers to test (API_KEY only). An entry without a value uses
       the saved server's stored value for that name.
@@ -53060,6 +53434,7 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                ("auto_triage", sgqlc.types.Arg(Boolean, graphql_name="autoTriage", default=None)),
                 (
                     "data_quality_dimension",
                     sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
@@ -53153,6 +53528,13 @@ class Mutation(sgqlc.types.Type):
       condition narrows when one of them is notified, it does not add
       one.
     * `audiences` (`[String!]`): The audiences to notify.
+    * `auto_triage` (`Boolean`): Per-monitor automated-triage
+      override. true forces triage on for this monitor, false forces
+      it off, and null (or omitting the argument) clears the override
+      so the monitor inherits the domain/account setting. Because
+      omitting the argument clears the override, an update call that
+      does not send this field will reset any previously set override,
+      including a deliberate false, back to inherit.
     * `data_quality_dimension` (`String`): Data quality dimension of
       the monitor.
     * `description` (`String!`): Description of the monitor.
@@ -79009,7 +79391,7 @@ class PiiScanInventoryFilterOptions(sgqlc.types.Type):
     """Available scope filters for PII inventory"""
 
     __schema__ = schema
-    __field_names__ = ("warehouses", "project_names", "datasets")
+    __field_names__ = ("warehouses", "project_names", "datasets", "pii_types")
     warehouses = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanWarehouseOption"))),
         graphql_name="warehouses",
@@ -79024,6 +79406,15 @@ class PiiScanInventoryFilterOptions(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="datasets",
     )
+
+    pii_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="piiTypes",
+    )
+    """PII types detected in the selected warehouse, databases and
+    schemas, for the requested review state. Not narrowed by the
+    piiTypes or matchStrengths filters.
+    """
 
 
 class PiiScanInventoryTotals(sgqlc.types.Type):
@@ -79068,6 +79459,9 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="piiTypes",
     )
+    """PII types detected by the scan, after all filters. Warehouse-tag
+    values aren't included.
+    """
 
     has_warehouse_tags = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="hasWarehouseTags"
@@ -80373,6 +80767,7 @@ class Query(sgqlc.types.Type):
         "get_golden_test_runs",
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
+        "get_genie_space_configuration",
         "get_reinforcement_loop_agent",
         "get_reinforcement_loop_github_repos",
         "get_reinforcement_loop_selectors",
@@ -81983,6 +82378,42 @@ class Query(sgqlc.types.Type):
       narrows to that workflow, its absence returns every workflow.
       NO_WORKFLOW narrows to the report whose workflow is null and
       must be sent without a workflowName; NAMED requires one.
+    """
+
+    get_genie_space_configuration = sgqlc.types.Field(
+        sgqlc.types.non_null(GenieSpaceConfiguration),
+        graphql_name="getGenieSpaceConfiguration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) A Databricks Genie agent's space configuration,
+    read live through its collector connection. Monte Carlo internal
+    and system users only. Errors carry `extensions.code`:
+    GENIE_SPACE_MISSING_GRANT (with the principal and remediation in
+    `extensions`), DATABRICKS_CREDENTIALS_REJECTED, REQUEST_TIMEOUT,
+    GENIE_SPACE_CONFIGURATION_UNAVAILABLE, VALIDATION_ERROR, or
+    FAILED_AUTHORIZATION.
+
+    Arguments:
+
+    * `agent_name` (`String!`): The Genie agent's name, which is its
+      space id.
+    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
+      — same value passed as `traceTableMcon` on getAgentGraph.
     """
 
     get_reinforcement_loop_agent = sgqlc.types.Field(
@@ -84760,6 +85191,22 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "pii_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="piiTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "match_strengths",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PiiMatchStrength)),
+                        graphql_name="matchStrengths",
+                        default=None,
+                    ),
+                ),
+                (
                     "review_state",
                     sgqlc.types.Arg(
                         PiiScanReviewState, graphql_name="reviewState", default="ACTIVE"
@@ -84785,6 +85232,21 @@ class Query(sgqlc.types.Type):
       database/project filter.
     * `datasets` (`[String!]`): Limit inventory to schema/dataset
       names. Null or an empty list means no schema/dataset filter.
+    * `pii_types` (`[String!]`): Limit inventory to these PII types,
+      including custom regex names. Applied before column paging.
+      Totals follow it, except hasWarehouseTags,
+      totalWarehouseTaggedColumns, hasSnowflakeTags and
+      totalSnowflakeTaggedColumns. Columns found only by warehouse
+      tags are excluded while it is set. Null or an empty list means
+      no PII type filter.
+    * `match_strengths` (`[PiiMatchStrength!]`): Limit inventory to
+      findings with these pattern match strengths. Applied per finding
+      before column paging, so a column keeps only its matching
+      findings. Totals follow it, except hasWarehouseTags,
+      totalWarehouseTaggedColumns, hasSnowflakeTags and
+      totalSnowflakeTaggedColumns. Columns found only by warehouse
+      tags are excluded while it is set. Null or an empty list means
+      no match strength filter.
     * `review_state` (`PiiScanReviewState`): ACTIVE returns current
       inventory and excludes false positives. FALSE_POSITIVE returns
       the suppressed audit view. (default: `"ACTIVE"`)
@@ -84901,15 +85363,32 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "pii_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="piiTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "match_strengths",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(PiiMatchStrength)),
+                        graphql_name="matchStrengths",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
-    """(experimental) Return CSV for grouped PII scan inventory rows
-    using the same server-side scope filters as getPiiScanInventory.
-    Columns are ordered as table, database, schema, column, piiTypes,
-    metrics, maxMatchRate, confidence, rowsScanned, findings,
-    monitors, alertUuids, firstDetectedAt, lastScannedAt; multi-value
-    fields are pipe-delimited.
+    """(experimental) Return CSV for grouped PII scan inventory rows of
+    active findings. Takes the warehouse, database, schema, piiTypes
+    and matchStrengths filters of getPiiScanInventory. Columns are
+    ordered as table, database, schema, column, piiTypes, metrics,
+    maxMatchRate, confidence, rowsScanned, findings, monitors,
+    alertUuids, firstDetectedAt, lastScannedAt; multi-value fields are
+    pipe-delimited.
 
     Arguments:
 
@@ -84921,6 +85400,14 @@ class Query(sgqlc.types.Type):
       database/project filter.
     * `datasets` (`[String!]`): Limit export rows to schema/dataset
       names. Null or an empty list means no schema/dataset filter.
+    * `pii_types` (`[String!]`): Limit export rows to these PII types,
+      including custom regex names. Columns found only by warehouse
+      tags are left out while it is set. Null or an empty list means
+      no PII type filter.
+    * `match_strengths` (`[PiiMatchStrength!]`): Limit export rows to
+      findings with these pattern match strengths. Columns found only
+      by warehouse tags are left out while it is set. Null or an empty
+      list means no match strength filter.
     """
 
     bulk_monitor = sgqlc.types.Field(
@@ -104531,6 +105018,14 @@ class Query(sgqlc.types.Type):
                     "actor_role",
                     sgqlc.types.Arg(AuditLogActorRole, graphql_name="actorRole", default=None),
                 ),
+                (
+                    "event_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AuditLogEventType)),
+                        graphql_name="eventTypes",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -104557,12 +105052,15 @@ class Query(sgqlc.types.Type):
     * `api_call_references` (`[ApiCallReference]`): References (For
       instance UUIDs) that were passed as input to GraphQL API calls
     * `user_email` (`String`): Filter activity of a specific user
-    * `actor_role` (`AuditLogActorRole`): Filter activity by actor
-      role. When ``USER``, returns only entries whose actor is not a
-      known agent user for the account (entries for service or system
-      actors are included). When ``AGENT``, returns only entries whose
-      actor is an internal agent user. When omitted, no actor-role
-      filter is applied.
+    * `actor_role` (`AuditLogActorRole`): Filter activity by the role
+      of the identity that acted. When ``AGENT``, returns only entries
+      whose actor is a Monte Carlo agent identity, such as an
+      automated agent run. When ``USER``, returns all other entries,
+      including agent chats, which act on behalf of the user. When
+      omitted, no actor-role filter is applied.
+    * `event_types` (`[AuditLogEventType!]`): Only return entries of
+      these event types. When omitted or empty, entries of every event
+      type are returned, including agent MCP tool calls.
     """
 
     get_account_audit_log_summary = sgqlc.types.Field(
@@ -104605,12 +105103,12 @@ class Query(sgqlc.types.Type):
       calls that are queries (not mutations) will be included in the
       response. By default, queries are not included. (default:
       `false`)
-    * `actor_role` (`AuditLogActorRole`): Filter activity by actor
-      role. When ``USER``, returns only entries whose actor is not a
-      known agent user for the account (entries for service or system
-      actors are included). When ``AGENT``, returns only entries whose
-      actor is an internal agent user. When omitted, no actor-role
-      filter is applied.
+    * `actor_role` (`AuditLogActorRole`): Filter activity by the role
+      of the identity that acted. When ``AGENT``, returns only entries
+      whose actor is a Monte Carlo agent identity, such as an
+      automated agent run. When ``USER``, returns all other entries,
+      including agent chats, which act on behalf of the user. When
+      omitted, no actor-role filter is applied.
     * `limit` (`Int`): Max (user, page) groups to return, most active
       first. Bounded server-side; `truncated` reports when the bound
       cut the result.
@@ -107904,17 +108402,21 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     """
 
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
-    """Impact bucket, computed at read time from reportedPriority and the
-    issue's and the agent's conversations in the last 7 days. It can
-    be lower than reportedPriority, never higher. An issue with no
-    conversations in that window is LOW. HIDDEN when the newest report
-    is hidden. Not subject to redaction.
+    """Impact bucket, computed at read time from the worst user impact
+    the agent recorded on the issue's conversations in the last 7
+    days, and from the issue's and the agent's conversation counts in
+    that window. Falls back to reportedPriority when none of those
+    conversations carries an impact. An issue with no conversations in
+    that window is LOW, or HIDDEN when its worst impact is
+    out_of_reach. HIDDEN when the newest report is hidden, or when the
+    worst impact in the window is out_of_reach below the threshold.
+    Not subject to redaction.
     """
 
     reported_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="reportedPriority")
-    """The highest priority the agent has reported for the issue, before
-    the 7-day window is applied. Never HIDDEN. Not subject to
-    redaction.
+    """The highest priority the agent has reported for the issue.
+    priority falls back to it when no conversation in the last 7 days
+    carries a user impact. Never HIDDEN. Not subject to redaction.
     """
 
     grouping_metadata = sgqlc.types.Field(GenericScalar, graphql_name="groupingMetadata")
@@ -115228,8 +115730,9 @@ class ToolDetail(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LineageGraphNode))),
         graphql_name="tablesAccessed",
     )
-    """Lineage graph nodes for tables accessed by this tool. Returns an
-    empty list when no upstream tables are recorded for the tool.
+    """Lineage graph nodes for catalogued tables accessed by this tool.
+    Returns an empty list when no upstream tables are recorded for the
+    tool, or when every recorded upstream table has no catalog entry.
     """
 
 
@@ -123505,6 +124008,22 @@ class CustomUser(sgqlc.types.Type, Node):
     """
 
 
+class CustomerMcpAuthConfigCustomerGitHubApp(sgqlc.types.Type, CustomerMcpAuthConfigInterface):
+    __schema__ = schema
+    __field_names__ = ("app_id", "installation_id")
+    app_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="appId")
+
+    installation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="installationId")
+
+
+class CustomerMcpAuthConfigMonteCarloGitHubApp(sgqlc.types.Type, CustomerMcpAuthConfigInterface):
+    __schema__ = schema
+    __field_names__ = ("installation_id", "org")
+    installation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="installationId")
+
+    org = sgqlc.types.Field(String, graphql_name="org")
+
+
 class DataExplorerComparisonDashboardType(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
@@ -126841,11 +127360,16 @@ class JobTableFilterFullTableId(sgqlc.types.Type, JobTableFilterInterface):
 
 class JobTableFilterSchema(sgqlc.types.Type, JobTableFilterInterface):
     __schema__ = schema
-    __field_names__ = ("schemas",)
+    __field_names__ = ("schemas", "database")
     schemas = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="schemas",
     )
+
+    database = sgqlc.types.Field(String, graphql_name="database")
+    """The database the schemas belong to, matched exactly. Leave it out
+    to match the schemas in any database.
+    """
 
 
 class MergedAlert(sgqlc.types.Type, NodeWithUUID):

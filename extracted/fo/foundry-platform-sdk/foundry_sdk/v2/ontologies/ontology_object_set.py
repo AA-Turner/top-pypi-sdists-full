@@ -79,6 +79,9 @@ class OntologyObjectSetClient:
         """
         Aggregates the ontology objects present in the `ObjectSet` from the provided object set definition.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param aggregation:
@@ -168,6 +171,9 @@ class OntologyObjectSetClient:
         """
         Creates a temporary `ObjectSet` from the given definition. This `ObjectSet` expires after one hour.
 
+
+        Required scopes: [api:ontologies-read, api:ontologies-write]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_set:
@@ -233,6 +239,9 @@ class OntologyObjectSetClient:
     ) -> ontologies_models.ObjectSet:
         """
         Gets the definition of the `ObjectSet` with the given RID.
+
+
+        Required scopes: []
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -315,6 +324,9 @@ class OntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -446,6 +458,9 @@ class OntologyObjectSetClient:
         - This endpoint does not support OSv1 links and will return an error if links provided are backed by OSv1.
         - This endpoint currently does not support interface object sets or interface links, but support will be added in the near future.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param links:
@@ -562,6 +577,9 @@ class OntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -712,6 +730,9 @@ class OntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -915,6 +936,9 @@ class AsyncOntologyObjectSetClient:
         """
         Aggregates the ontology objects present in the `ObjectSet` from the provided object set definition.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param aggregation:
@@ -1004,6 +1028,9 @@ class AsyncOntologyObjectSetClient:
         """
         Creates a temporary `ObjectSet` from the given definition. This `ObjectSet` expires after one hour.
 
+
+        Required scopes: [api:ontologies-read, api:ontologies-write]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_set:
@@ -1069,6 +1096,9 @@ class AsyncOntologyObjectSetClient:
     ) -> typing.Awaitable[ontologies_models.ObjectSet]:
         """
         Gets the definition of the `ObjectSet` with the given RID.
+
+
+        Required scopes: []
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -1151,6 +1181,9 @@ class AsyncOntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -1282,6 +1315,9 @@ class AsyncOntologyObjectSetClient:
         - This endpoint does not support OSv1 links and will return an error if links provided are backed by OSv1.
         - This endpoint currently does not support interface object sets or interface links, but support will be added in the near future.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param links:
@@ -1398,6 +1434,9 @@ class AsyncOntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -1548,6 +1587,9 @@ class AsyncOntologyObjectSetClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

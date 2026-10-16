@@ -4,6 +4,188 @@ use crate::host_key::{
 };
 use std::collections::HashMap;
 
+fn verifier_with_known_hosts(content: &str, allow_unknown_hosts: bool) -> HostKeyVerifier {
+    let file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(file.path(), content).unwrap();
+    HostKeyVerifier::new(HostKeyConfig {
+        known_hosts_path: Some(file.path().to_string_lossy().into_owned()),
+        allow_unknown_hosts,
+        ..Default::default()
+    })
+}
+
+fn hashed_host(host: &str) -> String {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    use hmac::{Hmac, Mac};
+    let salt = b"fixed known_hosts test salt";
+    let mut mac = Hmac::<sha1::Sha1>::new_from_slice(salt).unwrap();
+    mac.update(host.as_bytes());
+    format!(
+        "|1|{}|{}",
+        STANDARD.encode(salt),
+        STANDARD.encode(mac.finalize().into_bytes())
+    )
+}
+
+#[test]
+fn padded_sha256_host_key_fingerprint_matches_same_key() {
+    // Given an OpenSSH SHA256 fingerprint with its optional Base64 padding.
+    let key = b"test-key";
+    let pinned = format!("SHA256:{}=", calculate_fingerprint(key));
+    let verifier = HostKeyVerifier::new(HostKeyConfig {
+        host_key_fingerprint: Some(pinned),
+        ..Default::default()
+    });
+
+    // When checking the matching server key, then padding does not invalidate the pin.
+    assert_eq!(
+        verifier.verify("example.com", 22, "ssh-ed25519", key),
+        HostKeyResult::Verified
+    );
+}
+
+#[test]
+fn test_known_hosts_accepts_second_key_when_first_same_type_differs() {
+    // Given two keys of the same type for the same host.
+    let content = format!(
+        "example.com ssh-ed25519 {}\nexample.com ssh-ed25519 {}\n",
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"old"),
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"current")
+    );
+    let verifier = verifier_with_known_hosts(&content, false);
+
+    // When the server presents the second key, then it is verified.
+    assert_eq!(
+        verifier.verify("example.com", 22, "ssh-ed25519", b"current"),
+        HostKeyResult::Verified
+    );
+}
+
+#[test]
+fn test_hashed_known_hosts_accepts_second_key_when_first_same_type_differs() {
+    // Given two keys under the same hashed hostname.
+    let host = hashed_host("example.com");
+    let content = format!(
+        "{host} ssh-ed25519 {}\n{host} ssh-ed25519 {}\n",
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"old"),
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"current")
+    );
+    let verifier = verifier_with_known_hosts(&content, false);
+
+    // When the server presents the second key, then it is verified.
+    assert_eq!(
+        verifier.verify("example.com", 22, "ssh-ed25519", b"current"),
+        HostKeyResult::Verified
+    );
+}
+
+#[test]
+fn test_revoked_key_denied_despite_matching_ordinary_entry() {
+    // Given an ordinary entry followed by a revocation for the same host and key.
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"revoked");
+    let verifier = verifier_with_known_hosts(
+        &format!("example.com ssh-ed25519 {key}\n@revoked example.com ssh-ed25519 {key}\n"),
+        true,
+    );
+
+    // When the revoked key is presented, then the connection is refused.
+    let result = verifier.verify("example.com", 22, "ssh-ed25519", b"revoked");
+    assert!(
+        matches!(result, HostKeyResult::Mismatch { .. }),
+        "{result:?}"
+    );
+    assert!(!result.is_allowed(&verifier.config));
+}
+
+#[test]
+fn test_hashed_revoked_key_denied_despite_matching_ordinary_entry() {
+    // Given a plain acceptance and a hashed revocation for the same host and key.
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"revoked");
+    let verifier = verifier_with_known_hosts(
+        &format!(
+            "example.com ssh-ed25519 {key}\n@revoked {} ssh-ed25519 {key}\n",
+            hashed_host("example.com")
+        ),
+        true,
+    );
+
+    // When the revoked key is presented, then the connection is refused.
+    let result = verifier.verify("example.com", 22, "ssh-ed25519", b"revoked");
+    assert!(
+        matches!(result, HostKeyResult::Mismatch { .. }),
+        "{result:?}"
+    );
+    assert!(!result.is_allowed(&verifier.config));
+}
+
+#[test]
+fn test_plain_hostname_does_not_pin_nondefault_port() {
+    // Given a key pinned only to the default SSH port.
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"key");
+    let verifier = verifier_with_known_hosts(&format!("example.com ssh-ed25519 {key}\n"), false);
+
+    // When connecting on a different port, then the host is unknown.
+    assert_eq!(
+        verifier.verify("example.com", 2222, "ssh-ed25519", b"key"),
+        HostKeyResult::UnknownHost
+    );
+}
+
+#[test]
+fn test_hashed_hostname_matches_only_its_port() {
+    // Given a hashed [host]:port entry.
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"key");
+    let verifier = verifier_with_known_hosts(
+        &format!("{} ssh-ed25519 {key}\n", hashed_host("[example.com]:2222")),
+        false,
+    );
+
+    // When connecting on that port, then the hashed host pin is honored.
+    assert_eq!(
+        verifier.verify("example.com", 2222, "ssh-ed25519", b"key"),
+        HostKeyResult::Verified
+    );
+}
+
+#[test]
+fn test_hashed_bare_hostname_does_not_pin_nondefault_port() {
+    // Given a hashed bare hostname (the default SSH port).
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"key");
+    let verifier = verifier_with_known_hosts(
+        &format!("{} ssh-ed25519 {key}\n", hashed_host("example.com")),
+        false,
+    );
+
+    // When connecting on another port, then that hashed pin does not match.
+    assert_eq!(
+        verifier.verify("example.com", 2222, "ssh-ed25519", b"key"),
+        HostKeyResult::UnknownHost
+    );
+}
+
+#[test]
+fn test_revocation_overrides_matching_fingerprint_pin() {
+    // Given an explicitly configured fingerprint and a revocation of its key.
+    let key = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, b"revoked");
+    let file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(
+        file.path(),
+        format!("@revoked example.com ssh-ed25519 {key}\n"),
+    )
+    .unwrap();
+    let verifier = HostKeyVerifier::new(HostKeyConfig {
+        known_hosts_path: Some(file.path().to_string_lossy().into_owned()),
+        host_key_fingerprint: Some(calculate_fingerprint(b"revoked")),
+        ..Default::default()
+    });
+
+    // When the revoked key is presented, then the pin cannot override the revocation.
+    assert!(matches!(
+        verifier.verify("example.com", 22, "ssh-ed25519", b"revoked"),
+        HostKeyResult::Mismatch { .. }
+    ));
+}
+
 #[test]
 fn test_host_key_config_default() {
     let config = HostKeyConfig::default();

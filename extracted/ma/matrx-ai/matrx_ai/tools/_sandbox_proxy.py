@@ -30,7 +30,13 @@ That's the rule that keeps non-sandbox chats working unchanged.
 
 Design notes
 ------------
-- Pure ``httpx``; no aidream imports — package independence preserved.
+- HTTP transport is the ``matrx_api`` client (``fs/*`` and ``search/*`` calls to a
+  cloud sandbox ride the orchestrator's generated proxy operations); no aidream
+  imports — package independence preserved. The migration / outage / token-remint /
+  device-offline retry policy is this module's own code in ``_request``.
+- ``/exec`` and every ``local_machine`` binding (aidream's local-proxy, not the
+  orchestrator) have no generated operation, so they keep the raw ``httpx`` call
+  (``_send_raw``) until the client models them.
 - One ``httpx.AsyncClient`` per call; we don't hold a long-lived client
   here because the binding can change between turns.
 - Errors translate to the ``ToolError`` shape the rest of the package
@@ -45,6 +51,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import dataclasses
 import logging
 import time
 from contextvars import ContextVar
@@ -52,6 +59,8 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 import httpx
+from matrx_api import CallOptions, MatrxApi, MatrxApiError, RawPath
+from matrx_api.generated import architecture
 
 logger = logging.getLogger(__name__)
 
@@ -431,6 +440,113 @@ def _unavailable_error(
     )
 
 
+#: Orchestrator route families the generated ``matrx_api`` operations model
+#: (``/sandboxes/{sandbox_id}/fs/{path}`` and ``.../search/{path}``).
+_API_FAMILIES = {"fs": "orchestrator_proxy_fs", "search": "orchestrator_proxy_search"}
+_API_OPERATION_SUFFIX = {
+    "GET": "_get",
+    "POST": "_post",
+    "PUT": "",
+    "PATCH": "_patch",
+    "DELETE": "_delete",
+}
+_API_FAMILY_SUFFIX = {
+    # search has only GET and POST operations; fs has all five verbs.
+    "search": {"GET": "_get", "POST": ""},
+}
+
+
+def _api_target(
+    binding: SandboxBinding, method: str, path: str
+) -> tuple[str, str, Any, str] | None:
+    """``(orchestrator origin, sandbox_id, operation, in-box path)`` or None for the raw path.
+
+    Only a cloud sandbox whose ``base_url`` is exactly ``{orchestrator}/sandboxes/{id}`` and
+    whose call is an ``fs/*`` or ``search/*`` one maps onto a generated operation.
+    """
+    if binding.target_kind != "sandbox":
+        return None
+    origin, sep, sandbox_id = binding.base_url.rstrip("/").rpartition("/sandboxes/")
+    if not sep or not origin or not sandbox_id or "/" in sandbox_id:
+        return None
+    family, _, rest = path.lstrip("/").partition("/")
+    base_name = _API_FAMILIES.get(family)
+    if base_name is None or not rest:
+        return None
+    suffixes = _API_FAMILY_SUFFIX.get(family, _API_OPERATION_SUFFIX)
+    suffix = suffixes.get(method.upper())
+    if suffix is None:
+        return None
+    op = architecture.OPERATIONS.get(base_name + suffix)
+    if op is None:
+        return None
+    return origin, sandbox_id, dataclasses.replace(op, stream="none"), rest
+
+
+async def _send_raw(
+    method: str,
+    url: str,
+    *,
+    params: dict[str, Any] | None,
+    json: Any,
+    call_timeout: float,
+    headers: dict[str, str],
+) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=call_timeout) as client:
+        return await client.request(method, url, params=params, json=json, headers=headers)
+
+
+async def _send_once(
+    binding: SandboxBinding,
+    method: str,
+    path: str,
+    *,
+    params: dict[str, Any] | None,
+    json: Any,
+    call_timeout: float,
+    headers: dict[str, str],
+) -> httpx.Response:
+    """ONE transport attempt. A >=400 answer comes back untouched; a transport failure raises
+    the original ``httpx.RequestError`` (so the caller's classification is unchanged)."""
+    target = _api_target(binding, method, path)
+    if target is None:
+        return await _send_raw(
+            method,
+            f"{binding.base_url}{path}",
+            params=params,
+            json=json,
+            call_timeout=call_timeout,
+            headers=headers,
+        )
+    origin, sandbox_id, op, rest = target
+    async with httpx.AsyncClient(timeout=call_timeout) as client:
+        api = MatrxApi(
+            base_urls={op.deployment: origin},
+            http_client=client,
+            credentials=None,
+            retry_attempts=1,
+        )
+        try:
+            response, _ = await api.send(
+                op,
+                path={"sandbox_id": sandbox_id, "path": RawPath(rest)},
+                query=params,
+                body=json,
+                options=CallOptions(
+                    headers=headers,
+                    raw_errors=True,
+                    connect_timeout=call_timeout,
+                    total_timeout=call_timeout,
+                ),
+            )
+        except MatrxApiError as exc:
+            cause = exc.__cause__
+            if exc.status == 0 and isinstance(cause, httpx.RequestError):
+                raise cause from None
+            raise
+    return response
+
+
 async def _request(
     binding: SandboxBinding,
     method: str,
@@ -444,7 +560,6 @@ async def _request(
 ) -> httpx.Response:
     """``answer_errors``: hand a 4xx/5xx answer back to the caller (``device_op`` reads its typed
     error body) instead of flattening it into a generic SandboxProxyError."""
-    url = f"{binding.base_url}{path}"
     attempt = 0
     reminted = False
     # ONE retry loop is the chokepoint for every proxied call (fs_*, exec,
@@ -483,14 +598,15 @@ async def _request(
     while True:
         attempt += 1
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.request(
-                    method,
-                    url,
-                    params=params,
-                    json=json,
-                    headers={**_headers(binding), **(extra_headers or {})},
-                )
+            resp = await _send_once(
+                binding,
+                method,
+                path,
+                params=params,
+                json=json,
+                call_timeout=timeout,
+                headers={**_headers(binding), **(extra_headers or {})},
+            )
         except httpx.RequestError as exc:
             if _is_transient_connection_error(exc, method=method):
                 if await _wait_for_route(f"{type(exc).__name__}: {exc}"):
@@ -577,8 +693,12 @@ async def _request(
     if answer_errors and resp.status_code >= 400 and resp.status_code not in (401, 403):
         return resp
     if resp.status_code == 404:
+        # Name what the caller asked for (the file), never the endpoint we called.
+        asked = (params or {}).get("path")
+        if not asked and isinstance(json, dict):
+            asked = json.get("path") or json.get("from_path")
         raise SandboxProxyError(
-            f"Not found: {path}",
+            f"Not found: {asked or path}",
             status=404,
             error_type="not_found",
         )

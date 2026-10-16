@@ -322,6 +322,13 @@ class LeanOAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authenticatio
         """
         ...
 
+    def invalidate_access_token(self) -> None:
+        """
+        Drops the cached token after the brokerage rejected it, so that the next get_access_token requests a new one
+        instead of reusing it until it expires.
+        """
+        ...
+
 
 class _EventContainer(typing.Generic[QuantConnect_Brokerages_Authentication__EventContainer_Callable, QuantConnect_Brokerages_Authentication__EventContainer_ReturnType]):
     """This class is used to provide accurate autocomplete on events and cannot be imported."""

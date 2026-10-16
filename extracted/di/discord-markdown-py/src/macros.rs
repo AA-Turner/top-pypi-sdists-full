@@ -43,12 +43,10 @@ macro_rules! heading {
         heading!(__private $level, $crate::spanned_vec![$($children),*])
     };
     (__private $level: literal, $children: expr) => {
-        $crate::node::Node::Element($crate::node::Element::Heading(
-            $crate::block::heading::Heading {
-                level: $level,
-                content: $children,
-            }
-        ))
+        $crate::node::Block::Heading($crate::node::block::heading::Heading {
+            level: $level,
+            content: $children,
+        })
     }
 }
 
@@ -68,22 +66,18 @@ macro_rules! heading {
 #[macro_export]
 macro_rules! list {
     (- [$($list_item: expr),+ $(,)?]) => {
-        $crate::node::Node::Element($crate::node::Element::List(
-            $crate::block::list::List {
-                kind: $crate::block::list::Type::Unordered,
-                items: $crate::list_items!($($list_item),*)
-            }
-        ))
+        $crate::node::Block::List($crate::node::block::list::List {
+            kind: $crate::node::block::list::Type::Unordered,
+            items: $crate::list_items!($($list_item),*)
+        })
     };
     ($bullet_number: literal: [$($list_item: expr),+ $(,)?]) => {
-        $crate::node::Node::Element($crate::node::Element::List(
-            $crate::block::list::List {
-                kind: $crate::block::list::Type::Ordered(
-                    ::std::num::NonZero::new($bullet_number).unwrap()
-                ),
-                items: $crate::list_items!($($list_item),*)
-            }
-        ))
+        $crate::node::Block::List($crate::node::block::list::List {
+            kind: $crate::node::block::list::Type::Ordered(
+                ::std::num::NonZero::new($bullet_number).unwrap()
+            ),
+            items: $crate::list_items!($($list_item),*)
+        })
     };
 }
 
@@ -100,7 +94,7 @@ macro_rules! list_item {
         list_item!(__private $crate::spanned_vec![$crate::paragraph!($single_item)])
     };
     (__private $children: expr) => {
-        $crate::block::list::item::Item {
+        $crate::node::block::list::item::Item {
             content: $children
         }
     };
@@ -127,7 +121,7 @@ macro_rules! quote {
         quote!(__private vec![$($lines),*])
     };
     (__private $lines: expr) => {
-        $crate::Node::Quote($crate::block::quote::Quote {
+        $crate::Node::Quote($crate::node::block::quote::Quote {
             lines: $lines
         })
     };
@@ -140,9 +134,7 @@ macro_rules! paragraph {
         $crate::paragraph!($crate::text!($text_content))
     };
     ($($children: expr),* $(,)?) => {
-        $crate::node::Node::Element(
-            $crate::node::Element::Paragraph($crate::spanned_vec![$($children),*])
-        )
+        $crate::node::Block::Paragraph($crate::spanned_vec![$($children),*])
     };
 }
 
@@ -152,7 +144,7 @@ macro_rules! paragraph {
 #[macro_export]
 macro_rules! text {
 	( $text_content: literal ) => {
-		$crate::node::Node::Element($crate::node::Element::Text($text_content.into()))
+		$crate::node::Inline::Text($text_content.into())
 	};
 }
 
@@ -165,9 +157,7 @@ macro_rules! modifier {
         $crate::modifier!($kind, $crate::text!($text_content))
     };
     ( $kind: ident, $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Modifier(
-            $crate::node::Modifier::$kind($crate::spanned_vec![$($children),*])
-        )
+        $crate::node::Inline::$kind($crate::spanned_vec![$($children),*])
     };
 }
 
@@ -210,12 +200,10 @@ macro_rules! spoiler {
         $crate::spoiler!(id = $id; $crate::text!($text_content))
     };
     ( id = $id: expr; $($children: expr),+ $(,)? ) => {
-        $crate::node::Node::Modifier($crate::node::Modifier::Spoiler(
-            $crate::node::modifier::spoiler::Spoiler {
-                id: $crate::node::Id($id),
-                content: $crate::spanned_vec![$($children),*],
-            }
-        ))
+        $crate::node::Inline::Spoiler($crate::node::modifier::spoiler::Spoiler {
+            id: $crate::node::Id($id),
+            content: $crate::spanned_vec![$($children),*],
+        })
     };
     ( $($tokens: tt)+ ) => {
         $crate::spoiler!(id = 0; $($tokens)+)
@@ -226,7 +214,7 @@ macro_rules! spoiler {
 #[macro_export]
 macro_rules! code {
 	( $text_content: literal ) => {
-		$crate::node::Node::Element($crate::node::Element::Code($text_content.into()))
+		$crate::node::Inline::Code($text_content.into())
 	};
 }
 
@@ -240,12 +228,10 @@ macro_rules! code_block {
          code_block!(__private $text_content, Some($language.into()))
     };
     (__private $text_content: literal, $language: expr) => {
-        $crate::node::Node::Element($crate::node::Element::CodeBlock(
-            $crate::inline::code_block::CodeBlock {
-                language: $language,
-                content: $text_content.to_string()
-            }
-        ))
+        $crate::node::Inline::CodeBlock($crate::node::inline::code_block::CodeBlock {
+            language: $language,
+            content: $text_content.to_string()
+        })
     };
 }
 
@@ -254,9 +240,7 @@ macro_rules! code_block {
 macro_rules! emoji {
     // Unicode
     ($unicode: literal) => {
-       $crate::node::Node::Element($crate::node::Element::Emoji(
-           $crate::inline::emoji::Emoji::Unicode($unicode.into())
-       ))
+       $crate::node::Inline::Emoji($crate::node::inline::emoji::Emoji::Unicode($unicode.into()))
     };
 
     // Custom
@@ -267,14 +251,12 @@ macro_rules! emoji {
        emoji!(__private $id, $name, true)
     };
     (__private $id: literal, $name: literal, $animated: expr) => {
-       $crate::node::Node::Element($crate::node::Element::Emoji(
-           $crate::inline::emoji::Emoji::Custom(
-               $crate::inline::emoji::custom::Custom {
-                   id: $id,
-                   name: $name.into(),
-                   animated: $animated
-               }
-           )
+       $crate::node::Inline::Emoji($crate::node::inline::emoji::Emoji::Custom(
+           $crate::node::inline::emoji::custom::Custom {
+               id: $id,
+               name: $name.into(),
+               animated: $animated
+           }
        ))
     };
 }
@@ -296,10 +278,10 @@ macro_rules! link {
     };
 
     (__private $target: literal, $title: expr, $children: expr) => {
-        $crate::node::Node::Element($crate::node::Element::Link($crate::inline::link::Link {
+        $crate::node::Inline::Link($crate::node::inline::link::Link {
             url: $target.parse().unwrap(),
             text: $children,
             title: $title
-        }))
+        })
     };
 }

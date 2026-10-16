@@ -1338,10 +1338,11 @@ def _count_syllables(text: str) -> int:
 # ===========================================================================
 
 # Thin content, in words of audited visible text. Screaming Frog's "low
-# content" default is 200 words; we warn below 300 and fail below 100.
+# content" default is 200 words; the thin_content contract bands are
+# <50 -> 20, 50-149 -> 45, 150-299 -> 70, 300+ -> 100.
 CONTENT_OK_WORDS = 300
-CONTENT_WARN_WORDS = 200
-CONTENT_FAIL_WORDS = 100
+CONTENT_WARN_WORDS = 150
+CONTENT_FAIL_WORDS = 50
 
 # `url_design_quality` — the deduction formula from its live catalogue row.
 URL_DESIGN_MAX_LENGTH = 115
@@ -2187,7 +2188,7 @@ def check_title_presence(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome("pass", 100, f'Title present: "{ev.title[:120]}".')
     return CheckOutcome(
         "fail",
-        5,
+        15,  # title_presence contract: missing or empty = 15
         "This page has no <title> tag (or it is empty) — search engines will "
         "synthesize one, and the SERP headline is out of your control.",
         issue_count=1,
@@ -2267,7 +2268,7 @@ def check_meta_description_presence(ev: PageEvidence) -> CheckOutcome:
         return CheckOutcome("pass", 100, "Meta description present.")
     return CheckOutcome(
         "fail",
-        25,
+        45,  # meta_description_presence contract: missing or empty = 45
         "No meta description — Google will scrape arbitrary body text for the "
         "snippet, and CTR suffers.",
         issue_count=1,
@@ -2494,7 +2495,7 @@ def check_thin_content(ev: PageEvidence) -> CheckOutcome:
     if words >= CONTENT_WARN_WORDS:
         return CheckOutcome(
             "warn",
-            60,
+            70,
             f"Only {words} words of visible text (below {CONTENT_OK_WORDS}) — "
             "thin pages struggle to rank for anything competitive.",
             issue_count=1,
@@ -2502,14 +2503,14 @@ def check_thin_content(ev: PageEvidence) -> CheckOutcome:
     if words >= CONTENT_FAIL_WORDS:
         return CheckOutcome(
             "warn",
-            40,
+            45,
             f"Only {words} words of visible text — this is thin content by any "
             f"industry bar (Screaming Frog flags under {CONTENT_WARN_WORDS}).",
             issue_count=1,
         )
     return CheckOutcome(
         "fail",
-        15,
+        20,
         f"Only {words} words of visible text — effectively an empty page to a search engine.",
         issue_count=1,
     )
@@ -2688,7 +2689,7 @@ def check_text_html_ratio(ev: PageEvidence) -> CheckOutcome:
             issue_count=1,
             evidence=evidence,
         )
-    if ratio < TEXT_HTML_RATIO_WARN:
+    if ratio <= TEXT_HTML_RATIO_WARN:  # contract: 3-10% inclusive
         # A PASS carrying a 75 — the row's own logic is "advisory signal; only
         # extreme values matter", and its severity_map calls this band "info".
         return CheckOutcome(
@@ -2741,7 +2742,7 @@ def check_image_alt_presence(ev: PageEvidence) -> CheckOutcome:
     if missing == 0:
         return CheckOutcome("pass", 100, f"All {count} meaningful images carry alt text.")
     ratio = missing / count
-    score = clamp_score(round(95 * (1 - ratio)))
+    score = clamp_score(round(100 * (1 - ratio)))
     status = (
         "fail" if (ratio >= IMAGE_ALT_FAIL_RATIO or missing >= IMAGE_ALT_FAIL_COUNT) else "warn"
     )
@@ -3218,7 +3219,7 @@ def check_meta_robots_conflicts(ev: PageEvidence) -> CheckOutcome:
     if "index" in tokens and "noindex" in tokens:
         return CheckOutcome(
             "fail",
-            20,
+            25,
             f'Conflicting robots directives ("{ev.meta_robots}") — index and '
             "noindex together leave the outcome to the crawler's mood.",
             issue_count=1,
@@ -3235,7 +3236,7 @@ def check_meta_robots_conflicts(ev: PageEvidence) -> CheckOutcome:
     if ev.nofollow:
         return CheckOutcome(
             "warn",
-            55,
+            45,
             "Page is nofollowed — its internal links pass no signals onward.",
             issue_count=1,
             evidence={"meta_robots": ev.meta_robots},
@@ -3455,17 +3456,21 @@ def check_redirect_chain(ev: PageEvidence) -> CheckOutcome:
         )
     if not chain:
         return CheckOutcome("pass", 100, "No redirects — the URL serves content directly.")
-    if len(chain) > REDIRECT_CHAIN_MAX_HOPS:
-        return CheckOutcome(
-            "warn",
-            45,
-            f"{len(chain) - 1} redirect hops before this page resolves (limit is "
-            f"{REDIRECT_CHAIN_MAX_HOPS - 1}) — every hop wastes crawl budget and "
-            "leaks link equity.",
-            issue_count=len(chain) - 1,
-            evidence={"redirect_chain": sample_urls(_chain_urls(ev))},
-        )
-    return CheckOutcome("pass", 100, f"Redirect chain is short ({max(0, len(chain) - 1)} hop(s)).")
+    hops = max(0, len(chain) - 1)
+    if hops == 0:
+        return CheckOutcome("pass", 100, "No redirects — the URL serves content directly.")
+    # redirect_chain contract ladder: 1 hop 85, 2 hops 60, 3 hops 40, 4+ hops 20.
+    score = {1: 85, 2: 60, 3: 40}.get(hops, 20)
+    if hops == 1:
+        return CheckOutcome("pass", score, "One clean redirect before this page resolves.")
+    return CheckOutcome(
+        "warn" if score >= 50 else "fail",
+        score,
+        f"{hops} redirect hops before this page resolves — every hop wastes "
+        "crawl budget and leaks link equity.",
+        issue_count=hops,
+        evidence={"redirect_chain": sample_urls(_chain_urls(ev))},
+    )
 
 
 def check_redirect_loop(ev: PageEvidence) -> CheckOutcome:
@@ -3673,16 +3678,38 @@ def check_pagination_markup(ev: PageEvidence) -> CheckOutcome:
     )
 
 
+_ACTIVE_MIXED_EXTENSIONS = (".js", ".mjs", ".css", ".html", ".htm", ".php", ".json")
+_PASSIVE_MIXED_EXTENSIONS = (
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico", ".bmp",
+    ".mp4", ".webm", ".ogg", ".mp3", ".wav", ".m4a", ".woff", ".woff2", ".ttf",
+)
+
+
+def _is_passive_mixed(url: str) -> bool:
+    """Images and media are passive; script/stylesheet/iframe (and anything unknown) are active."""
+    path = urlsplit(url).path.lower()
+    return path.endswith(_PASSIVE_MIXED_EXTENSIONS) and not path.endswith(_ACTIVE_MIXED_EXTENSIONS)
+
+
 def check_mixed_content(ev: PageEvidence) -> CheckOutcome:
     resources = ev.mixed_content or []
     if not resources:
         return CheckOutcome("pass", 100, "No insecure http:// resources on this page.")
     n = len(resources)
+    # mixed_content contract: any active resource 20, passive only 50. A URL we
+    # cannot classify counts as active - the safer reading.
+    active = [u for u in resources if not _is_passive_mixed(u)]
+    score = 20 if active else 50
+    kind = (
+        f"{len(active)} of them are scripts, stylesheets or frames that browsers block"
+        if active
+        else "all are images or media that browsers warn about"
+    )
     return CheckOutcome(
-        "warn",
-        clamp_score(70 - 5 * n),
-        f"{n} resource(s) load over plain http:// on an https:// page — browsers "
-        "block or warn on mixed content, and the padlock disappears.",
+        "fail" if active else "warn",
+        score,
+        f"{n} resource(s) load over plain http:// on an https:// page — {kind}, "
+        "and the padlock disappears.",
         issue_count=n,
         evidence={"mixed_content": sample_urls(resources)},
     )
@@ -4082,15 +4109,13 @@ def check_social_meta_completeness(ev: PageEvidence) -> CheckOutcome:
             "We haven't read this page's markup yet, so its share tags are unknown.",
             remediation=RECAPTURE_PAGE,
         )
-    # og:image is judged — and reported — by `check_og_image_validity`. Counting it
-    # here too filed the same missing picture twice with two remedies, so it is
-    # treated as satisfied for this check's tag-coverage score.
+    # og:image is judged — and reported — by `check_og_image_validity` only;
+    # this check covers the other four (contract amended 2026-10-14: /4).
+    required = [tag for tag in SOCIAL_REQUIRED_OG_TAGS if tag != "og:image"]
     missing = [
-        tag
-        for tag in SOCIAL_REQUIRED_OG_TAGS
-        if tag != "og:image" and not (isinstance(ev.og.get(tag), str) and ev.og[tag].strip())
+        tag for tag in required if not (isinstance(ev.og.get(tag), str) and ev.og[tag].strip())
     ]
-    present = len(SOCIAL_REQUIRED_OG_TAGS) - len(missing)
+    present = len(required) - len(missing)
     twitter_card = ev.twitter.get("twitter:card")
     has_twitter_card = isinstance(twitter_card, str) and bool(twitter_card.strip())
 
@@ -4104,7 +4129,7 @@ def check_social_meta_completeness(ev: PageEvidence) -> CheckOutcome:
         and not _same_target(og_url, canonical)
     )
 
-    score = round(100 * present / len(SOCIAL_REQUIRED_OG_TAGS))
+    score = round(100 * present / len(required))
     if conflicts:
         score -= SOCIAL_OG_URL_CONFLICT_PENALTY
     if not has_twitter_card:

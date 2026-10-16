@@ -1097,13 +1097,12 @@ def describe(status: Literal["pending", "done"]) -> str: # E: Function declared 
 "#,
 );
 
-// Regression test: match on a complex expression (not a name) should not cause
-// an internal error when checking for implicit returns. The subject `1 + 1` is
-// a BinOp which cannot be converted to a narrowing subject.
+// A folded literal expression makes the match exhaustive even though the
+// expression is not a narrowing subject.
 testcase!(
-    test_match_on_complex_expr_no_internal_error,
+    test_match_on_folded_literal_expr_is_exhaustive,
     r#"
-def foo() -> str: # E: Function declared to return `str`, but one or more paths are missing an explicit `return`
+def foo() -> str:
     match 1 + 1:
         case 2:
             return "two"
@@ -1838,6 +1837,65 @@ def keyed_pattern_does_not_narrow_else(x: dict | int) -> None:
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/4972
+testcase!(
+    test_match_tuple_optional_captures,
+    r#"
+from typing import assert_type
+def get_present_value(left: int | None, right: str | None) -> int | str:
+    match left, right:
+        case None, None:
+            raise ValueError("Both values are missing")
+        case value, None:
+            assert_type(value, int)
+            return value
+        case None, value:
+            assert_type(value, str)
+            return value
+        case _:
+            raise ValueError("Both values are present")
+
+def both_present(left: int | None, right: str | None) -> None:
+    match left, right:
+        case None, None:
+            pass
+        case value, None:
+            assert_type(value, int)
+        case None, value:
+            assert_type(value, str)
+        case a, b:
+            assert_type(a, int)
+            assert_type(b, str)
+
+def guarded(left: int | None, right: str | None, flag: bool) -> None:
+    match left, right:
+        case None, None if flag:
+            pass
+        case value, None:
+            assert_type(value, int | None)
+        case None, value:
+            assert_type(value, str)
+
+def incomplete(left: int | None, right: str | None) -> None:
+    match left, right:
+        case value, None:
+            assert_type(value, int | None)
+        case None, value:
+            assert_type(value, str)
+
+def three_elements(a: int | None, b: str | None, c: bytes | None) -> None:
+    match a, b, c:
+        case None, None, None:
+            pass
+        case x, None, None:
+            assert_type(x, int)
+        case None, y, None:
+            assert_type(y, str)
+        case None, None, z:
+            assert_type(z, bytes)
+"#,
+);
+
 // https://github.com/facebook/pyrefly/issues/3213
 testcase!(
     bug = "match on a tuple of optionals does not narrow the elements based on earlier None cases",
@@ -1940,4 +1998,32 @@ def f(c: C) -> None:
         case C(int()):
             assert_type(c.x, int)
     "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/4888.
+testcase!(
+    test_match_class_pattern_with_replaced_import,
+    TestEnv::new().with_replace_imports_with_any(&["pandas"]),
+    r#"
+from typing import Any, assert_type
+import pandas as pd
+def check(arg: object) -> None:
+    match arg:
+        case pd.DataFrame(dtypes=dtypes):
+            assert_type(dtypes, Any)
+    "#,
+);
+
+testcase!(
+    test_guard_lambda_contextual_type,
+    r#"
+from typing import Callable
+
+def pred(f: Callable[[int], object]) -> bool: ...
+
+def f(x: object) -> None:
+    match x:
+        case _ if pred(lambda v: [e for e in v]):  # E: Type `int` is not iterable
+            pass
+"#,
 );

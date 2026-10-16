@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: accelerator-toolbox
-Version: 0.8.0
+Version: 0.9.0
 Summary: Accelerator Toolbox
 Author-email: The AT collaboration <atcollab-general@lists.sourceforge.net>
 License-Expression: Apache-2.0
@@ -35,7 +35,7 @@ Requires-Dist: pytest>=2.9; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Provides-Extra: doc
-Requires-Dist: Sphinx~=8.1; extra == "doc"
+Requires-Dist: Sphinx~=9.0; extra == "doc"
 Requires-Dist: myst-parser; extra == "doc"
 Requires-Dist: myst-nb; extra == "doc"
 Requires-Dist: pydata-sphinx-theme; extra == "doc"

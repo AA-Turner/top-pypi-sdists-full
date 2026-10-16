@@ -70,9 +70,11 @@ if TYPE_CHECKING:
         financial_accounts,
         card_authorizations,
         responder_endpoints,
+        blockchain_recipients,
         management_operations,
         auth_stream_enrollment,
         external_bank_accounts,
+        transaction_monitoring,
         tokenization_decisioning,
     )
     from .resources.holds import Holds, AsyncHolds
@@ -100,6 +102,7 @@ if TYPE_CHECKING:
     from .resources.card_authorizations import CardAuthorizations, AsyncCardAuthorizations
     from .resources.responder_endpoints import ResponderEndpoints, AsyncResponderEndpoints
     from .resources.auth_rules.auth_rules import AuthRules, AsyncAuthRules
+    from .resources.blockchain_recipients import BlockchainRecipients, AsyncBlockchainRecipients
     from .resources.management_operations import ManagementOperations, AsyncManagementOperations
     from .resources.auth_stream_enrollment import AuthStreamEnrollment, AsyncAuthStreamEnrollment
     from .resources.tokenization_decisioning import TokenizationDecisioning, AsyncTokenizationDecisioning
@@ -108,6 +111,10 @@ if TYPE_CHECKING:
     from .resources.credit_products.credit_products import CreditProducts, AsyncCreditProducts
     from .resources.financial_accounts.financial_accounts import FinancialAccounts, AsyncFinancialAccounts
     from .resources.external_bank_accounts.external_bank_accounts import ExternalBankAccounts, AsyncExternalBankAccounts
+    from .resources.transaction_monitoring.transaction_monitoring import (
+        TransactionMonitoring,
+        AsyncTransactionMonitoring,
+    )
 
 __all__ = [
     "ENVIRONMENTS",
@@ -242,6 +249,12 @@ class Lithic(SyncAPIClient):
         return AuthRules(self)
 
     @cached_property
+    def transaction_monitoring(self) -> TransactionMonitoring:
+        from .resources.transaction_monitoring import TransactionMonitoring
+
+        return TransactionMonitoring(self)
+
+    @cached_property
     def auth_stream_enrollment(self) -> AuthStreamEnrollment:
         from .resources.auth_stream_enrollment import AuthStreamEnrollment
 
@@ -324,6 +337,12 @@ class Lithic(SyncAPIClient):
         from .resources.external_bank_accounts import ExternalBankAccounts
 
         return ExternalBankAccounts(self)
+
+    @cached_property
+    def blockchain_recipients(self) -> BlockchainRecipients:
+        from .resources.blockchain_recipients import BlockchainRecipients
+
+        return BlockchainRecipients(self)
 
     @cached_property
     def payments(self) -> Payments:
@@ -672,6 +691,12 @@ class AsyncLithic(AsyncAPIClient):
         return AsyncAuthRules(self)
 
     @cached_property
+    def transaction_monitoring(self) -> AsyncTransactionMonitoring:
+        from .resources.transaction_monitoring import AsyncTransactionMonitoring
+
+        return AsyncTransactionMonitoring(self)
+
+    @cached_property
     def auth_stream_enrollment(self) -> AsyncAuthStreamEnrollment:
         from .resources.auth_stream_enrollment import AsyncAuthStreamEnrollment
 
@@ -754,6 +779,12 @@ class AsyncLithic(AsyncAPIClient):
         from .resources.external_bank_accounts import AsyncExternalBankAccounts
 
         return AsyncExternalBankAccounts(self)
+
+    @cached_property
+    def blockchain_recipients(self) -> AsyncBlockchainRecipients:
+        from .resources.blockchain_recipients import AsyncBlockchainRecipients
+
+        return AsyncBlockchainRecipients(self)
 
     @cached_property
     def payments(self) -> AsyncPayments:
@@ -1016,6 +1047,12 @@ class LithicWithRawResponse:
         return AuthRulesWithRawResponse(self._client.auth_rules)
 
     @cached_property
+    def transaction_monitoring(self) -> transaction_monitoring.TransactionMonitoringWithRawResponse:
+        from .resources.transaction_monitoring import TransactionMonitoringWithRawResponse
+
+        return TransactionMonitoringWithRawResponse(self._client.transaction_monitoring)
+
+    @cached_property
     def auth_stream_enrollment(self) -> auth_stream_enrollment.AuthStreamEnrollmentWithRawResponse:
         from .resources.auth_stream_enrollment import AuthStreamEnrollmentWithRawResponse
 
@@ -1098,6 +1135,12 @@ class LithicWithRawResponse:
         from .resources.external_bank_accounts import ExternalBankAccountsWithRawResponse
 
         return ExternalBankAccountsWithRawResponse(self._client.external_bank_accounts)
+
+    @cached_property
+    def blockchain_recipients(self) -> blockchain_recipients.BlockchainRecipientsWithRawResponse:
+        from .resources.blockchain_recipients import BlockchainRecipientsWithRawResponse
+
+        return BlockchainRecipientsWithRawResponse(self._client.blockchain_recipients)
 
     @cached_property
     def payments(self) -> payments.PaymentsWithRawResponse:
@@ -1219,6 +1262,12 @@ class AsyncLithicWithRawResponse:
         return AsyncAuthRulesWithRawResponse(self._client.auth_rules)
 
     @cached_property
+    def transaction_monitoring(self) -> transaction_monitoring.AsyncTransactionMonitoringWithRawResponse:
+        from .resources.transaction_monitoring import AsyncTransactionMonitoringWithRawResponse
+
+        return AsyncTransactionMonitoringWithRawResponse(self._client.transaction_monitoring)
+
+    @cached_property
     def auth_stream_enrollment(self) -> auth_stream_enrollment.AsyncAuthStreamEnrollmentWithRawResponse:
         from .resources.auth_stream_enrollment import AsyncAuthStreamEnrollmentWithRawResponse
 
@@ -1301,6 +1350,12 @@ class AsyncLithicWithRawResponse:
         from .resources.external_bank_accounts import AsyncExternalBankAccountsWithRawResponse
 
         return AsyncExternalBankAccountsWithRawResponse(self._client.external_bank_accounts)
+
+    @cached_property
+    def blockchain_recipients(self) -> blockchain_recipients.AsyncBlockchainRecipientsWithRawResponse:
+        from .resources.blockchain_recipients import AsyncBlockchainRecipientsWithRawResponse
+
+        return AsyncBlockchainRecipientsWithRawResponse(self._client.blockchain_recipients)
 
     @cached_property
     def payments(self) -> payments.AsyncPaymentsWithRawResponse:
@@ -1422,6 +1477,12 @@ class LithicWithStreamedResponse:
         return AuthRulesWithStreamingResponse(self._client.auth_rules)
 
     @cached_property
+    def transaction_monitoring(self) -> transaction_monitoring.TransactionMonitoringWithStreamingResponse:
+        from .resources.transaction_monitoring import TransactionMonitoringWithStreamingResponse
+
+        return TransactionMonitoringWithStreamingResponse(self._client.transaction_monitoring)
+
+    @cached_property
     def auth_stream_enrollment(self) -> auth_stream_enrollment.AuthStreamEnrollmentWithStreamingResponse:
         from .resources.auth_stream_enrollment import AuthStreamEnrollmentWithStreamingResponse
 
@@ -1504,6 +1565,12 @@ class LithicWithStreamedResponse:
         from .resources.external_bank_accounts import ExternalBankAccountsWithStreamingResponse
 
         return ExternalBankAccountsWithStreamingResponse(self._client.external_bank_accounts)
+
+    @cached_property
+    def blockchain_recipients(self) -> blockchain_recipients.BlockchainRecipientsWithStreamingResponse:
+        from .resources.blockchain_recipients import BlockchainRecipientsWithStreamingResponse
+
+        return BlockchainRecipientsWithStreamingResponse(self._client.blockchain_recipients)
 
     @cached_property
     def payments(self) -> payments.PaymentsWithStreamingResponse:
@@ -1625,6 +1692,12 @@ class AsyncLithicWithStreamedResponse:
         return AsyncAuthRulesWithStreamingResponse(self._client.auth_rules)
 
     @cached_property
+    def transaction_monitoring(self) -> transaction_monitoring.AsyncTransactionMonitoringWithStreamingResponse:
+        from .resources.transaction_monitoring import AsyncTransactionMonitoringWithStreamingResponse
+
+        return AsyncTransactionMonitoringWithStreamingResponse(self._client.transaction_monitoring)
+
+    @cached_property
     def auth_stream_enrollment(self) -> auth_stream_enrollment.AsyncAuthStreamEnrollmentWithStreamingResponse:
         from .resources.auth_stream_enrollment import AsyncAuthStreamEnrollmentWithStreamingResponse
 
@@ -1707,6 +1780,12 @@ class AsyncLithicWithStreamedResponse:
         from .resources.external_bank_accounts import AsyncExternalBankAccountsWithStreamingResponse
 
         return AsyncExternalBankAccountsWithStreamingResponse(self._client.external_bank_accounts)
+
+    @cached_property
+    def blockchain_recipients(self) -> blockchain_recipients.AsyncBlockchainRecipientsWithStreamingResponse:
+        from .resources.blockchain_recipients import AsyncBlockchainRecipientsWithStreamingResponse
+
+        return AsyncBlockchainRecipientsWithStreamingResponse(self._client.blockchain_recipients)
 
     @cached_property
     def payments(self) -> payments.AsyncPaymentsWithStreamingResponse:

@@ -1,10 +1,17 @@
 Metadata-Version: 2.1
 Name: volcengine
-Version: 1.0.228
+Version: 1.0.229
 Summary: The Volcengine SDK for Python
 Home-page: https://github.com/Volcengine/volc-sdk-python
 Author: Volcengine SDK
 License: MIT License
 Keywords: pip,volcengine,volc-sdk-python
 Platform: any
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Python: >=3.7
 License-File: LICENSE

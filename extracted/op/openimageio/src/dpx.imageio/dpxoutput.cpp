@@ -18,6 +18,8 @@
 #include <OpenImageIO/strutil.h>
 #include <OpenImageIO/typedesc.h>
 
+#include "imageio_pvt.h"
+
 OIIO_PLUGIN_NAMESPACE_BEGIN
 
 
@@ -46,9 +48,6 @@ public:
     bool close() override;
     bool write_scanline(int y, int z, TypeDesc format, const void* data,
                         stride_t xstride) override;
-    bool write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                    stride_t xstride, stride_t ystride,
-                    stride_t zstride) override;
 
 private:
     OutStream* m_stream = nullptr;
@@ -69,7 +68,6 @@ private:
     std::vector<ImageSpec> m_subimage_specs;
     bool m_write_pending;  // subimage buffer needs to be written
     unsigned int m_dither;
-    std::vector<unsigned char> m_tilebuffer;
 
     // Initialize private members to pre-opened state
     void init(void)
@@ -127,7 +125,10 @@ OIIO_PLUGIN_EXPORTS_END
 
 
 
-DPXOutput::DPXOutput() { init(); }
+DPXOutput::DPXOutput()
+{
+    init();
+}
 
 
 
@@ -416,11 +417,6 @@ DPXOutput::open(const std::string& name, const ImageSpec& userspec,
                    ? spec0.get_int_attribute("oiio:dither", 0)
                    : 0;
 
-    // If user asked for tiles -- which this format doesn't support, emulate
-    // it by buffering the whole image.
-    if (spec0.tile_width && spec0.tile_height)
-        m_tilebuffer.resize(spec0.image_bytes());
-
     return prep_subimage(m_subimage, true);
 }
 
@@ -435,18 +431,15 @@ DPXOutput::prep_subimage(int s, bool allocate)
     m_desc = get_image_descriptor();
 
     // transfer function
-    const ColorConfig& colorconfig = ColorConfig::default_colorconfig();
-    std::string colorspace = spec_s.get_string_attribute("oiio:ColorSpace", "");
-    if (colorconfig.equivalent(colorspace, "lin_rec709_scene"))
-        m_transfer = dpx::kLinear;
-    else if (colorconfig.equivalent(colorspace, "srgb_rec709_scene"))
+    const float gamma = pvt::get_colorspace_rec709_gamma(spec_s);
+    if (is_colorspace_srgb(spec_s, false))
         m_transfer = dpx::kITUR709;
-    else if (colorconfig.equivalent(colorspace, "g22_rec709_scene")
-             || colorconfig.equivalent(colorspace, "g24_rec709_scene")
-             || colorconfig.equivalent(colorspace, "g18_rec709_scene")
-             || Strutil::istarts_with(colorspace, "Gamma"))
+    else if (gamma == 1.0f)
+        m_transfer = dpx::kLinear;
+    else if (gamma != 0.0f)
         m_transfer = dpx::kUserDefined;
-    else if (colorconfig.equivalent(colorspace, "KodakLog"))
+    else if (ColorConfig::default_colorconfig().equivalent(
+                 spec_s.get_string_attribute("oiio:ColorSpace"), "KodakLog"))
         m_transfer = dpx::kLogarithmic;
     else {
         std::string dpxtransfer = spec_s.get_string_attribute("dpx:Transfer",
@@ -592,16 +585,7 @@ DPXOutput::close()
         return true;
     }
 
-    bool ok = true;
-    const ImageSpec& spec_s(m_subimage_specs[m_subimage]);
-    if (spec_s.tile_width && m_tilebuffer.size()) {
-        // Handle tile emulation -- output the buffered pixels
-        ok &= write_scanlines(spec_s.y, spec_s.y + spec_s.height, 0,
-                              spec_s.format, &m_tilebuffer[0]);
-        std::vector<unsigned char>().swap(m_tilebuffer);
-    }
-
-    ok &= write_buffer();
+    bool ok = write_buffer();
     m_dpx.Finish();
     init();  // Reset to initial state
     return ok;
@@ -639,22 +623,6 @@ DPXOutput::write_scanline(int y, int z, TypeDesc format, const void* data,
         return false;
 
     return true;
-}
-
-
-
-bool
-DPXOutput::write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                      stride_t xstride, stride_t ystride, stride_t zstride)
-{
-    if (!is_opened()) {
-        errorfmt("write_tile called but file is not open.");
-        return false;
-    }
-
-    // Emulate tiles by buffering the whole image
-    return copy_tile_to_image_buffer(x, y, z, format, data, xstride, ystride,
-                                     zstride, &m_tilebuffer[0]);
 }
 
 

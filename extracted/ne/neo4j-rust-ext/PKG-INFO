@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j-rust-ext
-Version: 6.4.0.0
+Version: 6.4.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -13,10 +13,12 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development
-Requires-Dist: neo4j==6.4.0
-Requires-Dist: neo4j[numpy] ; extra == 'numpy'
-Requires-Dist: neo4j[pandas] ; extra == 'pandas'
-Requires-Dist: neo4j[pyarrow] ; extra == 'pyarrow'
+Requires-Dist: neo4j==6.4.1
+Requires-Dist: neo4j[http]==6.4.1 ; extra == 'http'
+Requires-Dist: neo4j[numpy]==6.4.1 ; extra == 'numpy'
+Requires-Dist: neo4j[pandas]==6.4.1 ; extra == 'pandas'
+Requires-Dist: neo4j[pyarrow]==6.4.1 ; extra == 'pyarrow'
+Provides-Extra: http
 Provides-Extra: numpy
 Provides-Extra: pandas
 Provides-Extra: pyarrow

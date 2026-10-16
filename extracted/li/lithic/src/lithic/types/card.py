@@ -13,11 +13,11 @@ class Card(NonPCICard):
     """
 
     cvv: Optional[str] = None
-    """Three digit cvv printed on the back of the card."""
+    """Three or four digit CVV printed on the card. Amex cards use four digit CVVs"""
 
     pan: Optional[str] = None
     """Primary Account Number (PAN) (i.e.
 
     the card number). Customers must be PCI compliant to have PAN returned as a
-    field in production. Please contact support@lithic.com for questions.
+    field in production. Please contact https://support.lithic.com/ for questions.
     """

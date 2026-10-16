@@ -142,7 +142,7 @@ def test_every_check_is_db_valid_on_a_healthy_page():
 def test_title_presence():
     assert _check_title_presence(make_facts(), SiteAggregates()).status == "pass"
     missing = _check_title_presence(make_facts(title=None), SiteAggregates())
-    assert missing.status == "fail" and missing.score == 5
+    assert missing.status == "fail" and missing.score == 15  # contract: title missing = 15
 
 
 def test_title_length_no_title_is_na_and_stored_metrics_are_not_needed():

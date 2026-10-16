@@ -378,7 +378,9 @@ def retry(
 
     Usage:
 
-    ```
+    ```python
+    from modal._utils.async_utils import retry
+
     @retry
     async def may_fail_default():
         # ...
@@ -907,8 +909,12 @@ async def asyncnullcontext(*args, **kwargs):
     Note that for Python 3.10+ you can use contextlib.nullcontext() instead.
 
     Usage:
+    ```python
+    from modal._utils.async_utils import asyncnullcontext
+
     async with asyncnullcontext():
         pass
+    ```
     """
     yield
 

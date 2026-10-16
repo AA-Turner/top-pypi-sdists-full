@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["json", "pipx.util"]
+
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -8,6 +10,7 @@ from typing import TYPE_CHECKING, Final, TypedDict, cast
 from pipx.util import PipxError
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
     from subprocess import CompletedProcess
 
@@ -76,7 +79,7 @@ class Backend(ABC):
         *,
         venv_root: Path,
         venv_python: Path,
-        package: str,
+        packages: Sequence[str],
         verbose: bool,
     ) -> CompletedProcess[str]: ...
 
@@ -96,6 +99,7 @@ class Backend(ABC):
         venv_root: Path,
         venv_python: Path,
         index_args: list[str],
+        exclude: list[str],
     ) -> tuple[OutdatedPackage, ...]: ...
 
     @abstractmethod

@@ -5,6 +5,7 @@ import modal._function_variants
 import modal._functions
 import modal._load_context
 import modal._logs_manager
+import modal._metrics
 import modal._supports_logs
 import modal._utils.async_utils
 import modal._utils.function_utils
@@ -74,6 +75,11 @@ class Function(
         async def aio(self, /) -> modal._supports_logs._LogQueryData: ...
 
     _get_log_query_data: ___get_log_query_data_spec
+
+    @property
+    def metrics(self) -> modal._metrics.FunctionMetricsManager:
+        """Access metric samples with `export()` and series definitions with `schema()`."""
+        ...
 
     @property
     def logs(self) -> modal._logs_manager.FunctionLogsManager:
@@ -613,7 +619,7 @@ class Function(
 
     _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result.
 
@@ -638,7 +644,7 @@ class Function(
             """
             ...
 
-    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
+    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType]
 
     class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
@@ -688,7 +694,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -721,7 +727,7 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
@@ -729,7 +735,7 @@ class Function(
 
     _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
+    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -762,7 +768,7 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
+    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType]
 
     @property
     def _raw_f_(self) -> collections.abc.Callable[..., typing.Any]: ...
@@ -851,6 +857,11 @@ class Function(
             ...
 
     _get_schema: ___get_schema_spec
+
+    @property
+    def autoscaler(self) -> FunctionAutoscalerManager:
+        """Namespace for Function autoscaler APIs."""
+        ...
 
     class __map_spec(typing_extensions.Protocol):
         def __call__(
@@ -1381,3 +1392,147 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             ...
 
     gather: typing.ClassVar[__gather_spec]
+
+class FunctionAutoscalerManager:
+    """mdmd:namespace"""
+    def __init__(self, function: Function):
+        """mdmd:hidden"""
+        ...
+
+    class __settings_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> modal.types.FunctionAutoscalerSettings:
+            """View the current Autoscaler settings for this Function.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass.
+
+            Examples:
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                settings = fn.autoscaler.settings()
+                ```
+            """
+            ...
+
+        async def aio(self, /) -> modal.types.FunctionAutoscalerSettings:
+            """View the current Autoscaler settings for this Function.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass.
+
+            Examples:
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                settings = fn.autoscaler.settings()
+                ```
+            """
+            ...
+
+    settings: __settings_spec
+
+    class __update_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            min_containers: typing.Optional[int] = -1,
+            max_containers: typing.Optional[int] = -1,
+            buffer_containers: typing.Optional[int] = -1,
+            scaledown_window: int = -1,
+        ) -> modal.types.FunctionAutoscalerSettings:
+            """Override the current Autoscaler settings for this Function.
+
+            All parameters to this function are optional; not passing an argument for a given parameter
+            will not update its value.
+
+            Note that re-deploying the App containing this Function will wipe any overrides and revert
+            its Autoscaler settings back to those defined on the Function at creation time.
+
+            Args:
+                min_containers: Minimum number of containers to keep running. Must be a nonnegative
+                    integer, or `None`. Passing `None` is equivalent to setting the minimum to 0.
+                max_containers: Maximum concurrent containers. Must be a positive integer, or `None`.
+                    Passing `None` is equivalent to disabling the upper bound on container concurrency at
+                    the Function level (note that Environment and Workspace level container upper limits
+                    still apply.)
+                buffer_containers: Extra containers to keep warm beyond current demand. Must be a
+                    nonnegative integer, or `None`. Passing `None` is equivalent to setting the buffer to
+                    0.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+                    Must be a positive integer between 2 and 3600, inclusive.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass.
+
+            Examples:
+
+                Update `my_function` so that 2 containers are always active.
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                fn.autoscaler.update(min_containers=2)
+                ```
+
+                Update `my_function` so that there is no Function-level limit on `max_containers`:
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                fn.autoscaler.update(max_containers=None)
+                ```
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *,
+            min_containers: typing.Optional[int] = -1,
+            max_containers: typing.Optional[int] = -1,
+            buffer_containers: typing.Optional[int] = -1,
+            scaledown_window: int = -1,
+        ) -> modal.types.FunctionAutoscalerSettings:
+            """Override the current Autoscaler settings for this Function.
+
+            All parameters to this function are optional; not passing an argument for a given parameter
+            will not update its value.
+
+            Note that re-deploying the App containing this Function will wipe any overrides and revert
+            its Autoscaler settings back to those defined on the Function at creation time.
+
+            Args:
+                min_containers: Minimum number of containers to keep running. Must be a nonnegative
+                    integer, or `None`. Passing `None` is equivalent to setting the minimum to 0.
+                max_containers: Maximum concurrent containers. Must be a positive integer, or `None`.
+                    Passing `None` is equivalent to disabling the upper bound on container concurrency at
+                    the Function level (note that Environment and Workspace level container upper limits
+                    still apply.)
+                buffer_containers: Extra containers to keep warm beyond current demand. Must be a
+                    nonnegative integer, or `None`. Passing `None` is equivalent to setting the buffer to
+                    0.
+                scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+                    Must be a positive integer between 2 and 3600, inclusive.
+
+            Returns:
+                A `FunctionAutoscalerSettings` dataclass.
+
+            Examples:
+
+                Update `my_function` so that 2 containers are always active.
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                fn.autoscaler.update(min_containers=2)
+                ```
+
+                Update `my_function` so that there is no Function-level limit on `max_containers`:
+
+                ```python notest
+                fn = modal.Function.from_name("my-app", "my_function")
+                fn.autoscaler.update(max_containers=None)
+                ```
+            """
+            ...
+
+    update: __update_spec

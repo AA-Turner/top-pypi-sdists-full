@@ -1,10 +1,21 @@
 //! read builtin - read a line of input
+//!
+//! With no stdin (no pipe or redirect) inside a terminal session, `read`
+//! waits for a line typed on the terminal: `-p` prints the prompt there,
+//! `-s` turns echo off, `-n N` returns after N characters, `-t SECS` gives
+//! up with status 142. Outside a terminal no stdin is EOF (status 1).
+//!
+//! Options are read only before the first name (bash's getopt), so in
+//! `read a -r` the `-r` is a name. Names are checked as they are assigned:
+//! the ones before an invalid name get their fields, the rest are left
+//! alone, and read fails with status 1. `-N n` reads exactly n characters
+//! with no delimiter and no field splitting.
 
 use async_trait::async_trait;
 
 use super::{Builtin, BuiltinSideEffect, Context};
 use crate::error::Result;
-use crate::interpreter::{ExecResult, is_internal_variable};
+use crate::interpreter::{ExecResult, is_internal_variable, is_valid_var_name};
 
 /// read builtin - read a line of input into variables
 pub struct Read;
@@ -13,18 +24,25 @@ pub struct Read;
 impl Builtin for Read {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         // Get the input to read from stdin
-        let input = ctx.stdin.map(|s| s.to_string());
+        #[cfg_attr(not(feature = "terminal"), allow(unused_mut))]
+        let mut input = ctx.stdin.map(|s| s.to_string());
 
         // Parse flags
         let mut raw_mode = false; // -r: don't interpret backslashes
         let mut array_mode = false; // -a: read into array
         let mut delimiter = None::<char>; // -d: custom delimiter
         let mut nchars = None::<usize>; // -n: read N chars
+        let mut exact_nchars = false; // -N: exactly N chars, no splitting
         let mut prompt = None::<String>; // -p prompt
+        let mut silent = false; // -s: no echo (terminal input only)
+        let mut timeout = None::<f64>; // -t SECS (terminal input only)
         let mut var_args = Vec::new();
         let mut args_iter = ctx.args.iter();
+        let mut names_started = false;
         while let Some(arg) = args_iter.next() {
-            if arg.starts_with('-') && arg.len() > 1 {
+            if !names_started && arg == "--" {
+                names_started = true;
+            } else if !names_started && arg.starts_with('-') && arg.len() > 1 {
                 let mut chars = arg[1..].chars();
                 while let Some(flag) = chars.next() {
                     match flag {
@@ -38,17 +56,29 @@ impl Builtin for Read {
                             } else {
                                 &rest
                             };
-                            delimiter = delim_str.chars().next();
+                            // `-d ''` reads up to a NUL byte.
+                            delimiter = Some(delim_str.chars().next().unwrap_or('\0'));
                             break;
                         }
-                        'n' => {
+                        'n' | 'N' => {
+                            exact_nchars = flag == 'N';
                             let rest: String = chars.collect();
                             let n_str = if rest.is_empty() {
                                 args_iter.next().map(|s| s.as_str()).unwrap_or("0")
                             } else {
                                 &rest
                             };
-                            nchars = n_str.parse().ok();
+                            // Bash rejects a non-numeric count rather than
+                            // reading an unbounded line.
+                            match n_str.parse() {
+                                Ok(n) => nchars = Some(n),
+                                Err(_) => {
+                                    return Ok(ExecResult::err(
+                                        format!("read: {n_str}: invalid number\n"),
+                                        1,
+                                    ));
+                                }
+                            }
                             break;
                         }
                         'p' => {
@@ -60,29 +90,98 @@ impl Builtin for Read {
                             });
                             break;
                         }
-                        't' | 's' | 'u' | 'e' | 'i' => {
-                            // -t timeout, -s silent, -u fd: accept and ignore
-                            if matches!(flag, 't' | 'u') {
-                                let rest: String = chars.collect();
-                                if rest.is_empty() {
-                                    args_iter.next();
+                        's' => silent = true,
+                        't' => {
+                            let rest: String = chars.collect();
+                            let t_str = if rest.is_empty() {
+                                args_iter.next().map(|s| s.as_str()).unwrap_or("")
+                            } else {
+                                &rest
+                            };
+                            match t_str.parse::<f64>() {
+                                Ok(t) if t.is_finite() => timeout = Some(t),
+                                _ => {
+                                    return Ok(ExecResult::err(
+                                        format!("read: {t_str}: invalid timeout specification\n"),
+                                        1,
+                                    ));
                                 }
-                                break;
                             }
+                            break;
                         }
+                        'u' => {
+                            // -u fd: accept and ignore
+                            let rest: String = chars.collect();
+                            if rest.is_empty() {
+                                args_iter.next();
+                            }
+                            break;
+                        }
+                        'e' | 'i' => {}
                         _ => {}
                     }
                 }
             } else {
+                names_started = true;
                 var_args.push(arg.as_str());
             }
         }
-        let _ = prompt; // prompt is for interactive use, ignored in non-interactive
+        if array_mode
+            && let Some(name) = var_args.first()
+            && !valid_read_name(name, true)
+        {
+            return Ok(ExecResult::err(invalid_name(name), 1));
+        }
+        // `read -t 0` only polls: input (even EOF) is ready, nothing is read.
+        if timeout == Some(0.0) {
+            return Ok(ExecResult::ok(String::new()));
+        }
+        #[cfg(feature = "terminal")]
+        if input.is_none()
+            && let Some(tty) = ctx.execution_extension::<crate::terminal::Tty>()
+        {
+            let tty = tty
+                .try_with(Clone::clone)
+                .map_err(|_| crate::error::Error::Cancelled)?;
+            match read_from_terminal(&tty, prompt.as_deref(), silent, nchars, timeout).await? {
+                TerminalRead::Line(line) => input = Some(line),
+                TerminalRead::Eof => {}
+                TerminalRead::TimedOut => {
+                    let mut result = ExecResult::err("", 142);
+                    for var_name in if var_args.is_empty() {
+                        vec!["REPLY"]
+                    } else {
+                        var_args.clone()
+                    } {
+                        if !is_internal_variable(var_name) {
+                            result.side_effects.push(BuiltinSideEffect::SetVariable {
+                                name: var_name.to_string(),
+                                value: String::new(),
+                            });
+                        }
+                    }
+                    return Ok(result);
+                }
+            }
+        }
+        #[cfg(not(feature = "terminal"))]
+        let _ = (prompt, silent, timeout);
+
+        // Split line by IFS (default: space, tab, newline)
+        // IFS whitespace chars (space, tab, newline) collapse runs and trim.
+        // Non-whitespace IFS chars preserve empty fields between consecutive delimiters.
+        // Check shell variables first (IFS=","), then env, then default.
+        let ifs = ctx
+            .variables
+            .get("IFS")
+            .or_else(|| ctx.env.get("IFS"))
+            .map(|s| s.as_str())
+            .unwrap_or(" \t\n");
 
         // EOF with no data: clear all target variables to empty and return 1.
         // This prevents the common `while read line || [[ -n "$line" ]]`
         // pattern from looping infinitely on the stale last value.
-        let input = match input {
+        let input = match input.filter(|s| !s.is_empty()) {
             Some(s) => s,
             None => {
                 let var_names: Vec<&str> = if var_args.is_empty() {
@@ -92,6 +191,10 @@ impl Builtin for Read {
                 };
                 let mut result = ExecResult::err("", 1);
                 for var_name in &var_names {
+                    if !valid_read_name(var_name, false) {
+                        result.stderr = invalid_name(var_name).into();
+                        break;
+                    }
                     if is_internal_variable(var_name) {
                         continue;
                     }
@@ -104,46 +207,38 @@ impl Builtin for Read {
             }
         };
 
-        // Extract input based on delimiter or nchars
-        let line = if let Some(n) = nchars {
-            // -n N: read at most N chars
-            input.chars().take(n).collect::<String>()
-        } else if let Some(delim) = delimiter {
-            // -d delim: read until delimiter
-            input.split(delim).next().unwrap_or("").to_string()
-        } else if raw_mode {
-            // -r: treat backslashes literally
-            input.lines().next().unwrap_or("").to_string()
+        // One record up to the delimiter (newline by default) or N chars.
+        // Data that ends before the delimiter is still assigned, but the
+        // status is 1, as in bash.
+        // -N ignores the delimiter (consumed_len uses NUL the same way).
+        let delim = if exact_nchars {
+            '\0'
         } else {
-            // Without -r: handle backslash line continuation
-            let mut result = String::new();
-            for l in input.lines() {
-                if let Some(stripped) = l.strip_suffix('\\') {
-                    result.push_str(stripped);
-                } else {
-                    result.push_str(l);
-                    break;
-                }
-            }
-            result
+            delimiter.unwrap_or('\n')
         };
+        let (line, terminated) = read_record(&input, delim, nchars, raw_mode, ifs);
+        let status = if terminated { 0 } else { 1 };
 
-        // Split line by IFS (default: space, tab, newline)
-        // IFS whitespace chars (space, tab, newline) collapse runs and trim.
-        // Non-whitespace IFS chars preserve empty fields between consecutive delimiters.
-        // Check shell variables first (IFS=","), then env, then default.
-        let ifs = ctx
-            .variables
-            .get("IFS")
-            .or_else(|| ctx.env.get("IFS"))
-            .map(|s| s.as_str())
-            .unwrap_or(" \t\n");
         struct ReadField<'a> {
             text: &'a str,
             start: usize,
         }
 
-        let words: Vec<ReadField<'_>> = if ifs.is_empty() {
+        let words: Vec<ReadField<'_>> = if exact_nchars {
+            // -N: the characters read are one field, delimiters and IFS
+            // included.
+            if line.is_empty() {
+                Vec::new()
+            } else {
+                vec![ReadField {
+                    text: &line,
+                    start: 0,
+                }]
+            }
+        } else if ifs.is_empty() && line.is_empty() {
+            // An empty line is no field, even unsplit (`read -a` gets `()`).
+            Vec::new()
+        } else if ifs.is_empty() {
             // Empty IFS means no word splitting
             vec![ReadField {
                 text: &line,
@@ -182,7 +277,6 @@ impl Builtin for Read {
                 let mut fields: Vec<ReadField<'_>> = Vec::new();
                 let mut field_start = 0usize;
                 let mut i = 0usize;
-                let mut last_delim_was_non_ws = false;
 
                 while i < line.len() {
                     let mut iter = line[i..].char_indices();
@@ -190,7 +284,6 @@ impl Builtin for Read {
                     let ch_len = ch.len_utf8();
                     if !ifs.contains(ch) {
                         i += ch_len;
-                        last_delim_was_non_ws = false;
                         continue;
                     }
 
@@ -210,7 +303,6 @@ impl Builtin for Read {
                             }
                         }
                         field_start = i;
-                        last_delim_was_non_ws = true;
                     } else {
                         let pushed_field = field_start != i;
                         if pushed_field {
@@ -250,11 +342,12 @@ impl Builtin for Read {
                         }
 
                         field_start = i;
-                        last_delim_was_non_ws = false;
                     }
                 }
 
-                if field_start < line.len() || last_delim_was_non_ws {
+                // A single trailing delimiter ends the last field; it does
+                // not start an empty one (`a,b,` is two fields).
+                if field_start < line.len() {
                     fields.push(ReadField {
                         text: &line[field_start..],
                         start: field_start,
@@ -272,18 +365,20 @@ impl Builtin for Read {
                 return Ok(ExecResult::ok(String::new()));
             }
             let mut result = ExecResult::ok(String::new());
+            result.exit_code = status;
             result.side_effects.push(BuiltinSideEffect::SetArray {
                 name: arr_name.to_string(),
-                elements: words.iter().map(|w| w.text.to_string()).collect(),
+                elements: words.iter().map(|w| unprotect(w.text)).collect(),
             });
             return Ok(result);
         }
 
         if var_args.is_empty() {
             let mut result = ExecResult::ok(String::new());
+            result.exit_code = status;
             result.side_effects.push(BuiltinSideEffect::SetVariable {
                 name: "REPLY".to_string(),
-                value: line,
+                value: unprotect(&line),
             });
             return Ok(result);
         }
@@ -292,25 +387,36 @@ impl Builtin for Read {
 
         // Assign words to variables via side effects (respects local scoping)
         let mut result = ExecResult::ok(String::new());
+        result.exit_code = status;
         for (i, var_name) in var_names.iter().enumerate() {
+            if !valid_read_name(var_name, false) {
+                result.stderr = invalid_name(var_name).into();
+                result.exit_code = 1;
+                break;
+            }
             // THREAT[TM-INJ-009]: Block internal variable prefix injection via read
             if is_internal_variable(var_name) {
                 continue;
             }
-            let value = if i == var_names.len() - 1 {
+            let value = if i == var_names.len() - 1 && words.len() == i + 1 {
+                // Only one field left: it is the value, without the
+                // delimiter that ended it (`IFS=, read x y <<< a,b,` gives `b`).
+                unprotect(words[i].text)
+            } else if i == var_names.len() - 1 {
                 // Bash gives the final variable the unsplit remaining input,
                 // then strips trailing IFS whitespace. Preserve original
                 // separators without keeping whitespace Bash trims.
                 words
                     .get(i)
                     .map(|field| {
-                        line[field.start..]
-                            .trim_end_matches(|ch| ifs.contains(ch) && " \t\n".contains(ch))
-                            .to_string()
+                        unprotect(
+                            line[field.start..]
+                                .trim_end_matches(|ch| ifs.contains(ch) && " \t\n".contains(ch)),
+                        )
                     })
                     .unwrap_or_default()
             } else if i < words.len() {
-                words[i].text.to_string()
+                unprotect(words[i].text)
             } else {
                 // Not enough words - set to empty
                 String::new()
@@ -323,6 +429,229 @@ impl Builtin for Read {
 
         Ok(result)
     }
+}
+
+/// A name `read` can assign: an identifier, or `name[subscript]` unless
+/// reading into an array (`-a`).
+fn valid_read_name(name: &str, array: bool) -> bool {
+    match name.find('[') {
+        Some(b) if !array => {
+            is_valid_var_name(&name[..b]) && name.ends_with(']') && name.len() > b + 2
+        }
+        _ => is_valid_var_name(name),
+    }
+}
+
+fn invalid_name(name: &str) -> String {
+    format!("bash: read: `{name}': not a valid identifier\n")
+}
+
+/// Bytes of `input` one `read` with these `args` consumes from a shared
+/// stdin (pipe feeding a loop): the record plus its delimiter, following
+/// `-r`, `-d`, `-n` and `\<newline>` continuation like [`read_record`].
+pub(crate) fn consumed_len(input: &[u8], args: &[String]) -> usize {
+    let mut raw = false;
+    let mut delim = '\n';
+    let mut exact = false;
+    let mut limit = None::<usize>;
+    let mut iter = args.iter();
+    while let Some(arg) = iter.next() {
+        let Some(flags) = arg.strip_prefix('-').filter(|f| !f.is_empty()) else {
+            break;
+        };
+        let mut chars = flags.chars();
+        while let Some(flag) = chars.next() {
+            let mut value = || {
+                let rest: String = chars.clone().collect();
+                if rest.is_empty() {
+                    iter.next().cloned().unwrap_or_default()
+                } else {
+                    rest
+                }
+            };
+            match flag {
+                'r' => raw = true,
+                'd' => {
+                    delim = value().chars().next().unwrap_or('\0');
+                    break;
+                }
+                'n' | 'N' => {
+                    limit = value().parse().ok();
+                    exact = flag == 'N';
+                    break;
+                }
+                't' => {
+                    // `-t 0` polls without consuming anything.
+                    if value().parse::<f64>().is_ok_and(|t| t == 0.0) {
+                        return 0;
+                    }
+                    break;
+                }
+                'p' | 'u' => {
+                    value();
+                    break;
+                }
+                _ => {}
+            }
+        }
+    }
+    // Byte scan: keeps non-UTF-8 input intact. A multi-byte delimiter
+    // matches on its first byte.
+    let mut delim_buf = [0u8; 4];
+    // `-N` ignores the delimiter wherever `-d` appears.
+    let delim = (!exact).then(|| delim.encode_utf8(&mut delim_buf).as_bytes()[0]);
+    let mut count = 0usize;
+    let mut i = 0usize;
+    while i < input.len() {
+        let b = input[i];
+        // UTF-8 continuation bytes belong to the previous character.
+        let starts_char = b & 0xC0 != 0x80;
+        if starts_char && limit.is_some_and(|n| count >= n) {
+            return i;
+        }
+        if Some(b) == delim {
+            return i + 1;
+        }
+        if b == b'\\' && !raw {
+            match input.get(i + 1) {
+                Some(b'\n') => {
+                    i += 2;
+                    continue;
+                }
+                Some(_) => i += 1,
+                None => return input.len(),
+            }
+        }
+        if starts_char {
+            count += 1;
+        }
+        i += 1;
+    }
+    input.len()
+}
+
+/// Escaped IFS characters are carried through field splitting as
+/// private-use placeholders, so `read a b <<< 'x\ y z'` keeps `x y` whole.
+const PROTECT_BASE: u32 = 0xF0000;
+
+fn protect(ch: char) -> char {
+    let c = ch as u32;
+    if c < 0x10000 {
+        char::from_u32(PROTECT_BASE + c).unwrap_or(ch)
+    } else {
+        ch
+    }
+}
+
+fn unprotect(s: &str) -> String {
+    s.chars()
+        .map(|ch| {
+            let c = ch as u32;
+            if (PROTECT_BASE..PROTECT_BASE + 0x10000).contains(&c) {
+                char::from_u32(c - PROTECT_BASE).unwrap_or(ch)
+            } else {
+                ch
+            }
+        })
+        .collect()
+}
+
+/// Read one record from `input`: up to `delim` (not included) or `limit`
+/// characters. Without `raw`, `\<newline>` joins lines and `\c` is a
+/// literal `c` (protected from IFS splitting). Returns the record and
+/// whether it ended at the delimiter or limit rather than at end of input.
+fn read_record(
+    input: &str,
+    delim: char,
+    limit: Option<usize>,
+    raw: bool,
+    ifs: &str,
+) -> (String, bool) {
+    let mut out = String::new();
+    let mut count = 0usize;
+    let mut chars = input.chars();
+    loop {
+        if limit.is_some_and(|n| count >= n) {
+            return (out, true);
+        }
+        let Some(c) = chars.next() else {
+            return (out, false);
+        };
+        if c == delim {
+            return (out, true);
+        }
+        if c == '\0' {
+            // bash drops NUL bytes from what `read` stores.
+            count += 1;
+            continue;
+        }
+        if c == '\\' && !raw {
+            match chars.next() {
+                Some('\n') => continue,
+                Some(next) => {
+                    out.push(if ifs.contains(next) {
+                        protect(next)
+                    } else {
+                        next
+                    });
+                }
+                None => return (out, false),
+            }
+        } else {
+            out.push(c);
+        }
+        count += 1;
+    }
+}
+
+#[cfg(feature = "terminal")]
+enum TerminalRead {
+    Line(String),
+    Eof,
+    TimedOut,
+}
+
+/// One line typed on the session terminal. The line comes back with a
+/// trailing `\n` so the stdin parsing below treats it like piped input.
+#[cfg(feature = "terminal")]
+async fn read_from_terminal(
+    tty: &crate::terminal::Tty,
+    prompt: Option<&str>,
+    silent: bool,
+    nchars: Option<usize>,
+    timeout: Option<f64>,
+) -> Result<TerminalRead> {
+    use crate::terminal::{InputOptions, LineRead, read_input};
+    if let Some(prompt) = prompt {
+        tty.write_cooked(prompt.as_bytes());
+    }
+    let opts = InputOptions { silent, nchars };
+    let read = read_input(tty, opts);
+    let outcome = match timeout {
+        Some(secs) => {
+            // THREAT[TM-DOS-120]: the wait is input time, excluded from the
+            // execution deadline; -t only bounds how long `read` itself waits.
+            let wait = std::time::Duration::from_secs_f64(secs.clamp(0.0, 86_400.0));
+            match crate::time_compat::timeout(wait, read).await {
+                Ok(r) => r,
+                Err(_) => return Ok(TerminalRead::TimedOut),
+            }
+        }
+        None => read.await,
+    };
+    Ok(match outcome {
+        LineRead::Line(mut line) => {
+            if silent {
+                // bash -s prints no newline; move to the next row so the
+                // following output does not overwrite the prompt line.
+                tty.write(b"\r\n");
+            }
+            line.push('\n');
+            TerminalRead::Line(line)
+        }
+        LineRead::Eof => TerminalRead::Eof,
+        LineRead::Interrupt => return Err(crate::error::Error::Cancelled),
+    })
 }
 
 #[cfg(test)]
@@ -378,7 +707,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("hello world"),
+            Some("hello world\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -397,7 +726,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("secret  "),
+            Some("secret  \n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -418,7 +747,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("test_value"),
+            Some("test_value\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -439,7 +768,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one two three four"),
+            Some("one two three four\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -461,7 +790,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one"),
+            Some("one\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -484,7 +813,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("hello\\world"),
+            Some("hello\\world\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -503,7 +832,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("hello\\\nworld"),
+            Some("hello\\\nworld\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -544,7 +873,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("hi"),
+            Some("hi\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -586,7 +915,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one two three"),
+            Some("one two three\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -611,7 +940,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("a b"),
+            Some("a b\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -636,7 +965,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("path\\to\\file"),
+            Some("path\\to\\file\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -679,7 +1008,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("foo:bar:baz"),
+            Some("foo:bar:baz\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -700,7 +1029,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("1,2:3"),
+            Some("1,2:3\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -721,7 +1050,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("a   b  c  "),
+            Some("a   b  c  \n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -742,7 +1071,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("1,2:3  "),
+            Some("1,2:3  \n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -768,7 +1097,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one::three:"),
+            Some("one::three:\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -791,7 +1120,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one two:three"),
+            Some("one two:three\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -813,7 +1142,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one : two"),
+            Some("one : two\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -835,7 +1164,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("no splitting here"),
+            Some("no splitting here\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -856,7 +1185,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("one,two,three"),
+            Some("one,two,three\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
@@ -879,7 +1208,7 @@ mod tests {
             &mut variables,
             &mut cwd,
             fs.clone(),
-            Some("a:b:c"),
+            Some("a:b:c\n"),
         );
         let result = Read.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);

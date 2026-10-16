@@ -246,6 +246,7 @@ from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.notebook import resolve_script_entrypoint, resolve_train_script, validate_train_script
 from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
+from chalk.utils.pydanticutil.pydantic_compat import get_pydantic_model_json, is_pydantic_basemodel_instance
 from chalk.utils.retry import retry_call, retry_if_exception_message, wait_exponential_jitter
 from chalk.utils.string import s
 from chalk.utils.tracing import current_or_new_trace_context, current_trace_context, inject_trace_context, safe_trace
@@ -266,15 +267,12 @@ if TYPE_CHECKING:
     from chalk.queries.named_query import NamedQuery
     from chalk.testing import FeatureAssertion, StreamMessage, UploadFeatures
     from chalk.workflows import WorkflowDefinition
-    from chalk.workflows._remote import WorkflowRunHandle
+    from chalk.workflows._remote import ChalkAuthorization, WorkflowRunHandle
 
     QueryInput = Union[Mapping[FeatureReference, Any], pd.DataFrame, pl.DataFrame, DataFrame]
     QueryInputTime = Union[Sequence[datetime], datetime, None]
 else:
-    try:
-        from pydantic.v1 import BaseModel, ValidationError
-    except ImportError:
-        from pydantic import BaseModel, ValidationError
+    from chalk.utils.pydanticutil.sdk import BaseModel, ValidationError
 
 
 _logger = get_logger(__name__)
@@ -309,8 +307,8 @@ class _BranchDeploymentInfo(BaseModel):
 
 class _BranchInfo(BaseModel):
     name: str
-    latest_deployment: Optional[str]
-    latest_deployment_time: Optional[datetime]
+    latest_deployment: Optional[str] = None
+    latest_deployment_time: Optional[datetime] = None
     deployments: List[_BranchDeploymentInfo]
 
 
@@ -2075,6 +2073,9 @@ https://docs.chalk.ai/cli/apply
             branch=None,
         )
         return result
+
+    def delete_branch(self, name: str) -> None:
+        self._grpc_client._delete_branch(name)  # pyright: ignore[reportPrivateUsage]
 
     def get_branches(self) -> List[str]:
         branches = self._get_branch_info().branches
@@ -5581,11 +5582,11 @@ https://docs.chalk.ai/cli/apply
                         headers=headers,
                     )
                 )
-            elif isinstance(message, BaseModel):
+            elif is_pydantic_basemodel_instance(message):
                 payloads.append(
                     StreamResolverTestMessagePayload(
                         key=key,
-                        message_str=message.json(),
+                        message_str=get_pydantic_model_json(message),
                         message_bytes=None,
                         timestamp=timestamp,
                         headers=headers,
@@ -7244,25 +7245,42 @@ https://docs.chalk.ai/cli/apply
             plan_only=plan_only,
         )
 
-    def _workflow_auth_context(self, environment: Optional[EnvironmentId]) -> tuple[str | None, str | None, str | None]:
-        """Returns (api_server, bearer_token, environment_id) for reaching the
-        environment's workflow orchestrator."""
+    def _workflow_auth_context(
+        self, environment: Optional[EnvironmentId]
+    ) -> tuple[str | None, ChalkAuthorization, str | None]:
+        """Returns (api_server, authorization, environment_id) for reaching the
+        environment's workflow orchestrator.
+
+        `authorization` reads the client's current Authorization header on every call, so a
+        long-lived orchestrator connection that fetches new access tokens keeps working after the
+        header it started with expires. Asked to renew, it does what a rejected request does
+        elsewhere in this client: re-read a rotating web identity token or exchange credentials
+        again. A caller-supplied header is passed through unchanged and never renewed.
+        """
         if (
             self._web_identity_token_file is None
             and self._access_token is None
             and not self._has_authorization_header()
         ):
             self._exchange_credentials()
-        # Note: under rotating auth `_get_headers` returns a token that is fresh as of
-        # this call, but the orchestrator captures it and does not refresh, so a
-        # long-lived handle can still outlive a short-lived JWT.
-        headers = self._get_headers(
-            environment_override=environment,
-            preview_deployment_id=None,
-            branch=None,
-            metadata_request=True,
-        )
-        return self._api_server, headers.get("Authorization"), headers.get(CHALK_ENV_ID_HEADER)
+
+        def current_headers() -> MutableMapping[str, str]:
+            return self._get_headers(
+                environment_override=environment,
+                preview_deployment_id=None,
+                branch=None,
+                metadata_request=True,
+            )
+
+        def authorization(renew: bool) -> str | None:
+            if renew and not self._has_authorization_header():
+                if self._web_identity_token_file is not None:
+                    invalidate_web_identity_token(self._web_identity_token_file)
+                else:
+                    self._exchange_credentials()
+            return current_headers().get("Authorization")
+
+        return self._api_server, authorization, current_headers().get(CHALK_ENV_ID_HEADER)
 
     def trigger_workflow(
         self,
@@ -7276,16 +7294,38 @@ https://docs.chalk.ai/cli/apply
     ) -> Union[WorkflowRunHandle, Any]:
         from chalk.workflows import _remote
 
-        api_server, bearer_token, environment_id = self._workflow_auth_context(environment)
+        api_server, authorization, environment_id = self._workflow_auth_context(environment)
         return _remote.trigger_workflow(
             workflow,
             input,
             api_server=api_server,
-            bearer_token=bearer_token,
+            authorization=authorization,
             environment_id=environment_id,
             workflow_id=workflow_id,
             task_queue=task_queue,
             wait=wait,
+        )
+
+    def send_workflow_message(
+        self,
+        workflow_id: str,
+        name: str,
+        payload: Any = None,
+        *,
+        run_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> None:
+        from chalk.workflows import _remote
+
+        api_server, authorization, environment_id = self._workflow_auth_context(environment)
+        _remote.send_message(
+            workflow_id,
+            name,
+            payload,
+            run_id=run_id,
+            api_server=api_server,
+            bearer_token=authorization(False),
+            environment_id=environment_id,
         )
 
     def run_workflow(
@@ -7298,12 +7338,12 @@ https://docs.chalk.ai/cli/apply
     ) -> Any:
         from chalk.workflows import _remote
 
-        api_server, bearer_token, environment_id = self._workflow_auth_context(environment)
+        api_server, authorization, environment_id = self._workflow_auth_context(environment)
         return _remote.run_workflow(
             workflow,
             input,
             api_server=api_server,
-            bearer_token=bearer_token,
+            authorization=authorization,
             environment_id=environment_id,
             workflow_id=workflow_id,
         )

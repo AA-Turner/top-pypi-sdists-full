@@ -14,6 +14,8 @@
 // wasm rather than scattering per-item cfgs through shared conversion helpers.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code, unused_imports))]
 
+mod terminal;
+
 // interop (capsule FS handoff), realfs (host mounts) and the credential-injection
 // network config require threads / host FS / sockets that wasm32-unknown-emscripten
 // (Pyodide) does not provide — see knowledge/runtimes/emscripten-wheels.md. They are native-only.
@@ -26,10 +28,10 @@ use bashkit::{
     ExecutionLimits, ExtFunctionResult, FileSystem, FileSystemExt, FileType as FsFileType,
     FsLimits, InMemoryFs, Metadata as FsMetadata, MontyException, MontyObject, NetworkAllowlist,
     OutputCallback as RustOutputCallback, OverlayFs, PosixFs, PythonExternalFnHandler,
-    PythonLimits, ReadOnlyFs, ScriptedTool as RustScriptedTool,
-    ShellStateView as RustShellStateView, SnapshotOptions as RustSnapshotOptions, Tool, ToolArgs,
-    ToolDef, ToolRequest, async_trait,
+    PythonLimits, ReadOnlyFs, ShellStateView as RustShellStateView,
+    SnapshotOptions as RustSnapshotOptions, Tool, ToolRequest, async_trait,
 };
+use bashkit_scripted_tool::{ScriptedTool as RustScriptedTool, ToolArgs, ToolDef};
 
 /// Typed named execution-policy selector for Python constructors.
 #[pyclass(name = "ExecutionProfile", eq, eq_int, from_py_object)]
@@ -5448,6 +5450,14 @@ impl PyBash {
         py.detach(|| {
             self.rt.block_on(async move {
                 let mounted_fs = source.resolve().await?;
+                let bash = inner.lock().await;
+                // THREAT[TM-DOS-118]: validate the resolved handle before a
+                // read-only wrapper can hide a recursive self-mount.
+                if Arc::ptr_eq(&bash.fs(), &mounted_fs) {
+                    return Err(PyRuntimeError::new_err(
+                        "cannot mount filesystem into itself",
+                    ));
+                }
                 // Host-enforced read-only projection: the recorded handle is the
                 // wrapped one, so `reset()` replays the protection.
                 let mounted_fs: Arc<dyn FileSystem> = if read_only {
@@ -5455,7 +5465,6 @@ impl PyBash {
                 } else {
                     mounted_fs
                 };
-                let bash = inner.lock().await;
                 bash.mount(Path::new(&vfs_path), Arc::clone(&mounted_fs))
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
                 record_runtime_mount(&runtime_mounts, &vfs_path, mounted_fs)?;
@@ -5555,6 +5564,9 @@ pub struct BashTool {
     cwd: Option<String>,
     /// Initial environment variables (mirrors `Bash::builder().env()`).
     env: Option<HashMap<String, String>>,
+    /// Opt-in runtimes, replayed for resets, snapshots, and tool metadata.
+    python: bool,
+    typescript: bool,
     /// Tracking list for `is_async` flag detection (used by session capture).
     /// Kept in sync with `host_registry` by `add_builtin` / `remove_builtin`.
     /// Wrapped in `Arc<StdMutex<_>>` so post-construction registration works
@@ -5598,6 +5610,12 @@ impl BashTool {
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
         let profile = self.profile.core();
         let mut builder = Bash::builder().profile(profile.clone());
+        if self.python {
+            builder = builder.python();
+        }
+        if self.typescript {
+            builder = builder.typescript();
+        }
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -5652,6 +5670,12 @@ impl BashTool {
     fn build_rust_tool(&self) -> PyResult<RustBashTool> {
         let profile = self.profile.core();
         let mut builder = RustBashTool::builder().profile(profile.clone());
+        if self.python {
+            builder = builder.python();
+        }
+        if self.typescript {
+            builder = builder.typescript();
+        }
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -5719,6 +5743,8 @@ impl BashTool {
         custom_builtins=None,
         network=None,
         profile=PyExecutionProfile::Standard,
+        python=false,
+        typescript=false,
     ))]
     fn new(
         py: Python<'_>,
@@ -5737,9 +5763,17 @@ impl BashTool {
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
         profile: PyExecutionProfile,
+        python: bool,
+        typescript: bool,
     ) -> PyResult<Self> {
         let core_profile = profile.core();
         let mut builder = Bash::builder().profile(core_profile.clone());
+        if python {
+            builder = builder.python();
+        }
+        if typescript {
+            builder = builder.typescript();
+        }
 
         if let Some(ref u) = username {
             builder = builder.username(u);
@@ -5808,6 +5842,8 @@ impl BashTool {
             hostname,
             cwd,
             env,
+            python,
+            typescript,
             custom_builtins: Arc::new(StdMutex::new(custom_builtins)),
             runtime_env: Arc::new(StdMutex::new(Vec::new())),
             runtime_mounts: Arc::new(StdMutex::new(Vec::new())),
@@ -6104,6 +6140,8 @@ impl BashTool {
         custom_builtins=None,
         network=None,
         profile=PyExecutionProfile::Standard,
+        python=false,
+        typescript=false,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot(
@@ -6124,6 +6162,8 @@ impl BashTool {
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
         profile: PyExecutionProfile,
+        python: bool,
+        typescript: bool,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -6142,6 +6182,8 @@ impl BashTool {
             custom_builtins,
             network,
             profile,
+            python,
+            typescript,
         )?;
         tool.restore_snapshot(py, data)?;
         Ok(tool)
@@ -6167,6 +6209,8 @@ impl BashTool {
         custom_builtins=None,
         network=None,
         profile=PyExecutionProfile::Standard,
+        python=false,
+        typescript=false,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot_keyed(
@@ -6188,6 +6232,8 @@ impl BashTool {
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
         profile: PyExecutionProfile,
+        python: bool,
+        typescript: bool,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -6206,6 +6252,8 @@ impl BashTool {
             custom_builtins,
             network,
             profile,
+            python,
+            typescript,
         )?;
         tool.restore_snapshot_keyed(py, data, key)?;
         Ok(tool)
@@ -6323,6 +6371,14 @@ impl BashTool {
         py.detach(|| {
             self.rt.block_on(async move {
                 let mounted_fs = source.resolve().await?;
+                let bash = inner.lock().await;
+                // THREAT[TM-DOS-118]: validate the resolved handle before a
+                // read-only wrapper can hide a recursive self-mount.
+                if Arc::ptr_eq(&bash.fs(), &mounted_fs) {
+                    return Err(PyRuntimeError::new_err(
+                        "cannot mount filesystem into itself",
+                    ));
+                }
                 // Host-enforced read-only projection: the recorded handle is the
                 // wrapped one, so `reset()` replays the protection.
                 let mounted_fs: Arc<dyn FileSystem> = if read_only {
@@ -6330,7 +6386,6 @@ impl BashTool {
                 } else {
                     mounted_fs
                 };
-                let bash = inner.lock().await;
                 bash.mount(Path::new(&vfs_path), Arc::clone(&mounted_fs))
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
                 record_runtime_mount(&runtime_mounts, &vfs_path, mounted_fs)?;
@@ -6893,6 +6948,7 @@ fn create_langchain_tool_spec() -> PyResult<pyo3::Py<PyDict>> {
 fn _bashkit(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyExecutionProfile>()?;
     m.add_class::<PyBash>()?;
+    m.add_class::<terminal::PyTerminal>()?;
     m.add_class::<BashTool>()?;
     m.add_class::<ScriptedTool>()?;
     m.add_class::<ShellState>()?;

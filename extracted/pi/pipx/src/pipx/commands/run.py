@@ -1,11 +1,30 @@
 from __future__ import annotations
 
-import datetime
+__lazy_modules__ = [
+    "datetime",
+    "hashlib",
+    "json",
+    "packaging.requirements",
+    "packaging.utils",
+    "pathlib",
+    "pipx",
+    "pipx.backends",
+    "pipx.commands.common",
+    "pipx.commands.inject",
+    "pipx.commands.run_uv",
+    "pipx.requires_python",
+    "pipx.script",
+    "pipx.util",
+    "pipx.venv",
+    "shutil",
+    "urllib.parse",
+]
+
+import datetime as dt
 import hashlib
 import json
 import logging
 import urllib.parse
-import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from shutil import which
@@ -14,9 +33,7 @@ from typing import TYPE_CHECKING, Final, NoReturn
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-from filelock import Timeout
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from pipx import paths
@@ -33,6 +50,7 @@ from pipx.util import (
     exec_app,
     get_pypackage_bin_path,
     pipx_wrap,
+    redact_url_credentials,
     rmdir,
     run_pypackage_bin,
 )
@@ -124,6 +142,13 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
             raise PipxError(msg)
         requirements = [*requirements, *dependencies]
 
+    # uv treats the --python pipx hands it as an explicit request and runs a script on it even when requires-python
+    # rules it out, so pipx settles the interpreter for both backends
+    if metadata is not None and metadata.requires_python is not None:
+        python = _interpreter_for_script(
+            metadata.requires_python, python, fetch_python, python_flag_passed=python_flag_passed
+        )
+
     if resolved_backend == UV and requirements is not None and not python_args:
         if script_source is not None:
             run_script_via_uv_run(
@@ -151,13 +176,6 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
                 """,
                 subsequent_indent=" " * 4,
             )
-        )
-
-    # the uv path lets uv read requires-python from the block; on the pip path pipx honours it here so the script does
-    # not silently run on an interpreter it declared unsupported
-    if metadata is not None and metadata.requires_python is not None:
-        python = _interpreter_for_script(
-            metadata.requires_python, python, fetch_python, python_flag_passed=python_flag_passed
         )
 
     if not requirements:
@@ -200,15 +218,15 @@ def run_script(  # ruff:ignore[too-many-arguments]  # mirrors the flat `pipx run
 def _interpreter_for_script(
     requires_python: str, python: str, fetch_python: FetchPythonOptions, *, python_flag_passed: bool
 ) -> str:
-    if not python_flag_passed:
-        return interpreter_for(SpecifierSet(requires_python), fetch_python)
-    if unsatisfied_by_interpreter(requires_python, python) is not None:
+    if (constraint := unsatisfied_by_interpreter(requires_python, python)) is None:
+        return python
+    if python_flag_passed:
         msg = (
             f"The script requires Python {requires_python}, which the interpreter chosen with --python does not "
             f"satisfy. Pass a matching --python, or drop --python to let pipx pick one."
         )
         raise PipxError(msg)
-    return python
+    return interpreter_for(constraint, fetch_python)
 
 
 def _exec_script(
@@ -517,7 +535,10 @@ def _prepare_venv(  # ruff:ignore[too-many-arguments]  # mirrors the flat run/in
             app, app_filename = _app_names(apps[0])
             print(f"NOTE: running app {app!r} from {package_name!r}")  # ruff:ignore[print]  # user-facing CLI output
         else:
-            all_apps = (f"{a} - usage: 'pipx run --spec {package_or_url} {a} [arguments?]'" for a in apps)
+            all_apps = (
+                f"{a} - usage: 'pipx run --spec {redact_url_credentials(package_or_url)} {a} [arguments?]'"
+                for a in apps
+            )
             raise PipxError(
                 _APP_NOT_FOUND_ERROR_MESSAGE.format(
                     app=app,
@@ -558,7 +579,7 @@ def _get_temporary_venv_path(  # ruff:ignore[too-many-arguments]  # all inputs f
 
 def _is_temporary_venv_expired(venv_dir: Path) -> bool:
     created_time_sec = venv_dir.stat().st_ctime
-    current_time_sec = datetime.datetime.now(tz=datetime.UTC).timestamp()
+    current_time_sec = dt.datetime.now(tz=dt.UTC).timestamp()
     age = current_time_sec - created_time_sec
     expiration_threshold_sec = 60 * 60 * 24 * TEMP_VENV_EXPIRATION_THRESHOLD_DAYS
     return age > expiration_threshold_sec or (venv_dir / _VENV_EXPIRED_FILENAME).exists()
@@ -566,6 +587,8 @@ def _is_temporary_venv_expired(venv_dir: Path) -> bool:
 
 @contextmanager
 def _locked_venv_cache(venv_dir: Path) -> Generator[None, None, None]:
+    from filelock import Timeout  # ruff:ignore[import-outside-top-level]  # pulls in asyncio, slows startup
+
     venv_container: Final[VenvContainer] = VenvContainer(paths.ctx.venv_cache)
     for cached_venv_dir in sorted(venv_container.iter_venv_dirs()):
         if cached_venv_dir == venv_dir:
@@ -609,13 +632,15 @@ _MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
 
 def _reject_oversized_script(url: str, data: bytes) -> None:
     if len(data) > _MAX_SCRIPT_BYTES:
-        msg = f"Script {url} is larger than {_MAX_SCRIPT_BYTES} bytes; refusing to download it."
+        msg = f"Script {redact_url_credentials(url)} is larger than {_MAX_SCRIPT_BYTES} bytes; refusing to download it."
         raise PipxError(msg)
 
 
 def _http_get_request(url: str) -> str:
+    from urllib.request import urlopen  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
+
     try:
-        with urllib.request.urlopen(url, timeout=_URL_TIMEOUT) as res:  # ruff:ignore[suspicious-url-open-usage]  # scheme validated upstream
+        with urlopen(url, timeout=_URL_TIMEOUT) as res:  # ruff:ignore[suspicious-url-open-usage]  # scheme validated upstream
             data = res.read(_MAX_SCRIPT_BYTES + 1)
             _reject_oversized_script(url, data)
             return data.decode(res.headers.get_content_charset() or "utf-8")

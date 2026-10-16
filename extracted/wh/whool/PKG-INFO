@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: whool
-Version: 1.3
+Version: 1.3.1
 Summary: whool - build backend for Odoo addons
 Project-URL: Homepage, https://github.com/sbidoul/whool
 Project-URL: Documentation, https://github.com/sbidoul/whool
@@ -78,6 +78,7 @@ The following options can be set in `pyproject.toml`:
 [tool.whool]
 depends_override = {}
 external_dependencies_override = {}
+additional_dependencies = []
 post_version_strategy_override = "..."
 odoo_series_override = "..."
 ```

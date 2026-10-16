@@ -11,7 +11,7 @@ import threading
 import urllib
 import os
 from subprocess import Popen, PIPE
-from r2pipe.open_base import OpenBase
+from r2pipe.open_base import OpenBase, normalize_open_target
 
 def no_urlopen():
     raise IOError
@@ -35,6 +35,9 @@ class open(OpenBase):
         self.quit()
         return False
     def __init__(self, filename="", flags=None, radare2home=None):
+        file_args = []
+        filename, file_args = normalize_open_target(filename)
+
         super(open, self).__init__(filename, flags)
         if flags is None:
             flags = []
@@ -70,8 +73,9 @@ class open(OpenBase):
                 hello_cmd = False
             else:
                 hello_cmd = True
+            r_args = [f"-Rarg{i+1}={a}" for i, a in enumerate(file_args)]
             cmd = [r2e, "-q0", filename]
-            cmd = cmd[:1] + flags + cmd[1:]
+            cmd = cmd[:1] + flags + r_args + cmd[1:]
             try:
                 self.process = Popen(
                     cmd, shell=False, stdin=PIPE, stdout=PIPE, bufsize=0

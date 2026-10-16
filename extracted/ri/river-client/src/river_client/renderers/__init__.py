@@ -58,7 +58,7 @@ from river_client.renderers.deepseek import (
     strip_deepseek_thinking_from_text,
 )
 from river_client.renderers.glm52 import Glm52Renderer
-from river_client.renderers.nemotron import Nemotron35Renderer
+from river_client.renderers.nemotron import Nemotron35Renderer, NemotronSuperVLRenderer
 from river_client.renderers.glm53 import Glm53FlashRenderer, parse_glm53_content_blocks
 from river_client.renderers.kimi import (
     KimiRenderer,
@@ -74,32 +74,12 @@ from river_client.renderers.qwen3 import (
 from river_client.renderers.qwen3_vl import Qwen35VLRenderer
 
 
-def _is_qwen_vl(name_lower: str) -> bool:
-    """Detect Qwen vision-language variants by HuggingFace name conventions.
-
-    Two naming generations:
-
-    * **Qwen3** kept text and vision in separate checkpoint families;
-      vision variants carry the explicit ``-VL-`` infix
-      (``Qwen/Qwen3-VL-235B-A22B-Instruct``).
-    * **Qwen3.5** unified the lineup — every Qwen3.5 checkpoint
-      (``Qwen3.5-35B-A3B``, ``Qwen3.5-397B-A17B`` and any future
-      sibling) is a vision-language model out of the box, using the
-      same ``<|vision_start|>``/``<|image_pad|>``/``<|vision_end|>``
-      tokens. There is no ``-VL-`` infix because there is no
-      non-multimodal Qwen3.5 to disambiguate from.
-
-    Qwen3.5/3.6/3.8 (and legacy ``-VL-`` names) are served today, so
-    everything here routes to the vision-capable Qwen3.5 renderer.
-    """
+def _is_qwen35_template(name_lower: str) -> bool:
+    """Detect checkpoints sharing Qwen3.5's text and tool rendering."""
     if "qwen3-vl" in name_lower:
         return True
-    # Qwen3.5 and the later minors that reuse the same architecture
-    # (``model_type=qwen3_5`` through at least 3.8) are unified multimodal —
-    # every checkpoint exposes the vision tokens. Enumerated rather than
-    # range-matched so a future minor that breaks the pattern cannot silently
-    # inherit this routing; same contract as the trainer's
-    # ``is_qwen3_5_family``.
+    # Chat-template reuse does not imply support for image inputs.
+    # Enumerate versions so a new minor cannot silently inherit the template.
     if "qwen3.5" in name_lower or "qwen3_5" in name_lower:
         return True
     if "qwen3.6" in name_lower or "qwen3_6" in name_lower:
@@ -112,9 +92,8 @@ def _is_qwen_vl(name_lower: str) -> bool:
 def _is_qwen38_template(name_lower: str) -> bool:
     """Detect checkpoints using the revised Qwen3.8 chat template.
 
-    3.8 kept the Qwen3.5 architecture but changed two rendering contracts,
-    so the renderer needs different defaults even though the model class is
-    identical:
+    The 27B and Flash-Next checkpoints share these rendering contracts,
+    independent of their different model architectures:
 
     * ``reasoning_effort`` (new, default ``xhigh``) prepends a fixed
       instruction to the system turn — see
@@ -278,8 +257,13 @@ def get_renderer(
             f"equivalent control, so setting it here would be silently dropped."
         )
 
-    if "nemotron-3.5-lightning" in name_lower:
-        return Nemotron35Renderer(
+    if "nemotron-3.5-lightning" in name_lower or "nemotron-3.5-super-vl" in name_lower:
+        renderer = (
+            NemotronSuperVLRenderer
+            if "nemotron-3.5-super-vl" in name_lower
+            else Nemotron35Renderer
+        )
+        return renderer(
             tokenizer,
             thinking=True if thinking is None else thinking,
             strip_thinking_from_history=True
@@ -287,13 +271,18 @@ def get_renderer(
             else strip_thinking_from_history,
         )
 
-    if _is_qwen_vl(name_lower):
-        # Qwen3.5+ are unified vision models served with the qwen3_coder
-        # tool dialect. The vision renderer carries the shared chat/tool/
-        # thinking logic plus <|vision_start|>/<|vision_end|>/<|image_pad|>.
-        from river_client.renderers.qwen3_vl import Qwen35VLRenderer
-
-        return Qwen35VLRenderer(
+    if _is_qwen35_template(name_lower):
+        # Flash-Next's text-only worker consumes flat training datums. The VL
+        # renderer emits model_input chunks, which require a vision processor.
+        renderer_type = (
+            Qwen35Renderer
+            if re.search(
+                r"(?:^|[^a-z0-9])qwen3[._]8[-_]flash[-_]next(?:$|[^a-z0-9])",
+                name_lower,
+            )
+            else Qwen35VLRenderer
+        )
+        return renderer_type(
             tokenizer,
             # 3.8 defaults ``preserve_thinking`` on, which is the inverse of
             # this flag; 3.5/3.6 default it off.
@@ -394,6 +383,7 @@ __all__ = [
     "Glm53FlashRenderer",
     "Glm52Renderer",
     "Nemotron35Renderer",
+    "NemotronSuperVLRenderer",
     "KimiRenderer",
     "KimiK3Renderer",
     "QWEN38_REASONING_EFFORT_INSTRUCTIONS",

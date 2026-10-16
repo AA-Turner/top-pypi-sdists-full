@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any
 from typing import AnyStr
 from typing import IO
+from typing import Self
 
 from gcloud.rest.auth import SyncSession  # pylint: disable=no-name-in-module
 from gcloud.rest.auth import BUILD_GCLOUD_REST  # pylint: disable=no-name-in-module
@@ -149,7 +150,7 @@ class BigqueryBase:
     def close(self) -> None:
         self.session.close()
 
-    def __enter__(self) -> 'BigqueryBase':
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: Any) -> None:

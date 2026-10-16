@@ -198,6 +198,7 @@ CATEGORY_EMOJIS = {
     OptionCategory.TEMPLATE: "🎨",
     OptionCategory.OPENAPI: "📘",
     OptionCategory.GENERAL: "⚙️",
+    OptionCategory.TARGET: "🚀",
 }
 CATEGORY_INTROS = {
     OptionCategory.OPENAPI: (
@@ -216,6 +217,7 @@ OPTION_CATEGORY_ORDER = (
     OptionCategory.OPENAPI,
     OptionCategory.GRAPHQL,
     OptionCategory.GENERAL,
+    OptionCategory.TARGET,
 )
 
 TOPIC_DESCRIPTIONS = {
@@ -642,6 +644,11 @@ def _get_schema_lang(schema_path: str) -> str:
     return "json"
 
 
+def _usage_input(example: CLIDocExample) -> str:
+    """Return the input file name of a usage line: that of the example's input schema, or `schema.json` without one."""
+    return Path(example.input_schema).name if example.input_schema else "schema.json"
+
+
 def _generate_single_example_output(example: CLIDocExample, prefix: str = "    ") -> str:
     """Generate output section for a single example."""
     md = ""
@@ -843,7 +850,7 @@ def generate_option_section(
     if primary.config_content or has_explicit_input:
         md += "    datamodel-codegen "
     else:
-        md += "    datamodel-codegen --input schema.json "
+        md += f"    datamodel-codegen --input {_usage_input(primary)} "
     formatted_args = format_cli_args(primary.cli_args)
     md += " ".join(formatted_args)
     md += " # (1)!\n"
@@ -1340,6 +1347,7 @@ def generate_index_page(
         OptionCategory.TEMPLATE: "Output formatting and custom rendering",
         OptionCategory.OPENAPI: "OpenAPI-specific features",
         OptionCategory.GENERAL: "Utilities and meta options",
+        OptionCategory.TARGET: "Server and client generation with the models (experimental)",
     }
 
     for category in OptionCategory:

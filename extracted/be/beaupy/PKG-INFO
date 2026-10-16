@@ -1,30 +1,21 @@
 Metadata-Version: 2.4
 Name: beaupy
-Version: 3.12.0
+Version: 4.0.1
 Summary: A library of elements for interactive TUIs in Python
-License: MIT
-License-File: LICENSE
 Keywords: cli,interactive,console,terminal,interface
 Author: Peter Vyboch
-Author-email: pvyboch1@gmail.com
-Requires-Python: >=3.7.8,<4.0.0
+Author-email: Peter Vyboch <pvyboch1@gmail.com>
+License-Expression: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Development Status :: 5 - Production/Stable
+Classifier: Topic :: Terminals
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Terminals
-Requires-Dist: emoji (>=2.0.0,<3.0.0)
-Requires-Dist: python-yakh (>=0.4.1,<0.5.0)
-Requires-Dist: questo (>=0.4.1,<0.5.0)
-Requires-Dist: rich (>=12.2.0)
+Requires-Dist: rich>=14.3.0
+Requires-Dist: python-yakh>=0.4.2,<0.5.0
+Requires-Dist: questo>=0.4.1,<0.5.0
+Requires-Python: >=3.8, <4.0.0
 Project-URL: Repository, https://github.com/petereon/beaupy
 Description-Content-Type: text/markdown
 
@@ -102,31 +93,20 @@ if confirm("Will you take the ring to Mordor?"):
         potato_count = prompt('How many potatoes?', target_type=int, validator=lambda count: count > 0)
 
     # Spinner to show while doing some work
-    spinner = Spinner(DOTS, "Packing things...")
-    spinner.start()
+    with Spinner(DOTS, text="Packing things..."):
+        time.sleep(2)
 
-    time.sleep(2)
-
-    spinner.stop()
     # Get input without showing it being typed
     if "friend" == prompt("Speak, [blue bold underline]friend[/blue bold underline], and enter", secure=True).lower():
 
         # Custom spinner animation
         spinner_animation = ['▉▉', '▌▐', '  ', '▌▐', '▉▉']
-        spinner = Spinner(spinner_animation, "Opening the Door of Durin...")
-        spinner.start()
-
-        time.sleep(2)
-
-        spinner.stop()
+        with Spinner(spinner_animation, text="Opening the Door of Durin..."):
+            time.sleep(2)
     else:
         spinner_animation = ['🐙🌊    ⚔️ ', '🐙 🌊   ⚔️ ', '🐙  🌊  ⚔️ ', '🐙   🌊 ⚔️ ', '🐙    🌊⚔️ ']
-        spinner = Spinner(spinner_animation, "Getting attacked by an octopus...")
-        spinner.start()
-
-        time.sleep(2)
-
-        spinner.stop()
+        with Spinner(spinner_animation, text="Getting attacked by an octopus..."):
+            time.sleep(2)
 
     if 'The One Ring' in items:
         console.print("[green]You throw The One Ring to a lava from an eagle![/green]")
@@ -138,6 +118,9 @@ if confirm("Will you take the ring to Mordor?"):
 For more information refer to [more examples](https://petereon.github.io/beaupy/examples/) or definitive, but much less exciting [API documentation](https://petereon.github.io/beaupy/api/)
 
 ## Installation
+
+`beaupy` declares support for Python 3.8 and newer, but only Python 3.10 and newer are tested in CI: support for earlier
+versions is no longer actively tested.
 
 From PyPI:
 
@@ -243,4 +226,3 @@ Internal logic of `beaupy` is supported for all the major platforms (Windows, Li
 ## License
 
 The project is licensed under the [MIT License](https://raw.githubusercontent.com/petereon/beaupy/master/LICENSE).
-

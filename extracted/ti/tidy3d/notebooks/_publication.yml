@@ -226,7 +226,6 @@ sections:
     - TFLNTidy3d
     - PhotoThermalWaveguides
     - PINMachZehnder
-    - AvalanchePhotodiode
     - VerticalPINSSAC
     - SiliconOrganicHybrid
   - title: Global Optimization

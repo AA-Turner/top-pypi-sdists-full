@@ -537,10 +537,9 @@ class PoeTask(metaclass=MetaPoeTask):
                     if isinstance(array_item, str)
                     else config.default_array_item_task_type
                 )
-            else:
-                return config.default_task_type
+            return config.default_task_type
 
-        elif isinstance(task_def, dict):
+        if isinstance(task_def, dict):
             task_type_keys = set(task_def.keys()).intersection(cls.__task_types)
             if len(task_type_keys) == 1:
                 return next(iter(task_type_keys))
@@ -630,6 +629,23 @@ class PoeTask(metaclass=MetaPoeTask):
 
         return self._parsed_args
 
+    def _parse_and_register_args(self, env: TaskEnv) -> tuple[str, ...]:
+        """
+        Parse and register task arguments with their configured environment strings.
+        Return the extra CLI arguments.
+        """
+        parsed_args, extra_args = self.get_parsed_arguments(env)
+        env.register_task_args(
+            parsed_args,
+            extra_args,
+            env_overrides=(
+                task_args.get_env_overrides(parsed_args)
+                if (task_args := self.task_args)
+                else None
+            ),
+        )
+        return extra_args
+
     async def run(
         self,
         context: RunContext,
@@ -644,7 +660,7 @@ class PoeTask(metaclass=MetaPoeTask):
             self.ctx.io.print_debug(f" * Running     {task_type_key}:{self.name}")
             self.ctx.io.print_debug(f" . Invocation  {self.invocation!r}")
 
-        upstream_invocations = self._get_upstream_invocations(context)
+        upstream_invocations = self._get_upstream_invocations(context, parent_env)
 
         if context.dry and (
             upstream_invocations.get("uses", {})
@@ -740,13 +756,13 @@ class PoeTask(metaclass=MetaPoeTask):
         return working_dir
 
     def iter_upstream_tasks(
-        self, context: RunContext
+        self, context: RunContext, parent_env: TaskEnv | None = None
     ) -> Iterator[tuple[bool, PoeTask]]:
         """
         Yield each upstream task along with whether its output should be captured
         (True for uses/uses_env sources, False for plain deps).
         """
-        invocations = self._get_upstream_invocations(context)
+        invocations = self._get_upstream_invocations(context, parent_env)
         for invocation in invocations["deps"]:
             yield (False, self._instantiate_dep(invocation, capture_stdout=False))
         for invocation in invocations["uses"].values():
@@ -754,21 +770,23 @@ class PoeTask(metaclass=MetaPoeTask):
         for invocation in invocations["uses_env"]:
             yield (True, self._instantiate_dep(invocation, capture_stdout=True))
 
-    def _get_upstream_invocations(self, context: RunContext):
+    def _get_upstream_invocations(
+        self, context: RunContext, parent_env: TaskEnv | None = None
+    ):
         """
-        NB. this memoization assumes the context (and contained env vars) will be the
-        same in all instances for the lifetime of this object. Whilst this should be OK
-        for all current use cases is it strictly speaking something that this object
-        should not know enough to safely assume. So we probably want to revisit this.
+        NB. this memoization assumes the context and parent_env (and contained env
+        vars) will be the same in all instances for the lifetime of this object.
+        Whilst this should be OK for all current use cases is it strictly speaking
+        something that this object should not know enough to safely assume. So we
+        probably want to revisit this.
         """
         import shlex
 
         options = self.spec.options
 
         if self.__upstream_invocations is None:
-            env = self.spec.get_task_env(context.env, io=self.ctx.io)
-            parsed_args, extra_args = self.get_parsed_arguments(env)
-            env.register_task_args(parsed_args, extra_args)
+            env = self.spec.get_task_env(parent_env or context.env, io=self.ctx.io)
+            self._parse_and_register_args(env)
 
             uses_env_refs = options.get("uses_env", ())
             if isinstance(uses_env_refs, str):

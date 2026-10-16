@@ -5,7 +5,7 @@ import re
 import sys
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Union
-from urllib.parse import urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from warnings import warn
 
 import websockets
@@ -163,11 +163,12 @@ class AsyncRealtimeClient:
         retries = 0
         backoff = self.initial_backoff
 
-        logger.debug(f"Attempting to connect to WebSocket at {self.url}")
+        endpoint_url = self.endpoint_url()
+        logger.debug(f"Attempting to connect to WebSocket at {endpoint_url}")
 
         while retries < self.max_retries:
             try:
-                ws = await connect(self.url)
+                ws = await connect(endpoint_url)
                 self._ws_connection = ws
                 logger.debug("WebSocket connection established successfully")
                 return await self._on_connect()
@@ -278,11 +279,19 @@ class AsyncRealtimeClient:
         """
         Initialize a channel and create a two-way association with the socket.
 
+        If a channel for this topic already exists and is not being left, that
+        channel is returned instead of a new one. Messages are routed to one
+        channel per topic, so replacing it would silently stop delivering
+        events to callbacks registered on the existing channel.
+
         :param topic: The topic to subscribe to
         :param params: Optional channel parameters
         :return: AsyncRealtimeChannel instance
         """
         topic = f"realtime:{topic}"
+        existing = self.channels.get(topic)
+        if existing and not existing.is_leaving:
+            return existing
         chan = AsyncRealtimeChannel(self, topic, params)
         self.channels[topic] = chan
 
@@ -333,6 +342,8 @@ class AsyncRealtimeClient:
         self.access_token = token
 
         for _, channel in self.channels.items():
+            # Rejoins resend the stored join payload, so keep its token current.
+            channel.join_push.update_payload({"access_token": token})
             if channel._joined_once and channel.is_joined:
                 await channel.push(ChannelEvents.access_token, {"access_token": token})
 
@@ -393,7 +404,8 @@ class AsyncRealtimeClient:
 
     def endpoint_url(self) -> str:
         parsed_url = urlparse(self.url)
-        query = urlencode({**self.params, "vsn": VSN}, doseq=True)
+        current_params = dict(parse_qsl(parsed_url.query, keep_blank_values=True))
+        query = urlencode({**self.params, **current_params, "vsn": VSN}, doseq=True)
         return urlunparse(
             (
                 parsed_url.scheme,

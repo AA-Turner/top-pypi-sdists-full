@@ -29,7 +29,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
+const { connectToPage, readBrowserMetadata, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_navigate";
@@ -58,6 +58,98 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Cloudflare Turnstile interstitials answer the real URL with a challenge page
+// that reloads into the site once the browser passes. Later extractors must see
+// the site, not the interstitial, so give it a fixed window to clear. Past
+// that, keep the challenge page as this snapshot's (visible) result.
+const CHALLENGE_WAIT_MS = 90000;
+
+// Each poll asks the current main document for its own HTTP status over this
+// hook's raw CDP session. The challenge document is the cf-mitigated 403; the
+// cleared site is whatever replaces it, including a form POST back to the URL.
+// (window._cf_chl_opt is no signal: protected pages define it too.)
+async function waitForChallenge(session, deadline, waitUntil) {
+  // The cleared document must load as far as goto() would have waited.
+  const readyStates = waitUntil === "domcontentloaded" ? ["interactive", "complete"] : ["complete"];
+  while (Date.now() < deadline) {
+    await sleep(1000);
+    const state = await session.send("Runtime.evaluate", {
+      expression: `({
+        readyState: document.readyState,
+        status: performance.getEntriesByType("navigation")[0]?.responseStatus || null,
+      })`,
+      returnByValue: true,
+    }).then(({ result }) => result.value, () => null);
+    if (state?.status && state.status < 400 && readyStates.includes(state.readyState)) return state;
+  }
+  return null;
+}
+
+async function navigateMainDocument(session, page, url, timeout, mainFrameId) {
+  // Puppeteer's DOMContentLoaded waiter also waits for every loading iframe.
+  // The snapshot's main document can be ready while an embedded site never replies.
+  await session.send("Page.enable");
+  await session.send("Page.setLifecycleEventsEnabled", { enabled: true });
+  const completedLoaders = new Set();
+  let navigation = null;
+  let committedLoaderId = null;
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+  const checkReady = () => {
+    if (navigation && (!navigation.loaderId || completedLoaders.has(`${mainFrameId}:${committedLoaderId || navigation.loaderId}`))) {
+      resolveReady();
+    }
+  };
+  const onFrameNavigated = ({ frame }) => {
+    if (frame.id !== mainFrameId) return;
+    if (frame.unreachableUrl) {
+      rejectReady(new Error("Navigation committed an unreachable error page"));
+      return;
+    }
+    // An inline location.replace can cancel the original loader before its
+    // DOMContentLoaded. Follow the committed replacement in the same main frame.
+    committedLoaderId = frame.loaderId;
+    checkReady();
+  };
+  const onLifecycle = (event) => {
+    if (event.name !== "DOMContentLoaded") return;
+    completedLoaders.add(`${event.frameId}:${event.loaderId}`);
+    checkReady();
+  };
+  const onClosed = () => rejectReady(new Error("Navigation target closed or disconnected"));
+  const browser = page.browser();
+  const timer = setTimeout(() => rejectReady(new Error(`Navigation timeout of ${timeout} ms exceeded`)), timeout);
+  session.on("Page.lifecycleEvent", onLifecycle);
+  session.on("Page.frameNavigated", onFrameNavigated);
+  page.on("close", onClosed);
+  page.on("error", rejectReady);
+  browser.on("disconnected", onClosed);
+  // Arm the listener before issuing navigation: localhost can finish before
+  // Page.navigate returns its loader ID. That ID excludes the previous document.
+  session.send("Page.navigate", { url }).then((result) => {
+    if (result.errorText || result.isDownload) {
+      rejectReady(new Error(result.errorText || "net::ERR_ABORTED"));
+      return;
+    }
+    navigation = result;
+    checkReady();
+  }, rejectReady);
+  try {
+    await ready;
+  } finally {
+    clearTimeout(timer);
+    session.off("Page.lifecycleEvent", onLifecycle);
+    session.off("Page.frameNavigated", onFrameNavigated);
+    page.off("close", onClosed);
+    page.off("error", rejectReady);
+    browser.off("disconnected", onClosed);
+  }
+}
+
 async function navigate(url) {
   const hookTimeoutSeconds =
     getEnvInt("CHROME_TIMEOUT") || getEnvInt("TIMEOUT", 60);
@@ -76,6 +168,7 @@ async function navigate(url) {
   const waitUntil = getWaitCondition();
 
   let browser = null;
+  let page = null;
   let observedResponse = null;
   const navStartTime = Date.now();
 
@@ -87,10 +180,16 @@ async function navigate(url) {
       puppeteer,
     });
     browser = conn.browser;
-    const page = conn.page;
+    page = conn.page;
     const network = await page.createCDPSession();
+    // Chrome takes navigator.platform for each new document from the newest
+    // DevTools session, which is this one: carry the persona identity that
+    // hydration applies to every other session (UA, client hints, platform).
+    const userAgentOverride = readBrowserMetadata(CHROME_SESSION_DIR)?.userAgentOverride;
+    if (userAgentOverride) await network.send("Emulation.setUserAgentOverride", userAgentOverride);
     const { frameTree } = await network.send("Page.getFrameTree");
     let mainRequestId = null;
+    let mainDocumentResponse = null;
     const earlyResponses = new Map();
     const rememberResponse = (requestId, status, headers, mimeType = null) => {
       if (status < 200 || status >= 300) return;
@@ -106,11 +205,15 @@ async function navigate(url) {
     network.on("Network.requestWillBeSent", (event) => {
       if (event.type !== "Document" || event.frameId !== frameTree.frame.id) return;
       mainRequestId = event.requestId;
+      mainDocumentResponse = null;
       observedResponse = earlyResponses.get(mainRequestId) || null;
       earlyResponses.clear();
     });
     network.on("Network.responseReceived", ({ requestId, response }) => {
       rememberResponse(requestId, response.status, response.headers, response.mimeType);
+      // ExtraInfo exposes wire-level 304/redirect statuses; responseReceived
+      // owns the final document's effective status and challenge headers.
+      if (requestId === mainRequestId) mainDocumentResponse = response;
     });
     // Downloads abort page navigation and may never become Puppeteer Response
     // objects. ExtraInfo still carries their actual HTTP status and headers.
@@ -136,7 +239,25 @@ async function navigate(url) {
     console.log(
       `Navigating to ${url} (wait: ${waitUntil}, timeout: ${timeout}ms)`
     );
-    const response = await page.goto(url, { waitUntil, timeout });
+    if (waitUntil === "domcontentloaded") {
+      await navigateMainDocument(network, page, url, timeout, frameTree.frame.id);
+    } else {
+      await page.goto(url, { waitUntil, timeout });
+    }
+    const responseStatus = mainDocumentResponse?.status || null;
+    const responseHeaders = Object.fromEntries(Object.entries(mainDocumentResponse?.headers || {}).map(([name, value]) => [name.toLowerCase(), value]));
+    let challenge = null;
+    let cleared = null;
+    if (responseHeaders["cf-mitigated"] === "challenge") {
+      const deadline = Math.min(
+        Date.now() + CHALLENGE_WAIT_MS,
+        navStartTime + hookBudget - 5000
+      );
+      console.log(`Waiting up to ${Math.max(0, deadline - Date.now())}ms for Cloudflare challenge to clear...`);
+      cleared = await waitForChallenge(network, deadline, waitUntil);
+      challenge = cleared ? "cleared" : "unsolved";
+      console.log(`Cloudflare challenge ${challenge} after ${Date.now() - navStartTime}ms`);
+    }
 
     // Optional delay
     if (delayAfterLoad > 0) {
@@ -145,7 +266,7 @@ async function navigate(url) {
     }
 
     const finalUrl = page.url();
-    const status = response ? response.status() : null;
+    const status = cleared?.status || responseStatus;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
     const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
@@ -166,6 +287,7 @@ async function navigate(url) {
       finalUrl,
       status,
       content_type: contentType,
+      ...(challenge ? { challenge } : {}),
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(
@@ -175,13 +297,15 @@ async function navigate(url) {
 
     browser.disconnect();
 
-    return { success: true, finalUrl, status, waitUntil, elapsed };
+    return { success: true, finalUrl, status, waitUntil, elapsed, challenge };
   } catch (e) {
+    const pageUrl = page && !page.isClosed() ? page.url() : null;
     if (browser) browser.disconnect();
     const elapsed = Date.now() - navStartTime;
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      pageUrl,
       status: observedResponse?.status || null,
       contentType: observedResponse?.contentType || null,
       waitUntil,
@@ -211,6 +335,7 @@ async function main() {
     output = result.status
       ? `page loaded http=${result.status}`
       : "page loaded";
+    if (result.challenge === "unsolved") output += " (Cloudflare challenge unsolved)";
     console.log(
       `Page loaded: ${result.finalUrl} (HTTP ${result.status}) in ${result.elapsed}ms (waitUntil: ${result.waitUntil})`
     );
@@ -222,6 +347,7 @@ async function main() {
       elapsed: result.elapsed,
       url,
       error: result.error,
+      pageUrl: result.pageUrl,
       status: result.status,
       content_type: result.contentType,
       timestamp: new Date().toISOString(),

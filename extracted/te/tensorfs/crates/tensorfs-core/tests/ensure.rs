@@ -977,3 +977,80 @@ fn a_checkpoint_held_in_part_resolves_once_and_pulls_each_object_once() {
     let foreign = vec![ObjectRef::of(b"not of this checkpoint")];
     assert_eq!(fetch(&foreign).unwrap_err().code, tensorfs_core::err::Code::NOT_CONTAINED);
 }
+
+/// A pod's container caps its tasks (a vast RTX 5060 Ti: `pids.max` 1280) below the threads
+/// concurrent pulls start. A stream thread the cap refuses is backpressure: each pull lands on
+/// the streams that started, or on its own thread when none did. On 0.9.0 the refusal panicked
+/// past the pull's sampler and `tfs ensure` never returned, holding the manifest's flight
+/// (TensorD 0.5.30 prepare wedge, 2026-10-15).
+#[test]
+fn concurrent_ensures_whose_stream_threads_the_container_refuses_land() {
+    const TASKS: u64 = 64;
+    let cap = format!("TasksMax={TASKS}");
+    let scope = ["systemd-run", "--user", "--scope", "-q", "-p", cap.as_str()];
+    let usable = Command::new(scope[0])
+        .args(&scope[1..])
+        .arg("true")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    if !usable {
+        eprintln!("SKIPPED: no systemd user manager to create a task-limited cgroup");
+        return;
+    }
+    let dir = temporary("tasks");
+    // Two cold pulls of 251 objects each, in one task-limited cgroup: each asks for a stream
+    // per object.
+    let pulls: Vec<(PathBuf, Arc<Checkpoint>, Hub)> = (0..2u8)
+        .map(|at| {
+            let root = dir.join(format!("store-{at}"));
+            Store::init(&root).unwrap();
+            let checkpoint = Arc::new(checkpoint(251, 4096, 9 + at));
+            let hub = hub(Arc::clone(&checkpoint), None, Duration::ZERO, serve_all());
+            (root, checkpoint, hub)
+        })
+        .collect();
+    let script: Vec<String> = pulls
+        .iter()
+        .enumerate()
+        .map(|(at, (root, _, hub))| {
+            let inner = ensure(root, &hub.base, &[]);
+            let args: Vec<String> = inner.get_args().map(|a| format!("'{}'", a.to_str().unwrap())).collect();
+            format!("{TFS} {} > {}/out-{at} &", args.join(" "), dir.display())
+        })
+        .collect();
+    let mut child = Command::new(scope[0])
+        .args(&scope[1..])
+        .args(["sh", "-c", &format!("{} wait", script.join(" "))])
+        .env("TFS_CREDENTIAL", "")
+        .spawn()
+        .unwrap();
+    // Test harness bound on a wedged pull; the product has no such limit.
+    let until = std::time::Instant::now() + Duration::from_secs(90);
+    while child.try_wait().unwrap().is_none() {
+        if std::time::Instant::now() > until {
+            let _ = child.kill();
+            panic!("the ensures never ended under {cap}");
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    let mut streams = 0;
+    for (at, (root, checkpoint, _)) in pulls.iter().enumerate() {
+        let stdout = std::fs::read_to_string(dir.join(format!("out-{at}"))).unwrap();
+        let last = stdout.lines().last().map(parse);
+        let ok = last.as_ref().is_some_and(|line| text(line, "event") == "ensure.result");
+        let run = Run { ok, lines: stdout.lines().map(parse).collect(), stdout };
+        assert_result(&run, checkpoint);
+        let log = std::fs::read_to_string(root.join("logs/transport.log")).unwrap();
+        let walk = log.lines().rfind(|line| line.contains(" walk ")).unwrap().to_string();
+        streams += walk
+            .split_whitespace()
+            .find_map(|field| field.strip_prefix("streams="))
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+    }
+    assert!(streams < 2 * 251, "the cap refused none of their streams");
+    let _ = std::fs::remove_dir_all(&dir);
+}

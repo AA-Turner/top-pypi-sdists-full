@@ -302,9 +302,10 @@ class RolloutEngine:
         kv_cache.validate_sampling_policy(sampling_policy)
         self._retained_kv = sampling_policy == "segment" and kv_cache.max_staleness > 0
         self.kv_cache = kv_cache
+        self._live_full_weight = getattr(model, "full_weight", False) is True
         self.sampling_policy = sampling_policy
         self._latest_snapshot_sampling = (
-            sampling_policy == "segment"
+            (sampling_policy == "segment" or self._live_full_weight)
             and getattr(model, "checkpoint", None) is None
             and callable(getattr(model, "submit_sampling_batch", None))
         )
@@ -375,7 +376,7 @@ class RolloutEngine:
         self.server_capabilities = await call(read) if read is not None else None
         if self.server_capabilities is not None:
             self.server_capabilities.require("sampling_batch_v1")
-            if self.sampling_policy == "trajectory":
+            if self.sampling_policy == "trajectory" and not self._live_full_weight:
                 self.server_capabilities.require(
                     "policy_versions_v1", "sampling_policy_pinning_v1"
                 )
@@ -733,6 +734,7 @@ class RolloutEngine:
                 }
             if (
                 self.sampling_policy == "trajectory"
+                and not self._live_full_weight
                 and requests[0].pinned_policy_id
                 and getattr(self.model, "checkpoint", None) is None
             ):
@@ -827,7 +829,7 @@ class RolloutEngine:
             )
         self._sampling["prompt_tokens"] += sample.prompt_tokens
         self._sampling["cached_prompt_tokens"] += sample.cached_prompt_tokens
-        if self.sampling_policy == "trajectory":
+        if self.sampling_policy == "trajectory" and not self._live_full_weight:
             previous = next(
                 (s for s in request.member.traj.spans if s.kind == "generated"), None
             )
@@ -1418,8 +1420,13 @@ class RolloutEngine:
             "outbox": [group_state(g) for g in self._outbox],
         }
 
-    def load_state_dict(self, state):
-        """Restore saved rollout state into a fresh engine before starting it."""
+    def load_state_dict(self, state, *, restart_pinned_trajectories=False):
+        """Restore saved rollout state into a fresh engine before starting it.
+
+        Trainers using temporary snapshots restart unfinished pinned rollouts:
+        only the restored current policy is guaranteed to have a live snapshot.
+        Completed trajectories and standalone engine recovery are unchanged.
+        """
         if state["version"] != 1 or self._groups:
             raise ValueError(
                 "restore requires a fresh engine and supported state version"
@@ -1450,7 +1457,15 @@ class RolloutEngine:
                 if traj is not None and traj.id in returned:
                     traj = returned[traj.id]
                 if traj is not None and not traj.done and not finished:
-                    if item["recoverable"]:
+                    restart_pin = (
+                        restart_pinned_trajectories
+                        and self.sampling_policy == "trajectory"
+                        and any(
+                            span.kind == "generated" and span.policy_version is not None
+                            for span in traj.spans
+                        )
+                    )
+                    if item["recoverable"] and not restart_pin:
                         if self._retained_kv:
                             # Recovery may replay updates onto a sibling policy
                             # branch. Keep historical sample provenance untouched,

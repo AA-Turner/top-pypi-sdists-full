@@ -611,6 +611,31 @@ def test_files_are_routed_with_safety_lineage_and_a_catch_all() -> None:
     assert "Automatically tracked" in skill and "transcripts" in skill
 
 
+def test_runs_are_named_and_described_when_they_start() -> None:
+    """#2755 (2026-10-14) had the daemon name and describe a run when it starts:
+    the server's title and description fire only when a run ends, so a live run
+    showed its script name and no description for hours. #2787 rewrote
+    track-work shorter five hours later from the older text, dropped the rule and
+    restored "Don't name runs"; nothing pinned it, and Willow's 400-update RL run
+    went untitled again (2026-10-15). The writer reads its render, so check that
+    too.
+    """
+    from probe import skill_versions
+
+    root = _AGENT_TREE / "skills" / "track-work"
+    for version in (skill_versions.MAIN_AGENT, skill_versions.WRITER):
+        text = " ".join(skill_versions.render(root, version).split())
+        assert "When a run starts, name and describe it: `probe run set RUN --name" in text, version
+        assert "write it with `--authored-by human`, in a command of its own" in text, version
+        # A person's name stays: an agent write replaces the words but keeps the
+        # human lock (app/runs/router.py patch_run), so the paraphrase is stuck.
+        assert "Leave out a field `probe run get RUN` shows locked" in text, version
+        assert "Don't name runs" not in text, version
+        # The project line keeps its subject: read bare, "the title and
+        # description" once a run finishes looked like it covered runs too.
+        assert "The server writes a project's description itself once a run under it finishes." in text, version
+
+
 def test_notes_hold_only_what_helps_the_next_agent() -> None:
     """Richard, 2026-10-12: notes carry what would help the next agent on the
     entity or project, not everything that happened. The daemon's writer saved

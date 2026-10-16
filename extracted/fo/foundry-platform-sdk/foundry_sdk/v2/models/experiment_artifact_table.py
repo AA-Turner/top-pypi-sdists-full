@@ -74,6 +74,9 @@ class ExperimentArtifactTableClient:
         The response body is a JSON array of row objects, where each object maps column names to values.
         Results are paginated by row count with a default page size of 10 and a maximum of 100.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -140,6 +143,9 @@ class ExperimentArtifactTableClient:
     ) -> core.TableResponse:
         """
         Read raw table data from experiment artifacts in Parquet format.
+
+
+        Required scopes: [api:models-read]
 
         :param model_rid:
         :type model_rid: ModelRid
@@ -255,6 +261,9 @@ class AsyncExperimentArtifactTableClient:
         The response body is a JSON array of row objects, where each object maps column names to values.
         Results are paginated by row count with a default page size of 10 and a maximum of 100.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -321,6 +330,9 @@ class AsyncExperimentArtifactTableClient:
     ) -> typing.Awaitable[core.TableResponse]:
         """
                 Read raw table data from experiment artifacts in Parquet format.
+
+
+                Required scopes: [api:models-read]
 
                 :param model_rid:
                 :type model_rid: ModelRid

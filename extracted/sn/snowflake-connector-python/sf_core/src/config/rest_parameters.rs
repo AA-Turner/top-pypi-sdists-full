@@ -1,0 +1,2690 @@
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::Arc;
+
+use url::Url;
+
+use super::private_key::{has_private_key_params, read_private_key};
+use super::token::{
+    read_optional_bearer_token, read_required_bearer_token, read_required_header_bearer_token,
+};
+use crate::config::configured_redirect_uri::ConfiguredRedirectUri;
+use crate::config::param_registry::param_names;
+use crate::config::settings::Setting;
+use crate::config::settings::Settings;
+use crate::config::{
+    ConfigError, ConflictingParametersSnafu, InvalidParameterValueSnafu, MissingParameterSnafu,
+};
+use crate::crl::config::CrlConfig;
+use crate::rest::snowflake::BrowserLaunchFn;
+use crate::sensitive::SensitiveString;
+use crate::tls::config::{ProxyConfig, TlsConfig};
+use snafu::OptionExt;
+
+fn get_server_url(settings: &dyn Settings) -> Result<String, ConfigError> {
+    if let Some(Setting::String(value)) = settings.get("server_url") {
+        return Ok(value.clone());
+    }
+
+    let protocol = settings
+        .get_string("protocol")
+        .unwrap_or("https".to_string());
+    let host = settings
+        .get_string("host")
+        .context(MissingParameterSnafu { parameter: "host" })?;
+    if protocol != "https" && protocol != "http" {
+        tracing::warn!("Unexpected protocol specified during server url construction: {protocol}");
+    }
+
+    // Check if a custom port is specified
+    let base_url = format!("{protocol}://{host}");
+    if let Some(port) = settings.get_int("port") {
+        return Ok(format!("{base_url}:{port}"));
+    }
+
+    Ok(base_url)
+}
+
+pub const DEFAULT_LOG_MAX_QUERY_LENGTH: usize = 80;
+
+/// Read `log_max_query_length` from a settings bag, clamp to non-negative,
+/// and fall back to [`DEFAULT_LOG_MAX_QUERY_LENGTH`] when absent.
+pub fn resolve_log_max_query_length(settings: &dyn Settings) -> usize {
+    settings
+        .get_int(param_names::LOG_MAX_QUERY_LENGTH.as_str())
+        .map(|v| v.max(0) as usize)
+        .unwrap_or(DEFAULT_LOG_MAX_QUERY_LENGTH)
+}
+
+/// Read `log_query_text` from a settings bag, accepting bool/int/string values.
+pub fn resolve_log_query_text(settings: &dyn Settings) -> bool {
+    settings.get_bool_or(param_names::LOG_QUERY_TEXT.as_str(), false)
+}
+
+/// Read `log_query_parameters` from a settings bag, accepting bool/int/string values.
+pub fn resolve_log_query_parameters(settings: &dyn Settings) -> bool {
+    settings.get_bool_or(param_names::LOG_QUERY_PARAMETERS.as_str(), false)
+}
+
+/// Read `include_retry_reason` from a settings bag, accepting bool/int/string values.
+pub fn resolve_include_retry_reason(settings: &dyn Settings) -> bool {
+    settings.get_bool_or(param_names::INCLUDE_RETRY_REASON.as_str(), true)
+}
+
+#[derive(Clone)]
+pub struct QueryParameters {
+    pub server_url: String,
+    pub client_info: ClientInfo,
+    pub log_max_query_length: usize,
+    /// Include the (truncated) SQL text in INFO query logs.
+    pub log_query_text: bool,
+    /// Include the (truncated) JSON bindings in INFO query logs (only honored
+    /// when [`Self::log_query_text`] is also true).
+    pub log_query_parameters: bool,
+    /// When true, retried query requests include `retryReason=<status_code>` in
+    /// addition to `retryCount=N`. Defaults to `true`.
+    pub include_retry_reason: bool,
+    /// When set, query requests use Bearer PAT auth plus
+    /// `X-Snowflake-External-Session-ID` instead of a Snowflake session token.
+    pub external_session_id: Option<SensitiveString>,
+}
+
+impl QueryParameters {
+    /// Build transport parameters from an arbitrary settings bag (e.g. tests, pre-connect paths).
+    ///
+    /// After login, prefer `Connection::query_transport_parameters` (transport snapshot)
+    /// instead of re-reading merged settings.
+    pub fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        Ok(Self {
+            server_url: get_server_url(settings)?,
+            client_info: ClientInfo::from_settings(settings)?,
+            log_max_query_length: resolve_log_max_query_length(settings),
+            log_query_text: resolve_log_query_text(settings),
+            log_query_parameters: resolve_log_query_parameters(settings),
+            include_retry_reason: resolve_include_retry_reason(settings),
+            external_session_id: None,
+        })
+    }
+
+    pub(crate) fn external_session_id_str(&self) -> Option<&str> {
+        self.external_session_id
+            .as_ref()
+            .map(|id| id.reveal().as_str())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ClientInfo {
+    /// Driver identity sent as CLIENT_APP_ID and used in the User-Agent header.
+    /// Populated from wrapper identity (`driver_name`) via the `client_app_id`
+    /// connection setting, falling back to this crate's Cargo package name.
+    pub client_app_id: String,
+    /// User-facing application name sent as CLIENT_ENVIRONMENT.APPLICATION.
+    /// Falls back to `client_app_id` when not explicitly provided.
+    pub application: String,
+    /// Driver version sent as CLIENT_APP_VERSION and used in the User-Agent
+    /// header. Populated from wrapper identity (`driver_version`) via the
+    /// `client_app_version` connection setting, falling back to this crate's
+    /// Cargo package version. Sent as-is; suffixes such as `dev` or `rc1` are
+    /// not stripped.
+    pub version: String,
+    pub os: String,
+    pub os_version: String,
+    pub ocsp_mode: Option<String>,
+    /// Wrapper runtime name (e.g. "CPython", "OpenJDK"). Only set by language wrappers.
+    pub runtime_name: Option<String>,
+    /// Wrapper runtime version (e.g. "3.11.6", "21.0.1"). Only set by language wrappers.
+    pub runtime_version: Option<String>,
+    /// Wrapper compiler info (e.g. "Clang 13.0.0 ..."). Only set by language wrappers.
+    pub compiler: Option<String>,
+    /// Release type for pre-release builds (e.g. `"rc1"`, `"dev0"`).
+    /// Taken from `client_release_type` when set (wrapper override); otherwise
+    /// derived from the version suffix (Cargo/semver `-rc1` or PEP 440
+    /// `.dev0` / `rc1`). `None` on GA builds; sent as
+    /// `CLIENT_ENVIRONMENT.RELEASE_TYPE` when set.
+    pub release_type: Option<String>,
+    pub application_path: String,
+    pub crl_config: CrlConfig,
+    pub tls_config: TlsConfig,
+    pub proxy_config: ProxyConfig,
+    pub os_details: Option<HashMap<String, String>>,
+}
+
+impl ClientInfo {
+    pub fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        let crl_config = CrlConfig::from_settings(settings)?;
+        let tls_config = TlsConfig::from_settings(settings)?;
+        let proxy_config = ProxyConfig::from_settings(settings);
+
+        let client_app_id = settings
+            .get_string("client_app_id")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "UNIVERSAL_DRIVER".to_string());
+        let application = settings
+            .get_string("application")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| client_app_id.clone());
+        let version = settings
+            .get_string("client_app_version")
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+        let release_type = settings
+            .get_string("client_release_type")
+            .and_then(|s| if s.trim().is_empty() { None } else { Some(s) })
+            .or_else(|| release_type_from_version(&version));
+        let client_info = ClientInfo {
+            client_app_id,
+            application,
+            version,
+            os: std::env::consts::OS.to_string(),
+            os_version: crate::telemetry::environment::detect_os_version(),
+            ocsp_mode: Some("FAIL_OPEN".to_string()),
+            runtime_name: settings
+                .get_string("client_runtime_name")
+                .and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+            runtime_version: settings
+                .get_string("client_runtime_version")
+                .and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+            compiler: settings
+                .get_string("client_compiler")
+                .and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+            release_type,
+            application_path: settings
+                .get_string("client_application_path")
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| UNKNOWN_APPLICATION_PATH.to_string()),
+            crl_config,
+            tls_config,
+            proxy_config,
+            os_details: None,
+        };
+        Ok(client_info)
+    }
+}
+
+/// `CLIENT_ENVIRONMENT.APPLICATION_PATH` when the host path is unset or cannot be read.
+pub const UNKNOWN_APPLICATION_PATH: &str = "UNKNOWN";
+
+/// Derive `CLIENT_ENVIRONMENT.RELEASE_TYPE` from a package version.
+pub(crate) fn release_type_from_version(version: &str) -> Option<String> {
+    let version = version.trim();
+    if version.is_empty() {
+        return None;
+    }
+
+    let version = version
+        .split_once('!')
+        .map(|(_, rest)| rest)
+        .unwrap_or(version);
+
+    let suffix_start = version
+        .char_indices()
+        .find_map(|(i, c)| (!c.is_ascii_digit() && c != '.').then_some(i))
+        .unwrap_or(version.len());
+    let suffix = version[suffix_start..].trim_start_matches(['.', '-']);
+    if suffix.is_empty() || suffix.starts_with('+') {
+        None
+    } else {
+        Some(suffix.to_owned())
+    }
+}
+
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_fixtures {
+    use super::ClientInfo;
+    use crate::crl::config::CrlConfig;
+    use crate::tls::config::TlsConfig;
+
+    /// Minimal [`ClientInfo`] for tests, including plain-HTTP mock servers.
+    /// Override specific fields with struct-update syntax:
+    /// `ClientInfo { application: "foo".into(), ..test_client_info() }`.
+    pub fn test_client_info() -> ClientInfo {
+        ClientInfo {
+            client_app_id: "sf_core_test".to_string(),
+            application: "sf_core_test".to_string(),
+            version: "1.0.0".to_string(),
+            os: std::env::consts::OS.to_string(),
+            os_version: "1.0".to_string(),
+            ocsp_mode: None,
+            runtime_name: None,
+            runtime_version: None,
+            compiler: None,
+            release_type: None,
+            application_path: "/app/path".to_string(),
+            crl_config: CrlConfig::default(),
+            tls_config: TlsConfig::default(),
+            proxy_config: crate::tls::config::ProxyConfig::default(),
+            os_details: None,
+        }
+    }
+}
+
+pub type BrowserOpenFn = Arc<dyn Fn(&str) -> Result<(), String> + Send + Sync>;
+
+pub struct LoginParameters {
+    pub account_name: String,
+    pub login_method: LoginMethod,
+    pub server_url: String,
+    pub database: Option<String>,
+    pub schema: Option<String>,
+    pub warehouse: Option<String>,
+    pub role: Option<String>,
+    /// Secondary-roles activation mode sent at login (e.g. `ALL` or `NONE`).
+    /// Lets a client control secondary-role activation without relying on
+    /// the user's `DEFAULT_SECONDARY_ROLES` setting.
+    pub secondary_roles: Option<String>,
+    pub client_info: ClientInfo,
+    pub session_parameters: Option<HashMap<String, String>>,
+    pub spcs_token: Option<SensitiveString>,
+    pub disable_parallel_user_prompt: bool,
+    /// Set from `WrapperPresets::validate_session_token`, which documents the
+    /// tradeoff. Inert for every login method but [`LoginMethod::SessionToken`].
+    pub validate_session_token: bool,
+    pub browser_opener: Option<BrowserOpenFn>,
+}
+
+impl LoginParameters {
+    /// Build login request fields from a resolved settings map (defaults + files + connection seed).
+    ///
+    /// Session defaults (`database`, `schema`, etc.) are included only when they are part of the
+    /// resolved connect seed (`used_at_connect` session fields in the registry).
+    pub fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        Ok(Self {
+            account_name: {
+                if let Some(value) = settings.get_string("account") {
+                    value
+                } else {
+                    MissingParameterSnafu {
+                        parameter: "account",
+                    }
+                    .fail()?
+                }
+            },
+            login_method: LoginMethod::from_settings(settings)?,
+            server_url: get_server_url(settings)?,
+            database: settings.get_string("database"),
+            schema: settings.get_string("schema"),
+            warehouse: settings.get_string("warehouse"),
+            role: settings.get_string("role"),
+            secondary_roles: settings.get_string("secondary_roles"),
+            client_info: ClientInfo::from_settings(settings)?,
+            session_parameters: None,
+            spcs_token: None,
+            disable_parallel_user_prompt: settings
+                .get_bool_or(param_names::DISABLE_PARALLEL_USER_PROMPT.as_str(), true),
+            validate_session_token: true,
+            browser_opener: None,
+        })
+    }
+}
+
+pub const DEFAULT_AUTHENTICATION_TIMEOUT_SECS: u64 = 120;
+
+#[derive(Debug)]
+pub struct NativeOktaConfig {
+    /// Snowflake user name (used in authenticator-request to Snowflake).
+    pub username: String,
+    /// Optional override for the Okta login name. When set, this is sent to
+    /// Okta's `/api/v1/authn` instead of `username`. Matches JDBC's `oktausername`
+    /// property — useful when the Okta email differs from the Snowflake user.
+    pub okta_username: Option<String>,
+    /// IdP password (native Okta SSO).
+    pub password: SensitiveString,
+    /// Okta authenticator URL endpoint (native Okta SSO).
+    pub okta_url: Url,
+    /// Disable SAML destination/postback validation (default false; discouraged).
+    pub disable_saml_url_check: bool,
+    /// End-to-end auth budget for the Okta flow, mapped onto retry max_elapsed.
+    pub authentication_timeout_secs: u64,
+}
+
+/// OAuth 2.0 Authorization Code (with PKCE) flow configuration.
+///
+/// Mirrors the cross-driver configuration matrix
+/// (JDBC/ODBC/Python/.NET/Go/Node). All optional URL fields fall back to
+/// Snowflake-as-IdP defaults at flow time: `https://{host}/oauth/authorize`,
+/// `https://{host}/oauth/token-request`, and an ephemeral
+/// `http://127.0.0.1:<random>` loopback redirect URI.
+///
+/// `Debug` is hand-written (see below) because `browser_launcher` is not
+/// `Debug`; `Clone` is derived so `From`/projection conversions can copy the
+/// whole struct without a field-by-field copy that silently drops new fields.
+#[derive(Clone)]
+pub struct OAuthAuthorizationCodeConfig {
+    /// Snowflake user name. Sent unchanged in the login-request body
+    /// (`LOGIN_NAME` is always set; .NET's `loginName=""` quirk is not replicated).
+    pub username: String,
+    /// IdP-issued client identifier. For Snowflake-as-IdP the wiring step
+    /// will substitute `LOCAL_APPLICATION` when this is empty.
+    pub client_id: String,
+    /// IdP-issued client secret.
+    pub client_secret: SensitiveString,
+    /// Optional override for the IdP authorization endpoint.
+    /// `None` ⇒ default `https://{host}/oauth/authorize`.
+    pub authorization_url: Option<Url>,
+    /// Optional override for the IdP token endpoint.
+    /// `None` ⇒ default `https://{host}/oauth/token-request`.
+    /// Used for HTTP transport (`.join()`, host extraction, scheme validation).
+    pub token_url: Option<Url>,
+    /// Verbatim raw string from `oauth_token_request_url`, preserved alongside
+    /// `token_url` so that `normalize_url` sees the original user-configured
+    /// value for cache-key construction. The `url` crate strips default ports
+    /// (e.g. `:443`) from `Url::as_str()`, which would break cross-driver
+    /// byte-exact key parity; using the raw string avoids that.
+    /// `None` when no token URL was configured (key derived from server URL).
+    pub token_url_raw: Option<String>,
+    /// Optional override for the loopback redirect URI advertised to the IdP.
+    /// `None` ⇒ ephemeral `http://127.0.0.1:<random>` (bind to `127.0.0.1`,
+    /// never `0.0.0.0`).
+    ///
+    /// Stored as [`ConfiguredRedirectUri`] so the verbatim user string is
+    /// preserved end-to-end for IdPs that do RFC 6749 §3.1.2.3 simple-string
+    /// matching (e.g. Okta rejects the trailing-slash canonical form).
+    pub redirect_uri: Option<ConfiguredRedirectUri>,
+    /// OAuth scope string (space-separated). `None` ⇒ derived from role
+    /// (`session:role:<role>`).
+    pub scope: Option<String>,
+    /// Snowflake-as-IdP only: request single-use refresh-token rotation by
+    /// adding `enable_single_use_refresh_tokens=true` to the token body.
+    /// Defaults to `false`.
+    pub enable_single_use_refresh_tokens: bool,
+    /// Python-only escape hatch: disable PKCE S256. All other drivers
+    /// always run PKCE; defaults to `false` here.
+    pub disable_pkce: bool,
+    /// Whether refresh tokens may be persisted to the OS-level token cache
+    /// (controls `client_store_temporary_credential`).
+    pub client_store_temporary_credential: bool,
+    /// Driver-local flow behavior (DPoP, timeout). Not sent to Snowflake.
+    pub flow_options: OAuthFlowOptions,
+    /// Optional factory that mints the browser launcher used by the AC
+    /// interactive leg. `None` ⇒ the flow falls back to the production
+    /// "open the OS browser, paste-URL on failure" default. Tests inject
+    /// a no-op (or deterministic loopback driver) by setting this field
+    /// directly. Wrapped in an `Arc` so the AC retry-on-failure path can
+    /// rebuild a fresh `FnOnce` for the retry leg without consuming the
+    /// caller's factory.
+    ///
+    /// Defaulted to a no-op by [`Self::from_settings`] under
+    /// `cfg(any(test, feature = "test-utils"))` so integration / e2e
+    /// builds never pop a real browser window against wiremock IdPs;
+    /// production builds carry `None` and use the system browser.
+    pub(crate) browser_launcher: Option<Arc<dyn Fn() -> BrowserLaunchFn + Send + Sync>>,
+}
+
+// `Arc<dyn Fn() -> BrowserLaunchFn + Send + Sync>` is not `Debug`, so we
+// can't derive `Debug` on the struct as a whole. The manual impl elides
+// the launcher (it's opaque function data and carries nothing useful in
+// log output) and prints every other field with its normal `Debug`.
+impl fmt::Debug for OAuthAuthorizationCodeConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OAuthAuthorizationCodeConfig")
+            .field("username", &self.username)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &self.client_secret)
+            .field("authorization_url", &self.authorization_url)
+            .field("token_url", &self.token_url)
+            .field("token_url_raw", &self.token_url_raw)
+            .field("redirect_uri", &self.redirect_uri)
+            .field("scope", &self.scope)
+            .field(
+                "enable_single_use_refresh_tokens",
+                &self.enable_single_use_refresh_tokens,
+            )
+            .field("disable_pkce", &self.disable_pkce)
+            .field(
+                "client_store_temporary_credential",
+                &self.client_store_temporary_credential,
+            )
+            .field("flow_options", &self.flow_options)
+            .field(
+                "browser_launcher",
+                &self.browser_launcher.as_ref().map(|_| "<opaque>"),
+            )
+            .finish()
+    }
+}
+
+/// Driver-local OAuth flow behavior knobs shared by both AC and CC.
+///
+/// These parameters control the driver's own OAuth flow machinery (DPoP
+/// proof generation, timeout budget). They are **not** transmitted to
+/// Snowflake in the login-request JSON — they are consumed entirely
+/// within the OAuth flow engine in `sf_core::rest::snowflake::oauth`.
+#[derive(Debug, Clone)]
+pub struct OAuthFlowOptions {
+    /// Enable RFC 9449 DPoP proof-of-possession on token + login requests.
+    /// Currently only JDBC has DPoP parity; defaults to `false`.
+    pub enable_dpop: bool,
+    /// End-to-end auth budget for the OAuth flow.
+    pub authentication_timeout_secs: u64,
+}
+
+/// OAuth 2.0 Client Credentials flow configuration (external IdP only —
+/// Snowflake's GS does not issue tokens for
+/// `grant_type=client_credentials`).
+#[derive(Debug)]
+pub struct OAuthClientCredentialsConfig {
+    /// Snowflake user name (sent in the Snowflake login-request body).
+    pub username: String,
+    /// IdP-issued client identifier (required for CC).
+    pub client_id: String,
+    /// IdP-issued client secret (required for CC).
+    pub client_secret: SensitiveString,
+    /// IdP token endpoint. **Required** for CC: there is no Snowflake default
+    /// because Snowflake-as-IdP does not support CC.
+    pub token_url: Url,
+    /// OAuth scope string (space-separated). `None` ⇒ derived from role.
+    pub scope: Option<String>,
+    /// Send `client_id`/`client_secret` in the token-request body
+    /// (`client_secret_post`) instead of the RFC 6749 §2.3.1 HTTP Basic
+    /// header. Mirrors `snowflake-connector-python`'s
+    /// `oauth_credentials_in_body` for IdPs that require the body form.
+    /// Unlike legacy Python (which sends both), UD sends the credentials
+    /// in the body only.
+    pub credentials_in_body: bool,
+    /// Driver-local flow behavior (DPoP, timeout). Not sent to Snowflake.
+    pub flow_options: OAuthFlowOptions,
+}
+
+/// Cloud provider used for Workload Identity Federation attestation.
+///
+/// The string representation (`as_wire_str`) is what Snowflake GS expects in
+/// the `PROVIDER` field of the login-request body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WifProvider {
+    Aws,
+    Azure,
+    Gcp,
+    Oidc,
+}
+
+impl WifProvider {
+    /// Wire-format string sent in the `PROVIDER` field of the login-request body.
+    pub fn as_wire_str(&self) -> &'static str {
+        match self {
+            WifProvider::Aws => "AWS",
+            WifProvider::Azure => "AZURE",
+            WifProvider::Gcp => "GCP",
+            WifProvider::Oidc => "OIDC",
+        }
+    }
+
+    /// Parse from a connection-string value (case-insensitive).
+    pub fn parse_str(s: &str) -> Option<Self> {
+        match s.to_ascii_uppercase().as_str() {
+            "AWS" => Some(WifProvider::Aws),
+            "AZURE" => Some(WifProvider::Azure),
+            "GCP" => Some(WifProvider::Gcp),
+            "OIDC" => Some(WifProvider::Oidc),
+            _ => None,
+        }
+    }
+
+    /// Comma-separated list of accepted provider names for error messages.
+    pub fn allowed_values() -> &'static str {
+        "AWS, AZURE, GCP, OIDC"
+    }
+}
+
+impl fmt::Display for WifProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_wire_str())
+    }
+}
+
+/// Default Azure Entra resource URI for managed-identity token requests.
+///
+/// All other Snowflake drivers use this as the `resource` parameter when
+/// requesting a managed-identity access token from the Azure IMDS or Azure
+/// Functions identity endpoint.
+pub const DEFAULT_AZURE_ENTRA_RESOURCE: &str = "api://fd3f753b-eed3-462c-b6a7-a4b5bb650aad";
+
+/// Fully-validated Workload Identity Federation configuration.
+///
+/// Built by [`WorkloadIdentityConfig::new`]. [`WorkloadIdentityConfig::from_settings`]
+/// reads connection settings and calls `new`. A `wif_host` value is rejected
+/// unless `provider` is AWS.
+///
+/// TODO: split into a provider enum so `azure_client_id` and `entra_resource`
+/// exist only on Azure, and `aws_use_outbound_token` only on AWS. A value can
+/// currently pair `provider: Aws` with an Azure client id.
+#[derive(Debug)]
+pub struct WorkloadIdentityConfig {
+    /// Attestation provider. Determines which cloud metadata service the
+    /// driver calls to acquire the identity token.
+    pub provider: WifProvider,
+    /// Azure Entra resource URI for the managed-identity token request.
+    /// `None` ⇒ use [`DEFAULT_AZURE_ENTRA_RESOURCE`]. Azure provider only.
+    pub entra_resource: Option<String>,
+    /// Azure user-assigned managed-identity client id. `None` ⇒ use
+    /// `MANAGED_IDENTITY_CLIENT_ID` when set, otherwise the system-assigned MI.
+    pub azure_client_id: Option<String>,
+    /// Ordered impersonation chain.
+    /// AWS: IAM role ARNs to `AssumeRole` in order.
+    /// GCP: service account emails to impersonate via IAM Credentials API.
+    /// Empty ⇒ no impersonation (use the ambient identity directly).
+    pub impersonation_path: Vec<String>,
+    /// Pre-acquired OIDC JWT (OIDC provider only). Forwarded verbatim to GS
+    /// as the `TOKEN` field. Stored as `None` for all other providers.
+    pub oidc_token: Option<SensitiveString>,
+    /// When `true` (AWS provider only), use outbound STS `GetWebIdentityToken`
+    /// instead of the default pre-signed `GetCallerIdentity` attestation.
+    /// Takes precedence over `SNOWFLAKE_ENABLE_AWS_WIF_OUTBOUND_TOKEN`.
+    pub aws_use_outbound_token: bool,
+    /// AWS STS hostname. `None`, an empty string, or whitespace-only uses the AWS SDK regional STS host.
+    pub wif_host: Option<String>,
+}
+
+impl WorkloadIdentityConfig {
+    pub fn new(
+        provider: WifProvider,
+        entra_resource: Option<String>,
+        azure_client_id: Option<String>,
+        impersonation_path: Vec<String>,
+        oidc_token: Option<SensitiveString>,
+        aws_use_outbound_token: bool,
+        wif_host: Option<String>,
+    ) -> Result<Self, ConfigError> {
+        let wif_host = wif_host
+            .map(|host| host.trim().to_string())
+            .filter(|host| !host.is_empty());
+        if wif_host.is_some() && provider != WifProvider::Aws {
+            return ConflictingParametersSnafu {
+                parameter: String::from(param_names::WIF_HOST),
+                value: String::new(),
+                explanation: "wif_host is supported only for AWS".to_string(),
+            }
+            .fail();
+        }
+        Ok(Self {
+            provider,
+            entra_resource,
+            azure_client_id,
+            impersonation_path,
+            oidc_token,
+            aws_use_outbound_token,
+            wif_host,
+        })
+    }
+
+    pub fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        let provider_str = settings
+            .get_string("workload_identity_provider")
+            .filter(|s| !s.is_empty())
+            .context(MissingParameterSnafu {
+                parameter: "workload_identity_provider",
+            })?;
+        let provider =
+            WifProvider::parse_str(&provider_str).with_context(|| InvalidParameterValueSnafu {
+                parameter: "workload_identity_provider",
+                value: provider_str.clone(),
+                explanation: format!("Allowed values: {}", WifProvider::allowed_values()),
+            })?;
+        let entra_resource = settings
+            .get_string("workload_identity_entra_resource")
+            .filter(|s| !s.is_empty());
+        let azure_client_id = settings
+            .get_string("workload_identity_azure_client_id")
+            .filter(|s| !s.is_empty());
+        let impersonation_path = settings
+            .get_string("workload_identity_impersonation_path")
+            .filter(|s| !s.is_empty())
+            .map(|s| {
+                s.split(',')
+                    .map(|p| p.trim().to_string())
+                    .filter(|p| !p.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let oidc_token = read_optional_bearer_token(settings)?;
+        let aws_use_outbound_token = settings.get_bool_or(
+            param_names::WORKLOAD_IDENTITY_AWS_USE_OUTBOUND_TOKEN.as_str(),
+            false,
+        );
+        Self::new(
+            provider,
+            entra_resource,
+            azure_client_id,
+            impersonation_path,
+            oidc_token,
+            aws_use_outbound_token,
+            settings.get_string(param_names::WIF_HOST.as_str()),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub enum LoginMethod {
+    Password {
+        username: String,
+        password: SensitiveString,
+        passcode_in_password: bool,
+        passcode: Option<SensitiveString>,
+    },
+    NativeOkta(NativeOktaConfig),
+    PrivateKey {
+        username: String,
+        private_key: SensitiveString,
+        passphrase: Option<SensitiveString>,
+    },
+    Pat {
+        username: String,
+        token: SensitiveString,
+    },
+    /// PAT plus an external session id. Skips `/session/v1/login-request`;
+    /// subsequent requests authenticate with Bearer PAT and
+    /// `X-Snowflake-External-Session-ID`.
+    PatWithExternalSession {
+        username: String,
+        token: SensitiveString,
+        external_session_id: SensitiveString,
+    },
+    UserPasswordMfa {
+        username: String,
+        password: SensitiveString,
+        passcode_in_password: bool,
+        passcode: Option<SensitiveString>,
+        client_store_temporary_credential: bool,
+    },
+    ExternalBrowser {
+        username: String,
+        authentication_timeout_secs: u64,
+        client_store_temporary_credential: bool,
+    },
+    /// Pre-acquired OAuth access token (legacy `AUTHENTICATOR=OAUTH` with
+    /// raw `token=`). The driver forwards the token to Snowflake unchanged.
+    OAuthAccessToken {
+        username: String,
+        token: SensitiveString,
+    },
+    /// OAuth 2.0 Authorization Code with PKCE (S256). Multi-step flow
+    /// orchestrated outside of `create_credentials`.
+    OAuthAuthorizationCode(Box<OAuthAuthorizationCodeConfig>),
+    /// OAuth 2.0 Client Credentials. External IdP only.
+    OAuthClientCredentials(OAuthClientCredentialsConfig),
+    /// Pre-acquired session token + master token pair.
+    /// Validated via `/session/token-request` (RENEW) which also returns
+    /// the server-assigned session ID needed for telemetry routing.
+    SessionToken {
+        session_token: SensitiveString,
+        master_token: SensitiveString,
+        master_validity_in_seconds: Option<u64>,
+    },
+    /// Workload Identity Federation. The driver acquires an identity token
+    /// from the cloud provider's metadata service, then presents it to GS
+    /// under `AUTHENTICATOR=WORKLOAD_IDENTITY`.
+    WorkloadIdentity(WorkloadIdentityConfig),
+}
+
+pub(crate) fn non_empty_string(settings: &dyn Settings, key: &str) -> Option<String> {
+    settings.get_string(key).filter(|s| !s.is_empty())
+}
+
+pub(crate) fn require_http_header_value(
+    parameter: &str,
+    value: String,
+) -> Result<String, ConfigError> {
+    if reqwest::header::HeaderValue::from_str(&value).is_err() {
+        return InvalidParameterValueSnafu {
+            parameter: parameter.to_string(),
+            value: "****".to_string(),
+            explanation: "must be a valid HTTP header value".to_string(),
+        }
+        .fail();
+    }
+    Ok(value)
+}
+
+/// Prefix for the default OAuth scope derived from the session role.
+const DEFAULT_SESSION_ROLE_SCOPE_PREFIX: &str = "session:role:";
+
+/// Resolve the OAuth `scope` parameter for token/authorize requests.
+pub(crate) fn resolve_oauth_scope(settings: &dyn Settings) -> Option<String> {
+    if let Some(Setting::String(scope)) = settings.get("oauth_scope") {
+        return if scope.trim().is_empty() {
+            None
+        } else {
+            Some(scope)
+        };
+    }
+
+    let role = settings.get_string("role")?;
+    if role.trim().is_empty() {
+        return None;
+    }
+    Some(format!("{DEFAULT_SESSION_ROLE_SCOPE_PREFIX}{role}"))
+}
+
+/// Build an [`InvalidParameterValue`] error for a parameter whose value
+/// failed URL parsing. Centralizes the message so every URL-shaped
+/// parameter reports failures identically (and a new URL param doesn't
+/// re-copy the mapping). `source` should be the underlying parse error
+/// (e.g. [`url::ParseError`]) so the message stays terse.
+#[track_caller]
+fn invalid_url_param(
+    key: &'static str,
+    value: String,
+    source: impl std::fmt::Display,
+) -> ConfigError {
+    InvalidParameterValueSnafu {
+        parameter: key,
+        value,
+        explanation: format!("Could not parse URL: {source}"),
+    }
+    .build()
+}
+
+/// True when `url`'s host is an IPv4/IPv6 loopback address or the
+/// literal `localhost`. Used to scope the `http://` exception in
+/// [`require_secure_oauth_endpoint`] so local IdP mocks and the
+/// wiremock-backed test suite (which bind `127.0.0.1`) keep working.
+fn is_loopback_host(url: &Url) -> bool {
+    match url.host() {
+        Some(url::Host::Ipv4(ip)) => ip.is_loopback(),
+        Some(url::Host::Ipv6(ip)) => ip.is_loopback(),
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        None => false,
+    }
+}
+
+/// Require an OAuth endpoint URL to use a secure (TLS) transport.
+///
+/// RFC 6749 §3.1.2.1 and the OAuth 2.0 Security BCP require the
+/// authorization and token endpoints to use TLS, so any non-`https`
+/// URL is rejected with [`InvalidParameterValue`]. `http://` is
+/// permitted ONLY for loopback hosts (see [`is_loopback_host`]) so
+/// local IdP mocks and the wiremock-backed test suite keep working.
+/// See SNOW-3663588.
+///
+/// Note: this is a transport requirement, not an allow-list — it
+/// deliberately does NOT bound *which* `https` host is contacted. The
+/// token endpoint is a trusted configuration input, and an exhaustive
+/// IdP host allow-list is impractical for arbitrary external IdPs.
+fn require_secure_oauth_endpoint(url: &Url, key: &'static str) -> Result<(), ConfigError> {
+    if url.scheme() == "https" || (url.scheme() == "http" && is_loopback_host(url)) {
+        return Ok(());
+    }
+    InvalidParameterValueSnafu {
+        parameter: key,
+        value: url.as_str().to_string(),
+        explanation: "OAuth endpoint must use https (http is permitted only for loopback hosts)"
+            .to_string(),
+    }
+    .fail()
+}
+
+/// Parse an optional `oauth_redirect_uri` parameter as a
+/// [`ConfiguredRedirectUri`], preserving the verbatim user string for
+/// IdPs that perform RFC 6749 §3.1.2.3 exact-string `redirect_uri`
+/// matching. Returns [`InvalidParameterValue`] on malformed input;
+/// empty/missing values resolve to `None`.
+fn parse_optional_redirect_uri(
+    settings: &dyn Settings,
+    key: &'static str,
+) -> Result<Option<ConfiguredRedirectUri>, ConfigError> {
+    let Some(raw) = non_empty_string(settings, key) else {
+        return Ok(None);
+    };
+    let parsed = Url::parse(&raw).map_err(|e| invalid_url_param(key, raw.clone(), e))?;
+    Ok(Some(ConfiguredRedirectUri::from_parts(parsed, raw)))
+}
+
+/// Parse an optional URL parameter, returning [`InvalidParameterValue`]
+/// when the user supplied a value that cannot be parsed by the `url`
+/// crate. Empty/missing values resolve to `None` so callers can fall
+/// back to flow-time defaults (e.g. `https://{host}/oauth/authorize`).
+///
+/// Used exclusively for OAuth endpoint URLs (token / authorization), so
+/// a successfully parsed value is additionally required to use a secure
+/// transport via [`require_secure_oauth_endpoint`].
+pub(crate) fn parse_optional_url(
+    settings: &dyn Settings,
+    key: &'static str,
+) -> Result<Option<Url>, ConfigError> {
+    let Some(raw) = non_empty_string(settings, key) else {
+        return Ok(None);
+    };
+    let url = Url::parse(&raw).map_err(|e| invalid_url_param(key, raw, e))?;
+    require_secure_oauth_endpoint(&url, key)?;
+    Ok(Some(url))
+}
+
+/// Parse a required URL parameter (e.g. CC `oauth_token_request_url`).
+///
+/// As with [`parse_optional_url`], the parsed value must use a secure
+/// transport (see [`require_secure_oauth_endpoint`]).
+pub(crate) fn parse_required_url(
+    settings: &dyn Settings,
+    key: &'static str,
+) -> Result<Url, ConfigError> {
+    let raw = non_empty_string(settings, key).context(MissingParameterSnafu { parameter: key })?;
+    let url = Url::parse(&raw).map_err(|e| invalid_url_param(key, raw, e))?;
+    require_secure_oauth_endpoint(&url, key)?;
+    Ok(url)
+}
+
+impl OAuthAuthorizationCodeConfig {
+    pub(crate) fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        // SNOW-3647715: `user` is optional for token-based authenticators —
+        // the principal is encoded in the IdP-issued token and resolved by
+        // GS at login time. Empty string ⇒ omit `LOGIN_NAME` on the wire.
+        let username = non_empty_string(settings, "user").unwrap_or_default();
+        // Snowflake-as-IdP substitutes `LOCAL_APPLICATION` for
+        // missing client_id/client_secret at flow time
+        // (analysis_feature_oauth.md §1, §9). Keep them empty here
+        // and let the AC provider apply that default.
+        let client_id = non_empty_string(settings, "oauth_client_id").unwrap_or_default();
+        let client_secret = non_empty_string(settings, "oauth_client_secret").unwrap_or_default();
+        let authorization_url = parse_optional_url(settings, "oauth_authorization_url")?;
+        let token_url_raw = non_empty_string(settings, "oauth_token_request_url");
+        let token_url = parse_optional_url(settings, "oauth_token_request_url")?;
+        let redirect_uri = parse_optional_redirect_uri(settings, "oauth_redirect_uri")?;
+        let scope = resolve_oauth_scope(settings);
+        let enable_single_use_refresh_tokens =
+            settings.get_bool_or("oauth_enable_single_use_refresh_tokens", false);
+        let disable_pkce = settings.get_bool_or("oauth_disable_pkce", false);
+        let enable_dpop = settings.get_bool_or("oauth_enable_dpop", false);
+        let client_store_temporary_credential =
+            settings.get_bool_or("client_store_temporary_credential", true);
+        let authentication_timeout_secs = settings
+            .get_u64("authentication_timeout")
+            .unwrap_or(DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+
+        // Compile-time conditional default for the browser launcher.
+        // Production builds carry `None` and let the AC flow open the
+        // real OS browser. Test / `test-utils` builds default to a
+        // no-op factory so integration and e2e tests that drive the
+        // AC flow against wiremock IdPs never pop a real browser
+        // window. There is no runtime mutable state involved — the
+        // value is fixed at compile time and rides with the config.
+        #[cfg(not(any(test, feature = "test-utils")))]
+        let browser_launcher: Option<Arc<dyn Fn() -> BrowserLaunchFn + Send + Sync>> = None;
+        #[cfg(any(test, feature = "test-utils"))]
+        let browser_launcher: Option<Arc<dyn Fn() -> BrowserLaunchFn + Send + Sync>> =
+            Some(Arc::new(|| -> BrowserLaunchFn {
+                Box::new(|_authorize_url, _redirect_uri| Box::pin(async { Ok(()) }))
+            }));
+
+        Ok(Self {
+            username,
+            client_id,
+            client_secret: client_secret.into(),
+            authorization_url,
+            token_url,
+            token_url_raw,
+            redirect_uri,
+            scope,
+            enable_single_use_refresh_tokens,
+            disable_pkce,
+            client_store_temporary_credential,
+            flow_options: OAuthFlowOptions {
+                enable_dpop,
+                authentication_timeout_secs,
+            },
+            browser_launcher,
+        })
+    }
+}
+
+impl OAuthClientCredentialsConfig {
+    pub(crate) fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        // CC is external-IdP only: Snowflake's GS does not issue
+        // tokens for `grant_type=client_credentials` (analysis §4),
+        // so client_id, client_secret and token_url are mandatory.
+        // SNOW-3647715: `user` is optional — the IdP-issued token's
+        // claims identify the Snowflake principal. Empty ⇒ omit
+        // `LOGIN_NAME` on the wire.
+        let username = non_empty_string(settings, "user").unwrap_or_default();
+        let client_id =
+            non_empty_string(settings, "oauth_client_id").context(MissingParameterSnafu {
+                parameter: "oauth_client_id",
+            })?;
+        let client_secret =
+            non_empty_string(settings, "oauth_client_secret").context(MissingParameterSnafu {
+                parameter: "oauth_client_secret",
+            })?;
+        let token_url = parse_required_url(settings, "oauth_token_request_url")?;
+        let scope = resolve_oauth_scope(settings);
+        let credentials_in_body = settings.get_bool_or("oauth_credentials_in_body", false);
+        let enable_dpop = settings.get_bool_or("oauth_enable_dpop", false);
+        let authentication_timeout_secs = settings
+            .get_u64("authentication_timeout")
+            .unwrap_or(DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+
+        Ok(Self {
+            username,
+            client_id,
+            client_secret: client_secret.into(),
+            token_url,
+            scope,
+            credentials_in_body,
+            flow_options: OAuthFlowOptions {
+                enable_dpop,
+                authentication_timeout_secs,
+            },
+        })
+    }
+}
+
+impl LoginMethod {
+    pub fn from_settings(settings: &dyn Settings) -> Result<Self, ConfigError> {
+        // Auto-detect session token auth: both session_token and master_token must be present.
+        // Checked before authenticator dispatch so it works regardless of the authenticator value.
+        if let Some(session_token) = non_empty_string(settings, "session_token") {
+            let master_token =
+                non_empty_string(settings, "master_token").context(MissingParameterSnafu {
+                    parameter: "master_token",
+                })?;
+            return Ok(Self::SessionToken {
+                session_token: session_token.into(),
+                master_token: master_token.into(),
+                master_validity_in_seconds: settings.get_u64("master_validity_in_seconds"),
+            });
+        }
+
+        let authenticator = settings.get_string("authenticator").unwrap_or_default();
+        let auth_upper = authenticator.to_ascii_uppercase();
+
+        // Auto-detect JWT authentication if private key params are present
+        // and authenticator is not explicitly set to something else
+        let use_jwt = auth_upper == "SNOWFLAKE_JWT"
+            || (authenticator.is_empty() && has_private_key_params(settings));
+
+        if use_jwt {
+            return Ok(Self::PrivateKey {
+                username: non_empty_string(settings, "user")
+                    .context(MissingParameterSnafu { parameter: "user" })?,
+                private_key: read_private_key(settings)?,
+                passphrase: settings
+                    .get_string("private_key_password")
+                    .map(SensitiveString::from),
+            });
+        }
+
+        match auth_upper.as_str() {
+            "SNOWFLAKE" | "SNOWFLAKE_PASSWORD" | "" => Ok(Self::Password {
+                username: non_empty_string(settings, "user")
+                    .context(MissingParameterSnafu { parameter: "user" })?,
+                password: non_empty_string(settings, "password")
+                    .context(MissingParameterSnafu {
+                        parameter: "password",
+                    })?
+                    .into(),
+                passcode_in_password: settings.get_bool_or("passcodeInPassword", false),
+                passcode: settings.get_string("passcode").map(SensitiveString::from),
+            }),
+            "PROGRAMMATIC_ACCESS_TOKEN" => Ok(Self::Pat {
+                // SNOW-3647715: `user` optional for token auth — the PAT
+                // encodes the principal (`ALTER USER … ADD PROGRAMMATIC
+                // ACCESS TOKEN`). Empty ⇒ omit `LOGIN_NAME` on the wire.
+                username: non_empty_string(settings, "user").unwrap_or_default(),
+                token: read_required_bearer_token(settings)?,
+            }),
+            "PAT_WITH_EXTERNAL_SESSION" => Ok(Self::PatWithExternalSession {
+                username: non_empty_string(settings, "user").unwrap_or_default(),
+                token: read_required_header_bearer_token(settings)?,
+                external_session_id: SensitiveString::from(require_http_header_value(
+                    "external_session_id",
+                    non_empty_string(settings, "external_session_id").context(
+                        MissingParameterSnafu {
+                            parameter: "external_session_id",
+                        },
+                    )?,
+                )?),
+            }),
+            _ if auth_upper.starts_with("HTTPS://") => {
+                // Native Okta SSO is configured by passing the Okta URL endpoint as `authenticator`.
+                // This is intentionally broad (vanity domains may not contain "okta").
+                // Validate the URL is well-formed early to provide a clear error message.
+                let okta_url = Url::parse(&authenticator).map_err(|_| {
+                    InvalidParameterValueSnafu {
+                        parameter: "authenticator",
+                        value: authenticator,
+                        explanation: "The authenticator URL is not a valid URL",
+                    }
+                    .build()
+                })?;
+
+                let username = non_empty_string(settings, "user")
+                    .context(MissingParameterSnafu { parameter: "user" })?;
+                let okta_username = settings.get_string("okta_username");
+                let password = settings
+                    .get_string("password")
+                    .context(MissingParameterSnafu {
+                        parameter: "password",
+                    })?;
+
+                let disable_saml_url_check = settings.get_bool_or("disable_saml_url_check", false);
+
+                let authentication_timeout_secs = settings
+                    .get_u64("authentication_timeout")
+                    .unwrap_or(DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+
+                Ok(Self::NativeOkta(NativeOktaConfig {
+                    username,
+                    okta_username,
+                    password: password.into(),
+                    okta_url,
+                    disable_saml_url_check,
+                    authentication_timeout_secs,
+                }))
+            }
+            "OAUTH" => Ok(Self::OAuthAccessToken {
+                // SNOW-3647715: `user` optional for token auth — the
+                // pre-acquired access token's claims identify the
+                // principal. Empty ⇒ omit `LOGIN_NAME` on the wire.
+                username: non_empty_string(settings, "user").unwrap_or_default(),
+                token: read_required_bearer_token(settings)?,
+            }),
+            "OAUTH_AUTHORIZATION_CODE" => Ok(Self::OAuthAuthorizationCode(Box::new(
+                // Snowflake-as-IdP substitutes `LOCAL_APPLICATION` for
+                // missing client_id/client_secret at flow time. Keep them
+                // empty here and let the AC provider apply that default.
+                OAuthAuthorizationCodeConfig::from_settings(settings)?,
+            ))),
+            "OAUTH_CLIENT_CREDENTIALS" => Ok(Self::OAuthClientCredentials(
+                // CC is external-IdP only: Snowflake does not issue
+                // tokens for `grant_type=client_credentials`, so client_id,
+                // client_secret and token_url are mandatory.
+                OAuthClientCredentialsConfig::from_settings(settings)?,
+            )),
+            "USERNAME_PASSWORD_MFA" => Ok(Self::UserPasswordMfa {
+                username: non_empty_string(settings, "user")
+                    .context(MissingParameterSnafu { parameter: "user" })?,
+                password: non_empty_string(settings, "password")
+                    .context(MissingParameterSnafu {
+                        parameter: "password",
+                    })?
+                    .into(),
+                passcode_in_password: settings.get_bool_or("passcodeInPassword", false),
+                passcode: settings.get_string("passcode").map(SensitiveString::from),
+                client_store_temporary_credential: settings
+                    .get_bool_or("client_store_temporary_credential", true),
+            }),
+            "EXTERNALBROWSER" => {
+                let authentication_timeout_secs = settings
+                    .get_u64("authentication_timeout")
+                    .unwrap_or(DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+
+                Ok(Self::ExternalBrowser {
+                    username: non_empty_string(settings, "user")
+                        .context(MissingParameterSnafu { parameter: "user" })?,
+                    authentication_timeout_secs,
+                    client_store_temporary_credential: settings
+                        .get_bool_or("client_store_temporary_credential", true),
+                })
+            }
+            "WORKLOAD_IDENTITY" => Ok(Self::WorkloadIdentity(
+                WorkloadIdentityConfig::from_settings(settings)?,
+            )),
+            _ => InvalidParameterValueSnafu {
+                parameter: "authenticator",
+                value: authenticator,
+                explanation: crate::config::AUTHENTICATOR_ALLOWED_VALUES,
+            }
+            .fail()?,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::settings::Setting;
+    use std::collections::HashMap;
+
+    fn create_test_settings(options: Vec<(&str, Setting)>) -> HashMap<String, Setting> {
+        options
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect()
+    }
+
+    #[test]
+    fn wif_host_is_rejected_unless_provider_is_aws() {
+        let azure = create_test_settings(vec![
+            (
+                "workload_identity_provider",
+                Setting::String("AZURE".to_string()),
+            ),
+            ("wif_host", Setting::String("sts.example.com".to_string())),
+        ]);
+        let err = WorkloadIdentityConfig::from_settings(&azure).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Conflicting parameters: wif_host is supported only for AWS"
+        );
+
+        let aws = create_test_settings(vec![
+            (
+                "workload_identity_provider",
+                Setting::String("AWS".to_string()),
+            ),
+            ("wif_host", Setting::String("sts.example.com".to_string())),
+        ]);
+        let config = WorkloadIdentityConfig::from_settings(&aws).expect("aws wif_host");
+        assert_eq!(config.wif_host.as_deref(), Some("sts.example.com"));
+    }
+
+    #[test]
+    fn test_conflicting_private_key_and_private_key_file_string() {
+        // Both private_key (string) and private_key_file are set
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            (
+                "authenticator",
+                Setting::String("SNOWFLAKE_JWT".to_string()),
+            ),
+            (
+                "private_key",
+                Setting::String("some_base64_key".to_string()),
+            ),
+            (
+                "private_key_file",
+                Setting::String("/path/to/key.p8".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("Conflicting parameters"),
+            "Expected 'Conflicting parameters' error, got: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("private_key") && err_msg.contains("private_key_file"),
+            "Error should mention both parameters: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_conflicting_private_key_bytes_and_private_key_file() {
+        // Both private_key (bytes) and private_key_file are set
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            (
+                "authenticator",
+                Setting::String("SNOWFLAKE_JWT".to_string()),
+            ),
+            ("private_key", Setting::Bytes(vec![0x30, 0x82])), // Some DER bytes
+            (
+                "private_key_file",
+                Setting::String("/path/to/key.p8".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("Conflicting parameters"),
+            "Expected 'Conflicting parameters' error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_only_private_key_file_is_allowed() {
+        // Only private_key_file is set (should not error on conflict check)
+        // Note: This will fail because the file doesn't exist, but it should NOT
+        // fail with "Conflicting parameters" error
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            (
+                "authenticator",
+                Setting::String("SNOWFLAKE_JWT".to_string()),
+            ),
+            (
+                "private_key_file",
+                Setting::String("/nonexistent/path/to/key.p8".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        // Should fail because file doesn't exist, NOT because of conflicting params
+        assert!(
+            !err_msg.contains("Conflicting parameters"),
+            "Should not be a conflicting parameters error: {err_msg}"
+        );
+        assert!(
+            err_msg.contains("private_key_file") && err_msg.contains("Could not read"),
+            "Should fail because file doesn't exist: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_only_private_key_string_is_allowed() {
+        // Only private_key (string) is set - should not fail with conflict error
+        // Note: This will fail because of invalid base64/key format, but NOT conflict
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            (
+                "authenticator",
+                Setting::String("SNOWFLAKE_JWT".to_string()),
+            ),
+            (
+                "private_key",
+                Setting::String("!!!invalid_base64!!!".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        // Should fail because of invalid base64, NOT because of conflicting params
+        assert!(
+            !err_msg.contains("Conflicting parameters"),
+            "Should not be a conflicting parameters error: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_auto_detect_jwt_does_not_conflict_check_when_no_private_key() {
+        // No private key params - should fall back to password auth
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            ("password", Setting::String("test_password".to_string())),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            LoginMethod::Password {
+                username, password, ..
+            } => {
+                assert_eq!(username, "test_user");
+                assert_eq!(password.reveal(), "test_password");
+            }
+            _ => panic!("Expected Password login method"),
+        }
+    }
+
+    #[test]
+    fn test_snowflake_lowercase_resolves_to_password() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            ("password", Setting::String("test_password".to_string())),
+            ("authenticator", Setting::String("snowflake".to_string())),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            LoginMethod::Password {
+                username, password, ..
+            } => {
+                assert_eq!(username, "test_user");
+                assert_eq!(password.reveal(), "test_password");
+            }
+            _ => panic!("Expected Password login method for 'snowflake'"),
+        }
+    }
+
+    #[test]
+    fn test_snowflake_mixed_case_resolves_to_password() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            ("password", Setting::String("test_password".to_string())),
+            ("authenticator", Setting::String("Snowflake".to_string())),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            LoginMethod::Password { .. } => {}
+            _ => panic!("Expected Password login method for 'Snowflake'"),
+        }
+    }
+
+    #[test]
+    fn test_pat_lowercase_resolves_to_pat() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            ("token", Setting::String("test_token".to_string())),
+            (
+                "authenticator",
+                Setting::String("programmatic_access_token".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            LoginMethod::Pat { username, token } => {
+                assert_eq!(username, "test_user");
+                assert_eq!(token.reveal(), "test_token");
+            }
+            _ => panic!("Expected Pat login method for lowercase 'programmatic_access_token'"),
+        }
+    }
+
+    #[test]
+    fn test_pat_token_file_path_is_used() {
+        use std::io::Write;
+
+        let mut token_file = tempfile::NamedTempFile::new().expect("temp token file");
+        token_file
+            .write_all(b"file-pat-token\n")
+            .expect("write token");
+        token_file.flush().expect("flush token");
+
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            (
+                "token_file_path",
+                Setting::String(token_file.path().to_str().unwrap().to_string()),
+            ),
+            (
+                "authenticator",
+                Setting::String("PROGRAMMATIC_ACCESS_TOKEN".to_string()),
+            ),
+        ]);
+
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::Pat { username, token } => {
+                assert_eq!(username, "test_user");
+                assert_eq!(token.reveal(), "file-pat-token");
+            }
+            other => panic!("Expected Pat login method, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_pat_with_external_session_resolves() {
+        let settings = create_test_settings(vec![
+            ("token", Setting::String("test_token".to_string())),
+            (
+                "authenticator",
+                Setting::String("pat_with_external_session".to_string()),
+            ),
+            ("external_session_id", Setting::String("ext-id".to_string())),
+        ]);
+
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::PatWithExternalSession {
+                username,
+                token,
+                external_session_id,
+            } => {
+                assert!(username.is_empty());
+                assert_eq!(token.reveal(), "test_token");
+                assert_eq!(external_session_id.reveal(), "ext-id");
+            }
+            other => panic!("Expected PatWithExternalSession, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_pat_with_external_session_missing_id() {
+        let settings = create_test_settings(vec![
+            ("token", Setting::String("test_token".to_string())),
+            (
+                "authenticator",
+                Setting::String("PAT_WITH_EXTERNAL_SESSION".to_string()),
+            ),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        match err {
+            ConfigError::MissingParameter { parameter, .. } => {
+                assert_eq!(parameter, "external_session_id");
+            }
+            other => panic!("Expected MissingParameter, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_pat_with_external_session_rejects_header_unsafe_id() {
+        let settings = create_test_settings(vec![
+            ("token", Setting::String("test_token".to_string())),
+            (
+                "authenticator",
+                Setting::String("PAT_WITH_EXTERNAL_SESSION".to_string()),
+            ),
+            (
+                "external_session_id",
+                Setting::String("ext\nid".to_string()),
+            ),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        match &err {
+            ConfigError::InvalidParameterValue {
+                parameter, value, ..
+            } => {
+                assert_eq!(parameter, "external_session_id");
+                assert_eq!(value, "****");
+            }
+            other => panic!("Expected InvalidParameterValue, got {other:?}"),
+        }
+        assert!(
+            !err.to_string().contains("ext\nid"),
+            "invalid external_session_id must be redacted, got {err}"
+        );
+    }
+
+    #[test]
+    fn test_mfa_lowercase_resolves_to_mfa() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("test_user".to_string())),
+            ("password", Setting::String("test_password".to_string())),
+            (
+                "authenticator",
+                Setting::String("username_password_mfa".to_string()),
+            ),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_ok());
+        match result.unwrap() {
+            LoginMethod::UserPasswordMfa { .. } => {}
+            _ => panic!("Expected UserPasswordMfa login method"),
+        }
+    }
+
+    fn okta_config(extras: Vec<(&str, Setting)>) -> NativeOktaConfig {
+        let mut base = vec![
+            ("user", Setting::String("okta_user".to_string())),
+            ("password", Setting::String("okta_pass".to_string())),
+            (
+                "host",
+                Setting::String("account.snowflakecomputing.com".to_string()),
+            ),
+            ("account", Setting::String("account".to_string())),
+            (
+                "authenticator",
+                Setting::String("https://myorg.okta.com".to_string()),
+            ),
+        ];
+        base.extend(extras);
+        let settings = create_test_settings(base);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::NativeOkta(cfg) => cfg,
+            other => panic!("Expected NativeOkta, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_native_okta_uses_default_authentication_timeout() {
+        let cfg = okta_config(vec![]);
+        assert_eq!(
+            cfg.authentication_timeout_secs,
+            DEFAULT_AUTHENTICATION_TIMEOUT_SECS
+        );
+    }
+
+    #[test]
+    fn test_native_okta_custom_authentication_timeout() {
+        let cfg = okta_config(vec![(
+            "authentication_timeout",
+            Setting::String("60".to_string()),
+        )]);
+        assert_eq!(cfg.authentication_timeout_secs, 60);
+    }
+
+    #[test]
+    fn test_native_okta_invalid_authentication_timeout_uses_default() {
+        let cfg = okta_config(vec![(
+            "authentication_timeout",
+            Setting::String("not_a_number".to_string()),
+        )]);
+        assert_eq!(
+            cfg.authentication_timeout_secs, DEFAULT_AUTHENTICATION_TIMEOUT_SECS,
+            "Invalid timeout should fall back to the default"
+        );
+    }
+
+    #[test]
+    fn test_native_okta_disable_saml_url_check_defaults_to_false() {
+        let cfg = okta_config(vec![]);
+        assert!(!cfg.disable_saml_url_check);
+    }
+
+    #[test]
+    fn test_native_okta_disable_saml_url_check_true() {
+        let cfg = okta_config(vec![(
+            "disable_saml_url_check",
+            Setting::String("true".to_string()),
+        )]);
+        assert!(cfg.disable_saml_url_check);
+    }
+
+    #[test]
+    fn test_empty_user_returns_missing_parameter_error() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("".to_string())),
+            ("password", Setting::String("test_password".to_string())),
+        ]);
+
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("Missing required parameter") && err_msg.contains("user"),
+            "Expected MissingParameter error for empty user, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_client_info_uses_defaults_when_no_wrapper_settings() {
+        let settings = create_test_settings(vec![(
+            "host",
+            Setting::String("test.snowflakecomputing.com".to_string()),
+        )]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.client_app_id, "UNIVERSAL_DRIVER");
+        assert_eq!(info.application, "UNIVERSAL_DRIVER");
+        assert_eq!(info.version, env!("CARGO_PKG_VERSION"));
+        assert!(info.runtime_name.is_none());
+        assert!(info.runtime_version.is_none());
+        assert!(info.compiler.is_none());
+        assert!(info.release_type.is_none());
+    }
+
+    #[test]
+    fn test_client_info_derives_release_type_from_version_suffix() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            (
+                "client_app_version",
+                Setting::String("4.0.0-rc1".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.version, "4.0.0-rc1");
+        assert_eq!(info.release_type.as_deref(), Some("rc1"));
+    }
+
+    #[test]
+    fn test_client_info_derives_release_type_from_pep440_version() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            (
+                "client_app_version",
+                Setting::String("5.0.0.dev0".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.version, "5.0.0.dev0");
+        assert_eq!(info.release_type.as_deref(), Some("dev0"));
+    }
+
+    #[test]
+    fn test_client_info_derives_hyphenated_and_metadata_release_type() {
+        let hyphenated = create_test_settings(vec![(
+            "client_app_version",
+            Setting::String("4.0.0-rc1-dev".to_string()),
+        )]);
+        assert_eq!(
+            ClientInfo::from_settings(&hyphenated)
+                .unwrap()
+                .release_type
+                .as_deref(),
+            Some("rc1-dev")
+        );
+
+        let with_metadata = create_test_settings(vec![(
+            "client_app_version",
+            Setting::String("4.0.0-rc1+abc123".to_string()),
+        )]);
+        assert_eq!(
+            ClientInfo::from_settings(&with_metadata)
+                .unwrap()
+                .release_type
+                .as_deref(),
+            Some("rc1+abc123")
+        );
+    }
+
+    #[test]
+    fn test_client_info_release_type_override_wins_over_version_suffix() {
+        let settings = create_test_settings(vec![
+            (
+                "client_app_version",
+                Setting::String("4.0.0-rc1".to_string()),
+            ),
+            (
+                "client_release_type",
+                Setting::String("custom-rc".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.release_type.as_deref(), Some("custom-rc"));
+    }
+
+    #[test]
+    fn test_release_type_from_version() {
+        assert_eq!(release_type_from_version("4.0.0"), None);
+        assert_eq!(release_type_from_version("4.0.0-"), None);
+        assert_eq!(release_type_from_version("5.0.0+abc"), None);
+        assert_eq!(
+            release_type_from_version("4.0.0-rc1"),
+            Some("rc1".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("4.0.0-rc1-dev"),
+            Some("rc1-dev".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("4.0.0-rc1+abc123"),
+            Some("rc1+abc123".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("5.0.0.dev0"),
+            Some("dev0".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("5.0.0.post1"),
+            Some("post1".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("5.0.0rc1"),
+            Some("rc1".to_owned())
+        );
+        assert_eq!(release_type_from_version("5.0.0b1"), Some("b1".to_owned()));
+        assert_eq!(
+            release_type_from_version("5.0.0a10"),
+            Some("a10".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("1!5.0.0.dev0"),
+            Some("dev0".to_owned())
+        );
+        assert_eq!(
+            release_type_from_version("4.0.0-beta.0"),
+            Some("beta.0".to_owned())
+        );
+    }
+
+    #[test]
+    fn test_application_defaults_to_client_app_id_when_unset() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            (
+                "client_app_id",
+                Setting::String("PythonConnector".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.client_app_id, "PythonConnector");
+        assert_eq!(info.application, "PythonConnector");
+    }
+
+    #[test]
+    fn test_application_independent_of_client_app_id() {
+        // Mirrors the old connector: internal_application_name → CLIENT_APP_ID,
+        // application → CLIENT_ENVIRONMENT.APPLICATION. The two values are
+        // independent.
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            (
+                "client_app_id",
+                Setting::String("PythonConnector".to_string()),
+            ),
+            (
+                "application",
+                Setting::String("SNOWCLI.STAGE.COPY".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.client_app_id, "PythonConnector");
+        assert_eq!(info.application, "SNOWCLI.STAGE.COPY");
+    }
+
+    #[test]
+    fn test_application_empty_falls_back_to_client_app_id() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            ("client_app_id", Setting::String("JDBC".to_string())),
+            ("application", Setting::String("   ".to_string())),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.client_app_id, "JDBC");
+        assert_eq!(info.application, "JDBC");
+    }
+
+    #[test]
+    fn test_client_info_with_custom_wrapper_identity() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            ("client_app_id", Setting::String("JDBC".to_string())),
+            ("client_app_version", Setting::String("3.21.0".to_string())),
+            (
+                "client_runtime_name",
+                Setting::String("OpenJDK".to_string()),
+            ),
+            (
+                "client_runtime_version",
+                Setting::String("21.0.1".to_string()),
+            ),
+            (
+                "client_compiler",
+                Setting::String("javac 21.0.1".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.client_app_id, "JDBC");
+        assert_eq!(info.application, "JDBC");
+        assert_eq!(info.version, "3.21.0");
+        assert_eq!(info.runtime_name.as_deref(), Some("OpenJDK"));
+        assert_eq!(info.runtime_version.as_deref(), Some("21.0.1"));
+        assert_eq!(info.compiler.as_deref(), Some("javac 21.0.1"));
+        assert!(info.release_type.is_none());
+    }
+
+    #[test]
+    fn test_client_info_application_path_from_setting() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            (
+                "client_application_path",
+                Setting::String("/home/user/app.py".to_string()),
+            ),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert_eq!(info.application_path, "/home/user/app.py");
+    }
+
+    #[test]
+    fn test_client_info_application_path_unset_is_unknown() {
+        let missing = create_test_settings(vec![(
+            "host",
+            Setting::String("test.snowflakecomputing.com".to_string()),
+        )]);
+        let blank = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            ("client_application_path", Setting::String("  ".to_string())),
+        ]);
+        assert_eq!(
+            ClientInfo::from_settings(&missing)
+                .unwrap()
+                .application_path,
+            "UNKNOWN"
+        );
+        assert_eq!(
+            ClientInfo::from_settings(&blank).unwrap().application_path,
+            "UNKNOWN"
+        );
+    }
+
+    #[test]
+    fn test_client_info_empty_strings_become_none() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            ("client_runtime_name", Setting::String("".to_string())),
+            ("client_runtime_version", Setting::String("  ".to_string())),
+            ("client_compiler", Setting::String(" \t ".to_string())),
+        ]);
+        let info = ClientInfo::from_settings(&settings).unwrap();
+        assert!(
+            info.runtime_name.is_none(),
+            "empty string should become None"
+        );
+        assert!(
+            info.runtime_version.is_none(),
+            "whitespace-only should become None"
+        );
+        assert!(info.compiler.is_none(), "whitespace+tab should become None");
+    }
+
+    #[test]
+    fn test_oauth_legacy_authenticator_resolves_to_oauth_access_token() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            ("token", Setting::String("legacy-bearer".to_string())),
+            ("authenticator", Setting::String("OAUTH".to_string())),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthAccessToken { username, token } => {
+                assert_eq!(username, "alice");
+                assert_eq!(token.reveal(), "legacy-bearer");
+            }
+            other => panic!("Expected OAuthAccessToken, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_oauth_legacy_requires_token() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            ("authenticator", Setting::String("oauth".to_string())),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Missing required parameter") && msg.contains("token"),
+            "Expected missing-token error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_oauth_authorization_code_authenticator_parses_config() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_AUTHORIZATION_CODE".to_string()),
+            ),
+            ("oauth_client_id", Setting::String("client-x".to_string())),
+            (
+                "oauth_client_secret",
+                Setting::String("super-secret".to_string()),
+            ),
+            (
+                "oauth_authorization_url",
+                Setting::String("https://idp.example.com/oauth/authorize".to_string()),
+            ),
+            (
+                "oauth_token_request_url",
+                Setting::String("https://idp.example.com/oauth/token".to_string()),
+            ),
+            (
+                "oauth_redirect_uri",
+                Setting::String("http://127.0.0.1:9090/".to_string()),
+            ),
+            (
+                "oauth_scope",
+                Setting::String("session:role:DEV".to_string()),
+            ),
+            (
+                "oauth_enable_single_use_refresh_tokens",
+                Setting::Bool(true),
+            ),
+            ("oauth_disable_pkce", Setting::Bool(false)),
+            ("oauth_enable_dpop", Setting::Bool(true)),
+            ("client_store_temporary_credential", Setting::Bool(true)),
+            ("authentication_timeout", Setting::Int(45)),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthAuthorizationCode(cfg) => {
+                assert_eq!(cfg.username, "alice");
+                assert_eq!(cfg.client_id, "client-x");
+                assert_eq!(cfg.client_secret.reveal(), "super-secret");
+                assert_eq!(
+                    cfg.authorization_url.as_ref().map(Url::as_str),
+                    Some("https://idp.example.com/oauth/authorize")
+                );
+                assert_eq!(
+                    cfg.token_url.as_ref().map(Url::as_str),
+                    Some("https://idp.example.com/oauth/token")
+                );
+                assert_eq!(
+                    cfg.redirect_uri
+                        .as_ref()
+                        .map(ConfiguredRedirectUri::as_configured),
+                    Some("http://127.0.0.1:9090/")
+                );
+                assert_eq!(cfg.scope.as_deref(), Some("session:role:DEV"));
+                assert!(cfg.enable_single_use_refresh_tokens);
+                assert!(!cfg.disable_pkce);
+                assert!(cfg.flow_options.enable_dpop);
+                assert!(cfg.client_store_temporary_credential);
+                assert_eq!(cfg.flow_options.authentication_timeout_secs, 45);
+            }
+            other => panic!("Expected OAuthAuthorizationCode, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_oauth_authorization_code_minimal_uses_defaults() {
+        // Bare authenticator + user; ensures the Snowflake-as-IdP wiring
+        // path can still construct the config with default URLs / empty
+        // client credentials (LOCAL_APPLICATION substitution happens at
+        // flow time when Snowflake is the IdP).
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("oauth_authorization_code".to_string()),
+            ),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthAuthorizationCode(cfg) => {
+                assert!(cfg.client_id.is_empty(), "client_id default is empty");
+                assert!(cfg.client_secret.reveal().is_empty());
+                assert!(cfg.authorization_url.is_none());
+                assert!(cfg.token_url.is_none());
+                assert!(cfg.redirect_uri.is_none());
+                assert!(cfg.scope.is_none());
+                assert!(!cfg.enable_single_use_refresh_tokens);
+                assert!(!cfg.disable_pkce);
+                assert!(!cfg.flow_options.enable_dpop);
+                assert!(cfg.client_store_temporary_credential);
+                assert_eq!(
+                    cfg.flow_options.authentication_timeout_secs,
+                    DEFAULT_AUTHENTICATION_TIMEOUT_SECS
+                );
+            }
+            other => panic!("Expected OAuthAuthorizationCode, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_oauth_authorization_code_rejects_malformed_redirect_uri() {
+        // A malformed `oauth_redirect_uri` must surface as a typed
+        // InvalidParameterValue naming that parameter (not a generic
+        // failure), so wrappers can map it to a precise diagnostic.
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_AUTHORIZATION_CODE".to_string()),
+            ),
+            (
+                "oauth_redirect_uri",
+                Setting::String("not a url".to_string()),
+            ),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        match err {
+            ConfigError::InvalidParameterValue {
+                parameter, value, ..
+            } => {
+                assert_eq!(parameter, "oauth_redirect_uri");
+                assert_eq!(value, "not a url");
+            }
+            other => panic!("expected InvalidParameterValue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_oauth_client_credentials_requires_token_url() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_CLIENT_CREDENTIALS".to_string()),
+            ),
+            ("oauth_client_id", Setting::String("cid".to_string())),
+            ("oauth_client_secret", Setting::String("sss".to_string())),
+            // oauth_token_request_url intentionally omitted
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Missing required parameter") && msg.contains("oauth_token_request_url"),
+            "Expected missing token URL error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_oauth_client_credentials_authenticator_parses_config() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("svc-account".to_string())),
+            (
+                "authenticator",
+                Setting::String("oauth_client_credentials".to_string()),
+            ),
+            ("oauth_client_id", Setting::String("cid".to_string())),
+            ("oauth_client_secret", Setting::String("sss".to_string())),
+            (
+                "oauth_token_request_url",
+                Setting::String("https://idp.example.com/oauth/token".to_string()),
+            ),
+            (
+                "oauth_scope",
+                Setting::String("session:role:READER".to_string()),
+            ),
+            ("oauth_enable_dpop", Setting::String("true".to_string())),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthClientCredentials(cfg) => {
+                assert_eq!(cfg.username, "svc-account");
+                assert_eq!(cfg.client_id, "cid");
+                assert_eq!(cfg.client_secret.reveal(), "sss");
+                assert_eq!(
+                    cfg.token_url.as_str(),
+                    "https://idp.example.com/oauth/token"
+                );
+                assert_eq!(cfg.scope.as_deref(), Some("session:role:READER"));
+                assert!(
+                    cfg.flow_options.enable_dpop,
+                    "string \"true\" should resolve to true"
+                );
+                assert_eq!(
+                    cfg.flow_options.authentication_timeout_secs,
+                    DEFAULT_AUTHENTICATION_TIMEOUT_SECS
+                );
+            }
+            other => panic!("Expected OAuthClientCredentials, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_workload_identity_dispatches_to_login_method() {
+        let settings = create_test_settings(vec![
+            (
+                "authenticator",
+                Setting::String("WORKLOAD_IDENTITY".to_string()),
+            ),
+            (
+                "workload_identity_provider",
+                Setting::String("AWS".to_string()),
+            ),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::WorkloadIdentity(cfg) => {
+                assert_eq!(cfg.provider, WifProvider::Aws);
+            }
+            other => panic!("Expected WorkloadIdentity, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_workload_identity_requires_provider() {
+        let settings = create_test_settings(vec![(
+            "authenticator",
+            Setting::String("WORKLOAD_IDENTITY".to_string()),
+        )]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Missing required parameter")
+                && msg.contains("workload_identity_provider"),
+            "Expected missing provider error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_workload_identity_rejects_invalid_provider() {
+        let settings = create_test_settings(vec![
+            (
+                "authenticator",
+                Setting::String("WORKLOAD_IDENTITY".to_string()),
+            ),
+            (
+                "workload_identity_provider",
+                Setting::String("GCPP".to_string()),
+            ),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        match err {
+            ConfigError::InvalidParameterValue {
+                parameter, value, ..
+            } => {
+                assert_eq!(parameter, "workload_identity_provider");
+                assert_eq!(value, "GCPP");
+            }
+            other => panic!("expected InvalidParameterValue, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_derive_oauth_scope_from_role_when_scope_not_set() {
+        let settings = create_test_settings(vec![("role", Setting::String("ANALYST".to_string()))]);
+        assert_eq!(
+            resolve_oauth_scope(&settings).as_deref(),
+            Some("session:role:ANALYST")
+        );
+    }
+
+    #[test]
+    fn should_use_explicit_oauth_scope_when_provided() {
+        let settings = create_test_settings(vec![
+            ("role", Setting::String("ANALYST".to_string())),
+            (
+                "oauth_scope",
+                Setting::String("some:custom:SCOPE".to_string()),
+            ),
+        ]);
+        assert_eq!(
+            resolve_oauth_scope(&settings).as_deref(),
+            Some("some:custom:SCOPE")
+        );
+    }
+
+    #[test]
+    fn should_omit_oauth_scope_when_explicit_scope_is_empty() {
+        let settings = create_test_settings(vec![
+            ("role", Setting::String("ANALYST".to_string())),
+            ("oauth_scope", Setting::String(String::new())),
+        ]);
+        assert!(resolve_oauth_scope(&settings).is_none());
+    }
+
+    #[test]
+    fn should_omit_oauth_scope_when_explicit_scope_is_blank() {
+        let settings = create_test_settings(vec![
+            ("role", Setting::String("ANALYST".to_string())),
+            ("oauth_scope", Setting::String("   ".to_string())),
+        ]);
+        assert!(resolve_oauth_scope(&settings).is_none());
+    }
+
+    #[test]
+    fn should_omit_oauth_scope_when_scope_and_role_are_absent() {
+        let settings = create_test_settings(vec![]);
+        assert!(resolve_oauth_scope(&settings).is_none());
+    }
+
+    #[test]
+    fn should_omit_oauth_scope_when_role_is_empty() {
+        let settings = create_test_settings(vec![("role", Setting::String(String::new()))]);
+        assert!(resolve_oauth_scope(&settings).is_none());
+    }
+
+    #[test]
+    fn should_omit_oauth_scope_when_role_is_blank() {
+        let settings = create_test_settings(vec![("role", Setting::String("   ".to_string()))]);
+        assert!(resolve_oauth_scope(&settings).is_none());
+    }
+
+    #[test]
+    fn should_derive_oauth_scope_for_authorization_code_config() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_AUTHORIZATION_CODE".to_string()),
+            ),
+            ("role", Setting::String("DEV".to_string())),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthAuthorizationCode(cfg) => {
+                assert_eq!(cfg.scope.as_deref(), Some("session:role:DEV"));
+            }
+            other => panic!("Expected OAuthAuthorizationCode, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn should_derive_oauth_scope_for_client_credentials_config() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("svc-account".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_CLIENT_CREDENTIALS".to_string()),
+            ),
+            ("oauth_client_id", Setting::String("cid".to_string())),
+            ("oauth_client_secret", Setting::String("sss".to_string())),
+            (
+                "oauth_token_request_url",
+                Setting::String("https://idp.example.com/oauth/token".to_string()),
+            ),
+            ("role", Setting::String("READER".to_string())),
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthClientCredentials(cfg) => {
+                assert_eq!(cfg.scope.as_deref(), Some("session:role:READER"));
+            }
+            other => panic!("Expected OAuthClientCredentials, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_oauth_authenticator_with_invalid_url_fails_fast() {
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_AUTHORIZATION_CODE".to_string()),
+            ),
+            (
+                "oauth_authorization_url",
+                Setting::String("not a url".to_string()),
+            ),
+        ]);
+        let err = LoginMethod::from_settings(&settings).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("oauth_authorization_url") && msg.contains("Could not parse URL"),
+            "Expected URL parse error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_oauth_disable_pkce_defaults_false_when_setting_omitted_with_real_idp_params() {
+        // `test_oauth_authorization_code_minimal_uses_defaults` covers the
+        // bare-minimum case (Snowflake-as-IdP). This sibling test pins
+        // the same default with a fully-populated external-IdP config so
+        // we don't regress the cross-driver default (PKCE is on for
+        // everybody except Python's opt-out, and we are not Python).
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "authenticator",
+                Setting::String("OAUTH_AUTHORIZATION_CODE".to_string()),
+            ),
+            ("oauth_client_id", Setting::String("cid".to_string())),
+            (
+                "oauth_client_secret",
+                Setting::String("super-secret".to_string()),
+            ),
+            (
+                "oauth_authorization_url",
+                Setting::String("https://idp.example.com/oauth/authorize".to_string()),
+            ),
+            (
+                "oauth_token_request_url",
+                Setting::String("https://idp.example.com/oauth/token".to_string()),
+            ),
+            // NOTE: oauth_disable_pkce intentionally omitted.
+        ]);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::OAuthAuthorizationCode(cfg) => {
+                assert!(
+                    !cfg.disable_pkce,
+                    "disable_pkce must default to false when the setting is omitted"
+                );
+            }
+            other => panic!("Expected OAuthAuthorizationCode, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_detect_os_version_not_empty() {
+        let version = crate::telemetry::environment::detect_os_version();
+        assert!(!version.is_empty());
+    }
+
+    // ─── External Browser config tests ───────────────────────────────────
+
+    fn external_browser_config(extras: Vec<(&str, Setting)>) -> (String, u64, bool) {
+        let mut base = vec![
+            ("user", Setting::String("browser_user".to_string())),
+            (
+                "host",
+                Setting::String("account.snowflakecomputing.com".to_string()),
+            ),
+            ("account", Setting::String("account".to_string())),
+            (
+                "authenticator",
+                Setting::String("EXTERNALBROWSER".to_string()),
+            ),
+        ];
+        base.extend(extras);
+        let settings = create_test_settings(base);
+        match LoginMethod::from_settings(&settings).unwrap() {
+            LoginMethod::ExternalBrowser {
+                username,
+                authentication_timeout_secs,
+                client_store_temporary_credential,
+            } => (
+                username,
+                authentication_timeout_secs,
+                client_store_temporary_credential,
+            ),
+            other => panic!("Expected ExternalBrowser, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_external_browser_happy_path() {
+        let (user, timeout, store_cred) = external_browser_config(vec![]);
+        assert_eq!(user, "browser_user");
+        assert_eq!(timeout, DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+        assert!(store_cred);
+    }
+
+    #[test]
+    fn test_external_browser_custom_timeout() {
+        let (_, timeout, _) = external_browser_config(vec![(
+            "authentication_timeout",
+            Setting::String("30".to_string()),
+        )]);
+        assert_eq!(timeout, 30);
+    }
+
+    #[test]
+    fn test_external_browser_invalid_timeout_uses_default() {
+        let (_, timeout, _) = external_browser_config(vec![(
+            "authentication_timeout",
+            Setting::String("abc".to_string()),
+        )]);
+        assert_eq!(timeout, DEFAULT_AUTHENTICATION_TIMEOUT_SECS);
+    }
+
+    #[test]
+    fn test_external_browser_with_credential_caching_enabled() {
+        let (_, _, store_cred) = external_browser_config(vec![(
+            "client_store_temporary_credential",
+            Setting::String("true".to_string()),
+        )]);
+        assert!(store_cred);
+    }
+
+    #[test]
+    fn test_external_browser_missing_user_fails() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("account.snowflakecomputing.com".to_string()),
+            ),
+            ("account", Setting::String("account".to_string())),
+            (
+                "authenticator",
+                Setting::String("EXTERNALBROWSER".to_string()),
+            ),
+        ]);
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("user"),
+            "Expected error about missing user, got: {err_msg}"
+        );
+    }
+
+    // ── log_query_text / log_query_parameters resolvers ──────────────
+
+    #[test]
+    fn test_resolve_log_query_text_default() {
+        let settings = create_test_settings(vec![]);
+        assert!(!resolve_log_query_text(&settings));
+        assert!(!resolve_log_query_parameters(&settings));
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_bool() {
+        let settings = create_test_settings(vec![("log_query_text", Setting::Bool(true))]);
+        assert!(resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_string_true() {
+        let settings =
+            create_test_settings(vec![("log_query_text", Setting::String("true".into()))]);
+        assert!(resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_string_uppercase() {
+        let settings =
+            create_test_settings(vec![("log_query_text", Setting::String("TRUE".into()))]);
+        assert!(resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_string_one() {
+        let settings = create_test_settings(vec![("log_query_text", Setting::String("1".into()))]);
+        assert!(resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_string_false() {
+        let settings =
+            create_test_settings(vec![("log_query_text", Setting::String("false".into()))]);
+        assert!(!resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_int_one() {
+        let settings = create_test_settings(vec![("log_query_text", Setting::Int(1))]);
+        assert!(resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_text_from_int_zero() {
+        let settings = create_test_settings(vec![("log_query_text", Setting::Int(0))]);
+        assert!(!resolve_log_query_text(&settings));
+    }
+
+    // ── include_retry_reason / log_query_parameters resolvers ──────────────
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_bool() {
+        let settings = create_test_settings(vec![("include_retry_reason", Setting::Bool(true))]);
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_string_true() {
+        let settings = create_test_settings(vec![(
+            "include_retry_reason",
+            Setting::String("true".into()),
+        )]);
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_string_uppercase() {
+        let settings = create_test_settings(vec![(
+            "include_retry_reason",
+            Setting::String("TRUE".into()),
+        )]);
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_string_one() {
+        let settings =
+            create_test_settings(vec![("include_retry_reason", Setting::String("1".into()))]);
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_string_false() {
+        let settings = create_test_settings(vec![(
+            "include_retry_reason",
+            Setting::String("false".into()),
+        )]);
+        assert!(!resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_int_one() {
+        let settings = create_test_settings(vec![("include_retry_reason", Setting::Int(1))]);
+        assert!(resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_query_parameters_from_int_zero() {
+        let settings = create_test_settings(vec![("include_retry_reason", Setting::Int(0))]);
+        assert!(!resolve_include_retry_reason(&settings));
+    }
+
+    #[test]
+    fn test_resolve_log_query_parameters_independent_of_text_flag() {
+        let settings = create_test_settings(vec![("log_query_parameters", Setting::Bool(true))]);
+        assert!(resolve_log_query_parameters(&settings));
+        assert!(!resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_resolve_retry_reason_independent_of_other_flags() {
+        let settings = create_test_settings(vec![("include_retry_reason", Setting::Bool(true))]);
+        assert!(resolve_include_retry_reason(&settings));
+        assert!(!resolve_log_query_parameters(&settings));
+        assert!(!resolve_log_query_text(&settings));
+    }
+
+    #[test]
+    fn test_query_parameters_from_settings_populates_new_flags() {
+        let settings = create_test_settings(vec![
+            (
+                "host",
+                Setting::String("test.snowflakecomputing.com".to_string()),
+            ),
+            ("log_query_text", Setting::Bool(true)),
+            ("log_query_parameters", Setting::String("1".into())),
+            ("include_retry_reason", Setting::String("1".into())),
+        ]);
+        let params = QueryParameters::from_settings(&settings).unwrap();
+        assert!(params.log_query_text);
+        assert!(params.log_query_parameters);
+        assert!(params.include_retry_reason);
+    }
+
+    // -------------------------------------------------------------------------
+    // OAuth endpoint transport requirement (SNOW-3663588)
+    //
+    // `oauth_token_request_url` and the AC `oauth_authorization_url` must use the
+    // `https` scheme; a non-loopback `http://` value is rejected. `http://` is
+    // tolerated only for loopback so local IdP mocks and tests keep working.
+    // -------------------------------------------------------------------------
+
+    fn cc_settings(token_url: &str) -> HashMap<String, Setting> {
+        create_test_settings(vec![
+            ("oauth_client_id", Setting::String("cid".to_string())),
+            ("oauth_client_secret", Setting::String("shh".to_string())),
+            (
+                "oauth_token_request_url",
+                Setting::String(token_url.to_string()),
+            ),
+        ])
+    }
+
+    #[test]
+    fn cc_rejects_plaintext_http_token_url() {
+        let settings = cc_settings("http://idp.example.com/token");
+        let err = OAuthClientCredentialsConfig::from_settings(&settings)
+            .expect_err("plaintext http token endpoint must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("oauth_token_request_url") && msg.contains("https"),
+            "error should name the parameter and require https: {msg}"
+        );
+    }
+
+    #[test]
+    fn cc_rejects_non_http_scheme_token_url() {
+        // `file://` (and any other non-http(s) scheme) parses fine syntactically
+        // but must never be accepted as a token endpoint.
+        let settings = cc_settings("file:///etc/passwd");
+        let err = OAuthClientCredentialsConfig::from_settings(&settings)
+            .expect_err("file:// token endpoint must be rejected");
+        assert!(
+            err.to_string().contains("oauth_token_request_url"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn cc_accepts_https_token_url() {
+        let settings = cc_settings("https://idp.example.com/oauth/token");
+        let cfg = OAuthClientCredentialsConfig::from_settings(&settings)
+            .expect("https token endpoint must be accepted");
+        assert_eq!(
+            cfg.token_url.as_str(),
+            "https://idp.example.com/oauth/token"
+        );
+    }
+
+    #[test]
+    fn cc_accepts_loopback_http_token_url() {
+        // wiremock-backed integration/e2e tests bind 127.0.0.1 and configure an
+        // `http://127.0.0.1:<port>` token URL; the loopback exception keeps them
+        // working without weakening the production posture.
+        for url in [
+            "http://127.0.0.1:8080/token",
+            "http://localhost:8080/token",
+            "http://[::1]:8080/token",
+        ] {
+            let settings = cc_settings(url);
+            OAuthClientCredentialsConfig::from_settings(&settings)
+                .unwrap_or_else(|e| panic!("loopback url {url} must be accepted: {e}"));
+        }
+    }
+
+    #[test]
+    fn ac_rejects_plaintext_http_authorization_url() {
+        // AC endpoints are optional, but when supplied they are validated too.
+        let settings = create_test_settings(vec![
+            ("user", Setting::String("alice".to_string())),
+            (
+                "oauth_authorization_url",
+                Setting::String("http://idp.example.com/authorize".to_string()),
+            ),
+        ]);
+        let err = OAuthAuthorizationCodeConfig::from_settings(&settings)
+            .expect_err("plaintext http authorization endpoint must be rejected");
+        assert!(
+            err.to_string().contains("oauth_authorization_url"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_session_token_auth_detected_before_authenticator_dispatch() {
+        let settings = create_test_settings(vec![
+            ("session_token", Setting::String("sess_tok".to_string())),
+            ("master_token", Setting::String("mast_tok".to_string())),
+        ]);
+        let method = LoginMethod::from_settings(&settings).unwrap();
+        assert!(
+            matches!(method, LoginMethod::SessionToken { .. }),
+            "expected SessionToken, got {method:?}"
+        );
+    }
+
+    #[test]
+    fn ac_omitted_endpoints_remain_valid() {
+        // Empty/missing AC endpoints fall back to flow-time https defaults, so
+        // the validator must not turn the absence of a value into an error.
+        let settings = create_test_settings(vec![("user", Setting::String("alice".to_string()))]);
+        let cfg = OAuthAuthorizationCodeConfig::from_settings(&settings)
+            .expect("omitted optional endpoints must be allowed");
+        assert!(cfg.authorization_url.is_none());
+        assert!(cfg.token_url.is_none());
+    }
+
+    #[test]
+    fn test_session_token_auth_with_validity() {
+        let settings = create_test_settings(vec![
+            ("session_token", Setting::String("sess".to_string())),
+            ("master_token", Setting::String("mast".to_string())),
+            ("master_validity_in_seconds", Setting::Int(3600)),
+        ]);
+        let method = LoginMethod::from_settings(&settings).unwrap();
+        let LoginMethod::SessionToken {
+            master_validity_in_seconds,
+            ..
+        } = method
+        else {
+            panic!("expected SessionToken")
+        };
+        assert_eq!(master_validity_in_seconds, Some(3600));
+    }
+
+    #[test]
+    fn test_session_token_requires_master_token() {
+        let settings =
+            create_test_settings(vec![("session_token", Setting::String("sess".to_string()))]);
+        let result = LoginMethod::from_settings(&settings);
+        assert!(result.is_err(), "expected error when master_token absent");
+    }
+
+    #[test]
+    fn test_session_token_takes_precedence_over_authenticator() {
+        // Even when authenticator is set to something else, session_token wins.
+        let settings = create_test_settings(vec![
+            ("session_token", Setting::String("sess".to_string())),
+            ("master_token", Setting::String("mast".to_string())),
+            ("authenticator", Setting::String("snowflake".to_string())),
+        ]);
+        let method = LoginMethod::from_settings(&settings).unwrap();
+        assert!(matches!(method, LoginMethod::SessionToken { .. }));
+    }
+}

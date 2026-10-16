@@ -30,6 +30,11 @@ class BranchServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentResponse.FromString,
         )
+        self.DeleteBranch = channel.unary_unary(
+            "/chalk.server.v1.BranchService/DeleteBranch",
+            request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchResponse.FromString,
+        )
         self.ListBranchWithLatestDeployments = channel.unary_unary(
             "/chalk.server.v1.BranchService/ListBranchWithLatestDeployments",
             request_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.ListBranchWithLatestDeploymentsRequest.SerializeToString,
@@ -58,6 +63,12 @@ class BranchServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetBranchWithLatestDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBranch(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -92,6 +103,11 @@ def add_BranchServiceServicer_to_server(servicer, server):
             servicer.GetBranchWithLatestDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentResponse.SerializeToString,
+        ),
+        "DeleteBranch": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBranch,
+            request_deserializer=chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchResponse.SerializeToString,
         ),
         "ListBranchWithLatestDeployments": grpc.unary_unary_rpc_method_handler(
             servicer.ListBranchWithLatestDeployments,
@@ -189,6 +205,35 @@ class BranchService(object):
             "/chalk.server.v1.BranchService/GetBranchWithLatestDeployment",
             chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_branches__pb2.GetBranchWithLatestDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBranch(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BranchService/DeleteBranch",
+            chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_branches__pb2.DeleteBranchResponse.FromString,
             options,
             channel_credentials,
             insecure,

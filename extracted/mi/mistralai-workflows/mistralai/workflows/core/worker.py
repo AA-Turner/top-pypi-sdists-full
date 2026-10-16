@@ -2,8 +2,9 @@ import asyncio
 import json
 import warnings
 from collections import defaultdict
+from contextlib import contextmanager
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Callable, DefaultDict, List, Sequence, Type
+from typing import TYPE_CHECKING, Any, Callable, DefaultDict, Iterator, List, Sequence, Type
 from uuid import UUID, uuid4
 
 import structlog
@@ -140,13 +141,15 @@ async def _register_workflow_specs(
         if isinstance(exc, SDKError) and exc.status_code == HTTPStatus.FORBIDDEN:
             try:
                 body = json.loads(exc.body)
-                if admin_url := body.get("admin_panel_url"):
+                # The deployment page acts on the pin; the server omits it when it cannot build it.
+                remediation_url = body.get("deployment_url") or body.get("admin_panel_url")
+                if body.get("code") == "WF_1104":
                     # Relay the server's reason so later server-side wording changes reach workers
                     # without an SDK upgrade.
                     logger.error(
                         "Workflow registration refused",
                         reason=body.get("detail") or "this principal is not authorized for this deployment",
-                        remediation_url=admin_url,
+                        **({"remediation_url": remediation_url} if remediation_url else {}),
                     )
             except (json.JSONDecodeError, ValueError, AttributeError, TypeError):
                 pass
@@ -516,6 +519,7 @@ async def _request_graph_summaries(
 
     summary_input = prepare_graph_summary_input(graph_data, extra_nodes)
     url = f"{base_url}/v1/workflows/{workflow_identifier}/graphs/{workflow_registration_id}/summaries"
+    response = None
     for attempt in range(_GRAPH_SUMMARY_MAX_ATTEMPTS):
         request = http_client.build_request(
             "POST",
@@ -538,6 +542,7 @@ async def _request_graph_summaries(
             break
         await asyncio.sleep(max(0.0, retry_delay))
 
+    assert response is not None
     response.raise_for_status()
     output = GraphSummaryOutput.model_validate(response.json())
     return SummaryResult(status="ready", summaries=output.summaries, workflow_summary=output.workflow_summary)
@@ -679,8 +684,70 @@ async def _safe_upload_workflow_graphs(
         logger.warning("Workflow graph upload failed", **extract_error_context(exc), exc_info=exc)
 
 
-async def _run_worker(workflows: List[ClassType]) -> None:
+def _api_key_hint(api_key: SecretStr | None) -> str:
+    if api_key is None:
+        return "<not set>"
+    value = api_key.get_secret_value()
+    return f"...{value[-4:]}" if len(value) >= 4 else "<not set>"
+
+
+def _log_authentication_failure(exc: WorkflowsException) -> None:
+    if str(exc.code) == ErrorCode.TEMPORAL_CONNECTION_ERROR and config.temporal.api_key:
+        logger.error(
+            "Authentication failed. Check your TEMPORAL_API_KEY.",
+            api_key_hint=_api_key_hint(config.temporal.api_key),
+            http_status=exc.status.value,
+            **exc.logging_properties,
+        )
+        return
+    if config.common.mistral_sa_token_path:
+        logger.error(
+            "Authentication failed. Check the service-account token.",
+            sa_token_path=config.common.mistral_sa_token_path,
+            http_status=exc.status.value,
+            **exc.logging_properties,
+        )
+        return
+    logger.error(
+        "Authentication failed. Check your MISTRAL_API_KEY.",
+        api_key_hint=_api_key_hint(config.common.mistral_api_key),
+        http_status=exc.status.value,
+        **exc.logging_properties,
+    )
+
+
+@contextmanager
+def _report_worker_errors(*, exit_on_terminal_error: bool, unexpected_error_message: str) -> Iterator[None]:
     try:
+        yield
+    except WorkflowsException as exc:
+        if exc.status == HTTPStatus.UNAUTHORIZED:
+            _log_authentication_failure(exc)
+            if exit_on_terminal_error:
+                raise SystemExit(1) from None
+            raise
+        label = exc.terminal_label()
+        if label:
+            ctx = extract_error_context(exc)
+            logger.error(label, api_error_code=ctx.get("api_error_code"), http_status=ctx.get("http_status"))
+            raise SystemExit(1) from None
+        raise
+
+    except Exception as exc:
+        logger.error(unexpected_error_message, **extract_error_context(exc), exc_info=exc)
+        raise
+
+
+async def _run_worker(
+    workflows: List[ClassType],
+    *,
+    exit_on_terminal_error: bool = True,
+) -> None:
+    with _report_worker_errors(
+        exit_on_terminal_error=exit_on_terminal_error,
+        unexpected_error_message="Worker stopped due to unhandled exception",
+    ):
+        logger.info("Worker config", config=config.common.model_dump())
         config.validate_for_worker_startup()
         task_queue = config.get_effective_task_queue(raise_on_conflict=True)
         deployment_name = task_queue
@@ -944,34 +1011,6 @@ async def _run_worker(workflows: List[ClassType]) -> None:
                     logger_provider.shutdown()
                 logger.info("Worker shutdown complete")
 
-    except WorkflowsException as exc:
-        if exc.status == HTTPStatus.UNAUTHORIZED:
-            if config.common.mistral_sa_token_path:
-                logger.error(
-                    "Authentication failed. Check the service-account token.",
-                    sa_token_path=config.common.mistral_sa_token_path,
-                    http_status=exc.status.value,
-                )
-            else:
-                api_key = config.common.mistral_api_key.get_secret_value() if config.common.mistral_api_key else None
-                key_hint = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "<not set>"
-                logger.error(
-                    "Authentication failed. Check your MISTRAL_API_KEY.",
-                    api_key_hint=key_hint,
-                    http_status=exc.status.value,
-                )
-            raise SystemExit(1) from None
-        label = exc.terminal_label()
-        if label:
-            ctx = extract_error_context(exc)
-            logger.error(label, api_error_code=ctx.get("api_error_code"), http_status=ctx.get("http_status"))
-            raise SystemExit(1) from None
-        raise
-
-    except Exception as exc:
-        logger.error("Worker stopped due to unhandled exception", **extract_error_context(exc), exc_info=exc)
-        raise
-
 
 async def run_worker(
     workflows: List[ClassType],
@@ -1006,10 +1045,19 @@ async def run_worker(
     else:
         if namespace is not None:
             warnings.warn("Namespace provided but config discovery is enabled. Ignoring namespace.")
-        await config_discovery.apply_worker_runtime_config()
-    logger.info("Worker config", config=config.common.model_dump())
+        try:
+            # A detached caller connects to Temporal from the discovered settings as soon as this returns.
+            with _report_worker_errors(
+                exit_on_terminal_error=not detach,
+                unexpected_error_message="Worker config discovery failed",
+            ):
+                await config_discovery.apply_worker_runtime_config()
+        except BaseException:
+            # Discovery can fail after adopting some values, which later discoveries would treat as local settings.
+            _revert_config()
+            raise
     if detach:
-        task = asyncio.create_task(_run_worker(workflows))
+        task = asyncio.create_task(_run_worker(workflows, exit_on_terminal_error=False))
 
         def _on_worker_done(_: asyncio.Task) -> None:
             _revert_config()

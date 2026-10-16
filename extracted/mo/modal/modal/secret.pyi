@@ -608,6 +608,10 @@ def _local_secret_env(secrets: collections.abc.Collection[_Secret]) -> dict[str,
     """Env vars from locally resolvable Secrets (`Secret.from_dict`, `Secret.from_dotenv`, ...)."""
     ...
 
+def _secret_sources(
+    secrets: collections.abc.Collection[_Secret], env: typing.Optional[dict[str, str]] = None
+) -> list[modal_proto.api_pb2.SecretSource]: ...
+
 class Secret(modal.object.Object):
     """Secrets provide a dictionary of environment variables for images.
 

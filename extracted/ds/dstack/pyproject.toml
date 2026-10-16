@@ -193,7 +193,7 @@ test = [
     "pytest-unordered>=0.7.0",
     "pytest-xdist>=3.6.1",
     "requests-mock>=1.12.1",
-    "freezegun>=1.5.1",
+    "time-machine>=3.5.1",
     "httpbin>=0.10.2", # indirect to make compatible with Werkzeug 3
     "openai>=1.68.2",
     "testcontainers>=4.15.0",
@@ -235,9 +235,8 @@ server = [
     "httpx>=0.28.0",
     "jinja2",
     "watchfiles",
-    # sqlalchemy_utils is not compatible with SQLAlchemy >= 2.1.0
-    "sqlalchemy[asyncio]>=2.0.0,<2.1",
-    "sqlalchemy_utils>=0.40.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "sqlalchemy_utils>=0.43.0",
     "alembic>=1.16.0",
     "aiosqlite",
     "docker>=6.0.0",

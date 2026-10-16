@@ -1,6 +1,12 @@
+from importlib.metadata import PackageNotFoundError, version
+
+from semantic_router.config import load_router
 from semantic_router.route import Route
-from semantic_router.routers import HybridRouter, RouterConfig, SemanticRouter
+from semantic_router.routers import Chain, DecisionRouter, IndexedRouter, Merge
 
-__all__ = ["SemanticRouter", "HybridRouter", "Route", "RouterConfig"]
+__all__ = ["Route", "IndexedRouter", "DecisionRouter", "Chain", "Merge", "load_router"]
 
-__version__ = "0.1.2"
+try:
+    __version__ = version("semantic-router")
+except PackageNotFoundError:  # running from a checkout that was never installed
+    __version__ = "0.0.0"

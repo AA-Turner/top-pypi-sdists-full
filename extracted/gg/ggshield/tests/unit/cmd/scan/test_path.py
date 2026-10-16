@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner
-from pygitguardian.models import MultiScanResult
+from pygitguardian.models import Detail, MultiScanResult
 
 from ggshield.__main__ import cli
 from ggshield.core.errors import ExitCode
@@ -558,6 +558,27 @@ class TestScanDirectory:
             for arg in scan_mock.call_args[0]
         )
 
+    @patch("pygitguardian.GGClient.multi_content_scan")
+    @my_vcr.use_cassette("test_scan_file")
+    def test_scan_path_html_server_error(
+        self,
+        scan_mock: Mock,
+        cli_fs_runner: CliRunner,
+    ) -> None:
+        """
+        GIVEN the API answers a scan with an HTML 500 page
+        WHEN executing a scan
+        THEN ggshield prints one readable line instead of the page
+        """
+        write_text(Path("file.txt"), "Hello")
+        scan_mock.return_value = Detail("<html><body><h1>Error</h1></body></html>", 500)
+
+        result = cli_fs_runner.invoke(cli, ["secret", "scan", "path", "file.txt"])
+
+        assert_invoke_exited_with(result, ExitCode.GITGUARDIAN_SERVER_UNAVAILABLE)
+        assert "internal error (HTTP 500)" in result.output
+        assert "<html>" not in result.output
+
     @pytest.mark.parametrize("filename_only", (True, False))
     @patch("pygitguardian.GGClient.multi_content_scan")
     @my_vcr.use_cassette("test_scan_file")
@@ -736,3 +757,17 @@ class TestPathScanAtFile:
         )
         assert_invoke_exited_with(result, ExitCode.USAGE_ERROR)
         assert "does not exist" in result.output
+
+
+class TestPathWithoutGit:
+    @my_vcr.use_cassette("test_scan_file")
+    def test_plain_scan_works_without_git(self, no_git, cli_fs_runner):
+        """
+        GIVEN git cannot be found
+        WHEN scan path is run without --use-gitignore
+        THEN the scan runs
+        """
+        write_text(Path("file"), "This is a file with no secrets.")
+        result = cli_fs_runner.invoke(cli, ["secret", "scan", "path", "file"])
+        assert_invoke_ok(result)
+        assert "No secrets have been found" in result.output

@@ -1,0 +1,11 @@
+# A hybrid low-code/Python connector shaped like source-github 2.x: the
+# manifest lives in the Python package, and the host comes from config.
+data:
+  allowedHosts:
+    hosts:
+      - ${api_url}
+  connectorSubtype: api
+  dockerRepository: airbyte/source-hybrid
+  tags:
+    - language:python
+    - cdk:low-code

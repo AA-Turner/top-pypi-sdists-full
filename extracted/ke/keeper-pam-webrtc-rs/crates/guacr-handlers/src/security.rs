@@ -6,6 +6,7 @@
 // Reference: ~/Documents/kcm/core/packages/kcm-libguac-client-db/extra/libguac-client-db/src/db/settings.c
 
 use std::collections::HashMap;
+use url::Url;
 
 /// Unified security settings for all protocol handlers
 ///
@@ -294,6 +295,17 @@ pub fn is_mouse_event_allowed_readonly(button_mask: u32) -> bool {
 
     // Allow movement and scroll
     true
+}
+
+/// Whether this mouse event must be dropped, given the session's read-only setting.
+///
+/// The composition of `read_only` with [`is_mouse_event_allowed_readonly`], which every
+/// handler needs and which SSH, Telnet, Serial, VNC and RDP each spelled out inline. One
+/// definition means the terminal handlers (which pass the answer down as
+/// `MousePermissions::buttons_blocked`) and the graphical handlers (which drop the event on
+/// the spot) cannot drift apart on what read-only means for the mouse.
+pub fn mouse_buttons_blocked(read_only: bool, button_mask: u32) -> bool {
+    read_only && !is_mouse_event_allowed_readonly(button_mask)
 }
 
 fn parse_bool(value: Option<&String>) -> bool {
@@ -766,17 +778,32 @@ impl RbiSecuritySettings {
     /// browser_client) to prevent path-confusion bypasses where a substring check would
     /// accept `evil.com?ref=allowed.com` given pattern `allowed.com`.
     pub fn is_url_allowed(&self, url: &str) -> bool {
-        // If allowlist is set, URL host must match one of the patterns
-        if !self.url_allowlist.is_empty() {
-            return rbi_host_matches_any(url, &self.url_allowlist);
+        if self.url_allowlist.is_empty() && self.url_blocklist.is_empty() {
+            return true;
         }
 
-        // If blocklist is set, URL host must not match any pattern
-        if !self.url_blocklist.is_empty() {
-            return !rbi_host_matches_any(url, &self.url_blocklist);
-        }
+        let Ok(parsed) = Url::parse(url) else {
+            return false;
+        };
+        let Some(host) = parsed.host_str() else {
+            return false;
+        };
+        let host = host.trim_end_matches('.');
 
-        true
+        !rbi_host_matches_any(host, &self.url_blocklist)
+            && (self.url_allowlist.is_empty() || rbi_host_matches_any(host, &self.url_allowlist))
+    }
+
+    /// Match legacy RBI host patterns against a parsed URL's canonical host.
+    pub fn matches_url_patterns(url: &str, patterns: &[String]) -> bool {
+        Url::parse(url)
+            .ok()
+            .and_then(|parsed| {
+                parsed
+                    .host_str()
+                    .map(|host| rbi_host_matches_any(host.trim_end_matches('.'), patterns))
+            })
+            .unwrap_or(false)
     }
 
     /// Check if download is allowed
@@ -801,42 +828,24 @@ impl RbiSecuritySettings {
 /// Patterns with `*.` prefix match any subdomain of the given domain.
 ///
 /// This uses the same semantics as `is_url_allowed_for_patterns` in browser_client.
-fn rbi_host_matches_any(url: &str, patterns: &[String]) -> bool {
-    let host = rbi_extract_host(url);
+fn rbi_host_matches_any(host: &str, patterns: &[String]) -> bool {
     for pattern in patterns {
-        if let Some(domain) = pattern.strip_prefix("*.") {
-            if host == domain || host.ends_with(&format!(".{}", domain)) {
-                return true;
-            }
+        let name = pattern.strip_prefix("*.").unwrap_or(pattern);
+        let parsed = if name.contains("://") {
+            Url::parse(name)
         } else {
-            let pat = pattern
-                .trim_start_matches("https://")
-                .trim_start_matches("http://");
-            let pat = pat.split('/').next().unwrap_or(pat);
-            if host == pat || host.ends_with(&format!(".{}", pat)) {
-                return true;
-            }
+            Url::parse(&format!("https://{name}"))
+        };
+        let Some(domain) = parsed
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_owned))
+        else {
+            continue;
+        };
+        let domain = domain.trim_end_matches('.');
+        if host == domain || host.ends_with(&format!(".{domain}")) {
+            return true;
         }
     }
     false
-}
-
-/// Extract the host (without port) from a URL string.
-fn rbi_extract_host(url: &str) -> &str {
-    let after_scheme = if let Some(rest) = url.strip_prefix("https://") {
-        rest
-    } else if let Some(rest) = url.strip_prefix("http://") {
-        rest
-    } else {
-        url
-    };
-    let host_with_port = after_scheme
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or(after_scheme);
-    if host_with_port.starts_with('[') {
-        host_with_port
-    } else {
-        host_with_port.split(':').next().unwrap_or(host_with_port)
-    }
 }

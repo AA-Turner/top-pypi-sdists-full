@@ -3,6 +3,7 @@ import asyncio.locks
 import collections.abc
 import datetime
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
 import modal._object
 import modal._utils.blob_utils
 import modal.client
@@ -1551,6 +1552,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
     _upload_generators: list[
         collections.abc.Generator[collections.abc.Callable[[], modal._utils.blob_utils.FileUploadSpec], None, None]
     ]
+    _earliest_checked_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp]
 
     def __init__(
         self,
@@ -1604,6 +1606,7 @@ class VolumeUploadContextManager(AbstractVolumeUploadContextManager):
     _upload_generators: list[
         collections.abc.Generator[collections.abc.Callable[[], modal._utils.blob_utils.FileUploadSpec], None, None]
     ]
+    _earliest_checked_at: typing.Optional[google.protobuf.timestamp_pb2.Timestamp]
 
     def __init__(
         self,

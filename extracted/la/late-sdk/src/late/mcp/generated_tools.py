@@ -7148,7 +7148,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: (required)
                 budget: Omit if not updating budget Object with keys: amount (number); type (one of: daily, lifetime)
                 status: Writes the ad set's own on/off switch (Meta: `configured_status`; X: the line item's `entity_status` ACTIVE / PAUSED), whatever delivery status its ads report. Omit if not toggling delivery state.
-                name: Rename the ad set (on X, the line item `name`). Platforms without a rename return 501. At least one of budget/status/bidStrategy/name is required.
+                name: Rename the ad set on any supported platform: Meta, Google (the ad group), TikTok, LinkedIn (the campaign), Pinterest, X (the line item `name`), OpenAI and Reddit; platforms without a rename return 501. The new name is stored right away, so GET /v1/ads/ad-sets and GET /v1/ads/tree return it without a sync. At least one of budget/status/bidStrategy/name is required.
                 bid_strategy: Ad-set-level bid strategy. Overrides the campaign-level default.
         Supported on Meta (facebook, instagram), TikTok, and OpenAI. On TikTok the
         Meta-style enum is mapped to bid_type / bid_price / deep_bid_type
@@ -26643,6 +26643,33 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Delete conversation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def messages_delete_inbox_conversation(
+        conversation_id: str, account_id: str
+    ) -> str:
+        """Delete conversation
+
+        Permanently deletes Zernio's stored copy of one conversation and every message in it, in one transaction, and unlinks the contact channel that pointed at it. Nothing is deleted on the platform (the thread stays in WhatsApp, Messenger or Instagram), and the contact record is kept: call DELETE /v1/contacts/{contactId} to erase the person's name and number as well. A platform re-sync can import the thread again: WhatsApp coexistence numbers receive their messaging history from Meta repeatedly, and a Facebook or Instagram account whose DM history walk has not finished imports it on that walk. Inbound media copies Zernio stored are removed on a best-effort basis.
+
+        Args:
+            conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
+            account_id: Account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.delete_inbox_conversation(
+                conversation_id=conversation_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List messages",
             readOnlyHint=True,
             destructiveHint=False,
@@ -30176,7 +30203,7 @@ def register_generated_tools(mcp, _get_client):
             tags: Array of keyword tags (max 500 characters combined for YouTube)
             category_id: YouTube video category ID
             privacy_status: Video privacy setting
-            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails.
+            thumbnail_url: Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails. If the thumbnail cannot be set (YouTube refuses it, for example a channel without the custom-thumbnail permission or a video not owned by the connected channel, or the image URL cannot be fetched or is not a supported format or size), the request answers 400 with the reason and no field is updated. A temporary YouTube or network failure answers 500 and can be retried.
             made_for_kids: COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting).
             contains_synthetic_media: AI-generated content disclosure. Set true if the video contains synthetic content that could be mistaken for real. YouTube may add a label.
             playlist_id: YouTube playlist ID to add the video to (e.g. 'PLxxxxxxxxxxxxx'). Use GET /v1/accounts/{id}/youtube-playlists to list available playlists. Only playlists owned by the channel are supported."""

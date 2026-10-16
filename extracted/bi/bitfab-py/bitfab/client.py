@@ -1097,7 +1097,10 @@ class Bitfab:
             service_url=self.service_url,
         )
         self._simulation_plan = SimulationPlan(
-            self.http_client, simulation_plan, self._discard_external_span
+            self.http_client,
+            simulation_plan,
+            self._discard_external_span,
+            self._can_read_simulation_plan,
         )
         self.http_client.external_span_sender = self._send_external_span
         self.http_client.external_trace_sender = self._send_external_trace
@@ -1348,6 +1351,14 @@ class Bitfab:
             self._capture_enabled_from_env = True if from_env is None else from_env
         return self._capture_enabled_from_env
 
+    def _capture_configured_uncached(self) -> bool:
+        if self._capture_enabled_in_code is not None:
+            return self._capture_enabled_in_code
+        if self._capture_enabled_from_env is not None:
+            return self._capture_enabled_from_env
+        from_env = read_boolean_env(CAPTURE_ENABLED_ENV)
+        return True if from_env is None else from_env
+
     def _is_capture_enabled(self) -> bool:
         """Whether capture is on, decided lazily at call time (not frozen at
         construction). ``capture_enabled=False`` short-circuits without ever
@@ -1367,6 +1378,12 @@ class Bitfab:
         ):
             return False
         return self._resolve_api_key() is not None
+
+    def _can_read_simulation_plan(self) -> bool:
+        recording = (
+            self._capture_configured_uncached() or _in_replay_item() or _in_seed_scope()
+        )
+        return recording and self._resolve_api_key_without_raising() is not None
 
     def _prepare_framework_integration(self) -> None:
         if self._capture_configured() and self._strict:
@@ -3136,6 +3153,7 @@ class Bitfab:
                             kwargs=kwargs,
                             experiment_id=base_params["experiment_id"],
                             variant=base_params["variant"],
+                            details=span_ctx,
                         ) as borrowed:
                             result = await fn(*args, **kwargs)
                         try:
@@ -3221,6 +3239,7 @@ class Bitfab:
                             kwargs=kwargs,
                             experiment_id=base_params["experiment_id"],
                             variant=base_params["variant"],
+                            details=span_ctx,
                         ) as borrowed:
                             result = fn(*args, **kwargs)
                         try:
@@ -3620,6 +3639,8 @@ class Bitfab:
         experiment_id: str | None = None,
         variant: str | None = None,
         declared_node: bool = False,
+        contexts: list[ContextEntry] | None = None,
+        prompt: str | None = None,
     ) -> None:
         try:
             self._send_span(
@@ -3644,6 +3665,8 @@ class Bitfab:
                 instrumentation="trace",
                 variant=variant,
                 declared_node=declared_node,
+                contexts=contexts,
+                prompt=prompt,
             )
         except Exception as error:
             warn_once(

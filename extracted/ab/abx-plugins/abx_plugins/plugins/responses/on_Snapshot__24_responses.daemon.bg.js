@@ -39,6 +39,7 @@ ensureNodeModuleResolution(module);
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  captureOriginalResponseBodies,
   resolvePuppeteerModule,
   waitForNavigationComplete,
 } = require("../chrome/chrome_utils.js");
@@ -57,7 +58,10 @@ const CHROME_SESSION_DIR = "../chrome";
 
 let browser = null;
 let page = null;
+let originalResponses = null;
 let responseCount = 0;
+let captureFailureCount = 0;
+let firstCaptureError = "";
 let shuttingDown = false;
 let mainOutputPath = "";
 let preferredOutputPath = "";
@@ -132,21 +136,23 @@ function emitResponseProgress(force = false) {
   emitProgress(line);
 }
 
+const symlinkDirectories = new Set();
+
 async function createSymlink(target, linkPath) {
+  const dir = path.dirname(linkPath);
+  if (!symlinkDirectories.has(dir)) {
+    await fs.promises.mkdir(dir, { recursive: true });
+    symlinkDirectories.add(dir);
+  }
+
+  const relativePath = path.relative(dir, target);
   try {
-    const dir = path.dirname(linkPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    if (fs.existsSync(linkPath)) {
-      fs.unlinkSync(linkPath);
-    }
-
-    const relativePath = path.relative(dir, target);
-    fs.symlinkSync(relativePath, linkPath);
-  } catch (e) {
-    // Ignore symlink errors
+    await fs.promises.symlink(relativePath, linkPath);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    // Replace dangling links too; existsSync follows their missing target.
+    await fs.promises.unlink(linkPath);
+    await fs.promises.symlink(relativePath, linkPath);
   }
 }
 
@@ -169,6 +175,7 @@ async function setupListener() {
   });
 
   const indexPath = path.join(OUTPUT_DIR, "index.jsonl");
+  originalResponses = await captureOriginalResponseBodies(page, { resourceTypes: typesToSave });
   writeFileAtomic(indexPath, "");
 
   async function captureResponse(response) {
@@ -189,9 +196,10 @@ async function setupListener() {
       }
 
       // Get response body
-      let bodyBuffer = null;
+      let bodyBuffer = await originalResponses.read(response);
+      if (bodyBuffer === null) return;
       try {
-        bodyBuffer = await response.buffer();
+        bodyBuffer ??= await response.buffer();
       } catch (e) {
         return;
       }
@@ -276,18 +284,31 @@ async function setupListener() {
             dirPath
           );
           const symlinkPath = path.join(symlinkDir, filename);
-          await createSymlink(uniquePath, symlinkPath);
-
           // Also create a site-style symlink without resource type for easy browsing
           const siteDir = path.join(OUTPUT_DIR, hostname, dirPath);
           const sitePath = path.join(siteDir, filename);
-          await createSymlink(uniquePath, sitePath);
-          candidateMainOutputPath = path.posix.join(
-            PLUGIN_DIR,
-            hostname,
-            dirPath.split(path.sep).join("/"),
-            filename
-          );
+          // These two independent aliases can overlap their filesystem waits.
+          // The response queue still retains only one body at a time.
+          const aliases = await Promise.allSettled([
+            createSymlink(uniquePath, symlinkPath),
+            createSymlink(uniquePath, sitePath),
+          ]);
+          for (const alias of aliases) {
+            if (alias.status === "rejected") {
+              captureFailureCount += 1;
+              const message = `${alias.reason.name}: ${alias.reason.message}`;
+              if (!firstCaptureError) firstCaptureError = message;
+              console.error(`ERROR: Cannot save response alias: ${message}`);
+            }
+          }
+          if (aliases[1].status === "fulfilled") {
+            candidateMainOutputPath = path.posix.join(
+              PLUGIN_DIR,
+              hostname,
+              dirPath.split(path.sep).join("/"),
+              filename
+            );
+          }
         }
       } catch (e) {
         // URL parsing or symlink creation failed, skip
@@ -328,8 +349,13 @@ async function setupListener() {
       fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + "\n");
       responseCount += 1;
       emitResponseProgress();
-    } catch (e) {
-      // Ignore errors
+    } catch (error) {
+      // A body/index write failure is not an empty successful capture. Retain
+      // other completed responses and surface the storage failure at shutdown.
+      captureFailureCount += 1;
+      const message = `${error.name}: ${error.message}`;
+      if (!firstCaptureError) firstCaptureError = message;
+      console.error(`ERROR: Cannot save response: ${message}`);
     }
   }
 
@@ -367,13 +393,18 @@ async function handleShutdown(signal) {
     page.off("requestfinished", responseListener);
   }
   await pendingResponseWork;
-  await emitResult(responseCount > 0 ? "succeeded" : "noresults");
+  await originalResponses?.close();
+  if (captureFailureCount) {
+    await emitResult("failed", `${captureFailureCount} response capture error(s), ${responseCount} saved: ${firstCaptureError}`);
+  } else {
+    await emitResult(responseCount > 0 ? "succeeded" : "noresults");
+  }
   if (browser) {
     try {
       browser.disconnect();
     } catch (e) {}
   }
-  process.exit(0);
+  process.exit(captureFailureCount ? 1 : 0);
 }
 
 async function main() {

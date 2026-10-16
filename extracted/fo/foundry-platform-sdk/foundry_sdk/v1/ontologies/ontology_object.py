@@ -70,6 +70,9 @@ class OntologyObjectClient:
         """
         Perform functions on object fields in the specified ontology and object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects.
         :type ontology_rid: OntologyRid
         :param object_type: The type of the object to aggregate on.
@@ -127,6 +130,9 @@ class OntologyObjectClient:
         """
         Gets a specific object with the given primary key.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the object. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -182,6 +188,9 @@ class OntologyObjectClient:
         """
         Get a specific linked object that originates from another object. If there is no link between the two objects,
         LinkedObjectNotFound is thrown.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the object. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -258,6 +267,9 @@ class OntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -336,6 +348,9 @@ class OntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -430,6 +445,9 @@ class OntologyObjectClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects.
         :type ontology_rid: OntologyRid
@@ -565,6 +583,9 @@ class AsyncOntologyObjectClient:
         """
         Perform functions on object fields in the specified ontology and object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects.
         :type ontology_rid: OntologyRid
         :param object_type: The type of the object to aggregate on.
@@ -622,6 +643,9 @@ class AsyncOntologyObjectClient:
         """
         Gets a specific object with the given primary key.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the object. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -677,6 +701,9 @@ class AsyncOntologyObjectClient:
         """
         Get a specific linked object that originates from another object. If there is no link between the two objects,
         LinkedObjectNotFound is thrown.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the object. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -753,6 +780,9 @@ class AsyncOntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -831,6 +861,9 @@ class AsyncOntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -925,6 +958,9 @@ class AsyncOntologyObjectClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the objects.
         :type ontology_rid: OntologyRid

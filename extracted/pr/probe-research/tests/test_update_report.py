@@ -654,7 +654,7 @@ def test_the_spawned_updater_says_what_asked(monkeypatch):
     monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.append(env))
 
     cli_main._spawn_update("--apply")
-    cli_main._spawn_update("--apply-if-newer", harness_pid=4242)
+    cli_main._spawn_session_start_update()
 
     assert [env[autoupdate.TRIGGER_ENV] for env in spawned] == ["cli", "session_start"]
 

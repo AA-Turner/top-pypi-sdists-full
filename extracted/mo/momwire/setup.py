@@ -195,7 +195,16 @@ if sys.platform == "win32":
     # chooses to keep it. It stays for now because Windows speed cannot be
     # measured off Windows; moving to /fp:precise (plus /fp:contract, which
     # keeps contraction inside a single expression only) is the follow-up.
-    extra_compile_args = ["/O2", "/arch:AVX2", "/openmp:llvm", "/fp:fast", "/MP"]
+    # /std:c++17: every extension is C++17 (the near-interface pair already
+    # was, momwire#680). MSVC's default is C++14.
+    extra_compile_args = [
+        "/O2",
+        "/arch:AVX2",
+        "/openmp:llvm",
+        "/fp:fast",
+        "/MP",
+        "/std:c++17",
+    ]
     extra_link_args = []
 elif sys.platform == "darwin":
     # Apple clang ships no OpenMP runtime and macOS has no libmvec, so this
@@ -215,7 +224,7 @@ elif sys.platform == "darwin":
         "-fno-math-errno",
         # No implicit FMA contraction: see the Linux branch (momwire#1194).
         "-ffp-contract=off",
-        "-std=gnu++11",
+        "-std=gnu++17",
         f"-I{os.path.join(_libomp, 'include')}",
     ]
     extra_link_args = [
@@ -261,20 +270,17 @@ else:
         "-ffp-contract=off",
         "-g",
         "-fno-omit-frame-pointer",
-        "-std=gnu++11",
+        "-std=gnu++17",
     ]
     extra_link_args = ["-fopenmp", "-lpthread", "-lmvec"]
 
 # The near-interface twin (momwire#680 U2) compiles against the vendored
-# scipy/xsf headers (extern/xsf, header-only), which are C++17. The main
-# `_accelerators` extension stays at gnu++11 untouched; only this second,
-# equally-optional extension gets the newer standard.
-if sys.platform == "win32":
-    _near_compile_args = extra_compile_args + ["/std:c++17"]
-else:
-    _near_compile_args = [
-        "-std=gnu++17" if a == "-std=gnu++11" else a for a in extra_compile_args
-    ]
+# scipy/xsf headers (extern/xsf, header-only), which are C++17. It used to be
+# the ONLY C++17 extension, with `_accelerators` held at gnu++11 so it stayed
+# byte-untouched. `_accelerators` moved to C++17 too after a same-machine
+# comparison over every exercised bound function found no moved output bit.
+# The two lists are now the same flags.
+_near_compile_args = list(extra_compile_args)
 
 # The inline headers `_accelerators.cpp` pulls in. setuptools rebuilds an
 # object file only when a listed source or DEPENDENCY is newer than it, and a
@@ -323,6 +329,11 @@ _ACCEL_HEADERS = [
     # The SIMD lane layer (momwire#1372), included by the lane kernels'
     # TUs and `_accel_somm_proj_inline.h`.
     "src/momwire/_lanes.h",
+    # The core/binding split: the Python-free preamble, the numpy -> view
+    # seam, and the razor core's interface.
+    "src/momwire/_mw_core.h",
+    "src/momwire/_mw_binding.h",
+    "src/momwire/_razor_core.h",
 ]
 
 # The accelerator's translation units (momwire#687). The monolith was one
@@ -337,6 +348,12 @@ _ACCEL_SOURCES = [
     "src/momwire/_accel_somm.cpp",
     "src/momwire/_accel_mw568.cpp",
     "src/momwire/_accel_razor.cpp",
+    # The razor kernels with no Python in their signatures or includes;
+    # _accel_razor.cpp is their binding. A core TU is a kernel TU like any
+    # other here (its own object, the same flags); what makes it core is
+    # that it includes no Python or pybind11 header, which
+    # tests/test_razor_core_standalone.py holds to.
+    "src/momwire/_razor_core.cpp",
     # momwire#1201: its own TU so a new caller of the inline `proj_one`
     # cannot move the codegen of the _accel_somm.cpp kernels (momwire#1194).
     "src/momwire/_accel_somm_pairs.cpp",
@@ -360,6 +377,8 @@ _ACCEL_SOURCES = [
     # own TU for the left gather's reason: its float order is the numpy
     # route's, derived term by term, and nothing else may move its codegen.
     "src/momwire/_accel_razor_t2.cpp",
+    # Its core, isolated for the same reason.
+    "src/momwire/_razor_t2_core.cpp",
     # momwire#1290: SG's band scatter in `np.add.at`'s order. Its own TU: its
     # bits are that order's, and nothing else may move its codegen.
     "src/momwire/_accel_row_scatter.cpp",
@@ -374,6 +393,12 @@ _ACCEL_SOURCES = [
     # point-tested families after it). Its own TU for 1410's reason; the
     # kernel itself is the shared `_exact_kernel_ring_inline.h`.
     "src/momwire/_accel_exact_kernel_point.cpp",
+    # momwire#1454: the same point moments as a power series in k with
+    # geometry-only coefficients. Its own TU for 1410's reason.
+    "src/momwire/_accel_exact_kernel_series.cpp",
+    # momwire#1497: the fused elementwise complex multiply (`_cmul.cmul`). Its
+    # own TU so that no existing kernel's codegen can move with it.
+    "src/momwire/_accel_cmul.cpp",
 ]
 
 # Same staleness rationale for the near-interface twin: the contour engine

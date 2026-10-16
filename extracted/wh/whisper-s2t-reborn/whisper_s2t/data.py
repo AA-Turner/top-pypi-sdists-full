@@ -67,7 +67,7 @@ class BasicSegmenter:
             start_ends.append([i*self.max_seg_len, (i + 1)*self.max_seg_len])
 
         if len(start_ends) == 0:
-            start_ends = [[0.0, self.max_seg_len]]
+            return start_ends, audio_signal
 
         start_ends[-1][1] = min(audio_duration, start_ends[-1][1])
 
@@ -79,32 +79,23 @@ class BasicSegmenter:
 
 
 class WhisperDataLoader:
-    def __init__(self, device, tokenizer, speech_segmenter, 
-                 dta_padding=3.0, 
-                 without_timestamps=True, 
+    def __init__(self, device, tokenizer, speech_segmenter,
+                 without_timestamps=True,
                  max_speech_len=29.0, 
                  max_initial_prompt_len=223,
-                 merge_chunks=True,
-                 use_dynamic_time_axis=False):
+                 merge_chunks=True):
 
         self.device = device
         self.tokenizer = tokenizer
         self.speech_segmenter = speech_segmenter
         self.basic_segmenter = BasicSegmenter(max_seg_len=max_speech_len)
-        self.dta_padding = int(dta_padding*SAMPLE_RATE)
         self.without_timestamps = without_timestamps
         self.max_speech_len = max_speech_len
         self.max_initial_prompt_len = max_initial_prompt_len
-        self.use_dynamic_time_axis = use_dynamic_time_axis
         self.merge_chunks = merge_chunks
 
     def data_collate_fn(self, batch):
-        if self.use_dynamic_time_axis:
-            max_len = min(max([_[3] for _ in batch]) + self.dta_padding, N_SAMPLES)
-        else:
-            max_len = N_SAMPLES
-
-        signal_batch = torch.stack([torch.from_numpy(pad_or_trim(_[0], length=max_len)).to(self.device) for _ in batch])
+        signal_batch = torch.stack([torch.from_numpy(pad_or_trim(_[0])).to(self.device) for _ in batch])
         seq_len = torch.tensor([_[3] for _ in batch]).to(self.device)
 
         prompt_batch = []
@@ -175,6 +166,8 @@ class WhisperDataLoader:
         pbar_update_len = {}
         for file_id, (audio_signal, lang, task, initial_prompt) in enumerate(zip(audio_batch_generator(audio_files), lang_codes, tasks, initial_prompts)):
             start_ends, audio_signal = self.speech_segmenter(audio_signal=audio_signal)
+            if not start_ends:
+                continue
             new_segmented_audio_signal = self.get_segmented_audio_signal(start_ends, audio_signal, file_id, lang, task, initial_prompt)
             pbar_update_len[file_id] = 1/len(new_segmented_audio_signal)
 
@@ -208,6 +201,8 @@ class WhisperDataLoader:
         pbar_update_len = {}
         for file_id, (audio_signal, lang, task, initial_prompt) in enumerate(zip(audio_batch_generator(audio_files), lang_codes, tasks, initial_prompts)):
             start_ends, audio_signal = self.basic_segmenter(audio_signal=audio_signal)
+            if not start_ends:
+                continue
             new_segmented_audio_signal = self.get_segmented_audio_signal(start_ends, audio_signal, file_id, lang, task, initial_prompt)
             pbar_update_len[file_id] = 1/len(new_segmented_audio_signal)
 

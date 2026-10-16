@@ -1,5 +1,6 @@
 import dataclasses
 from dataclasses import dataclass, field
+from collections.abc import Iterable
 from typing import Any, Optional, Union
 
 from matrx_utils import vcprint
@@ -2131,11 +2132,22 @@ class MessageList:
         ]
 
     def replace_variables(
-        self, variables: dict[str, Any], blocks: dict[str, str] | None = None
+        self,
+        variables: dict[str, Any],
+        blocks: dict[str, str] | None = None,
+        *,
+        only: Iterable[UnifiedMessage] | None = None,
     ) -> None:
-        """Replace variables (and declared prompt blocks) in all messages."""
+        """Replace variables (and declared prompt blocks) in the authored messages.
+
+        ``only`` names the authored template messages (by identity); every other message —
+        prior turns, the person's typed turn — is data and is never touched. ``None`` means
+        every message in the list is authored (a door that substitutes before anything else
+        joins the list)."""
+        authored = None if only is None else {id(m) for m in only}
         for message in self._messages:
-            message.replace_variables(variables, blocks=blocks)
+            if authored is None or id(message) in authored:
+                message.replace_variables(variables, blocks=blocks)
 
 
 # ----------------------------------------------------------------------

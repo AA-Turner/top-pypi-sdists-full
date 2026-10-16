@@ -7,11 +7,15 @@ or the app lookup of `modal deploy some_file.py`.
 These functions are only called by the Modal CLI, not in tasks.
 """
 
+import atexit
 import dataclasses
 import importlib
 import importlib.util
 import inspect
+import shutil
 import sys
+import tempfile
+import types
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -60,15 +64,40 @@ def parse_import_ref(object_ref: str, use_module_mode: bool = False, command: st
 
 DEFAULT_APP_NAME = "app"
 
+STDIN_REF = "-"
+STDIN_MODULE_NAME = "modal_stdin_app"
 
-def import_file_or_module(import_ref: ImportRef, base_cmd: str = ""):
+
+def _write_stdin_script() -> str:
+    if sys.stdin is None or sys.stdin.isatty():
+        raise InvalidError("No script was piped on stdin. Usage: `cat my_app.py | modal run -`")
+    source = sys.stdin.read()
+    # The file must outlive the import: the entrypoint mount is built from it when the App runs.
+    tmp_dir = tempfile.mkdtemp(prefix="modal-stdin-")
+    atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+    script_path = Path(tmp_dir) / f"{STDIN_MODULE_NAME}.py"
+    script_path.write_text(source)
+    return str(script_path)
+
+
+def import_file_or_module(import_ref: ImportRef, base_cmd: str = "", allow_stdin: bool = False):
     if "" not in sys.path:
         # When running from a CLI like `modal run`
         # the current working directory isn't added to sys.path
         # so we add it in order to make module path specification possible
         sys.path.insert(0, "")  # "" means the current working directory
 
-    if not import_ref.file_or_module.endswith(".py") or import_ref.use_module_mode:
+    from_stdin = import_ref.file_or_module == STDIN_REF
+    if from_stdin:
+        if not allow_stdin:
+            raise InvalidError(f"`{base_cmd}` does not support reading a script from stdin.")
+        if import_ref.use_module_mode:
+            raise InvalidError("Reading a script from stdin (`-`) can't be combined with the -m flag.")
+        script_path = _write_stdin_script()
+    else:
+        script_path = import_ref.file_or_module
+
+    if not script_path.endswith(".py") or import_ref.use_module_mode:
         if not import_ref.use_module_mode:
             raise InvalidError(
                 "Python module paths must be specified with the -m flag. "
@@ -82,7 +111,7 @@ def import_file_or_module(import_ref: ImportRef, base_cmd: str = ""):
     else:
         # when using a script path, that scripts directory should also be on the path as it is
         # with `python some/script.py`
-        full_path = Path(import_ref.file_or_module).resolve()
+        full_path = Path(script_path).resolve()
         if "." in full_path.name.removesuffix(".py"):
             raise InvalidError(
                 f"Invalid Modal source filename: {full_path.name!r}."
@@ -90,10 +119,10 @@ def import_file_or_module(import_ref: ImportRef, base_cmd: str = ""):
             )
         sys.path.insert(0, str(full_path.parent))
 
-        module_name = inspect.getmodulename(import_ref.file_or_module)
+        module_name = inspect.getmodulename(script_path)
         assert module_name is not None
         # Import the module - see https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-        spec = importlib.util.spec_from_file_location(module_name, import_ref.file_or_module)
+        spec = importlib.util.spec_from_file_location(module_name, script_path)
         assert spec is not None
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
@@ -103,7 +132,7 @@ def import_file_or_module(import_ref: ImportRef, base_cmd: str = ""):
                 spec.loader.exec_module(module)
         except Exception as exc:
             if isinstance(exc, ImportError) and "attempted relative import with no known parent package" in str(exc):
-                if import_ref.file_or_module and import_ref.command and not import_ref.use_module_mode:
+                if import_ref.command and not import_ref.use_module_mode and not from_stdin:
                     file_path = Path(import_ref.file_or_module)
                     suggested_module_path = ".".join(file_path.parts).removesuffix(".py").lstrip(".")
                     suffix = f"::{import_ref.object_path}" if import_ref.object_path else ""
@@ -147,6 +176,41 @@ class AutoRunPriority:
     MODULE_FUNCTION = 1
     APP_LOCAL_ENTRYPOINT = 2
     APP_FUNCTION = 3
+
+
+_LazyImportType = getattr(types, "LazyImportType", None)  # Python 3.15+ (PEP 810)
+
+_MAX_LISTED_LAZY_IMPORTS = 10
+
+
+def _is_lazy_import(module: types.ModuleType, name: str) -> bool:
+    return _LazyImportType is not None and isinstance(vars(module).get(name), _LazyImportType)
+
+
+def _check_not_lazy_import(module: types.ModuleType, name: str, import_ref: ImportRef) -> None:
+    if _is_lazy_import(module, name):
+        raise InvalidError(
+            f"'{name}' is imported lazily in '{import_ref.file_or_module}'. Modal Apps, Functions, and Classes "
+            "can't be imported lazily; change it to a regular import."
+        )
+
+
+def _get_module_members(module: types.ModuleType) -> tuple[dict[str, typing.Any], list[str]]:
+    """Like `dict(inspect.getmembers(module))`, but skips lazy imports instead of resolving them.
+
+    Returns the members and the names of the skipped lazy imports.
+    """
+    members = {}
+    lazy_imports = []
+    for name in dir(module):
+        if _is_lazy_import(module, name):
+            lazy_imports.append(name)
+            continue
+        try:
+            members[name] = getattr(module, name)
+        except AttributeError:
+            continue  # matches inspect.getmembers
+    return members, lazy_imports
 
 
 def list_cli_commands(
@@ -280,6 +344,7 @@ def import_app_from_ref(import_ref: ImportRef, base_cmd: str = "") -> App:
     if "." in object_path:
         raise click.UsageError(f"{object_path} is not a Modal App")
 
+    _check_not_lazy_import(module, object_path, import_ref)
     app = getattr(module, object_path)
 
     if app is None:
@@ -356,9 +421,10 @@ def import_and_filter(
     accept_local_entrypoint=True,
     accept_webhook=False,
     accept_service_functions=False,
-) -> tuple[Runnable | None, list[CLICommand]]:
-    """Takes a function ref string and returns a single determined "runnable" to use, and a list of all available
-    runnables.
+    allow_stdin=False,
+) -> tuple[Runnable | None, list[CLICommand], list[str]]:
+    """Takes a function ref string and returns a single determined "runnable" to use, a list of all available
+    runnables, and the names of the lazy imports that were not searched for runnables.
 
     The function ref can leave out partial information (apart from the file name/module)
     as long as the runnable is uniquely identifiable by the provided information.
@@ -371,9 +437,11 @@ def import_and_filter(
     3. if there is a single method (within a class) that one is used
     """
     # all commands:
-    module = import_file_or_module(import_ref, base_cmd)
+    module = import_file_or_module(import_ref, base_cmd, allow_stdin=allow_stdin)
+    _check_not_lazy_import(module, import_ref.object_path.split(".", 1)[0], import_ref)
+    module_members, lazy_imports = _get_module_members(module)
     cli_commands = list_cli_commands(
-        dict(inspect.getmembers(module)),
+        module_members,
         include_service_functions=accept_service_functions,
     )
 
@@ -384,10 +452,22 @@ def import_and_filter(
 
     if inferred_runnable:
         # if there is a single command with "highest run prio" - use that
-        return inferred_runnable, all_usable_commands
+        return inferred_runnable, all_usable_commands, lazy_imports
 
     # otherwise, just return the list of all commands
-    return None, all_usable_commands
+    return None, all_usable_commands, lazy_imports
+
+
+def format_lazy_imports_note(lazy_imports: list[str], found_commands: bool) -> str:
+    if found_commands or not lazy_imports:
+        return ""
+    details = "\n".join(f"  {name}" for name in lazy_imports[:_MAX_LISTED_LAZY_IMPORTS])
+    if len(lazy_imports) > _MAX_LISTED_LAZY_IMPORTS:
+        details += f"\n  ... and {len(lazy_imports) - _MAX_LISTED_LAZY_IMPORTS} more"
+    return (
+        "\n\nNote: Modal does not look inside lazy imports, and Modal Apps, Functions, and Classes can't be "
+        f"imported lazily. If one of these is a Modal object, change it to a regular import:\n{details}"
+    )
 
 
 def infer_runnable(

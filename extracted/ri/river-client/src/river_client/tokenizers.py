@@ -20,6 +20,7 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     # Hugging Face repository.
     "Qwen/Qwen3.6-35B-A3B-FP8": "Qwen/Qwen3.6-35B-A3B",
     "Qwen/Qwen3.5-397B-A17B-FP8": "Qwen/Qwen3.5-397B-A17B-FP8",
+    "Qwen/Qwen3.8-Flash-Next": "Qwen/Qwen3.8-Flash-Next",
     "nvidia/Kimi-K2.6-NVFP4": "nvidia/Kimi-K2.6-NVFP4",
     "moonshotai/Kimi-K3": "moonshotai/Kimi-K3",
     "nvidia/GLM-5.1-NVFP4": "nvidia/GLM-5.1-NVFP4",

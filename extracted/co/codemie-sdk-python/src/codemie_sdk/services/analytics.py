@@ -4,6 +4,13 @@ import json
 
 from ..models.analytics import (
     AnalyticsQueryParams,
+    CliAnalyticsCostResponse,
+    CliAnalyticsQueryParams,
+    CliAnalyticsRepositoriesResponse,
+    CliAnalyticsSessionDetailResponse,
+    CliAnalyticsSessionsQueryParams,
+    CliAnalyticsSessionsResponse,
+    CliAnalyticsUsersResponse,
     PaginatedAnalyticsQueryParams,
     SummariesResponse,
     TabularResponse,
@@ -579,5 +586,95 @@ class AnalyticsService:
             "/v1/analytics/cli-analytics/sessions",
             dict,
             params=kwargs if kwargs else None,
+            wrap_response=False,
+        )
+
+    # ── CLI Analytics: /v1/analytics/cli-analytics/* ─────────────────────────
+
+    def ingest_cli_analytics_event_hooks(self, events: list[dict]) -> None:
+        """POST /v1/analytics/cli-analytics/event-hooks — send CLI hook events.
+
+        The endpoint takes NDJSON (one event per line); each event is posted as
+        its own single-line body.
+
+        Args:
+            events: Hook events, e.g. ``agent.session.start``, ``agent.usage.request``
+        """
+        for event in events:
+            self._api.post(
+                "/v1/analytics/cli-analytics/event-hooks",
+                dict,
+                json_data=event,
+                wrap_response=False,
+                extra_headers={"Content-Type": "application/x-ndjson"},
+            )
+
+    def ingest_cli_analytics_logs(self, payload: dict) -> None:
+        """POST /v1/analytics/cli-analytics/logs — send OTLP logs as JSON.
+
+        Args:
+            payload: An OTLP ``ExportLogsServiceRequest`` in its JSON form
+        """
+        self._api.post(
+            "/v1/analytics/cli-analytics/logs",
+            dict,
+            json_data=payload,
+            wrap_response=False,
+        )
+
+    def get_cli_analytics_cost(
+        self, params: CliAnalyticsQueryParams | None = None
+    ) -> CliAnalyticsCostResponse:
+        """GET /v1/analytics/cli-analytics/cost — session, token and cost totals."""
+        return self._api.get(
+            "/v1/analytics/cli-analytics/cost",
+            CliAnalyticsCostResponse,
+            params=params.model_dump(exclude_none=True) if params else {},
+            wrap_response=False,
+        )
+
+    def get_cli_analytics_users(
+        self, params: CliAnalyticsQueryParams | None = None
+    ) -> CliAnalyticsUsersResponse:
+        """GET /v1/analytics/cli-analytics/users — per-user sessions and tokens."""
+        return self._api.get(
+            "/v1/analytics/cli-analytics/users",
+            CliAnalyticsUsersResponse,
+            params=params.model_dump(exclude_none=True) if params else {},
+            wrap_response=False,
+        )
+
+    def get_cli_analytics_sessions(
+        self, params: CliAnalyticsSessionsQueryParams | None = None
+    ) -> CliAnalyticsSessionsResponse:
+        """GET /v1/analytics/cli-analytics/sessions — paginated session list."""
+        return self._api.get(
+            "/v1/analytics/cli-analytics/sessions",
+            CliAnalyticsSessionsResponse,
+            params=params.model_dump(exclude_none=True) if params else {},
+            wrap_response=False,
+        )
+
+    def get_cli_analytics_session(
+        self, trace_id: str
+    ) -> CliAnalyticsSessionDetailResponse:
+        """GET /v1/analytics/cli-analytics/sessions/{trace_id} — session detail."""
+        return self._api.get(
+            f"/v1/analytics/cli-analytics/sessions/{trace_id}",
+            CliAnalyticsSessionDetailResponse,
+            wrap_response=False,
+        )
+
+    def get_cli_analytics_repositories(
+        self, params: CliAnalyticsQueryParams | None = None
+    ) -> CliAnalyticsRepositoriesResponse:
+        """GET /v1/analytics/cli-analytics/repositories — per-repository breakdown.
+
+        Without pagination parameters the endpoint returns every repository branch.
+        """
+        return self._api.get(
+            "/v1/analytics/cli-analytics/repositories",
+            CliAnalyticsRepositoriesResponse,
+            params=params.model_dump(exclude_none=True) if params else {},
             wrap_response=False,
         )

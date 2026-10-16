@@ -218,6 +218,12 @@ fn validate_word_part(
         WordPart::CommandSubstitution(commands) => validate_commands(commands, ctx),
         WordPart::ProcessSubstitution { commands, .. } => validate_commands(commands, ctx),
         WordPart::Literal(s) if !word_is_quoted => check_brace_range(s),
+        WordPart::CompoundAssignment { elements, .. } => {
+            for element in elements {
+                validate_word(element, ctx)?;
+            }
+            Ok(())
+        }
         _ => Ok(()),
     }
 }
@@ -390,6 +396,10 @@ mod tests {
         let ast = Script {
             commands,
             span: Span::new(),
+            trailing_error: None,
+            command_end_lines: Vec::new(),
+            source: None,
+            command_starts: Vec::new(),
         };
         let limits = ExecutionLimits::default();
         let err = validate(&ast, &limits).unwrap_err();

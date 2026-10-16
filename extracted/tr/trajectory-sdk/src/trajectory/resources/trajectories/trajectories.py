@@ -153,6 +153,7 @@ class Trajectories(APIResource):
     trajectory_id: str,
     *,
     include_steps: bool | None | Omit = omit,
+    include_reward_components: bool | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -162,6 +163,9 @@ class Trajectories(APIResource):
 
     Args:
       include_steps: Include every step; listTrajectorySteps pages them. Defaults to false with
+        Trajectory-API-Version: tmp-contract and to true otherwise.
+
+      include_reward_components: Include the reward components logged with log_reward. Defaults to false with
         Trajectory-API-Version: tmp-contract and to true otherwise.
 
       extra_headers: Send extra headers
@@ -186,6 +190,7 @@ class Trajectories(APIResource):
         params=maybe_transform(
           {
             "include_steps": include_steps,
+            "include_reward_components": include_reward_components,
           }
         ),
         extra_headers=extra_headers,
@@ -262,7 +267,8 @@ class Trajectories(APIResource):
 
       name: Harness event name.
 
-      payload: Optional structured event payload. Does not affect training reward.
+      payload: Optional JSON object recorded with the event. It is not a reward component, but
+        an automatic grader can read it.
 
       extra_headers: Send extra headers
 
@@ -368,7 +374,9 @@ class Trajectories(APIResource):
     """Log Trajectory Reward
 
     Args:
-      name: Reward component name.
+      name: Reward component name. Each call adds one component; the trajectory's logged
+        reward is the weighted average of its components' scaled values, (value -
+        min_value) / (max_value - min_value).
 
       value: Finite raw reward between min_value and max_value, including endpoints.
 
@@ -377,11 +385,11 @@ class Trajectories(APIResource):
       max_value: Maximum raw reward, default 1. The server scales the declared range
         to [0, 1] for training and preserves the raw value.
 
-      explanation: Human-readable reason for the reward.
+      explanation: Human-readable reason for this component's value.
 
-      weight: Weight of this component in the trajectory's summed reward. Use 0 to store the
-        component for diagnostics without counting it. If every component has weight 0,
-        the trajectory's reward is 0.
+      weight: Weight of this component in the trajectory's weighted average reward. Use 0 to
+        store the component for diagnostics without counting it. If every component has
+        weight 0, the trajectory's reward is 0.
 
       extra_headers: Send extra headers
 
@@ -462,7 +470,25 @@ class Trajectories(APIResource):
     """Complete Trajectory Route
 
     Args:
-      termination_reason: Why the harness finished. ENV_DONE is successful completion.
+      termination_reason: How the attempt ended. Use ENV_DONE only when it finished normally.
+        - ENV_DONE: finished normally, including a graded wrong answer.
+        - ERROR: model requests failed after retries, or the environment or grader failed.
+        - TIMEOUT: the harness stopped the agent at its own time limit.
+        - TRUNCATION: the final reply was cut off at its output-token limit, or the
+          conversation
+          no longer fit the model's context.
+        - MISSING_SUBMIT: the task requires a submission and the agent stopped without
+          one.
+        - LIMIT_REACHED, MAX_STEPS, STALE: set by the platform. A LIMIT_REACHED or
+          MAX_STEPS it
+          already set is kept.
+        - GOLDEN_PATCH: reserved; do not send.
+
+        Training uses ENV_DONE, LIMIT_REACHED and MAX_STEPS, plus TRUNCATION when the run
+        sets
+        train_on_truncation. LIMIT_REACHED, MAX_STEPS and TRUNCATION count positive
+        rewards as 0.
+        ERROR counts toward the run's failure limit and as failed in evaluation.
 
       extra_headers: Send extra headers
 

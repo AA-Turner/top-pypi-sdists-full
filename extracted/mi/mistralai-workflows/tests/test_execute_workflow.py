@@ -395,9 +395,9 @@ class TestExecuteWorkflowDeclaredTimeout:
                 task_queue="test-task-queue",
             )
             result = await handle.result()
-            assert result["result"] == 2.0, (
+            assert result["result"] == 60.0, (
                 "child dispatched without an explicit execution_timeout should inherit its declared "
-                f"2s; before the fix execute_workflow forced the 1h (3600s) default, got {result['result']}s"
+                f"60s; before the fix execute_workflow forced the 1h (3600s) default, got {result['result']}s"
             )
 
     @pytest.mark.asyncio
@@ -418,5 +418,5 @@ class TestExecuteWorkflowDeclaredTimeout:
             result = await handle.result()
             assert result["result"] == 30 * 60, (
                 "explicit execution_timeout (30 min) passed to execute_workflow should override the "
-                f"child's declared 2s, got {result['result']}s"
+                f"child's declared 60s, got {result['result']}s"
             )

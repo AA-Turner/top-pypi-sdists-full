@@ -65,6 +65,8 @@ class CreateResponseResult(BaseModel):
 
   instructions: str | None = None
 
+  metadata: dict[str, str] | None = None
+
   parallel_tool_calls: bool | None = None
 
   previous_response_id: str | None = None

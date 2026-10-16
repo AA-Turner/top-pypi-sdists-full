@@ -945,11 +945,11 @@ class DevicesController(  # noqa: PLR0904 (grandfathered; new public methods nee
     async def _spawn_only_generate(self, configuration: str) -> str | None:
         return await storage_regen.spawn_only_generate(self, configuration)
 
-    def _stamp_regen_failure(self, configuration: str, mtime: float) -> int:
-        return storage_regen.stamp_failure(self, configuration, mtime)
+    def _stamp_regen_failure(self, configuration: str, fingerprint: str) -> int:
+        return storage_regen.stamp_failure(self, configuration, fingerprint)
 
-    async def _finalize_regen_success(self, configuration: str) -> None:
-        await storage_regen.finalize_success(self, configuration)
+    async def _finalize_regen_success(self, configuration: str, fingerprint: str) -> None:
+        await storage_regen.finalize_success(self, configuration, fingerprint)
 
     @api_command("devices/get_encryption_key")
     async def get_encryption_key(self, *, configuration: str, **kwargs: Any) -> dict[str, str]:

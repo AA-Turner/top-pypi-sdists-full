@@ -237,10 +237,10 @@ def strip_qwen_thinking_from_text(text: str) -> str:
 
 
 class Qwen35Renderer(Renderer):
-    """Renderer for the unified Qwen3.5+ family (3.5, 3.6, 3.8).
+    """Text renderer for the Qwen3.5+ family (3.5, 3.6, 3.8).
 
-    Qwen3.5+ are unified (vision-capable) checkpoints served with the
-    qwen3_coder tool-calling dialect (``<function=..><parameter=..>``) and
+    These checkpoints share the qwen3_coder tool-calling dialect
+    (``<function=..><parameter=..>``) and
     the ``<|im_start|>``/``<|im_end|>`` chat template with ``<think>``
     reasoning blocks. This class owns the text/tool/thinking rendering;
     :class:`~river_client.renderers.qwen3_vl.Qwen35VLRenderer` extends it to

@@ -104,10 +104,11 @@ world
 ### end
 
 ### grep_files_with_matches
-# List matching files (shows (stdin) for stdin input)
+# List matching files. GNU grep names stdin "(standard input)" under -l too,
+# not "(stdin)".
 printf 'foo\nbar\n' | grep -l foo
 ### expect
-(stdin)
+(standard input)
 ### end
 
 ### grep_quiet
@@ -201,10 +202,13 @@ echo $?
 ### end
 
 ### grep_null_data
-# Null-terminated mode with -z
-printf 'foo\0bar\0' | grep -z foo
+# -z is null-terminated *records*, on output as well as input: GNU grep emits
+# `foo\0`, not `foo\n`. Rendered through tr so the NUL is visible here.
+# The trailing `echo` supplies the newline the spec format needs; grep -z
+# itself terminates the record with the NUL, not a newline.
+printf 'foo\0bar\0' | grep -z foo | tr '\0' '@'; echo
 ### expect
-foo
+foo@
 ### end
 
 ### grep_only_matching_multiple
@@ -335,6 +339,8 @@ foo
 ### end
 
 ### grep_color
+### bash_diff: --color=always is accepted but not implemented; GNU grep wraps
+### bash_diff: the match in SGR escapes. Tracked as a limitation, not a bug.
 # Color flag accepted (no-op, outputs plain text)
 printf 'foo\n' | grep --color=always foo
 ### expect
@@ -349,17 +355,20 @@ foo123
 ### end
 
 ### grep_binary_detect
-# Binary file detection: content with null bytes triggers binary message
-printf 'foo\0bar\n' | grep foo
+# Binary file detection. The message is a diagnostic, so GNU grep >= 3.5
+# writes `grep: FILE: binary file matches` to stderr and leaves stdout empty;
+# merged here so the spec asserts the text as well as the stream.
+printf 'foo\0bar\n' | grep foo 2>&1
 ### expect
-Binary file (standard input) matches
+grep: (standard input): binary file matches
 ### end
 
 ### grep_binary_with_a_flag
-# -a flag treats binary as text, outputs match normally
-printf 'foo\0bar\n' | grep -a foo
+# -a treats binary as text; it does not delete the NUL bytes. GNU grep passes
+# the line through byte for byte. Rendered through tr so the NUL is visible.
+printf 'foo\0bar\n' | grep -a foo | tr '\0' '@'
 ### expect
-foobar
+foo@bar
 ### end
 
 ### grep_include_pattern
@@ -416,10 +425,11 @@ printf '' | grep foo
 ### end
 
 ### grep_binary_files_text
-# Treat binary as text with -a (filters null bytes)
-printf 'foo\0bar\n' | grep -a foo
+# Same as grep_binary_with_a_flag from the --binary-files=text angle: the NUL
+# survives.
+printf 'foo\0bar\n' | grep -a foo | tr '\0' '@'
 ### expect
-foobar
+foo@bar
 ### end
 
 ### grep_count_multiple_matches
@@ -572,6 +582,124 @@ printf 'foo\nfoo\n' | grep -m 0 foo
 ### expect
 ### end
 
+### grep_max_count_zero_readable_file
+# -m0 selects nothing and exits 1, with or without -q.
+printf 'foo\n' > /tmp/grep_qm0_readable.txt
+grep -q -m0 foo /tmp/grep_qm0_readable.txt
+echo $?
+grep -m0 foo /tmp/grep_qm0_readable.txt
+echo $?
+### expect
+1
+1
+### end
+
+### grep_max_count_zero_missing_file_option_orders
+# Every spelling exits before opening an unreadable operand, without a
+# diagnostic. GNU grep 3.11 does not require -q for this.
+grep -qm0 foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+grep -q -m0 foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+grep -m0 -q foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+grep --quiet --max-count=0 foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+grep -m0 foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+grep --max-count=0 foo /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+### expect
+1
+1
+1
+1
+1
+1
+### end
+
+### grep_max_count_zero_skips_pattern_compilation
+# The short-circuit happens before the pattern is compiled, so an invalid
+# regex is not reported either. Matches GNU grep 3.11.
+grep -m0 '[' /tmp/grep_qm0_readable.txt 2>&1
+echo $?
+grep -q -m0 '[' /tmp/nonexistent_grep_qm0 2>&1
+echo $?
+### expect
+1
+1
+### end
+
+### grep_max_count_zero_suppresses_other_output_modes
+# -c, -l and -v all produce nothing under -m0.
+grep -c -m0 foo /tmp/grep_qm0_readable.txt
+echo $?
+grep -l -m0 foo /tmp/grep_qm0_readable.txt
+echo $?
+grep -v -m0 foo /tmp/grep_qm0_readable.txt
+echo $?
+### expect
+1
+1
+1
+### end
+
+### grep_max_count_does_not_truncate_files_without_match
+# -L is the exception: "no line selected" is what makes every operand
+# qualify, so it still opens each one and lists them all.
+printf 'foo\n' > /tmp/grep_L_m.txt
+printf 'bar\n' > /tmp/grep_L_n.txt
+grep -L -m0 foo /tmp/grep_L_m.txt /tmp/grep_L_n.txt
+echo $?
+grep -L -m1 foo /tmp/grep_L_m.txt /tmp/grep_L_n.txt
+echo $?
+### expect
+/tmp/grep_L_m.txt
+/tmp/grep_L_n.txt
+1
+/tmp/grep_L_n.txt
+0
+### end
+
+### grep_max_count_is_per_file_not_cumulative
+# GNU -m NUM stops reading *each file* after NUM matching lines. The budget is
+# per operand, so a file that spends it does not silence the next one.
+printf 'foo1\nfoo2\nfoo3\n' > /tmp/grep_mm_p.txt
+printf 'foo4\nfoo5\n'       > /tmp/grep_mm_q.txt
+grep -m1 foo /tmp/grep_mm_p.txt /tmp/grep_mm_q.txt
+echo "rc=$?"
+grep -m2 foo /tmp/grep_mm_p.txt /tmp/grep_mm_q.txt
+echo "rc=$?"
+### expect
+/tmp/grep_mm_p.txt:foo1
+/tmp/grep_mm_q.txt:foo4
+rc=0
+/tmp/grep_mm_p.txt:foo1
+/tmp/grep_mm_p.txt:foo2
+/tmp/grep_mm_q.txt:foo4
+/tmp/grep_mm_q.txt:foo5
+rc=0
+### end
+
+### grep_max_count_per_file_with_count_and_invert
+# -c reports a count for every operand, not just until a shared budget runs
+# out, and -v applies the same per-file budget to non-matching lines.
+# Each spec block gets a fresh VFS, so this recreates its own inputs.
+printf 'foo1\nfoo2\nfoo3\n' > /tmp/grep_mm_p.txt
+printf 'foo4\nfoo5\n'       > /tmp/grep_mm_q.txt
+printf 'foo\nbar\nbaz\n'   > /tmp/grep_mm_v.txt
+grep -c -m1 foo /tmp/grep_mm_p.txt /tmp/grep_mm_q.txt
+echo "rc=$?"
+grep -v -m1 foo /tmp/grep_mm_v.txt /tmp/grep_mm_q.txt
+echo "rc=$?"
+### expect
+/tmp/grep_mm_p.txt:1
+/tmp/grep_mm_q.txt:1
+rc=0
+/tmp/grep_mm_v.txt:bar
+rc=0
+### end
+
 ### grep_files_without_match
 # -L prints files that have no matches
 printf 'foo\n' > /tmp/grep_l_a.txt && printf 'bar\n' > /tmp/grep_l_b.txt && grep -L foo /tmp/grep_l_a.txt /tmp/grep_l_b.txt
@@ -580,9 +708,11 @@ printf 'foo\n' > /tmp/grep_l_a.txt && printf 'bar\n' > /tmp/grep_l_b.txt && grep
 ### end
 
 ### grep_files_without_match_no_output
-# -L does not print files that match
+# -L does not print files that match. The status still reports whether a
+# *match* was found, so a matching file means exit 0 even though -L prints
+# nothing; a non-matching file prints the name and exits 1.
 printf 'foo\n' > /tmp/grep_l2_a.txt && grep -L foo /tmp/grep_l2_a.txt
-### exit_code: 1
+### exit_code: 0
 ### expect
 ### end
 
@@ -594,11 +724,12 @@ mkdir -p /tmp/grepexd/src /tmp/grepexd/vendor && printf 'match\n' > /tmp/grepexd
 ### end
 
 ### grep_suppress_errors
-# -s suppresses error messages for nonexistent files
+# -s suppresses the error message but not the status: GNU grep exits 2
+# whenever an operand could not be read, matched or not.
 grep -s foo /tmp/nonexistent_grep_file_xyz
 echo $?
 ### expect
-1
+2
 ### end
 
 ### grep_null_filename_l
@@ -613,4 +744,39 @@ printf 'foo\n' > /tmp/grep_z_a.txt && grep -lZ foo /tmp/grep_z_a.txt | tr '\0' '
 printf 'bar\n' > /tmp/grep_zl_a.txt && grep -LZ foo /tmp/grep_zl_a.txt | tr '\0' '\n'
 ### expect
 /tmp/grep_zl_a.txt
+### end
+
+### grep_skip_binary_files
+# -I skips files containing NUL bytes; -L lists them as non-matching
+mkdir -p /tmp/gI && cd /tmp/gI
+printf 'needle\n' > text.txt
+printf 'needle\0bin\n' > data.bin
+grep -rI needle . | sort
+grep -c --binary-files=without-match needle data.bin; echo "rc=$?"
+### expect
+./text.txt:needle
+0
+rc=1
+### end
+
+### grep_recursive_directory_cycle
+# Resolved ancestors are skipped; independent aliases must still be searched.
+mkdir -p /tmp/greploop/d
+printf 'x\n' > /tmp/greploop/d/f
+ln -s . /tmp/greploop/d/a
+grep -R x /tmp/greploop/d 2>&1 | sort
+### expect
+/tmp/greploop/d/f:x
+grep: /tmp/greploop/d/a: warning: recursive directory loop
+### end
+
+### grep_recursive_sibling_aliases
+mkdir -p /tmp/grepaliases/d /tmp/grepaliases/target
+printf 'x\n' > /tmp/grepaliases/target/f
+ln -s /tmp/grepaliases/target /tmp/grepaliases/d/a
+ln -s /tmp/grepaliases/target /tmp/grepaliases/d/b
+grep -R x /tmp/grepaliases/d | sort
+### expect
+/tmp/grepaliases/d/a/f:x
+/tmp/grepaliases/d/b/f:x
 ### end

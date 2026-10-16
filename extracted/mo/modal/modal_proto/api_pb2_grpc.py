@@ -190,6 +190,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ClusterListRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ClusterListResponse.FromString,
                 )
+        self.ClusterReservationList = channel.unary_unary(
+                '/modal.client.ModalClient/ClusterReservationList',
+                request_serializer=modal__proto_dot_api__pb2.ClusterReservationListRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ClusterReservationListResponse.FromString,
+                )
         self.ContainerCheckpoint = channel.unary_unary(
                 '/modal.client.ModalClient/ContainerCheckpoint',
                 request_serializer=modal__proto_dot_api__pb2.ContainerCheckpointRequest.SerializeToString,
@@ -219,11 +224,6 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/ContainerFilesystemExec',
                 request_serializer=modal__proto_dot_api__pb2.ContainerFilesystemExecRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ContainerFilesystemExecResponse.FromString,
-                )
-        self.ContainerFilesystemExecGetOutput = channel.unary_stream(
-                '/modal.client.ModalClient/ContainerFilesystemExecGetOutput',
-                request_serializer=modal__proto_dot_api__pb2.ContainerFilesystemExecGetOutputRequest.SerializeToString,
-                response_deserializer=modal__proto_dot_api__pb2.FilesystemRuntimeOutputBatch.FromString,
                 )
         self.ContainerHeartbeat = channel.unary_unary(
                 '/modal.client.ModalClient/ContainerHeartbeat',
@@ -465,6 +465,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.FunctionCallCancelRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.FunctionCallCount = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionCallCount',
+                request_serializer=modal__proto_dot_api__pb2.FunctionCallCountRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FunctionCallCountResponse.FromString,
+                )
         self.FunctionCallFetch = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionCallFetch',
                 request_serializer=modal__proto_dot_api__pb2.FunctionCallFetchRequest.SerializeToString,
@@ -544,6 +549,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/FunctionGetInputs',
                 request_serializer=modal__proto_dot_api__pb2.FunctionGetInputsRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.FunctionGetInputsResponse.FromString,
+                )
+        self.FunctionGetMetrics = channel.unary_unary(
+                '/modal.client.ModalClient/FunctionGetMetrics',
+                request_serializer=modal__proto_dot_api__pb2.FunctionGetMetricsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.FunctionGetMetricsResponse.FromString,
                 )
         self.FunctionGetOutputs = channel.unary_unary(
                 '/modal.client.ModalClient/FunctionGetOutputs',
@@ -640,6 +650,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ImageListTagsRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ImageListTagsResponse.FromString,
                 )
+        self.ImageNameDelete = channel.unary_unary(
+                '/modal.client.ModalClient/ImageNameDelete',
+                request_serializer=modal__proto_dot_api__pb2.ImageNameDeleteRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.ImagePublish = channel.unary_unary(
                 '/modal.client.ModalClient/ImagePublish',
                 request_serializer=modal__proto_dot_api__pb2.ImagePublishRequest.SerializeToString,
@@ -665,6 +680,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.FromString,
                 )
+        self.MetricsGetInfo = channel.unary_unary(
+                '/modal.client.ModalClient/MetricsGetInfo',
+                request_serializer=modal__proto_dot_api__pb2.MetricsGetInfoRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.MetricsGetInfoResponse.FromString,
+                )
         self.MountBatchedCheckExistence = channel.unary_unary(
                 '/modal.client.ModalClient/MountBatchedCheckExistence',
                 request_serializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceRequest.SerializeToString,
@@ -684,6 +704,26 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/NotebookKernelPublishResults',
                 request_serializer=modal__proto_dot_api__pb2.NotebookKernelPublishResultsRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.PersistentSandboxCreate = channel.unary_unary(
+                '/modal.client.ModalClient/PersistentSandboxCreate',
+                request_serializer=modal__proto_dot_api__pb2.PersistentSandboxCreateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.PersistentSandboxCreateResponse.FromString,
+                )
+        self.PersistentSandboxGet = channel.unary_unary(
+                '/modal.client.ModalClient/PersistentSandboxGet',
+                request_serializer=modal__proto_dot_api__pb2.PersistentSandboxGetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.PersistentSandboxGetResponse.FromString,
+                )
+        self.PersistentSandboxResume = channel.unary_unary(
+                '/modal.client.ModalClient/PersistentSandboxResume',
+                request_serializer=modal__proto_dot_api__pb2.PersistentSandboxResumeRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.PersistentSandboxResumeResponse.FromString,
+                )
+        self.PersistentSandboxTerminate = channel.unary_unary(
+                '/modal.client.ModalClient/PersistentSandboxTerminate',
+                request_serializer=modal__proto_dot_api__pb2.PersistentSandboxTerminateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.PersistentSandboxTerminateResponse.FromString,
                 )
         self.ProxyAddIp = channel.unary_unary(
                 '/modal.client.ModalClient/ProxyAddIp',
@@ -980,6 +1020,16 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SecretUpdateRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.ServerCountRequests = channel.unary_unary(
+                '/modal.client.ModalClient/ServerCountRequests',
+                request_serializer=modal__proto_dot_api__pb2.ServerCountRequestsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ServerCountRequestsResponse.FromString,
+                )
+        self.ServerGetMetrics = channel.unary_unary(
+                '/modal.client.ModalClient/ServerGetMetrics',
+                request_serializer=modal__proto_dot_api__pb2.ServerGetMetricsRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ServerGetMetricsResponse.FromString,
+                )
         self.ServerGetTimeRangeStats = channel.unary_unary(
                 '/modal.client.ModalClient/ServerGetTimeRangeStats',
                 request_serializer=modal__proto_dot_api__pb2.ServerGetTimeRangeStatsRequest.SerializeToString,
@@ -989,6 +1039,21 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/ServerRequestFetch',
                 request_serializer=modal__proto_dot_api__pb2.ServerRequestFetchRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ServerRequestFetchResponse.FromString,
+                )
+        self.ServiceUserCreate = channel.unary_unary(
+                '/modal.client.ModalClient/ServiceUserCreate',
+                request_serializer=modal__proto_dot_api__pb2.ServiceUserCreateRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ServiceUserCreateResponse.FromString,
+                )
+        self.ServiceUserDelete = channel.unary_unary(
+                '/modal.client.ModalClient/ServiceUserDelete',
+                request_serializer=modal__proto_dot_api__pb2.ServiceUserDeleteRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.ServiceUserInfo = channel.unary_unary(
+                '/modal.client.ModalClient/ServiceUserInfo',
+                request_serializer=modal__proto_dot_api__pb2.ServiceUserInfoRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.ServiceUserInfoResponse.FromString,
                 )
         self.ServiceUserList = channel.unary_unary(
                 '/modal.client.ModalClient/ServiceUserList',
@@ -1507,6 +1572,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ClusterReservationList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ContainerCheckpoint(self, request, context):
         """Container
         """
@@ -1539,12 +1610,6 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def ContainerFilesystemExec(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def ContainerFilesystemExecGetOutput(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1845,6 +1910,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def FunctionCallCount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def FunctionCallFetch(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1939,6 +2010,12 @@ class ModalClientServicer(object):
     def FunctionGetInputs(self, request, context):
         """For containers to request next call
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def FunctionGetMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2060,6 +2137,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ImageNameDelete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ImagePublish(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2091,6 +2174,13 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def MetricsGetInfo(self, request, context):
+        """Metrics discovery
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def MountBatchedCheckExistence(self, request, context):
         """Mounts
         """
@@ -2113,6 +2203,31 @@ class ModalClientServicer(object):
     def NotebookKernelPublishResults(self, request, context):
         """Notebooks
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PersistentSandboxCreate(self, request, context):
+        """Persistent sandboxes
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PersistentSandboxGet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PersistentSandboxResume(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def PersistentSandboxTerminate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2476,9 +2591,21 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ServerGetTimeRangeStats(self, request, context):
+    def ServerCountRequests(self, request, context):
         """Servers
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServerGetMetrics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServerGetTimeRangeStats(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2489,9 +2616,27 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ServiceUserList(self, request, context):
+    def ServiceUserCreate(self, request, context):
         """Service users
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServiceUserDelete(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServiceUserInfo(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServiceUserList(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -3031,6 +3176,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ClusterListRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ClusterListResponse.SerializeToString,
             ),
+            'ClusterReservationList': grpc.unary_unary_rpc_method_handler(
+                    servicer.ClusterReservationList,
+                    request_deserializer=modal__proto_dot_api__pb2.ClusterReservationListRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ClusterReservationListResponse.SerializeToString,
+            ),
             'ContainerCheckpoint': grpc.unary_unary_rpc_method_handler(
                     servicer.ContainerCheckpoint,
                     request_deserializer=modal__proto_dot_api__pb2.ContainerCheckpointRequest.FromString,
@@ -3060,11 +3210,6 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.ContainerFilesystemExec,
                     request_deserializer=modal__proto_dot_api__pb2.ContainerFilesystemExecRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ContainerFilesystemExecResponse.SerializeToString,
-            ),
-            'ContainerFilesystemExecGetOutput': grpc.unary_stream_rpc_method_handler(
-                    servicer.ContainerFilesystemExecGetOutput,
-                    request_deserializer=modal__proto_dot_api__pb2.ContainerFilesystemExecGetOutputRequest.FromString,
-                    response_serializer=modal__proto_dot_api__pb2.FilesystemRuntimeOutputBatch.SerializeToString,
             ),
             'ContainerHeartbeat': grpc.unary_unary_rpc_method_handler(
                     servicer.ContainerHeartbeat,
@@ -3306,6 +3451,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCallCancelRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'FunctionCallCount': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionCallCount,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionCallCountRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FunctionCallCountResponse.SerializeToString,
+            ),
             'FunctionCallFetch': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionCallFetch,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionCallFetchRequest.FromString,
@@ -3385,6 +3535,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.FunctionGetInputs,
                     request_deserializer=modal__proto_dot_api__pb2.FunctionGetInputsRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.FunctionGetInputsResponse.SerializeToString,
+            ),
+            'FunctionGetMetrics': grpc.unary_unary_rpc_method_handler(
+                    servicer.FunctionGetMetrics,
+                    request_deserializer=modal__proto_dot_api__pb2.FunctionGetMetricsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.FunctionGetMetricsResponse.SerializeToString,
             ),
             'FunctionGetOutputs': grpc.unary_unary_rpc_method_handler(
                     servicer.FunctionGetOutputs,
@@ -3481,6 +3636,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ImageListTagsRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ImageListTagsResponse.SerializeToString,
             ),
+            'ImageNameDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageNameDelete,
+                    request_deserializer=modal__proto_dot_api__pb2.ImageNameDeleteRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
             'ImagePublish': grpc.unary_unary_rpc_method_handler(
                     servicer.ImagePublish,
                     request_deserializer=modal__proto_dot_api__pb2.ImagePublishRequest.FromString,
@@ -3506,6 +3666,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.SerializeToString,
             ),
+            'MetricsGetInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.MetricsGetInfo,
+                    request_deserializer=modal__proto_dot_api__pb2.MetricsGetInfoRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.MetricsGetInfoResponse.SerializeToString,
+            ),
             'MountBatchedCheckExistence': grpc.unary_unary_rpc_method_handler(
                     servicer.MountBatchedCheckExistence,
                     request_deserializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceRequest.FromString,
@@ -3525,6 +3690,26 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.NotebookKernelPublishResults,
                     request_deserializer=modal__proto_dot_api__pb2.NotebookKernelPublishResultsRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'PersistentSandboxCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.PersistentSandboxCreate,
+                    request_deserializer=modal__proto_dot_api__pb2.PersistentSandboxCreateRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.PersistentSandboxCreateResponse.SerializeToString,
+            ),
+            'PersistentSandboxGet': grpc.unary_unary_rpc_method_handler(
+                    servicer.PersistentSandboxGet,
+                    request_deserializer=modal__proto_dot_api__pb2.PersistentSandboxGetRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.PersistentSandboxGetResponse.SerializeToString,
+            ),
+            'PersistentSandboxResume': grpc.unary_unary_rpc_method_handler(
+                    servicer.PersistentSandboxResume,
+                    request_deserializer=modal__proto_dot_api__pb2.PersistentSandboxResumeRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.PersistentSandboxResumeResponse.SerializeToString,
+            ),
+            'PersistentSandboxTerminate': grpc.unary_unary_rpc_method_handler(
+                    servicer.PersistentSandboxTerminate,
+                    request_deserializer=modal__proto_dot_api__pb2.PersistentSandboxTerminateRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.PersistentSandboxTerminateResponse.SerializeToString,
             ),
             'ProxyAddIp': grpc.unary_unary_rpc_method_handler(
                     servicer.ProxyAddIp,
@@ -3821,6 +4006,16 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.SecretUpdateRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
+            'ServerCountRequests': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServerCountRequests,
+                    request_deserializer=modal__proto_dot_api__pb2.ServerCountRequestsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ServerCountRequestsResponse.SerializeToString,
+            ),
+            'ServerGetMetrics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServerGetMetrics,
+                    request_deserializer=modal__proto_dot_api__pb2.ServerGetMetricsRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ServerGetMetricsResponse.SerializeToString,
+            ),
             'ServerGetTimeRangeStats': grpc.unary_unary_rpc_method_handler(
                     servicer.ServerGetTimeRangeStats,
                     request_deserializer=modal__proto_dot_api__pb2.ServerGetTimeRangeStatsRequest.FromString,
@@ -3830,6 +4025,21 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.ServerRequestFetch,
                     request_deserializer=modal__proto_dot_api__pb2.ServerRequestFetchRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ServerRequestFetchResponse.SerializeToString,
+            ),
+            'ServiceUserCreate': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServiceUserCreate,
+                    request_deserializer=modal__proto_dot_api__pb2.ServiceUserCreateRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ServiceUserCreateResponse.SerializeToString,
+            ),
+            'ServiceUserDelete': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServiceUserDelete,
+                    request_deserializer=modal__proto_dot_api__pb2.ServiceUserDeleteRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'ServiceUserInfo': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServiceUserInfo,
+                    request_deserializer=modal__proto_dot_api__pb2.ServiceUserInfoRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.ServiceUserInfoResponse.SerializeToString,
             ),
             'ServiceUserList': grpc.unary_unary_rpc_method_handler(
                     servicer.ServiceUserList,
@@ -4732,6 +4942,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ClusterReservationList(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ClusterReservationList',
+            modal__proto_dot_api__pb2.ClusterReservationListRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ClusterReservationListResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ContainerCheckpoint(request,
             target,
             options=(),
@@ -4830,23 +5057,6 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ContainerFilesystemExec',
             modal__proto_dot_api__pb2.ContainerFilesystemExecRequest.SerializeToString,
             modal__proto_dot_api__pb2.ContainerFilesystemExecResponse.FromString,
-            options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def ContainerFilesystemExecGetOutput(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_stream(request, target, '/modal.client.ModalClient/ContainerFilesystemExecGetOutput',
-            modal__proto_dot_api__pb2.ContainerFilesystemExecGetOutputRequest.SerializeToString,
-            modal__proto_dot_api__pb2.FilesystemRuntimeOutputBatch.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -5667,6 +5877,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def FunctionCallCount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionCallCount',
+            modal__proto_dot_api__pb2.FunctionCallCountRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FunctionCallCountResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def FunctionCallFetch(request,
             target,
             options=(),
@@ -5935,6 +6162,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionGetInputs',
             modal__proto_dot_api__pb2.FunctionGetInputsRequest.SerializeToString,
             modal__proto_dot_api__pb2.FunctionGetInputsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def FunctionGetMetrics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/FunctionGetMetrics',
+            modal__proto_dot_api__pb2.FunctionGetMetricsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.FunctionGetMetricsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -6262,6 +6506,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ImageNameDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ImageNameDelete',
+            modal__proto_dot_api__pb2.ImageNameDeleteRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ImagePublish(request,
             target,
             options=(),
@@ -6347,6 +6608,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def MetricsGetInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/MetricsGetInfo',
+            modal__proto_dot_api__pb2.MetricsGetInfoRequest.SerializeToString,
+            modal__proto_dot_api__pb2.MetricsGetInfoResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def MountBatchedCheckExistence(request,
             target,
             options=(),
@@ -6411,6 +6689,74 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/NotebookKernelPublishResults',
             modal__proto_dot_api__pb2.NotebookKernelPublishResultsRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PersistentSandboxCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/PersistentSandboxCreate',
+            modal__proto_dot_api__pb2.PersistentSandboxCreateRequest.SerializeToString,
+            modal__proto_dot_api__pb2.PersistentSandboxCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PersistentSandboxGet(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/PersistentSandboxGet',
+            modal__proto_dot_api__pb2.PersistentSandboxGetRequest.SerializeToString,
+            modal__proto_dot_api__pb2.PersistentSandboxGetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PersistentSandboxResume(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/PersistentSandboxResume',
+            modal__proto_dot_api__pb2.PersistentSandboxResumeRequest.SerializeToString,
+            modal__proto_dot_api__pb2.PersistentSandboxResumeResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def PersistentSandboxTerminate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/PersistentSandboxTerminate',
+            modal__proto_dot_api__pb2.PersistentSandboxTerminateRequest.SerializeToString,
+            modal__proto_dot_api__pb2.PersistentSandboxTerminateResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -7418,6 +7764,40 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ServerCountRequests(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServerCountRequests',
+            modal__proto_dot_api__pb2.ServerCountRequestsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ServerCountRequestsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ServerGetMetrics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServerGetMetrics',
+            modal__proto_dot_api__pb2.ServerGetMetricsRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ServerGetMetricsResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ServerGetTimeRangeStats(request,
             target,
             options=(),
@@ -7448,6 +7828,57 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServerRequestFetch',
             modal__proto_dot_api__pb2.ServerRequestFetchRequest.SerializeToString,
             modal__proto_dot_api__pb2.ServerRequestFetchResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ServiceUserCreate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServiceUserCreate',
+            modal__proto_dot_api__pb2.ServiceUserCreateRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ServiceUserCreateResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ServiceUserDelete(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServiceUserDelete',
+            modal__proto_dot_api__pb2.ServiceUserDeleteRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ServiceUserInfo(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ServiceUserInfo',
+            modal__proto_dot_api__pb2.ServiceUserInfoRequest.SerializeToString,
+            modal__proto_dot_api__pb2.ServiceUserInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

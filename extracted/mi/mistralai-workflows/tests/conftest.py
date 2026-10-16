@@ -1,5 +1,8 @@
+from collections.abc import Iterator
+
 import pytest
 
+from mistralai.workflows.core.config.config import config
 from mistralai.workflows.testing.fixtures import (
     clear_dependency_cache,  # noqa: F401
     disable_otel_export,  # noqa: F401
@@ -33,6 +36,18 @@ tQoXv2H2buTIrRAQi93rMaK8DJ/feZpifdO0ds5wQQztFlVLk5SWYeZ/oQ6iemNs
 BNMg
 -----END CERTIFICATE-----
 """
+
+
+@pytest.fixture
+def restore_config_sections() -> Iterator[None]:
+    """Put back the config sections that `run_worker` swaps for copies when it restores the config.
+
+    Fixtures and patches restore values on the section objects they changed, so the config is only
+    clean again once those objects are back in place.
+    """
+    sections = dict(config.__dict__)
+    yield
+    config.__dict__.update(sections)
 
 
 @pytest.fixture

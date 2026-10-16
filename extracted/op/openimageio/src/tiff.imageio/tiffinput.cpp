@@ -52,12 +52,8 @@
 #    define OIIO_TIFFLIB_VERSION 40200
 #elif TIFFLIB_VERSION >= 20191103
 #    define OIIO_TIFFLIB_VERSION 40100
-#elif TIFFLIB_VERSION >= 20120922
-#    define OIIO_TIFFLIB_VERSION 40003
-#elif TIFFLIB_VERSION >= 20111221
-#    define OIIO_TIFFLIB_VERSION 40000
 #else
-#    error "libtiff 4.0.0 or later is required"
+#    error "libtiff 4.1.0 or later is required"
 #endif
 // clang-format on
 
@@ -271,6 +267,15 @@ private:
         return TIFFFindField(m_tif, tifftag, tifftype);
     }
 
+    // libtiff gives unknown tags whatever type code the file claims, which
+    // may not be a valid TIFFDataType.
+    static TIFFDataType field_datatype(const TIFFField* field)
+    {
+        int t = int(TIFFFieldDataType(field));
+        return (t > TIFF_NOTYPE && t <= TIFF_IFD8) ? TIFFDataType(t)
+                                                   : TIFF_NOTYPE;
+    }
+
     OIIO_NODISCARD
     TypeDesc tiffgetfieldtype(int tag, OIIO_MAYBE_UNUSED string_view name = "",
                               int* readcount_             = nullptr,
@@ -280,7 +285,7 @@ private:
         auto field = find_field(tag);
         if (!field)
             return TypeUnknown;
-        auto tiffdatatype = TIFFFieldDataType(field);
+        auto tiffdatatype = field_datatype(field);
         int readcount     = TIFFFieldReadCount(field);
         int passcount     = TIFFFieldPassCount(field);
         TypeDesc type     = tiff_datatype_to_typedesc(tiffdatatype,
@@ -335,7 +340,7 @@ private:
         auto field = find_field(tag);
         if (!field)
             return false;
-        TIFFDataType tiffdatatype = TIFFFieldDataType(field);
+        TIFFDataType tiffdatatype = field_datatype(field);
         int passcount             = TIFFFieldPassCount(field);
         int readcount             = TIFFFieldReadCount(field);
         // Strutil::printf(" tgsf %s tag %d datatype %d passcount %d readcount %d\n",
@@ -518,7 +523,7 @@ private:
             // is the same as we do.
             return;
         }
-        tifftype  = TIFFFieldDataType(info);
+        tifftype  = field_datatype(info);
         int count = TIFFFieldReadCount(info);
         if (tifftype == TIFF_ASCII) {
             get_string_attribute(oiioname, tifftag);
@@ -824,12 +829,11 @@ static std::pair<int, const char*>  tiff_input_compressions[] = {
     { COMPRESSION_SGILOG,        "sgilog" },      // SGI log luminance RLE
     { COMPRESSION_SGILOG24,      "sgilog24" },    // SGI log 24bit
     { COMPRESSION_JP2000,        "jp2000" },      // Leadtools JPEG2000
-#if defined(TIFF_VERSION_BIG) && OIIO_TIFFLIB_VERSION >= 40003
-    // Others supported in more recent TIFF library versions.
     { COMPRESSION_T85,           "T85" },         // TIFF/FX T.85 JBIG
     { COMPRESSION_T43,           "T43" },         // TIFF/FX T.43 color layered JBIG
     { COMPRESSION_LZMA,          "lzma" },        // LZMA2
-#endif
+    { COMPRESSION_ZSTD,          "zstd" },        // zstd
+    { COMPRESSION_WEBP,          "webp" },        // webp
 };
 
 // clang-format on
@@ -894,6 +898,8 @@ TIFFInput::open(const std::string& name, ImageSpec& newspec)
 
     bool ok = seek_subimage(0, 0);
     newspec = spec();
+    if (!ok)
+        close();
     return ok;
 }
 
@@ -922,13 +928,16 @@ TIFFInput::open(const std::string& name, ImageSpec& newspec,
 bool
 TIFFInput::seek_subimage(int subimage, int miplevel)
 {
+    // Range check before the "already there" early out, so that the -1 pair
+    // we leave behind on a rejected seek can't satisfy it.
+    if (subimage < 0 || miplevel < 0)  // Illegal
+        return false;
+
     if (subimage == m_subimage && miplevel == m_miplevel) {
         // We're already pointing to the right subimage
         return true;
     }
 
-    if (subimage < 0 || miplevel < 0)  // Illegal
-        return false;
     int orig_subimage = subimage;  // the original request
     if (m_emulate_mipmap) {
         // Emulating MIPmap?  Pretend one subimage, many MIP levels.
@@ -1029,6 +1038,7 @@ TIFFInput::seek_subimage(int subimage, int miplevel)
         m_subimage        = -1;
         m_miplevel        = -1;
         m_actual_subimage = -1;
+        m_spec            = ImageSpec();
         return false;
     }
 }
@@ -1046,13 +1056,6 @@ TIFFInput::readspec_validated(int subimage, bool read_meta)
         errorfmt("No support for this flavor of TIFF file ({})", emsg);
         return false;
     }
-    if (size_t(subimage) >= m_subimage_specs.size())  // make room
-        m_subimage_specs.resize(
-            subimage > 0 ? round_to_multiple(subimage + 1, 4) : 1);
-    if (m_subimage_specs[subimage].undefined()) {
-        // haven't cached this spec yet
-        m_subimage_specs[subimage] = m_spec;
-    }
     if (m_spec.format == TypeDesc::UNKNOWN) {
         errorfmt("No support for data format of \"{}\"", m_filename);
         return false;
@@ -1068,6 +1071,16 @@ TIFFInput::readspec_validated(int subimage, bool read_meta)
                                      : Filesystem::file_size(m_filename);
     if (!check_compression_ratio(m_spec, filesize))
         return false;
+
+    // Only cache the spec once it has passed every check above. spec() reads
+    // this cache without seeking, so a spec we refused must never enter it.
+    if (size_t(subimage) >= m_subimage_specs.size())  // make room
+        m_subimage_specs.resize(
+            subimage > 0 ? round_to_multiple(subimage + 1, 4) : 1);
+    if (m_subimage_specs[subimage].undefined()) {
+        // haven't cached this spec yet
+        m_subimage_specs[subimage] = m_spec;
+    }
 
     return true;
 }
@@ -1349,8 +1362,11 @@ TIFFInput::readspec(bool read_meta)
         TIFFGetField(m_tif, TIFFTAG_ROWSPERSTRIP, &m_rowsperstrip);
         if (m_rowsperstrip > 0) {
             // Only set the attrib if a legit value was found in the file
+            int rpc = std::min(m_rowsperstrip, m_spec.height);
+            if (rpc > 1)
+                m_spec.attribute("oiio:RowsPerChunk", rpc);
             m_spec.attribute("tiff:RowsPerStrip", m_rowsperstrip);
-            m_rowsperstrip = std::min(m_rowsperstrip, m_spec.height);
+            m_rowsperstrip = rpc;
         } else {
             // Default if not found is "one strip for the whole image"
             m_rowsperstrip = m_spec.height;
@@ -1744,13 +1760,13 @@ TIFFInput::readspec_photometric()
     // to handle, we use libtiff's TIFFRGBA interface and have it give us 8
     // bit RGB values.
     bool is_jpeg         = (m_compression == COMPRESSION_JPEG
-                    || m_compression == COMPRESSION_OJPEG);
+                            || m_compression == COMPRESSION_OJPEG);
     bool is_nonspectral  = (m_photometric == PHOTOMETRIC_YCBCR
-                           || m_photometric == PHOTOMETRIC_CIELAB
-                           || m_photometric == PHOTOMETRIC_ICCLAB
-                           || m_photometric == PHOTOMETRIC_ITULAB
-                           || m_photometric == PHOTOMETRIC_LOGL
-                           || m_photometric == PHOTOMETRIC_LOGLUV);
+                            || m_photometric == PHOTOMETRIC_CIELAB
+                            || m_photometric == PHOTOMETRIC_ICCLAB
+                            || m_photometric == PHOTOMETRIC_ITULAB
+                            || m_photometric == PHOTOMETRIC_LOGL
+                            || m_photometric == PHOTOMETRIC_LOGLUV);
     m_use_rgba_interface = false;
     m_rgbadata.clear();
     if ((is_jpeg && m_spec.nchannels != 3)
@@ -2280,8 +2296,8 @@ TIFFInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
     int planes     = m_separate ? m_spec.nchannels : 1;  // color planes
     // N.B. "separate" planarconfig stores only one channel in a strip
     // Be careful of 32 bit overflow.
-    imagesize_t stripvals = imagesize_t(m_spec.width) * stripchans
-                            * m_rowsperstrip;  // values in a strip
+    imagesize_t stripvals   = imagesize_t(m_spec.width) * stripchans
+                              * m_rowsperstrip;  // values in a strip
     imagesize_t strip_bytes = stripvals * m_spec.format.size();
     size_t cbound           = compressBound((uLong)strip_bytes);
     std::unique_ptr<char[]> compressed_scratch;
@@ -2337,10 +2353,10 @@ TIFFInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
         int strips_in_file = (m_spec.height + m_rowsperstrip - 1)
                              / m_rowsperstrip;
         for (size_t stripidx = 0; y < yend; y += m_rowsperstrip, ++stripidx) {
-            int myrps               = std::min(yend - y, m_rowsperstrip);
-            int strip_endy          = std::min(y + m_rowsperstrip, yend);
-            imagesize_t mystripvals = imagesize_t(m_spec.width) * stripchans
-                                      * (strip_endy - y);
+            int myrps                 = std::min(yend - y, m_rowsperstrip);
+            int strip_endy            = std::min(y + m_rowsperstrip, yend);
+            imagesize_t mystripvals   = imagesize_t(m_spec.width) * stripchans
+                                        * (strip_endy - y);
             imagesize_t mystrip_bytes = mystripvals * m_spec.format.size();
             for (int c = 0; c < planes; ++c) {
                 tstrip_t stripnum = ((y - m_spec.y) / m_rowsperstrip)

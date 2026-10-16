@@ -284,21 +284,11 @@ class Agent:
         if self._variables_applied and not force:
             return self
 
-        # Build final values dict (variable_values + defaults)
-        final_values = {}
+        # THE one composition (agents.variables.compose_variable_values), the same every
+        # door runs: non-empty explicit value > saved default > "" for each declared name.
+        from matrx_ai.agents.variables import compose_variable_values
 
-        for var_name, var_def in self.variable_defaults.items():
-            if var_name in self.variable_values:
-                # Use explicitly set value
-                final_values[var_name] = self.variable_values[var_name]
-            else:
-                # Use AgentVariable.get_value() to handle defaults and required
-                final_values[var_name] = var_def.get_value()
-
-        # Also include any variable_values that aren't in variable_defaults
-        for var_name, var_value in self.variable_values.items():
-            if var_name not in final_values:
-                final_values[var_name] = var_value
+        final_values = compose_variable_values(self.variable_defaults, self.variable_values)
 
         # Resolve explicit automatic-assignment markers from the trusted variable definition.
         # Structured-list choices become internal picklist refs and flow through the existing
@@ -593,9 +583,9 @@ class Agent:
         # Defaults are executable configuration too. In particular, a saved
         # document file_id must fill a template document block even when an
         # agent is invoked directly with no caller-provided variables.
-        if (
-            self.variable_values or self.variable_defaults or self.config.prompt_blocks
-        ) and not self._variables_applied:
+        # Always, on the first execution: the first-turn pass also turns ``{{!x}}`` into
+        # ``{{x}}`` and evaluates sections for an agent with no variables at all.
+        if not self._variables_applied:
             # The pre-substitution step first (a ``sources`` value becomes text).
             await self.prepare_variables()
             self.apply_variables()

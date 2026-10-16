@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agenticstar-platform"
-version = "3.1.0"
+version = "3.1.2"
 description = "AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure"
 readme = "README.md"
 license = "MIT"
@@ -57,7 +57,7 @@ rag = [
     # 1.13.0 未満は QdrantClient が check_compatibility 引数を受け付けない
     # （QdrantManager は auth / 非 auth 両経路でこの引数を渡す）
     "qdrant-client>=1.13.0",
-    "openai>=1.0.0",
+    "openai>=1.10.0",  # embeddings の dimensions (3.1.1)
 ]
 # ストレージはプロバイダー別にインストール可能
 storage = [
@@ -91,7 +91,7 @@ all = [
     "asyncpg>=0.29.0",
     "azure-identity>=1.15.0",
     "qdrant-client>=1.13.0",
-    "openai>=1.0.0",
+    "openai>=1.10.0",  # embeddings の dimensions (3.1.1)
     "azure-storage-blob>=12.19.0",
     "boto3>=1.34.0",
     "google-cloud-storage>=2.14.0",
@@ -125,7 +125,7 @@ lab = [
     "asyncpg>=0.29.0",
     "azure-identity>=1.15.0",
     "qdrant-client>=1.13.0",
-    "openai>=1.0.0",
+    "openai>=1.10.0",  # embeddings の dimensions (3.1.1)
     "boto3>=1.34.0",
 ]
 

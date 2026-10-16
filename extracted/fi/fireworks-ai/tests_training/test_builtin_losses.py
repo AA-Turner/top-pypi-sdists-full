@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import get_args
 
+import pytest
+
 from fireworks.training.sdk._core.lib._pydantic_conv import to_pydantic_input
 from fireworks.training.sdk.types.forward_backward_input import ForwardBackwardInput
 from fireworks.training.sdk.types._pydantic_types.forward_backward_input import (
@@ -21,6 +23,7 @@ class TestBuiltinLossFunctions:
         assert "dapo" in loss_fns
         assert "gspo" in loss_fns
         assert "dppo" in loss_fns
+        assert "reinforce" in loss_fns
 
     def test_gspo_validates(self):
         request = PydanticForwardBackwardInput(data=[], loss_fn="gspo")
@@ -34,9 +37,16 @@ class TestBuiltinLossFunctions:
         request = PydanticForwardBackwardInput(data=[], loss_fn="dapo")
         assert request.loss_fn == "dapo"
 
-    def test_dataclass_to_pydantic_conversion_preserves_fireworks_builtin_loss(self):
-        request = ForwardBackwardInput(data=[], loss_fn="gspo")
+    @pytest.mark.parametrize("loss_fn", ["gspo", "reinforce"])
+    def test_dataclass_to_pydantic_conversion_preserves_fireworks_builtin_loss(self, loss_fn: str) -> None:
+        config = (
+            {"score_centering": True, "weighting": "tis", "target_logprob_support": "sampling_support"}
+            if loss_fn == "reinforce"
+            else {"clip_high_threshold": 1.2}
+        )
+        request = ForwardBackwardInput(data=[], loss_fn=loss_fn, loss_fn_config=config)
 
         pydantic_request = to_pydantic_input(request)
 
-        assert pydantic_request.loss_fn == "gspo"
+        assert pydantic_request.loss_fn == loss_fn
+        assert pydantic_request.loss_fn_config == config

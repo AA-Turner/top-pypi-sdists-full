@@ -58,11 +58,32 @@ def _filter_countries(attribute_df, name_country, ax):
     return attribute_df
 
 
+def class_edges(vmin, vmax, step):
+    """Class edges vmin, vmin+step, ..., vmax (vmax snapped up to the step)."""
+    n = max(1, int(np.ceil((vmax - vmin) / step - 1e-9)))
+    return [round(vmin + i * step, 10) for i in range(n + 1)]
+
+
 def _compute_norm(df, attribute_df, merge_col, name_col, series, vmin, vmax,
-                  classify_by, continuous_colorbar, cmap, fixed_range=False):
-    """Merge data with shapefile, compute classification breaks and norm."""
+                  classify_by, continuous_colorbar, cmap, fixed_range=False,
+                  class_step=None, keep_nan=False):
+    """Merge data with shapefile, compute classification breaks and norm.
+
+    ``class_step``: fixed-width classes from vmin to vmax (a BoundaryNorm, so
+    every value in a class gets one colour and values above vmax take the top
+    class). ``keep_nan``: keep regions whose value is NaN in the merged frame
+    (the dense-map path leaves them unfilled instead of grey; it still needs
+    them to count the map's regions).
+    """
     df_comb = gpd.GeoDataFrame(df.merge(attribute_df, on=merge_col, suffixes=("", "_y")), geometry="geometry")
-    df_comb = df_comb.dropna(subset=[name_col])
+    if not keep_nan:
+        df_comb = df_comb.dropna(subset=[name_col])
+
+    if class_step and series != "qualitative":
+        from matplotlib.colors import BoundaryNorm
+        breaks = class_edges(vmin, vmax, class_step)
+        norm = BoundaryNorm(breaks, ncolors=cmap.mpl_colormap.N, clip=True)
+        return df_comb, norm, breaks
 
     if fixed_range:
         breaks = list(np.linspace(vmin, vmax, 11))
@@ -465,6 +486,50 @@ def _gmt_available():
 #: (~50 states) stay well under it, so they keep their labels.
 _ANNOTATE_MAX_REGIONS = 200
 
+#: Above this many polygons a map is "dense" (county / municipality scale):
+#: hairline unit outlines, state lines from the admin-1 file, units with no
+#: data left white, water tinted. Same count as the label cap: both are the
+#: point where per-unit decoration stops being readable.
+_DENSE_MAP_REGIONS = _ANNOTATE_MAX_REGIONS
+
+#: Admin-1 polygons (ADM0_NAME, ADM1_NAME, geometry) for the state lines on
+#: dense maps. Set once per run via :func:`set_admin1_boundaries`; None falls
+#: back to GMT's border level 2.
+_ADMIN1_BOUNDARIES = None
+
+
+def set_admin1_boundaries(gdf):
+    """Admin-1 polygons for the state and national lines on dense maps.
+
+    The unit file at admin_2 often covers only the modelled units (Brazil's
+    holds 2,884 soybean municipalities of ~5,570), so states cannot be
+    dissolved from it: the union outlines scattered fragments. ``None``
+    clears it.
+    """
+    global _ADMIN1_BOUNDARIES
+    _ADMIN1_BOUNDARIES = gdf
+
+
+def _admin1_line_frames(name_country):
+    """(state lines, national outline) for the mapped countries, or (None, None)."""
+    a1 = _ADMIN1_BOUNDARIES
+    if a1 is None or len(a1) == 0:
+        return None, None
+    if name_country and name_country != "world" and "ADM0_NAME" in a1.columns:
+        want = {str(c).replace("_", " ").lower() for c in name_country}
+        a1 = a1[a1["ADM0_NAME"].astype(str).str.replace("_", " ").str.lower().isin(want)]
+        if a1.empty:
+            return None, None
+    a1 = a1[a1.geometry.notna() & ~a1.geometry.is_empty]
+    if a1.crs is not None and a1.crs.to_epsg() != 4326:
+        a1 = a1.to_crs(4326)  # GMT reads the GeoJSON as lon/lat
+    states = gpd.GeoDataFrame(geometry=a1.geometry.boundary.simplify(0.01), crs=a1.crs)
+    nation = a1.dissolve(by="ADM0_NAME") if "ADM0_NAME" in a1.columns else a1.dissolve()
+    national = gpd.GeoDataFrame(
+        geometry=nation.geometry.boundary.simplify(0.01), crs=a1.crs
+    ).reset_index(drop=True)
+    return states, national
+
 #: Master switch for the geometry-aware label-fit heuristic below. Set from
 #: ``[ML] annotate_regions_auto`` (default True) via :func:`set_auto_label_fit`.
 #: When False, ``annotate_regions`` is honoured literally and labels are drawn
@@ -585,7 +650,8 @@ def _plot_map_pygmt(
     dir_out, fname, title, label, vmin, vmax, cmap, series,
     do_borders, annotate_regions, annotate_region_column,
     continuous_colorbar, classify_by, fixed_range, use_key,
-    annotate_values=False, value_fmt="{:.1f}",
+    annotate_values=False, value_fmt="{:.1f}", class_step=None,
+    extend="neither",
 ):
     """Render the same choropleth as ``plot_map`` using PyGMT.
 
@@ -614,8 +680,13 @@ def _plot_map_pygmt(
     df_comb, norm, breaks = _compute_norm(
         df, adf, merge_col, name_col, series, vmin, vmax,
         classify_by, continuous_colorbar, cmap, fixed_range,
+        class_step=class_step, keep_nan=True,
     )
     gdf = gpd.GeoDataFrame(df_comb, geometry="geometry")
+    # Counted before NaN regions are dropped: a municipality map stays dense
+    # even in a year when many units have no forecast.
+    dense = len(gdf) > _DENSE_MAP_REGIONS
+    gdf = gdf.dropna(subset=[name_col])
     if gdf.empty:
         logger.warning(f"pygmt map: no data after merge for {fname}; skipping.")
         return
@@ -641,7 +712,9 @@ def _plot_map_pygmt(
     gdf = gdf[gdf["_fill"].notna()].copy()
     if gdf.empty:
         return
-    gdf["geometry"] = gdf.geometry.simplify(0.01)
+    # ~1 km tolerance distorts the small municipalities of southern Brazil
+    # (and opens slivers between neighbours), so dense maps simplify less.
+    gdf["geometry"] = gdf.geometry.simplify(0.002 if dense else 0.01)
 
     cols_keep = ["_fill", "geometry"]
     if (annotate_regions or annotate_values) and annotate_region_column in gdf.columns:
@@ -675,6 +748,16 @@ def _plot_map_pygmt(
             "colors": [to_hex(_normalize_color(c)) for c in allcols][:len(cat_labels)],
             "cat_labels": cat_labels,
         }
+    elif class_step and breaks is not None:
+        # One swatch per class, coloured exactly as _fill_for colours a value
+        # inside it (the class midpoint through the same BoundaryNorm).
+        mids = [(lo + hi) / 2 for lo, hi in zip(breaks[:-1], breaks[1:])]
+        cbar = {
+            "type": "classes",
+            "colors": [to_hex(cmap.mpl_colormap(norm(m))) for m in mids],
+            "edges": [float(b) for b in breaks],
+            "extend": extend,
+        }
     elif not (np.isnan(vmin) or np.isnan(vmax)) and breaks is not None:
         cbar = {
             "type": "continuous",
@@ -683,6 +766,12 @@ def _plot_map_pygmt(
         }
     else:
         cbar = {"type": "none"}
+
+    # Dense maps draw the states from the project's admin-1 file when one was
+    # registered (set_admin1_boundaries); otherwise GMT border level 2.
+    states_gdf, national_gdf = (
+        _admin1_line_frames(name_country) if dense else (None, None)
+    )
 
     params = {
         "out_path": str(Path(dir_out) / fname),
@@ -703,7 +792,8 @@ def _plot_map_pygmt(
         # Draw admin_1 (state/province) boundaries so individual units are
         # separable when the choropleth itself is drawn at admin_2. Slim, and
         # only above the ~county-count threshold where it is actually needed.
-        "admin1_borders": len(gdf) > _ANNOTATE_MAX_REGIONS,
+        "admin1_borders": dense,
+        "dense": dense,
         "colorbar": cbar,
     }
 
@@ -713,6 +803,13 @@ def _plot_map_pygmt(
         gj = os.path.join(tmpdir, "data.geojson")
         pj = os.path.join(tmpdir, "params.json")
         gdf[cols_keep].to_file(gj, driver="GeoJSON")
+        if states_gdf is not None:
+            # OGR_GMT, not GeoJSON: GMT reads a .geojson as a text table and
+            # truncates each record at 4,094 bytes, dropping the lines silently.
+            params["admin1_lines"] = os.path.join(tmpdir, "admin1.gmt")
+            params["national_lines"] = os.path.join(tmpdir, "national.gmt")
+            states_gdf.to_file(params["admin1_lines"], driver="OGR_GMT")
+            national_gdf.to_file(params["national_lines"], driver="OGR_GMT")
         # params.json is written in BOTH branches: only the subprocess bridge
         # reads it, but branching the write buys nothing over one extra file
         # in a dir that is removed below anyway.
@@ -778,6 +875,7 @@ def plot_map(
     fixed_range=None,
     ax=None,
     backend="pygmt",
+    class_step=None,
 ):
     """Plot a choropleth map of regions colored by a data variable.
 
@@ -807,6 +905,14 @@ def plot_map(
         classify_by: "region" (quantiles) or "value" (Fisher-Jenks).
         extend: Colorbar extend arrows ("neither", "both", "min", "max").
         fixed_range: Force colorbar to use exact vmin/vmax range. Default True for diverging.
+        class_step: Fixed-width colour classes from vmin to vmax (e.g. 0.5 for
+            0, 0.5, ..., 5). Values above vmax take the top class; pass
+            ``extend="max"`` to draw the end cap for them.
+
+    Maps with more than ``_DENSE_MAP_REGIONS`` units (county / municipality
+    scale) switch on their own to hairline unit outlines, state lines from
+    the admin-1 file registered with :func:`set_admin1_boundaries`, and
+    tinted water (PyGMT backend).
     """
     if fixed_range is None:
         fixed_range = (series == "diverging")
@@ -823,6 +929,7 @@ def plot_map(
                 annotate_regions, annotate_region_column, continuous_colorbar,
                 classify_by, fixed_range, use_key,
                 annotate_values=annotate_values, value_fmt=value_fmt,
+                class_step=class_step, extend=extend,
             )
             return
         except Exception as e:  # noqa: BLE001
@@ -847,6 +954,7 @@ def plot_map(
     df_comb, norm, breaks = _compute_norm(
         df, attribute_df, merge_col, name_col, series, vmin, vmax,
         classify_by, continuous_colorbar, cmap, fixed_range,
+        class_step=class_step,
     )
     # Same rule as the pygmt backend: per-region name labels are unreadable
     # once there are more polygons than _ANNOTATE_MAX_REGIONS (county scale).

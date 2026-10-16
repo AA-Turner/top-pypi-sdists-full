@@ -17,17 +17,18 @@ import tempfile
 import warnings
 from collections import UserDict, defaultdict
 from collections.abc import Callable as ABCCallable
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from contextlib import ExitStack, nullcontext, suppress
 from dataclasses import Field as DataclassField
+from dataclasses import is_dataclass
 from decimal import Decimal
 from functools import partial
 from http.server import ThreadingHTTPServer
 from operator import itemgetter
 from pathlib import Path, PurePath
 from threading import Thread
-from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, get_args, get_type_hints
+from types import MappingProxyType, UnionType
+from typing import TYPE_CHECKING, Any, get_args, get_origin, get_type_hints
 from urllib.parse import urlparse
 
 import black
@@ -74,11 +75,6 @@ from datamodel_code_generator.model import base as model_base
 from datamodel_code_generator.model import get_data_model_types
 from datamodel_code_generator.model.base import TEMPLATE_DIR
 from datamodel_code_generator.model.msgspec import DataModelField as MsgspecDataModelField
-from datamodel_code_generator.model.pydantic_v2.version import (
-    PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK,
-    PYDANTIC_V2_DATACLASS_TYPE_ALIAS_NEEDS_FALLBACK,
-    PYDANTIC_V2_ROOT_MODEL_DICT_KEY_FORWARD_REF_NEEDS_SORTING,
-)
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
 from tests.conftest import (
     HttpxGetMockFactory,
@@ -106,11 +102,13 @@ from tests.main.conftest import (
     DATA_PATH,
     DEFAULT_VALUES_DATA_PATH,
     EXPECTED_MAIN_PATH,
+    EXPERIMENTAL_MISSING_IMPORT_WARNING,
     GRAPHQL_DATA_PATH,
     JSON_DATA_PATH,
     JSON_SCHEMA_DATA_PATH,
     LEGACY_BLACK_SKIP,
     MSGSPEC_LEGACY_BLACK_SKIP,
+    TARGET_PYDANTIC_VERSION_CASES,
     TIMESTAMP,
     _assert_model_json_invalid,
     _assert_python_module_importable,
@@ -121,12 +119,15 @@ from tests.main.conftest import (
     _uses_external_test_default_formatter,
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
+    installed_pydantic_runs_target,
     run_generate_and_assert,
     run_generate_file_and_assert,
     run_main_and_assert,
     run_main_url_and_assert,
     run_main_with_args,
     run_main_with_system_exit,
+    target_pydantic_args,
+    target_pydantic_expected_suffix,
 )
 from tests.main.jsonschema.conftest import EXPECTED_JSON_SCHEMA_PATH, assert_file_content
 
@@ -286,6 +287,7 @@ def _keep_model_order_field_references_expected_file(
 
 
 def _install_test_my_app(base_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make a `my_app` package importable for one test; the module cache gets its earlier entry back afterwards."""
     package_dir = base_dir / "my_app"
     package_dir.mkdir()
     (package_dir / "__init__.py").write_text(
@@ -304,6 +306,8 @@ class B(BaseModel):
         encoding="utf-8",
     )
     monkeypatch.syspath_prepend(str(base_dir))
+    monkeypatch.setitem(sys.modules, "my_app", None)
+    monkeypatch.delitem(sys.modules, "my_app")
 
 
 def _run_jsonschema_dict(
@@ -1061,22 +1065,23 @@ def test_use_default_pydantic_v2_with_json_schema_const(output_file: Path) -> No
 
 @pytest.mark.cli_doc(
     options=["--use-missing-sentinel"],
-    option_description="""Use Pydantic's MISSING sentinel for optional fields without defaults.
+    option_description="""Use Pydantic's MISSING sentinel for unset optional BaseModel or dataclass fields.
 
 The `--use-missing-sentinel` flag generates `MISSING` as the default for optional
-Pydantic v2 fields that do not define a schema default. This preserves the
-difference between an omitted field and a nullable field set to `None`.""",
+Pydantic v2 BaseModel or dataclass fields that do not define a schema default. This
+preserves the difference between an omitted field and a nullable field set to `None`.""",
     input_schema="jsonschema/missing_sentinel.json",
     cli_args=["--output-model-type", "pydantic_v2.BaseModel", "--use-missing-sentinel"],
     golden_output="jsonschema/missing_sentinel.py",
     related_options=["--target-pydantic-version", "--strict-nullable"],
 )
+@EXPERIMENTAL_MISSING_IMPORT_WARNING
 def test_main_jsonschema_use_missing_sentinel(output_file: Path) -> None:
-    """Use Pydantic's MISSING sentinel for optional fields without defaults.
+    """Use Pydantic's MISSING sentinel for unset optional BaseModel or dataclass fields.
 
     The `--use-missing-sentinel` flag generates `MISSING` as the default for optional
-    Pydantic v2 fields that do not define a schema default. This preserves the
-    difference between an omitted field and a nullable field set to `None`.
+    Pydantic v2 BaseModel or dataclass fields that do not define a schema default. This
+    preserves the difference between an omitted field and a nullable field set to `None`.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "missing_sentinel.json",
@@ -1097,6 +1102,38 @@ def test_main_jsonschema_use_missing_sentinel(output_file: Path) -> None:
         expected_attribute_path=("nullableUnrequired",),
         expected_attribute_value=None,
     )
+
+
+def test_main_jsonschema_use_missing_sentinel_target_pydantic_214(output_file: Path) -> None:
+    """Import MISSING from pydantic for --target-pydantic-version 2.14, where the experimental path is deprecated."""
+    runs = installed_pydantic_runs_target(TargetPydanticVersion.V2_14.value)
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "missing_sentinel.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="missing_sentinel_target_2_14.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-missing-sentinel",
+            "--target-pydantic-version",
+            TargetPydanticVersion.V2_14.value,
+        ],
+        force_exec_validation=True,
+        skip_code_validation=not runs,
+    )
+    if runs:
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="missing_sentinel_target_2_14",
+            model_name="MissingSentinel",
+            valid_json='{"required": 1, "requiredNullable": null, "nullableUnrequired": null}',
+            invalid_json='{"required": 1, "requiredNullable": null, "unrequired": null}',
+            expected_error_type="int_type",
+            expected_attribute_path=("nullableUnrequired",),
+            expected_attribute_value=None,
+        )
 
 
 def test_main_jsonschema_use_missing_sentinel_no_union_operator(output_file: Path) -> None:
@@ -1137,6 +1174,50 @@ def test_main_jsonschema_use_missing_sentinel_explicit_pydantic_v2_12(output_fil
 
 
 @pytest.mark.parametrize(
+    ("extra_args", "expected_file"),
+    [
+        ([], "missing_sentinel_dataclass.py"),
+        (["--use-annotated", "--field-constraints"], "missing_sentinel_dataclass_annotated.py"),
+        (["--frozen-dataclasses", "--keyword-only"], "missing_sentinel_dataclass_frozen.py"),
+    ],
+    ids=["alias-allof", "annotated", "frozen-keyword-only"],
+)
+def test_main_jsonschema_use_missing_sentinel_pydantic_dataclass(
+    extra_args: list[str], expected_file: str, output_file: Path
+) -> None:
+    """Default unset optional Pydantic dataclass fields to MISSING, through aliases, constraints, and inheritance."""
+    runs = installed_pydantic_runs_target(TargetPydanticVersion.V2_14.value)
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "missing_sentinel_dataclass.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--use-missing-sentinel",
+            "--target-pydantic-version",
+            TargetPydanticVersion.V2_14.value,
+            *extra_args,
+        ],
+        force_exec_validation=True,
+        skip_code_validation=not runs,
+    )
+    if runs:
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=expected_file.removesuffix(".py"),
+            model_name="Pet",
+            valid_json='{"id": 1, "name": "a", "owner": null, "pet-age": 3}',
+            invalid_json='{"id": 1, "name": "a", "owner": null, "tag": null}',
+            expected_error_type="string_type",
+            expected_attribute_path=("pet_age",),
+            expected_attribute_value=3,
+        )
+
+
+@pytest.mark.parametrize(
     ("extra_args", "expected_stderr_contains"),
     [
         (
@@ -1151,7 +1232,10 @@ def test_main_jsonschema_use_missing_sentinel_explicit_pydantic_v2_12(output_fil
         ),
         (
             ["--output-model-type", "dataclasses.dataclass", "--use-missing-sentinel"],
-            "`--use-missing-sentinel` is only supported for `--output-model-type pydantic_v2.BaseModel`",
+            (
+                "`--use-missing-sentinel` is only supported for `--output-model-type pydantic_v2.BaseModel` "
+                "or `pydantic_v2.dataclass`"
+            ),
         ),
     ],
 )
@@ -2294,7 +2378,9 @@ def test_main_invalid_enum_name_snake_case_field(output_file: Path) -> None:
     option_description="""Use a Pydantic v2 alias generator in model_config.
 
 The `--alias-generator` option emits a per-model ConfigDict alias generator for
-Pydantic v2 BaseModel output and omits matching per-field aliases.""",
+Pydantic v2 BaseModel output and omits matching per-field aliases. With
+`--target-pydantic-version 2` every field alias is written out, so aliases do not
+depend on the generator of the installed Pydantic.""",
     input_schema="jsonschema/alias_generator.json",
     cli_args=["--snake-case-field", "--alias-generator", "to_camel", "--output-model-type", "pydantic_v2.BaseModel"],
     golden_output="jsonschema/alias_generator_pydantic_v2.py",
@@ -2318,8 +2404,189 @@ def test_main_alias_generator_pydantic_v2(output_file: Path) -> None:
     )
 
 
-def test_main_alias_generator_requires_pydantic_v2(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Reject --alias-generator for non-Pydantic v2 output models."""
+def test_main_alias_generator_keeps_camel_case_names(output_file: Path) -> None:
+    """Keep camelCase property names that `to_camel` returns unchanged, without a per-field alias."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="alias_generator_camel_case_names.py",
+        extra_args=[
+            "--alias-generator",
+            "to_camel",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+        ],
+    )
+
+
+@pytest.mark.parametrize("target_pydantic_version", TARGET_PYDANTIC_VERSION_CASES)
+@pytest.mark.parametrize("alias_generator", ["to_camel", "to_pascal", "to_snake"])
+def test_main_alias_generator_target_pydantic_version(
+    output_file: Path, alias_generator: str, target_pydantic_version: str | None
+) -> None:
+    """Pin every model field alias for --target-pydantic-version 2, leaving RootModel roots without one."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator_target_pydantic.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"alias_generator_target_pydantic/{alias_generator}_{target_pydantic_version or 'unset'}.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--alias-generator",
+            alias_generator,
+            *target_pydantic_args(target_pydantic_version),
+        ],
+        force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
+    )
+    payload = (JSON_DATA_PATH / "alias_generator_target_pydantic.json").read_text()
+    with _generated_model(output_file, "alias_generator_target_pydantic", "Account") as model:
+        assert_output(
+            model.model_validate_json(payload).model_dump_json(by_alias=True, indent=2) + "\n",
+            EXPECTED_JSON_SCHEMA_PATH / "alias_generator_target_pydantic" / "round_trip.txt",
+        )
+
+
+@pytest.mark.parametrize("target_pydantic_version", TARGET_PYDANTIC_VERSION_CASES)
+@pytest.mark.parametrize("alias_generator", [None, "to_camel"], ids=["no-generator", "to_camel"])
+def test_main_use_annotated_forward_reference(
+    output_file: Path, alias_generator: str | None, target_pydantic_version: str | None
+) -> None:
+    """Write a field whose type is defined later as an assignment for --target-pydantic-version 2."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "annotated_forward_reference.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=(
+            f"annotated_forward_reference/{alias_generator or 'no_generator'}_{target_pydantic_version or 'unset'}.py"
+        ),
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            *(["--alias-generator", alias_generator] if alias_generator else []),
+            *target_pydantic_args(target_pydantic_version),
+        ],
+        force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
+    )
+    payload = (JSON_DATA_PATH / "annotated_forward_reference.json").read_text()
+    with _generated_model(output_file, "annotated_forward_reference", "Tree") as model:
+        assert_output(
+            model.model_validate_json(payload).model_dump_json(by_alias=True, exclude_none=True, indent=2) + "\n",
+            EXPECTED_JSON_SCHEMA_PATH / "annotated_forward_reference" / "round_trip.txt",
+        )
+
+
+def test_main_use_annotated_forward_reference_eager(output_file: Path) -> None:
+    """Keep Annotated for --target-pydantic-version 2 where annotations are evaluated eagerly."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "annotated_forward_reference.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="annotated_forward_reference/no_generator_2_eager.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-annotated",
+            "--target-pydantic-version",
+            "2",
+            "--disable-future-imports",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize("target_pydantic_version", [None, "2"], ids=["unset", "2"])
+def test_main_use_annotated_forward_reference_dataclass(output_file: Path, target_pydantic_version: str | None) -> None:
+    """Write pydantic dataclass fields whose type is defined later as assignments for --target-pydantic-version 2."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "annotated_forward_reference.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"annotated_forward_reference/dataclass_{target_pydantic_version or 'unset'}.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--use-annotated",
+            *target_pydantic_args(target_pydantic_version),
+        ],
+        force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
+    )
+
+
+def test_main_use_annotated_forward_reference_dataclass_required_order(output_file: Path) -> None:
+    """Keep required pydantic dataclass fields before a forward-referenced field written as an assignment."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "annotated_forward_reference_required_order.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="annotated_forward_reference/dataclass_required_order_2.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--use-annotated",
+            "--target-pydantic-version",
+            "2",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_alias_generator_target_pydantic_version_enum_only(output_file: Path) -> None:
+    """Keep an enum-only module unchanged for --target-pydantic-version 2: enum members take no alias or Field."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "oneof_const_enum.yaml",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="oneof_const_enum.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--alias-generator",
+            "to_camel",
+            "--target-pydantic-version",
+            "2",
+        ],
+    )
+
+
+def test_main_alias_generator_template_data_dataclass_target_pydantic_version(output_file: Path) -> None:
+    """Leave dataclass fields unpinned for --target-pydantic-version 2 when template data names a generator."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="alias_generator_template_data_dataclass_target_2.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--snake-case-field",
+            "--extra-template-data",
+            str(JSON_SCHEMA_DATA_PATH / "extra_data_alias_generator.json"),
+            "--target-pydantic-version",
+            "2",
+        ],
+    )
+
+
+@pytest.mark.parametrize("output_model_type", ["dataclasses.dataclass", "pydantic_v2.dataclass"])
+def test_main_alias_generator_requires_pydantic_v2(
+    output_file: Path, capsys: pytest.CaptureFixture[str], output_model_type: str
+) -> None:
+    """Reject --alias-generator for output models other than Pydantic v2 BaseModel."""
     run_main_with_args(
         [
             "--input",
@@ -2329,7 +2596,7 @@ def test_main_alias_generator_requires_pydantic_v2(output_file: Path, capsys: py
             "--input-file-type",
             "jsonschema",
             "--output-model-type",
-            "dataclasses.dataclass",
+            output_model_type,
             "--alias-generator",
             "to_camel",
         ],
@@ -2341,14 +2608,20 @@ def test_main_alias_generator_requires_pydantic_v2(output_file: Path, capsys: py
     )
 
 
-def test_main_alias_generator_no_alias(output_file: Path) -> None:
-    """Keep --no-alias behavior when --alias-generator is enabled."""
+@pytest.mark.parametrize(
+    ("target_pydantic_version", "expected_file"),
+    [(None, "alias_generator_no_alias.py"), ("2", "alias_generator_no_alias_target_2.py")],
+)
+def test_main_alias_generator_no_alias(
+    output_file: Path, target_pydantic_version: str | None, expected_file: str
+) -> None:
+    """Keep --no-alias behavior when --alias-generator is enabled, pinning the generated aliases for target 2."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
         output_path=output_file,
         input_file_type="jsonschema",
         assert_func=assert_file_content,
-        expected_file="alias_generator_no_alias.py",
+        expected_file=expected_file,
         extra_args=[
             "--snake-case-field",
             "--alias-generator",
@@ -2356,6 +2629,7 @@ def test_main_alias_generator_no_alias(output_file: Path) -> None:
             "--output-model-type",
             "pydantic_v2.BaseModel",
             "--no-alias",
+            *target_pydantic_args(target_pydantic_version),
         ],
     )
 
@@ -2479,6 +2753,831 @@ def test_main_jsonschema_same_name_reference_fields(output_file: Path) -> None:
         expected_attribute_path=("direction", "values", "left", "Foo_1", "x"),
         expected_attribute_value=1,
     )
+
+
+_FIELD_TYPE_COLLISION_PAYLOADS = {
+    "defaults.json": "valid_defaults.json",
+    "other.json": "valid_other.json",
+    "other_before.json": "valid_other.json",
+    "other_before_taken.json": "valid_other.json",
+    "other_before_inherited_taken.json": "valid_other.json",
+}
+
+
+@pytest.mark.parametrize(
+    ("backend", "schema", "target_python_version", "options", "expected_file", "field_name"),
+    [
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "speed.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass.py",
+            "Bar_1",
+            id="pydantic-dataclass",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "speed.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_py314.py",
+            "Bar_1",
+            id="pydantic-dataclass-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_required.py",
+            "Bar",
+            id="pydantic-dataclass-required",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_required_py314.py",
+            "Bar",
+            id="pydantic-dataclass-required-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/pydantic_dataclass_required_no_future_imports.py",
+            "Bar",
+            id="pydantic-dataclass-required-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "described.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_described.py",
+            "Bar_1",
+            id="pydantic-dataclass-described",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "described.json",
+            "3.10",
+            ["--use-annotated"],
+            "field_type_collision_runtime/pydantic_dataclass_described_annotated.py",
+            "Bar",
+            id="pydantic-dataclass-described-annotated",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "inherited.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_inherited.py",
+            "Bar_1",
+            id="pydantic-dataclass-inherited",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "subclass.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_subclass.py",
+            "Bar_1",
+            id="pydantic-dataclass-subclass",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "nullable.json",
+            "3.10",
+            ["--strip-default-none"],
+            "field_type_collision_runtime/pydantic_dataclass_nullable_strip_default_none.py",
+            "Bar_1",
+            id="pydantic-dataclass-nullable-strip-default-none",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.10",
+            ["--dataclass-arguments", '{"slots": true}'],
+            "field_type_collision_runtime/pydantic_dataclass_required_slots.py",
+            "Bar_1",
+            id="pydantic-dataclass-required-slots",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.14",
+            ["--dataclass-arguments", '{"slots": true}'],
+            "field_type_collision_runtime/pydantic_dataclass_required_slots_py314.py",
+            "Bar",
+            id="pydantic-dataclass-required-slots-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.10",
+            ["--disable-future-imports", "--dataclass-arguments", '{"slots": true}'],
+            "field_type_collision_runtime/pydantic_dataclass_required_slots_no_future_imports.py",
+            "Bar",
+            id="pydantic-dataclass-required-slots-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "self_named.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_self_named.py",
+            "Bar",
+            id="pydantic-dataclass-self-named",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "self_named.json",
+            "3.10",
+            ["--target-pydantic-version", "2"],
+            "field_type_collision_runtime/pydantic_dataclass_self_named_pydantic_2.py",
+            "Bar",
+            id="pydantic-dataclass-self-named-pydantic-2",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "self_named.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_self_named_py314.py",
+            "Bar",
+            id="pydantic-dataclass-self-named-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "forward.json",
+            "3.10",
+            ["--use-annotated"],
+            "field_type_collision_runtime/pydantic_dataclass_forward_annotated.py",
+            "Bar",
+            id="pydantic-dataclass-forward-annotated",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "forward.json",
+            "3.10",
+            ["--use-annotated", "--target-pydantic-version", "2"],
+            "field_type_collision_runtime/pydantic_dataclass_forward_annotated_pydantic_2.py",
+            "Bar",
+            id="pydantic-dataclass-forward-annotated-pydantic-2",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "forward.json",
+            "3.10",
+            ["--use-annotated", "--target-pydantic-version", "2", "--dataclass-arguments", '{"slots": true}'],
+            "field_type_collision_runtime/pydantic_dataclass_forward_annotated_pydantic_2_slots.py",
+            "Bar_1",
+            id="pydantic-dataclass-forward-annotated-pydantic-2-slots",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "speed.json",
+            "3.10",
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/pydantic_dataclass_rename_type.py",
+            "Bar",
+            id="pydantic-dataclass-rename-type",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "required.json",
+            "3.10",
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/pydantic_dataclass_required.py",
+            "Bar",
+            id="pydantic-dataclass-required-rename-type",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "other.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_other.py",
+            "Zed",
+            id="pydantic-dataclass-other",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "other.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/pydantic_dataclass_other_py314.py",
+            "Zed",
+            id="pydantic-dataclass-other-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "other.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/pydantic_dataclass_other_no_future_imports.py",
+            "Zed",
+            id="pydantic-dataclass-other-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/base_model_other.py",
+            "Zed",
+            id="base-model-other",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/base_model_other_py314.py",
+            "Zed",
+            id="base-model-other-py314",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other.json",
+            "3.10",
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/base_model_other_rename_type.py",
+            "Zed",
+            id="base-model-other-rename-type",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other_before.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/base_model_other_before_no_future_imports.py",
+            "Zed",
+            id="base-model-other-before-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "other_before.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/pydantic_dataclass_other_before_no_future_imports.py",
+            "Zed",
+            id="pydantic-dataclass-other-before-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other_before_taken.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/base_model_other_before_taken_no_future_imports.py",
+            "Zed",
+            id="base-model-other-before-taken-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other_before_taken.json",
+            "3.10",
+            ["--disable-future-imports", "--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/base_model_other_before_taken_rename_type_no_future_imports.py",
+            "Zed",
+            id="base-model-other-before-taken-rename-type-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            "other_before_taken.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/pydantic_dataclass_other_before_taken_no_future_imports.py",
+            "Zed",
+            id="pydantic-dataclass-other-before-taken-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            "other_before_inherited_taken.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/base_model_other_before_inherited_taken_no_future_imports.py",
+            "Zed",
+            id="base-model-other-before-inherited-taken-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "other.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_other_no_future_imports.py",
+            "Zed",
+            id="msgspec-other-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "speed.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/msgspec.py",
+            "Bar",
+            id="msgspec",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "required.json",
+            "3.10",
+            [],
+            "field_type_collision_runtime/msgspec_required.py",
+            "Bar",
+            id="msgspec-required",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "speed.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/msgspec_py314.py",
+            "Bar",
+            id="msgspec-py314",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "required.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/msgspec_required_py314.py",
+            "Bar",
+            id="msgspec-required-py314",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "later.json",
+            "3.14",
+            [],
+            "field_type_collision_runtime/msgspec_later_py314.py",
+            "Bar",
+            id="msgspec-later-py314",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "speed.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_no_future_imports.py",
+            "Bar",
+            id="msgspec-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "required.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_required_no_future_imports.py",
+            "Bar",
+            id="msgspec-required-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "required.json",
+            "3.14",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_required_py314_no_future_imports.py",
+            "Bar",
+            id="msgspec-required-py314-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "later.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_later_no_future_imports.py",
+            "Bar",
+            id="msgspec-later-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "inherited.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_inherited_no_future_imports.py",
+            "Bar",
+            id="msgspec-inherited-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "defaults.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_defaults_no_future_imports.py",
+            "Bar",
+            id="msgspec-defaults-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "defaults.json",
+            "3.11",
+            ["--disable-future-imports"],
+            "field_type_collision_runtime/msgspec_defaults_py311_no_future_imports.py",
+            "Bar",
+            id="msgspec-defaults-py311-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "later.json",
+            "3.10",
+            ["--use-default-factory-for-optional-nested-models"],
+            "field_type_collision_runtime/msgspec_later_default_factory.py",
+            "Bar",
+            id="msgspec-later-default-factory",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "later.json",
+            "3.10",
+            ["--disable-future-imports", "--use-default-factory-for-optional-nested-models"],
+            "field_type_collision_runtime/msgspec_later_default_factory_no_future_imports.py",
+            "Bar",
+            id="msgspec-later-default-factory-no-future-imports",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "speed.json",
+            "3.11",
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/msgspec_rename_type.py",
+            "Bar",
+            id="msgspec-rename-type",
+        ),
+        pytest.param(
+            DataModelType.MsgspecStruct,
+            "speed.json",
+            "3.14",
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_runtime/msgspec_py314.py",
+            "Bar",
+            id="msgspec-rename-type-py314",
+        ),
+    ],
+)
+def test_main_jsonschema_field_type_collision_runtime(
+    output_file: Path,
+    backend: DataModelType,
+    schema: str,
+    target_python_version: str,
+    options: list[str],
+    expected_file: str,
+    field_name: str,
+) -> None:
+    """Keep a field named like a type of its class unless the class hides the type, on every Python from the target.
+
+    The output runs as an imported module, where its own annotation mode applies.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / schema,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        skip_code_validation=True,
+        extra_args=[
+            "--output-model-type",
+            backend.value,
+            "--target-python-version",
+            target_python_version,
+            "--class-name",
+            "Payload",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *options,
+        ],
+    )
+    if sys.version_info[:2] < tuple(map(int, target_python_version.split("."))):
+        pytest.skip(f"the output targets Python {target_python_version} or later")
+    payload_path = DATA_PATH / "payloads" / "field_type_collision_runtime"
+    with _generated_model(output_file, "field_type_collision_runtime", "Payload") as model:
+        validator = partial(msgspec.json.decode, type=model)
+        error_type = msgspec.ValidationError
+        match backend:
+            case DataModelType.PydanticV2Dataclass | DataModelType.PydanticV2BaseModel:
+                validator = _model_json_validator(model)
+                error_type = ValidationError
+        valid_payload = _FIELD_TYPE_COLLISION_PAYLOADS.get(schema, "valid.json")
+        parsed = validator((payload_path / valid_payload).read_text(encoding="utf-8"))
+        with pytest.raises(error_type):
+            validator((payload_path / "invalid.json").read_text(encoding="utf-8"))
+        assert_output(f"{getattr(parsed.values.left, field_name).x}\n", payload_path / "runtime.txt")
+
+
+def _annotation_type_names(annotation: Any) -> set[str]:
+    """Return the names of the classes and containers that a resolved annotation names, ignoring unions."""
+    if isinstance(annotation, type) and not get_args(annotation):
+        return {annotation.__name__}
+    origin = get_origin(annotation)
+    names = {origin.__name__} if isinstance(origin, type) and origin is not UnionType else set()
+    return names.union(*map(_annotation_type_names, get_args(annotation)))
+
+
+@pytest.mark.parametrize(
+    ("schema", "target_python_version", "options", "expected_name"),
+    [
+        pytest.param("speed.json", "3.10", [], "dataclass", id="future-imports"),
+        pytest.param("speed.json", "3.10", ["--disable-future-imports"], "dataclass_no_future_imports", id="speed"),
+        pytest.param(
+            "later.json", "3.10", ["--disable-future-imports"], "dataclass_later_no_future_imports", id="later"
+        ),
+        pytest.param(
+            "defaults.json", "3.10", ["--disable-future-imports"], "dataclass_defaults_no_future_imports", id="defaults"
+        ),
+        pytest.param(
+            "defaults.json",
+            "3.14",
+            ["--disable-future-imports"],
+            "dataclass_defaults_py314_no_future_imports",
+            id="defaults-py314",
+        ),
+        pytest.param(
+            "later.json",
+            "3.10",
+            ["--use-default-factory-for-optional-nested-models"],
+            "dataclass_later_default_factory",
+            id="later-default-factory",
+        ),
+        pytest.param(
+            "defaults.json",
+            "3.14",
+            ["--dataclass-arguments", '{"slots": true}'],
+            "dataclass_defaults_slots_py314",
+            id="defaults-slots-py314",
+        ),
+        pytest.param(
+            "speed.json",
+            "3.14",
+            ["--dataclass-arguments", '{"slots": true}'],
+            "dataclass_slots_py314",
+            id="slots-py314",
+        ),
+        pytest.param("speed.json", "3.14", [], "dataclass_py314", id="py314"),
+        pytest.param("later.json", "3.14", [], "dataclass_later_py314", id="later-py314"),
+        pytest.param("defaults.json", "3.14", [], "dataclass_defaults_py314", id="defaults-py314-future-imports"),
+        pytest.param("other.json", "3.10", [], "dataclass_other", id="other"),
+        pytest.param("other.json", "3.14", [], "dataclass_other_py314", id="other-py314"),
+        pytest.param(
+            "other.json",
+            "3.10",
+            ["--disable-future-imports"],
+            "dataclass_other_no_future_imports",
+            id="other-no-future",
+        ),
+    ],
+)
+def test_main_jsonschema_field_type_collision_dataclass(
+    output_file: Path, schema: str, target_python_version: str, options: list[str], expected_name: str
+) -> None:
+    """Keep a dataclass field named like a type of its class, which has no alias, and resolve the type from the module.
+
+    Without future imports the type is written as a string, which ``typing`` resolves from the module first. The field's
+    default goes through ``default_factory``, so Pydantic and native deferred annotations, which look the class up
+    first, find no class attribute of that name. Pydantic resolves a string against the slots of a class with slots,
+    and Python 3.14 patch releases differ in how a native annotation of such a class sees them, so only classes without
+    slots are validated by Pydantic.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / schema,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"field_type_collision_runtime/{expected_name}.py",
+        skip_code_validation=True,
+        extra_args=[
+            "--output-model-type",
+            DataModelType.DataclassesDataclass.value,
+            "--target-python-version",
+            target_python_version,
+            "--class-name",
+            "Payload",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *options,
+        ],
+    )
+    if sys.version_info[:2] < tuple(map(int, target_python_version.split("."))):
+        pytest.skip(f"the output targets Python {target_python_version} or later")
+    with _generated_model(output_file, "field_type_collision_dataclass", "Leaf") as leaf:
+        classes = {name: value for name, value in vars(sys.modules[leaf.__module__]).items() if is_dataclass(value)}
+        hints = {
+            name: {field: sorted(_annotation_type_names(hint)) for field, hint in get_type_hints(cls).items()}
+            for name, cls in classes.items()
+        }
+        record = {"hints": hints, "defaults": repr(leaf())}
+        if not hasattr(leaf, "__slots__"):
+            payload = (
+                DATA_PATH
+                / "payloads"
+                / "field_type_collision_runtime"
+                / _FIELD_TYPE_COLLISION_PAYLOADS.get(schema, "valid.json")
+            )
+            record["validated"] = repr(
+                TypeAdapter(classes["Payload"]).validate_json(payload.read_text(encoding="utf-8"))
+            )
+        assert_output(
+            f"{json.dumps(record, indent=2)}\n",
+            EXPECTED_JSON_SCHEMA_PATH / "field_type_collision_runtime" / f"{expected_name}.txt",
+        )
+
+
+def test_main_jsonschema_field_type_collision_dataclass_class_var(output_file: Path) -> None:
+    """Keep the default of a ``ClassVar`` named like a type of its class, as ``dataclasses`` takes no factory for it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / "class_var.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="field_type_collision_runtime/dataclass_class_var.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.DataclassesDataclass.value,
+            "--target-python-version",
+            "3.10",
+            "--class-name",
+            "Payload",
+            "--use-default",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("backend", "options", "expected_directory"),
+    [
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            ["--field-type-collision-strategy", "rename-type"],
+            "default",
+            id="module-import",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass,
+            ["--field-type-collision-strategy", "rename-type", "--use-exact-imports"],
+            "exact",
+            id="exact-import",
+        ),
+        pytest.param(DataModelType.PydanticV2Dataclass, [], "default", id="module-import-rename-field"),
+        pytest.param(
+            DataModelType.PydanticV2Dataclass, ["--use-exact-imports"], "exact", id="exact-import-rename-field"
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            ["--field-type-collision-strategy", "rename-type"],
+            "base_model",
+            id="base-model-module-import",
+        ),
+        pytest.param(
+            DataModelType.PydanticV2BaseModel,
+            ["--field-type-collision-strategy", "rename-type", "--use-exact-imports"],
+            "base_model_exact",
+            id="base-model-exact-import",
+        ),
+    ],
+)
+def test_main_jsonschema_field_type_collision_cross_module(
+    output_dir: Path, backend: DataModelType, options: list[str], expected_directory: str
+) -> None:
+    """Keep a field named like a type of another module, whose annotation names the type differently."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "field_type_collision_cross_module",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "field_type_collision_cross_module" / expected_directory,
+        extra_args=[
+            "--output-model-type",
+            backend.value,
+            "--target-python-version",
+            "3.11",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *options,
+        ],
+    )
+    payload_path = DATA_PATH / "payloads" / "field_type_collision_cross_module"
+    with _generated_package_module(output_dir, "a") as module:
+        validator = _model_json_validator(module.Holder)
+        parsed = validator((payload_path / "valid.json").read_text(encoding="utf-8"))
+        with pytest.raises(ValidationError):
+            validator((payload_path / "invalid.json").read_text(encoding="utf-8"))
+        assert_output(f"{parsed.Bar.x}\n", payload_path / "runtime.txt")
+
+
+@pytest.mark.parametrize(
+    ("input_name", "backend", "options", "expected_name", "child_module", "field_name"),
+    [
+        pytest.param(
+            "field_type_collision_inherited_modules",
+            DataModelType.PydanticV2Dataclass,
+            [],
+            "field_type_collision_inherited_modules",
+            "b",
+            "Bar_1",
+            id="base-module-first",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules_child_first",
+            DataModelType.PydanticV2Dataclass,
+            [],
+            "field_type_collision_inherited_modules_child_first/dataclass",
+            "a",
+            "Bar_1",
+            id="child-module-first",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules_child_first",
+            DataModelType.PydanticV2BaseModel,
+            [],
+            "field_type_collision_inherited_modules_child_first/base_model",
+            "a",
+            "Bar_1",
+            id="child-module-first-base-model",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules",
+            DataModelType.PydanticV2Dataclass,
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_inherited_modules_rename_type/dataclass",
+            "b",
+            "Bar",
+            id="base-module-first-rename-type",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules",
+            DataModelType.PydanticV2BaseModel,
+            ["--field-type-collision-strategy", "rename-type"],
+            "field_type_collision_inherited_modules_rename_type/base_model",
+            "b",
+            "Bar",
+            id="base-module-first-rename-type-base-model",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules",
+            DataModelType.PydanticV2BaseModel,
+            ["--field-type-collision-strategy", "rename-type", "--use-exact-imports"],
+            "field_type_collision_inherited_modules_rename_type/base_model_exact",
+            "b",
+            "Bar",
+            id="base-module-first-rename-type-base-model-exact-import",
+        ),
+        pytest.param(
+            "field_type_collision_inherited_modules_child_first",
+            DataModelType.PydanticV2BaseModel,
+            ["--field-type-collision-strategy", "rename-type", "--use-exact-imports"],
+            "field_type_collision_inherited_modules_child_first/base_model_rename_type_exact",
+            "a",
+            "Bar",
+            id="child-module-first-rename-type-base-model-exact-import",
+        ),
+    ],
+)
+def test_main_jsonschema_field_type_collision_inherited_modules(
+    output_dir: Path,
+    input_name: str,
+    backend: DataModelType,
+    options: list[str],
+    expected_name: str,
+    child_module: str,
+    field_name: str,
+) -> None:
+    """Rename an inherited field named like its type, or the type, under one name in every module of its family.
+
+    The child keeps the alias of a renamed field, and imports a renamed type by its new name, whichever of the
+    modules comes first.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_name,
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_name,
+        extra_args=[
+            "--output-model-type",
+            backend.value,
+            "--target-python-version",
+            "3.11",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+            *options,
+        ],
+    )
+    payload_path = DATA_PATH / "payloads" / "field_type_collision_cross_module"
+    with _generated_package_module(output_dir, child_module) as module:
+        validator = _model_json_validator(module.Child)
+        parsed = validator((payload_path / "valid.json").read_text(encoding="utf-8"))
+        with pytest.raises(ValidationError):
+            validator((payload_path / "invalid.json").read_text(encoding="utf-8"))
+        assert_output(f"{getattr(parsed, field_name).x}\n", payload_path / "runtime.txt")
 
 
 def test_main_reuse_model_discriminator_literal(output_file: Path) -> None:
@@ -2882,6 +3981,81 @@ def test_main_jsonschema_multiple_files_json_pointer(output_dir: Path) -> None:
         output_path=output_dir,
         expected_directory=EXPECTED_JSON_SCHEMA_PATH / "multiple_files_json_pointer",
         input_file_type="jsonschema",
+    )
+
+
+def test_main_jsonschema_allof_scalar_roots(output_file: Path) -> None:
+    """Generate scalar roots for a document and definitions whose allOf only constrains one value."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "allof_scalar_roots.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="allof_scalar_roots.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("reuse_args", "expected_file"),
+    [
+        pytest.param(["--reuse-model"], "nullable_map_value_reuse.py", id="reuse-model"),
+        pytest.param(
+            ["--reuse-model", "--collapse-reuse-models"],
+            "nullable_map_value_reuse_collapse_reuse_models.py",
+            id="collapse-reuse-models",
+        ),
+    ],
+)
+def test_main_jsonschema_nullable_map_value_reuse_model(
+    output_file: Path, reuse_args: list[str], expected_file: str
+) -> None:
+    """Keep a definition as its own model when an earlier nullable map value duplicates it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "nullable_map_value_reuse.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            *reuse_args,
+            "--use-typed-nullable-map-values",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_jsonschema_nullable_map_value_reuse_tree(output_dir: Path) -> None:
+    """Keep a definition in its module when a nullable map value duplicates it across the reuse tree."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "nullable_map_value_reuse.json",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "nullable_map_value_reuse_tree",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            "--use-typed-nullable-map-values",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
     )
 
 
@@ -3829,6 +5003,7 @@ def test_main_generate_pydantic_v2_dataclass_extra_ignore(output_file: Path) -> 
     )
 
 
+@pytest.mark.parametrize("target_pydantic_version", TARGET_PYDANTIC_VERSION_CASES)
 @pytest.mark.parametrize("extra_args", [[], ["--use-type-alias-type"]], ids=["default", "explicit"])
 @pytest.mark.parametrize(
     "template_dir",
@@ -3836,10 +5011,10 @@ def test_main_generate_pydantic_v2_dataclass_extra_ignore(output_file: Path) -> 
     ids=["builtin", "builtin-directory", "unrelated-custom", "custom-alias"],
 )
 def test_main_pydantic_v2_dataclass_reference_alias_defaults(
-    output_file: Path, extra_args: list[str], template_dir: Path | None
+    output_file: Path, extra_args: list[str], template_dir: Path | None, target_pydantic_version: str | None
 ) -> None:
-    """Validate reference aliases and their defaults on supported Pydantic runtimes."""
-    suffix = "legacy" if PYDANTIC_V2_DATACLASS_TYPE_ALIAS_NEEDS_FALLBACK else "modern"
+    """Choose reference alias syntax from the target Pydantic version and validate it where the runtime allows."""
+    suffix = "legacy" if target_pydantic_version == "2" else "modern"
     if template_dir is not None and template_dir.name == "type_alias_compat":
         suffix = "custom"
     run_main_and_assert(
@@ -3858,9 +5033,13 @@ def test_main_pydantic_v2_dataclass_reference_alias_defaults(
             "builtin",
             *(["--custom-template-dir", str(template_dir)] if template_dir is not None else []),
             *extra_args,
+            *target_pydantic_args(target_pydantic_version),
         ],
         force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
     )
+    if not installed_pydantic_runs_target(target_pydantic_version):
+        return
     payloads = json.loads((JSON_DATA_PATH / "pydantic_v2_dataclass_reference_alias_defaults.json").read_text())
     assert_generated_model_json_validation(
         output_file,
@@ -4065,16 +5244,19 @@ def test_main_generate_pydantic_v2_dataclass_required_field_order(output_file: P
     )
 
 
-@pytest.mark.skipif(
-    not PYDANTIC_V2_DATACLASS_ALIAS_NEEDS_FALLBACK,
-    reason="Pydantic 2.4+ accepts non-identifier dataclass aliases without generator fallback",
-)
-def test_main_generate_pydantic_v2_dataclass_required_alias_field_pydantic20(output_file: Path) -> None:
-    """Test pydantic_v2.dataclass keeps non-identifier aliases importable."""
+@pytest.mark.parametrize("target_pydantic_version", TARGET_PYDANTIC_VERSION_CASES)
+def test_main_generate_pydantic_v2_dataclass_required_alias_field_pydantic20(
+    output_file: Path, target_pydantic_version: str | None
+) -> None:
+    """Split non-identifier dataclass aliases for targets before Pydantic 2.4 and keep alias= for newer targets."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "msgspec_required_alias_field.json",
         output_path=output_file,
         input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=(
+            f"pydantic_v2_dataclass_required_alias_field_{target_pydantic_expected_suffix(target_pydantic_version)}.py"
+        ),
         extra_args=[
             "--disable-timestamp",
             "--snake-case-field",
@@ -4091,8 +5273,131 @@ def test_main_generate_pydantic_v2_dataclass_required_alias_field_pydantic20(out
             "--use-default",
             "--target-python-version",
             "3.10",
+            *target_pydantic_args(target_pydantic_version),
         ],
         force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
+    )
+
+
+_SCHEMA_ORDER = ("Pet(plain='p', nick='x', first_name='f', opt_alias=None, count=2)", None)
+_REQUIRED_FIRST_ORDER = ("Pet(plain='p', first_name='f', count=2, nick='x', opt_alias=None)", ())
+
+
+@pytest.mark.parametrize(
+    ("target_pydantic_version", "options", "expected_file", "expected_order"),
+    [
+        pytest.param(None, (), "pydantic_v2_dataclass_required_assignment_order.py", _SCHEMA_ORDER, id="target-unset"),
+        pytest.param(
+            "2", (), "pydantic_v2_dataclass_required_assignment_order_target_2.py", _SCHEMA_ORDER, id="target-2"
+        ),
+        pytest.param("2.11", (), "pydantic_v2_dataclass_required_assignment_order.py", _SCHEMA_ORDER, id="target-2.11"),
+        pytest.param("2.12", (), "pydantic_v2_dataclass_required_assignment_order.py", _SCHEMA_ORDER, id="target-2.12"),
+        pytest.param(
+            "2.14",
+            (),
+            "pydantic_v2_dataclass_required_assignment_order_target_2_14.py",
+            _REQUIRED_FIRST_ORDER,
+            id="target-2.14",
+        ),
+        pytest.param(
+            None,
+            ("--use-annotated",),
+            "pydantic_v2_dataclass_required_assignment_order_annotated.py",
+            _REQUIRED_FIRST_ORDER,
+            id="annotated-target-unset",
+        ),
+        pytest.param(
+            "2",
+            ("--use-annotated",),
+            "pydantic_v2_dataclass_required_assignment_order_annotated_target_2.py",
+            ("Pet(plain='p', count=2, first_name='f', nick='x', opt_alias=None)", ()),
+            id="annotated-target-2",
+        ),
+    ],
+)
+def test_main_generate_pydantic_v2_dataclass_required_assignment_order(
+    output_file: Path,
+    target_pydantic_version: str | None,
+    options: tuple[str, ...],
+    expected_file: str,
+    expected_order: tuple[str, tuple[str, ...] | None],
+) -> None:
+    """Move required ``= Field(...)`` fields before defaults only for an explicit 2.14 target.
+
+    The other targets keep the schema order, which positional construction follows. Pydantic 2.13+ cannot build
+    ``inspect.signature`` for that order, so the signature of ``Pet`` is read only for the other orders. With
+    ``--use-annotated`` the required fields come first for every target: the alias that targets before 2.4 write
+    as an assignment keeps its field among them, after the fields without an assignment.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pydantic_v2_dataclass_required_assignment_order.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--disable-timestamp",
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--field-constraints",
+            *options,
+            *target_pydantic_args(target_pydantic_version),
+        ],
+        force_exec_validation=True,
+    )
+    expected_repr, keyword_only_fields = expected_order
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="pydantic_v2_dataclass_required_assignment_order",
+        model_name="Pet",
+        valid_json='{"plain": "p", "first-name": "f", "count": 2}',
+        invalid_json='{"plain": "p", "first-name": "f", "count": 0}',
+        expected_error_type="greater_than_equal",
+        expected_keyword_only_fields=keyword_only_fields,
+        expected_repr=expected_repr,
+    )
+
+
+@pytest.mark.parametrize(
+    ("target_pydantic_version", "expected_name"),
+    [
+        pytest.param(None, "pydantic_v2_dataclass_required_assignment_inherited", id="target-unset"),
+        pytest.param("2.14", "pydantic_v2_dataclass_required_assignment_inherited_target_2_14", id="target-2.14"),
+    ],
+)
+def test_main_generate_pydantic_v2_dataclass_required_assignment_warning(
+    output_file: Path, target_pydantic_version: str | None, expected_name: str
+) -> None:
+    """Warn for each dataclass whose signature lists a required field after a default when the order is kept.
+
+    Pydantic 2.13+ cannot read the signature of such a class, and Python 3.10 reads it while creating a subclass,
+    so the output targets Python 3.11, whose import the harness skips on Python 3.10. The 2.14 target writes the
+    required fields first and warns about nothing.
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "pydantic_v2_dataclass_required_assignment_inherited.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=f"{expected_name}.py",
+            extra_args=[
+                "--disable-timestamp",
+                "--output-model-type",
+                "pydantic_v2.dataclass",
+                "--target-python-version",
+                "3.11",
+                *target_pydantic_args(target_pydantic_version),
+            ],
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_JSON_SCHEMA_PATH / f"{expected_name}_warnings.txt",
     )
 
 
@@ -4408,6 +5713,452 @@ def test_main_strict_types_with_constraints(output_file: Path) -> None:
         expected_file="strict_types_with_constraints.py",
         extra_args=["--strict-types", "int", "float", "str"],
     )
+
+
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        ("default.py", []),
+        ("field_constraints.py", ["--field-constraints"]),
+        ("use_annotated.py", ["--use-annotated"]),
+        ("type_alias.py", ["--use-type-alias"]),
+        ("pydantic_v2_dataclass.py", ["--output-model-type", "pydantic_v2.dataclass"]),
+    ],
+)
+def test_main_strict_types_keep_constraints(output_file: Path, expected_file: str, extra_args: list[str]) -> None:
+    """Test strict types keep every constraint in the style of the active options, at runtime too."""
+    name = "strict_types_constraints"
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{name}/{expected_file}",
+        extra_args=[
+            *extra_args,
+            *("--strict-types", "str", "bytes", "int", "float", "bool"),
+            *("--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "Record") as model:
+        validate = _model_json_validator(model)
+        validate(json.dumps(payloads["valid"]))
+
+        def accepts(field_name: str, value: object) -> bool:
+            with suppress(ValidationError):
+                return validate(json.dumps(payloads["valid"] | {field_name: value})) is not None
+            return False
+
+        rejected = [field_name for field_name, value in payloads["invalid"].items() if not accepts(field_name, value)]
+    assert_output("\n".join(rejected) + "\n", EXPECTED_JSON_SCHEMA_PATH / name / "rejected.txt")
+
+
+@LEGACY_BLACK_SKIP
+def test_main_strict_types_time(output_file: Path) -> None:
+    """Test strict float keeps string time formats as time while numbers stay strict."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "strict_types_time.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="strict_types_time.py",
+        extra_args=["--strict-types", "str", "bytes", "int", "float", "bool"],
+    )
+
+
+@LEGACY_BLACK_SKIP
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        ("default.py", []),
+        ("strict_float.py", ["--strict-types", "float"]),
+        ("non_negative.py", ["--use-non-positive-negative-number-constrained-types"]),
+        (
+            "field_constraints_non_negative.py",
+            ["--field-constraints", "--use-non-positive-negative-number-constrained-types"],
+        ),
+        ("decimal_multiple_of.py", ["--use-decimal-for-multiple-of"]),
+    ],
+)
+def test_main_string_time_number_constraints(output_file: Path, expected_file: str, extra_args: list[str]) -> None:
+    """Test string time formats drop number constraints like string dates while numbers keep them."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "string_time_number_constraints.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"string_time_number_constraints/{expected_file}",
+        extra_args=extra_args,
+        force_exec_validation=True,
+    )
+
+
+@LEGACY_BLACK_SKIP
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        ("default.py", []),
+        ("field_constraints.py", ["--field-constraints"]),
+        ("use_annotated.py", ["--use-annotated"]),
+        ("pydantic_v2_dataclass.py", ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"]),
+        ("msgspec.py", ["--output-model-type", "msgspec.Struct"]),
+    ],
+)
+def test_main_number_constraints_on_non_numbers(output_file: Path, expected_file: str, extra_args: list[str]) -> None:
+    """Test number keywords constrain only fields whose schema types hold numbers."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "number_constraints_on_non_numbers.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"number_constraints_on_non_numbers/{expected_file}",
+        extra_args=extra_args,
+        force_exec_validation=True,
+    )
+
+
+_OTHER_TYPE_CONSTRAINT_CASES: list[tuple[str, list[str]]] = [
+    ("default.py", []),
+    ("field_constraints.py", ["--field-constraints"]),
+    ("use_annotated.py", ["--use-annotated"]),
+    ("pydantic_v2_dataclass.py", ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"]),
+    ("msgspec.py", ["--output-model-type", "msgspec.Struct"]),
+]
+
+
+@LEGACY_BLACK_SKIP
+@pytest.mark.parametrize(
+    ("source", "expected_file", "extra_args"),
+    [
+        *((source, *case) for source in ("string", "array") for case in _OTHER_TYPE_CONSTRAINT_CASES),
+        (
+            "string",
+            "type_overrides.py",
+            [
+                "--field-constraints",
+                "--type-overrides",
+                json.dumps({"StringConstraintsOnOtherTypes.overridden_min_length": "builtins.str"}),
+            ],
+        ),
+    ],
+)
+def test_main_string_and_array_constraints_on_other_types(
+    output_file: Path, source: str, expected_file: str, extra_args: list[str]
+) -> None:
+    """Test string and array keywords constrain only fields whose schema or emitted types hold them."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{source}_constraints_on_other_types.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{source}_constraints_on_other_types/{expected_file}",
+        extra_args=extra_args,
+        force_exec_validation=True,
+    )
+
+
+_TYPING_ALIAS_TYPE_OVERRIDES = json.dumps({"ConstraintsOnTypingAliases.overridden": "typing.List"})
+_TYPING_CONSTRAINT_OUTPUTS = (
+    ("field_constraints.py", ["--field-constraints"]),
+    ("use_annotated.py", ["--use-annotated"]),
+    ("pydantic_v2_dataclass.py", ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"]),
+    ("msgspec.py", ["--output-model-type", "msgspec.Struct"]),
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_file", "extra_args"),
+    [
+        *(("constraints_on_typing_aliases", *output) for output in _TYPING_CONSTRAINT_OUTPUTS),
+        (
+            "constraints_on_typing_aliases",
+            "type_overrides.py",
+            ["--field-constraints", "--type-overrides", _TYPING_ALIAS_TYPE_OVERRIDES],
+        ),
+        (
+            "constraints_on_typing_aliases",
+            "type_overrides_msgspec.py",
+            ["--output-model-type", "msgspec.Struct", "--type-overrides", _TYPING_ALIAS_TYPE_OVERRIDES],
+        ),
+        *(("constraints_on_typing_literals", *output) for output in _TYPING_CONSTRAINT_OUTPUTS),
+        *(("constraints_on_typing_literal_values", *output) for output in _TYPING_CONSTRAINT_OUTPUTS[:3]),
+    ],
+)
+def test_main_constraints_on_typing_aliases(
+    output_file: Path, name: str, expected_file: str, extra_args: list[str]
+) -> None:
+    """Test a typing alias, an abstract collection and Annotated take the keywords of their type, at runtime too.
+
+    A ``Literal`` takes the keywords every value other than ``None`` takes, and a ``bool`` value takes none; msgspec
+    does not run the float, bytes and bool values, which its ``Literal`` does not support.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{name}/{expected_file}",
+        extra_args=[*extra_args, "--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "".join(map(str.title, name.split("_")))) as model:
+        validate = partial(msgspec.json.decode, type=model)
+        error_type: type[Exception] = msgspec.ValidationError
+        if "msgspec.Struct" not in extra_args:
+            validate = _model_json_validator(model)
+            error_type = ValidationError
+        validate(json.dumps(payloads["valid"]))
+
+        def accepts(field_name: str, value: object) -> bool:
+            with suppress(error_type):
+                return validate(json.dumps(payloads["valid"] | {field_name: value})) is not None
+            return False
+
+        rejected = [field_name for field_name, value in payloads["invalid"].items() if not accepts(field_name, value)]
+    assert_output(
+        "\n".join(rejected) + "\n",
+        EXPECTED_JSON_SCHEMA_PATH / name / f"{expected_file.removesuffix('.py')}_rejected.txt",
+    )
+
+
+def test_main_constraints_on_typing_protocols(output_file: Path) -> None:
+    """Test protocols and abstract types take the keywords Pydantic enforces on them, iterables while iterating."""
+    name = "constraints_on_typing_protocols"
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{name}.py",
+        extra_args=[
+            "--field-constraints",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            "--target-python-version",
+            "3.11",
+        ],
+        force_exec_validation=True,
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "ConstraintsOnTypingProtocols") as model:
+        rejected = []
+        for field_name, value in {"": None, **payloads["invalid"]}.items():
+            with suppress(ValidationError):
+                instance = model.model_validate(payloads["valid"] | ({field_name: value} if field_name else {}))
+                for item in vars(instance).values():
+                    if isinstance(item, Iterator):
+                        list(item)
+                continue
+            rejected.append(field_name or "valid payload")
+    assert_output("\n".join(rejected) + "\n", EXPECTED_JSON_SCHEMA_PATH / f"{name}_rejected.txt")
+
+
+def test_main_constraints_on_typing_lookalikes(output_file: Path) -> None:
+    """Test classes named like typing special forms but imported from elsewhere keep the keywords as unknown types."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "constraints_on_typing_lookalikes.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="constraints_on_typing_lookalikes.py",
+        extra_args=[
+            "--field-constraints",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            "--target-python-version",
+            "3.11",
+        ],
+        skip_code_validation=True,
+    )
+
+
+def test_main_number_constraints_on_mapped_formats(output_file: Path) -> None:
+    """Test number keywords still constrain formats that --type-mappings maps to a number or a duration."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "number_constraints_on_mapped_formats.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="number_constraints_on_mapped_formats.py",
+        extra_args=[
+            "--field-constraints",
+            "--type-mappings",
+            "boolean+numeric=integer",
+            "string+span=duration",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+_NUMBER_CONSTRAINT_TYPE_OVERRIDES = json.dumps({
+    "NumberConstraintsOnCustomTypes.amount": "decimal.Decimal",
+    "NumberConstraintsOnCustomTypes.pause": "datetime.date",
+})
+_COLLAPSED_ROOT_TYPE_OVERRIDES = json.dumps({
+    "NumberConstraintsOnCollapsedRoots.wait": "datetime.date",
+    "NumberConstraintsOnCollapsedRoots.label": "decimal.Decimal",
+    "NumberConstraintsOnCollapsedRoots.count": "builtins.str",
+})
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_file", "extra_args", "payload_case"),
+    [
+        ("python_types", "default.py", [], "python_types"),
+        ("python_types", "field_constraints.py", ["--field-constraints"], "python_types"),
+        ("python_types", "use_annotated.py", ["--use-annotated"], "python_types"),
+        ("python_types", "type_alias.py", ["--field-constraints", "--use-type-alias"], "python_types"),
+        (
+            "python_types",
+            "pydantic_v2_dataclass.py",
+            ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"],
+            "python_types",
+        ),
+        ("python_types", "msgspec.py", ["--output-model-type", "msgspec.Struct"], "python_types"),
+        ("python_types", "dataclass.py", ["--output-model-type", "dataclasses.dataclass", "--field-constraints"], None),
+        ("python_types", "typed_dict.py", ["--output-model-type", "typing.TypedDict", "--field-constraints"], None),
+        pytest.param(
+            "python_types",
+            "custom_template.py",
+            ["--field-constraints", "--custom-template-dir", str(DATA_PATH / "templates_numeric_null")],
+            "python_types",
+            id="custom_template",
+        ),
+        ("custom_types", "field_constraints.py", ["--field-constraints"], "custom_types"),
+        ("custom_types", "msgspec.py", ["--output-model-type", "msgspec.Struct"], None),
+        (
+            "custom_types",
+            "type_overrides.py",
+            ["--field-constraints", "--type-overrides", _NUMBER_CONSTRAINT_TYPE_OVERRIDES],
+            "type_overrides",
+        ),
+        (
+            "custom_types",
+            "type_overrides_msgspec.py",
+            ["--output-model-type", "msgspec.Struct", "--type-overrides", _NUMBER_CONSTRAINT_TYPE_OVERRIDES],
+            None,
+        ),
+        (
+            "custom_types",
+            "type_overrides_typed_dict.py",
+            [
+                "--output-model-type",
+                "typing.TypedDict",
+                "--field-constraints",
+                "--type-overrides",
+                _NUMBER_CONSTRAINT_TYPE_OVERRIDES,
+            ],
+            None,
+        ),
+        ("known_types", "field_constraints.py", ["--field-constraints"], "known_types"),
+        (
+            "collapsed_roots",
+            "collapse.py",
+            ["--field-constraints", "--collapse-root-models"],
+            "collapsed_roots",
+        ),
+        (
+            "collapsed_roots",
+            "collapse_type_overrides.py",
+            ["--field-constraints", "--collapse-root-models", "--type-overrides", _COLLAPSED_ROOT_TYPE_OVERRIDES],
+            "collapsed_root_type_overrides",
+        ),
+        (
+            "collapsed_roots",
+            "collapse_type_overrides_msgspec.py",
+            [
+                "--output-model-type",
+                "msgspec.Struct",
+                "--collapse-root-models",
+                "--type-overrides",
+                _COLLAPSED_ROOT_TYPE_OVERRIDES,
+            ],
+            "collapsed_root_type_overrides",
+        ),
+        (
+            "collapsed_roots",
+            "collapse_type_overrides_typed_dict.py",
+            [
+                "--output-model-type",
+                "typing.TypedDict",
+                "--field-constraints",
+                "--collapse-root-models",
+                "--type-overrides",
+                _COLLAPSED_ROOT_TYPE_OVERRIDES,
+            ],
+            None,
+        ),
+    ],
+)
+def test_main_number_constraints_on_emitted_types(
+    output_file: Path, source: str, expected_file: str, extra_args: list[str], payload_case: str | None
+) -> None:
+    """Test each number keyword constrains a string-typed field whose emitted Python type takes it, at runtime too."""
+    name = f"number_constraints_on_{source}"
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{name}/{expected_file}",
+        extra_args=[*extra_args, "--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"],
+        force_exec_validation=True,
+    )
+    if payload_case is None:
+        return
+    payloads = json.loads((DATA_PATH / "payloads/number_constraints_on_python_types.json").read_text())[payload_case]
+    with _generated_model(output_file, name, "".join(part.title() for part in name.split("_"))) as model:
+        validate = partial(msgspec.json.decode, type=model)
+        error_type: type[Exception] = msgspec.ValidationError
+        if "msgspec.Struct" not in extra_args:
+            validate = _model_json_validator(model)
+            error_type = ValidationError
+        validate(json.dumps(payloads["valid"]))
+        rejected = []
+        for field_name, value in payloads["invalid"].items():
+            with suppress(error_type):
+                validate(json.dumps({field_name: value}))
+                continue
+            rejected.append(field_name)
+    assert_output(
+        "\n".join(rejected) + "\n",
+        EXPECTED_JSON_SCHEMA_PATH / name / f"{expected_file.removesuffix('.py')}_rejected.txt",
+    )
+
+
+@LEGACY_BLACK_SKIP
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        ("field_constraints.py", ["--field-constraints"]),
+        ("msgspec.py", ["--output-model-type", "msgspec.Struct"]),
+    ],
+)
+def test_main_number_constraints_on_numeric_string_formats(
+    output_file: Path, expected_file: str, extra_args: list[str]
+) -> None:
+    """Test number keywords still constrain string formats that map to numeric types msgspec.Meta takes."""
+    with (
+        pytest.warns(UserWarning, match=r"msgspec\.Meta does not take")
+        if "msgspec.Struct" in extra_args
+        else nullcontext()
+    ):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "number_constraints_on_numeric_string_formats.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=f"number_constraints_on_numeric_string_formats/{expected_file}",
+            extra_args=extra_args,
+        )
 
 
 def test_main_selective_constraint_kwargs_pydantic_v2(output_file: Path) -> None:
@@ -5036,6 +6787,34 @@ def test_main_jsonschema_combine_one_of_object(output_file: Path) -> None:
     )
 
 
+@pytest.mark.parametrize("keyword", ["one_of", "any_of"])
+def test_main_jsonschema_combined_branch_enum_intersection(output_file: Path, keyword: str) -> None:
+    """Intersect the parent enum with each oneOf/anyOf branch enum, as allOf does."""
+    input_path = JSON_SCHEMA_DATA_PATH / "combined_branch_enum_intersection" / f"{keyword}.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"combined_branch_enum_intersection/{keyword}.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--disable-timestamp", "--formatters", "builtin"],
+    )
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    valid = {"command": "restart", "previousTaskId": "x"}
+    invalid = {"command": "restart"}
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"combined_branch_enum_intersection_{keyword}",
+        model_name="Task",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type="enum",
+    )
+
+
 @pytest.mark.skipif(
     black.__version__.split(".")[0] == "19",
     reason="Installed black doesn't support the old style",
@@ -5055,7 +6834,10 @@ def test_main_jsonschema_combine_one_of_object(output_file: Path) -> None:
     options=["--union-mode"],
     option_description="""Union mode for combining anyOf/oneOf schemas (smart or left_to_right).
 
-The `--union-mode` flag configures the code generation behavior.""",
+The `--union-mode` flag sets Pydantic's `union_mode` on generated union fields.
+Discriminated unions are not given a `union_mode`: Pydantic validates them by
+their discriminator tag, a separate mode that cannot be combined with
+`smart` or `left_to_right`.""",
     input_schema="jsonschema/combine_any_of_object.json",
     cli_args=["--union-mode", "left_to_right", "--output-model-type", "pydantic_v2.BaseModel"],
     golden_output="jsonschema/combine_any_of_object_left_to_right.py",
@@ -5065,7 +6847,10 @@ def test_main_jsonschema_combine_any_of_object(
 ) -> None:
     """Union mode for combining anyOf/oneOf schemas (smart or left_to_right).
 
-    The `--union-mode` flag configures the code generation behavior.
+    The `--union-mode` flag sets Pydantic's `union_mode` on generated union fields.
+    Discriminated unions are not given a `union_mode`: Pydantic validates them by
+    their discriminator tag, a separate mode that cannot be combined with
+    `smart` or `left_to_right`.
     """
     extra_args = ["--output-model-type", output_model]
     if union_mode is not None:
@@ -5975,6 +7760,17 @@ def test_long_description_wrap_string_literal(output_file: Path) -> None:
             ["--extra-fields", "forbid", "--output-model-type", "pydantic_v2.BaseModel"],
             id="config-dict",
         ),
+        pytest.param(
+            "simple_string.json",
+            "builtin_class_docstring_decorators.py",
+            [
+                "--output-model-type",
+                "pydantic_v2.BaseModel",
+                "--custom-template-dir",
+                str(DATA_PATH / "templates/builtin_class_docstring_decorators"),
+            ],
+            id="class-docstring-decorators",
+        ),
     ],
 )
 def test_main_builtin_generated_formatter_fallbacks(
@@ -6552,6 +8348,30 @@ def test_jsonschema_use_title_as_name_nested_titles(output_file: Path) -> None:
             "--use-union-operator",
             "--use-standard-collections",
             "--skip-root-model",
+        ],
+    )
+
+
+@pytest.mark.parametrize("formatters", [["builtin"], ["black", "isort"]])
+def test_main_union_annotation_at_line_length(output_file: Path, formatters: list[str]) -> None:
+    """Test the built-in formatter splits a union annotation like black only when `<annotation> = (` exceeds the line.
+
+    A line of exactly the line length keeps the right-hand side split.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "union_annotation_at_line_length.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="union_annotation_at_line_length.py",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--target-python-version",
+            "3.11",
+            "--disable-timestamp",
+            "--formatters",
+            *formatters,
         ],
     )
 
@@ -7286,7 +9106,11 @@ def test_main_jsonschema_additional_properties_value_constraints_annotated(
     output_model_type: DataModelType,
     expected_file: str,
 ) -> None:
-    """Preserve constrained mapping values across every additionalProperties path."""
+    """Preserve constrained mapping values across every additionalProperties path, executing where Pydantic allows."""
+    runs = installed_pydantic_runs_target(None) or output_model_type not in {
+        DataModelType.PydanticV2BaseModel,
+        DataModelType.PydanticV2Dataclass,
+    }
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_value_constraints_annotated.json",
         output_path=output_file,
@@ -7303,7 +9127,10 @@ def test_main_jsonschema_additional_properties_value_constraints_annotated(
             "--disable-timestamp",
         ],
         force_exec_validation=True,
+        skip_code_validation=not runs,
     )
+    if not runs:
+        return
 
     match output_model_type:
         case DataModelType.PydanticV2BaseModel | DataModelType.PydanticV2Dataclass:
@@ -7518,7 +9345,8 @@ def test_main_jsonschema_additional_properties_value_constraints_annotated_py312
     reason="Installed black doesn't support Python version 3.11",
 )
 def test_main_jsonschema_additional_properties_value_constraints_schema_validators(output_file: Path) -> None:
-    """Preserve constrained unmatched values in generated patternProperties validators."""
+    """Preserve constrained unmatched values in generated patternProperties validators where Pydantic allows."""
+    runs = installed_pydantic_runs_target(None)
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "additional_properties_value_constraints_annotated.json",
         output_path=output_file,
@@ -7536,7 +9364,10 @@ def test_main_jsonschema_additional_properties_value_constraints_schema_validato
             "--disable-timestamp",
         ],
         force_exec_validation=True,
+        skip_code_validation=not runs,
     )
+    if not runs:
+        return
     assert_generated_model_json_validation(
         output_file,
         module_name="heterogeneous_mapping_schema_validators",
@@ -7636,6 +9467,89 @@ def test_main_jsonschema_allof_with_true_schema(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file="allof_with_true_schema.py",
         extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "stem", "expected_error_type"),
+    [
+        ("pydantic_v2.BaseModel", "pydantic_v2", "extra_forbidden"),
+        ("pydantic_v2.dataclass", "dataclass", "unexpected_keyword_argument"),
+    ],
+)
+def test_main_jsonschema_allof_closed_member(
+    output_file: Path, output_model_type: str, stem: str, expected_error_type: str
+) -> None:
+    """Test an inline allOf member with additionalProperties false closes the combined model.
+
+    Every allOf member must hold, so the closed member rejects the properties it does not declare, whether the other
+    member is an open base class, the closed member sits in a nested inline allOf, or the members are merged into one
+    model with the closed member first.
+    """
+    name = "allof_closed_member"
+    input_path = JSON_SCHEMA_DATA_PATH / f"{name}.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{name}/{stem}.py",
+        extra_args=[
+            *("--output-model-type", output_model_type, "--formatters", "builtin"),
+            *("--disable-timestamp", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    filters = {"status": "open", "owner": "me"}
+    valid = dict.fromkeys(("closed", "nested", "merged"), filters)
+    validator.validate(valid)
+    for field_name in valid:
+        invalid = valid | {field_name: filters | {"note": "kept"}}
+        with pytest.raises(SchemaValidationError):
+            validator.validate(invalid)
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"{name}_{stem}",
+            model_name="Filters",
+            valid_json=json.dumps(valid),
+            invalid_json=json.dumps(invalid),
+            expected_error_type=expected_error_type,
+        )
+
+
+def test_main_jsonschema_allof_closed_member_pattern(output_file: Path) -> None:
+    """Test a closed allOf member with patternProperties keeps the combined model open.
+
+    The member accepts the keys its patterns match, which the model cannot express without schema validators, so
+    closing the model would reject payloads the schema accepts.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "allof_closed_member_pattern.json"
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="allof_closed_member/pattern.py",
+        extra_args=[
+            *("--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin"),
+            *("--disable-timestamp", "--target-python-version", "3.11"),
+        ],
+        force_exec_validation=True,
+    )
+    validator = Draft202012Validator(json.loads(input_path.read_text(encoding="utf-8")))
+    valid = {"status": "open", "owner": "me", "x_1": "kept"}
+    invalid = valid | {"status": 3}
+    validator.validate(valid)
+    with pytest.raises(SchemaValidationError):
+        validator.validate(invalid)
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="allof_closed_member_pattern",
+        model_name="PatternFilters",
+        valid_json=json.dumps(valid),
+        invalid_json=json.dumps(invalid),
+        expected_error_type="string_type",
     )
 
 
@@ -8194,18 +10108,17 @@ def test_main_jsonschema_property_names_additional_properties_schema_with_proper
         force_exec_validation=True,
     )
     # Pydantic validates constrained typed-extra keys only in this supported range.
-    if not version.parse("2.11") <= version.parse(PYDANTIC_VERSION) < version.parse("2.13"):
-        return
-    assert_generated_model_json_validation(
-        output_file,
-        module_name="property_names_additional_properties_schema_with_properties",
-        model_name="KnownAndNamedExtra",
-        valid_json='{"name":"known","valid_key":1}',
-        invalid_json='{"name":"known","Invalid":1}',
-        expected_error_type="string_pattern_mismatch",
-        expected_attribute_path=("__pydantic_extra__",),
-        expected_attribute_value={"valid_key": 1},
-    )
+    if version.parse("2.11") <= version.parse(PYDANTIC_VERSION) < version.parse("2.13"):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="property_names_additional_properties_schema_with_properties",
+            model_name="KnownAndNamedExtra",
+            valid_json='{"name":"known","valid_key":1}',
+            invalid_json='{"name":"known","Invalid":1}',
+            expected_error_type="string_pattern_mismatch",
+            expected_attribute_path=("__pydantic_extra__",),
+            expected_attribute_value={"valid_key": 1},
+        )
 
 
 def test_main_jsonschema_property_names_true_additional_properties_schema_with_properties(output_file: Path) -> None:
@@ -9101,12 +11014,11 @@ def test_main_jsonschema_property_names_allof_ref(output_file: Path) -> None:
     )
 
 
-def test_main_jsonschema_property_names_ref_enum(output_file: Path) -> None:
-    """Test propertyNames with $ref to enum definition uses enum type as dict key."""
+@pytest.mark.parametrize("target_pydantic_version", TARGET_PYDANTIC_VERSION_CASES)
+def test_main_jsonschema_property_names_ref_enum(output_file: Path, target_pydantic_version: str | None) -> None:
+    """Define enum dict keys first for targets before Pydantic 2.8 and keep schema order for newer targets."""
     expected_file = (
-        "property_names_ref_enum_legacy_pydantic.py"
-        if PYDANTIC_V2_ROOT_MODEL_DICT_KEY_FORWARD_REF_NEEDS_SORTING
-        else "property_names_ref_enum.py"
+        "property_names_ref_enum_legacy_pydantic.py" if target_pydantic_version == "2" else "property_names_ref_enum.py"
     )
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "property_names_ref_enum.json",
@@ -9117,8 +11029,12 @@ def test_main_jsonschema_property_names_ref_enum(output_file: Path) -> None:
         extra_args=[
             "--output-model-type",
             "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            *target_pydantic_args(target_pydantic_version),
         ],
         force_exec_validation=True,
+        skip_code_validation=not installed_pydantic_runs_target(target_pydantic_version),
     )
 
 
@@ -10861,6 +12777,106 @@ def test_main_msgspec_discriminator_with_type_string(output_file: Path) -> None:
     )
 
 
+def test_main_msgspec_discriminator_mapping_tags(output_file: Path) -> None:
+    """Tag msgspec variants whose discriminator value comes from the mapping or the schema name."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "discriminator_mapping_msgspec_tags.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="discriminator_mapping_msgspec_tags.py",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--use-msgspec-tagged-unions",
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize("extra_args", [[], ["--use-msgspec-tagged-unions"]], ids=["default", "tagged-unions"])
+def test_main_msgspec_discriminator_const_enum(output_file: Path, extra_args: list[str]) -> None:
+    """Tag msgspec variants whose discriminator is a const beside an enum, with and without tagged unions."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "discriminator_const_enum_msgspec.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="discriminator_const_enum_msgspec.py",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--target-python-version",
+            "3.10",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "expected_file"),
+    [
+        pytest.param([], "default.py", id="default"),
+        pytest.param(["--use-msgspec-nullable-enum-alias"], "alias.py", id="alias"),
+        pytest.param(["--set-default-enum-member"], "set_default_enum_member.py", id="set-default-enum-member"),
+        pytest.param(
+            ["--set-default-enum-member", "--use-msgspec-nullable-enum-alias"],
+            "set_default_enum_member_alias.py",
+            id="set-default-enum-member-alias",
+        ),
+        pytest.param(
+            ["--use-subclass-enum", "--capitalise-enum-members"], "subclass_capitalise.py", id="subclass-capitalise"
+        ),
+        pytest.param(
+            ["--use-subclass-enum", "--capitalise-enum-members", "--use-msgspec-nullable-enum-alias"],
+            "subclass_capitalise_alias.py",
+            id="subclass-capitalise-alias",
+        ),
+        pytest.param(["--enum-field-as-literal", "one"], "literal_one.py", id="literal-one"),
+        pytest.param(
+            ["--enum-field-as-literal", "one", "--use-msgspec-nullable-enum-alias"],
+            "literal_one_alias.py",
+            id="literal-one-alias",
+        ),
+    ],
+)
+def test_main_msgspec_nullable_enum(output_file: Path, extra_args: list[str], expected_file: str) -> None:
+    """Keep the 0.83.0 msgspec Enum with a None member by default, and write an Enum | None alias with the option.
+
+    Without the option each Enum with a None member that msgspec cannot decode is reported.
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "msgspec_nullable_enum.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=f"msgspec_nullable_enum/{expected_file}",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--target-python-version",
+                "3.10",
+                "--disable-timestamp",
+                *extra_args,
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_JSON_SCHEMA_PATH / "msgspec_nullable_enum" / f"{expected_file.removesuffix('.py')}_warnings.txt",
+    )
+
+
 @MSGSPEC_LEGACY_BLACK_SKIP
 def test_main_msgspec_discriminator_with_meta(output_file: Path) -> None:
     """Test msgspec Struct generation with discriminator ClassVar having Meta constraints."""
@@ -11624,6 +13640,118 @@ def test_main_jsonschema_type_alias_py312(output_file: Path) -> None:
     )
 
 
+@pytest.mark.skipif(
+    int(black.__version__.split(".")[0]) < 23,
+    reason="Installed black doesn't support the new 'type' statement",
+)
+@pytest.mark.parametrize(
+    ("input_file", "output_model_type", "target_python_version", "options", "expected_file"),
+    [
+        ("container", "pydantic_v2.BaseModel", "3.10", (), "type_alias_recursive_container.py"),
+        ("container", "pydantic_v2.BaseModel", "3.12", (), "type_alias_recursive_container_py312.py"),
+        (
+            "container",
+            "pydantic_v2.BaseModel",
+            "3.11",
+            ("--no-use-standard-collections",),
+            "type_alias_recursive_container_typing_collections.py",
+        ),
+        (
+            "container",
+            "pydantic_v2.BaseModel",
+            "3.11",
+            ("--target-pydantic-version", "2"),
+            "type_alias_recursive_container_pydantic_2_0.py",
+        ),
+        (
+            "container",
+            "pydantic_v2.BaseModel",
+            "3.11",
+            ("--formatters", "ruff-check", "ruff-format"),
+            "type_alias_recursive_container_ruff.py",
+        ),
+        ("container", "pydantic_v2.dataclass", "3.11", (), "type_alias_recursive_container_pydantic_dataclass.py"),
+        (
+            "container",
+            "dataclasses.dataclass",
+            "3.11",
+            ("--use-type-alias-type",),
+            "type_alias_recursive_container_dataclass.py",
+        ),
+        (
+            "container",
+            "typing.TypedDict",
+            "3.11",
+            ("--use-type-alias-type",),
+            "type_alias_recursive_container_typed_dict.py",
+        ),
+        (
+            "container",
+            "msgspec.Struct",
+            "3.11",
+            ("--use-type-alias-type",),
+            "type_alias_recursive_container_msgspec.py",
+        ),
+        (
+            "collapse",
+            "pydantic_v2.BaseModel",
+            "3.11",
+            ("--collapse-root-models",),
+            "type_alias_recursive_container_collapse.py",
+        ),
+        (
+            "collapse",
+            "pydantic_v2.BaseModel",
+            "3.11",
+            ("--collapse-root-models", "--disable-future-imports"),
+            "type_alias_recursive_container_collapse_no_future.py",
+        ),
+        (
+            "collapse",
+            "dataclasses.dataclass",
+            "3.11",
+            ("--use-type-alias-type", "--collapse-root-models", "--disable-future-imports"),
+            "type_alias_recursive_container_collapse_dataclass.py",
+        ),
+    ],
+)
+def test_main_jsonschema_type_alias_recursive_container(
+    output_file: Path,
+    input_file: str,
+    output_model_type: str,
+    target_python_version: str,
+    options: tuple[str, ...],
+    expected_file: str,
+) -> None:
+    """Quote the containers of a TypeAliasType value that recurse into its own alias cycle.
+
+    msgspec.Meta takes no length on the fixed-length tuple of Pair, so msgspec output leaves it out with a warning.
+    """
+    with (
+        pytest.warns(UserWarning, match=r"msgspec\.Meta does not take max_length, min_length on tuple")
+        if output_model_type == "msgspec.Struct" and input_file == "container"
+        else nullcontext()
+    ):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / f"type_alias_recursive_{input_file}.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=expected_file,
+            extra_args=[
+                "--use-type-alias",
+                *options,
+                "--target-python-version",
+                target_python_version,
+                "--output-model-type",
+                output_model_type,
+                "--enum-field-as-literal",
+                "all",
+            ],
+            force_exec_validation=True,
+        )
+
+
 @pytest.mark.cli_doc(
     options=["--use-type-alias-type"],
     option_description="""Use runtime TypeAliasType objects for aliases before Python 3.12 (experimental).
@@ -11984,6 +14112,27 @@ def test_main_jsonschema_type_alias_recursive_default_list(output_file: Path) ->
             "--output-model-type",
             "pydantic_v2.BaseModel",
         ],
+    )
+
+
+def test_main_jsonschema_type_alias_recursive_default_list_pydantic_v2_dataclass(output_file: Path) -> None:
+    """Import Field for list default factories on type alias fields in pydantic dataclasses."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "type_alias_recursive_default_list.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="type_alias_recursive_default_list_pydantic_v2_dataclass.py",
+        extra_args=[
+            "--use-type-alias",
+            "--use-annotated",
+            "--field-constraints",
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+        ],
+        force_exec_validation=True,
     )
 
 
@@ -12676,6 +14825,38 @@ def test_main_jsonschema_reuse_scope_tree_exact_imports(output_dir: Path) -> Non
 @pytest.mark.parametrize(
     ("expected_name", "extra_args"),
     [
+        pytest.param("reuse_scope_tree_shared_module_name", ["--shared-module-name", "common"], id="named"),
+        pytest.param(
+            "reuse_scope_tree_shared_module_name_dotted",
+            ["--shared-module-name", "shared.types", "--treat-dot-as-module"],
+            id="dotted",
+        ),
+    ],
+)
+def test_main_jsonschema_reuse_scope_tree_shared_module_name(
+    expected_name: str, extra_args: list[str], output_dir: Path
+) -> None:
+    """Name the module that tree-scope reuse moves shared models to, as a module or a dotted package path."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_scope_tree",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_name,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("expected_name", "extra_args"),
+    [
         pytest.param("reuse_scope_tree_cross_module_users", [], id="inherit"),
         pytest.param("reuse_scope_tree_cross_module_users_collapsed", ["--collapse-reuse-models"], id="collapse"),
     ],
@@ -12757,6 +14938,41 @@ def test_main_jsonschema_reuse_model_same_name_references(output_dir: Path) -> N
         runtime_validation_module="main",
         runtime_validation_model_name="Main",
         runtime_validation_data={"sized": {"field": {"size": 1}}, "named": {"field": {"name": "one"}}},
+    )
+
+
+@pytest.mark.parametrize(
+    ("expected_name", "extra_args"),
+    [
+        pytest.param("collapse_reuse_models_cross_module_users", [], id="module"),
+        pytest.param("collapse_reuse_models_cross_module_users_tree", ["--reuse-scope", "tree"], id="tree"),
+        pytest.param(
+            "collapse_reuse_models_cross_module_users_tree",
+            ["--reuse-scope", "tree", "--use-type-alias"],
+            id="tree-type-alias",
+        ),
+    ],
+)
+def test_main_jsonschema_collapse_reuse_models_cross_module_users(
+    expected_name: str, extra_args: list[str], output_dir: Path
+) -> None:
+    """Point users in other modules at the kept model when a duplicate is collapsed within its module."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "collapse_reuse_models_cross_module_users",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_name,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--collapse-reuse-models",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+        runtime_validation_module="holder",
+        runtime_validation_model_name="Holder",
+        runtime_validation_data={"entry": {"name": "one"}, "local": {"name": "two"}},
     )
 
 
@@ -13254,7 +15470,7 @@ def test_main_jsonschema_contains_true_max_contains_zero(output_file: Path) -> N
 
 
 def test_main_jsonschema_contains_true_default_min_contains(output_file: Path) -> None:
-    """Test contains true defaults minContains to one."""
+    """Test contains true defaults minContains to one, also beside the contains of a $ref sibling."""
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "contains_true_default_min_contains.json",
         output_path=output_file,
@@ -13268,11 +15484,15 @@ def test_main_jsonschema_contains_true_default_min_contains(output_file: Path) -
         output_file,
         module_name="contains_true_default_min_contains",
         model_name="ContainsTrueDefaultMinContains",
-        valid_json='{"values":["x"]}',
+        valid_json='{"values":["x"],"ref_pair":["b"],"ref_tags":["c"]}',
         invalid_json='{"values":[]}',
         expected_error_type="too_short",
         expected_attribute_path=("values",),
         expected_attribute_value=["x"],
+        invalid_keyword_arguments=[
+            ({"values": ["x"], "ref_pair": []}, "too_short"),
+            ({"values": ["x"], "ref_tags": []}, "too_short"),
+        ],
     )
 
 
@@ -13588,6 +15808,121 @@ def test_main_jsonschema_serialization_aliases_with_use_serialization_alias_pyda
     )
 
 
+@pytest.mark.parametrize(
+    ("field_names", "field_name_args"),
+    [
+        ("schema_names", []),
+        ("snake_case_field", ["--snake-case-field"]),
+        ("multiple_aliases", ["--aliases", '{"foo_bar": ["foo_bar", "fooBar"]}']),
+    ],
+    ids=["schema_names", "snake_case_field", "multiple_aliases"],
+)
+@pytest.mark.parametrize("alias_generator", ["to_camel", "to_pascal", "to_snake"])
+def test_main_jsonschema_use_serialization_alias_alias_generator(
+    output_file: Path, alias_generator: str, field_names: str, field_name_args: list[str]
+) -> None:
+    """Keep the schema name on output for a field the alias generator would rename."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"alias_generator_serialization_alias/{alias_generator}_{field_names}.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--alias-generator",
+            alias_generator,
+            "--use-serialization-alias",
+            *field_name_args,
+        ],
+    )
+    payload = (JSON_DATA_PATH / "alias_generator_serialization_alias" / f"{field_names}.json").read_text(
+        encoding="utf-8"
+    )
+    with _generated_model(output_file, "alias_generator_serialization_alias", "AliasGeneratorModel") as model:
+        assert_output(
+            model.model_validate_json(payload).model_dump_json(by_alias=True, indent=2) + "\n",
+            EXPECTED_JSON_SCHEMA_PATH / "alias_generator_serialization_alias" / "round_trip.txt",
+        )
+
+
+def test_main_jsonschema_use_serialization_alias_alias_generator_target_pydantic_version(output_file: Path) -> None:
+    """Pin the generated alias and keep the schema name on output for --target-pydantic-version 2."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="alias_generator_serialization_alias/to_camel_snake_case_field_target_2.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--alias-generator",
+            "to_camel",
+            "--use-serialization-alias",
+            "--snake-case-field",
+            "--target-pydantic-version",
+            "2",
+        ],
+        skip_code_validation=not installed_pydantic_runs_target("2"),
+    )
+
+
+def test_main_jsonschema_use_serialization_alias_alias_generator_template_data_dataclass(output_file: Path) -> None:
+    """Leave dataclass fields without a redundant alias when template data names a generator the template ignores."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="alias_generator_serialization_alias/template_data_dataclass.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.dataclass",
+            "--use-serialization-alias",
+            "--extra-template-data",
+            str(JSON_SCHEMA_DATA_PATH / "extra_data_alias_generator.json"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("alias_mode", "alias_args"),
+    [("alias", []), ("serialization_alias", ["--use-serialization-alias"]), ("no_alias", ["--no-alias"])],
+    ids=["alias", "serialization_alias", "no_alias"],
+)
+def test_main_jsonschema_serialization_aliases_alias_generator(
+    output_file: Path, alias_mode: str, alias_args: list[str]
+) -> None:
+    """Keep an explicit serialization alias equal to the field name when the alias generator would rename it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "alias_generator.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"alias_generator_serialization_aliases/{alias_mode}.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--alias-generator",
+            "to_camel",
+            "--snake-case-field",
+            "--serialization-aliases",
+            '{"firstName": "first_name", "foo_bar": "foo_bar", "weird-url": "weird_url"}',
+            *alias_args,
+        ],
+    )
+    payload = (JSON_DATA_PATH / "alias_generator_serialization_alias" / "snake_case_field.json").read_text(
+        encoding="utf-8"
+    )
+    with _generated_model(output_file, "alias_generator_serialization_aliases", "AliasGeneratorModel") as model:
+        assert_output(
+            model.model_validate_json(payload).model_dump_json(by_alias=True, indent=2) + "\n",
+            EXPECTED_JSON_SCHEMA_PATH / "alias_generator_serialization_aliases" / "round_trip.txt",
+        )
+
+
 def test_main_jsonschema_serialization_aliases_invalid(output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Test invalid serialization_aliases mapping exits with an error."""
     run_main_and_assert(
@@ -13646,21 +15981,57 @@ def test_main_jsonschema_multiple_types_with_object(output_file: Path) -> None:
     )
 
 
+def test_main_msgspec_nested_unions(output_file: Path) -> None:
+    """Report a union of untagged msgspec Structs once, where msgspec refuses it: an alias it names reports it."""
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "msgspec_nested_unions.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file="msgspec_nested_unions.py",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--target-python-version",
+                "3.10",
+                "--disable-timestamp",
+                "--formatters",
+                "builtin",
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(f"{record.message}\n" for record in recorded if record.category is UserWarning),
+        EXPECTED_JSON_SCHEMA_PATH / "msgspec_nested_unions_warnings.txt",
+    )
+
+
 @MSGSPEC_LEGACY_BLACK_SKIP
 def test_main_jsonschema_type_alias_with_circular_ref_to_class_msgspec(min_version: str, output_file: Path) -> None:
     """Test TypeAlias with circular reference to class generates quoted forward refs."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "type_alias_with_circular_ref_to_class.json",
-        output_path=output_file,
-        input_file_type="jsonschema",
-        assert_func=assert_file_content,
-        expected_file="type_alias_with_circular_ref_to_class_msgspec.py",
-        extra_args=[
-            "--output-model-type",
-            "msgspec.Struct",
-            "--target-python-version",
-            min_version,
-        ],
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "type_alias_with_circular_ref_to_class.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file="type_alias_with_circular_ref_to_class_msgspec.py",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--target-python-version",
+                min_version,
+            ],
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_JSON_SCHEMA_PATH / "type_alias_with_circular_ref_to_class_msgspec_warnings.txt",
     )
 
 
@@ -13846,6 +16217,51 @@ def test_main_jsonschema_collapse_root_models_property_names_reference(output_fi
             "builtin",
         ],
         force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "model_name", "extra_args"),
+    [
+        pytest.param("collapse_root_models_lookaround", "Holder", [], id="fields"),
+        pytest.param("collapse_root_models_lookaround", "Holder", ["--use-type-alias"], id="fields-type-alias"),
+        pytest.param("collapse_root_models_lookaround_root", "Holder", [], id="root-model"),
+        pytest.param("collapse_root_models_lookaround_inheritance", "Child", [], id="inheritance"),
+        pytest.param("collapse_root_models_lookaround_discriminator", "Root", [], id="discriminator"),
+    ],
+)
+def test_main_jsonschema_collapse_root_models_lookaround(
+    output_file: Path, schema_name: str, model_name: str, extra_args: list[str]
+) -> None:
+    """Select Python's regex engine for lookaround patterns that collapsed root models leave in final field types.
+
+    A child gets its own config as for inline fields, and a discriminator that replaces the inlined pattern with a
+    ``Literal`` leaves the default engine, so ``$`` still rejects a trailing newline.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{schema_name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"{schema_name}.py",
+        extra_args=[
+            "--output-model-type",
+            DataModelType.PydanticV2BaseModel.value,
+            "--collapse-root-models",
+            *extra_args,
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"output_{schema_name}_{len(extra_args)}",
+        model_name=model_name,
+        valid_json=(DATA_PATH / f"payloads/{schema_name}_valid.json").read_text(),
+        invalid_json=(DATA_PATH / f"payloads/{schema_name}_invalid.json").read_text(),
+        expected_error_type="string_pattern_mismatch",
     )
 
 
@@ -15128,12 +17544,12 @@ def test_main_lookaround_anyof_nullable_pydantic_v2(output_file: Path) -> None:
 
 @pytest.mark.benchmark
 def test_main_lookaround_anyof_nullable_pydantic_v2_dataclass(output_file: Path) -> None:
-    """Lookaround reachable only through a referenced alias sets regex_engine on the dataclass.
+    """Lookaround reachable only through a referenced alias compiles in the alias.
 
-    The alias becomes a bare ``TypeAliasType`` that carries no config, so the consuming
-    pydantic v2 dataclass must emit ``ConfigDict(regex_engine="python-re")`` or fail to
-    import under pydantic's default rust regex engine. ``force_exec_validation`` proves the
-    generated module actually constructs.
+    The alias becomes a bare ``TypeAliasType`` that carries no config, so its pattern is a
+    compiled ``re.compile(...)`` value; the consuming dataclass keeps
+    ``ConfigDict(regex_engine="python-re")``. ``force_exec_validation`` proves the generated
+    module actually constructs.
     """
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "lookaround_anyof_nullable.json",
@@ -15170,6 +17586,87 @@ def test_main_lookaround_anyof_nullable_pydantic_v2_dataclass_json_validation(ou
         invalid_json='{"value": "abc"}',
         expected_error_type="string_pattern_mismatch",
         expected_attribute_path=("value",),
+        expected_attribute_value="ABC",
+    )
+
+
+_STRING_PATTERN_TARGET_RUNTIME = pytest.mark.skipif(
+    not installed_pydantic_runs_target("2.5"),
+    reason="String lookaround patterns take the engine from a model config, which needs Pydantic 2.5",
+)
+_TARGET_2_12_RUNTIME = pytest.mark.skipif(
+    not installed_pydantic_runs_target("2.12"), reason="The target needs Pydantic 2.12"
+)
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "target_pydantic_version", "expected_file", "attribute_path"),
+    [
+        pytest.param(
+            "pydantic_v2.BaseModel",
+            "2",
+            "lookaround_anyof_nullable_pydantic_v2.py",
+            ("value", "root"),
+            id="base-model-target-2",
+            marks=_STRING_PATTERN_TARGET_RUNTIME,
+        ),
+        pytest.param(
+            "pydantic_v2.BaseModel",
+            "2.12",
+            "lookaround_anyof_nullable_pydantic_v2.py",
+            ("value", "root"),
+            id="base-model-target-2.12",
+            marks=_TARGET_2_12_RUNTIME,
+        ),
+        pytest.param(
+            "pydantic_v2.dataclass",
+            "2",
+            "lookaround_anyof_nullable_pydantic_v2_dataclass_target_2.py",
+            ("value",),
+            id="dataclass-target-2",
+            marks=_STRING_PATTERN_TARGET_RUNTIME,
+        ),
+        pytest.param(
+            "pydantic_v2.dataclass",
+            "2.12",
+            "lookaround_anyof_nullable_pydantic_v2_dataclass.py",
+            ("value",),
+            id="dataclass-target-2.12",
+            marks=_TARGET_2_12_RUNTIME,
+        ),
+    ],
+)
+def test_main_lookaround_anyof_nullable_target_pydantic_version(
+    output_model_type: str,
+    target_pydantic_version: str,
+    expected_file: str,
+    attribute_path: tuple[str, ...],
+    output_file: Path,
+) -> None:
+    """Compile a lookaround alias pattern only for a target that has compiled patterns (Pydantic 2.8).
+
+    ``--target-pydantic-version 2`` keeps the string pattern in the dataclass alias, whose engine the
+    dataclass config selects, as 0.83.0 wrote it; a newer target writes what an unset target does. The
+    ``RootModel`` written for ``BaseModel`` carries its own config, so it is the same for every target.
+    Each parameter runs on the Pydantic releases that can import its output.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "lookaround_anyof_nullable.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", output_model_type, *target_pydantic_args(target_pydantic_version)],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="lookaround_anyof_nullable_target_pydantic_version",
+        model_name="Model",
+        valid_json='{"value": "ABC"}',
+        invalid_json='{"value": "abc"}',
+        expected_error_type="string_pattern_mismatch",
+        expected_attribute_path=attribute_path,
         expected_attribute_value="ABC",
     )
 
@@ -15220,6 +17717,437 @@ def test_main_lookaround_union_types_pydantic_v2(output_file: Path) -> None:
             "--output-model-type",
             "pydantic_v2.BaseModel",
         ],
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    ("args", "expected_file", "doubled_path"),
+    [
+        (
+            ["--output-model-type", "pydantic_v2.BaseModel"],
+            "rust_unsupported_pattern_pydantic_v2.py",
+            ("doubled", "root"),
+        ),
+        (
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"],
+            "rust_unsupported_pattern_pydantic_v2_annotated.py",
+            ("doubled", "root"),
+        ),
+        (
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            "rust_unsupported_pattern_pydantic_v2_field_constraints.py",
+            ("doubled", "root"),
+        ),
+        (
+            ["--output-model-type", "pydantic_v2.dataclass"],
+            "rust_unsupported_pattern_pydantic_v2_dataclass.py",
+            ("doubled",),
+        ),
+    ],
+)
+def test_main_rust_unsupported_pattern(
+    args: list[str], expected_file: str, doubled_path: tuple[str, ...], output_file: Path
+) -> None:
+    """Patterns pydantic-core's Rust engine rejects, such as backreferences, select Python's regex engine.
+
+    Lookaround and plain patterns keep their existing output.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_pattern.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=args,
+        force_exec_validation=True,
+    )
+    for path in (("pair",), doubled_path):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"rust_unsupported_pattern_{path[0]}",
+            model_name="Model",
+            valid_json=json.dumps({path[0]: "aa"}),
+            invalid_json=json.dumps({path[0]: "ab"}),
+            expected_error_type="string_pattern_mismatch",
+            expected_attribute_path=path,
+            expected_attribute_value="aa",
+        )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    ("args", "expected_file"),
+    [
+        ([], "rust_unsupported_pattern_non_string_pydantic_v2.py"),
+        (["--use-annotated"], "rust_unsupported_pattern_non_string_pydantic_v2_annotated.py"),
+    ],
+)
+def test_main_rust_unsupported_pattern_non_string(args: list[str], expected_file: str, output_file: Path) -> None:
+    """Patterns pydantic never compiles as string patterns keep pydantic-core's default regex engine.
+
+    The ``uri`` pattern is dropped for ``AnyUrl``, so the model keeps Rust semantics: Unicode classes
+    compile and ``$`` does not match before a final newline.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_pattern_non_string.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *args],
+        force_exec_validation=True,
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="rust_unsupported_pattern_non_string",
+        model_name="Model",
+        valid_json='{"code": "abc"}',
+        invalid_json=json.dumps({"code": "abc\n"}),
+        expected_error_type="string_pattern_mismatch",
+        expected_attribute_path=("code",),
+        expected_attribute_value="abc",
+    )
+
+
+_BYTES_PATTERN_RUST_ENGINE = ('{"code": "abc"}', '{"code": "abc\\n"}', ("code",), "abc")
+"""Payloads showing the default engine: ``$`` does not match before a final newline."""
+_BYTES_PATTERN_RUST_ONLY_SYNTAX = ('{"name": "é"}', '{"name": "1"}', ("name",), "é")
+"""Payloads showing the default engine: a Unicode class, which Python's ``re`` rejects, compiles."""
+_BYTES_PATTERN_PYTHON_ENGINE = ('{"blob": "aa"}', '{"blob": "ab"}', ("blob",), "aa")
+"""Payloads showing Python's engine: Pydantic 2.14 applies the ``bytes`` pattern with a ``str`` validator."""
+
+
+@pytest.mark.parametrize(
+    ("schema", "args", "target_pydantic_version", "expected_file", "payloads"),
+    [
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"],
+            None,
+            "rust_unsupported_pattern_bytes_pydantic_v2_annotated.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            "2",
+            "rust_unsupported_pattern_bytes_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            "2.12",
+            "rust_unsupported_pattern_bytes_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_pydantic_v2_dataclass_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_unicode.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_unicode_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ONLY_SYNTAX,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-annotated"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_pydantic_v2_annotated_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_pydantic_v2_field_constraints_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.dataclass", "--field-constraints"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_pydantic_v2_dataclass_field_constraints_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_alias.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-type-alias", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_alias_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_alias.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--use-type-alias", "--field-constraints"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_alias_pydantic_v2_field_constraints_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_nullable.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_nullable_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_RUST_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_nullable.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_nullable_pydantic_v2_field_constraints_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--field-constraints", "--strict-types", "bytes"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_pydantic_v2_field_constraints_strict_target_2_14.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_union.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--collapse-root-models", "--field-constraints"],
+            None,
+            "rust_unsupported_pattern_bytes_union_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+        (
+            "rust_unsupported_pattern_bytes_union.json",
+            ["--output-model-type", "pydantic_v2.BaseModel", "--collapse-root-models", "--field-constraints"],
+            "2.14",
+            "rust_unsupported_pattern_bytes_union_pydantic_v2_field_constraints.py",
+            _BYTES_PATTERN_PYTHON_ENGINE,
+        ),
+    ],
+)
+def test_main_rust_unsupported_pattern_bytes(
+    schema: str,
+    args: list[str],
+    target_pydantic_version: str | None,
+    expected_file: str,
+    payloads: tuple[str, str, tuple[str, ...], Any],
+    output_file: Path,
+) -> None:
+    """Emitted ``bytes`` patterns select Python's regex engine only for ``--target-pydantic-version 2.14``.
+
+    Pydantic compiles ``bytes`` patterns from 2.14 on and ignores them before. An unset or older target writes
+    what 0.83.0 wrote, so the other patterns of the model keep the default engine, including syntax only the
+    Rust engine accepts; that output imports on the releases that ignore the pattern, and the 2.14 target
+    output on the releases that compile it. Type aliases, nullable types and strict ``bytes`` follow the same
+    rule. A union with a string member, such as ``str | bytes``, selects Python's engine for every target,
+    because Pydantic compiles its pattern for the string member on every release.
+    """
+    compiles_bytes_patterns = installed_pydantic_runs_target(TargetPydanticVersion.V2_14.value)
+    runs = compiles_bytes_patterns == (target_pydantic_version == TargetPydanticVersion.V2_14.value)
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / schema,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[*args, *target_pydantic_args(target_pydantic_version)],
+        force_exec_validation=True,
+        skip_code_validation=not runs,
+    )
+    if runs:
+        valid_json, invalid_json, attribute_path, attribute_value = payloads
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="rust_unsupported_pattern_bytes",
+            model_name="Model",
+            valid_json=valid_json,
+            invalid_json=invalid_json,
+            expected_error_type="string_pattern_mismatch",
+            expected_attribute_path=attribute_path,
+            expected_attribute_value=attribute_value,
+        )
+
+
+@pytest.mark.parametrize("target_pydantic_version", [None, "2", "2.12", "2.14"])
+def test_main_rust_unsupported_pattern_bytes_without_constraints(
+    target_pydantic_version: str | None, output_file: Path
+) -> None:
+    """Without ``--use-annotated`` or ``--field-constraints`` the ``bytes`` pattern is dropped for every target."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_pattern_bytes.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="rust_unsupported_pattern_bytes_pydantic_v2.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *target_pydantic_args(target_pydantic_version)],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize("target_pydantic_version", ["2", "2.12"])
+def test_main_rust_unsupported_syntax(target_pydantic_version: str, output_file: Path) -> None:
+    """Syntax no pydantic-core release supports selects Python's regex engine, detected statically.
+
+    Escaped characters and character class members never trigger it, and neither does syntax newer
+    pydantic-core releases accept. The target Pydantic version does not change the decision.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_syntax.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="rust_unsupported_syntax_pydantic_v2.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-pydantic-version",
+            target_pydantic_version,
+        ],
+    )
+    for model_name, valid, invalid in (
+        ("Backreference", "aa", "ab"),
+        ("NamedBackreference", "bb", "bc"),
+        ("Conditional", "<a>", "<a"),
+        ("EndOfString", "abc", "abc\n"),
+        ("Comment", "abc", "ABC"),
+        ("NamedCharacter", "aa", "ab"),
+        ("ClassBackspace", "\b", "b"),
+        ("ClassOctal", "AA", "B"),
+        ("AsciiFlag", "abc", "\u00e9"),
+        ("OmittedMinimum", "ab", "abcd"),
+        ("LiteralBrace", "{ab}", "ab"),
+        ("EscapedBackslash", "\\1", "1"),
+        ("EscapedGroup", "(?>ab)", "ab"),
+        ("ClassMembers", "(?>{", "a"),
+        ("EscapedBrace", "{ab}", "ab"),
+        ("CountedRepetition", "ab", "abcd"),
+        ("ClassEscapedBackslash", "\\b", "a"),
+        ("EscapedSlash", "a/b", "ab"),
+        ("AngleNamedGroup", "2024", "24"),
+        ("Possessive", "abc", "abc\n"),
+        ("ScopedAsciiFlag", "abc", "\u00e9"),
+    ):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"rust_unsupported_syntax_{model_name}",
+            model_name=model_name,
+            valid_json=json.dumps(valid),
+            invalid_json=json.dumps(invalid),
+            expected_error_type="string_pattern_mismatch",
+            expected_attribute_path=("root",),
+            expected_attribute_value=valid,
+        )
+
+
+def test_main_rust_only_syntax(output_file: Path) -> None:
+    r"""Rust-only syntax keeps pydantic-core's default regex engine and Rust semantics.
+
+    Counted repetitions with whitespace, braced escapes such as ``\p{L}``, ``\x{41}`` and ``\b{start}``,
+    nested character classes, and capture names with brackets are Rust syntax that Python's ``re`` reads
+    differently or rejects.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_only_syntax.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="rust_only_syntax_pydantic_v2.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    for model_name, valid, invalid in (
+        ("BraceWhitespace", "ab", "abcd"),
+        ("UnicodeProperty", "\u00e9", "1"),
+        ("WordBoundary", "abc", "123"),
+        ("HexBrace", "AA", "B"),
+        ("NestedClass", "a{", "1"),
+        ("BracketedCaptureName", "12", "a"),
+        ("ClassBeforeCaptureName", "m>x", "a>x"),
+    ):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name=f"rust_only_syntax_{model_name}",
+            model_name=model_name,
+            valid_json=json.dumps(valid),
+            invalid_json=json.dumps(invalid),
+            expected_error_type="string_pattern_mismatch",
+            expected_attribute_path=("root",),
+            expected_attribute_value=valid,
+        )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "target_python_version", "expected_file", "switched"),
+    [
+        ("rust_unsupported_atomic_group", "3.10", "rust_unsupported_atomic_group_py310.py", False),
+        ("rust_unsupported_atomic_group", "3.11", "rust_unsupported_atomic_group_py311.py", True),
+        pytest.param(
+            "rust_unsupported_end_of_string",
+            "3.13",
+            "rust_unsupported_end_of_string_py313.py",
+            False,
+            marks=BLACK_PY313_SKIP,
+        ),
+        pytest.param(
+            "rust_unsupported_end_of_string",
+            "3.14",
+            "rust_unsupported_end_of_string_py314.py",
+            True,
+            marks=BLACK_PY314_SKIP,
+        ),
+    ],
+)
+def test_main_rust_unsupported_target_python(
+    fixture: str, target_python_version: str, expected_file: str, switched: bool, output_file: Path
+) -> None:
+    r"""Python-only regex syntax selects Python's regex engine only when the target Python's ``re`` parses it.
+
+    Atomic groups and possessive quantifiers need Python 3.11 and ``\z`` needs Python 3.14. The decision
+    depends on ``--target-python-version``, never on the Python running the generator. Switched models are
+    imported when the running Python is at least the target.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / f"{fixture}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            target_python_version,
+        ],
+        skip_code_validation=not switched,
+        force_exec_validation=switched,
+    )
+
+
+def test_main_rust_unsupported_python_rejected(output_file: Path) -> None:
+    """Rust-rejected syntax selects Python's regex engine even when Python's ``re`` rejects the pattern too.
+
+    Such a model fails at import with either engine, and the decision never depends on the Python running the
+    generator: unknown character names, global flags after the start, non-ASCII conditional references,
+    overflowing repetitions, and deeply nested groups are switched without compiling the pattern. Verbose
+    patterns keep the default engine because the scan does not model their whitespace and comments.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "rust_unsupported_python_rejected.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="rust_unsupported_python_rejected_pydantic_v2.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin"],
     )
 
 
@@ -15476,7 +18404,11 @@ def test_main_root_model_config_frozen(output_file: Path) -> None:
 
 The `--naming-strategy parent-prefixed` flag prefixes model names with their
 parent model name when duplicates occur. For example, if both `Order` and
-`Cart` have an inline `Item` definition, they become `OrderItem` and `CartItem`.""",
+`Cart` have an inline `Item` definition, they become `OrderItem` and `CartItem`.
+
+Generated clients and servers (experimental) follow the same rules for their method, argument, module, and class
+names, with the resource or router group as the parent of a method and the method as the parent of an argument;
+under `primary-first`, a primary name is one the root document declares.""",
     input_schema="jsonschema/naming_strategy/input.json",
     cli_args=["--naming-strategy", "parent-prefixed"],
     golden_output="main/jsonschema/naming_strategy/parent_prefixed/output.py",
@@ -16230,6 +19162,10 @@ def test_main_jsonschema_x_python_import_unused(output_file: Path) -> None:
         "Callable[[str], __import__('builtins').print('XPT_EXEC')]",
         "str\nprint('XPT_EXEC')\n#",
         "tuple[*Ts",
+        "list[\"__import__('builtins').print('XPT_EXEC')\"]",
+        "Optional[\"__import__('builtins').print('XPT_EXEC')\"]",
+        "dict[str, \"__import__('builtins').print('XPT_EXEC')\"]",
+        'list["str"]',
     ],
 )
 @pytest.mark.parametrize(
@@ -18877,6 +21813,197 @@ def test_main_allof_mro(output_file: Path) -> None:
     )
 
 
+ALLOF_INHERITANCE_ERRORS_PATH = JSON_SCHEMA_DATA_PATH / "allof_inheritance_errors"
+
+
+ALLOF_INHERITANCE_CYCLE_ERROR = (
+    "Generated model inheritance cycle: A (cycle.json#/$defs/A) -> B (cycle.json#/$defs/B) -> A (cycle.json#/$defs/A)\n"
+)
+
+
+ALLOF_INHERITANCE_MRO_ERROR = (
+    "Generated model E (mro_conflict.json#/$defs/E) has inconsistent method resolution order for generated bases "
+    "C (mro_conflict.json#/$defs/C), D (mro_conflict.json#/$defs/D).\n"
+)
+
+
+@pytest.mark.parametrize(
+    "output_model",
+    ["pydantic_v2.BaseModel", "pydantic_v2.dataclass", "dataclasses.dataclass", "typing.TypedDict", "msgspec.Struct"],
+)
+def test_main_allof_inheritance_cycle(output_model: str, output_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Reject allOf references that would make generated classes inherit from each other."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "cycle.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", output_model],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=ALLOF_INHERITANCE_CYCLE_ERROR,
+        output_should_not_exist=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["--class-decorators", "@deprecated('A is deprecated.')"],
+        ["--additional-imports", "datetime.date"],
+        ["--custom-formatters", "tests.data.python.custom_formatters.add_comment"],
+        ["--custom-template-dir", str(DATA_PATH / "msgspec_inheritance" / "templates_other")],
+        ["--import-overrides", '{"Field": "pydantic.v1"}'],
+        ["--generate-schema-validators"],
+    ],
+    ids=[
+        "class-decorators",
+        "additional-imports",
+        "custom-formatters",
+        "other-template",
+        "import-overrides",
+        "validators",
+    ],
+)
+def test_main_allof_inheritance_cycle_with_output_options(
+    extra_args: list[str], output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Keep rejecting cycles when output options cannot change the emitted class bases."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "cycle.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=extra_args,
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=ALLOF_INHERITANCE_CYCLE_ERROR,
+        output_should_not_exist=True,
+    )
+
+
+def test_main_allof_inheritance_cycle_custom_class_template(output_file: Path) -> None:
+    """Leave class bases to a custom class template that does not emit them."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "cycle.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "msgspec.Struct",
+            "--custom-template-dir",
+            str(DATA_PATH / "msgspec_inheritance" / "templates"),
+            "--additional-imports",
+            "msgspec.Struct",
+        ],
+        assert_func=assert_file_content,
+        expected_file="allof_inheritance_cycle_custom_class_template.py",
+    )
+
+
+TYPED_DICT_FLAT_CLASS_TEMPLATE_ARGS = [
+    "--output-model-type",
+    "typing.TypedDict",
+    "--custom-template-dir",
+    str(DATA_PATH / "templates_typed_dict_flat_class"),
+    "--additional-imports",
+    "typing.TypedDict",
+]
+
+
+def test_main_allof_inheritance_cycle_custom_typed_dict_class_template(output_file: Path) -> None:
+    """Leave TypedDict bases to a custom class include that does not emit them."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "cycle.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=TYPED_DICT_FLAT_CLASS_TEMPLATE_ARGS,
+        assert_func=assert_file_content,
+        expected_file="allof_inheritance_cycle_custom_typed_dict_class_template.py",
+    )
+
+
+def test_main_allof_inheritance_late_local_base_custom_typed_dict_class_template(output_dir: Path) -> None:
+    """Keep reused TypedDict models whose custom class include does not reference their bases."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "late_local_base",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=[*TYPED_DICT_FLAT_CLASS_TEMPLATE_ARGS, "--reuse-model", "--reuse-scope", "tree"],
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "allof_inheritance_late_local_base_custom_typed_dict",
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model", "expected_stderr"),
+    [
+        ("pydantic_v2.BaseModel", ALLOF_INHERITANCE_MRO_ERROR),
+        ("pydantic_v2.dataclass", ALLOF_INHERITANCE_MRO_ERROR),
+        ("dataclasses.dataclass", ALLOF_INHERITANCE_MRO_ERROR),
+        ("msgspec.Struct", "msgspec.Struct model 'C' has incompatible layouts from generated bases 'A' and 'B'.\n"),
+    ],
+)
+def test_main_allof_inheritance_mro_conflict(
+    output_model: str, expected_stderr: str, output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reject C(A, B), D(B, A), E(C, D) hierarchies that have no method resolution order."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "mro_conflict.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", output_model],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=expected_stderr,
+        output_should_not_exist=True,
+    )
+
+
+def test_main_allof_inheritance_mro_conflict_typed_dict(output_file: Path) -> None:
+    """Keep TypedDict output, whose bases do not need a method resolution order."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "mro_conflict.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "typing.TypedDict"],
+        assert_func=assert_file_content,
+        expected_file="allof_inheritance_mro_conflict_typed_dict.py",
+    )
+
+
+def test_main_allof_inheritance_shared_joins(output_file: Path) -> None:
+    """Keep consistent hierarchies whose multiple-base models are reused by several subclasses."""
+    run_main_and_assert(
+        input_path=DATA_PATH / "msgspec_inheritance" / "jsonschema_redundant_dag.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--target-python-version", "3.10"],
+        assert_func=assert_file_content,
+        expected_file="allof_inheritance_shared_joins.py",
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "output_model",
+    ["pydantic_v2.BaseModel", "pydantic_v2.dataclass", "dataclasses.dataclass", "typing.TypedDict", "msgspec.Struct"],
+)
+def test_main_allof_inheritance_late_local_base(
+    output_model: str, output_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reject a reused model placed before the local base it inherits from."""
+    run_main_and_assert(
+        input_path=ALLOF_INHERITANCE_ERRORS_PATH / "late_local_base",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", output_model, "--reuse-model", "--reuse-scope", "tree"],
+        expected_exit=Exit.ERROR,
+        capsys=capsys,
+        expected_stderr=(
+            "Generated model Child (z.json#) requires local base Base (z.json#/$defs/Base) before its definition.\n"
+        ),
+        output_should_not_exist=True,
+    )
+
+
 @pytest.mark.benchmark
 def test_main_circular_ref_with_schema_keywords(output_file: Path) -> None:
     """Test circular $ref with additional schema keywords does not cause RecursionError."""
@@ -19937,24 +23064,33 @@ def test_main_payload_runtime_compatibility(output_file: Path) -> None:
 
 
 def test_main_msgspec_payload_runtime_compatibility(output_file: Path) -> None:
-    """Test msgspec avoids unsupported bool Literal and tags supported Struct unions."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "msgspec_payload_runtime_compatibility.json",
-        output_path=output_file,
-        input_file_type="jsonschema",
-        extra_args=[
-            "--output-model-type",
-            "msgspec.Struct",
-            "--target-python-version",
-            "3.10",
-            "--class-name",
-            "Payload",
-        ],
-        assert_func=assert_file_content,
-        expected_file="msgspec_payload_runtime_compatibility.py",
-        force_exec_validation=True,
-        importable_module_name="generated_msgspec_payload_runtime_compatibility",
-        importable_module_attribute="Payload",
+    """Test msgspec avoids unsupported bool Literal, tags supported Struct unions and reports the others."""
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "msgspec_payload_runtime_compatibility.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--target-python-version",
+                "3.10",
+                "--class-name",
+                "Payload",
+            ],
+            assert_func=assert_file_content,
+            expected_file="msgspec_payload_runtime_compatibility.py",
+            force_exec_validation=True,
+            importable_module_name="generated_msgspec_payload_runtime_compatibility",
+            importable_module_attribute="Payload",
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_JSON_SCHEMA_PATH / "msgspec_payload_runtime_compatibility_warnings.txt",
     )
 
 
@@ -19991,13 +23127,70 @@ def test_main_msgspec_annotated_optional_imports(output_file: Path) -> None:
 
 
 def test_main_msgspec_array_length_constraints_without_annotated() -> None:
-    """Test msgspec generate API without use_annotated keeps imports minimal."""
+    """Test msgspec generate API with use_annotated disabled keeps imports minimal."""
     run_generate_and_assert(
         input_=JSON_SCHEMA_DATA_PATH / "msgspec_array_length_constraints.json",
         expected_file=EXPECTED_JSON_SCHEMA_PATH / "msgspec_array_length_constraints_without_annotated.py",
         input_file_type=InputFileType.JsonSchema,
         output_model_type=DataModelType.MsgspecStruct,
+        use_annotated=False,
     )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+@pytest.mark.parametrize(
+    ("expected_file", "cli_args", "options"),
+    [
+        ("msgspec.py", ["--output-model-type", "msgspec.Struct"], {"output_model_type": DataModelType.MsgspecStruct}),
+        ("use_annotated.py", ["--use-annotated"], {"use_annotated": True}),
+    ],
+)
+def test_main_entry_point_constraints(
+    output_file: Path, entrypoint: str, expected_file: str, cli_args: list[str], options: dict[str, Any]
+) -> None:
+    """Test the command line and generate() keep the same constraints for the same options, at runtime too."""
+    name = "entry_point_constraints"
+    if entrypoint == "cli":
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=[
+                *cli_args,
+                *("--formatters", "builtin", "--disable-timestamp", "--target-python-version", "3.11"),
+            ],
+            assert_func=assert_file_content,
+            expected_file=f"{name}/{expected_file}",
+            force_exec_validation=True,
+        )
+    else:
+        run_generate_file_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+            output_path=output_file,
+            input_file_type=InputFileType.JsonSchema,
+            formatters=[Formatter.BUILTIN],
+            disable_timestamp=True,
+            target_python_version=PythonVersion.PY_311,
+            assert_func=assert_file_content,
+            expected_file=f"{name}/{expected_file}",
+            **options,
+        )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "Record") as model:
+        validate = partial(msgspec.json.decode, type=model)
+        error_type: type[Exception] = msgspec.ValidationError
+        if "use_annotated" in options:
+            validate = _model_json_validator(model)
+            error_type = ValidationError
+        validate(json.dumps(payloads["valid"]))
+
+        def accepts(field_name: str, value: object) -> bool:
+            with suppress(error_type):
+                return validate(json.dumps(payloads["valid"] | {field_name: value})) is not None
+            return False
+
+        rejected = [field_name for field_name, value in payloads["invalid"].items() if not accepts(field_name, value)]
+    assert_output("\n".join(rejected) + "\n", EXPECTED_JSON_SCHEMA_PATH / name / "rejected.txt")
 
 
 def test_main_msgspec_integer_fractional_constraints(output_file: Path) -> None:
@@ -20210,15 +23403,158 @@ def test_main_dataclass_nested_mapping_defaults_require_constructor_arguments(ou
 
 
 def test_main_msgspec_decimal_constraints(output_file: Path) -> None:
-    """Test msgspec keeps fractional decimal constraints and integer-valued bounds."""
-    run_main_and_assert(
-        input_path=JSON_SCHEMA_DATA_PATH / "msgspec_decimal_constraints.json",
-        output_path=output_file,
-        input_file_type="jsonschema",
-        extra_args=["--output-model-type", "msgspec.Struct", "--use-annotated"],
-        assert_func=assert_file_content,
-        expected_file="msgspec_decimal_constraints.py",
-        importable_module_name="generated_msgspec_decimal_constraints",
+    """Test msgspec leaves decimal constraints out of Meta, which msgspec does not take on Decimal."""
+    with pytest.warns(UserWarning, match=r"msgspec\.Meta does not take ge, le, multiple_of on Decimal; Model\.p "):
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "msgspec_decimal_constraints.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            extra_args=["--output-model-type", "msgspec.Struct", "--use-annotated"],
+            assert_func=assert_file_content,
+            expected_file="msgspec_decimal_constraints.py",
+            importable_module_name="generated_msgspec_decimal_constraints",
+        )
+
+
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        ("msgspec.py", []),
+        (
+            "type_overrides.py",
+            ["--type-overrides", json.dumps({"MsgspecMetaUnsupportedTypes.count": "decimal.Decimal"})],
+        ),
+    ],
+)
+def test_main_msgspec_meta_unsupported_types(output_file: Path, expected_file: str, extra_args: list[str]) -> None:
+    """Test msgspec.Meta leaves out the constraints msgspec rejects on a type, warns per field, and still decodes."""
+    name = "msgspec_meta_unsupported_types"
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=f"{name}/{expected_file}",
+            extra_args=[
+                "--output-model-type",
+                "msgspec.Struct",
+                "--formatters",
+                "builtin",
+                "--disable-timestamp",
+                "--target-python-version",
+                "3.11",
+                *extra_args,
+            ],
+            force_exec_validation=True,
+        )
+    stem = expected_file.removesuffix(".py")
+    assert_output(
+        "".join(f"{warning.message}\n" for warning in recorded_warnings if "msgspec.Meta" in str(warning.message)),
+        EXPECTED_JSON_SCHEMA_PATH / name / f"{stem}_warnings.txt",
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "MsgspecMetaUnsupportedTypes") as model:
+        msgspec.json.decode(json.dumps(payloads["valid"]), type=model)
+        rejected = []
+        for field_name, value in payloads["invalid"].items():
+            with suppress(msgspec.ValidationError):
+                msgspec.json.decode(json.dumps(payloads["valid"] | {field_name: value}), type=model)
+                continue
+            rejected.append(field_name)
+    assert_output("\n".join(rejected) + "\n", EXPECTED_JSON_SCHEMA_PATH / name / f"{stem}_rejected.txt")
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+def test_main_msgspec_float_multiple_of(output_file: Path, entrypoint: str) -> None:
+    """Test msgspec writes a float multiple_of only for a divisor floats represent exactly, and warns otherwise."""
+    name = "msgspec_float_multiple_of"
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        if entrypoint == "cli":
+            run_main_and_assert(
+                input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+                output_path=output_file,
+                input_file_type="jsonschema",
+                assert_func=assert_file_content,
+                expected_file=f"{name}/msgspec.py",
+                extra_args=[
+                    *("--output-model-type", "msgspec.Struct", "--formatters", "builtin"),
+                    *("--disable-timestamp", "--target-python-version", "3.11"),
+                ],
+                force_exec_validation=True,
+            )
+        else:
+            run_generate_file_and_assert(
+                input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+                output_path=output_file,
+                input_file_type=InputFileType.JsonSchema,
+                output_model_type=DataModelType.MsgspecStruct,
+                formatters=[Formatter.BUILTIN],
+                disable_timestamp=True,
+                target_python_version=PythonVersion.PY_311,
+                assert_func=assert_file_content,
+                expected_file=f"{name}/msgspec.py",
+            )
+    assert_output(
+        "".join(f"{warning.message}\n" for warning in recorded_warnings if "multiple_of" in str(warning.message)),
+        EXPECTED_JSON_SCHEMA_PATH / name / "warnings.txt",
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "Measurements") as model:
+        msgspec.json.decode(json.dumps(payloads["valid"]), type=model)
+        rejected = []
+        for field_name, value in payloads["invalid"].items():
+            with suppress(msgspec.ValidationError):
+                msgspec.json.decode(json.dumps(payloads["valid"] | {field_name: value}), type=model)
+                continue
+            rejected.append(field_name)
+    assert_output("\n".join(rejected) + "\n", EXPECTED_JSON_SCHEMA_PATH / name / "rejected.txt")
+
+
+@pytest.mark.parametrize("stem", ["msgspec", "no_use_annotated", "collapse_root_models"])
+def test_main_msgspec_union_member_constraints(output_file: Path, stem: str) -> None:
+    """Test msgspec writes union members of one type without Meta, warns per field, and decodes every member's values.
+
+    msgspec checks all members of a type in a union against the constraints of each of them, so a constrained
+    member of `bytes | Annotated[bytes, Meta(max_length=3)]` would reject the long bytes the other member accepts.
+    A member whose constraints every member of its type shares keeps them. Without `Annotated`, no member has Meta,
+    so the union keeps its members. Collapsing a root model moves its warning to the field that inlines it.
+    """
+    name = "msgspec_union_member_constraints"
+    with warnings.catch_warnings(record=True) as recorded_warnings:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / f"{name}.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file=f"{name}/{stem}.py",
+            extra_args=[
+                *("--output-model-type", "msgspec.Struct", "--formatters", "builtin"),
+                *("--disable-timestamp", "--target-python-version", "3.11"),
+                *(["--no-use-annotated"] if stem == "no_use_annotated" else []),
+                *(["--collapse-root-models"] if stem == "collapse_root_models" else []),
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(f"{warning.message}\n" for warning in recorded_warnings if "union" in str(warning.message)),
+        EXPECTED_JSON_SCHEMA_PATH / name / f"{stem}_warnings.txt",
+    )
+    payloads = json.loads((DATA_PATH / f"payloads/{name}.json").read_text())
+    with _generated_model(output_file, name, "Upload") as model:
+        decoded = msgspec.json.decode(json.dumps(payloads["valid"]), type=model)
+        rejected = []
+        for field_name, value in payloads["invalid"].items():
+            with suppress(msgspec.ValidationError):
+                msgspec.json.decode(json.dumps(payloads["valid"] | {field_name: value}), type=model)
+                continue
+            rejected.append(field_name)
+    assert_output(
+        "".join(f"{line}\n" for line in (repr(decoded), "rejected:", *rejected)),
+        EXPECTED_JSON_SCHEMA_PATH / name / f"{stem}_decoded.txt",
     )
 
 
@@ -23555,35 +26891,44 @@ def test_optional_nested_factory_constructor_requirements(
     if "custom_template_dir" in options:
         options["custom_template_dir"] = NESTED_FACTORY_DATA / options["custom_template_dir"]
         args[-1] = str(options["custom_template_dir"])
-    if entrypoint == "cli":
-        run_main_and_assert(
-            input_path=NESTED_FACTORY_DATA / f"{case['schema']}.json",
-            output_path=output_file,
-            input_file_type="jsonschema",
-            assert_func=assert_file_content,
-            expected_file=NESTED_FACTORY_EXPECTED / case["expected_code"],
-            extra_args=[
-                "--output-model-type",
-                case["backend"],
-                "--use-default-factory-for-optional-nested-models",
-                "--disable-timestamp",
-                *args,
-            ],
-            force_exec_validation=True,
-        )
-    else:
-        run_generate_file_and_assert(
-            input_path=NESTED_FACTORY_DATA / f"{case['schema']}.json",
-            output_path=output_file,
-            input_file_type=InputFileType.JsonSchema,
-            output_model_type=DataModelType(case["backend"]),
-            use_default_factory_for_optional_nested_models=True,
-            disable_timestamp=True,
-            assert_func=assert_file_content,
-            expected_file=NESTED_FACTORY_EXPECTED / case["expected_code"],
-            unchanged_inputs={"options": options},
-            **options,
-        )
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        if entrypoint == "cli":
+            run_main_and_assert(
+                input_path=NESTED_FACTORY_DATA / f"{case['schema']}.json",
+                output_path=output_file,
+                input_file_type="jsonschema",
+                assert_func=assert_file_content,
+                expected_file=NESTED_FACTORY_EXPECTED / case["expected_code"],
+                extra_args=[
+                    "--output-model-type",
+                    case["backend"],
+                    "--use-default-factory-for-optional-nested-models",
+                    "--disable-timestamp",
+                    *args,
+                ],
+                force_exec_validation=True,
+            )
+        else:
+            run_generate_file_and_assert(
+                input_path=NESTED_FACTORY_DATA / f"{case['schema']}.json",
+                output_path=output_file,
+                input_file_type=InputFileType.JsonSchema,
+                output_model_type=DataModelType(case["backend"]),
+                use_default_factory_for_optional_nested_models=True,
+                disable_timestamp=True,
+                assert_func=assert_file_content,
+                expected_file=NESTED_FACTORY_EXPECTED / case["expected_code"],
+                unchanged_inputs={"options": options},
+                **options,
+            )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        NESTED_FACTORY_EXPECTED / case.get("expected_warnings", "no_warnings.txt"),
+    )
     with _generated_model(output_file, f"generated_nested_factory_{case['name']}", "Root") as model:
         if case.get("root_required"):
             with pytest.raises((ValidationError, TypeError)):
@@ -24387,7 +27732,7 @@ def test_optional_disjoint_allof_types(output_file: Path, entrypoint: str, *, sc
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
 def test_numeric_null_custom_template(output_file: Path, entrypoint: str) -> None:
-    """Preserve valid custom rendering, including raw constraints and existing imports."""
+    """Render a custom template without number keywords on a null root, keeping its existing imports."""
     source = JSON_SCHEMA_DATA_PATH / "numeric_allof_types/null_template.json"
     expected = EXPECTED_JSON_SCHEMA_PATH / "numeric_allof_types"
     template_dir = DATA_PATH / "templates_numeric_null"
@@ -24459,14 +27804,7 @@ COMPOUND_PROPERTY_CASES = json.loads((COMPOUND_PROPERTY_PAYLOADS / "cases.json")
 def test_compound_property_name_generation(name: str, constraints: bool, entry: str, output_file: Path) -> None:
     """Preserve string keys, native acceptance, and deterministic generated output."""
     input_path = COMPOUND_PROPERTY_INPUTS / f"{name}.json"
-    suffix = (
-        "_legacy_pydantic"
-        if PYDANTIC_V2_ROOT_MODEL_DICT_KEY_FORWARD_REF_NEEDS_SORTING and name in {"enum_refs", "ref_then_any"}
-        else ""
-    )
-    expected_file = COMPOUND_PROPERTY_CASES[name].get(
-        f"{name}_{int(constraints)}{suffix}.py", f"{name}_{int(constraints)}{suffix}.py"
-    )
+    expected_file = COMPOUND_PROPERTY_CASES[name].get(f"{name}_{int(constraints)}.py", f"{name}_{int(constraints)}.py")
     expected_file = f"compound_property_names/{expected_file}"
     if entry == "cli":
         run_main_and_assert(

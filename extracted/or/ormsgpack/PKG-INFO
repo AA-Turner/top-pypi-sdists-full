@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ormsgpack
-Version: 1.12.2
+Version: 1.13.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -9,11 +9,11 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -26,7 +26,7 @@ Summary: Fast, correct Python msgpack library supporting dataclasses, datetimes,
 Keywords: fast,msgpack,dataclass,dataclasses,datetime
 Author-email: Aviram Hassan <aviramyhassan@gmail.com>, Emanuele Giaquinta <emanuele.giaquinta@gmail.com>
 License-Expression: Apache-2.0 OR MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/ormsgpack/ormsgpack
 

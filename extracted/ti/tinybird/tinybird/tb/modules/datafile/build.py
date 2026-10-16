@@ -4,7 +4,7 @@ import re
 import urllib
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -678,7 +678,7 @@ def process_file(
         if import_from_timestamp := params.get("import_from_timestamp", None):
             try:
                 dt = datetime.fromisoformat(import_from_timestamp)
-                if dt.tzinfo is None or dt.tzinfo != timezone.utc:
+                if dt.tzinfo is None or dt.tzinfo != UTC:
                     # If the datetime does not have an embedded timezone info
                     # or differs from UTC, user should change it.
                     raise click.ClickException(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 5.0.0
+Version: 5.0.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,12 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.0.1
+*******
+
+- `Fixed` Git branches whose name starts with a digit (for example ``3-clean-up-tokens``) work with ``tb build`` and ``tb deploy``. Cloud branches keep the leading digit; Tinybird Local workspaces use a ``branch_`` prefix.
+- `Fixed` ``tb branch clear <name>`` also finds the ``branch_``-prefixed name that ``tb branch create <name>`` generates. If the name matches more than one Branch, use the Branch ID.
 
 5.0.0
 *******

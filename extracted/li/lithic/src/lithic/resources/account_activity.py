@@ -52,6 +52,7 @@ class AccountActivity(SyncAPIResource):
         category: Literal[
             "ACH",
             "WIRE",
+            "STABLECOIN",
             "BALANCE_OR_FUNDING",
             "FEE",
             "REWARD",
@@ -63,6 +64,7 @@ class AccountActivity(SyncAPIResource):
             "EXTERNAL_CHECK",
             "EXTERNAL_FEDNOW",
             "EXTERNAL_RTP",
+            "EXTERNAL_STABLECOIN",
             "EXTERNAL_TRANSFER",
             "EXTERNAL_WIRE",
             "MANAGEMENT_ADJUSTMENT",
@@ -72,6 +74,7 @@ class AccountActivity(SyncAPIResource):
             "MANAGEMENT_DISBURSEMENT",
             "HOLD",
             "PROGRAM_FUNDING",
+            "PROGRAM_TRANSFER",
         ]
         | Omit = omit,
         end: Union[str, datetime] | Omit = omit,
@@ -224,6 +227,7 @@ class AsyncAccountActivity(AsyncAPIResource):
         category: Literal[
             "ACH",
             "WIRE",
+            "STABLECOIN",
             "BALANCE_OR_FUNDING",
             "FEE",
             "REWARD",
@@ -235,6 +239,7 @@ class AsyncAccountActivity(AsyncAPIResource):
             "EXTERNAL_CHECK",
             "EXTERNAL_FEDNOW",
             "EXTERNAL_RTP",
+            "EXTERNAL_STABLECOIN",
             "EXTERNAL_TRANSFER",
             "EXTERNAL_WIRE",
             "MANAGEMENT_ADJUSTMENT",
@@ -244,6 +249,7 @@ class AsyncAccountActivity(AsyncAPIResource):
             "MANAGEMENT_DISBURSEMENT",
             "HOLD",
             "PROGRAM_FUNDING",
+            "PROGRAM_TRANSFER",
         ]
         | Omit = omit,
         end: Union[str, datetime] | Omit = omit,

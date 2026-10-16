@@ -5,7 +5,6 @@
 #include "atoms/affine.h"
 #include "minunit.h"
 #include "test_helpers.h"
-#include "utils/permuted_dense.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -66,16 +65,12 @@ const char *test_jacobian_transpose_pd_preserved(void)
     eval_jacobian(T);
 
     /* Structural: output Jacobian must be a PD. */
-    mu_assert("transpose Jacobian should be PD", T->jacobian->is_permuted_dense);
-    permuted_dense *pd_T = (permuted_dense *) T->jacobian;
-    mu_assert("global m", T->jacobian->m == 6);
-    mu_assert("global n", T->jacobian->n == 2);
-    mu_assert("m0", pd_T->m0 == 6);
-    mu_assert("n0", pd_T->n0 == 2);
-    int expected_row_perm[6] = {0, 1, 2, 3, 4, 5};
-    int expected_col_perm[2] = {0, 1};
-    mu_assert("row_perm", cmp_int_array(pd_T->row_perm, expected_row_perm, 6));
-    mu_assert("col_perm", cmp_int_array(pd_T->col_perm, expected_col_perm, 2));
+    mu_assert("transpose Jacobian should be PD",
+              T->jacobian->kind == MATRIX_PERMUTED_DENSE);
+    matrix *jac = T->jacobian;
+    mu_assert("global m", jac->m == 6);
+    mu_assert("global n", jac->n == 2);
+    mu_assert("full block", jac->nnz == 12);
 
     /* Numerical: X_out rows = A rows permuted by k(r) = [0,3,1,4,2,5]. */
     double expected_X[12] = {1.0,  2.0,   /* row 0 from A row 0 */
@@ -84,7 +79,7 @@ const char *test_jacobian_transpose_pd_preserved(void)
                              9.0,  10.0,  /* row 3 from A row 4 */
                              5.0,  6.0,   /* row 4 from A row 2 */
                              11.0, 12.0}; /* row 5 from A row 5 */
-    mu_assert("X values", cmp_double_array(pd_T->X, expected_X, 12));
+    mu_assert("X values", cmp_double_array(jac->x, expected_X, 12));
 
     free_expr(T);
     return 0;
@@ -105,8 +100,10 @@ const char *test_jacobian_transpose_spd_preserved(void)
     jacobian_init(T);
     T->forward(T, u);
     eval_jacobian(T);
-    mu_assert("child Jacobian should be spd", L->jacobian->is_stacked_pd);
-    mu_assert("transpose Jacobian should be spd", T->jacobian->is_stacked_pd);
+    mu_assert("child Jacobian should be spd",
+              L->jacobian->kind == MATRIX_STACKED_PD);
+    mu_assert("transpose Jacobian should be spd",
+              T->jacobian->kind == MATRIX_STACKED_PD);
 
     /* Dense child Jacobian: output entry (i, j) (col-major row i + 2j) carries
        A[i, :] in the columns of X's j-th column (vars 3j .. 3j+2). */

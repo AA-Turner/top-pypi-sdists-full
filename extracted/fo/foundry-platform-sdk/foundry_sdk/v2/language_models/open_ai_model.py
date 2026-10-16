@@ -71,6 +71,9 @@ class OpenAiModelClient:
     ) -> language_models_models.OpenAiEmbeddingsResponse:
         """
 
+
+        Required scopes: [api:language-models-execute]
+
         :param open_ai_model_model_id:
         :type open_ai_model_model_id: LanguageModelApiName
         :param input: Input text to embed, encoded as an array of strings. Each input must not exceed the max input  tokens for the model (8192 tokens for all embedding models).
@@ -182,6 +185,9 @@ class AsyncOpenAiModelClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[language_models_models.OpenAiEmbeddingsResponse]:
         """
+
+
+        Required scopes: [api:language-models-execute]
 
         :param open_ai_model_model_id:
         :type open_ai_model_model_id: LanguageModelApiName

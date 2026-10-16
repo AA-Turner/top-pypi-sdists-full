@@ -26,7 +26,7 @@ from xknx.remote_value.remote_value_climate_mode import (
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -36,7 +36,8 @@ class ClimateMode(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_operation_mode: GroupAddressesType = None,
         group_address_operation_mode_state: GroupAddressesType = None,
         group_address_operation_mode_protection: GroupAddressesType = None,
@@ -55,14 +56,14 @@ class ClimateMode(Device):
         device_updated_cb: DeviceCallbackType[ClimateMode] | None = None,
     ) -> None:
         """Initialize ClimateMode class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self.remote_value_operation_mode = RemoteValueOperationMode(
             xknx,
             group_address=group_address_operation_mode,
             group_address_state=group_address_operation_mode_state,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Operation mode",
             after_update_cb=self._set_internal_operation_mode,
         )
@@ -71,7 +72,7 @@ class ClimateMode(Device):
             group_address=group_address_controller_mode,
             group_address_state=group_address_controller_mode_state,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Controller mode",
             after_update_cb=self._set_internal_controller_mode,
         )
@@ -80,7 +81,7 @@ class ClimateMode(Device):
             group_address=group_address_controller_status,
             group_address_state=group_address_controller_status_state,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Controller status",
             after_update_cb=self._set_internal_modes_from_status,
         )
@@ -90,7 +91,7 @@ class ClimateMode(Device):
             group_address=group_address_operation_mode_comfort,
             group_address_state=group_address_operation_mode_comfort,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Operation mode Comfort",
             operation_mode=HVACOperationMode.COMFORT,
             after_update_cb=self._set_internal_operation_mode,
@@ -100,7 +101,7 @@ class ClimateMode(Device):
             group_address=group_address_operation_mode_standby,
             group_address_state=group_address_operation_mode_standby,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Operation mode Standby",
             operation_mode=HVACOperationMode.STANDBY,
             after_update_cb=self._set_internal_operation_mode,
@@ -110,7 +111,7 @@ class ClimateMode(Device):
             group_address=group_address_operation_mode_economy,
             group_address_state=group_address_operation_mode_economy,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Operation mode Economy",
             operation_mode=HVACOperationMode.ECONOMY,
             after_update_cb=self._set_internal_operation_mode,
@@ -120,7 +121,7 @@ class ClimateMode(Device):
             group_address=group_address_operation_mode_protection,
             group_address_state=group_address_operation_mode_protection,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Operation mode Protection",
             operation_mode=HVACOperationMode.BUILDING_PROTECTION,
             after_update_cb=self._set_internal_operation_mode,
@@ -130,7 +131,7 @@ class ClimateMode(Device):
             group_address=group_address_heat_cool,
             group_address_state=group_address_heat_cool_state,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             feature_name="Heat/Cool",
             controller_mode=HVACControllerMode.HEAT,
             after_update_cb=self._set_internal_controller_mode,
@@ -290,7 +291,7 @@ class ClimateMode(Device):
         # remove duplicates
         return list(set(controller_modes))
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         for rv in self._iter_remote_values():
             rv.process(telegram)

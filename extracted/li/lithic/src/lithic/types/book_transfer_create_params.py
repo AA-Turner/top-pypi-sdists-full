@@ -24,6 +24,7 @@ class BookTransferCreateParams(TypedDict, total=False):
             "INTERNAL",
             "REWARD",
             "PROGRAM_FUNDING",
+            "PROGRAM_TRANSFER",
             "TRANSFER",
         ]
     ]
@@ -65,6 +66,7 @@ class BookTransferCreateParams(TypedDict, total=False):
             "INTEREST",
             "LATE_PAYMENT",
             "BILL_PAYMENT",
+            "PAYMENT_FEE",
             "CASH_BACK",
             "ACCOUNT_TO_ACCOUNT",
             "CARD_TO_CARD",
@@ -80,6 +82,8 @@ class BookTransferCreateParams(TypedDict, total=False):
             "SERVICE",
             "TRANSFER",
             "COLLECTION",
+            "LITHIC_PROGRAM_TRANSFER",
+            "BANK_PROGRAM_TRANSFER",
         ]
     ]
     """Type of the book transfer"""

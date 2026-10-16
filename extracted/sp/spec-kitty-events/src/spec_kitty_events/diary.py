@@ -1682,13 +1682,80 @@ def _fold_transitions(sorted_events: list[StatusEvent]) -> dict[str, dict[str, A
     return wp_states
 
 
+def _approved_departure_sort_at(events: list[StatusEvent]) -> dict[str, str]:
+    """Map a non-seed ``approved -> X`` departure's ``event_id`` to the approval ``at`` it must not sort before.
+
+    A departure from ``approved`` necessarily followed an arrival at ``approved``
+    -- you cannot leave a lane you never entered -- so it is causally *after* its
+    ``-> approved`` approval, never concurrent with it. When the approval carries
+    a LATER wall-clock ``at`` than the departure (a clock-ahead reviewer, or a
+    teammate's approval row arriving through ``git pull`` and the status-log union
+    merge driver, which also orders by ``at``), a naive ``(at, event_id)`` sort
+    puts the departure BEFORE its own approval. At that position the WP is still
+    ``in_review``, so arm (ii) ``from_lane`` continuity drops the departure as
+    causally stale and the stale-looking approval wins
+    (spec-kitty-events#101, spec-kitty/spec-kitty#4941).
+
+    Pair each WP's non-seed approved departures to its non-seed approvals in two
+    passes, both in ``(at, event_id)`` order, so a rework cycle never binds a
+    departure to another cycle's approval (index pairing would, once one cycle's
+    approval ran ahead). Pass 1 binds each departure to the latest still-unbound
+    approval whose ``at`` is not after the departure's: that is its un-skewed
+    approval, and the departure needs no lift. Pass 2 binds each remaining
+    departure, in order, to the earliest still-unbound approval LATER than it --
+    the clock-ahead approval it must follow -- and returns a lifted sort ``at`` of
+    that approval's ``at``. The stored ``at`` is never changed; only
+    :func:`_order_transitions`'s sort key is lifted, so a real-time departure sorts
+    immediately after the approval it followed and then applies. A departure left
+    unbound (no approval to follow) is absent from the map and unchanged, as is
+    every departure already at or after its approval, so this is a no-op whenever
+    no clock ran ahead. Reconstruction seeds are excluded: they are best-effort
+    restatements judged by the arms, not causal decisions.
+    """
+    arrivals: dict[str, list[StatusEvent]] = {}
+    departures: dict[str, list[StatusEvent]] = {}
+    for event in events:
+        if _is_reconstruction_seed(event):
+            continue
+        if event.to_lane == Lane.APPROVED and event.from_lane != Lane.APPROVED:
+            arrivals.setdefault(event.wp_id, []).append(event)
+        elif event.from_lane == Lane.APPROVED and event.to_lane != Lane.APPROVED:
+            departures.setdefault(event.wp_id, []).append(event)
+
+    lifted: dict[str, str] = {}
+    for wp_id, wp_departures in departures.items():
+        unbound = sorted(arrivals.get(wp_id, []), key=lambda e: (e.at, e.event_id))
+        ordered = sorted(wp_departures, key=lambda e: (e.at, e.event_id))
+        skewed: list[StatusEvent] = []
+        for departure in ordered:
+            earlier = [a for a in unbound if a.at <= departure.at]
+            if earlier:
+                unbound.remove(earlier[-1])
+            else:
+                skewed.append(departure)
+        for departure in skewed:
+            later = [a for a in unbound if a.at > departure.at]
+            if later:
+                unbound.remove(later[0])
+                lifted[departure.event_id] = later[0].at
+    return lifted
+
+
 def _order_transitions(events: list[StatusEvent]) -> list[StatusEvent]:
     """Sort by ``(at, event_id)``, except that a real ``approved -> X`` follows its approval.
 
-    A non-seed event leaving ``approved`` that shares its ``at`` with a non-seed
-    ``-> approved`` of the same WP causally follows it, so it sorts after the
-    approval even when its ``event_id`` is smaller; otherwise arm (ii) would drop
-    it for arriving while the WP is still ``in_review`` (spec-kitty-events#87).
+    A non-seed event leaving ``approved`` causally follows the ``-> approved``
+    approval it departed, so it must never sort before that approval -- not when
+    they share an ``at`` (its ``event_id`` could be smaller), and not when the
+    approval carries a LATER ``at`` than the departure (a clock-ahead reviewer, or
+    a teammate's approval arriving through ``git pull`` + the union merge driver).
+    Otherwise arm (ii) would drop the departure for arriving while the WP is still
+    ``in_review`` (spec-kitty-events#87 for the equal-``at`` case,
+    spec-kitty-events#101 / spec-kitty/spec-kitty#4941 for the later-``at`` case).
+    The later-``at`` case lifts only the departure's SORT ``at`` to its approval's
+    (:func:`_approved_departure_sort_at`) and carries it to the same-WP events stamped
+    below it (:func:`_carry_lifted_sort_at`); the stored ``at`` is untouched, and the
+    un-skewed case is a no-op, so the equal-``at`` behaviour is unchanged.
     """
     approvals = {
         (ev.wp_id, ev.at)
@@ -1697,16 +1764,54 @@ def _order_transitions(events: list[StatusEvent]) -> list[StatusEvent]:
         and ev.from_lane != Lane.APPROVED
         and not _is_reconstruction_seed(ev)
     }
+    effective, seq = _carry_lifted_sort_at(events, _approved_departure_sort_at(events))
     return sorted(
         events,
         key=lambda e: (
-            e.at,
-            e.from_lane == Lane.APPROVED
-            and (e.wp_id, e.at) in approvals
-            and not _is_reconstruction_seed(e),
+            effective.get(e.event_id, e.at),
+            e.event_id in seq
+            or (
+                e.from_lane == Lane.APPROVED
+                and not _is_reconstruction_seed(e)
+                and (e.wp_id, e.at) in approvals
+            ),
+            seq.get(e.event_id, 0),
             e.event_id,
         ),
     )
+
+
+def _carry_lifted_sort_at(
+    events: list[StatusEvent], lifted: dict[str, str]
+) -> tuple[dict[str, str], dict[str, int]]:
+    """Carry each lifted departure's sort ``at`` forward to the same-WP events after it.
+
+    A lifted departure sorts at its approval's (later) ``at``; the rework that
+    followed it was stamped on the real clock, below that value, so it would sort
+    BEFORE the departure and be dropped as stale. Sweep each WP in ``(at,
+    event_id)`` order keeping a running floor: a lifted departure raises it, and a
+    later event whose ``at`` is below it is given the floor as its sort ``at``.
+    Returns the effective sort ``at`` per carried or lifted ``event_id`` and a
+    sequence number that keeps the swept events in their original relative order.
+    Stored ``at`` values are untouched; with nothing lifted both maps are empty.
+    Reconstruction seeds are carried too (unlike in the pairing): carrying only
+    moves an event's sort position, it does not apply it, so a seed keeps its
+    relative order behind the departure and the arms still judge it.
+    """
+    if not lifted:
+        return {}, {}
+    effective = dict(lifted)
+    seq: dict[str, int] = {}
+    floors: dict[str, str] = {}
+    for position, event in enumerate(sorted(events, key=lambda e: (e.at, e.event_id)), 1):
+        floor = floors.get(event.wp_id)
+        if event.event_id in lifted:
+            floors[event.wp_id] = max(floor or "", lifted[event.event_id])
+            seq[event.event_id] = position
+        elif floor is not None and event.at < floor:
+            effective[event.event_id] = floor
+            seq[event.event_id] = position
+    return effective, seq
 
 
 def _canonical_key(event: StatusEvent) -> str:

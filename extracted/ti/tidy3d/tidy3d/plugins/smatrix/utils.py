@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy import linalg
 
 from tidy3d.constants import dp_eps
 from tidy3d.exceptions import Tidy3dError
@@ -251,6 +250,8 @@ def _compute_F_full(
     np.ndarray or tuple[np.ndarray, np.ndarray]
         F matrix, or (F, Finv) tuple if ``compute_Finv`` is True.
     """
+    from scipy import linalg
+
     num_freqs = Z_numpy.shape[0]
 
     if s_param_def == "power":

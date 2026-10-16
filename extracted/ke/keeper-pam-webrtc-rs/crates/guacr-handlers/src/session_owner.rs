@@ -96,9 +96,10 @@ impl SessionOwnerSender {
     pub fn owner_disconnect(&mut self, session_id: &str) {
         // AC-1: Send disconnect to all viewers.
         if let Some(ref handle) = self.session {
-            // Guacamole disconnect instruction.
+            // Guacamole disconnect instruction. Control traffic, so it must not
+            // overwrite the cached frame a late-joining viewer would receive.
             let disconnect = bytes::Bytes::from_static(b"10.disconnect;");
-            let _ = handle.broadcast(disconnect);
+            let _ = handle.broadcast_control(disconnect);
         }
         // AC-2: Remove from registry.
         crate::session_sharing::deregister(session_id);

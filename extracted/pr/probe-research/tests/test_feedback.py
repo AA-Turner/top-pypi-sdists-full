@@ -632,6 +632,25 @@ def test_an_agent_marker_alone_keeps_probe_approvals_from_answering(monkeypatch)
     assert "belongs to a coding agent" in out.getvalue() and "probe deny" in out.getvalue()
 
 
+@pytest.mark.parametrize("list_only", [True, False])
+def test_an_agents_listing_sends_both_answers_to_the_researchers_terminal(monkeypatch, list_only):
+    """The daemon profile lets the agent list the questions and refuses its
+    `probe deny`: "anyone may say no" read as an invitation it could not take."""
+    import io
+
+    from probe.cli import daemon_cli
+
+    _hold()
+    monkeypatch.setenv("CLAUDECODE", "1")
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", SID)
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", out)
+    daemon_cli.approvals_cmd(list_only=list_only)
+    text = out.getvalue()
+    assert "belongs to a coding agent" in text and "says no with `probe deny <id>` there" in text, text
+    assert "anyone may say no" not in text and "answer in your own terminal" not in text
+
+
 def test_the_note_audit_hook_finds_probe_as_the_other_hooks_do(tmp_path, monkeypatch):
     """`note_audit` shares `version_check._probe_bin`: PROBE_BIN first, a bare
     name looked up on PATH, and None when there is no `probe` at all."""

@@ -11,6 +11,7 @@ import autograd.numpy as np
 import shapely
 from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
+from tidy3d._runtime import always_validate
 from tidy3d.compat import _package_is_older_than
 from tidy3d.components.autograd import TracedCoordinate, TracedFloat, TracedSize, get_static
 from tidy3d.components.autograd.path_utils import (
@@ -3130,6 +3131,7 @@ class Transformed(Geometry):
         return val
 
     @model_validator(mode="after")
+    @always_validate
     def _apply_transforms(self: dict[str, Any]) -> dict[str, Any]:
         while isinstance(self.geometry, Transformed):
             inner = self.geometry

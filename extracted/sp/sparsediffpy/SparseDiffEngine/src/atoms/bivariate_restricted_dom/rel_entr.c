@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 #include "atoms/bivariate_restricted_dom.h"
-#include "utils/sparse_matrix.h"
-#include "utils/tracked_alloc.h"
+#include "sparsediff_linalg/matrix.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -203,6 +203,14 @@ expr *new_rel_entr_vector_args(expr *left, expr *right)
     {
         fprintf(stderr,
                 "Error: Both arguments of relative entropy must be variables.\n");
+        return NULL;
+    }
+
+    /* the derivative code assumes two distinct variables */
+    if (left->var_id == right->var_id)
+    {
+        fprintf(stderr, "Error: Arguments of relative entropy must be distinct "
+                        "variables.\n");
         return NULL;
     }
 

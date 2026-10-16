@@ -14,10 +14,10 @@ from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from functools import cached_property, lru_cache
-from itertools import accumulate
+from itertools import accumulate, takewhile
 from pathlib import Path
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar, cast
 from warnings import warn
 
 from pydantic import ConfigDict, Field
@@ -543,6 +543,13 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
     PREPARE_PYTHON_PATTERNS: ClassVar[
         Callable[[DataModelFieldBase, str, dict[str, PythonRuntimeExpression]], None] | None
     ] = None
+    PREPARE_TYPE_ALIAS_FIELD: ClassVar[
+        Callable[
+            [DataModelFieldBase, dict[str, PythonRuntimeExpression], Callable[[DataModelFieldBase, DataType], None]],
+            bool,
+        ]
+        | None
+    ] = None
     _FIELD_IMPORTS_CACHE_MAX_SIZE: ClassVar[int] = 4096
     _field_imports_cache: ClassVar[dict[tuple[Any, ...], tuple[Import, ...]]] = {}
     _SEMANTIC_CACHE_KEYS: ClassVar[tuple[str, ...]] = (
@@ -604,6 +611,17 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
 
     def process_const(self) -> None:
         """Process const fields in subclasses."""
+
+    @property
+    def dropped_constraints_warning(self) -> str | None:
+        """Return a warning naming the constraints the output model leaves out on this field's type, if any."""
+        return None
+
+    def unconstrain_union_members(self) -> None:
+        """Write union members without the constraints the output model cannot check on one member alone."""
+
+    def inherit_unconstrained_union_members(self, source: DataModelFieldBase) -> None:
+        """Take over the union members written without constraints from a field whose type this field inlines."""
 
     @property
     def requires_immediate_forward_reference_resolution(self) -> bool:
@@ -1347,6 +1365,32 @@ def _nested_model_has_required_constructor_fields(source: DataModel) -> bool:
     )
 
 
+def _default_factory_type_name(data_type: DataType) -> str:
+    """Return the name a default factory uses for the referenced type.
+
+    The factory runs once the module defines the type, so a quoted forward reference is named directly.
+    """
+    if (alias := data_type.alias) and not data_type._is_quoted_reference:  # noqa: SLF001
+        return alias
+    return cast("DataModel", cast("Reference", data_type.reference).source).class_name
+
+
+def _is_hidden_by_earlier_field(field: DataModelFieldBase, name: str) -> bool:
+    """Return whether an earlier field of the class has bound ``name`` when the field's value is evaluated.
+
+    Only an output that keeps a field named like a type and writes that type as a string can meet this.
+    """
+    parent = field.parent
+    return (
+        parent is not None
+        and parent.RESOLVES_STRING_ANNOTATIONS_FROM_MODULE
+        and any(
+            earlier.name == name and parent.field_binds_class_attribute(earlier)
+            for earlier in takewhile(lambda earlier: earlier is not field, parent.fields)
+        )
+    )
+
+
 def _nested_model_default_factory(field: DataModelFieldBase, model_cls: type[DataModel]) -> str | None:
     """Return the nested model name usable as a default_factory for optional fields."""
     for data_type in field.data_type.data_types or (field.data_type,):
@@ -1362,7 +1406,9 @@ def _nested_model_default_factory(field: DataModelFieldBase, model_cls: type[Dat
                 source.__dict__[_NESTED_MODEL_REQUIRED_CONSTRUCTOR_FIELDS_KEY] = required_fields
             if required_fields:
                 return None
-            factory_name = data_type.alias or source.class_name
+            if _is_hidden_by_earlier_field(field, source.class_name):
+                return f"lambda: {source.class_name}()"
+            factory_name = _default_factory_type_name(data_type)
             parent_order = (
                 field.parent.__dict__.get(_NESTED_MODEL_DEFAULT_FACTORY_ORDER_KEY) if field.parent is not None else None
             )
@@ -1864,12 +1910,15 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     """
 
     _field_name_bindings: Mapping[str, str] | None = None
+    reused_reference: Reference | None = None
+    """The reference of the model that reuse replaced with this empty subclass of an equal model."""
 
     TEMPLATE_FILE_PATH: ClassVar[str] = ""
     BASE_CLASS: ClassVar[str] = ""
     DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = ()
     IS_ALIAS: ClassVar[bool] = False
     IS_ROOT_MODEL: ClassVar[bool] = False
+    DEFERS_RECURSIVE_TYPE_HINT: ClassVar[bool] = False
     SUPPORTS_GENERIC_BASE_CLASS: ClassVar[bool] = True
     FIELD_ASSIGNMENT_CHECKER: ClassVar[Callable[[DataModelFieldBase], bool]] = staticmethod(_has_field_assignment)
     FIELD_DEFAULT_CLASSIFIER: ClassVar[Callable[[DataModelFieldBase], tuple[bool, bool]]] = staticmethod(
@@ -1890,9 +1939,14 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     SUPPORTS_DISCRIMINATOR: ClassVar[bool] = False
     SUPPORTS_INHERITED_DISCRIMINATOR_ENUM: ClassVar[bool] = False
     SUPPORTS_FIELD_RENAMING: ClassVar[bool] = False
+    SUPPORTS_FIELD_TYPE_RENAMING: ClassVar[bool] = False
+    NORMALIZES_FIELD_NAMES: ClassVar[bool] = False
+    RESOLVES_STRING_ANNOTATIONS_FROM_MODULE: ClassVar[bool] = False
+    WRITES_QUOTED_NAMES_IN_TYPING_GENERICS: ClassVar[bool] = False
     SUPPORTS_KW_ONLY: ClassVar[bool] = False
     REQUIRES_MODEL_LEVEL_KW_ONLY: ClassVar[bool] = False
     SUPPORTS_BOOLEAN_LITERAL: ClassVar[bool] = True
+    SUPPORTS_NULL_ENUM_MEMBER: ClassVar[bool] = True
     REQUIRES_FIELD_DEPENDENCY_ORDERING: ClassVar[bool] = False
     REQUIRES_TAGGED_UNION_DISCRIMINATOR: ClassVar[bool] = False
     REQUIRES_UNIQUE_FIELD_ALIASES: ClassVar[bool] = False
@@ -1933,10 +1987,11 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     FORMAT_DESCRIPTION_AS_DOCSTRING: ClassVar[bool] = True
     CUSTOM_TEMPLATE_ADAPTER: ClassVar[Callable[[Template], Template] | None] = None
     # A static callable avoids allocating bound methods on dependency-index cache misses.
-    _INCLUDE_DICT_KEY_REFERENCE_CLASSES: ClassVar[Callable[[type[DataModel]], bool] | None] = None
+    _INCLUDE_DICT_KEY_REFERENCE_CLASSES: ClassVar[Callable[[DataModel], bool] | None] = None
     _TYPED_EXTRA_DICT_KEY_CAPABILITY: ClassVar[Callable[[DataType], bool] | None] = None
     _IMPORTS_CACHE_KEY: ClassVar[str] = "_cached_imports"
     has_forward_reference: bool = False
+    discriminator_tag: tuple[Any, Any] | None = None
 
     @classmethod
     def resolve_module_import_conflicts(
@@ -1965,8 +2020,19 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     ) -> None:
         """Apply an output-specific tagged-union discriminator when supported."""
 
+    def opt_out_of_inherited_tag(self) -> None:
+        """Clear an output-specific tagged-union discriminator inherited from a base when supported."""
+
     def has_keyword_only_definition(self) -> bool:  # noqa: PLR6301
         """Return whether the model already makes inherited fields keyword-only."""
+        return False
+
+    def orders_required_assignments_before_defaults(self) -> bool:  # noqa: PLR6301
+        """Return whether required fields written as assignments must precede the fields with defaults."""
+        return False
+
+    def keeps_assignment_with_required_fields(self, field: DataModelFieldBase) -> bool:  # noqa: ARG002, PLR6301
+        """Return whether a field written as an assignment stays among the required fields without one."""
         return False
 
     @classmethod
@@ -2071,6 +2137,15 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         configured_root_model_type: type[DataModel],
     ) -> type[DataModel]:
         """Return the model type used for nested constrained values."""
+        return configured_root_model_type
+
+    @classmethod
+    def resolve_type_alias_model_type(
+        cls,
+        configured_root_model_type: type[DataModel],
+        target_python_version: PythonVersion,  # noqa: ARG003
+    ) -> type[DataModel]:
+        """Return the model type that --use-type-alias selects for a root value."""
         return configured_root_model_type
 
     @staticmethod
@@ -2287,7 +2362,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
 
     def create_reuse_model(self, base_ref: Reference) -> Self:
         """Create inherited model with empty fields pointing to base reference."""
-        return self.__class__(
+        reuse_model = self.__class__(
             fields=[],
             base_classes=[base_ref],
             description=self.description,
@@ -2300,6 +2375,8 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
             keyword_only=self.keyword_only,
             treat_dot_as_module=self._treat_dot_as_module,
         )
+        reuse_model.reused_reference = self.reference
+        return reuse_model
 
     def _set_deprecated_decorator(self) -> None:
         """Add a class-level deprecated decorator when schema metadata requires it."""
@@ -2439,6 +2516,64 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         self.__dict__[self._IMPORTS_CACHE_KEY] = imports
         return imports
 
+    def field_binds_class_attribute(self, field: DataModelFieldBase) -> bool:
+        """Return whether the class body assigns a field call or a default to the field's name."""
+        return bool(field.field) or type(self).FIELD_ASSIGNMENT_CHECKER(field)
+
+    def field_name_hides_types(self, field: DataModelFieldBase) -> bool:  # noqa: PLR6301, ARG002
+        """Return whether the field's name hides a type of that name from annotations that are not strings."""
+        return True
+
+    def unbind_fields(self, names: Collection[str | None]) -> bool:  # noqa: PLR6301, ARG002
+        """Keep the finished class from binding the fields of these names, which hide types its annotations name.
+
+        The result tells whether a field changed. The neutral model policy leaves the fields bound.
+        """
+        return False
+
+    def resolves_hidden_types_from_strings(self) -> bool:  # noqa: PLR6301
+        """Return whether a type hidden by a field of the class needs string annotations on native deferred targets."""
+        return True
+
+    def class_attribute_hides_named_type(  # noqa: PLR6301
+        self,
+        field: DataModelFieldBase,  # noqa: ARG002
+        *,
+        assigned: bool,
+        resolved_late: bool,  # noqa: ARG002
+        as_string: bool,  # noqa: ARG002
+    ) -> bool:
+        """Return whether a class attribute named like the field hides the type that its annotation names.
+
+        ``assigned`` tells that the finished class body assigns a value to the field's name, ``resolved_late``
+        that the annotation is resolved once the class exists instead of right after that assignment, and
+        ``as_string`` that the library resolves it from a string.
+        """
+        return assigned
+
+    def assigns_forward_reference_field(  # noqa: PLR6301
+        self,
+        field: DataModelFieldBase,  # noqa: ARG002
+        positions: Mapping[str, int],  # noqa: ARG002
+        index: int,  # noqa: ARG002
+    ) -> bool:
+        """Return whether ``assign_forward_reference_fields`` writes the field by assignment."""
+        return False
+
+    def assign_forward_reference_fields(self, positions: Mapping[str, int], index: int) -> bool:
+        """Render fields by assignment when ``Field()`` inside ``Annotated`` is unsafe for a forward reference.
+
+        ``positions`` maps the path of each model in the module to its order and ``index`` is this model's order.
+        The neutral model policy intentionally changes nothing. Output backends whose target mishandles such a
+        field override ``assigns_forward_reference_field``; the result tells whether a field changed.
+        """
+        changed = False
+        for field in self.fields:
+            if self.assigns_forward_reference_field(field, positions, index):
+                field.use_annotated = False
+                changed = True
+        return changed
+
     def clear_imports_cache(self) -> None:
         """Clear cached imports after import-affecting model, field, or data type mutations."""
         self.__dict__.pop(self._IMPORTS_CACHE_KEY, None)
@@ -2449,6 +2584,13 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         self.clear_imports_cache()
         if dedup_key_cache := getattr(self, "_dedup_key_cache", None):
             dedup_key_cache.clear()
+
+    def refresh_field_config(self) -> None:
+        """Update config derived from field types once the parser has finished replacing them."""
+
+    @classmethod
+    def finalize_type_alias_users(cls, models: list[DataModel]) -> None:
+        """Update config that depends on the type aliases models reach, once every alias body is final."""
 
     @property
     def reference_classes(self) -> frozenset[str]:

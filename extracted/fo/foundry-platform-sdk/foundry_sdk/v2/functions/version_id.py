@@ -69,6 +69,9 @@ class VersionIdClient:
         """
         Gets a specific version of a value type with the given RID and version ID.
 
+
+        Required scopes: [api:functions-read]
+
         :param value_type_rid:
         :type value_type_rid: ValueTypeRid
         :param version_id_version_id:
@@ -165,6 +168,9 @@ class AsyncVersionIdClient:
     ) -> typing.Awaitable[functions_models.VersionId]:
         """
         Gets a specific version of a value type with the given RID and version ID.
+
+
+        Required scopes: [api:functions-read]
 
         :param value_type_rid:
         :type value_type_rid: ValueTypeRid

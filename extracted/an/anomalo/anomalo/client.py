@@ -787,6 +787,9 @@ class Client:
             empty_response=True,
         )
 
+    def list_roles(self) -> Any:
+        return self._api_call("roles")
+
     def list_api_keys_for_current_user(self, limit=None, offset=None):
         return self._api_call(
             "api-keys",

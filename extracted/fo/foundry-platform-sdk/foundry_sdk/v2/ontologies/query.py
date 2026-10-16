@@ -82,6 +82,9 @@ class QueryClient:
 
         Optional parameters do not need to be supplied.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param query_api_name: The API name of the Query to execute.
@@ -217,6 +220,9 @@ class AsyncQueryClient:
         The latest version is the one that was most recently published, which may be a pre-release version.
 
         Optional parameters do not need to be supplied.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

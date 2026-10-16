@@ -8,7 +8,8 @@ import re
 
 import pytest
 
-from bashkit import Bash, BashTool, ScriptedTool
+from bashkit import Bash, BashTool
+from bashkit.scripted import ScriptedTool
 
 # Decision: keep the issue-1264 parity cases in this hidden core module while
 # the public `test_security.py` module re-exports the merged security suite.
@@ -40,10 +41,12 @@ def test_tm_inf_001_vfs_cannot_read_host_etc_passwd():
 
 
 def test_tm_esc_003_vfs_cannot_read_host_proc():
-    """VFS must not expose /proc filesystem."""
+    """VFS /proc is synthetic: the shell's own entry, never the host process."""
     bash = Bash()
     r = bash.execute_sync("cat /proc/self/cmdline")
-    assert r.exit_code != 0 or r.stdout == "", "Host /proc leaked into VFS"
+    assert r.stdout == "bash\x00", "Host /proc leaked into VFS"
+    r = bash.execute_sync("cat /proc/self/environ /proc/self/maps")
+    assert r.exit_code != 0 and r.stdout == "", "Host /proc leaked into VFS"
 
 
 def test_tm_iso_002_vfs_writes_are_isolated_between_instances():
@@ -252,24 +255,30 @@ def test_tm_dos_029_arithmetic_overflow_does_not_crash():
 def test_tm_dos_029_division_by_zero_does_not_crash():
     """TM-DOS-029: division by zero must return an error value, not panic."""
     r = Bash().execute_sync("echo $((1 / 0)) 2>&1")
-    assert isinstance(r.exit_code, int)
-    assert r.stdout.strip() == "0"
+    # Like bash: the expansion error aborts the line with exit 1.
+    assert r.exit_code == 1
+    assert r.stdout == ""
+    assert "division by 0" in r.stderr
     _assert_sanitized_error(r.stderr)
 
 
 def test_tm_dos_029_modulo_by_zero_does_not_crash():
     """TM-DOS-029: modulo by zero must not unwind through the binding."""
     r = Bash().execute_sync("echo $((1 % 0)) 2>&1")
-    assert isinstance(r.exit_code, int)
-    assert r.stdout.strip() == "0"
+    # Like bash: the expansion error aborts the line with exit 1.
+    assert r.exit_code == 1
+    assert r.stdout == ""
+    assert "division by 0" in r.stderr
     _assert_sanitized_error(r.stderr)
 
 
 def test_tm_dos_029_negative_exponent_does_not_crash():
     """TM-DOS-029: unsupported arithmetic should stay bounded."""
     r = Bash().execute_sync("echo $((2 ** -1)) 2>&1")
-    assert isinstance(r.exit_code, int)
-    assert r.stdout.strip() == "0"
+    # Like bash: a negative exponent is an error that aborts the line.
+    assert r.exit_code == 1
+    assert r.stdout == ""
+    assert "exponent less than 0" in r.stderr
     _assert_sanitized_error(r.stderr)
 
 
@@ -277,8 +286,9 @@ def test_tm_dos_059_default_memory_limit_prevents_oom_without_max_memory():
     """TM-DOS-059: Bash() must enforce the default memory cap even without max_memory."""
     bash = Bash(max_loop_iterations=10000, max_commands=10000)
     r = bash.execute_sync('x=AAAAAAAAAA; i=0; while [ $i -lt 30 ]; do x="$x$x"; i=$((i+1)); done; echo ${#x}')
-    assert r.exit_code == 0
-    assert int(r.stdout.strip()) <= 10_000_000
+    assert r.exit_code != 0
+    assert "variable byte limit (10000000) exceeded" in r.stderr
+    assert r.stdout == ""
 
 
 def test_tm_inf_002_env_builtins_do_not_leak_host_env():
@@ -296,7 +306,9 @@ def test_tm_inf_002_default_env_vars_are_sandboxed():
     """TM-INF-002: builtin shell vars should resolve to virtual sandbox values."""
     r = Bash().execute_sync('echo "HOME=$HOME PATH=$PATH USER=$USER HOSTNAME=$HOSTNAME"')
     assert r.exit_code == 0
-    assert r.stdout.strip() == "HOME=/home/sandbox PATH= USER=sandbox HOSTNAME=bashkit-sandbox"
+    assert (
+        r.stdout.strip() == "HOME=/home/sandbox PATH=/usr/local/bin:/usr/bin:/bin USER=sandbox HOSTNAME=bashkit-sandbox"
+    )
 
 
 def test_tm_esc_002_process_substitution_stays_in_sandbox():
@@ -384,8 +396,11 @@ def test_tm_inj_005_crlf_line_endings_in_scripts_execute_safely():
 def test_tm_inj_005_direct_read_file_traversal_is_blocked():
     """TM-INJ-005: Bash.read_file() must not expose paths outside the VFS root."""
     bash = Bash()
-    with pytest.raises(RuntimeError, match="file not found"):
-        bash.read_file("/tmp/../../etc/passwd")
+    # `..` clamps at the VFS root; /etc/passwd is the synthetic root-filesystem
+    # file built from the virtual identity, never the host's.
+    content = bash.read_file("/tmp/../../etc/passwd")
+    assert "root:x:0:0" not in content
+    assert ":x:1000:1000:" in content
 
 
 def test_tm_inj_005_direct_write_file_traversal_normalizes_inside_vfs():

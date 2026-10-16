@@ -13,6 +13,7 @@ from mistralai.workflows.core.config.config import adopt_remote_default, apply_r
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerInfo
+from mistralai.workflows.worker_client.errors import SDKError
 
 logger = structlog.get_logger(__name__)
 
@@ -64,14 +65,16 @@ async def apply_worker_runtime_config(api_key: str | None = None) -> WorkerRunti
             effective_features=effective_features,
         )
         return runtime_config
-    except HTTPStatusError as exc:
-        if exc.response.status_code == 404:
+    except (SDKError, HTTPStatusError) as exc:
+        status_code = exc.status_code if isinstance(exc, SDKError) else exc.response.status_code
+        if status_code == 404:
             warnings.warn("Could not fetch worker config from server. Is your server up to date?")
             return None
-        raise WorkflowsException(
+        raise WorkflowsException.from_api_client_error(
+            exc,
             code=ErrorCode.WORKER_RUNTIME_CONFIG_ERROR,
             message="Failed to fetch worker runtime configuration from server",
-        )
+        ) from exc
 
 
 def normalize_temporal_url(url: str) -> str:

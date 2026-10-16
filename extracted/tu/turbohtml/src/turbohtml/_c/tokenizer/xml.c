@@ -588,11 +588,20 @@ static int prefix_in_scope(xml_parser *parser, Py_ssize_t start, Py_ssize_t end,
     return 0;
 }
 
-/* Validate the prefix of the qualified name in [start, end): a leading prefix
-   before ':' must be declared. Returns 0, or -1 with an error recorded. */
+/* A QName has at most one colon between two NCNames, and its prefix must be in scope. */
 static int check_qname_prefix(xml_parser *parser, Py_ssize_t start, Py_ssize_t end) {
     for (Py_ssize_t index = start; index < end; index++) {
         if (cp(parser, index) == ':') {
+            if (index == start || index == end - 1 || !is_name_start(cp(parser, index + 1))) {
+                record(parser, "xml-invalid-name", start);
+                return -1;
+            }
+            for (Py_ssize_t local = index + 1; local < end; local++) {
+                if (cp(parser, local) == ':') {
+                    record(parser, "xml-invalid-name", start);
+                    return -1;
+                }
+            }
             if (!prefix_in_scope(parser, start, index, start)) {
                 return -1;
             }
@@ -1115,13 +1124,22 @@ static int consume_doctype(xml_parser *parser) {
     Py_ssize_t sys_end = 0;
     if (public_id || starts_with(parser, parser->pos, "SYSTEM")) {
         parser->pos += 6;
+        if (parser->pos >= parser->length || !xml_is_space(cp(parser, parser->pos))) {
+            record(parser, "xml-malformed-declaration", parser->pos);
+            return -1;
+        }
         skip_space(parser);
         if (public_id) {
             if (skip_doctype_literal(parser, 1, &pub_start, &pub_end) < 0) {
                 return -1;
             }
             has_public = 1;
+            Py_ssize_t space_start = parser->pos;
             skip_space(parser);
+            if (parser->pos == space_start) {
+                record(parser, "xml-malformed-declaration", parser->pos);
+                return -1;
+            }
         }
         if (skip_doctype_literal(parser, 0, &sys_start, &sys_end) < 0) {
             return -1;
@@ -1211,6 +1229,9 @@ static int consume_end_tag(xml_parser *parser) {
    scratch buffer, declaring a well-formed prefix binding. Returns 0 for an ordinary attribute
    or a valid declaration, -1 with an error recorded for a reserved-binding violation. */
 static int consume_namespace_decl(xml_parser *parser, Py_ssize_t name_start, Py_ssize_t name_end, Py_ssize_t depth) {
+    if (name_end - name_start < 5 || cp(parser, name_start) != 'x') {
+        return 0;
+    }
     int is_default = name_equals(parser, name_start, name_end, "xmlns");
     if (!is_default && !starts_with(parser, name_start, "xmlns:")) {
         return 0;
@@ -1229,9 +1250,15 @@ static int consume_namespace_decl(xml_parser *parser, Py_ssize_t name_start, Py_
     Py_ssize_t prefix_len = name_end - prefix_start;
     /* an empty prefix is not an NCName, and an empty URI would undeclare the prefix, which only Namespaces in XML 1.1
        allows (NSC: No Prefix Undeclaring) */
-    if (prefix_len == 0 || parser->scratch_len == 0) {
+    if (prefix_len == 0 || !is_name_start(cp(parser, prefix_start)) || parser->scratch_len == 0) {
         record(parser, "xml-invalid-namespace-decl", name_start);
         return -1;
+    }
+    for (Py_ssize_t index = prefix_start; index < name_end; index++) {
+        if (cp(parser, index) == ':') {
+            record(parser, "xml-invalid-namespace-decl", name_start);
+            return -1;
+        }
     }
     if (name_equals(parser, prefix_start, name_end, "xmlns")) { /* the xmlns prefix is never declarable */
         record(parser, "xml-reserved-prefix", prefix_start);

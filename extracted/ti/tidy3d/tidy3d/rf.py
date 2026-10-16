@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import warnings
-
 # Boundary
 from tidy3d.components.boundary import InternalAbsorber
 
@@ -145,12 +143,6 @@ from tidy3d.plugins.smatrix.ports.wave import TerminalWavePort, WavePort
 # Backwards compatibility
 CurrentIntegralTypes = CurrentIntegralType
 VoltageIntegralTypes = VoltageIntegralType
-# Instantiate on plugin import till we unite with toplevel
-warnings.filterwarnings(
-    "once",
-    message="RF simulations and functionality will require new license requirements in an upcoming release. All RF-specific classes are now available within the sub-package 'tidy3d.rf'.",
-    category=FutureWarning,
-)
 
 
 __all__ = [

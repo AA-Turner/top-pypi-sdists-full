@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <memory>
+#include <vector>
 
 #include <OpenImageIO/Imath.h>
 
@@ -20,6 +21,10 @@
 #include <OpenImageIO/thread.h>
 
 #include <Imath/ImathBox.h>
+
+#if OIIO_USE_HWY
+#    include "imagebufalgo_hwy_pvt.h"
+#endif
 
 OIIO_NAMESPACE_3_1_BEGIN
 
@@ -385,9 +390,9 @@ warp_impl(ImageBuf& dst, const ImageBuf& src, const Imath::M33f& M,
         dst_roi      = roi.defined() ? roi : dst.roi();
         dst_roi_full = dst.roi_full();
     } else {
-        dst_roi      = roi.defined()
-                           ? roi
-                           : (recompute_roi ? transform(M, src.roi()) : src.roi());
+        dst_roi = roi.defined()
+                      ? roi
+                      : (recompute_roi ? transform(M, src.roi()) : src.roi());
         dst_roi_full = src_roi_full;
     }
     dst_roi.chend      = std::min(dst_roi.chend, src.nchannels());
@@ -732,7 +737,7 @@ resize_(ImageBuf& dst, const ImageBuf& src, const Filter2D* filter, ROI roi,
                         pel[c] = 0.0f;
                     const float* xfiltval = xfiltval_all.get()
                                             + (x - roi.xbegin) * xtaps;
-                    float totalweight_x = 0.0f;
+                    float totalweight_x   = 0.0f;
                     for (int i = 0; i < xtaps; ++i)
                         totalweight_x += xfiltval[i];
                     if (totalweight_x != 0.0f) {
@@ -932,11 +937,7 @@ ImageBufAlgo::fit(ImageBuf& dst, const ImageBuf& src, KWArgs options, ROI roi,
     OIIO::pvt::LoggedTimer logtime("IBA::fit");
 
     static const ustring recognized[] = {
-        filtername_us,
-        filterwidth_us,
-        filterptr_us,
-        fillmode_us,
-        exact_us,
+        filtername_us, filterwidth_us, filterptr_us, fillmode_us, exact_us,
 #if 0 /* Not currently recognized */
         wrap_us,
         edgeclamp_us,
@@ -1101,9 +1102,34 @@ interppixel(const ImageBuf& img, ImageBuf::ConstIterator<T>& it, float x,
 
 template<typename DSTTYPE, typename SRCTYPE>
 static bool
-resample_(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
-          int nthreads)
+resample_scalar(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
+                int nthreads)
 {
+    // This operates just like the internals of ImageBuf::interppixel(), but
+    // reuses the provided iterator to avoid the overhead of constructing a new
+    // one each time. This speeds it up by 20x! The iterator `it` must already
+    // be associated with `img`, but it need not be positioned correctly.
+    auto interppixel =
+        [](const ImageBuf& img, ImageBuf::ConstIterator<SRCTYPE>& it, float x,
+           float y, span<float> pixel, ImageBuf::WrapMode wrap) -> bool {
+        int n             = std::min(int(pixel.size()), img.spec().nchannels);
+        float* localpixel = OIIO_ALLOCA(float, n * 4);
+        float* p[4]       = { localpixel, localpixel + n, localpixel + 2 * n,
+                              localpixel + 3 * n };
+        x -= 0.5f;
+        y -= 0.5f;
+        int xtexel, ytexel;
+        float xfrac, yfrac;
+        xfrac = floorfrac(x, &xtexel);
+        yfrac = floorfrac(y, &ytexel);
+        it.rerange(xtexel, xtexel + 2, ytexel, ytexel + 2, 0, 1, wrap);
+        for (int i = 0; i < 4; ++i, ++it)
+            for (int c = 0; c < n; ++c)
+                p[i][c] = it[c];  //NOSONAR
+        bilerp(p[0], p[1], p[2], p[3], xfrac, yfrac, n, pixel.data());
+        return true;
+    };
+
     OIIO_ASSERT(src.deep() == dst.deep());
     ImageBufAlgo::parallel_image(roi, nthreads, [&](ROI roi) {
         const ImageSpec& srcspec(src.spec());
@@ -1154,8 +1180,6 @@ resample_(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
     });
     return true;
 }
-
-
 
 static bool
 resample_deep(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
@@ -1235,6 +1259,427 @@ resample_deep(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
     });
 
     return true;
+}
+
+
+
+// A resampling filter's destination-to-source mapping is axis-separable and
+// monotonically increasing, so it can be tabulated per axis instead of
+// evaluated per pixel, and the destination range that lands inside the source
+// data window is a single contiguous interval instead of a per-pixel range
+// test. `pos` holds the source position of the filter for destination index
+// `begin + i`; the entries are valid over the half-open range [begin, end),
+// and outside it the destination is black.
+//
+// This carries no filter-specific state, so a wider filter can reuse it by
+// tabulating its leftmost tap here and pairing it with a matching table of
+// weights.
+// For a two-tap filter `pos1` holds the second tap and `frac` its weight; both
+// are empty for a single-tap filter. The two tables are only adjacent in the
+// interior -- at the edges the clamp collapses them onto the same pixel -- so
+// the second tap is stored rather than derived, which keeps the sampling loop
+// branch-free right across the border.
+struct AxisMap {
+    std::vector<int> pos;
+    std::vector<int> pos1;
+    std::vector<float> frac;
+    int begin = 0;
+    int end   = 0;
+};
+
+
+
+static AxisMap
+build_axis_map(int dst_begin, int dst_end, float dst_full_origin,
+               float dst_full_size, float src_full_origin, float src_full_size,
+               int src_data_begin, int src_data_end, int stride)
+{
+    AxisMap map;
+    map.begin            = dst_begin;
+    float dst_pixel_size = 1.0f / dst_full_size;
+    map.pos.reserve(size_t(dst_end - dst_begin));
+    for (int d = dst_begin; d < dst_end; ++d) {
+        float t = (d - dst_full_origin + 0.5f) * dst_pixel_size;
+        int s   = ifloor(src_full_origin + t * src_full_size);
+        if (s < src_data_begin)
+            continue;
+        if (s >= src_data_end)
+            break;
+        if (map.pos.empty())
+            map.begin = d;
+        map.pos.push_back((s - src_data_begin) * stride);
+    }
+    map.end = map.begin + int(map.pos.size());
+    return map;
+}
+
+
+
+static AxisMap
+build_axis_map_bilinear(int dst_begin, int dst_end, float dst_full_origin,
+                        float dst_full_size, float src_full_origin,
+                        float src_full_size, int src_data_begin,
+                        int src_data_end, int stride)
+{
+    AxisMap map;
+    map.begin            = dst_begin;
+    map.end              = dst_end;
+    float dst_pixel_size = 1.0f / dst_full_size;
+    size_t n             = size_t(dst_end - dst_begin);
+    map.pos.reserve(n);
+    map.pos1.reserve(n);
+    map.frac.reserve(n);
+    for (int d = dst_begin; d < dst_end; ++d) {
+        // Kept as separate statements mirroring resample_scalar() plus the
+        // half-pixel shift interppixel() applies internally: folding them into
+        // one expression lets the compiler contract the multiply-add, which
+        // shifts results by an ulp and lands on the wrong side of an integer
+        // rounding boundary often enough to matter.
+        float t      = (d - dst_full_origin + 0.5f) * dst_pixel_size;
+        float src_xf = src_full_origin + t * src_full_size;
+        float pos    = src_xf - 0.5f;
+        int s;
+        float f = floorfrac(pos, &s);
+        int s0  = clamp(s, src_data_begin, src_data_end - 1);
+        int s1  = clamp(s + 1, src_data_begin, src_data_end - 1);
+        map.pos.push_back((s0 - src_data_begin) * stride);
+        map.pos1.push_back((s1 - src_data_begin) * stride);
+        map.frac.push_back(f);
+    }
+    return map;
+}
+
+
+
+static bool
+data_window_is_full_window(const ImageSpec& spec)
+{
+    return spec.x == spec.full_x && spec.y == spec.full_y
+           && spec.width == spec.full_width && spec.height == spec.full_height;
+}
+
+
+
+template<typename SRCTYPE>
+static bool
+axis_map_usable(const ImageBuf& src, const ROI& roi)
+{
+    return src.localpixels() && src.contiguous_scanline()
+           && src.spec().format.basetype == BaseTypeFromC<SRCTYPE>::value
+           && src.spec().depth == 1 && roi.chend <= src.spec().nchannels
+           && src.scanline_stride() % stride_t(sizeof(SRCTYPE)) == 0;
+}
+
+
+
+template<typename DSTTYPE, typename SRCTYPE>
+static bool
+resample_nearest(ImageBuf& dst, const ImageBuf& src, ROI roi, int nthreads)
+{
+    const ImageSpec& srcspec(src.spec());
+    const ImageSpec& dstspec(dst.spec());
+    int src_xstride = srcspec.nchannels;
+    int src_ystride = int(src.scanline_stride() / stride_t(sizeof(SRCTYPE)));
+
+    // Built here rather than inside the parallel region: the maps depend only
+    // on the full windows, so every thread would otherwise rebuild the same
+    // tables, and allocating in a parallel region is worth avoiding anyway.
+    AxisMap xmap = build_axis_map(roi.xbegin, roi.xend, float(dstspec.full_x),
+                                  float(dstspec.full_width),
+                                  float(srcspec.full_x),
+                                  float(srcspec.full_width), srcspec.x,
+                                  srcspec.x + srcspec.width, src_xstride);
+    AxisMap ymap = build_axis_map(roi.ybegin, roi.yend, float(dstspec.full_y),
+                                  float(dstspec.full_height),
+                                  float(srcspec.full_y),
+                                  float(srcspec.full_height), srcspec.y,
+                                  srcspec.y + srcspec.height, src_ystride);
+
+    const SRCTYPE* srcpixels = (const SRCTYPE*)src.localpixels();
+
+    ImageBufAlgo::parallel_image(roi, nthreads, [&](ROI roi) {
+        ImageBuf::Iterator<DSTTYPE> out(dst, roi);
+        for (int y = roi.ybegin; y < roi.yend; ++y) {
+            bool row_inside       = y >= ymap.begin && y < ymap.end;
+            const SRCTYPE* srcrow = row_inside
+                                        ? srcpixels + ymap.pos[y - ymap.begin]
+                                        : nullptr;
+            // When the row itself is outside the source, the whole scanline is
+            // black, which is the same as an empty inside-range.
+            int inside_begin = row_inside ? xmap.begin : roi.xend;
+            int inside_end   = row_inside ? xmap.end : roi.xend;
+            int x            = roi.xbegin;
+            for (; x < inside_begin; ++x, ++out)
+                for (int c = roi.chbegin; c < roi.chend; ++c)
+                    out[c] = 0.0f;
+            for (; x < inside_end; ++x, ++out) {
+                const SRCTYPE* p = srcrow + xmap.pos[x - xmap.begin];
+                // convert_type is what the iterator's operator[] applies, and
+                // it rescales integer types to [0,1]; reading the raw value
+                // instead would silently change every integer image.
+                for (int c = roi.chbegin; c < roi.chend; ++c)
+                    out[c] = convert_type<SRCTYPE, float>(p[c]);
+            }
+            for (; x < roi.xend; ++x, ++out)
+                for (int c = roi.chbegin; c < roi.chend; ++c)
+                    out[c] = 0.0f;
+        }
+    });
+    return true;
+}
+
+
+
+template<typename DSTTYPE, typename SRCTYPE>
+static bool
+resample_bilinear(ImageBuf& dst, const ImageBuf& src, ROI roi, int nthreads)
+{
+    const ImageSpec& srcspec(src.spec());
+    const ImageSpec& dstspec(dst.spec());
+    int src_xstride = srcspec.nchannels;
+    int src_ystride = int(src.scanline_stride() / stride_t(sizeof(SRCTYPE)));
+
+    AxisMap xmap = build_axis_map_bilinear(
+        roi.xbegin, roi.xend, float(dstspec.full_x), float(dstspec.full_width),
+        float(srcspec.full_x), float(srcspec.full_width), srcspec.x,
+        srcspec.x + srcspec.width, src_xstride);
+    AxisMap ymap = build_axis_map_bilinear(
+        roi.ybegin, roi.yend, float(dstspec.full_y), float(dstspec.full_height),
+        float(srcspec.full_y), float(srcspec.full_height), srcspec.y,
+        srcspec.y + srcspec.height, src_ystride);
+
+    const SRCTYPE* srcpixels = (const SRCTYPE*)src.localpixels();
+
+    ImageBufAlgo::parallel_image(roi, nthreads, [&](ROI roi) {
+        int nc = roi.chend - roi.chbegin;
+        // One scratch block per task, outside the pixel loop: the four taps
+        // have to be gathered into float before bilerp() sees them.
+        float* p0     = OIIO_ALLOCA(float, size_t(nc) * 5);
+        float* p1     = p0 + nc;
+        float* p2     = p0 + 2 * nc;
+        float* p3     = p0 + 3 * nc;
+        float* result = p0 + 4 * nc;
+        ImageBuf::Iterator<DSTTYPE> out(dst, roi);
+        for (int y = roi.ybegin; y < roi.yend; ++y) {
+            size_t yi             = size_t(y - ymap.begin);
+            const SRCTYPE* rowtop = srcpixels + ymap.pos[yi];
+            const SRCTYPE* rowbot = srcpixels + ymap.pos1[yi];
+            float wy              = ymap.frac[yi];
+            for (int x = roi.xbegin; x < roi.xend; ++x, ++out) {
+                size_t xi = size_t(x - xmap.begin);
+                int xl    = xmap.pos[xi];
+                int xr    = xmap.pos1[xi];
+                float wx  = xmap.frac[xi];
+                for (int c = 0; c < nc; ++c) {
+                    int ch = roi.chbegin + c;
+                    p0[c]  = convert_type<SRCTYPE, float>(rowtop[xl + ch]);
+                    p1[c]  = convert_type<SRCTYPE, float>(rowtop[xr + ch]);
+                    p2[c]  = convert_type<SRCTYPE, float>(rowbot[xl + ch]);
+                    p3[c]  = convert_type<SRCTYPE, float>(rowbot[xr + ch]);
+                }
+                // The same bilerp() resample_scalar() uses, so the weights are
+                // associated identically and the two agree bit for bit.
+                bilerp(p0, p1, p2, p3, wx, wy, nc, result);
+                for (int c = 0; c < nc; ++c)
+                    out[roi.chbegin + c] = result[c];
+            }
+        }
+    });
+    return true;
+}
+
+
+
+#if OIIO_USE_HWY
+template<typename DSTTYPE, typename SRCTYPE>
+static bool
+resample_hwy(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
+             int nthreads)
+{
+    // This routine has no nearest case -- it always interpolates -- so
+    // resample_() must not route nearest sampling here.
+    OIIO_ASSERT(interpolate);
+    using SimdType
+        = std::conditional_t<std::is_same_v<DSTTYPE, double>, double, float>;
+    using D      = hn::ScalableTag<SimdType>;
+    using Rebind = hn::Rebind<int32_t, D>;
+
+    ImageBufAlgo::parallel_image(roi, nthreads, [&](ROI roi) {
+        const ImageSpec& srcspec(src.spec());
+        const ImageSpec& dstspec(dst.spec());
+
+        // Local copies of the source image window, converted to SimdType
+        float srcfx = srcspec.full_x;
+        float srcfy = srcspec.full_y;
+        float srcfw = srcspec.full_width;
+        float srcfh = srcspec.full_height;
+
+        float dstfx          = dstspec.full_x;
+        float dstfy          = dstspec.full_y;
+        float dstfw          = dstspec.full_width;
+        float dstfh          = dstspec.full_height;
+        float dstpixelwidth  = 1.0f / dstfw;
+        float dstpixelheight = 1.0f / dstfh;
+
+        const size_t src_scanline_bytes = srcspec.scanline_bytes();
+        const size_t dst_scanline_bytes = dstspec.scanline_bytes();
+        const size_t src_pixel_bytes    = srcspec.pixel_bytes();
+        const size_t dst_pixel_bytes    = dstspec.pixel_bytes();
+
+        const uint8_t* src_base = (const uint8_t*)src.localpixels();
+        uint8_t* dst_base       = (uint8_t*)dst.localpixels();
+
+        D d;
+        Rebind d_i32;
+        int N = hn::Lanes(d);
+
+        for (int y = roi.ybegin; y < roi.yend; ++y) {
+            float t      = (y - dstfy + 0.5f) * dstpixelheight;
+            float src_yf = srcfy + t * srcfh;
+            // Pixel-center convention: subtract 0.5 before interpolation
+            src_yf -= 0.5f;
+            int src_y   = ifloor(src_yf);
+            SimdType fy = (SimdType)(src_yf - src_y);
+
+            // Clamp Y to valid range
+            int src_y_clamped = clamp(src_y, src.ybegin(), src.yend() - 1);
+            // Neighbor Y (for bilinear)
+            int src_y_next_clamped = clamp(src_y + 1, src.ybegin(),
+                                           src.yend() - 1);
+
+            // Pre-calculate row pointers
+            const uint8_t* row0 = src_base
+                                  + (src_y_clamped - src.ybegin())
+                                        * src_scanline_bytes;
+            const uint8_t* row1 = src_base
+                                  + (src_y_next_clamped - src.ybegin())
+                                        * src_scanline_bytes;
+
+            uint8_t* dst_row = dst_base
+                               + (y - dst.ybegin()) * dst_scanline_bytes;
+
+            for (int x = roi.xbegin; x < roi.xend; x += N) {
+                // Handle remaining pixels if less than N
+                int n = std::min(N, roi.xend - x);
+
+                // Compute src_xf for N pixels
+                auto idx_i32 = hn::Iota(d_i32, (float)x);
+
+                auto x_simd = hn::ConvertTo(d, idx_i32);
+                auto s = hn::Mul(hn::Sub(hn::Add(x_simd,
+                                                 hn::Set(d, (SimdType)0.5f)),
+                                         hn::Set(d, (SimdType)dstfx)),
+                                 hn::Set(d, (SimdType)dstpixelwidth));
+                auto src_xf_vec = hn::MulAdd(s, hn::Set(d, (SimdType)srcfw),
+                                             hn::Set(d, (SimdType)srcfx));
+                // Pixel-center convention: subtract 0.5 before interpolation
+                src_xf_vec = hn::Sub(src_xf_vec, hn::Set(d, (SimdType)0.5f));
+
+                auto src_x_vec = hn::Floor(src_xf_vec);
+                auto fx        = hn::Sub(src_xf_vec, src_x_vec);
+                auto ix        = hn::ConvertTo(d_i32, src_x_vec);
+
+                // Clamp X
+                auto min_x = hn::Set(d_i32, src.xbegin());
+                auto max_x = hn::Set(d_i32, src.xend() - 1);
+                auto ix0   = hn::Min(hn::Max(ix, min_x), max_x);
+                auto ix1   = hn::Min(hn::Max(hn::Add(ix, hn::Set(d_i32, 1)),
+                                             min_x),
+                                     max_x);
+
+                // Adjust to 0-based offset from buffer start
+                auto x_offset  = hn::Sub(ix0, min_x);
+                auto x1_offset = hn::Sub(ix1, min_x);
+
+                // Loop over channels
+                for (int c = roi.chbegin; c < roi.chend; ++c) {
+                    // Manual gather loop for now to be safe with types and offsets
+                    SimdType v00_arr[16], v01_arr[16], v10_arr[16], v11_arr[16];
+                    int32_t x0_arr[16], x1_arr[16];
+                    hn::Store(x_offset, d_i32, x0_arr);
+                    hn::Store(x1_offset, d_i32, x1_arr);
+
+                    for (int i = 0; i < n; ++i) {
+                        size_t off0 = (size_t)x0_arr[i] * src_pixel_bytes
+                                      + (size_t)c * sizeof(SRCTYPE);
+                        size_t off1 = (size_t)x1_arr[i] * src_pixel_bytes
+                                      + (size_t)c * sizeof(SRCTYPE);
+
+                        auto load_val = [](const uint8_t* ptr) -> SimdType {
+                            return (SimdType)(*(const SRCTYPE*)ptr);
+                        };
+
+                        v00_arr[i] = load_val(row0 + off0);
+                        v01_arr[i] = load_val(row0 + off1);
+                        v10_arr[i] = load_val(row1 + off0);
+                        v11_arr[i] = load_val(row1 + off1);
+                    }
+
+                    auto val00 = hn::Load(d, v00_arr);
+                    auto val01 = hn::Load(d, v01_arr);
+                    auto val10 = hn::Load(d, v10_arr);
+                    auto val11 = hn::Load(d, v11_arr);
+
+                    // Bilinear Interpolation
+                    auto one = hn::Set(d, (SimdType)1.0f);
+                    auto w00 = hn::Mul(hn::Sub(one, fx),
+                                       hn::Sub(one, hn::Set(d, fy)));
+                    auto w01 = hn::Mul(fx, hn::Sub(one, hn::Set(d, fy)));
+                    auto w10 = hn::Mul(hn::Sub(one, fx), hn::Set(d, fy));
+                    auto w11 = hn::Mul(fx, hn::Set(d, fy));
+
+                    // Use FMA (Fused Multiply-Add) for better performance
+                    auto res = hn::Mul(val00, w00);
+                    res      = hn::MulAdd(val01, w01,
+                                          res);  // res = res + val01 * w01
+                    res      = hn::MulAdd(val10, w10,
+                                          res);  // res = res + val10 * w10
+                    res      = hn::MulAdd(val11, w11,
+                                          res);  // res = res + val11 * w11
+
+                    // Store
+                    SimdType res_arr[16];
+                    hn::Store(res, d, res_arr);
+                    for (int i = 0; i < n; ++i) {
+                        DSTTYPE* dptr
+                            = (DSTTYPE*)(dst_row
+                                         + (size_t)(x - roi.xbegin + i)
+                                               * dst_pixel_bytes
+                                         + (size_t)c * sizeof(DSTTYPE));
+                        *dptr = (DSTTYPE)res_arr[i];
+                    }
+                }
+            }
+        }
+    });
+    return true;
+}
+#endif  // OIIO_USE_HWY
+
+template<typename DSTTYPE, typename SRCTYPE>
+static bool
+resample_(ImageBuf& dst, const ImageBuf& src, bool interpolate, ROI roi,
+          int nthreads)
+{
+#if OIIO_USE_HWY
+    // Interpolating only: resample_hwy() ignores its `interpolate` argument
+    // and always bilerps, so sending nearest here silently returns filtered
+    // pixels instead of the source pixel the caller asked for.
+    if (interpolate && OIIO::pvt::enable_hwy && HwySupports<DSTTYPE>(dst, roi)
+        && HwySupports<SRCTYPE>(src, ROI()))
+        return resample_hwy<DSTTYPE, SRCTYPE>(dst, src, interpolate, roi,
+                                              nthreads);
+#endif
+
+    if (axis_map_usable<SRCTYPE>(src, roi)
+        && (!interpolate || data_window_is_full_window(src.spec())))
+        return interpolate ? resample_bilinear<DSTTYPE, SRCTYPE>(dst, src, roi,
+                                                                 nthreads)
+                           : resample_nearest<DSTTYPE, SRCTYPE>(dst, src, roi,
+                                                                nthreads);
+
+    return resample_scalar<DSTTYPE, SRCTYPE>(dst, src, interpolate, roi,
+                                             nthreads);
 }
 
 

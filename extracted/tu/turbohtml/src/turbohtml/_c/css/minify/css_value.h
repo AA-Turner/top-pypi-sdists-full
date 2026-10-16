@@ -547,7 +547,7 @@ static int css_color_keyword_or_hash(css_buf *pool, const css_token *token, int 
     if (token->kind == CSS_IDENT) {
         return css_name_to_hex(pool, token->text, token->text_len, out_off, out_len);
     }
-    /* a hash: lower-case it, fold #rrggbbaa with aa==ff/00, then map to a keyword or a 3/4-digit short form */
+    /* a hash: lower-case it, drop an opaque alpha, then map to a keyword or a 3/4-digit short form */
     css_char data[10];
     Py_ssize_t len = token->text_len;
     if (len > 9) {
@@ -556,14 +556,8 @@ static int css_color_keyword_or_hash(css_buf *pool, const css_token *token, int 
     for (Py_ssize_t index = 0; index < len; index++) {
         data[index] = css_lower(token->text[index]);
     }
-    if (len == 9 && data[7] == data[8]) {
-        if (data[7] == 'f') {
-            len = 7;
-        } else if (data[7] == '0') {
-            data[0] = '#';
-            data[1] = data[2] = data[3] = data[4] = '0';
-            len = 5;
-        }
+    if (len == 9 && data[7] == 'f' && data[8] == 'f') {
+        len = 7;
     }
     const th_css_color_entry *named = css_hex_to_name(data, len);
     if (named != NULL) {
@@ -877,6 +871,8 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
     } else if (count != 3) {
         return 0;
     }
+    /* Keep alpha syntax when HSL saturation exceeds 100%: browser color paths disagree on clamping. */
+    int oversaturated = is_hsl && types[1] && values[1] > 1.0;
     double alpha = 1.0;
     int has_alpha = count == 4;
     if (has_alpha) {
@@ -888,15 +884,17 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
             *kind = CK_HASH;
             return 1;
         }
-        if (values[3] >= 1.0) { /* alpha clamps to [0,1] (Color 4 §17), so any alpha >= 1 is opaque and droppable */
+        if (values[3] >= 1.0 && !oversaturated) {
             has_alpha = 0;
             count = 3;
         } else {
             alpha = values[3];
         }
     }
+    /* Browser float values lose degree precision for large hues, so leave normalization to the browser. */
+    int large_hue = is_hsl && (values[0] <= -16777216.0 || values[0] >= 16777216.0);
     /* alpha stays exactly 1.0 only on the paths that also clear has_alpha (count==3, or a fourth value of 1) */
-    if (alpha == 1.0) {
+    if (alpha == 1.0 && !oversaturated) {
         int bits[3];
         int foldable = 1;
         if (is_rgb) {
@@ -905,10 +903,10 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
                     foldable = 0;
                 }
             }
-        } else if (!types[0] && types[1] && types[2]) {
+        } else if (!types[0] && types[1] && types[2] && !large_hue) {
             double hue = values[0] / 360.0;
-            hue -= floor(hue); /* hue is modulo 360; saturation and lightness clamp to [0,1] (Color 4 §7) */
-            double sat = values[1] < 0.0 ? 0.0 : (values[1] > 1.0 ? 1.0 : values[1]);
+            hue -= floor(hue);
+            double sat = values[1] < 0.0 ? 0.0 : values[1];
             double light = values[2] < 0.0 ? 0.0 : (values[2] > 1.0 ? 1.0 : values[2]);
             double channels[3];
             css_hsl_to_rgb(hue, sat, light, &channels[0], &channels[1], &channels[2]);
@@ -935,11 +933,14 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
     cbuf_putc(&result, '(');
     const char *separator = has_slash ? " " : (has_comma ? "," : " ");
     int exact = is_rgb;
+    int bits[3];
     if (is_rgb) {
         for (int index = 0; index < 3; index++) {
             double scaled = values[index] * 5.0;
-            if (!types[index] || fabs(scaled - floor(scaled + 0.5)) >= 1e-3) {
+            if (!types[index] || scaled != floor(scaled + 0.5)) {
                 exact = 0;
+            } else {
+                bits[index] = scaled <= 0.0 ? 0 : (scaled >= 5.0 ? 255 : 51 * (int)scaled);
             }
         }
     }
@@ -949,10 +950,14 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
         }
         if (is_rgb && exact) {
             char buffer[8];
-            int written = snprintf(buffer, sizeof(buffer), "%d", (int)(values[index] * 255.0 + 0.5));
+            int written = snprintf(buffer, sizeof(buffer), "%d", bits[index]);
             for (int pos = 0; pos < written; pos++) {
                 cbuf_putc(&result, (css_char)(unsigned char)buffer[pos]);
             }
+        } else if (index == 0 && large_hue) {
+            const css_token *raw = raws[index];
+            Py_ssize_t offset = raw->text[0] == '+';
+            cbuf_put_run(&result, raw->text + offset, raw->text_len - offset);
         } else {
             css_append_color_number(&result, raws[index], types[index]);
         }
@@ -961,7 +966,11 @@ CSS_NOINLINE static int css_try_color_func(css_buf *pool, token_vec *vec, Py_ssi
         css_buf alpha_text = {NULL, 0, 0, pool->oom};
         css_append_color_number(&alpha_text, raws[3], types[3]);
         cbuf_puts(&result, has_slash ? "/" : ",");
-        css_append_num_pct(&result, alpha_text.data, alpha_text.len);
+        if (oversaturated) {
+            cbuf_put_run(&result, alpha_text.data, alpha_text.len);
+        } else {
+            css_append_num_pct(&result, alpha_text.data, alpha_text.len);
+        }
         cbuf_free(&alpha_text);
     }
     cbuf_putc(&result, ')');

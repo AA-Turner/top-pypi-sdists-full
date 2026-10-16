@@ -82,6 +82,9 @@ class ThirdPartyApplicationClient:
     ) -> third_party_applications_models.ThirdPartyApplication:
         """
         Get the ThirdPartyApplication with the specified rid.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param preview: Enables the use of preview functionality.
@@ -184,6 +187,9 @@ class AsyncThirdPartyApplicationClient:
     ) -> typing.Awaitable[third_party_applications_models.ThirdPartyApplication]:
         """
         Get the ThirdPartyApplication with the specified rid.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param preview: Enables the use of preview functionality.

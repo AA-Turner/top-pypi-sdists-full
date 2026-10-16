@@ -14,6 +14,8 @@ from typing import (
     ClassVar,
     Generic,
     Literal,
+    NotRequired,
+    Self,
     TypedDict,
     TypeVar,
     Union,
@@ -25,7 +27,7 @@ from typing import (
 )
 
 from xknx.exceptions import ConversionError, CouldNotParseTelegram
-from xknx.typing import DPTParsable, NotRequired, Self
+from xknx.typing import DPTParsable
 
 from .payload import DPTArray, DPTBinary
 
@@ -73,7 +75,6 @@ class DPTBase(ABC):
     dpt_sub_number: int | None = None
     value_type: str | None = None
     unit: str | None = None
-    ha_device_class: str | None = None
 
     @classmethod
     def dpt_number_str(cls) -> str:

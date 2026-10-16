@@ -826,6 +826,7 @@ class ProbeTracker:
         self._producer_id: str | None = None
         self._producer_sequence = 0
         self._capture_gaps: list[str] = []
+        self._dashboard = None
 
     def init(self, args, *, primary: bool = True, **kwargs) -> None:
         self._args = args
@@ -922,7 +923,15 @@ class ProbeTracker:
                 run,
                 interval=getattr(args, "probe_export_interval_sec", 2.0),
             )
-            client = None  # exporter owns it
+            # Native dashboards are exported in a separate worker so tensor
+            # decoding and artifact uploads never block metric publication.
+            client = None  # exporter owns it, including if dashboard setup fails
+            try:
+                from probe.integrations.miles_dashboard import start_capture
+                self._dashboard = start_capture(args, run.id, self._queue.root)
+            except Exception:
+                self._capture_gaps.append("dashboard_export_initialization")
+                logger.warning("Miles dashboard export could not start; metric publication continues", exc_info=True)
         except Exception as exc:
             if client is not None:
                 try:
@@ -1035,6 +1044,9 @@ class ProbeTracker:
         if self._finished or self._queue is None:
             return
         self._finished = True
+        if self._dashboard is not None:
+            if not self._dashboard.close():
+                self._capture_gaps.append("dashboard_export_pending")
         try:
             self._queue.update_producer(
                 self._producer_id,

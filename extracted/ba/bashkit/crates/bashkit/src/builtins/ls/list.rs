@@ -16,6 +16,8 @@ use crate::fs::FileType;
 use crate::fs::vfs_join;
 use crate::interpreter::ExecResult;
 
+use super::quoting::{QuotingStyle, quote_name};
+
 /// Argument IDs from the generated `ls_command()` that bashkit currently
 /// implements. Anything else clap accepts is reported as "not yet
 /// implemented" so scripts get a deterministic error instead of silently
@@ -24,6 +26,7 @@ const LS_SUPPORTED_IDS: &[&str] = &[
     // The 8 short flags the original bashkit ls accepted.
     "long",           // -l
     "all",            // -a
+    "almost-all",     // -A (same listing as -a: . and .. are never shown)
     "human-readable", // -h
     "1",              // -1
     "recursive",      // -R
@@ -31,6 +34,10 @@ const LS_SUPPORTED_IDS: &[&str] = &[
     "classify",       // -F / --classify
     "C",              // -C
     "directory",      // -d / --directory
+    "quoting-style",  // --quoting-style (not locale/clocale)
+    "literal",        // -N
+    "escape",         // -b
+    "quote-name",     // -Q
     // Non-flag positional + always-supported infrastructure.
     "paths",
     "help",
@@ -47,6 +54,7 @@ pub(super) struct LsOptions {
     pub(super) classify: bool,
     pub(super) columns: bool,
     pub(super) directory: bool,
+    pub(super) quoting: QuotingStyle,
 }
 
 /// The ls builtin - list directory contents.
@@ -56,6 +64,7 @@ pub(super) struct LsOptions {
 /// Options:
 ///   -l   Use long listing format
 ///   -a   Show hidden files (starting with .)
+///   -A   Same as -a (bashkit never lists . and ..)
 ///   -h   Human-readable sizes (with -l)
 ///   -1   One entry per line
 ///   -R   List subdirectories recursively
@@ -129,9 +138,29 @@ impl Builtin for Ls {
                 .map(|v| v != "never")
                 .unwrap_or(true);
 
+        // The four quoting flags override each other in clap, so at most
+        // one is present.
+        let quoting = if matches.get_flag("escape") {
+            QuotingStyle::Escape
+        } else if matches.get_flag("quote-name") {
+            QuotingStyle::C
+        } else if let Some(style) = matches.get_one::<String>("quoting-style") {
+            match QuotingStyle::from_name(style) {
+                Some(q) => q,
+                None => {
+                    return Ok(ExecResult::err(
+                        format!("ls: quoting style '{style}' not yet implemented in bashkit\n"),
+                        2,
+                    ));
+                }
+            }
+        } else {
+            QuotingStyle::Literal
+        };
+
         let opts = LsOptions {
             long: matches.get_flag("long"),
-            all: matches.get_flag("all"),
+            all: matches.get_flag("all") || matches.get_flag("almost-all"),
             human: matches.get_flag("human-readable"),
             one_per_line: matches.get_flag("1"),
             recursive: matches.get_flag("recursive"),
@@ -139,6 +168,7 @@ impl Builtin for Ls {
             classify,
             columns: matches.get_flag("C"),
             directory: matches.get_flag("directory"),
+            quoting,
         };
 
         // PATHS holds OsString values; convert to owned strings for the
@@ -158,31 +188,44 @@ impl Builtin for Ls {
         let multiple_paths = paths.len() > 1 || opts.recursive;
 
         // Separate file and directory arguments (like real ls)
-        let mut file_args: Vec<(&str, crate::fs::Metadata)> = Vec::new();
+        let mut file_args: Vec<(&str, std::path::PathBuf, crate::fs::Metadata)> = Vec::new();
         let mut dir_args: Vec<(usize, &str, std::path::PathBuf)> = Vec::new();
 
         for (i, path_str) in paths.iter().enumerate() {
             let path = resolve_path(ctx.cwd, path_str);
 
-            // Check if path exists
-            if !ctx.fs.exists(&path).await.unwrap_or(false) {
-                return Ok(ExecResult::err(
-                    format!(
-                        "ls: cannot access '{}': No such file or directory\n",
-                        path_str
-                    ),
-                    2,
-                ));
-            }
-
-            let metadata = ctx.fs.stat(&path).await?;
+            // lstat: a dangling link still lists as itself.
+            let lmeta = match ctx.fs.lstat(&path).await {
+                Ok(m) => m,
+                Err(e) => {
+                    let reason = match &e {
+                        crate::Error::Io(io) if io.kind() == std::io::ErrorKind::NotADirectory => {
+                            "Not a directory"
+                        }
+                        _ => "No such file or directory",
+                    };
+                    return Ok(ExecResult::err(
+                        format!("ls: cannot access '{}': {reason}\n", path_str),
+                        2,
+                    ));
+                }
+            };
+            // GNU: a link operand is followed unless -l, -d or -F describe
+            // the link itself.
+            let metadata = if lmeta.file_type.is_symlink()
+                && !(opts.long || opts.directory || opts.classify)
+            {
+                ctx.fs.stat(&path).await.unwrap_or(lmeta)
+            } else {
+                lmeta
+            };
 
             // With -d/--directory, list the directory entry itself rather than
             // descending into it: treat directory arguments like ordinary
             // non-directory entries. classify_suffix() still appends "/" under
             // -F because it keys off the metadata. (POSIX; common `ls -d */`.)
-            if metadata.file_type.is_file() || opts.directory {
-                file_args.push((path_str, metadata));
+            if !metadata.file_type.is_dir() || opts.directory {
+                file_args.push((path_str, path, metadata));
             } else {
                 dir_args.push((i, path_str, path));
             }
@@ -190,13 +233,15 @@ impl Builtin for Ls {
 
         // Sort file arguments by time if -t, preserving original paths
         if opts.sort_by_time {
-            file_args.sort_by_key(|entry| std::cmp::Reverse(entry.1.modified));
+            file_args.sort_by_key(|entry| std::cmp::Reverse(entry.2.modified));
         }
 
         // Output file arguments first (preserving path as given by user)
         if opts.long {
-            for (path_str, metadata) in &file_args {
-                let mut entry = format_long_entry(path_str, metadata, opts.human);
+            for (path_str, path, metadata) in &file_args {
+                let mut entry =
+                    format_long_entry(&quote_name(path_str, opts.quoting), metadata, opts.human);
+                push_link_target(&ctx, path, metadata, &mut entry).await;
                 if opts.classify {
                     // Insert suffix before the trailing newline
                     let suffix = classify_suffix(metadata);
@@ -209,8 +254,8 @@ impl Builtin for Ls {
         } else if !file_args.is_empty() {
             let names: Vec<String> = file_args
                 .iter()
-                .map(|(path_str, metadata)| {
-                    let mut name = (*path_str).to_string();
+                .map(|(path_str, _, metadata)| {
+                    let mut name = quote_name(path_str, opts.quoting).into_owned();
                     if opts.classify {
                         name.push_str(classify_suffix(metadata));
                     }
@@ -262,7 +307,13 @@ async fn list_directory(
     }
 
     if show_header {
-        output.push_str(&format!("{}:\n", display_path));
+        // GNU quotes headers in every style except `escape`.
+        let header = if opts.quoting == QuotingStyle::Escape {
+            std::borrow::Cow::Borrowed(display_path)
+        } else {
+            quote_name(display_path, opts.quoting)
+        };
+        output.push_str(&format!("{}:\n", header));
     }
 
     let entries = ctx
@@ -292,7 +343,18 @@ async fn list_directory(
 
     if opts.long {
         for entry in &filtered {
-            let mut line = format_long_entry(&entry.name, &entry.metadata, opts.human);
+            let mut line = format_long_entry(
+                &quote_name(&entry.name, opts.quoting),
+                &entry.metadata,
+                opts.human,
+            );
+            push_link_target(
+                ctx,
+                &vfs_join(path, &entry.name),
+                &entry.metadata,
+                &mut line,
+            )
+            .await;
             if opts.classify {
                 let suffix = classify_suffix(&entry.metadata);
                 if !suffix.is_empty() {
@@ -311,7 +373,7 @@ async fn list_directory(
         // Collect entry names for potential column formatting
         let mut names: Vec<String> = Vec::new();
         for entry in &filtered {
-            let mut name = entry.name.clone();
+            let mut name = quote_name(&entry.name, opts.quoting).into_owned();
             if opts.classify {
                 name.push_str(classify_suffix(&entry.metadata));
             }
@@ -347,6 +409,21 @@ async fn list_directory(
     }
 
     Ok(())
+}
+
+/// `ls -l`: append ` -> target` to a symlink's line (before the newline).
+async fn push_link_target(
+    ctx: &Context<'_>,
+    path: &Path,
+    metadata: &crate::fs::Metadata,
+    line: &mut String,
+) {
+    if metadata.file_type.is_symlink()
+        && let Ok(target) = ctx.fs.read_link(path).await
+    {
+        let at = line.len().saturating_sub(1);
+        line.insert_str(at, &format!(" -> {}", target.display()));
+    }
 }
 
 /// Return the classify indicator character for a file type.

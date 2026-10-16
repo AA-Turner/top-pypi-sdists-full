@@ -20,6 +20,22 @@ pub fn parse_bool(value: Option<&String>) -> bool {
     value.map(|v| v == "true" || v == "1").unwrap_or(false)
 }
 
+/// URL schemes that mean "a ZMQ socket the gateway has already bound", not a directory.
+///
+/// Windows has no FIFO, so `tunnel_recordings.py` (dr-controller) binds a ZMQ PAIR socket
+/// and passes its endpoint in `recordingpath` (:1810-1813), with `recordingname` set to the
+/// socket type rather than a filename. Joining the two produces
+/// `ipc:///tmp/x.ses/pair.ses`, which no `File::create` can open, so the recorder fails to
+/// start and the session runs unrecorded.
+const ZMQ_ENDPOINT_SCHEMES: [&str; 2] = ["ipc://", "tcp://"];
+
+/// Whether a `recording-path` value is a ZMQ endpoint rather than a filesystem directory.
+pub fn is_zmq_endpoint(value: &str) -> bool {
+    ZMQ_ENDPOINT_SCHEMES
+        .iter()
+        .any(|scheme| value.starts_with(scheme))
+}
+
 /// Find a unique file path by appending .1, .2, ... .N suffixes.
 /// Returns the first path that does not already exist, or None if all
 /// candidates up to `max_suffix` are taken.
@@ -140,6 +156,15 @@ pub struct RecordingConfig {
     /// to (or instead of) any local file path.
     pub zmq_addr: Option<String>,
 
+    /// ZMQ endpoint the `.ses` stream is written to instead of a file.
+    ///
+    /// Set when `recording-path` carries a ZMQ scheme (`ipc://` or `tcp://`), which is
+    /// what the gateway sends on Windows because there is no FIFO to write into. Distinct
+    /// from [`Self::zmq_addr`]: that endpoint carries asciicast v2 text for the
+    /// `-guacr.cast` stream (`tunnel_recordings.py:1972-2040`), this one carries raw `.ses`
+    /// bytes, and a session can have both.
+    pub ses_zmq_addr: Option<String>,
+
     /// When true: ZMQ send failures are non-fatal — session continues unrecorded.
     /// When false (default): send failure terminates the session (LosslessOrDie).
     pub allow_unrecorded: bool,
@@ -162,6 +187,7 @@ impl Default for RecordingConfig {
             asciicast_path: None,
             asciicast_name: None,
             zmq_addr: None,
+            ses_zmq_addr: None,
             allow_unrecorded: false,
         }
     }
@@ -184,9 +210,17 @@ impl RecordingConfig {
             .map(|v| v == "false")
             .unwrap_or(false);
 
-        let recording_path = get_param(params, "recording-path")
+        // A ZMQ endpoint and a directory arrive in the same parameter, so the scheme is the
+        // only thing that distinguishes them. Route the endpoint to its own field: leaving it
+        // in `recording_path` makes every path getter build a nonsense filename from it, and
+        // dropping it outright would silently disable recording.
+        let (recording_path, ses_zmq_addr) = match get_param(params, "recording-path")
             .cloned()
-            .filter(|_| !recording_disabled);
+            .filter(|_| !recording_disabled)
+        {
+            Some(value) if is_zmq_endpoint(&value) => (None, Some(value)),
+            other => (other, None),
+        };
 
         let typescript_path = get_param(params, "typescript-path")
             .cloned()
@@ -211,6 +245,7 @@ impl RecordingConfig {
             asciicast_path: get_param(params, "asciicast-path").cloned(),
             asciicast_name: get_param(params, "asciicast-name").cloned(),
             zmq_addr: get_param(params, "recording-zmq-addr").cloned(),
+            ses_zmq_addr,
             allow_unrecorded: parse_bool(get_param(params, "recording-allow-unrecorded")),
         }
     }
@@ -218,13 +253,14 @@ impl RecordingConfig {
     /// Check if any recording is enabled
     pub fn is_enabled(&self) -> bool {
         self.recording_path.is_some()
+            || self.ses_zmq_addr.is_some()
             || self.typescript_path.is_some()
             || self.asciicast_path.is_some()
     }
 
     /// Check if Guacamole .ses recording is enabled
     pub fn is_ses_enabled(&self) -> bool {
-        self.recording_path.is_some()
+        self.recording_path.is_some() || self.ses_zmq_addr.is_some()
     }
 
     /// Check if typescript recording is enabled
@@ -235,6 +271,21 @@ impl RecordingConfig {
     /// Check if asciicast recording is enabled
     pub fn is_asciicast_enabled(&self) -> bool {
         self.asciicast_path.is_some() || self.recording_path.is_some()
+    }
+
+    /// Whether a client-to-server input instruction may be recorded.
+    ///
+    /// `recording_include_keys` defaults to false because keystrokes carry passwords,
+    /// and `recording_exclude_mouse` drops pointer noise. Both are properties of the
+    /// recording, not of the format it is written in, so the fMP4 data track has to apply
+    /// them exactly as `GuacamoleSesRecorder` does — otherwise turning on video recording
+    /// silently starts capturing passwords. One definition, both call sites.
+    pub fn records_input_opcode(&self, opcode: &str) -> bool {
+        match opcode {
+            "key" => self.recording_include_keys,
+            "mouse" => !self.recording_exclude_mouse,
+            _ => true,
+        }
     }
 
     /// Expand filename template with actual values

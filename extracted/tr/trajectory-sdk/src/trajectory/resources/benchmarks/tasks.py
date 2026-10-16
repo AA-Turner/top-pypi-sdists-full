@@ -10,7 +10,7 @@ import httpx2
 from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._types import Headers, NotGiven, Omit, SequenceNotStr, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.types.benchmark_task_append_result import BenchmarkTaskAppendResult
 from trajectory.types.benchmark_task_count_response import BenchmarkTaskCountResponse
@@ -34,6 +34,9 @@ class Tasks(APIResource):
     self,
     bench_id: str,
     *,
+    task_id: SequenceNotStr[str] | None | Omit = omit,
+    split: Literal["train", "test", "unassigned"] | None | Omit = omit,
+    environment: Literal["setup_needed", "building", "failed"] | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -47,6 +50,13 @@ class Tasks(APIResource):
     """List Benchmark Spec Tasks
 
     Args:
+      task_id: Return only these tasks; repeat the parameter for each task ID.
+
+      split: Return only tasks in this split; `unassigned` selects tasks without one.
+
+      environment: Return only tasks whose environment needs setup (missing run command or runtime
+        not ready), is building, or failed to build.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -66,6 +76,9 @@ class Tasks(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
+            "task_id": task_id,
+            "split": split,
+            "environment": environment,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,
@@ -84,6 +97,9 @@ class Tasks(APIResource):
     self,
     bench_id: str,
     *,
+    search: str | None | Omit = omit,
+    split: Literal["train", "test", "unassigned"] | None | Omit = omit,
+    environment: Literal["setup_needed", "building", "failed"] | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -92,6 +108,13 @@ class Tasks(APIResource):
     """Benchmark Task Count
 
     Args:
+      search: Count only tasks whose label, ID, user message, or category contains this text.
+
+      split: Return only tasks in this split; `unassigned` selects tasks without one.
+
+      environment: Return only tasks whose environment needs setup (missing run command or runtime
+        not ready), is building, or failed to build.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -109,6 +132,13 @@ class Tasks(APIResource):
       ),
       cast_to=BenchmarkTaskCountResponse,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "search": search,
+            "split": split,
+            "environment": environment,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

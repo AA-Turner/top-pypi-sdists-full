@@ -11,20 +11,16 @@ use context::Context;
 pub use context::{DEFAULT_FUEL, Options};
 use nom::{Finish, Parser, combinator::all_consuming};
 
-use node::SpannedNodes;
-use range::{Content, Unmatched};
+use node::Blocks;
+use range::Unmatched;
 use span::Spanned;
 
-/// Parsing block markdown content.
-pub mod block;
 /// Context for parsing markdown content.
 pub mod context;
 /// Error types for the parser.
 pub mod error;
 /// Markdown grammar definitions.
 pub mod grammar;
-/// Parsing inline markdown content.
-pub mod inline;
 mod input;
 /// Markdown nodes.
 pub mod node;
@@ -58,7 +54,7 @@ use crate::error::ParseError;
 pub fn parse<'data, S, E>(
 	data: impl Into<Input<'data>> + Debug,
 	options: Options,
-) -> Result<SpannedNodes<'data, S>, E>
+) -> Result<Blocks<'data, S>, E>
 where
 	S: Span,
 	E: ParseError<'data> + Display,
@@ -77,7 +73,7 @@ where
 
 	for round in 1..=ROUNDS {
 		context = context.with_disabled_openers(&disabled);
-		let parsed = all_consuming(block::block(context.clone()))
+		let parsed = all_consuming(node::block::block(context.clone()))
 			.parse_complete(input.clone())
 			.finish()?
 			.1;
@@ -90,7 +86,6 @@ where
 		match range::resolve(
 			parsed.value,
 			options.allowed_rules,
-			Content::Blocks,
 			unmatched,
 			&mut node::Ids::default(),
 		) {
@@ -112,7 +107,7 @@ mod test {
 	use super::parse;
 	use crate::context::{DEFAULT_FUEL, Options};
 	use crate::error::Error;
-	use crate::node::{Element, Modifier, Node};
+	use crate::node::{Block, Inline};
 	use crate::rule::{Rule, RuleSet};
 	use crate::test_utils::handle_nom_err;
 	use crate::{
@@ -211,7 +206,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![paragraph!(Node::Element(Element::Text(expected.into())))],
+				spanned_vec![paragraph!(Inline::Text(expected.into()))],
 				"unexpected output for {s:?}"
 			);
 		}
@@ -254,7 +249,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![Node::Element(Element::Paragraph(expected))],
+				spanned_vec![Block::Paragraph(expected)],
 				"unexpected output for {s:?}"
 			);
 
@@ -263,7 +258,7 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![paragraph!(Node::Element(Element::Text(s.into())))],
+				spanned_vec![paragraph!(Inline::Text(s.into()))],
 				"unexpected output for {s:?} without the rule"
 			);
 		}
@@ -276,10 +271,7 @@ mod test {
 		let res = parse::<(), _>(s, Options::default())
 			.map_err(handle_nom_err(s))
 			.expect("unable to parse");
-		assert_eq!(
-			res,
-			spanned_vec![paragraph!(Node::Element(Element::Text(s.into())))]
-		);
+		assert_eq!(res, spanned_vec![paragraph!(Inline::Text(s.into()))]);
 	}
 
 	#[test]
@@ -356,11 +348,11 @@ mod test {
 			.expect("unable to parse");
 
 		let paragraph = &res.value[0];
-		let Node::Element(Element::Paragraph(content)) = &paragraph.value else {
+		let Block::Paragraph(content) = &paragraph.value else {
 			panic!("expected a paragraph, got {:?}", paragraph.value)
 		};
 		let bold = &content.value[0];
-		let Node::Modifier(Modifier::Bold(children)) = &bold.value else {
+		let Inline::Bold(children) = &bold.value else {
 			panic!("expected bold, got {:?}", bold.value)
 		};
 
@@ -405,18 +397,17 @@ mod test {
 			.expect("unable to parse");
 		assert_eq!(
 			res,
-			spanned_vec![spoiler!(
-				heading!(1, "test"),
-				paragraph!("stuff goes here"),
-				paragraph!(code_block!(language = "js", "const a = '2'\n"))
-			)]
+			spanned_vec![
+				heading!(1, [spoiler!("test")]),
+				paragraph!(spoiler!("stuff goes here")),
+				paragraph!(spoiler!(code_block!(language = "js", "const a = '2'\n")))
+			]
 		);
 	}
 
-	/// A modifier opened mid-paragraph applies to the blocks that follow it, and one covering a whole
-	/// list wraps it rather than splitting into its items.
+	/// A modifier opened mid-paragraph applies to the blocks that follow it, inside each list item.
 	#[test]
-	fn a_modifier_opened_mid_paragraph_wraps_a_following_list() {
+	fn a_modifier_opened_mid_paragraph_covers_a_following_list() {
 		let s = "foo ||\n- a\n- b||";
 		let res = parse::<(), _>(s, Options::default())
 			.map_err(handle_nom_err(s))
@@ -425,7 +416,10 @@ mod test {
 			res,
 			spanned_vec![
 				paragraph!("foo "),
-				spoiler!(list!(-[list_item!("a"), list_item!("b")]))
+				list!(-[
+					list_item!(paragraph!(spoiler!("a"))),
+					list_item!(paragraph!(spoiler!("b")))
+				])
 			]
 		);
 	}
@@ -456,10 +450,10 @@ mod test {
 				.expect("unable to parse");
 			assert_eq!(
 				res,
-				spanned_vec![Node::Element(Element::Quote(spanned_vec![list!(-[
+				spanned_vec![Block::Quote(spanned_vec![list!(-[
 					list_item![paragraph!("foo"), list!(-[list_item!("bar")])],
 					list_item!("baz")
-				])]))],
+				])])],
 				"unexpected output for {s:?}"
 			);
 		}

@@ -86,6 +86,9 @@ class StreamClient:
         """
         Creates a new branch on the backing streaming dataset, and creates a new stream on that branch.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -161,6 +164,9 @@ class StreamClient:
         Get a stream by its branch name. If the branch does not exist, there is no stream on that branch, or the
         user does not have permission to access the stream, a 404 error will be returned.
 
+
+        Required scopes: [api:streams-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
@@ -216,6 +222,9 @@ class StreamClient:
     ) -> streams_models.GetEndOffsetsResponse:
         """
         Get the end offsets for all partitions of a stream. The end offset is the offset of the next record that will be written to the partition.
+
+
+        Required scopes: [api:streams-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -278,6 +287,9 @@ class StreamClient:
         """
         Get a batch of records from a stream for a given partition. Offsets are ordered from [0, inf) but may be sparse (e.g.: 0, 2, 3, 5).
         Binary field values are returned as base64-encoded strings. Decode them to retrieve the original bytes.
+
+
+        Required scopes: [api:streams-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -346,6 +358,9 @@ class StreamClient:
         """
         Publish a single binary record to the stream. The stream's schema must be a single binary field.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
@@ -404,11 +419,14 @@ class StreamClient:
         Publish a single record to the stream. The record will be validated against the stream's schema, and
         rejected if it is invalid.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param record: The record to publish to the stream
+        :param record: The record to publish to the stream. Timestamp fields used as stream keys must use Unix epoch milliseconds.
         :type record: Record
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
@@ -463,11 +481,14 @@ class StreamClient:
         Publish a batch of records to the stream. The records will be validated against the stream's schema, and
         the batch will be rejected if one or more of the records are invalid.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param records: The records to publish to the stream
+        :param records: The records to publish to the stream. Timestamp fields used as stream keys must use Unix epoch milliseconds.
         :type records: List[Record]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
@@ -529,6 +550,9 @@ class StreamClient:
 
         This will create a new stream view (as seen by the change of the `viewRid` on the branch),
         which will be the new stream view that will be written to for the branch.
+
+
+        Required scopes: [api:streams-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -689,6 +713,9 @@ class AsyncStreamClient:
         """
         Creates a new branch on the backing streaming dataset, and creates a new stream on that branch.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -764,6 +791,9 @@ class AsyncStreamClient:
         Get a stream by its branch name. If the branch does not exist, there is no stream on that branch, or the
         user does not have permission to access the stream, a 404 error will be returned.
 
+
+        Required scopes: [api:streams-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
@@ -819,6 +849,9 @@ class AsyncStreamClient:
     ) -> typing.Awaitable[streams_models.GetEndOffsetsResponse]:
         """
         Get the end offsets for all partitions of a stream. The end offset is the offset of the next record that will be written to the partition.
+
+
+        Required scopes: [api:streams-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -881,6 +914,9 @@ class AsyncStreamClient:
         """
         Get a batch of records from a stream for a given partition. Offsets are ordered from [0, inf) but may be sparse (e.g.: 0, 2, 3, 5).
         Binary field values are returned as base64-encoded strings. Decode them to retrieve the original bytes.
+
+
+        Required scopes: [api:streams-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -949,6 +985,9 @@ class AsyncStreamClient:
         """
         Publish a single binary record to the stream. The stream's schema must be a single binary field.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
@@ -1007,11 +1046,14 @@ class AsyncStreamClient:
         Publish a single record to the stream. The record will be validated against the stream's schema, and
         rejected if it is invalid.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param record: The record to publish to the stream
+        :param record: The record to publish to the stream. Timestamp fields used as stream keys must use Unix epoch milliseconds.
         :type record: Record
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
@@ -1066,11 +1108,14 @@ class AsyncStreamClient:
         Publish a batch of records to the stream. The records will be validated against the stream's schema, and
         the batch will be rejected if one or more of the records are invalid.
 
+
+        Required scopes: [api:streams-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param stream_branch_name:
         :type stream_branch_name: BranchName
-        :param records: The records to publish to the stream
+        :param records: The records to publish to the stream. Timestamp fields used as stream keys must use Unix epoch milliseconds.
         :type records: List[Record]
         :param view_rid: If provided, this endpoint will only write to the stream corresponding to the specified view RID. If not provided, this endpoint will write to the latest stream on the branch.  Providing this value is an advanced configuration, to be used when additional control over the underlying streaming data structures is needed.
         :type view_rid: Optional[ViewRid]
@@ -1132,6 +1177,9 @@ class AsyncStreamClient:
 
         This will create a new stream view (as seen by the change of the `viewRid` on the branch),
         which will be the new stream view that will be written to for the branch.
+
+
+        Required scopes: [api:streams-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid

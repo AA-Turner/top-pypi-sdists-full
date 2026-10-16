@@ -62,6 +62,12 @@ PREVIEW_DOMAIN = config.get("preview-domain") or "preview.chat.internal.airbyte.
 PREVIEW_REDIRECT_HOST = (
     config.get("preview-redirect-host") or "preview.ops.internal.airbyte.ai"
 )
+# Short hosts for the mtx Builder app, redirected to its ops-webapp path.
+MTX_DOMAIN = config.get("mtx-domain") or "mtx.internal.airbyte.ai"
+MTX_PREVIEW_DOMAIN = (
+    config.get("mtx-preview-domain") or "preview.mtx.internal.airbyte.ai"
+)
+MTX_REDIRECT_PATH = config.get("mtx-redirect-path") or "/mtx/"
 MIN_INSTANCES = int(config.get("min-instances") or "1")
 MAX_INSTANCES = int(config.get("max-instances") or "5")
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
@@ -92,6 +98,11 @@ MTX_PLAYGROUND_PREVIEW_IMAGE = (
 )
 
 MCP_URL = config.get("mcp-url") or "https://mcp.internal.airbyte.ai/ops-mcp"
+MTX_MCP_URL = config.get("mtx-mcp-url") or "https://mcp.internal.airbyte.ai/mtx-mcp"
+PREVIEW_MTX_MCP_URL = (
+    config.get("preview-mtx-mcp-url")
+    or "https://mcp.internal.airbyte.ai/mtx-mcp-preview"
+)
 AGENT_MODEL = config.get("agent-model") or ""
 ANTHROPIC_SECRET_ID = config.get("anthropic-secret-id") or ""
 ANTHROPIC_BASE_URL = config.get("anthropic-base-url") or ""
@@ -397,7 +408,9 @@ def define_load_balancer(
     `preview.chat.internal.airbyte.ai` redirects to
     `preview.ops.internal.airbyte.ai/chat/` via a host rule on the same map
     (`PREVIEW_DOMAIN` -> `PREVIEW_REDIRECT_HOST`). The preview host needs its
-    own managed cert attached to the HTTPS proxy.
+    own managed cert attached to the HTTPS proxy. `mtx.internal.airbyte.ai` and
+    `preview.mtx.internal.airbyte.ai` redirect the same way to the mtx Builder
+    path (`MTX_REDIRECT_PATH`) on the ops and preview-ops hosts.
     HTTP traffic redirects to HTTPS first. The backends stay provisioned for
     the ops-webapp stack's `/chat` path rules, which look them up by name with
     `gcp.compute.get_backend_service_output`.
@@ -422,6 +435,22 @@ def define_load_balancer(
         managed=gcp.compute.ManagedSslCertificateManagedArgs(domains=[PREVIEW_DOMAIN]),
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
+    mtx_certificate = gcp.compute.ManagedSslCertificate(
+        "agent-chat-internal-mtx-ssl-cert",
+        name="agent-chat-internal-mtx-ssl-cert",
+        project=PROJECT,
+        managed=gcp.compute.ManagedSslCertificateManagedArgs(domains=[MTX_DOMAIN]),
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+    mtx_preview_certificate = gcp.compute.ManagedSslCertificate(
+        "agent-chat-internal-mtx-preview-ssl-cert",
+        name="agent-chat-internal-mtx-preview-ssl-cert",
+        project=PROJECT,
+        managed=gcp.compute.ManagedSslCertificateManagedArgs(
+            domains=[MTX_PREVIEW_DOMAIN]
+        ),
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
     url_map = gcp.compute.URLMap(
         "agent-chat-internal-url-map",
         name="agent-chat-internal-url-map",
@@ -439,7 +468,15 @@ def define_load_balancer(
             gcp.compute.URLMapHostRuleArgs(
                 hosts=[PREVIEW_DOMAIN],
                 path_matcher="preview-redirect",
-            )
+            ),
+            gcp.compute.URLMapHostRuleArgs(
+                hosts=[MTX_DOMAIN],
+                path_matcher="mtx-redirect",
+            ),
+            gcp.compute.URLMapHostRuleArgs(
+                hosts=[MTX_PREVIEW_DOMAIN],
+                path_matcher="mtx-preview-redirect",
+            ),
         ],
         path_matchers=[
             gcp.compute.URLMapPathMatcherArgs(
@@ -451,7 +488,27 @@ def define_load_balancer(
                     strip_query=False,
                     redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
                 ),
-            )
+            ),
+            gcp.compute.URLMapPathMatcherArgs(
+                name="mtx-redirect",
+                default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
+                    host_redirect=REDIRECT_HOST,
+                    path_redirect=MTX_REDIRECT_PATH,
+                    https_redirect=False,
+                    strip_query=False,
+                    redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+                ),
+            ),
+            gcp.compute.URLMapPathMatcherArgs(
+                name="mtx-preview-redirect",
+                default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
+                    host_redirect=PREVIEW_REDIRECT_HOST,
+                    path_redirect=MTX_REDIRECT_PATH,
+                    https_redirect=False,
+                    strip_query=False,
+                    redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+                ),
+            ),
         ],
     )
     https_proxy = gcp.compute.TargetHttpsProxy(
@@ -459,7 +516,12 @@ def define_load_balancer(
         name="agent-chat-internal-https-proxy",
         project=PROJECT,
         url_map=url_map.self_link,
-        ssl_certificates=[certificate.self_link, preview_certificate.self_link],
+        ssl_certificates=[
+            certificate.self_link,
+            preview_certificate.self_link,
+            mtx_certificate.self_link,
+            mtx_preview_certificate.self_link,
+        ],
     )
     gcp.compute.GlobalForwardingRule(
         "agent-chat-internal-https-forwarding-rule",
@@ -501,7 +563,7 @@ def define_load_balancer(
 def define_dns(
     lb_ip: gcp.compute.GlobalAddress,
 ) -> tuple[gcp.dns.RecordSet, gcp.dns.RecordSet]:
-    """Define the DNS A records for the chat and preview-chat domains."""
+    """Define the DNS A records for the chat, preview-chat, mtx and preview-mtx domains."""
     dns_record = gcp.dns.RecordSet(
         "agent-chat-internal-dns-record",
         name=f"{DOMAIN}.",
@@ -520,6 +582,19 @@ def define_dns(
         project=DNS_ZONE_PROJECT,
         rrdatas=[lb_ip.address],
     )
+    for resource_name, domain in (
+        ("agent-chat-internal-mtx-dns-record", MTX_DOMAIN),
+        ("agent-chat-internal-mtx-preview-dns-record", MTX_PREVIEW_DOMAIN),
+    ):
+        gcp.dns.RecordSet(
+            resource_name,
+            name=f"{domain}.",
+            type="A",
+            ttl=300,
+            managed_zone=DNS_ZONE_NAME,
+            project=DNS_ZONE_PROJECT,
+            rrdatas=[lb_ip.address],
+        )
     return dns_record, preview_dns_record
 
 
@@ -529,12 +604,14 @@ def _server_envs(
     agent_model: str,
     anthropic_secret_id: str,
     anthropic_base_url: str,
+    mtx_mcp_url: str,
 ) -> list[gcp.cloudrunv2.ServiceTemplateContainerEnvArgs]:
     """Build the agui-server env list shared by the prod and preview services."""
     envs = [
         _env("AIRBYTE_AGUI_SERVER_ENABLED", CHAT_ENABLED),
         _env("AIRBYTE_AGUI_SERVER_AGENT_MODEL", agent_model),
         _env("AIRBYTE_AGUI_SERVER_MCP_URL", MCP_URL),
+        _env("AIRBYTE_AGUI_SERVER_MCP_URL_MTX", mtx_mcp_url),
         _env("AIRBYTE_AGUI_SERVER_MCP_AUTH_MODE", MCP_AUTH_MODE),
         _env("AIRBYTE_AGUI_SERVER_MCP_UI", MCP_UI),
     ]
@@ -580,6 +657,7 @@ def main() -> None:
             agent_model=AGENT_MODEL,
             anthropic_secret_id=ANTHROPIC_SECRET_ID,
             anthropic_base_url=ANTHROPIC_BASE_URL,
+            mtx_mcp_url=MTX_MCP_URL,
         ),
         api_services,
         service_account=service_account,
@@ -609,6 +687,7 @@ def main() -> None:
             agent_model=PREVIEW_AGENT_MODEL,
             anthropic_secret_id=PREVIEW_ANTHROPIC_SECRET_ID,
             anthropic_base_url=PREVIEW_ANTHROPIC_BASE_URL,
+            mtx_mcp_url=PREVIEW_MTX_MCP_URL,
         ),
         api_services,
         service_account=service_account,

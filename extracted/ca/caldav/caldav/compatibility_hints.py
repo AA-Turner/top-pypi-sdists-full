@@ -62,10 +62,10 @@ class FeatureSet:
     For a server-feature, is_supported(feature) returning a bool is True for "full" and "quirk" only.  "fragile" is True as well when called with accept_fragile=True; "unsupported", "broken", "ungraceful" and "unknown" are all False.  Note in particular that "ungraceful" is False even though the server does respond - the response is an error.
 
     types:
-     * client-feature means the client is supposed to do special things (like, rate-limiting).  While the need for rate-limiting may be set by the server, it may not be possible to reliably establish it by probling the server, and the value may differ for different clients.
+     * client-feature means the client is supposed to do special things (like, rate-limiting).  While the need for rate-limiting may be set by the server, it may not be possible to reliably establish it by probing the server, and the value may differ for different clients.
      * server-peculiarity - weird behaviour detected at the server side, behaviour that is too odd to be described as "missing support for a feature".  Example: there is some cache working, causing a delay from some object is sent to the server and until it can be retrieved.  The difference between an "unsupported server-feature" and a "server-peculiarity" may be a bit floating - like, arguably "instant updates" may be considered a feature.
-     * tests-behaviour - configuration for the tests.  Like, it's OK to wipe everyhting from the test calendar, location of test calendar, rate-limiting that only should apply to test runs, etc.
-     * server-observation - not features, but other facts found about the server
+     * tests-behaviour - configuration for the tests.  Like, it's OK to wipe everything from the test calendar, location of test calendar, rate-limiting that only should apply to test runs, etc.
+     * server-observation - not features, but other facts found about the server.  Currently the only one is get-current-user-principal.has-calendar (does the account come with a pre-defined calendar on first login?).  This has to be observed manually.  While it may be a characteristic of some cloud providers, it's not necessarily true for self-hosted servers - sometimes this may depend on the docker container setup or the server configuration.  For those reasons it does not fit as a "feature".  An observation is not supported or unsupported, it is observed to be True or False: ``{"value": True}`` (the default) or ``{"value": False}``, and ``set_feature(observation, some_bool)`` stores ``{"value": some_bool}``.  Likewise a bool given for a client-feature is stored as ``{"enable": some_bool}``.  For both, ``is_supported(feature, str)`` spells the bool out as ``"True"`` or ``"False"``; server-peculiarity, tests-behaviour and client-hints have no bool meaning, and ``is_supported(feature)`` raises TypeError for them.
      * server-feature - some feature (preferably rooted with a pointer to some specific section of the RFC)
        * "support" -> "quirk" if we have a server-peculiarity where it's needed with special care to get the request through.
 
@@ -248,7 +248,7 @@ class FeatureSet:
         },
         "get-current-user-principal.has-calendar": {
             "type": "server-observation",
-            "description": "Principal has one or more calendars.  Some servers and providers comes with a pre-defined calendar for each user, for other servers a calendar has to be explicitly created (supported means there exists a calendar - it may be because the calendar was already provisioned together with the principal, or it may be because a calendar was created manually, the checks can't see the difference)"},
+            "description": "Principal has one or more calendars.  Some servers and providers come with a pre-defined calendar for each user, for other servers a calendar has to be explicitly created (True means there exists a calendar - it may be because the calendar was already provisioned together with the principal, or it may be because a calendar was created manually, the checks can't see the difference)"},
         "get-supported-components": {
             "description": "Server returns the supported-calendar-component-set property (RFC 4791 section 5.2.3).  The property is optional: when absent the RFC mandates that all component types are accepted, so 'unsupported' here is not a protocol violation, but the client cannot determine the actual supported set without trying.",
             "links": ["https://datatracker.ietf.org/doc/html/rfc4791#section-5.2.3"],
@@ -267,6 +267,11 @@ class FeatureSet:
             "description": "An <DAV:allprop/> PROPFIND returns the DAV:resourcetype live property.  RFC4918 section 9.1 lists resourcetype among the live properties an allprop request should return, so 'full' (the default) is the conformant behaviour; a few servers (Bedework) omit it.",
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
+        },
+        "propfind.principal-depth-1": {
+            "description": "A Depth: 1 PROPFIND on the principal URL returns a multistatus response.  RFC3744 does not require a principal to be a collection, and a Depth: 1 PROPFIND on a non-collection has nothing to list, so 'unsupported' is not a protocol violation - GMX (Cosmo) answers 400 'Depth must be 0 for non-collection resources'.  The library lists the principal at depth 1 when the server gives no calendar-home-set, which can only work where this is supported.",
+            "default": {"support": "full"},
+            "links": ["https://datatracker.ietf.org/doc/html/rfc3744#section-2", "https://datatracker.ietf.org/doc/html/rfc4918#section-9.1"],
         },
         "create-calendar.with-supported-component-types": {
             "description": "Server honours the supported-calendar-component-set restriction set at MKCALENDAR time.  When 'full', the server both advertises (or enforces) the restriction; when 'unsupported', the restriction is silently ignored (wrong-type objects can be saved to the calendar).  When 'ungraceful', the MKCALENDAR request itself fails when a component set is specified.",
@@ -306,6 +311,7 @@ hence, "fragile".
             "description": "The server delivers search results from a cache which is not immediately updated when an object is changed.  Hence recent changes may not be reflected in search results",
             "extra_keys": {
                 "delay": "after this number of seconds, we may be reasonably sure that the search results are updated",
+                "filtered-only": "True if only searches with a time range or a property filter are answered from the lagging cache, while a plain listing of the calendar is up to date at once (Purelymail).  Bedework lags in plain listings too",
             }
         },
         "synchronous-write": {
@@ -404,6 +410,7 @@ hence, "fragile".
             "default": { "support": "full" }
         },
         "save-load.event.no-summary": {"description": "The server stores a VEVENT without a SUMMARY property.  RFC 5545 section 3.6.1 makes SUMMARY optional.  'ungraceful' when the PUT is refused with an error (Bedework 5 answers 500 missingeventproperty).", "default": {"support": "full"}},
+        "save-load.event.no-dtend": {"description": "The server stores a VEVENT with neither DTEND nor DURATION.  RFC 5545 section 3.6.1 allows one: an event on a date lasts that day, an event at a date-time ends when it starts.  'ungraceful' when the PUT is refused with an error (iCloud answers 404, or 403).", "default": {"support": "full"}},
         "save-load.event.recurrences": {"description": "it's possible to save and load recurring events to the calendar - events with an RRULE property set, including recurrence sets", "default": {"support": "full"}},
         "save-load.event.recurrences.count": {"description": "The server will receive and store a recurring event with a count set in the RRULE", "default": {"support": "full"}},
         ## This was Claude's suggestion and it works as of today, the
@@ -687,6 +694,18 @@ hence, "fragile".
         "sync-token.delete": {
             "description": "Server correctly handles sync-collection reports after objects have been deleted from the calendar (solved in Nextcloud in https://github.com/nextcloud/server/pull/44130)"
         },
+        "sync-token.invalid-token": {
+            "description": "A sync-collection report with a token the server never issued is refused with the DAV:valid-sync-token precondition and a 403, which RFC 4918 section 16 suggests for a request that will always fail, so the client knows to start over with a full sync.  'quirk' means the precondition comes with another status (Xandikos: 412).  'ungraceful' means an error without the precondition (Xandikos and CCS answer 500 for a malformed token).  'broken' means the report succeeds (Stalwart returns a full listing), so a client can't tell a refused token from an ordinary report",
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.2"],
+        },
+        "sync-token.limit": {
+            "description": "Server honours DAV:limit in a sync-collection report from an issued token: it truncates the reply with a 507 for the collection and a checkpoint token, and following the checkpoints yields every change.  'unsupported' means the limit is ignored and everything comes in one reply, or the request is refused with a 507 carrying DAV:number-of-matches-within-limits as section 3.7 allows (CCS); both are harmless, as the library never sends DAV:limit.  'broken' means changes are lost, e.g. the reply is cut without a 507 (Xandikos, Nextcloud) or a checkpoint token skips changes",
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.7"],
+        },
+        "sync-token.limit.initial-sync": {
+            "description": "Like sync-token.limit, but for the initial sync (an empty sync-token).  'broken' means members are lost, e.g. the checkpoint token of a truncated initial sync skips the remaining members (Stalwart, which also truncates on its own at its maxResults setting, default 2000, and caps a PROPFIND the same way).  When this is broken and the server truncates an initial sync, get_objects_by_sync_token() returns the first page flagged truncated, keeping the caller's empty token",
+            "links": ["https://datatracker.ietf.org/doc/html/rfc6578#section-3.6"],
+        },
         "scheduling": {
             "description": "Server supports CalDAV Scheduling (RFC6638). Detected via the presence of 'calendar-auto-schedule' in the DAV response header.",
             ## Independent feature (directly probed via the DAV header): the default
@@ -769,7 +788,7 @@ hence, "fragile".
         },
         "save": {},
         "save.etag": {
-            "description": "The ETag header of a PUT response is a valid entity-tag (RFC 9110 section 8.8.3: a quoted string, optionally prefixed W/), and a conditional PUT carrying it in If-Match is accepted.  'quirk' with behaviour 'percent-encoded' when the header comes back URL-encoded but the decoded form is accepted - Bedework 5 answers a PUT with ETag: %22...%22 while a GET gives the quoted form, and refuses the encoded form in If-Match with 412.  The library decodes a leading %22, so a client is not affected by that shape; 'broken' when the decoded form is refused too.",
+            "description": "The ETag header of a PUT response is a valid entity-tag (RFC 9110 section 8.8.3: a quoted string, optionally prefixed W/), and a conditional PUT carrying it in If-Match is accepted.  'quirk' with behaviour 'percent-encoded' when the header comes back URL-encoded but the decoded form is accepted - Bedework 5 answers a PUT with ETag: %22...%22 while a GET gives the quoted form, and refuses the encoded form in If-Match with 412.  The library decodes a leading %22, so a client is not affected by that shape; 'broken' when the decoded form is refused too.  'quirk' with behaviour 'weak on PUT, strong on GET' when the PUT answers with a weak etag (W/...), which If-Match can never match (RFC 9110 section 13.1.1), while a GET of the object gives a strong one that If-Match accepts (GMX).  The library does not send a weak etag, so a save() right after a save() goes out without If-Match - no lost-update protection until the object is loaded again.",
             "default": {"support": "full"},
             "links": ["https://datatracker.ietf.org/doc/html/rfc9110#section-8.8.3"],
         },
@@ -834,8 +853,16 @@ hence, "fragile".
             self.copyFeatureSet(feature_set_dict, collapse=False)
 
 
+    ## The key a bool is stored under, for the types where a bool is not a
+    ## support level: an observation is observed to be True or False, and a
+    ## client-feature is enabled or not.
+    _BOOL_KEYS = {'server-observation': 'value', 'client-feature': 'enable'}
+
+    def _bool_key(self, feature):
+        return self._BOOL_KEYS.get(self.find_feature(feature).get('type'))
+
     def set_feature(self, feature, value=True):
-        if isinstance(value, dict):
+        if isinstance(value, dict) or (isinstance(value, bool) and self._bool_key(feature)):
             fc = {feature: value}
         elif isinstance(value, str):
             fc = {feature: {"support": value}}
@@ -882,7 +909,9 @@ hence, "fragile".
             if feature not in self._server_features:
                 self._server_features[feature] = {}
             server_node = self._server_features[feature]
-            if isinstance(value, bool):
+            if isinstance(value, bool) and self._bool_key(feature):
+                server_node[self._bool_key(feature)] = value
+            elif isinstance(value, bool):
                 server_node['support'] = "full" if value else "unsupported"
             elif isinstance(value, str):
                 self._validate_support_level(value, feature)
@@ -910,7 +939,7 @@ hence, "fragile".
         """
         Extract the key part of a feature dictionary for comparison during collapse.
 
-        For collapse purposes, we compare the 'support' level (or 'enable', 'behaviour', 'observed')
+        For collapse purposes, we compare the 'support' level (or 'enable', 'value', 'observed')
         but ignore differences in detailed behaviour messages, as those are often implementation-specific
         error messages that shouldn't prevent collapsing.
         """
@@ -921,6 +950,7 @@ hence, "fragile".
         return (
             feature_dict.get('support'),
             feature_dict.get('enable'),
+            feature_dict.get('value'),
             feature_dict.get('observed'),
         )
 
@@ -1011,7 +1041,7 @@ hence, "fragile".
         elif feature_type == 'server-peculiarity':
             return { "behaviour": "normal" }
         elif feature_type == 'server-observation':
-            return { "observed": True }
+            return { "value": True }
         elif feature_type in ('tests-behaviour', 'client-hints'):
             return { }
         else:
@@ -1141,25 +1171,34 @@ hence, "fragile".
         hierarchical dict, hence the naming of the method.  I
         considered it too complicated though)
         """
-        if return_type is str:
-            ## TODO: consider feature_info['type'], be smarter about it
-            return node.get('support', node.get('enable', node.get('behaviour')))
-        elif return_type is dict:
+        feature_type = feature_info.get('type', 'server-feature')
+        if return_type is dict:
             return node
-        elif return_type is bool:
-            ## TODO: consider feature_info['type'], be smarter about this
-            support = node.get('support', 'full')
-            if support == 'quirk':
-                return True
-            if accept_fragile and support == 'fragile':
-                support = 'full'
-            if feature_info.get('type', 'server-feature') == 'server-feature':
-                return support == 'full'
-            else:
-                ## TODO: this may be improved
-                return not node.get('enable') and not node.get('behaviour') and not node.get('observed')
-        else:
+        if return_type is str:
+            if feature_type in self._BOOL_KEYS:
+                ## There is no support level to report - spell out the bool
+                return str(self._convert_node(node, feature_info, bool, accept_fragile))
+            return node.get('support', node.get('behaviour'))
+        if return_type is not bool:
             raise AssertionError
+        bool_key = self._BOOL_KEYS.get(feature_type)
+        if bool_key in node:
+            return bool(node[bool_key])
+        if feature_type == 'server-observation' and 'observed' in node:
+            ## legacy spelling of 'value'
+            return bool(node['observed'])
+        if feature_type not in ('server-feature', 'server-observation', 'client-feature'):
+            ## server-peculiarity, tests-behaviour and client-hints carry
+            ## settings, not a yes/no answer
+            raise TypeError(
+                f"{feature_info.get('name')} is a {feature_type}, which has no bool meaning - ask for a dict"
+            )
+        ## A support level - the native form for a server-feature, a legacy
+        ## one for an observation or a client-feature
+        support = node.get('support', 'full' if feature_type != 'client-feature' else 'unsupported')
+        if accept_fragile and support == 'fragile':
+            support = 'full'
+        return support in ('full', 'quirk')
 
     @classmethod
     def find_feature(cls, feature: str) -> dict:
@@ -1345,6 +1384,14 @@ incompatibility_description = {
 }
 
 xandikos = {
+    ## Probed 2026-10-11 on 0.4.8, unchanged on master (0.4.9): a token that
+    ## isn't a hex SHA crashes the git store lookup, and a hex one is refused
+    ## as 412 rather than 403.
+    ## https://github.com/pycalendar/calendaring-sync/pull/19#issuecomment-6112378889
+    "sync-token.invalid-token": {
+        "support": "ungraceful",
+        "behaviour": "'http://example.invalid/never-issued': 500 without valid-sync-token; '0000000000000000000000000000000000000000': 412 with valid-sync-token",
+    },
     ## Genuinely returns matching objects for a comp-type-less query that carries
     ## a time-range (verified: the event is returned, not just "no error").
     "search.time-range.comp-type-optional": {"support": "full"},
@@ -1365,12 +1412,20 @@ xandikos = {
         "support": "unsupported",
         "behaviour": "the property is advertised but empty, so the principal URL is used as the calendar user address",
     },
+    ## Probed 2026-10-11 by the server tester: a sync-collection reply is cut
+    ## at DAV:limit without a 507, and the newest token skips the rest
+    "sync-token.limit": {
+        "support": "broken",
+        "behaviour": "the reply is cut at DAV:limit without a 507, and the token skips the rest",
+    },
 }
 
 ## This seems to work as of version 3.5.4 of Radicale.
 ## There is much development going on at Radicale as of summar 2025,
 ## so I'm expecting this list to shrink a lot soon.
 radicale = {
+    ## A fresh account comes without a calendar (observed on the docker test server)
+    "get-current-user-principal.has-calendar": {"value": False},
     ## Genuinely returns matching objects for a comp-type-less query that carries
     ## a time-range (verified: the event is returned, not just "no error").
     "search.time-range.comp-type-optional": {"support": "full"},
@@ -1393,6 +1448,8 @@ radicale = {
     ## extra properties not specified in RFC4791/RFC5545
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
+    ## Probed 2026-10-11 by the server tester
+    "sync-token.limit": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
 }
 
 ## Nextcloud can be configured a lot.  What particularly affects the compatibility
@@ -1453,6 +1510,19 @@ nextcloud = {
     ## Observed with Nextcloud 33: server delivers iTIP notification to the inbox AND
     ## auto-schedules into the attendee's calendar.
     'scheduling.schedule-tag': False,
+    ## Probed 2026-10-13 by the server tester.  From an issued token the
+    ## reply is cut at DAV:limit without a 507, and the newest token comes
+    ## back, so the changes past the limit are never reported:
+    ## getChangesForCalendar() applies the limit to the query but always
+    ## returns the current token.
+    ## https://github.com/nextcloud/server/blob/5da6d15f5242717f792bd276339d3a7f95b0012b/apps/dav/lib/CalDAV/CalDavBackend.php#L2870-L2914
+    ## An initial sync with DAV:limit is refused with a 507 and
+    ## number-of-matches-within-limits, as RFC 6578 section 3.7 says.
+    'sync-token.limit': {
+        'support': 'broken',
+        'behaviour': 'the reply is cut at DAV:limit without a 507, and the token skips the rest',
+    },
+    'sync-token.limit.initial-sync': {'support': 'unsupported', 'behaviour': 'refused with 507 number-of-matches-within-limits'},
 }
 
 ecloud = nextcloud | {
@@ -1810,7 +1880,11 @@ baikal =  { ## version 0.10.1
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
     ## I'm surprised, I'm quite sure this was passing earlier.  Caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad
-    'search.combined-is-logical-and': False
+    'search.combined-is-logical-and': False,
+    ## Probed 2026-10-11 by the server tester: from an issued token the limit
+    ## is honoured, on an initial sync it is ignored
+    "sync-token.limit": {"support": "full"},
+    "sync-token.limit.initial-sync": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
 } ## TODO: testPrincipals, testWrongAuthType, testTodoDatesearch fails
 
 ## Some unknown version of baikal has this
@@ -1853,21 +1927,78 @@ cyrus = {
     # AND delivers an iTIP notification copy to the attendee's schedule-inbox.
 }
 
-## See comments on https://github.com/python-caldav/caldav/issues/3
-#icloud = [
-#    'duplicate_in_other_calendar_with_same_uid_breaks',
-#    'sticky_events',
-#    'no_journal', ## it threw a 500 internal server error!
-#    'no_todo',
-#    "no_freebusy_rfc4791",
-#    'no_recurring',
-#    'propfind_allprop_failure',
-#    'get_object_by_uid_is_broken'
-#]
+## iCloud (https://caldav.icloud.com/).  Not among the servers the maintainer
+## tests against; probed 2026-10-09 by a user with caldav-server-tester 1.4.0
+## (caldav 3.4.0), see https://github.com/python-caldav/caldav/issues/730 .
+## Partly re-probed 2026-10-14 (caldav master and caldav-server-tester
+## release-candidate, both with the no-dtend change), once the tester no
+## longer stopped at the first event without an end, see
+## https://github.com/python-caldav/caldav-server-tester/issues/24 .  Only the
+## entries marked 2026-10-14 come from that run; the search.recurrences and
+## old-dates lines from 2026-10-09 were removed after it.
+## Earlier, older observations are in https://github.com/python-caldav/caldav/issues/3
+##
+## The calendar-home-set lives on a per-account partition host
+## (pNN-caldav.icloud.com), and the client root URL is moved there - but iCloud
+## may still return hrefs on caldav.icloud.com.  That is handled in the
+## calendar_home_set setter, not through this profile.
+##
+## The 401 offers 'X-MobileMe-AuthToken realm="MMCalDav", Basic realm="MMCalDav"'
+## - Basic, with an app-specific password, is what works.
+icloud = {
+    'auto-connect.url': {
+        'scheme': 'https',
+        'domain': 'caldav.icloud.com',
+        'basepath': '/',
+    },
+    'get-current-user-principal.has-calendar': {'value': True},
+    'calendar-color': {'support': 'broken', 'behaviour': "read-only (set 'blue'/'green', both return '#CB30E0FF')"},
+    'calendar-color.hex': {'support': 'full'},
+    'calendar-order': {'support': 'full'},
+    'freebusy-query': {'support': 'ungraceful', 'behaviour': '400 Bad Request'},
+    'principal-search': {'support': 'ungraceful'},
+    'propfind.allprop.resourcetype': {'support': 'unsupported'},
+    ## 2026-10-14
+    'propfind.principal-depth-1': {'support': 'unsupported', 'behaviour': 'HTTP 400'},
+    ## 2026-10-14
+    'save-load.event.no-dtend': {'support': 'ungraceful', 'behaviour': 'PUT refused with 404, or 403'},
+    'save-load.journal': {'support': 'unsupported'},
+    ## A task needs a calendar of its own
+    'save-load.todo.mixed-calendar': {'support': 'unsupported'},
+    'save-load.mutable.if-match-wildcard': {
+        'support': 'broken',
+        'behaviour': 'If-Match: * holds backwards: refused with 412 on an existing object, and creates a missing object',
+    },
+    'save.duplicate-uid.cross-calendar': {'support': 'ungraceful', 'behaviour': 'PUT refused'},
+    'scheduling.schedule-tag': {'support': 'unsupported', 'behaviour': 'no Schedule-Tag returned on GET or via PROPFIND'},
+    ## 2026-10-14: on another account, is-not-defined.category/class and
+    ## search.text.case-* found nothing (an empty 207) in two tester runs, and
+    ## SUMMARY and CATEGORIES filters by hand did not either, also 30 minutes
+    ## after saving.  Cause unknown; left as probed in #730.
+    'search.is-not-defined': {'support': 'fragile', 'behaviour': 'works for category, class but not all properties'},
+    'search.is-not-defined.category': {'support': 'full'},
+    'search.is-not-defined.class': {'support': 'full'},
+    'search.is-not-defined.dtend': {'support': 'unsupported'},
+    ## 2026-10-14: recurring events are found and expanded, and so are events
+    ## in year 2000.  Recurring tasks cannot be measured while time-range
+    ## searches for tasks do not work, so they are not left at the default.
+    'search.recurrences.includes-implicit.todo': {'support': 'unknown'},
+    'search.recurrences.expanded.todo': {'support': 'unknown'},
+    'search.text.category': {'support': 'unsupported'},
+    'search.time-range.alarm': {'support': 'unsupported'},
+    'search.time-range.todo': {'support': 'unsupported'},
+    ## 2026-10-14
+    'sync-token.limit': {
+        'support': 'unsupported',
+        'behaviour': 'DAV:limit is ignored; lists the collection itself as a member',
+    },
+}
 
 ## See the synology profile above: Synology Calendar ships a modified DAViCal,
 ## so the two profiles should be kept in sync where the fork has not diverged.
 davical = {
+    ## A fresh account comes without a calendar (observed on the docker test server)
+    "get-current-user-principal.has-calendar": {"value": False},
     # Disable HTTP/2 multiplexing - davical doesn't support it well and niquests
     # lazy responses cause MultiplexingError when accessing status_code
     "http.multiplexing": { "support": "unsupported" },
@@ -2083,6 +2214,8 @@ posteo = {
     'sync-token': {'support': 'ungraceful'},
     'principal-search': {'support': 'unsupported'},
     "scheduling": {"support": "unsupported"},
+    ## Probed 2026-10-13.  The profile predates the If-Match: * probe, added 2026-09-15.
+    'save-load.mutable.if-match-wildcard': {'support': 'broken', 'behaviour': 'If-Match: * is ignored: it created a missing object (201)'},
 }
 
 #calendar_mail_ru = [
@@ -2102,6 +2235,8 @@ posteo = {
 ## Davis uses sabre/dav (same backend as Baikal), so hints are similar.
 ## TODO: consolidate, make a sabredav dict and let davis/baikal build on it
 davis = {
+    ## A fresh account comes without a calendar (observed on the docker test server)
+    "get-current-user-principal.has-calendar": {"value": False},
     # Davis uses sabre/dav (same backend as Baikal): delivers iTIP notifications to the
     # attendee inbox AND auto-schedules into their calendar.
     "scheduling.schedule-tag": False,
@@ -2118,7 +2253,11 @@ davis = {
     "calendar-color": {"support": "full"},
     "calendar-order": {"support": "full"},
     ## I'm surprised, I'm quite sure this was passing earlier.  Caldav commit a98d50490b872e9b9d8e93e2e401c936ad193003, caldav server checker commit 3cae24cf99da1702b851b5a74a9b88c8e5317dad
-    'search.combined-is-logical-and': False
+    'search.combined-is-logical-and': False,
+    ## Probed 2026-10-13 by the server tester: same as Baikal, from an issued
+    ## token the limit is honoured, on an initial sync it is ignored
+    "sync-token.limit": {"support": "full"},
+    "sync-token.limit.initial-sync": {"support": "unsupported", "behaviour": "DAV:limit is ignored"},
 }
 
 ## Apple CalendarServer (CCS) - archived 2019, Python 2/Twisted.
@@ -2126,6 +2265,12 @@ davis = {
 ## cannot be changed.  The pre-provisioned "tasks" calendar supports VTODO only.
 ## VJOURNAL is not supported at all.
 ccs = {
+    ## Probed 2026-10-13: DAV:limit is refused with a 507 and
+    ## number-of-matches-within-limits ("Report limit not supported"), as
+    ## RFC 6578 section 3.7 says
+    "sync-token.limit": {"support": "unsupported", "behaviour": "refused with 507 number-of-matches-within-limits"},
+    ## Probed 2026-10-11: a 40-digit hex token gets 403 with valid-sync-token
+    "sync-token.invalid-token": {"support": "ungraceful", "behaviour": "'http://example.invalid/never-issued': 500 without valid-sync-token"},
     "scheduling.freebusy-query": {"support": "ungraceful"},
     "scheduling.mailbox.inbox-delivery": True,
     "scheduling.auto-schedule": True,
@@ -2175,6 +2320,9 @@ ccs = {
 ## CalDAV served at /dav/cal/<username>/ over HTTP on port 8080.
 ## Feature support mostly unknown until tested; starting with empty hints.
 stalwart = {
+    ## Probed 2026-10-11.  calendaring-sync found that it also answers a token
+    ## whose history is gone with a partial report and no error.
+    "sync-token.invalid-token": {"support": "broken", "behaviour": "'http://example.invalid/never-issued': 207, no error; '0000000000000000000000000000000000000000': 207, no error"},
     ## url.encode-at, re-probed 2026-08-31 against the docker test server with
     ## all three axes.  Stalwart answers them differently, and it is the server
     ## that made url.encode-at.literal grow per-axis children:
@@ -2251,16 +2399,33 @@ stalwart = {
     ## are skipped.  Marked 'fragile' so the checker skips it and the integration
     ## test (is_supported -> False) still treats the old-date task as skipped.
     'search.time-range.todo.no-dtstart': {'support': 'fragile'},
+    ## Probed 2026-10-11 on 0.16.11 (and on 0.16.21 in
+    ## https://github.com/pycalendar/calendaring-sync/pull/19): an initial
+    ## sync truncated at nresults=2 lists one member plus the collection
+    ## itself, then hands out the newest token as its checkpoint, so the
+    ## remaining members are never reported.  From an issued token the
+    ## checkpoints work.
+    'sync-token.limit': True,
+    'sync-token.limit.initial-sync': {
+        'support': 'broken',
+        'behaviour': 'the checkpoint of a truncated initial sync skips the remaining members',
+    },
 }
 
 ## Lots of transient problems with purelymail
 purelymail = {
     ## Purelymail claims that the search indexes are "lazily" populated,
     ## so search works some minutes after the event was created/edited.
-    'search-cache': {'behaviour': 'delay', 'delay': 180},
+    ## A plain listing reflects a new, edited, completed or deleted object at
+    ## once; time-range and text searches find a new one after ~25 s (probed
+    ## 2026-10-14)
+    'search-cache': {'behaviour': 'delay', 'delay': 180, 'filtered-only': True},
     #'search-cache': {'behaviour': 'delay', 'delay': 0.3},
     ## Hmmm .... weird, this is flapping in the caldav-server-tester?
     "create-calendar.auto": {"support": "full"},
+    ## Probed 2026-10-14 by the server tester: a token the server never
+    ## issued gets a report and no error
+    "sync-token.invalid-token": {"support": "broken", "behaviour": "'http://example.invalid/never-issued': 207, no error; '0000000000000000000000000000000000000000': 207, no error"},
     ## 409 Conflict with <must-have-parent> when PUTting to a URL not under an existing calendar
     #'save-load.get-by-url': {'support': 'unknown'},
     #'save-load.todo': {'support': 'ungraceful'},
@@ -2309,7 +2474,8 @@ gmx = {
     #'sync-token': {'support': 'unsupported'},
     'sync-token': {'support': 'ungraceful'},
     'principal-search': {'support': 'ungraceful'},
-    'principal-search.by-name.self': {'support': 'unsupported'},
+    ## flapping between unsupported and ungraceful (ungraceful 2026-10-11)
+    'principal-search.by-name.self': {'support': 'ungraceful'},
     ## TODO: flapping ...?
     #'freebusy-query': {'support': 'unsupported'},
     'freebusy-query': {'support': 'ungraceful'},
@@ -2317,17 +2483,43 @@ gmx = {
     #'search.is-not-defined.category': {'support': 'unsupported'},
     ## flapping ...?
     #'search.is-not-defined.dtend': {'support': 'unsupported'},
-    'create-calendar': {'support': 'unknown' }, ## https://github.com/python-caldav/caldav/issues/624
+    ## https://github.com/python-caldav/caldav/issues/624
+    ## 2026-10-11: two server-tester runs half an hour apart; in the first
+    ## every MKCALENDAR/MKCOL attempt failed, in the second calendars were
+    ## created (at the requested URL) and deleted on the first attempt.
+    'create-calendar': {'support': 'fragile'},
+    'create-calendar.auto': {'support': 'unsupported'},
+    'create-calendar.with-supported-component-types': {'support': 'unsupported'},
+    ## save.duplicate-uid.cross-calendar and save-load.mutable.attendee-partstat
+    ## were once recorded as failing; that was caldav sending the weak PUT
+    ## ETag as If-Match on the follow-up save, not a GMX limitation.
+    'save-load.mutable.if-match-wildcard': {'support': 'broken', 'behaviour': 'If-Match: * is ignored: it created a missing object (201)'},
+    'save.etag': {'support': 'quirk', 'behaviour': 'weak on PUT, strong on GET'},
+    'search.text.comp-type-optional': {'support': 'full'},
+    'search.time-range.comp-type-optional': {'support': 'full'},
+    ## The principal is not a collection.  GMX does advertise a
+    ## calendar-home-set, so the library never needs the depth-1 listing;
+    ## observed 2026-10-12.
+    'propfind.principal-depth-1': {'support': 'unsupported', 'behaviour': "400 'Depth must be 0 for non-collection resources'"},
+    'calendar-color': {'support': 'full'},
+    'calendar-order': {'support': 'full'},
+    'well-known': {'support': 'unsupported', 'behaviour': 'redirects to https://caldav.gmx.net/begenda/dav/users, which does not advertise calendar-access'},
     ## was apparently observed working for a while, possibly due to the master/more_checks split-brain git branching incident in the server-checker project.
     ## unsupported in be26d42b1ca3ff3b4fd183761b4a9b024ce12b84 / 537a23b145487006bb987dee5ab9e00cdebb0492 2026-02-19.  Supported when testing again short time after.  Either I'm confused or it's "fragile".
     #'search.time-range.alarm': {'support': 'unsupported'},
-    ## GMX advertises calendar-auto-schedule but inbox/mailbox and
-    ## calendar-user-address-set are not functional (RFC6638 sub-features).
+    ## GMX advertises calendar-auto-schedule.  Inbox/outbox and
+    ## calendar-user-address-set were earlier recorded as not functional, but
+    ## were observed working 2026-10-11.  Inbox delivery was not tested then
+    ## (only one user configured), so the old verdict is kept for it.
     "scheduling": {"support": "full"},
-    "scheduling.mailbox": {"support": "unsupported"},
-    "scheduling.calendar-user-address-set": {"support": "unsupported"},
-    ## GMX does not return results for open-end date searches (only start given)
-    'search.time-range.open.end': {'support': 'unsupported'},
+    "scheduling.mailbox.inbox-delivery": {"support": "unsupported"},
+    "scheduling.schedule-tag": {"support": "unsupported"},
+    ## Open-end date searches (only start given) used to return nothing,
+    ## but worked 2026-10-11
+    'search.time-range.open.end': {'support': 'fragile'},
+    ## Open-start searches used to work (no hint, so full), but were
+    ## rejected with 403 Forbidden 2026-10-11
+    'search.time-range.open.start': {'support': 'fragile'},
     "old_flags":  [
         #"text_search_is_case_insensitive",
         "vtodo-cannot-be-uncompleted",
@@ -2338,6 +2530,8 @@ gmx = {
 ## OX App Suite CalDAV served at /caldav/ (Apache proxies to /servlet/dav/caldav on port 8009).
 ## The Docker image must be built locally before use (see tests/docker-test-servers/ox/build.sh).
 ox = {
+    ## Probed 2026-10-11
+    "sync-token.invalid-token": {"support": "broken", "behaviour": "'0000000000000000000000000000000000000000': 207, no error"},
     ## Renaming a calendar after creation via PROPPATCH is not supported, but
     ## setting the display name AT creation time is - and that's what the probe
     ## tests.  Was 'unsupported' (conflated the two operations, and masked by the
@@ -2520,6 +2714,8 @@ infomaniak = {
     ## caldav's _validate_status turns into a ResponseError - the sync raises rather
     ## than silently coming back wrong, hence "ungraceful".
     'sync-token.delete': {'support': 'ungraceful', 'behaviour': "418 I'm a teapot"},
+    ## Probed 2026-10-13 by the server tester
+    'sync-token.limit': {'support': 'unsupported', 'behaviour': 'DAV:limit is ignored'},
 }
 
 ## Yahoo Calendar (https://caldav.calendar.yahoo.com/), a hosted service.
@@ -2547,7 +2743,7 @@ yahoo = {
     'auth.www-authenticate.usable-scheme': {'support': 'unknown'},
     ## Redirects to https://caldav.calendar.yahoo.com/principals/
     'well-known': {'support': 'full'},
-    'get-current-user-principal.has-calendar': {'support': 'full'},
+    'get-current-user-principal.has-calendar': {'value': True},
 
     ## Colour and order are stored and read back (the colour name is
     ## normalised: 'blue' comes back as '#0252D4').  Stated explicitly since

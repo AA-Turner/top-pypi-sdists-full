@@ -6,13 +6,8 @@ from typing import Literal
 
 from trajectory._models import BaseModel
 from trajectory.types.chat_completion_choice_logprobs import ChatCompletionChoiceLogprobs
+from trajectory.types.chat_completion_response_function import ChatCompletionResponseFunction
 from trajectory.types.usage import Usage
-
-
-class ChatCompletionResponseFunction(BaseModel):
-  name: str
-
-  arguments: str
 
 
 class ChatCompletionResponseToolCall(BaseModel):
@@ -29,6 +24,8 @@ class ChatCompletionResponseMessage(BaseModel):
   content: str | None
 
   tool_calls: list[ChatCompletionResponseToolCall] | None = None
+
+  function_call: ChatCompletionResponseFunction | None = None
 
 
 class ChatCompletionChoice(BaseModel):

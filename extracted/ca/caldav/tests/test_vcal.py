@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from unittest import TestCase
 
@@ -348,9 +349,8 @@ END:VCALENDAR""",
         )
 
     def test_compliant_ical_with_folded_lines_is_left_alone(self) -> None:
-        """Modifying compliant data also fires the rate-limited "your calendar
-        server breaks the icalendar standard" warning at servers that did
-        nothing wrong."""
+        """Modifying compliant data also fires the rate-limited fixup
+        warning about data that did nothing wrong."""
         ical = (
             "BEGIN:VCALENDAR\n"
             "VERSION:2.0\n"
@@ -364,6 +364,37 @@ END:VCALENDAR""",
             "END:VCALENDAR\n"
         )
         assert vcal.fix(ical) == ical
+
+    def test_drop_empty_categories(self) -> None:
+        """An empty CATEGORIES line holds no category and is dropped.
+
+        icalendar's ``component.categories`` accessor inserts one when there
+        is none (https://github.com/collective/icalendar/issues/1722), so
+        tasks end up with ``CATEGORIES:`` next to the real CATEGORIES line.
+        """
+        head = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VTODO\nUID:test\nDTSTAMP:20190103T070319Z\n"
+        tail = "END:VTODO\nEND:VCALENDAR\n"
+        assert (
+            vcal.fix(head + "CATEGORIES:\nCATEGORIES:foo\n" + tail)
+            == head + "CATEGORIES:foo\n" + tail
+        )
+        assert vcal.fix(head + "CATEGORIES:\n" + tail) == head + tail
+        assert vcal.fix(head + "CATEGORIES;LANGUAGE=en:\n" + tail) == head + tail
+        ## a folded CATEGORIES line is not empty
+        folded = head + "CATEGORIES:\n foo\n" + tail
+        assert vcal.fix(folded) == folded
+        ## servers send CRLF; fix() relies on to_normal_str normalising it
+        crlf = (head + "CATEGORIES:\nCATEGORIES:foo\n" + tail).replace("\n", "\r\n")
+        assert vcal.fix(crlf) == head + "CATEGORIES:foo\n" + tail
+
+    def test_fixup_warning_blames_nobody(self) -> None:
+        """The fixup is logged as a warning, but the broken data may come from
+        the server, the client or a library in between - don't blame one."""
+        vcal.fixup_error_loggings = 0
+        ical = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VTODO\nUID:test\nDTSTAMP:20190103T070319Z\nCATEGORIES:\nEND:VTODO\nEND:VCALENDAR\n"
+        with self.assertLogs("caldav", level="WARNING") as logs:
+            vcal.fix(ical)
+        assert "server" not in "\n".join(logs.output).lower()
 
     def test_backslash_unescape_single_and_double_quotes(self) -> None:
         """Bug §2.4: re.sub(r"\\+('\")", r"\1", fixed) used a group ('\"')
@@ -386,6 +417,30 @@ END:VCALENDAR""",
         fixed_double = vcal.fix(ical_double)
         assert "SUMMARY:it's here" in fixed_single, "fix() must strip backslash before single quote"
         assert 'SUMMARY:it"s here' in fixed_double, "fix() must strip backslash before double quote"
+
+    def _assert_fix_is_fast(self, payload: str) -> None:
+        ical = (
+            "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:test\n"
+            "DTSTAMP:20190103T070319Z\nDTSTART:20190117T180000Z\n"
+            f"SUMMARY:x{payload}x\nEND:VEVENT\nEND:VCALENDAR\n"
+        )
+        start = time.monotonic()
+        vcal.fix(ical)
+        assert time.monotonic() - start < 1, "vcal.fix() must not be quadratic"
+
+    def test_fix_is_linear_on_long_whitespace_run(self) -> None:
+        """GHSA-5h4q-xm57-3mh5: a long run of blanks not ending a line
+        made the trailing-whitespace substitution quadratic."""
+        self._assert_fix_is_fast(" " * 50000)
+
+    def test_fix_is_linear_on_long_backslash_run(self) -> None:
+        """GHSA-5h4q-xm57-3mh5: a long run of backslashes not followed
+        by a quote made the backslash substitution quadratic."""
+        self._assert_fix_is_fast("\\" * 50000)
+
+    def test_backslash_run_before_quote_is_stripped(self) -> None:
+        ical = "BEGIN:VCALENDAR\nSUMMARY:a\\\\\\'b \t\nEND:VCALENDAR\n"
+        assert "SUMMARY:a'b\n" in vcal.fix(ical)
 
     def test_completed_date_fixup_preserves_next_property(self) -> None:
         """Bug §2.1: COMPLETED date fixup regex consumed the trailing newline,

@@ -41,7 +41,8 @@ from typing import Any
 from urllib.parse import quote, urlparse
 
 import httpx
-
+from matrx_api import MatrxApi, MatrxApiError, ServiceCredential
+from matrx_api.generated import integrations as google_integrations
 from matrx_orm import transaction
 from matrx_utils import utcnow
 
@@ -385,7 +386,6 @@ async def resolve_google_credential(
         return _coerce_credential(resolved, source="google_credential_resolver")
 
     base, token = _aidream_internal_config()
-    url = f"{base}/api/google-integrations/internal/credential"
     params: dict[str, str] = {
         "connection_id": credential_ref,
         "organization_id": site_organization_id,
@@ -407,26 +407,25 @@ async def resolve_google_credential(
             "(X-Organization-Id). Pass the site's organization; it is never "
             "omitted or resolved on the far side."
         )
-    async with httpx.AsyncClient(timeout=30.0) as http:
-        response = await http.get(
-            url,
-            params=params,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "X-Matrx-User-Id": user_id,
-                # The organization crosses the boundary as a HEADER — the
-                # aidream bridge reads the forwarded organization from it and
-                # refuses without it. The query param above stays as the
-                # CONFIRMING claim the route checks it against.
-                "X-Organization-Id": organization_id,
-            },
-        )
-    if response.status_code >= 400:
+    # The organization crosses the boundary as the X-Organization-Id HEADER (matrx_api carries it for this
+    # org-required operation) - the aidream bridge refuses without it. The query param above stays as the
+    # CONFIRMING claim the route checks it against. Wire pinned by tests/test_gsc_credential_bridge_wire_golden.py.
+    try:
+        async with MatrxApi(
+            credentials=ServiceCredential(token, acting_user_id=user_id),
+            organization_id=organization_id,
+            base_urls={"aidream": base},
+            route_prefix="/api",
+            connect_timeout=30.0,
+            total_timeout=30.0,
+            retry_attempts=1,
+        ) as api:
+            payload = await google_integrations.internal_credential(api, query=params)
+    except MatrxApiError as exc:
         raise RuntimeError(
             f"aidream could not resolve GSC credential {credential_ref}: "
-            f"HTTP {response.status_code} {response.text[:300]}"
-        )
-    payload = response.json()
+            f"HTTP {exc.status} {str(exc.server_detail if exc.server_detail is not None else exc.message)[:300]}"
+        ) from exc
     refresh_token = payload.get("refresh_token") if isinstance(payload, dict) else None
     client_id = payload.get("client_id") if isinstance(payload, dict) else None
     client_secret = payload.get("client_secret") if isinstance(payload, dict) else None

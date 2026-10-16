@@ -39,11 +39,22 @@ When adding a new procedure follow the workflow:
 # ruff: noqa: F401
 from .device import (
     FREE_ACCESS_KEY,
+    ScannedInterfaceObject,
     dm_restart,
     dm_restart_r_co,
     dmp_authorize2_r_co,
     dmp_authorize_r_co,
     dmp_connect_r_co,
+    dmp_interface_object_read_r,
+    dmp_interface_object_scan_r,
+    dmp_interface_object_verify_r,
+    dmp_interface_object_write_r,
+    dmp_mem_read_r_co,
+    dmp_mem_verify_r_co,
+    dmp_mem_write_r_co,
+    dmp_user_mem_read_r_co,
+    dmp_user_mem_verify_r_co,
+    dmp_user_mem_write_r_co,
 )
 from .network import (
     nm_individual_address_check,
@@ -53,7 +64,3 @@ from .network import (
     nm_individual_address_serial_number_write,
     nm_individual_address_write,
 )
-
-# Backwards-compatibility typo alias (the original module exposed both spellings).
-# TODO: remove in v4
-nm_invididual_address_write = nm_individual_address_write

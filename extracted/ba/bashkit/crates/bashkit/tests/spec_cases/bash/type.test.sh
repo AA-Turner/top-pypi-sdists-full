@@ -13,21 +13,22 @@ if is a shell keyword
 ### end
 
 ### type_function
-### bash_diff: real bash also prints function body
-# type reports functions
+# type reports functions with their body
 myfunc() { echo hi; }
 type myfunc
 ### expect
 myfunc is a function
+myfunc () 
+{ 
+    echo hi
+}
 ### end
 
 ### type_not_found
 ### exit_code:1
-### bash_diff: real bash writes error to stderr not stdout
-# type exits 1 for unknown command
+# type exits 1 for unknown command; the error goes to stderr
 type nonexistent_cmd_xyz
 ### expect
-bash: type: nonexistent_cmd_xyz: not found
 ### end
 
 ### type_t_builtin
@@ -68,19 +69,19 @@ true is a shell builtin
 ### end
 
 ### type_a_builtin
-### bash_diff: real bash also shows PATH entries for echo
-# type -a shows all matches
+# type -a shows the builtin, then every PATH match
 type -a echo
 ### expect
 echo is a shell builtin
+echo is /usr/bin/echo
+echo is /bin/echo
 ### end
 
 ### which_builtin
-### bash_diff: real which shows PATH, bashkit shows name
-# which finds builtins
+# which searches PATH; the root filesystem provides /usr/bin/echo
 which echo
 ### expect
-echo
+/usr/bin/echo
 ### end
 
 ### which_not_found
@@ -91,28 +92,77 @@ which nonexistent_cmd_xyz
 ### end
 
 ### which_multiple
-### bash_diff: real which shows PATH, bashkit shows name
 # which handles multiple names
 which echo cat
 ### expect
-echo
-cat
+/usr/bin/echo
+/usr/bin/cat
 ### end
 
 ### which_function
-### bash_diff: real which only searches PATH, not functions
-# which finds functions
+### exit_code:1
+# which only searches PATH, not functions
 myfunc() { echo hi; }
 which myfunc
 ### expect
-myfunc
+### end
+
+### type_external_command
+# Commands that are programs on a real system resolve to /usr/bin
+type ls
+type -t ls
+command -v ls
+command -V cat
+type -P echo
+### expect
+ls is /usr/bin/ls
+file
+/usr/bin/ls
+cat is /usr/bin/cat
+/usr/bin/echo
 ### end
 
 ### hash_noop
-### bash_diff: real bash prints hash table contents
-# hash is a no-op in sandboxed env
+# bashkit keeps no hash table, so it always reads as empty
 hash
 echo "ok"
 ### expect
+hash: hash table empty
 ok
+### end
+
+### rootfs_layout
+# Default root filesystem: /etc, /proc and command stubs
+grep -c '^processor' /proc/cpuinfo
+grep '^ID=' /etc/os-release
+cut -d: -f1 /etc/passwd
+cat /etc/hostname
+/usr/bin/env A=1 printenv A
+[ -x /usr/bin/env ] && echo env-exec
+head -c 4 /dev/zero | od -An -c
+echo hi > /etc/passwd 2>/dev/null || echo denied
+mkdir -p /etc/myapp && echo conf > /etc/myapp/x && cat /etc/myapp/x
+### bash_diff: synthetic identity (sandbox user, bashkit-sandbox host, 4 CPUs)
+### expect
+4
+ID=bashkit
+sandbox
+nobody
+bashkit-sandbox
+1
+env-exec
+  \0  \0  \0  \0
+denied
+conf
+### end
+
+### rootfs_proc_random_uuid
+# /proc/sys/kernel/random/uuid yields a fresh random UUID per read
+a=$(cat /proc/sys/kernel/random/uuid)
+b=$(cat /proc/sys/kernel/random/uuid)
+[[ $a =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]] && echo shape
+[ "$a" != "$b" ] && echo fresh
+### expect
+shape
+fresh
 ### end

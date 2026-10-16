@@ -18,7 +18,6 @@ fn init_crypto_provider() {
         rustls::crypto::ring::default_provider()
             .install_default()
             .expect("Failed to install rustls crypto provider for tests");
-        println!("Initialized rustls crypto provider for tests");
     });
 }
 
@@ -46,6 +45,8 @@ mod handler_channel_tests;
 mod misc_tests;
 #[cfg(test)]
 mod nat_keepalive_tests;
+#[cfg(test)]
+mod network_monitor_config_tests;
 #[cfg(test)]
 mod protocol_tests;
 #[cfg(test)]

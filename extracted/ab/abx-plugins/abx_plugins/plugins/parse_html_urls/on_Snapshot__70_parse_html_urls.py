@@ -31,6 +31,9 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    build_request,
+    has_failed_source_navigation,
+    iri_to_uri,
     iter_staticfile_text_inputs,
     load_config,
     read_file_url_text,
@@ -64,6 +67,9 @@ class HrefParser(HTMLParser):
     def __init__(self, *, root_url: str, urls_found: set[str]):
         super().__init__()
         self.root_url = root_url
+        # root_url is usually Chrome's encoded URI (/%C3%BCber) while hrefs
+        # stay IRIs (/über); compare both in URI form to spot self-links.
+        self.root_uri = iri_to_uri(root_url)
         self.urls_found = urls_found
         self.raw_tail = ""
 
@@ -71,7 +77,7 @@ class HrefParser(HTMLParser):
         normalized = normalize_url(url, root_url=self.root_url)
         lowered = normalized.lower()
         if lowered.startswith(HTTP_PREFIXES):
-            if normalized != self.root_url:
+            if iri_to_uri(normalized) != self.root_uri:
                 self.urls_found.add(
                     unescape(normalized) if "&" in normalized else normalized,
                 )
@@ -395,14 +401,17 @@ def main(
                     root_url=root_url,
                     urls_found=urls_found,
                 )
-        elif url.startswith(("http://", "https://")):
+        elif url.startswith(
+            ("http://", "https://"),
+        ) and not has_failed_source_navigation(url, SNAP_DIR):
             timeout = CONFIG.TIMEOUT
             user_agent = CONFIG.USER_AGENT
 
             import io
             import urllib.request
 
-            req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            # IRIs (/über) and URL credentials need the shared request builder.
+            req = build_request(url, headers={"User-Agent": user_agent})
             response = urllib.request.urlopen(req, timeout=timeout)
             final_url = response.geturl()
             if isinstance(final_url, str) and final_url.lower().startswith(

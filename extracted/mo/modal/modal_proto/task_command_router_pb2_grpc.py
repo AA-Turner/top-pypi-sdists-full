@@ -107,8 +107,8 @@ class TaskCommandRouterStub(object):
                 )
         self.TaskSetOutboundPolicy = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
-                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.SerializeToString,
-                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.FromString,
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyResponse.FromString,
                 )
         self.TaskSnapshotDirectory = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory',
@@ -263,7 +263,8 @@ class TaskCommandRouterServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def TaskSetOutboundPolicy(self, request, context):
-        """Replace the task's outbound policy.
+        """Replace the task's experimental outbound policy. The method keeps its
+        original name because gRPC sends method names on the wire.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -395,8 +396,8 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
             ),
             'TaskSetOutboundPolicy': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskSetOutboundPolicy,
-                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.FromString,
-                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.SerializeToString,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyResponse.SerializeToString,
             ),
             'TaskSnapshotDirectory': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskSnapshotDirectory,
@@ -746,8 +747,8 @@ class TaskCommandRouter(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
-            modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyRequest.SerializeToString,
-            modal__proto_dot_task__command__router__pb2.TaskSetOutboundPolicyResponse.FromString,
+            modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskSetExperimentalOutboundPolicyResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

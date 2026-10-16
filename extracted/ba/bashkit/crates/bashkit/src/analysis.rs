@@ -350,6 +350,11 @@ fn literal_word(word: &Word) -> Option<String> {
             _ => return None,
         }
     }
+    // A `QuotedGlobWord` stores its quoted glob characters backslash-escaped;
+    // report the text the command actually sees.
+    if word.quoted && word.has_unquoted_glob {
+        out = crate::parser::unescape_glob_literal(&out);
+    }
     Some(out)
 }
 
@@ -507,9 +512,11 @@ impl Walker {
     fn walk_redirects(&mut self, redirects: &[Redirect], ctx: CommandContext) {
         for redirect in redirects {
             let mode = match redirect.kind {
-                RedirectKind::Output | RedirectKind::Clobber | RedirectKind::OutputBoth => {
-                    RedirectMode::Write
-                }
+                // `<>` may create and overwrite the file: gate it as a write.
+                RedirectKind::Output
+                | RedirectKind::Clobber
+                | RedirectKind::OutputBoth
+                | RedirectKind::ReadWrite => RedirectMode::Write,
                 RedirectKind::Append => RedirectMode::Append,
                 RedirectKind::Input => RedirectMode::Read,
                 // Fd duplication, here-documents and here-strings do not name a
@@ -570,6 +577,11 @@ impl Walker {
                     // in arithmetic is a variable reference, not a dispatch.)
                     self.out.has_command_substitution = true;
                     self.out.has_dynamic_commands = true;
+                }
+                WordPart::CompoundAssignment { elements, .. } => {
+                    for element in elements {
+                        self.walk_word_parts(element, ctx);
+                    }
                 }
                 _ => {}
             }
@@ -699,6 +711,15 @@ mod tests {
         // Source order: the substitution is recorded before its command.
         assert_eq!(analysis.command_names(), ["rm", "echo"]);
         assert_eq!(analysis.commands[1].assignments, ["out"]);
+    }
+
+    #[test]
+    fn substitution_in_declared_compound_array_is_walked() {
+        // `declare -a x=(...)` keeps its elements in a CompoundAssignment
+        // part; a substitution inside must still reach the permission gate.
+        let analysis = a("declare -a x=(a $(rm -rf /data) [3]=`curl http://x`)");
+        assert!(analysis.has_command_substitution);
+        assert_eq!(analysis.command_names(), ["rm", "curl", "declare"]);
     }
 
     #[test]

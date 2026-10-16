@@ -1114,6 +1114,8 @@ class BashTool:
         custom_builtins: Mapping[str, BuiltinCallback] | None = None,
         network: NetworkConfig | None = None,
         profile: ExecutionProfile = ExecutionProfile.Standard,
+        python: bool = False,
+        typescript: bool = False,
     ) -> None:
         """Create a new BashTool.
 
@@ -1145,6 +1147,14 @@ class BashTool:
             network: Optional outbound HTTP / network configuration. See
                 ``Bash.__init__`` for accepted keys. Preserved across
                 ``reset()`` and ``from_snapshot()``.
+            profile: Execution profile (Standard or Compatibility).
+            python: Register sandboxed Monty Python (default ``False``).
+            typescript: Register sandboxed ZapCode TypeScript (default ``False``).
+
+        Embedded runtimes share the shell's virtual filesystem and stay enabled
+        after ``reset()``. Python additionally requires the host to provide
+        ``env={"BASHKIT_ALLOW_INPROCESS_PYTHON": "1"}`` at construction.
+        An agent script cannot grant this permission with ``export``.
 
         Example::
 
@@ -1155,6 +1165,13 @@ class BashTool:
             ... )
             >>> print(tool.name)
             bash
+            >>> tool = BashTool(
+            ...     python=True,
+            ...     typescript=True,
+            ...     env={"BASHKIT_ALLOW_INPROCESS_PYTHON": "1"},
+            ... )
+            >>> tool.execute_sync("python -c 'print(21)' && ts -c '21'").stdout
+            '21\\n21\\n'
         """
         ...
 
@@ -1412,6 +1429,8 @@ class BashTool:
         custom_builtins: Mapping[str, BuiltinCallback] | None = None,
         network: NetworkConfig | None = None,
         profile: ExecutionProfile = ExecutionProfile.Standard,
+        python: bool = False,
+        typescript: bool = False,
     ) -> BashTool:
         """Create a new ``BashTool`` from snapshot bytes and optional constructor kwargs."""
         ...
@@ -1435,6 +1454,8 @@ class BashTool:
         custom_builtins: Mapping[str, BuiltinCallback] | None = None,
         network: NetworkConfig | None = None,
         profile: ExecutionProfile = ExecutionProfile.Standard,
+        python: bool = False,
+        typescript: bool = False,
     ) -> BashTool:
         """Create a new ``BashTool`` from HMAC-protected snapshot bytes."""
         ...
@@ -1902,3 +1923,66 @@ class SnapshotGraph:
     def diff(commit_a: str, commit_b: str, objects: dict[str, bytes]) -> SnapshotDiff:
         """Compare two commits."""
         ...
+
+class Terminal:
+    """Interactive bash session on an in-memory terminal.
+
+    Type keys, run until the shell needs input, read the screen as text.
+    Full-screen programs (``vi``, ``less``, ``more``) work.
+
+    Example:
+        >>> t = Terminal(rows=24, cols=80)
+        >>> out = t.call("echo hi<Enter>")
+        >>> out["commands"][0]["output"]
+        'hi\n'
+    """
+
+    def __init__(
+        self,
+        rows: int = 24,
+        cols: int = 80,
+        username: str | None = None,
+        hostname: str | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> None: ...
+    def send(self, data: str | bytes) -> int:
+        """Queue raw input as if typed. Returns accepted byte count."""
+        ...
+    def run_until_idle(self, timeout: float | None = None) -> Literal["idle", "exited", "timeout"]:
+        """Run until the session needs input or exits, or ``timeout`` seconds pass."""
+        ...
+    def call(
+        self,
+        input: str = "",
+        wait_ms: int | None = None,
+        wait_for: str | None = None,
+        screen: Literal["full", "changes", "none"] | None = None,
+        session: str | None = None,
+        close: bool | None = None,
+    ) -> dict[str, Any]:
+        """Agent step: type ``input`` in Vim key notation, wait, report screen and commands.
+
+        ``wait_for`` (regex) returns as soon as command output matches.
+        ``screen="changes"`` returns only rows changed since the last call.
+        ``session`` names a terminal tab (created on first use, files shared);
+        ``close=True`` closes it.
+        """
+        ...
+    def screen_text(self) -> str: ...
+    def history_text(self) -> str: ...
+    def take_output(self) -> bytes: ...
+    def take_transcript(self) -> list[dict[str, Any]]: ...
+    def activity(self) -> dict[str, Any]: ...
+    def cursor(self) -> tuple[int, int]: ...
+    def is_alternate_screen(self) -> bool: ...
+    def input_prompt(self) -> str | None:
+        """Question on the cursor line while ``read``/``select`` waits for a typed line."""
+        ...
+    def resize(self, rows: int, cols: int) -> None: ...
+    def size(self) -> tuple[int, int]: ...
+    @property
+    def exit_code(self) -> int | None: ...
+    def fs(self) -> FileSystem: ...
+    def tool_definition(self) -> dict[str, Any]: ...
+    def system_prompt(self) -> str: ...

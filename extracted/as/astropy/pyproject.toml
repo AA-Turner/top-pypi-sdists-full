@@ -43,7 +43,7 @@ keywords = [
     "ascii",
 ]
 dependencies = [
-    "astropy-iers-data>=0.2026.6.22.1.23.34",
+    "astropy-iers-data>=0.2026.9.28.0.59.37",
     "numpy>=2.0",
     "packaging>=25.0",
     "pyerfa>=2.0.1.3",  # for >=2.0.1.7, adjust structured_units.rst and doctest-requires
@@ -103,9 +103,13 @@ test = [
     "coverage>=7.2.0",
     "hypothesis>=6.84.0",
     "pytest>=8.0.1",
+    "pytest-astropy-header>=0.2.2",
+    "pytest-cov>=2.3.1",
     "pytest-doctestplus>=1.4.0",
-    "pytest-astropy-header>=0.2.1",
-    "pytest-astropy>=0.11.0",
+    "pytest-filter-subpackage>=0.2.0",
+    "pytest-remotedata>=0.4.1",
+    "pytest-run-parallel>=0.10.0",
+    "pytest-skip-slow==1.1.0",
     "pytest-xdist>=3.6.0",
     "threadpoolctl>=3.0.0",
 ]
@@ -262,6 +266,8 @@ filterwarnings = [
     "ignore:invalid value encountered in do_format:RuntimeWarning",
     # Remove this when we delete samp subpackage
     "ignore:astropy\\.samp was deprecated:astropy.utils.exceptions.AstropyDeprecationWarning",
+    # https://github.com/astropy/astropy/issues/20164
+    "ignore:.*matrix.*is being replaced:DeprecationWarning",
     # https://github.com/astropy/astropy/issues/19511
     "ignore:Implicitly cleaning up <HTTPError 404:ResourceWarning",
     "ignore:unclosed <socket:ResourceWarning",
@@ -291,14 +297,20 @@ doctest_subpackage_requires = [
 ]
 markers = [
     "mpl_image_compare",
+    # pytest-run-parallel markers, registered here so the tests using them
+    # also collect under --strict-markers when the plugin is not installed
+    "force_parallel_threads(n): force this test to run in n pytest-run-parallel threads",
+    "iterations(n): run this test n times per thread under pytest-run-parallel",
 ]
 
 [tool.cibuildwheel]
 # We disable testing for the following wheels:
 # - MuslLinux (tests hang non-deterministically)
 test-skip = "*-musllinux_x86_64"
-enable = ["cpython-prerelease"] # this line can be removed when cibuildwheel is bumped to 3.1.0 or newer
-skip = ["cp*t-*"] # https://github.com/astropy/astropy/issues/16916
+enable = ["cpython-prerelease"]
+skip = [
+    "cp*t-*",  # https://github.com/astropy/astropy/issues/16916
+]
 environment-pass = ["EXTENSION_HELPERS_PY_LIMITED_API"]
 
 [tool.cibuildwheel.macos]
@@ -690,14 +702,14 @@ ignore = [
         type_incorrect_long = "The changelog file you added is not one of the allowed types. Please use one of the types described in the changelog [README](https://github.com/astropy/astropy/blob/main/docs/changes/README.rst)"
         number_incorrect_long = "The number in the changelog file you added does not match the number of this pull request. Please rename the file."
 
-    [tool.gilesbot.circleci_artifacts.py311-test-image-mpl380]
-        url = ".tmp/py311-test-image-mpl380/results/fig_comparison.html"
-        message = "Click details to see the figure test comparisons, for py311-test-image-mpl380."
+    [tool.gilesbot.circleci_artifacts.py311-test-image-mpl380-cov]
+        url = "results/fig_comparison.html"
+        message = "Click details to see the figure test comparisons, for py311-test-image-mpl380-cov."
         report_on_fail = true
 
-    [tool.gilesbot.circleci_artifacts.py311-test-image-mpldev]
-        url = ".tmp/py311-test-image-mpldev/results/fig_comparison.html"
-        message = "Click details to see the figure test comparisons for py311-test-image-mpldev."
+    [tool.gilesbot.circleci_artifacts.py311-test-image-mpldev-cov]
+        url = "results/fig_comparison.html"
+        message = "Click details to see the figure test comparisons for py311-test-image-mpldev-cov."
         report_on_fail = true
 
 [tool.codespell]

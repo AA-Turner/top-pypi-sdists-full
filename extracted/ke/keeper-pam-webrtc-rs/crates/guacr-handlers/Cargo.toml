@@ -3,7 +3,7 @@ name = "guacr-handlers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Protocol handler trait, registry, and ResourceBrowser for guacr remote desktop and infrastructure protocols (features: guacd-compat, vsphere, docker, kubernetes)"
+description = "Protocol handler trait, registry, and shared handler infrastructure for guacr remote desktop and infrastructure protocols (features: guacd-compat, vsphere, docker, kubernetes)"
 readme = "README.md"
 
 [features]
@@ -31,19 +31,13 @@ log.workspace = true
 # Protocol support
 guacr-protocol = { path = "../guacr-protocol", version = "2.0.0" }
 guacr-recording = { path = "../guacr-recording" }
-guacr-terminal = { path = "../guacr-terminal" }
-
-# Stream trait for resource browser watch API
-futures-core = "0.3"
-
-# Ratatui for ResourceBrowserGrid (replaces SpreadsheetRenderer)
-ratatui = { version = "0.29", default-features = false }
 
 # Additional dependencies
 parking_lot = "0.12"
 chrono = "0.4"
 base64.workspace = true
 uuid.workspace = true
+url = "2.5"
 
 # Image encoding for cursor support
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
@@ -75,3 +69,9 @@ serde_yaml = { version = "0.9", optional = true }
 [dev-dependencies]
 tempfile = "3"
 base64.workspace = true
+# Paused-clock tests for the keepalive schedule: real 5s sleeps in a unit test are not an
+# option, and the drift being tested is sub-millisecond.
+tokio = { workspace = true, features = ["test-util"] }
+# security_test.rs asserts on the clipboard instruction encoding, which lives in
+# guacr-terminal. Dev-only so the handler crate itself stays off the terminal stack.
+guacr-terminal = { path = "../guacr-terminal" }

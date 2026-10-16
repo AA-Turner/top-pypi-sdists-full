@@ -1,18 +1,18 @@
 # File: matrx_seo/db/models_seo.py
 from matrx_orm import BigIntegerField, BooleanField, CharField, DateField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerArrayField, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, TimeField, UUIDArrayField, UUIDField, model_registry, BaseDTO, BaseManager
-from enum import Enum
+from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -137,13 +137,13 @@ class ClassifierRevisionLedger(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -282,13 +282,13 @@ class EngineOwnerTask(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -334,13 +334,13 @@ class EngineSchedule(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -388,7 +388,7 @@ class GeoPlace(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
@@ -430,13 +430,13 @@ class GscDigRule(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -562,13 +562,13 @@ class Location(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -859,13 +859,13 @@ class SiteVocabulary(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -918,13 +918,13 @@ class StarterPack(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -993,13 +993,13 @@ class StoryAngle(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1040,13 +1040,13 @@ class Topic(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1465,13 +1465,13 @@ class DimensionValueMatcher(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1550,13 +1550,13 @@ class KeywordClassificationQueue(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1597,13 +1597,13 @@ class KeywordEdge(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1643,13 +1643,13 @@ class KeywordPlace(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1734,13 +1734,13 @@ class LinkGapDomain(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -1866,13 +1866,13 @@ class ProviderTask(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -2046,13 +2046,13 @@ class SiteTopicValue(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -2106,7 +2106,7 @@ class SourceRequest(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
@@ -2510,13 +2510,13 @@ class CompetitorOpportunity(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -3073,13 +3073,13 @@ class ChangeAssessment(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"

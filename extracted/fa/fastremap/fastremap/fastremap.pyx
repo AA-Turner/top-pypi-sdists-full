@@ -25,7 +25,6 @@ cimport fastremap
 
 from collections import defaultdict
 from functools import reduce
-from packaging import version
 import operator
 
 import numpy as np
@@ -92,7 +91,8 @@ cdef extern from "contour.hpp" namespace "fastremap::contour":
     T* labels, int64_t sx, int64_t sy, int64_t sz
   )
 
-_NUMPY_SUPPORTS_SORTED = version.parse(np.__version__) >= version.parse("2.3.0")
+_NUMPY_VERSION = tuple([ int(x) for x in np.__version__.split(".")]) 
+_NUMPY_SUPPORTS_SORTED = _NUMPY_VERSION >= (2,3,0)
 
 def minmax(arr):
   """
@@ -1581,6 +1581,35 @@ def foreground(arr):
   """Returns the number of non-zero voxels in an array."""
   arr = _reshape(arr, (arr.size,))
   return _foreground(arr)
+
+def is_sorted(arr:NDArray[Any], asc:bool = True) -> bool:
+  """
+  Checks if the array is sorted.
+
+  asc = True means ascending order, False means descending.
+
+  Returns True if the array is sorted, else False.
+  """
+  arr = np.asarray(arr)
+  return _is_sorted(arr, asc=asc)
+
+def _is_sorted(cnp.ndarray[NUMBER, ndim=1] arr, asc:bool = True) -> bool:
+  if arr.size <= 1:
+    return True
+
+  cdef uint64_t i = 0
+  cdef uint64_t sz = arr.size
+
+  if asc:
+    for i in range(1,sz):
+      if arr[i] < arr[i-1]:
+        return False
+  else:
+    for i in range(1,sz):
+      if arr[i] > arr[i-1]:
+        return False
+
+  return True
 
 @cython.boundscheck(False)
 @cython.wraparound(False)  # turn off negative index wrapping for entire function

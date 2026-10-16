@@ -235,6 +235,24 @@ async def reconcile_findings(
                     }
                 )
             continue
+        if row["status"] in ("warn", "fail") and row.get("severity") == "info":
+            # Info is a page-level RECORD, never a finding (Arman, 2026-10-14:
+            # "the little things matter only when you're looking at that page").
+            # The result row keeps it for the page workspace; the register does not.
+            if existing is not None:
+                covered.append(
+                    {
+                        "id": str(existing.id),
+                        "status": "resolved",
+                        "resolved_at": computed_at,
+                        "last_result_id": str(created.id),
+                        "metadata": {
+                            **(getattr(existing, "metadata", None) or {}),
+                            "below_bar": {"at": computed_at.isoformat(), "severity": "info"},
+                        },
+                    }
+                )
+            continue
         if row["status"] in ("warn", "fail"):
             if existing is None and key in resolved_by_key:
                 # It came back. Same row, same history, same suppression.
@@ -245,7 +263,7 @@ async def reconcile_findings(
                         "metadata": {
                             k: v
                             for k, v in (getattr(prior, "metadata", None) or {}).items()
-                            if k not in ("unverified", "rolled_up")
+                            if k not in ("unverified", "rolled_up", "below_bar", "cause_gone")
                         },
                         "status": "reopened",
                         "resolved_at": None,

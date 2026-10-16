@@ -78,6 +78,9 @@ class LinkedObjectClient:
 
         If there is no link between the two objects, `LinkedObjectNotFound` is thrown.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -173,6 +176,9 @@ class LinkedObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -320,6 +326,9 @@ class AsyncLinkedObjectClient:
 
         If there is no link between the two objects, `LinkedObjectNotFound` is thrown.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -415,6 +424,9 @@ class AsyncLinkedObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

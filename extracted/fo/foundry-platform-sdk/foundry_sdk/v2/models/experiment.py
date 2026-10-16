@@ -92,6 +92,9 @@ class ExperimentClient:
         """
         Retrieve a single experiment with all metadata, parameters, series metadata, and summary metrics.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -151,6 +154,9 @@ class ExperimentClient:
         Search experiments using complex nested queries on experiment metadata, parameters, series,
         and summary metrics. Supports AND/OR/NOT combinations and various predicates.
         Returns a maximum of 100 results per page.
+
+
+        Required scopes: [api:models-read]
 
         :param model_rid:
         :type model_rid: ModelRid
@@ -288,6 +294,9 @@ class AsyncExperimentClient:
         """
         Retrieve a single experiment with all metadata, parameters, series metadata, and summary metrics.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -347,6 +356,9 @@ class AsyncExperimentClient:
         Search experiments using complex nested queries on experiment metadata, parameters, series,
         and summary metrics. Supports AND/OR/NOT combinations and various predicates.
         Returns a maximum of 100 results per page.
+
+
+        Required scopes: [api:models-read]
 
         :param model_rid:
         :type model_rid: ModelRid

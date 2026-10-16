@@ -618,6 +618,58 @@ convert_type(TypeDesc srctype, const void* src,
 OIIO_NAMESPACE_3_1_END
 
 
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::tostring_formatting;
+using v3_1::tostring;
+using v3_1::convert_type;
+using v3_1::BaseTypeFromC;
+using v3_1::BaseTypeFromC_v;
+using v3_1::TypeDescFromC;
+using v3_1::TypeDescFromC_v;
+using v3_1::CType;
+
+using v3_1::TypeUnknown;
+using v3_1::TypeFloat;
+using v3_1::TypeColor;
+using v3_1::TypePoint;
+using v3_1::TypeVector;
+using v3_1::TypeNormal;
+using v3_1::TypeMatrix33;
+using v3_1::TypeMatrix44;
+using v3_1::TypeMatrix;
+using v3_1::TypeFloat2;
+using v3_1::TypeVector2;
+using v3_1::TypeFloat4;
+using v3_1::TypeVector4;
+using v3_1::TypeString;
+using v3_1::TypeInt;
+using v3_1::TypeUInt;
+using v3_1::TypeInt32;
+using v3_1::TypeUInt32;
+using v3_1::TypeInt16;
+using v3_1::TypeUInt16;
+using v3_1::TypeInt8;
+using v3_1::TypeUInt8;
+using v3_1::TypeInt64;
+using v3_1::TypeUInt64;
+using v3_1::TypeVector2i;
+using v3_1::TypeVector3i;
+using v3_1::TypeBox2;
+using v3_1::TypeBox3;
+using v3_1::TypeBox2i;
+using v3_1::TypeBox3i;
+using v3_1::TypeHalf;
+using v3_1::TypeTimeCode;
+using v3_1::TypeKeyCode;
+using v3_1::TypeRational;
+using v3_1::TypeURational;
+using v3_1::TypePointer;
+using v3_1::TypeUstringhash;
+#endif
+OIIO_NAMESPACE_END
+
 
 
 // Supply a fmtlib compatible custom formatter for TypeDesc.
@@ -644,7 +696,7 @@ struct fmt::formatter<OIIO::TypeDesc> {
     }
 
     template <typename FormatContext>
-    auto format(const OIIO::TypeDesc& t, FormatContext& ctx) OIIO_FMT_CUSTOM_FORMATTER_CONST
+    auto format(const OIIO::TypeDesc& t, FormatContext& ctx) const
     {
         // C++14:   auto format(const OIIO::TypeDesc& p, FormatContext& ctx) const {
         // ctx.out() is an output iterator to write to.

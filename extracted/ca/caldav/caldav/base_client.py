@@ -68,6 +68,21 @@ def _prop_name_to_element(name: str, value: Any | None = None) -> BaseElement | 
     return None
 
 
+def _raise_unless_propfind_ok(response: Any) -> None:
+    """Raise on a non-2xx PROPFIND, as ``DAVObject._query`` does.
+
+    A 404 raises :class:`~caldav.lib.error.NotFoundError`, anything else
+    :class:`~caldav.lib.error.PropfindError`.  ``propfind()`` leaves
+    ``results`` unset on an error response, which would otherwise read as
+    "no properties"/"no calendars", ref
+    https://github.com/python-caldav/caldav/issues/741
+    """
+    if response.status == 404:
+        raise error.error_from_response(error.NotFoundError, response)
+    if not 200 <= response.status < 300:
+        raise error.error_from_response(error.PropfindError, response)
+
+
 class BaseDAVClient(ABC):
     """
     Base class for DAV clients providing shared authentication and configuration logic.
@@ -340,7 +355,7 @@ class BaseDAVClient(ABC):
             self.auth_type = None
 
     def _raise_authorization_error(self, url_str: str, reason_source: Any) -> NoReturn:
-        """Raise AuthorizationError, extracting reason from reason_source.reason.
+        """Raise AuthorizationError built from the raw 401/403 response ``reason_source``.
 
         If this failure is the unprompted-Basic guess coming back wrong (issue
         #713), unwind it first: clear ``self.auth``/``self.auth_type`` so a
@@ -348,13 +363,28 @@ class BaseDAVClient(ABC):
         server-declared scheme, rather than being permanently stuck sending a
         guess that has already proven wrong. ``_unprompted_basic_tried`` stays
         set, so the guess itself is not repeated.
+
+        The response body is kept on the exception, with any ``DAV:error``
+        precondition elements parsed out (issue #738) - a 403 with
+        ``DAV:valid-sync-token`` means "resync", not "forbidden".
+        ``reason_source`` is the raw HTTP response on both clients; httpx
+        names the reason ``reason_phrase``.
         """
         self._unwind_unprompted_basic()
-        try:
-            reason = reason_source.reason
-        except AttributeError:
+        reason = getattr(reason_source, "reason", None) or getattr(
+            reason_source, "reason_phrase", None
+        )
+        if not isinstance(reason, str):
             reason = "None given"
-        raise error.AuthorizationError(url=url_str, reason=reason)
+        body = getattr(reason_source, "content", None)
+        if not isinstance(body, (bytes, str)) or not body:
+            body = None
+        raise error.AuthorizationError(
+            url=url_str,
+            reason=reason,
+            preconditions=error.parse_preconditions(body),
+            body=body,
+        )
 
     # ── Rate-limit handling ─────────────────────────────────────────────────
     # Shared by the sync (DAVClient) and async (AsyncDAVClient) __init__ and
@@ -421,28 +451,59 @@ class BaseDAVClient(ABC):
     # Pure result-handling shared by sync/async get_calendars; only the two
     # awaited PROPFIND calls and the principal lookup differ between the twins.
 
-    def _calendar_home_url(self, home_set_response: Any, principal: Any) -> str:
-        """Extract the calendar-home-set URL from a PROPFIND response.
+    def _calendar_home_urls(self, home_set_response: Any, principal: Any) -> list[str]:
+        """Return absolute URLs to search for calendars, in order of preference.
 
-        Falls back to the principal URL when the server does not advertise a
-        calendar-home-set (e.g. GMX), then makes the result absolute.
+        Without a calendar-home-set, try the principal URL, then the
+        client URL, which may be a calendar itself (e.g. Nextcloud public share).
+        The client root is moved to the host of the first URL, if it differs.
         """
         from caldav.collection import (
             _extract_calendar_home_set_from_results as extract_home_set,
         )
 
+        _raise_unless_propfind_ok(home_set_response)
         calendar_home_url = extract_home_set(home_set_response.results, features=self.features)
-        if not calendar_home_url:
-            calendar_home_url = str(principal.url)
-        return self._make_absolute_url(calendar_home_url)
+        if calendar_home_url:
+            urls = [self._make_absolute_url(calendar_home_url)]
+        else:
+            urls = [self._make_absolute_url(str(principal.url))]
+            canonical = URL.objectify(urls[0]).canonical().strip_trailing_slash()
+            if canonical != self.url.canonical().strip_trailing_slash():
+                urls.append(str(self.url))
+        self._follow_calendar_home(urls[0])
+        return urls
 
-    def _build_calendars_from_propfind(self, list_response: Any) -> list:
-        """Build Calendar objects from a calendar-home PROPFIND response."""
+    def _follow_calendar_home(self, calendar_home_url: Any) -> None:
+        """Move the client root to the host of the calendar-home-set.
+
+        iCloud (and others?) have a load balanced system, where each principal
+        resides on one named host.  The old host is kept as an alias, as iCloud
+        may still return hrefs on it, ref
+        https://github.com/python-caldav/caldav/issues/730
+        """
+        ## TODO: Here be dragons.  The new root will be the root of all future
+        ## objects derived from the client.  Changing the client root by doing a
+        ## principal.get_calendars() is an unacceptable side effect.  Do more research!
+        hostname = URL.objectify(calendar_home_url).hostname
+        if hostname and hostname != self.url.hostname:
+            self.url = self.url.relocate(calendar_home_url)
+
+    def _build_calendars_from_propfind(self, list_response: Any, guess: bool = False) -> list:
+        """Build Calendar objects from a calendar-home PROPFIND response.
+
+        ``guess`` marks a URL that is only tried in case it is a calendar (the
+        client URL without a calendar-home-set): an error there means no
+        calendars rather than a failure.
+        """
         from caldav.collection import Calendar
         from caldav.collection import (
             _extract_calendars_from_propfind_results as extract_calendars,
         )
 
+        if guess and not 200 <= list_response.status < 300:
+            return []
+        _raise_unless_propfind_ok(list_response)
         calendar_infos = extract_calendars(list_response.results, features=self.features)
         return [
             Calendar(client=self, url=info.url, name=info.name, id=info.cal_id)

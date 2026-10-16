@@ -122,12 +122,11 @@ class ScriptTask(PoeTask):
         if ignore_fail := self.spec.options.ignore_fail:
             task_state.ignore_failure(ignore_fail)
 
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values, extra_args)
-        named_arg_values = env.get_args()
-
         if ":" not in self.spec.content:
             return await self._run_module(context, env, task_state)
+
+        self._parse_and_register_args(env)
+        named_arg_values = env.get_args()
 
         target_module, function_call = parse_script_reference(
             self.spec.content,
@@ -136,10 +135,7 @@ class ScriptTask(PoeTask):
         )
         function_ref = function_call.function_ref
 
-        argv = [
-            self.name,
-            *(env.fill_template(token) for token in self.invocation[1:]),
-        ]
+        argv = [self.name, *self._get_python_argv(env)]
 
         has_dry_run_ref = "_dry_run" in function_call.referenced_globals
         dry_run = self.ctx.ui["dry_run"]
@@ -179,6 +175,18 @@ class ScriptTask(PoeTask):
         )
         await task_state.add_process(process, finalize=True)
 
+    def _get_python_argv(self, env: TaskEnv) -> list[str]:
+        """
+        Get the CLI arguments that Python code run by this task receives in sys.argv,
+        after the program name. Declared args are re-emitted from their parsed values
+        with defaults applied, followed by any free arguments given after "--".
+        Without declared args, all arguments are passed through as given.
+        """
+        named_arg_values, extra_args = self.get_parsed_arguments(env)
+        if task_args := self.task_args:
+            return [*task_args.format_argv(named_arg_values, env), *extra_args]
+        return list(extra_args)
+
     async def _run_module(
         self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
@@ -186,8 +194,7 @@ class ScriptTask(PoeTask):
         Execute the python module referenced by the task content
         """
 
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values, extra_args)
+        self._parse_and_register_args(env)
 
         # Approximate the callable path's sys.path.append('src') by appending
         # '<project_root>/src' to PYTHONPATH. The absolute form means a task
@@ -209,14 +216,7 @@ class ScriptTask(PoeTask):
                 ),
             )
 
-        argv = [
-            *(
-                task_args.format_argv(named_arg_values, env)
-                if (task_args := self.task_args)
-                else ()
-            ),
-            *extra_args,
-        ]
+        argv = self._get_python_argv(env)
         cmd = ("python", "-m", self.spec.content, *argv)
 
         action_summary = self.name + (f" {shlex.join(argv)}" if argv else "")

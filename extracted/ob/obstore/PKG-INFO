@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: obstore
-Version: 0.11.1
+Version: 0.12.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: FastAPI
@@ -18,7 +18,7 @@ Classifier: Topic :: Internet
 Classifier: Typing :: Typed
 Requires-Dist: typing-extensions ; python_full_version < '3.13'
 Home-Page: https://developmentseed.org/obstore
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # obstore

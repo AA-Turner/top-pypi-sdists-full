@@ -1,0 +1,36 @@
+[package]
+name = "python_bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "sf_core_python"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["extension-module", "native-arrow"]
+extension-module = ["pyo3/extension-module"]
+native-arrow = ["dep:arrow", "dep:snafu", "dep:error_trace", "dep:sf_types", "dep:chrono", "pyo3/chrono"]
+fips = ["sf_core/fips"]
+
+[dependencies]
+arrow = { version = ">=54.0.0, <59", features = ["ffi"], optional = true }
+snafu = { version = "0.8", optional = true }
+error_trace = { path = "../error_trace", optional = true }
+sf_types = { path = "../sf_types", optional = true }
+chrono = { version = "0.4.43", optional = true }
+
+sf_core = { path = "../sf_core" }
+proto_utils = { path = "../proto_utils" }
+pyo3 = { version = "0.29.0" }
+pyo3-async-runtimes = { version = "0.29", features = ["tokio-runtime"] }
+tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
+tokio-util = "0.7"
+futures = "0.3"
+tracing = "0.1.41"
+
+[dev-dependencies]
+# `native-arrow` is a default feature. `--no-default-features` drops it.
+pyo3 = { version = "0.29.0", features = ["auto-initialize"] }
+arrow = { version = ">=54.0.0, <59", features = ["ffi"] }
+tracing-subscriber = { version = "0.3.19", features = ["fmt"] }

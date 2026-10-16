@@ -156,9 +156,8 @@ b
 ### end
 
 ### mapfile_basic
-### bash_diff: pipes don't create subshells in bashkit (stateless model)
-# mapfile reads lines into array from pipe
-printf 'a\nb\nc\n' | mapfile -t lines; echo ${#lines[@]}; echo ${lines[0]}; echo ${lines[1]}; echo ${lines[2]}
+# mapfile reads lines into array from pipe (lastpipe keeps the array)
+shopt -s lastpipe; printf 'a\nb\nc\n' | mapfile -t lines; echo ${#lines[@]}; echo ${lines[0]}; echo ${lines[1]}; echo ${lines[2]}
 ### expect
 3
 a
@@ -167,17 +166,15 @@ c
 ### end
 
 ### readarray_alias
-### bash_diff: pipes don't create subshells in bashkit (stateless model)
 # readarray is an alias for mapfile
-printf 'x\ny\n' | readarray -t arr; echo ${arr[0]} ${arr[1]}
+shopt -s lastpipe; printf 'x\ny\n' | readarray -t arr; echo ${arr[0]} ${arr[1]}
 ### expect
 x y
 ### end
 
 ### mapfile_default_name
-### bash_diff: pipes don't create subshells in bashkit (stateless model)
 # mapfile default array name is MAPFILE
-printf 'hello\nworld\n' | mapfile -t; echo ${MAPFILE[0]}; echo ${MAPFILE[1]}
+shopt -s lastpipe; printf 'hello\nworld\n' | mapfile -t; echo ${MAPFILE[0]}; echo ${MAPFILE[1]}
 ### expect
 hello
 world
@@ -330,4 +327,100 @@ beta
 IFS=","; x="a,b,c"; arr=($x); echo "${#arr[@]}"
 ### expect
 3
+### end
+
+### array_literal_brace_expansion
+# Unquoted array-literal words brace-expand, mixed quoting included
+arr=(x{1,2} "y"{a,b} v{x})
+declare -p arr
+### expect
+declare -a arr=([0]="x1" [1]="x2" [2]="ya" [3]="yb" [4]="v{x}")
+### end
+
+### array_literal_pathname_expansion
+# Unquoted array-literal words glob; no match keeps the pattern
+mkdir -p /tmp/arr_glob && cd /tmp/arr_glob && touch a.txt b.txt
+arr=(*.txt *.nope)
+declare -p arr
+### expect
+declare -a arr=([0]="a.txt" [1]="b.txt" [2]="*.nope")
+### end
+
+### array_literal_nullglob
+# With nullglob an unmatched array-literal glob vanishes
+mkdir -p /tmp/arr_nullglob && cd /tmp/arr_nullglob
+shopt -s nullglob
+arr=(*.nope)
+echo "${#arr[@]}"
+arr=(a *.nope b)
+declare -p arr
+### expect
+0
+declare -a arr=([0]="a" [1]="b")
+### end
+
+### array_literal_quoted_no_expansion
+# Quoted array-literal words neither brace- nor pathname-expand
+mkdir -p /tmp/arr_quoted && cd /tmp/arr_quoted && touch a.txt
+arr=("*.txt" '{a,b}' "x{1,2}")
+declare -p arr
+### expect
+declare -a arr=([0]="*.txt" [1]="{a,b}" [2]="x{1,2}")
+### end
+
+### declare_a_literal_expansion
+# declare -a compound values brace- and pathname-expand
+mkdir -p /tmp/arr_declare && cd /tmp/arr_declare && touch a.txt b.txt
+declare -a d=(*.txt x{1,2})
+declare -p d
+### expect
+declare -a d=([0]="a.txt" [1]="b.txt" [2]="x1" [3]="x2")
+### end
+
+### local_a_literal_expansion
+# local -a compound values brace- and pathname-expand
+mkdir -p /tmp/arr_local && cd /tmp/arr_local && touch a.txt b.txt
+f() { local -a l=(z{a,b} *.txt); declare -p l; }
+f
+### expect
+declare -a l=([0]="za" [1]="zb" [2]="a.txt" [3]="b.txt")
+### end
+
+### array_append_literal_expansion
+# arr+=(...) brace- and pathname-expands the new words
+mkdir -p /tmp/arr_append && cd /tmp/arr_append && touch a.txt b.txt
+arr=(p)
+arr+=(q{1,2} *.txt)
+declare -p arr
+### expect
+declare -a arr=([0]="p" [1]="q1" [2]="q2" [3]="a.txt" [4]="b.txt")
+### end
+
+### assoc_keyed_value_no_brace_expansion
+# Keyed assoc values stay literal: no brace or pathname expansion
+mkdir -p /tmp/arr_assoc && cd /tmp/arr_assoc && touch a.txt
+declare -A m=([k]=v{1,2} [g]=*.txt)
+echo "${m[k]} ${m[g]}"
+### expect
+v{1,2} *.txt
+### end
+
+### mapfile_rejects_debug_stack_destinations
+for name in FUNCNAME BASH_SOURCE BASH_LINENO; do
+    mapfile -t "$name" </dev/null
+    echo "$name=$?"
+done
+### expect
+FUNCNAME=1
+BASH_SOURCE=1
+BASH_LINENO=1
+### end
+
+### mapfile_funcname_stays_reserved_after_unset
+### bash_diff: L-MAPFILE-002: FUNCNAME remains interpreter-owned after unset
+unset FUNCNAME
+mapfile -t FUNCNAME </dev/null
+echo "status=$?"
+### expect
+status=1
 ### end

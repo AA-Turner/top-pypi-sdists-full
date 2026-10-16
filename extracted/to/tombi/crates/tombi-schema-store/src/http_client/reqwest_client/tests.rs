@@ -158,3 +158,48 @@ async fn private_dns_answers_are_reported_as_policy_denials() {
 
     assert!(matches!(result, Err(crate::FetchError::HostNotTrusted)));
 }
+
+#[rstest]
+#[case::configured_proxy(&["localhost"], true)]
+#[case::any_other_host(&["proxy.corp.example"], false)]
+#[tokio::test(flavor = "current_thread")]
+async fn only_configured_proxy_hosts_may_resolve_to_private_addresses(
+    #[case] proxy_hosts: &[&str],
+    #[case] allowed: bool,
+) {
+    use reqwest::dns::Resolve;
+    use std::str::FromStr;
+
+    let resolver = super::FilteredDnsResolver {
+        policy: Arc::new(crate::schema_fetch_policy::SchemaFetchPolicy::default()),
+        proxy_hosts: Arc::new(proxy_hosts.iter().map(|host| host.to_string()).collect()),
+    };
+    let result = resolver
+        .resolve(reqwest::dns::Name::from_str("localhost").unwrap())
+        .await;
+
+    assert_eq!(result.is_ok(), allowed);
+}
+
+#[rstest]
+#[case::same_name("http://proxy.corp.example/schema.json", false)]
+#[case::case_and_trailing_dot("http://Proxy.Corp.Example./schema.json", false)]
+#[case::other_host("http://schema.example/schema.json", true)]
+fn schema_urls_must_not_target_the_proxy_host(#[case] url: &str, #[case] allowed: bool) {
+    let proxy_hosts = std::collections::HashSet::from(["proxy.corp.example".to_string()]);
+    let result = super::check_not_proxy_host(&proxy_hosts, &reqwest::Url::parse(url).unwrap());
+
+    assert_eq!(result.is_ok(), allowed);
+}
+
+#[rstest]
+#[case::resolves_to_loopback("http://localhost/schema.json", false)]
+#[case::ip_literal_is_left_to_url_check("http://127.0.0.1/schema.json", true)]
+#[case::unresolvable_is_left_to_the_proxy("http://tombi-unresolvable.invalid/schema.json", true)]
+#[tokio::test(flavor = "current_thread")]
+async fn proxied_destinations_are_checked_locally(#[case] url: &str, #[case] allowed: bool) {
+    let policy = crate::schema_fetch_policy::SchemaFetchPolicy::default();
+    let result = super::check_local_resolution(&policy, &reqwest::Url::parse(url).unwrap()).await;
+
+    assert_eq!(result.is_ok(), allowed);
+}

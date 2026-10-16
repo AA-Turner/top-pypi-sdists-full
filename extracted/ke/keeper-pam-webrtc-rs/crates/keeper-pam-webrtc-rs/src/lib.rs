@@ -56,7 +56,7 @@ pub use tube::*;
 pub use video_sender::VideoSender;
 pub use webrtc_core::*;
 pub use webrtc_errors::*;
-pub use webrtc_network_monitor::{ConnectionMigrator, NetworkMonitor};
+pub use webrtc_network_monitor::NetworkMonitor;
 
 #[cfg(feature = "builtin-handlers")]
 pub use handler_integration::{create_handler_registry, invoke_handler};

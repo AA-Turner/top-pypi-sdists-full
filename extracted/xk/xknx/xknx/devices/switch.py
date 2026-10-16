@@ -19,7 +19,7 @@ from xknx.remote_value import GroupAddressesType, RemoteValueSwitch
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 logger = logging.getLogger("xknx.log")
@@ -31,7 +31,8 @@ class Switch(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address: GroupAddressesType = None,
         group_address_state: GroupAddressesType = None,
         respond_to_read: bool = False,
@@ -41,7 +42,7 @@ class Switch(Device):
         device_updated_cb: DeviceCallbackType[Switch] | None = None,
     ) -> None:
         """Initialize Switch class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self._reset_task: Task | None = (
             Task(
@@ -85,13 +86,13 @@ class Switch(Device):
         """Switch off switch."""
         self.switch.off()
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         if self.switch.process(telegram):
             if self._reset_task is not None and self.switch.value:
                 self.xknx.task_registry.start_task(self._reset_task)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GroupValueResponse telegrams."""
         if (
             self.respond_to_read

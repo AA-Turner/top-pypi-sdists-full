@@ -2,16 +2,19 @@ import asyncio
 import base64
 import json
 import time
+from contextlib import suppress
+from http import HTTPStatus
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 from pydantic import SecretStr
+from temporalio.runtime import Runtime
 
 from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider
 from mistralai.workflows.core.config.config import AppConfig
 from mistralai.workflows.core.temporal import temporal_client
-from mistralai.workflows.exceptions import WorkflowError
+from mistralai.workflows.exceptions import ErrorCode, WorkflowError, WorkflowsException
 
 
 def _make_jwt(exp: float) -> str:
@@ -36,6 +39,31 @@ def _disable_otel(monkeypatch: pytest.MonkeyPatch, cfg: AppConfig) -> None:
     monkeypatch.setattr(temporal_client, "config", cfg)
     # No runtime is passed, so the factory calls build_client_runtime(); stub it to avoid a real runtime.
     monkeypatch.setattr(temporal_client, "build_client_runtime", lambda: MagicMock())
+
+
+async def _return_http2_unauthorized(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    # The Temporal bridge speaks HTTP/2 directly. Return a real HTTP/2 401 response so this test exercises
+    # the bridge's current RuntimeError text instead of copying that unstable text into a fixture.
+    await reader.readexactly(24)  # HTTP/2 client preface
+    writer.write(b"\x00\x00\x00\x04\x00\x00\x00\x00\x00")  # empty SETTINGS frame
+    await writer.drain()
+    while True:
+        frame_header = await reader.readexactly(9)
+        payload_length = int.from_bytes(frame_header[:3])
+        frame_type = frame_header[3]
+        stream_id = int.from_bytes(frame_header[5:]) & 0x7FFFFFFF
+        if payload_length:
+            await reader.readexactly(payload_length)
+        if frame_type == 1 and stream_id:
+            break
+
+    # HPACK literal for `:status: 401`, followed by an END_HEADERS | END_STREAM HEADERS frame.
+    header_block = b"\x08\x03" + b"401"
+    writer.write(len(header_block).to_bytes(3) + b"\x01\x05" + stream_id.to_bytes(4) + header_block)
+    await writer.drain()
+    writer.close()
+    with suppress(ConnectionError):
+        await writer.wait_closed()
 
 
 def _capture_connect_config(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
@@ -84,6 +112,71 @@ class TestTemporalTokenResolution:
         await temporal_client.create_temporal_service_client()
 
         assert captured[0].api_key is None
+
+
+class TestTemporalConnectionErrors:
+    @pytest.mark.asyncio
+    async def test_real_bridge_unauthorized_response_is_preserved(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        server = await asyncio.start_server(_return_http2_unauthorized, "127.0.0.1", 0)
+        port = server.sockets[0].getsockname()[1]
+        cfg = AppConfig()
+        monkeypatch.setattr(cfg.temporal, "server_url", f"127.0.0.1:{port}")
+        monkeypatch.setattr(cfg.temporal, "tls", False)
+        monkeypatch.setattr(cfg.temporal, "api_key", SecretStr("invalid-key"))
+        monkeypatch.setattr(temporal_client, "config", cfg)
+
+        try:
+            with pytest.raises(WorkflowsException) as exc_info:
+                await temporal_client.create_temporal_service_client(runtime=Runtime.default())
+        finally:
+            server.close()
+            await server.wait_closed()
+
+        assert exc_info.value.status == HTTPStatus.UNAUTHORIZED
+        assert exc_info.value.code == ErrorCode.TEMPORAL_CONNECTION_ERROR
+        assert "code: Unauthenticated" in exc_info.value.logging_properties["temporal_connection_error"]
+
+    @pytest.mark.parametrize(
+        ("message", "uses_http_connect_proxy", "expected_status"),
+        [
+            (
+                "Failed client connect: `get_system_info` call error after connection: "
+                'Status { code: Internal, message: "invalid compression flag 3 (valid flags are 0 and 1) '
+                'while receiving response with status: 401 Unauthorized" }',
+                False,
+                HTTPStatus.UNAUTHORIZED,
+            ),
+            (
+                "Failed client connect: `get_system_info` call error after connection: "
+                'Status { code: Unauthenticated, message: "invalid API key" }',
+                False,
+                HTTPStatus.UNAUTHORIZED,
+            ),
+            (
+                "Failed client connect: `get_system_info` call error after connection: "
+                'Status { code: Internal, message: "invalid compression flag 3 (valid flags are 0 and 1) '
+                'while receiving response with status: 401 Unauthorized" }',
+                True,
+                HTTPStatus.UNAUTHORIZED,
+            ),
+            (
+                "Failed client connect: `get_system_info` call error after connection: "
+                'Status { code: Unauthenticated, message: "invalid API key" }',
+                True,
+                HTTPStatus.UNAUTHORIZED,
+            ),
+            # Temporal sdk-core/crates/client/src/proxy.rs:76 emits this only for a failed CONNECT tunnel.
+            ("CONNECT call failed with status: 401 Unauthorized", True, HTTPStatus.INTERNAL_SERVER_ERROR),
+            ("Failed client connect: DNS resolution error", False, HTTPStatus.INTERNAL_SERVER_ERROR),
+        ],
+    )
+    def test_connection_error_status(self, message, uses_http_connect_proxy, expected_status):
+        status = temporal_client._connection_error_status(
+            RuntimeError(message),
+            uses_http_connect_proxy=uses_http_connect_proxy,
+        )
+
+        assert status == expected_status
 
 
 class TestReadTemporalToken:

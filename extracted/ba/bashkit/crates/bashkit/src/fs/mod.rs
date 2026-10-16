@@ -401,111 +401,47 @@
 //! ```
 
 mod backend;
+mod follow;
 mod limits;
 mod memory;
 mod mountable;
 mod namespace;
 mod overlay;
 mod posix;
+mod proc_sub_fds;
 mod readonly;
 #[cfg(feature = "realfs")]
 mod realfs;
+mod rootfs;
 mod search;
+mod std_streams;
 mod traits;
 
 pub use backend::FsBackend;
+#[allow(unused_imports)]
+pub(crate) use follow::{FollowFs, MAX_SYMLINK_HOPS};
 pub use limits::{FsLimitExceeded, FsLimits, FsUsage};
 pub use memory::{InMemoryFs, LazyLoader, VfsEntry, VfsEntryKind, VfsSnapshot};
 pub use mountable::MountableFs;
 pub use namespace::{NamespaceAccess, NamespaceFs, NamespaceFsBuilder};
 pub use overlay::OverlayFs;
 pub use posix::PosixFs;
+pub(crate) use proc_sub_fds::{
+    PROC_SUB_FIRST_FD, ProcSubBuffer, ProcSubData, ProcSubFs, proc_sub_fd,
+};
 pub use readonly::ReadOnlyFs;
 #[cfg(feature = "realfs")]
 pub use realfs::{RealFs, RealFsMode};
+pub(crate) use rootfs::{RootFs, stub_command};
 pub use search::{
     SearchCapabilities, SearchCapable, SearchMatch, SearchProvider, SearchQuery, SearchResults,
 };
-#[allow(unused_imports)]
+pub(crate) use std_streams::{StdStreamsFs, args_name_std_stream};
 pub use traits::{DirEntry, FileSystem, FileSystemExt, FileType, Metadata, fs_errors};
 
 use crate::error::Result;
-use crate::time_compat::SystemTime;
 use std::io::{Error as IoError, ErrorKind};
 use std::path::{Path, PathBuf};
-
-/// Filesystem implementation for logic-only shells.
-///
-/// Important decision: ScriptedTool code mode still needs an `Arc<dyn FileSystem>`
-/// because the interpreter and builtin context require one, but every real
-/// operation is rejected so scripts cannot use VFS as storage or input.
-pub(crate) struct DisabledFs;
-
-fn disabled_fs_error() -> crate::Error {
-    IoError::new(ErrorKind::PermissionDenied, "filesystem access disabled").into()
-}
-
-#[async_trait::async_trait]
-impl FileSystemExt for DisabledFs {}
-
-#[async_trait::async_trait]
-impl FileSystem for DisabledFs {
-    async fn read_file(&self, _path: &Path) -> Result<Vec<u8>> {
-        Err(disabled_fs_error())
-    }
-
-    async fn write_file(&self, _path: &Path, _content: &[u8]) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn append_file(&self, _path: &Path, _content: &[u8]) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn mkdir(&self, _path: &Path, _recursive: bool) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn remove(&self, _path: &Path, _recursive: bool) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn stat(&self, _path: &Path) -> Result<Metadata> {
-        Err(disabled_fs_error())
-    }
-
-    async fn read_dir(&self, _path: &Path) -> Result<Vec<DirEntry>> {
-        Err(disabled_fs_error())
-    }
-
-    async fn exists(&self, _path: &Path) -> Result<bool> {
-        Ok(false)
-    }
-
-    async fn rename(&self, _from: &Path, _to: &Path) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn copy(&self, _from: &Path, _to: &Path) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn symlink(&self, _target: &Path, _link: &Path) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn read_link(&self, _path: &Path) -> Result<PathBuf> {
-        Err(disabled_fs_error())
-    }
-
-    async fn chmod(&self, _path: &Path, _mode: u32) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-
-    async fn set_modified_time(&self, _path: &Path, _time: SystemTime) -> Result<()> {
-        Err(disabled_fs_error())
-    }
-}
 
 /// Join `child` onto the VFS path `base`, always using `/` as the separator.
 ///
@@ -710,6 +646,53 @@ pub async fn verify_filesystem_requirements(fs: &dyn FileSystem) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Resolve every symlink to a POSIX VFS path on every host, with an ELOOP hop cap.
+pub(crate) async fn canonicalize(fs: &dyn FileSystem, path: &Path) -> crate::Result<PathBuf> {
+    let mut rest: std::collections::VecDeque<String> = path
+        .components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
+            std::path::Component::ParentDir => Some("..".to_string()),
+            _ => None,
+        })
+        .collect();
+    let mut out = PathBuf::from("/");
+    let mut hops = 0;
+    while let Some(comp) = rest.pop_front() {
+        if comp == ".." {
+            out.pop();
+            continue;
+        }
+        let candidate = vfs_join(&out, &comp);
+        match fs.lstat(&candidate).await {
+            Ok(m) if m.file_type.is_symlink() => {
+                hops += 1;
+                if hops > MAX_SYMLINK_HOPS {
+                    return Err(std::io::Error::other("Too many levels of symbolic links").into());
+                }
+                let target = fs.read_link(&candidate).await?;
+                if target.has_root() {
+                    out = PathBuf::from("/");
+                }
+                let mut parts: Vec<String> = target
+                    .components()
+                    .filter_map(|c| match c {
+                        std::path::Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
+                        std::path::Component::ParentDir => Some("..".to_string()),
+                        _ => None,
+                    })
+                    .collect();
+                while let Some(p) = parts.pop() {
+                    rest.push_front(p);
+                }
+            }
+            Ok(_) => out = candidate,
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

@@ -74,6 +74,7 @@ class FakeRuntime:
             "gitlab": ("tok-1", (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat())}
         self.connection_token_calls: list[str] = []
         self.gate_decision: Any = None   # 確認の決定を受けた起動なら/contextのgate_decision
+        self.start_input: Any = None     # 外から呼んだ run の最初の工程なら/contextのstart_input
         self.transport = httpx.MockTransport(self.handle)
 
     # ----- helpers -----
@@ -96,6 +97,7 @@ class FakeRuntime:
                           "collection": (self.execution_deadline + timedelta(seconds=300)).isoformat() if self.execution_deadline else None},
             "operation_key": "a" * 64, "entry_ref": "start:cmd-1", "root_execution_id": EXECUTION_ID, "config_revision": 1,
             "gate_decision": self.gate_decision,
+            "start_input": self.start_input,
             "artifact_limits": {"file_bytes": 20 * 1024 * 1024, "execution_bytes": 100 * 1024 * 1024, "execution_files": 100},
         }
 

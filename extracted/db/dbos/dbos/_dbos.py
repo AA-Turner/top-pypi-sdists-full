@@ -36,8 +36,8 @@ from typing import (
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
+from croniter import croniter
 
-from dbos._conductor.conductor import ConductorWebsocket
 from dbos._serialization import (
     DefaultSerializer,
     Serializer,
@@ -76,7 +76,6 @@ from ._core import (
     start_workflow_async,
     write_stream,
 )
-from ._croniter import croniter  # type: ignore
 from ._datasource import AsyncSQLAlchemyDatasource, SQLAlchemyDatasource
 from ._enqueue_options import EnqueueOptions
 from ._migration import get_dbos_schema_permissions_sql
@@ -128,6 +127,7 @@ if TYPE_CHECKING:
 
 from typing import ParamSpec
 
+from . import _enterprise
 from ._context import (
     DBOSContext,
     EnterDBOSStepCtx,
@@ -144,6 +144,7 @@ from ._dbos_config import (
     process_config,
     translate_dbos_config_to_config_file,
 )
+from ._enterprise import AlertHandler, ConductorThread
 from ._error import (
     DBOSException,
     DBOSNonExistentWorkflowError,
@@ -175,6 +176,7 @@ P = ParamSpec("P")  # A generic type for workflow parameters
 R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 
 T = TypeVar("T")
+
 
 _dbos_global_instance: Optional[DBOS] = None
 _dbos_global_registry: Optional[DBOSRegistry] = None
@@ -422,7 +424,12 @@ class DBOS:
         global _dbos_global_registry
         if _dbos_global_instance is None:
             _dbos_global_instance = super().__new__(cls)
-            _dbos_global_instance.__init__(config=config, conductor_url=conductor_url, conductor_key=conductor_key)  # type: ignore
+            try:
+                _dbos_global_instance.__init__(config=config, conductor_url=conductor_url, conductor_key=conductor_key)  # type: ignore
+            except BaseException:
+                # A half-built instance can be neither destroyed nor reused.
+                _dbos_global_instance = None
+                raise
         return _dbos_global_instance
 
     @classmethod
@@ -455,6 +462,11 @@ class DBOS:
         if hasattr(self, "_initialized") and self._initialized:
             return
 
+        # DBOS Cloud always uses Conductor. Checked before any state exists, so a missing package fails cleanly.
+        key = config.get("conductor_key") or conductor_key
+        if GlobalParams.dbos_cloud or key is not None:
+            _enterprise.load()
+
         self._initialized: bool = True
 
         self._launched: bool = False
@@ -480,10 +492,10 @@ class DBOS:
         if config.get("conductor_key"):
             self.conductor_key = config.get("conductor_key")
         self.enable_patching = config.get("enable_patching") == True
-        self.conductor_websocket: Optional[ConductorWebsocket] = None
+        self.conductor_websocket: Optional[ConductorThread] = None
         self._background_event_loop: BackgroundEventLoop = BackgroundEventLoop()
         self._active_workflows_set: ActiveWorkflowById = ActiveWorkflowById()
-        self._alert_handler: Optional[Callable[[str, str, Dict[str, str]], None]] = None
+        self._alert_handler: Optional[AlertHandler] = None
         serializer = config.get("serializer")
         self._serializer: Serializer = serializer if serializer else DefaultSerializer()
         self._conductor_executor_metadata: Optional[Dict[str, Any]] = config.get(
@@ -761,32 +773,32 @@ class DBOS:
                     and cloud_conductor_key is not None
                     and cloud_conductor_url is not None
                 ):
-                    evt = threading.Event()
                     dbos_logger.debug("Starting Conductor thread (DBOS Cloud)")
-                    self.conductor_websocket = ConductorWebsocket(
+                    self.conductor_websocket = _enterprise.load().ConductorWebsocket(
                         self,
                         app_name=cloud_app_name,
                         conductor_url=cloud_conductor_url,
                         conductor_key=cloud_conductor_key,
-                        evt=evt,
+                        executor_metadata=self._conductor_executor_metadata,
+                        metadata_only_mode=self._conductor_metadata_only_mode,
+                        alert_handler=self._alert_handler,
                     )
                     self.conductor_websocket.start()
-                    self._background_threads.append(self.conductor_websocket)
             elif self.conductor_key is not None:
                 if self.conductor_url is None:
                     dbos_domain = os.environ.get("DBOS_DOMAIN", "cloud.dbos.dev")
                     self.conductor_url = f"wss://{dbos_domain}/conductor/v1alpha1"
-                evt = threading.Event()
                 dbos_logger.debug("Starting Conductor thread")
-                self.conductor_websocket = ConductorWebsocket(
+                self.conductor_websocket = _enterprise.load().ConductorWebsocket(
                     self,
                     app_name=self._config["name"],
                     conductor_url=self.conductor_url,
                     conductor_key=self.conductor_key,
-                    evt=evt,
+                    executor_metadata=self._conductor_executor_metadata,
+                    metadata_only_mode=self._conductor_metadata_only_mode,
+                    alert_handler=self._alert_handler,
                 )
                 self.conductor_websocket.start()
-                self._background_threads.append(self.conductor_websocket)
 
             # Grab any pollers that were deferred and start them
             dbos_logger.debug("Starting event receivers")
@@ -915,17 +927,7 @@ class DBOS:
         self._workflow_timeout_stop_event.set()
         # Disconnect from Conductor only once the wait above is over, so the executor stays visibly alive to Conductor for its whole duration.
         if self.conductor_websocket is not None:
-            self.conductor_websocket.evt.set()
-            if self.conductor_websocket.websocket is not None:
-                self.conductor_websocket.websocket.close()
-            # Best effort: an in-flight command handler is not interruptible, so a slow one can outlast this join.
-            if (
-                self.conductor_websocket.is_alive()
-                and self.conductor_websocket is not threading.current_thread()
-            ):
-                self.conductor_websocket.join(timeout=10.0)
-                if self.conductor_websocket.is_alive():
-                    dbos_logger.warning("Conductor thread did not exit within timeout")
+            self.conductor_websocket.stop()
         self._background_event_loop.stop()
         if self._executor_field is not None:
             self._executor_field.shutdown(wait=False, cancel_futures=True)
@@ -2153,9 +2155,17 @@ class DBOS:
 
     @classmethod
     def update_workflow_attributes(
-        cls, workflow_id: str, attributes: Optional[Dict[str, Any]]
+        cls,
+        workflow_id: str,
+        attributes: Optional[Dict[str, Any]],
+        *,
+        merge: bool = False,
     ) -> None:
         """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
+
+        With merge=True, atomically merge the given top-level keys into the existing
+        attributes instead: other keys are kept, matching keys (including nested dicts)
+        are overwritten, and None values are stored as JSON null. merge=True requires a dict.
 
         Safe to call from within a workflow: the update is recorded as a step so
         it runs exactly once even if the workflow is recovered.
@@ -2165,7 +2175,7 @@ class DBOS:
         def fn() -> None:
             dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
             _get_dbos_instance()._sys_db.update_workflow_attributes(
-                workflow_id, attributes
+                workflow_id, attributes, merge=merge
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
@@ -2176,9 +2186,17 @@ class DBOS:
 
     @classmethod
     async def update_workflow_attributes_async(
-        cls, workflow_id: str, attributes: Optional[Dict[str, Any]]
+        cls,
+        workflow_id: str,
+        attributes: Optional[Dict[str, Any]],
+        *,
+        merge: bool = False,
     ) -> None:
         """Replace the custom attributes attached to a workflow by ID. Pass None to clear all attributes.
+
+        With merge=True, atomically merge the given top-level keys into the existing
+        attributes instead: other keys are kept, matching keys (including nested dicts)
+        are overwritten, and None values are stored as JSON null. merge=True requires a dict.
 
         Safe to call from within a workflow: the update is recorded as a step so
         it runs exactly once even if the workflow is recovered.
@@ -2189,7 +2207,7 @@ class DBOS:
         def fn() -> None:
             dbos_logger.info(f"Updating attributes of workflow: {workflow_id}")
             _get_dbos_instance()._sys_db.update_workflow_attributes(
-                workflow_id, attributes
+                workflow_id, attributes, merge=merge
             )
 
         return await asyncio.to_thread(
@@ -2621,6 +2639,7 @@ class DBOS:
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
+        is_fork: Optional[bool] = None,
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         schedule_name: Optional[str | list[str]] = None,
@@ -2653,6 +2672,7 @@ class DBOS:
                 executor_id=executor_id,
                 queues_only=queues_only,
                 was_forked_from=was_forked_from,
+                is_fork=is_fork,
                 has_parent=has_parent,
                 attributes=attributes,
                 schedule_name=schedule_name,
@@ -2690,6 +2710,7 @@ class DBOS:
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
+        is_fork: Optional[bool] = None,
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         schedule_name: Optional[str | list[str]] = None,
@@ -2723,6 +2744,7 @@ class DBOS:
                 executor_id=executor_id,
                 queues_only=queues_only,
                 was_forked_from=was_forked_from,
+                is_fork=is_fork,
                 has_parent=has_parent,
                 attributes=attributes,
                 schedule_name=schedule_name,
@@ -2761,6 +2783,7 @@ class DBOS:
         load_input: bool = True,
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
+        is_fork: Optional[bool] = None,
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         application_name: Optional[str | list[str]] = None,
@@ -2791,6 +2814,7 @@ class DBOS:
                 load_output=load_output,
                 executor_id=executor_id,
                 queues_only=True,
+                is_fork=is_fork,
                 has_parent=has_parent,
                 attributes=attributes,
                 application_name=application_name,
@@ -2827,6 +2851,7 @@ class DBOS:
         load_input: bool = True,
         load_output: bool = True,
         executor_id: Optional[str | list[str]] = None,
+        is_fork: Optional[bool] = None,
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         application_name: Optional[str | list[str]] = None,
@@ -2858,6 +2883,7 @@ class DBOS:
                 load_output=load_output,
                 executor_id=executor_id,
                 queues_only=True,
+                is_fork=is_fork,
                 has_parent=has_parent,
                 attributes=attributes,
                 application_name=application_name,

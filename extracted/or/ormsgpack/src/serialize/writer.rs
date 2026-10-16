@@ -1,46 +1,47 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-use crate::ffi::*;
 use crate::io::WriteSlices;
 use pyo3::ffi::*;
-use std::ptr::NonNull;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+use std::mem::ManuallyDrop;
 
 const BUFFER_LENGTH: usize = 1024;
 
 pub struct BytesWriter {
     cap: usize,
     len: usize,
-    bytes: *mut PyObject,
+    writer: *mut compat::PyBytesWriter,
+    data: *mut u8,
 }
 
 impl BytesWriter {
     pub fn default() -> Self {
-        BytesWriter {
-            cap: BUFFER_LENGTH,
-            len: 0,
-            bytes: unsafe {
-                PyBytes_FromStringAndSize(std::ptr::null_mut(), BUFFER_LENGTH as isize)
-            },
-        }
-    }
-
-    pub fn finish(&mut self) -> NonNull<PyObject> {
         unsafe {
-            std::ptr::write(self.buffer_ptr(), 0);
-            self.resize(self.len);
-            NonNull::new_unchecked(self.bytes)
+            let writer = compat::PyBytesWriter_Create(BUFFER_LENGTH as isize);
+            BytesWriter {
+                cap: BUFFER_LENGTH,
+                len: 0,
+                writer: writer,
+                data: compat::PyBytesWriter_GetData(writer).cast::<u8>(),
+            }
         }
     }
 
-    fn buffer_ptr(&self) -> *mut u8 {
-        unsafe { pybytes_as_mut_u8(self.bytes).add(self.len) }
+    pub fn finish<'py>(self, py: Python<'py>) -> Bound<'py, PyBytes> {
+        unsafe {
+            let this = ManuallyDrop::new(self);
+            let bytes = compat::PyBytesWriter_FinishWithSize(this.writer, this.len as isize);
+            Bound::from_owned_ptr(py, bytes).cast_into_unchecked::<PyBytes>()
+        }
     }
 
     #[inline]
     pub fn resize(&mut self, len: usize) {
         self.cap = len;
         unsafe {
-            _PyBytes_Resize(&raw mut self.bytes, len as isize);
+            compat::PyBytesWriter_Resize(self.writer, len as isize);
+            self.data = compat::PyBytesWriter_GetData(self.writer).cast::<u8>();
         }
     }
 
@@ -64,7 +65,7 @@ impl BytesWriter {
         if new_len > self.cap {
             self.grow(new_len);
         }
-        let mut ptr = self.buffer_ptr();
+        let mut ptr = unsafe { self.data.add(self.len) };
         for buf in bufs {
             unsafe {
                 std::ptr::copy_nonoverlapping(buf.as_ptr(), ptr, buf.len());
@@ -72,6 +73,12 @@ impl BytesWriter {
             };
         }
         self.len = new_len;
+    }
+}
+
+impl Drop for BytesWriter {
+    fn drop(&mut self) {
+        unsafe { compat::PyBytesWriter_Discard(self.writer) }
     }
 }
 

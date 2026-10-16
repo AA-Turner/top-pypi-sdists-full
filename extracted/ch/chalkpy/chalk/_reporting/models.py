@@ -12,18 +12,15 @@ from chalk.client import ChalkError
 if TYPE_CHECKING:
     from pydantic import BaseModel
 else:
-    try:
-        from pydantic.v1 import BaseModel
-    except ImportError:
-        from pydantic import BaseModel
+    from chalk.utils.pydanticutil.sdk import BaseModel
 
 
 class BatchProgress(BaseModel):
     total: int = 0
     computed: int = 0
     failed: int = 0
-    start: Optional[datetime]
-    end: Optional[datetime]
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
     total_duration_s: float = 0.0
     stored_online: int = 0
     stored_offline: int = 0
@@ -124,7 +121,7 @@ class BatchResolverReport(BaseModel):
     chunks: List[ChunkReport]
     progress: BatchProgress
     generated_at: datetime
-    error: Optional[ChalkError]
+    error: Optional[ChalkError] = None
     all_errors: Optional[List[ChalkError]] = None
 
 
@@ -137,7 +134,7 @@ class BatchReport(BaseModel):
     environment_id: str
     team_id: str
     deployment_id: str
-    error: Optional[ChalkError]
+    error: Optional[ChalkError] = None
     generated_at: datetime
     all_errors: Optional[List[ChalkError]] = None
     operation_metadata: Optional[Dict[str, str]] = None
@@ -145,7 +142,7 @@ class BatchReport(BaseModel):
 
 
 class BatchReportResponse(BaseModel):
-    report: Optional[BatchReport]
+    report: Optional[BatchReport] = None
     error: Optional[ChalkError] = None
 
 

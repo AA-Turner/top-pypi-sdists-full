@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-preflight
-Version: 1.2.0
+Version: 1.5.0
 Summary: Catch deploy-time CloudFormation failures at synth time: a Rego rule pack for constraints that resource schemas miss, injected into the AWS CDK built-in validator
 Home-page: https://github.com/badmintoncryer/cdk-preflight.git
 Author: Kazuho CryerShinozuka<malaysia.cryer@gmail.com>
@@ -34,7 +34,7 @@ Requires-Dist: publication>=0.0.3
   <a href="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml"><img src="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml/badge.svg" alt="monthly real-deploy verification"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/v/cdk-preflight.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/dt/cdk-preflight.svg" alt="npm total downloads"></a>
-  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3217-blue" alt="3217 bundled rules"></a>
+  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3226-blue" alt="3226 bundled rules"></a>
 </p>
 
 Some CloudFormation constraints are not expressed in resource provider schemas — they live only in documentation, in service API validation, or across multiple properties. Templates that violate them pass `cdk synth`, pass CloudFormation pre-deployment validation, and then fail minutes into a deployment, burning a rollback cycle.
@@ -158,6 +158,8 @@ WARNING idle_timeout.timeout_seconds is 5000 but must be between 1 and 4000 seco
 | `strict` | `false` | With `enforce`: also fail on error-class findings (`ERROR`/`FATAL`, e.g. `F3034`) of the built-in validation engine itself, which the CDK currently downgrades to warnings |
 | `exclude` | `[]` | Rule ids to disable |
 | `includeUpstreamPending` | `true` | Include rules already proposed to the upstream engine but not yet merged |
+| `checkQuotas` | `false` | Also check the target account's Service Quotas and current usage (calls AWS at synth time, see below) |
+| `quotaCacheTtl` | 5 minutes | How long `checkQuotas` reuses the usage and deployed-stack state it fetched |
 
 To opt out of a single rule everywhere, pass its id in `exclude`. To suppress a
 single *finding* on one construct, acknowledge it — this works in both modes, the
@@ -171,6 +173,41 @@ cdk.Validations.of(errorFilter).acknowledge({
 });
 ```
 
+## Service quota check (opt-in)
+
+The rules only read the template, so they never assert a limit an account can raise. `checkQuotas: true` covers that
+gap for the quotas a CDK app runs into most: it adds up what every stack in the app (nested stacks included) is about
+to create in each account and Region, and compares that against the account's applied quota and current usage.
+
+```python
+Preflight.apply(app, { checkQuotas: true });
+```
+
+| Check | Counts | Against |
+|---|---|---|
+| `pf-quota-vpcs-per-region` | new `AWS::EC2::VPC` | VPCs per Region (`vpc/L-F678F1CE`) |
+| `pf-quota-internet-gateways-per-region` | new `AWS::EC2::InternetGateway` | Internet gateways per Region (`vpc/L-A4707A72`) |
+| `pf-quota-elastic-ips-per-region` | new `AWS::EC2::EIP` (one per NAT gateway in a default `ec2.Vpc`) | EC2-VPC Elastic IPs (`ec2/L-0263D0A3`) |
+| `pf-quota-lambda-unreserved-concurrency` | increase in `ReservedConcurrentExecutions` | Lambda keeps at least 100 concurrent executions unreserved |
+
+* **Only new resources count.** The deployed template of each stack is read with `GetTemplate`; a resource whose
+  logical id and type are already deployed is not counted again, so redeploying an unchanged app never trips the
+  check. Resources behind a `Condition` and the brief overlap during a replacement are not counted.
+* **A finding fails synth** in enforce mode and is a warning with `enforce: false`. Acknowledge one like any other
+  finding (`cdk-preflight::pf-quota-...`; `cdk-preflight-quotas::pf-quota-...` with `enforce: false`). The ids also work in `exclude`, including `pf-quota-check-skipped` to silence the skip warning.
+* **It needs credentials in the app process.** The CDK CLI does not pass `--profile` on to the app, so set
+  `AWS_PROFILE` (or `AWS_*` variables) instead. When the credentials are missing, lack permissions, or belong to a
+  different account than the stack's, the check is skipped with a `pf-quota-check-skipped` warning and synth goes on.
+* **Permissions:** `servicequotas:GetServiceQuota`, `servicequotas:GetAWSDefaultServiceQuota`, `ec2:DescribeVpcs`,
+  `ec2:DescribeInternetGateways`, `ec2:DescribeAddresses`, `lambda:GetAccountSettings`, `cloudformation:GetTemplate`,
+  `cloudformation:DescribeStackResource`, `sts:GetCallerIdentity`. All read-only.
+* **Results are cached** in `cdk.out/.cdk-preflight/quota-cache.json`: usage and deployed templates for
+  `quotaCacheTtl` (5 minutes), quota values for 24 hours. Delete the file to force a refetch.
+* Usage can change between synth and deploy (another team deploying to the same account), so a clean check is not a
+  guarantee. The reverse also happens: EC2 does not always enforce the Elastic IP quota when CloudFormation
+  creates several addresses in parallel (measured 2026-10-16: with 4 of 5 in use, two parallel `AWS::EC2::EIP` both
+  succeeded), so a template the check stops may occasionally deploy. The check follows the quota, not the race.
+
 ## Bundled rules
 
 See [docs/rules.md](docs/rules.md) for the generated rule table.
@@ -183,7 +220,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | Service | Resource types |
 |---|---|
 | **(any resource type)** | `*` (14) |
-| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (12), `Model` (3), `Resource` (1), `RestApi` (4), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
+| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (14), `Model` (3), `Resource` (1), `RestApi` (4), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
 | **ApiGatewayV2** | `Api` (5), `Authorizer` (11), `DomainName` (3), `Integration` (15), `IntegrationResponse` (1), `Model` (2), `Route` (6), `RouteResponse` (2), `Stage` (4), `VpcLink` (1) |
 | **ApplicationAutoScaling** | `ScalableTarget` (19), `ScalingPolicy` (30) |
 | **AppSync** | `Api` (7), `ApiCache` (4), `ApiKey` (2), `ChannelNamespace` (5), `DataSource` (15), `DomainName` (1), `FunctionConfiguration` (24), `GraphQLApi` (16), `GraphQLSchema` (12), `Resolver` (32), `SourceApiAssociation` (3) |
@@ -199,7 +236,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **CloudFormation** | `GuardHook` (1), `Stack` (2), `StackSet` (6) |
 | **CloudFront** | `AnycastIpList` (1), `CachePolicy` (7), `ContinuousDeploymentPolicy` (5), `Distribution` (55), `Function` (4), `KeyGroup` (1), `KeyValueStore` (2), `OriginRequestPolicy` (5), `PublicKey` (1), `RealtimeLogConfig` (3), `ResponseHeadersPolicy` (8), `VpcOrigin` (3) |
 | **CloudTrail** | `EventDataStore` (1), `Trail` (19) |
-| **CloudWatch** | `Alarm` (21), `AnomalyDetector` (6), `CompositeAlarm` (6), `Dashboard` (14), `InsightRule` (7), `MetricStream` (6) |
+| **CloudWatch** | `Alarm` (22), `AnomalyDetector` (6), `CompositeAlarm` (7), `Dashboard` (14), `InsightRule` (7), `MetricStream` (6) |
 | **CodeBuild** | `Project` (37), `ReportGroup` (2), `SourceCredential` (4) |
 | **CodeCommit** | `Repository` (11) |
 | **CodeDeploy** | `Application` (7), `DeploymentConfig` (12), `DeploymentGroup` (23) |
@@ -211,24 +248,24 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **DynamoDB** | `GlobalTable` (25), `Table` (28) |
 | **EC2** | `ClientVpnAuthorizationRule` (1), `ClientVpnEndpoint` (6), `DHCPOptions` (2), `EIPAssociation` (1), `FlowLog` (4), `Instance` (10), `KeyPair` (1), `LaunchTemplate` (12), `NatGateway` (2), `NetworkAclEntry` (1), `NetworkInterface` (2), `PlacementGroup` (3), `PrefixList` (3), `Route` (1), `SecurityGroup` (7), `SecurityGroupEgress` (5), `SecurityGroupIngress` (5), `Subnet` (14), `TrafficMirrorTarget` (1), `TransitGateway` (2), `TransitGatewayRoute` (1), `Volume` (6), `VPC` (2), `VPCCidrBlock` (1), `VPCEndpoint` (4), `VPCGatewayAttachment` (1), `VPNConnection` (5) |
 | **ECR** | `PullThroughCacheRule` (3), `RegistryScanningConfiguration` (1), `ReplicationConfiguration` (1), `Repository` (7), `RepositoryCreationTemplate` (8), `SigningConfiguration` (1) |
-| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (64), `TaskSet` (2) |
+| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (65), `TaskSet` (2) |
 | **EFS** | `AccessPoint` (1), `FileSystem` (7), `MountTarget` (4) |
 | **EKS** | `AccessEntry` (14), `Addon` (5), `Cluster` (21), `FargateProfile` (5), `IdentityProviderConfig` (3), `Nodegroup` (21), `PodIdentityAssociation` (5) |
 | **ElastiCache** | `CacheCluster` (9), `ReplicationGroup` (14), `User` (2), `UserGroup` (1) |
 | **ElasticBeanstalk** | `Application` (2), `ConfigurationTemplate` (37), `Environment` (35) |
 | **ElasticLoadBalancingV2** | `Listener` (57), `ListenerCertificate` (2), `ListenerRule` (38), `LoadBalancer` (37), `TargetGroup` (58), `TrustStore` (1), `TrustStoreRevocation` (1) |
-| **Events** | `ApiDestination` (1), `Archive` (5), `Connection` (1), `Endpoint` (2), `EventBus` (2), `Rule` (23) |
+| **Events** | `ApiDestination` (1), `Archive` (5), `Connection` (1), `Endpoint` (2), `EventBus` (2), `Rule` (27) |
 | **EventSchemas** | `Discoverer` (1), `Registry` (1), `RegistryPolicy` (1), `Schema` (1) |
 | **GlobalAccelerator** | `Accelerator` (1), `EndpointGroup` (5), `Listener` (2) |
 | **Glue** | `Classifier` (6), `Connection` (5), `Crawler` (11), `CustomEntityType` (1), `Database` (1), `DataQualityRuleset` (1), `Job` (15), `MLTransform` (4), `Partition` (1), `Schema` (3), `SecurityConfiguration` (1), `Table` (1), `Trigger` (10), `UserDefinedFunction` (2), `Workflow` (1) |
 | **Grafana** | `Workspace` (7) |
-| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (40), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
+| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (42), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
 | **IoT** | `Authorizer` (3), `Certificate` (1), `CertificateProvider` (1), `Command` (1), `DomainConfiguration` (3), `JobTemplate` (3), `MitigationAction` (1), `Policy` (4), `PolicyPrincipalAttachment` (1), `ProvisioningTemplate` (3), `RoleAlias` (1), `ScheduledAudit` (1), `Thing` (1), `ThingGroup` (2), `TopicRule` (5), `TopicRuleDestination` (2) |
 | **Kinesis** | `ResourcePolicy` (4), `Stream` (5), `StreamConsumer` (2) |
 | **KinesisAnalyticsV2** | `Application` (20), `ApplicationCloudWatchLoggingOption` (1), `ApplicationOutput` (1), `ApplicationReferenceDataSource` (1) |
 | **KinesisFirehose** | `DeliveryStream` (68) |
 | **KMS** | `Alias` (2), `Key` (12), `ReplicaKey` (4) |
-| **Lambda** | `Alias` (7), `CodeSigningConfig` (1), `EventInvokeConfig` (5), `EventSourceMapping` (54), `Function` (45), `LayerVersion` (8), `LayerVersionPermission` (3), `Permission` (8), `Url` (8), `Version` (1) |
+| **Lambda** | `Alias` (7), `CodeSigningConfig` (1), `EventInvokeConfig` (5), `EventSourceMapping` (54), `Function` (48), `LayerVersion` (8), `LayerVersionPermission` (3), `Permission` (8), `Url` (8), `Version` (1) |
 | **Logs** | `AccountPolicy` (6), `DeliveryDestination` (3), `Destination` (1), `LogAnomalyDetector` (2), `LogGroup` (10), `MetricFilter` (7), `QueryDefinition` (1), `ResourcePolicy` (1), `SubscriptionFilter` (6), `Transformer` (3) |
 | **MediaConvert** | `JobTemplate` (9), `Preset` (32), `Queue` (2) |
 | **MemoryDB** | `Cluster` (8), `User` (1) |
@@ -251,8 +288,8 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **SecretsManager** | `RotationSchedule` (4), `Secret` (5), `SecretTargetAttachment` (1) |
 | **ServiceDiscovery** | `HttpNamespace` (3), `Instance` (19), `PrivateDnsNamespace` (4), `PublicDnsNamespace` (4), `Service` (13) |
 | **SES** | `ConfigurationSetEventDestination` (8), `ContactList` (1), `EmailIdentity` (6), `ReceiptRule` (6), `ReceiptRuleSet` (1), `Template` (1) |
-| **SNS** | `Subscription` (9), `Topic` (12), `TopicPolicy` (1) |
-| **SQS** | `Queue` (9), `QueuePolicy` (1) |
+| **SNS** | `Subscription` (10), `Topic` (14), `TopicPolicy` (1) |
+| **SQS** | `Queue` (10), `QueuePolicy` (1) |
 | **SSM** | `Association` (4), `Document` (3), `MaintenanceWindow` (2), `MaintenanceWindowTarget` (1), `MaintenanceWindowTask` (1), `Parameter` (5) |
 | **StepFunctions** | `Activity` (3), `StateMachine` (26) |
 | **Synthetics** | `Canary` (16) |
@@ -294,7 +331,8 @@ and the failure is a service-side validation rejection — CREATE_FAILED/UPDATE_
 with a 400-class message such as "Invalid request provided: ..." — cdk-preflight is
 missing a rule. Report it:
 
-1. Qualify first. NOT reportable: AccessDenied / permissions, service quotas,
+1. Qualify first. NOT reportable: AccessDenied / permissions, service quotas
+   (those belong to the opt-in `checkQuotas`; open a regular issue if it missed one),
    throttling, name conflicts with existing resources, stabilization timeouts.
 2. Redact account-specific data (account IDs -> 123456789012, real ARNs/domains
    -> placeholders).
@@ -316,7 +354,7 @@ Rules move the other way too. Once the validation engine bundled in `aws-cdk-lib
 
 ## How it works
 
-`Preflight.apply()` evaluates the rules with the [cloudformation-validate](https://github.com/aws-cloudformation/cloudformation-validate) Rust/WASM engine that ships inside `aws-cdk-lib` — no extra binaries, no network access at synth time. In the default enforce mode the engine is invoked through a dedicated CDK validation plugin so that violations fail synthesis; with `enforce: false` the rules are instead injected into the CDK built-in `CloudFormationValidatePlugin` and reported as warnings.
+`Preflight.apply()` evaluates the rules with the [cloudformation-validate](https://github.com/aws-cloudformation/cloudformation-validate) Rust/WASM engine that ships inside `aws-cdk-lib` — no extra binaries, and no network access at synth time unless you opt in to `checkQuotas`, which calls AWS from a child process. In the default enforce mode the engine is invoked through a dedicated CDK validation plugin so that violations fail synthesis; with `enforce: false` the rules are instead injected into the CDK built-in `CloudFormationValidatePlugin` and reported as warnings.
 
 Constraints that *can* be expressed in schemas or generic engine rules also make good upstream PRs to that engine, but nothing here waits on one — the upstream release cycle is deliberately slower than this pack's. Each rule's `meta.yaml` tracks its upstream status so that retirement stays bookkeeping.
 

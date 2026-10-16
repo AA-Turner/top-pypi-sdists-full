@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.3.17
+Version: 0.3.18
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>
@@ -8,6 +8,7 @@ License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
@@ -63,7 +64,7 @@ Description-Content-Type: text/markdown
 The Garmin Connect API library comes with two examples:
 
 - **`example.py`** - Simple getting-started example showing authentication, token storage, and basic API calls
-- **`demo.py`** - Comprehensive demo providing access to **154+ API methods** organized into **14 categories** for easy navigation
+- **`demo.py`** - Comprehensive demo providing access to **164+ API methods** organized into **14 categories** for easy navigation
 
 ```bash
 $ ./demo.py
@@ -102,20 +103,20 @@ Make your selection:
 
 ## API Coverage Statistics
 
-- **Total API Methods**: 154+ methods (snapshot)
+- **Total API Methods**: 164+ methods (snapshot)
 - **Categories**: 14 organized sections
 - **User & Profile**: 4 methods (basic user info, settings)
 - **Daily Health & Activity**: 10 methods (today's health data plus daily calories, resting HR and sleep ranges)
 - **Advanced Health Metrics**: 19 methods (fitness metrics, HRV, VO2, FTP range, training readiness, training zones, running tolerance, training load balance, daily training status, activity training load)
 - **Historical Data & Trends**: 9 methods (date range queries, weekly aggregates)
-- **Activities & Workouts**: 37 methods (comprehensive activity, workout management, typed workout uploads including strength, in-place edit, scheduling, push to device, import, activity type/subtype filtering, earliest-upcoming-workout lookup)
+- **Activities & Workouts**: 39 methods (comprehensive activity, workout management, typed workout uploads including strength and swim CSS targets, in-place edit, scheduling, push to device, import, activity type/subtype filtering, earliest-upcoming-workout lookup, activity photos)
 - **Body Composition & Weight**: 7 methods (weight tracking, body composition)
 - **Goals & Achievements**: 15 methods (challenges, badges, goals)
 - **Device & Technical**: 7 methods (device info, settings)
 - **Gear & Equipment**: 8 methods (gear management, tracking, creation)
-- **Hydration & Wellness**: 20 methods (hydration, nutrition, blood pressure, menstrual reads and writes)
+- **Hydration & Wellness**: 24 methods (hydration, nutrition, blood pressure, menstrual reads and writes, Jet Lag Adviser trips)
 - **System & Export**: 5 methods (reporting, logout, GraphQL, health snapshot download)
-- **Training Plans**: 9 methods (plans, plan by ID, typed strength workout upload, exercise catalog search, in-place workout editing, push to device, workout scheduling management)
+- **Training Plans**: 10 methods (plans, plan by ID, typed strength workout uploads including timed sets, exercise catalog search, in-place workout editing, push to device, workout scheduling management)
 - **Golf**: 5 methods (scorecard summary, scorecard detail, shot data, club stats, user stats)
 - **Activity Editing**: 2 methods (set activity description, set strength-activity exercise sets)
 
@@ -180,7 +181,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -e ".[example]"
 
 python3 ./example.py   # simple getting-started example
-python3 ./demo.py      # comprehensive demo (154+ API methods)
+python3 ./demo.py      # comprehensive demo (164+ API methods)
 ```
 
 ## 🛠️ Development
@@ -218,17 +219,17 @@ pdm run publish     # Build and publish to PyPI
 pdm run --list      # Show all available commands
 ```
 
-Run `pdm run format && pdm run lint && pdm run test` before submitting PRs.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks CI runs and what a pull request needs.
 
 ## 🔐 Authentication
 
-Authentication uses the same mobile SSO flow as the official Garmin Connect Android app.
+Authentication uses the same mobile SSO flow as the official Garmin Connect mobile apps.
 No browser is needed.
 
 **How it works:**
 
-1. **First login**: Authenticates via `sso.garmin.com/mobile/api/login` using the Android
-   app's client ID. If MFA is required, a callback (`prompt_mfa`) prompts for the one-time code.
+1. **First login**: Authenticates via `sso.garmin.com/mobile/api/login` using the iOS
+   app's client ID (`GCM_IOS_DARK`). If MFA is required, a callback (`prompt_mfa`) prompts for the one-time code.
 2. **Token exchange**: The service ticket is exchanged for DI OAuth Bearer tokens
    (`access_token` + `refresh_token`) via `diauth.garmin.com`. Tokens are stored at
    `~/.garminconnect/garmin_tokens.json`.
@@ -293,7 +294,7 @@ responses, activity downloads, and health reports only when you select those
 actions. Demo exports are stored under `your_data/` with owner-only directory
 and file permissions. Run the project in a dedicated virtual environment, read
 the method you plan to call, and start with read-only methods. Upload, edit,
-delete, schedule, hydration, weigh-in, and menstrual write methods can change Garmin account data.
+delete, schedule, hydration, weigh-in, menstrual, and jet lag trip write methods can change Garmin account data.
 
 ## 🧪 Testing
 
@@ -369,11 +370,7 @@ We welcome contributions! Here's how you can help:
 - **Testing**: Help test new features and report compatibility issues
 - **Documentation**: Improve examples, add use cases, fix typos
 
-**Before contributing:**
-1. Set up your dev environment (see [Development](#️-development) above)
-2. Format and lint: `pdm run format && pdm run lint`
-3. Run tests: `pdm run test`
-4. Follow existing code style and patterns
+**Before contributing**, read [CONTRIBUTING.md](CONTRIBUTING.md). It covers the dev setup, the checks CI runs, and how to add an API method. Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ### Jupyter Notebook
 
@@ -428,8 +425,7 @@ from garminconnect.workout import (
 )
 
 easy_pace = PaceTarget(
-    lower_limit=pace_to_mps(6, 11, 'km'),
-    upper_limit=pace_to_mps(6, 0, 'km')
+    lower_limit=pace_to_mps(6, 11, "km"), upper_limit=pace_to_mps(6, 0, "km")
 )
 
 # Create a structured running workout
@@ -450,7 +446,7 @@ workout = RunningWorkout(
                     duration_seconds=200.0,
                     step_order=3,
                     target=easy_pace,
-                )
+                ),
             ],
         )
     ],
@@ -473,9 +469,32 @@ client.unschedule_workout(scheduled_workout_id)
 client.push_workout_to_device(result["workoutId"], device_id)
 ```
 
+**Swimming CSS targets:** `SwimCssOffsetTarget` represents a signed offset from
+Critical Swim Speed, rather than an absolute pace range. Supply it as the
+secondary target; the primary target can be omitted (Garmin `no.target`):
+
+```python
+from garminconnect.workout import (
+    SwimCssOffsetTarget,
+    create_targeted_distance_interval_step,
+)
+
+step = create_targeted_distance_interval_step(
+    100.0,
+    step_order=1,
+    secondary_target=SwimCssOffsetTarget(offset_seconds=5.0),
+)
+```
+
+Positive offsets are slower than CSS; negative offsets are faster. The offset
+is serialized as `secondaryTargetValueOne`, with `secondaryTargetValueTwo=0`.
+The time-based targeted helper also accepts secondary-only targets. These
+helpers retain their existing interval step/end-condition behavior; swimming
+stroke, rest, and pool settings are configured separately.
+
 **Available workout classes:** `RunningWorkout`, `CyclingWorkout`, `SwimmingWorkout`, `WalkingWorkout`, `HikingWorkout`, `StrengthWorkout`, `MultiSportWorkout`, `FitnessEquipmentWorkout`
 
-**Strength workouts** are rep-based. Build each exercise with `create_strength_set(category, step_order, sets, reps, rest_seconds, exercise_name="", weight_kg=None)` and identify exercises with a `category` / `exercise` pair from the bundled catalog in `garminconnect.exercises` (1,527 exercises across 47 categories, with `resolve(name)` and `find(term)` helpers):
+**Strength workouts** are usually rep-based. Build each exercise with `create_strength_set(category, step_order, sets, reps, rest_seconds, exercise_name="", weight_kg=None, description=None)` and identify exercises with a `category` / `exercise` pair from the bundled catalog in `garminconnect.exercises` (1,527 exercises across 47 categories, with `resolve(name)` and `find(term)` helpers):
 
 ```python
 from garminconnect import exercises
@@ -511,11 +530,28 @@ workout = StrengthWorkout(
 client.upload_strength_workout(workout)
 ```
 
+For exercises done for time, such as planks or carries, use `create_strength_timed_set` (or `create_strength_timed_step` for a single step); it takes `duration_seconds` instead of `reps`. Every strength helper also accepts an optional `description`, a per-step note such as a form cue:
+
+```python
+from garminconnect.workout import create_strength_timed_set
+
+plank = create_strength_timed_set(
+    "PLANK",
+    step_order=1,
+    sets=3,
+    duration_seconds=45,
+    rest_seconds=30,
+    exercise_name="PLANK",
+    description="Squeeze glutes, keep a neutral spine",
+)
+```
+
 **Helper functions:** `create_warmup_step`, `create_interval_step`,
 `create_targeted_interval_step`, `create_distance_interval_step`,
 `create_targeted_distance_interval_step`, `create_recovery_step`,
 `create_cooldown_step`, `create_repeat_group`, `create_strength_exercise_step`,
-`create_strength_rest_step`, `create_strength_set`
+`create_strength_timed_step`, `create_strength_rest_step`, `create_strength_set`,
+`create_strength_timed_set`
 
 **Intensity Targets**: `CadenceTarget`, `PowerZoneTarget`, `CustomPowerTarget`,
 `HeartRateZoneTarget`, `CustomHeartRateTarget`, `SpeedTarget`, `PaceTarget`
@@ -550,9 +586,51 @@ club_stats = client.get_golf_club_stats()
 user_stats = client.get_golf_user_stats()
 ```
 
+### Jet Lag Adviser
+
+The library can list, create, replace, and delete Jet Lag Adviser trips. Garmin does not geocode a location: give each place its UTC offset on that date, and give each time as the local time at that place, without an offset.
+
+Each flight is one origin and destination, so you can include legs as part of a trip or not. Garmin accepts any legs, including a leg that changes no timezone and a trip in the past, which the web page does not allow. Garmin says it deletes a trip by itself after the trip ends.
+
+```python
+flights = [
+    {
+        "originLocation": "Portland, OR, United States",
+        "originTimezone": "-07:00",
+        "originTimestamp": "2027-10-04T15:20:00.00",
+        "destinationLocation": "Melbourne, VIC, Australia",
+        "destinationTimezone": "+11:00",
+        "destinationTimestamp": "2027-10-06T06:45:00.00",
+    },
+]
+start_date = "2027-10-04"
+trip = client.add_jetlag_trip(start_date, "2027-10-09", flights)
+
+# A PUT replaces the whole trip: send every flight, and keep each flightId
+client.update_jetlag_trip(trip["tripId"], start_date, "2027-10-12", trip["flights"])
+
+client.delete_jetlag_trip(trip["tripId"])
+```
+
+### Activity Photos
+
+Photos attached to an activity are available inside the `get_activity()`
+response at `metadataDTO.activityImages`; the `get_activity_images()`
+helper returns that list directly:
+
+```python
+# [{imageId, url, photoDate}, ...] or [] when the activity has no photos
+images = client.get_activity_images(activity_id)
+```
+
+The `url` values are presigned S3 links that expire after 24 hours, so
+download the images promptly instead of storing the URLs. The `hasImages`
+flag in `get_activities()` results is not a reliable indicator that an
+activity has photos attached.
+
 ### Additional Resources
 - **Simple Example**: [example.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/example.py) - Getting started guide
-- **Comprehensive Demo**: [demo.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/demo.py) - All 154+ API methods
+- **Comprehensive Demo**: [demo.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/demo.py) - All 164+ API methods
 - **API Documentation**: Comprehensive method documentation in source code
 - **Test Cases**: Real-world usage examples in `tests/` directory
 

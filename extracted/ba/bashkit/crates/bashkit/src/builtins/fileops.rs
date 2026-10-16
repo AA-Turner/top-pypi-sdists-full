@@ -100,7 +100,11 @@ impl Builtin for Mkdir {
 
             if let Err(e) = ctx.fs.mkdir(&path, recursive).await {
                 return Ok(ExecResult::err(
-                    format!("mkdir: cannot create directory '{}': {}\n", dir, e),
+                    format!(
+                        "mkdir: cannot create directory '{}': {}\n",
+                        dir,
+                        crate::error::io_error_reason(&e)
+                    ),
                     1,
                 ));
             }
@@ -168,47 +172,49 @@ impl Builtin for Rm {
         }
 
         if files.is_empty() {
+            // GNU rm: `-f` with no operands is not an error.
+            if force {
+                return Ok(ExecResult::ok(String::new()));
+            }
             return Ok(ExecResult::err("rm: missing operand\n".to_string(), 1));
         }
 
+        // GNU rm reports each failing operand and goes on with the rest;
+        // the status is 1 if any operand failed.
+        let mut stderr = String::new();
         for file in files {
             let path = resolve_path(ctx.cwd, file);
 
-            // Check if exists
-            let exists = ctx.fs.exists(&path).await.unwrap_or(false);
-            if !exists {
+            // lstat: rm acts on a link itself (dangling links included).
+            let metadata = ctx.fs.lstat(&path).await;
+            let Ok(meta) = metadata else {
                 if !force {
-                    return Ok(ExecResult::err(
-                        format!("rm: cannot remove '{}': No such file or directory\n", file),
-                        1,
+                    stderr.push_str(&format!(
+                        "rm: cannot remove '{}': No such file or directory\n",
+                        file
                     ));
                 }
                 continue;
-            }
+            };
 
-            // Check if it's a directory
-            let metadata = ctx.fs.stat(&path).await;
-            if let Ok(meta) = metadata
-                && meta.file_type.is_dir()
-                && !recursive
-            {
-                return Ok(ExecResult::err(
-                    format!("rm: cannot remove '{}': Is a directory\n", file),
-                    1,
-                ));
+            // A directory needs -r, -f or not.
+            if meta.file_type.is_dir() && !recursive {
+                stderr.push_str(&format!("rm: cannot remove '{}': Is a directory\n", file));
+                continue;
             }
 
             if let Err(e) = ctx.fs.remove(&path, recursive).await
                 && !force
             {
-                return Ok(ExecResult::err(
-                    format!("rm: cannot remove '{}': {}\n", file, e),
-                    1,
-                ));
+                stderr.push_str(&format!("rm: cannot remove '{}': {}\n", file, e));
             }
         }
 
-        Ok(ExecResult::ok(String::new()))
+        if stderr.is_empty() {
+            Ok(ExecResult::ok(String::new()))
+        } else {
+            Ok(ExecResult::err(stderr, 1))
+        }
     }
 }
 
@@ -231,8 +237,13 @@ impl Builtin for Cp {
             return Ok(r);
         }
 
-        // Reject unknown options like GNU cp; accept-and-ignore the rest (cp
-        // copies non-recursively in the VFS regardless). '--' ends options.
+        // Reject unknown options like GNU cp. `-r`/`-R`/`-a` (and the long
+        // forms) copy directories recursively; the remaining flags are
+        // accepted and ignored. '--' ends options. `-n` (`--no-clobber`,
+        // `--update=none`) leaves existing destinations alone, silently and
+        // with status 0 like GNU cp; it wins over `-f`.
+        let mut recursive = false;
+        let mut no_clobber = false;
         let mut files: Vec<&String> = Vec::new();
         let mut opts_done = false;
         for arg in ctx.args {
@@ -241,7 +252,14 @@ impl Builtin for Cp {
             } else if arg == "--" {
                 opts_done = true;
             } else if let Some(long) = arg.strip_prefix("--") {
-                match long.split('=').next().unwrap_or("") {
+                let name = long.split('=').next().unwrap_or("");
+                if matches!(name, "archive" | "recursive") {
+                    recursive = true;
+                }
+                if name == "no-clobber" || long == "update=none" {
+                    no_clobber = true;
+                }
+                match name {
                     "archive"
                     | "attributes-only"
                     | "backup"
@@ -272,8 +290,10 @@ impl Builtin for Cp {
             } else if arg.starts_with('-') && arg.len() > 1 {
                 for c in arg[1..].chars() {
                     match c {
-                        'a' | 'd' | 'f' | 'H' | 'i' | 'l' | 'L' | 'n' | 'P' | 'p' | 'r' | 'R'
-                        | 's' | 't' | 'T' | 'u' | 'v' | 'x' | 'Z' => {}
+                        'a' | 'r' | 'R' => recursive = true,
+                        'n' => no_clobber = true,
+                        'd' | 'f' | 'H' | 'i' | 'l' | 'L' | 'P' | 'p' | 's' | 't' | 'T' | 'u'
+                        | 'v' | 'x' | 'Z' => {}
                         _ => return Ok(super::invalid_option("cp", &format!("-{c}"), 1)),
                     }
                 }
@@ -312,6 +332,7 @@ impl Builtin for Cp {
             ));
         }
 
+        let mut stderr = String::new();
         for source in sources {
             let src_path = resolve_path(ctx.cwd, source);
 
@@ -326,16 +347,143 @@ impl Builtin for Cp {
                 dest_path.clone()
             };
 
+            let src_is_dir = ctx
+                .fs
+                .stat(&src_path)
+                .await
+                .is_ok_and(|m| m.file_type.is_dir());
+            if src_is_dir {
+                if !recursive {
+                    stderr.push_str(&format!(
+                        "cp: -r not specified; omitting directory '{source}'\n"
+                    ));
+                    continue;
+                }
+                if final_dest.starts_with(&src_path) {
+                    let shown = if dest_is_dir {
+                        let name = Path::new(source.as_str())
+                            .file_name()
+                            .map(|s| s.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        format!("{}/{name}", dest.trim_end_matches('/'))
+                    } else {
+                        dest.to_string()
+                    };
+                    stderr.push_str(&format!(
+                        "cp: cannot copy a directory, '{source}', into itself, '{shown}'\n"
+                    ));
+                    continue;
+                }
+                if let Err(msg) = copy_tree(&ctx, &src_path, &final_dest, no_clobber).await? {
+                    stderr.push_str(&format!("cp: {msg}\n"));
+                }
+                continue;
+            }
+
+            if no_clobber && ctx.fs.lstat(&final_dest).await.is_ok() {
+                continue;
+            }
             if let Err(e) = ctx.fs.copy(&src_path, &final_dest).await {
-                return Ok(ExecResult::err(
-                    format!("cp: cannot copy '{}': {}\n", source, e),
-                    1,
+                stderr.push_str(&format!(
+                    "cp: cannot copy '{}': {}\n",
+                    source,
+                    crate::error::io_error_reason(&e)
                 ));
             }
         }
 
-        Ok(ExecResult::ok(String::new()))
+        if stderr.is_empty() {
+            Ok(ExecResult::ok(String::new()))
+        } else {
+            Ok(ExecResult::err(stderr, 1))
+        }
     }
+}
+
+/// Future returned by [`copy_tree`]: outer `Err` aborts, inner `Err` is a
+/// user-facing message.
+pub(crate) type CopyTreeFuture<'a> = std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<std::result::Result<(), String>>> + Send + 'a>,
+>;
+
+/// Recursively copy `src` to `dst` (GNU `cp -R` without `-L`: symlinks are
+/// recreated, not followed). The outer error is cancellation/budget; the
+/// inner one is a user-facing message for the first failed entry.
+pub(crate) fn copy_tree<'a>(
+    ctx: &'a Context<'_>,
+    src: &'a Path,
+    dst: &'a Path,
+    no_clobber: bool,
+) -> CopyTreeFuture<'a> {
+    Box::pin(async move {
+        ctx.consume_budget_work(1)?;
+        let meta = match ctx.fs.lstat(src).await {
+            Ok(m) => m,
+            Err(e) => return Ok(Err(format!("cannot stat '{}': {e}", src.display()))),
+        };
+        if meta.file_type.is_dir() {
+            match ctx.fs.stat(dst).await {
+                Ok(m) if m.file_type.is_dir() => {}
+                Ok(_) => {
+                    return Ok(Err(format!(
+                        "cannot overwrite non-directory '{}' with directory '{}'",
+                        dst.display(),
+                        src.display()
+                    )));
+                }
+                Err(_) => {
+                    if let Err(e) = ctx.fs.mkdir(dst, false).await {
+                        return Ok(Err(format!(
+                            "cannot create directory '{}': {e}",
+                            dst.display()
+                        )));
+                    }
+                    let _ = ctx.fs.chmod(dst, meta.mode).await;
+                }
+            }
+            let entries = match ctx.fs.read_dir(src).await {
+                Ok(e) => e,
+                Err(e) => return Ok(Err(format!("cannot access '{}': {e}", src.display()))),
+            };
+            for entry in entries {
+                let from = vfs_join(src, &entry.name);
+                let to = vfs_join(dst, &entry.name);
+                if let Err(msg) = copy_tree(ctx, &from, &to, no_clobber).await? {
+                    return Ok(Err(msg));
+                }
+            }
+            return Ok(Ok(()));
+        }
+        if no_clobber && ctx.fs.lstat(dst).await.is_ok() {
+            return Ok(Ok(()));
+        }
+        if meta.file_type.is_symlink() {
+            let target = match ctx.fs.read_link(src).await {
+                Ok(t) => t,
+                Err(e) => {
+                    return Ok(Err(format!(
+                        "cannot read symbolic link '{}': {e}",
+                        src.display()
+                    )));
+                }
+            };
+            if ctx.fs.lstat(dst).await.is_ok() {
+                let _ = ctx.fs.remove(dst, false).await;
+            }
+            return Ok(ctx
+                .fs
+                .symlink(&target, dst)
+                .await
+                .map_err(|e| format!("cannot create symbolic link '{}': {e}", dst.display())));
+        }
+        Ok(ctx.fs.copy(src, dst).await.map_err(|e| {
+            format!(
+                "cannot copy '{}': {}",
+                src.display(),
+                crate::error::io_error_reason(&e)
+            )
+        }))
+    })
 }
 
 /// The mv builtin - move (rename) files.
@@ -449,7 +597,17 @@ impl Builtin for Mv {
 /// The touch builtin - change file timestamps or create empty files.
 ///
 /// Usage: touch FILE...
-pub struct Touch;
+#[derive(Default)]
+pub struct Touch {
+    clock: super::Date,
+}
+
+impl Touch {
+    /// Touch builtin parsing `-d` dates against `clock` (shared with `date`).
+    pub fn with_clock(clock: super::Date) -> Self {
+        Self { clock }
+    }
+}
 
 fn parse_touch_timestamp(raw: &str) -> std::result::Result<SystemTime, String> {
     let (main, seconds) = match raw.split_once('.') {
@@ -505,82 +663,141 @@ fn parse_touch_timestamp(raw: &str) -> std::result::Result<SystemTime, String> {
     Ok(crate::time_compat::from_chrono(utc))
 }
 
+const TOUCH_HELP: &str = "Usage: touch [OPTION]... FILE...\nUpdate the access and modification times of each FILE to the current time.\nA FILE argument that does not exist is created empty, unless -c is supplied.\n\n  -a\t\t\tchange only the access time (same as -m: the VFS keeps one timestamp)\n  -c, --no-create\tdo not create any files\n  -d, --date=STRING\tparse STRING and use it instead of current time\n  -f\t\t\t(ignored)\n  -h, --no-dereference\taffect each symbolic link instead of any referenced file\n  -m\t\t\tchange only the modification time\n  -r, --reference=FILE\tuse this file's times instead of current time\n  -t STAMP\t\tuse [[CC]YY]MMDDhhmm[.ss] instead of current time\n      --time=WORD\tchange the specified time (accepted)\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n";
+
 #[async_trait]
 impl Builtin for Touch {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        if let Some(r) = super::check_help_version(
-            ctx.args,
-            "Usage: touch [OPTION]... FILE...\nUpdate the access and modification times of each FILE to the current time.\nA FILE argument that does not exist is created empty.\n\n  -t STAMP\tuse [[CC]YY]MMDDhhmm[.ss] instead of current time\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
-            Some("touch (bashkit) 0.1"),
-        ) {
+        if let Some(r) =
+            super::check_help_version(ctx.args, TOUCH_HELP, Some("touch (bashkit) 0.1"))
+        {
             return Ok(r);
         }
 
-        if ctx.args.is_empty() {
-            return Ok(ExecResult::err(
-                "touch: missing file operand\n".to_string(),
-                1,
-            ));
-        }
-
+        let fail = |msg: String| Ok(ExecResult::err(msg, 1));
         let mut files = Vec::new();
         let mut target_time = SystemTime::now();
-        let mut i = 0;
-        while i < ctx.args.len() {
-            let arg = &ctx.args[i];
-            if arg == "-t" {
-                i += 1;
-                if i >= ctx.args.len() {
-                    return Ok(ExecResult::err(
-                        "touch: option requires an argument -- 't'\n".to_string(),
-                        1,
+        let mut no_create = false;
+        let mut reference: Option<String> = None;
+        let mut args = ctx.args.iter();
+        while let Some(arg) = args.next() {
+            let a = arg.as_str();
+            if a == "--" {
+                files.extend(args.by_ref());
+                break;
+            }
+            if !a.starts_with('-') || a == "-" {
+                files.push(arg);
+                continue;
+            }
+            if let Some(long) = a.strip_prefix("--") {
+                let (key, inline) = match long.split_once('=') {
+                    Some((k, v)) => (k, Some(v.to_string())),
+                    None => (long, None),
+                };
+                let mut value = || inline.clone().or_else(|| args.next().cloned());
+                match key {
+                    "no-create" => no_create = true,
+                    "no-dereference" => {}
+                    "time" => {
+                        value();
+                    }
+                    "date" => {
+                        let Some(v) = value() else {
+                            return fail("touch: option '--date' requires an argument\n".into());
+                        };
+                        match self.clock.parse_date(ctx.env.get("TZ"), &v) {
+                            Ok(dt) => target_time = crate::time_compat::from_chrono(dt),
+                            Err(_) => return fail(format!("touch: invalid date format '{v}'\n")),
+                        }
+                    }
+                    "reference" => reference = value(),
+                    _ => return fail(format!("touch: unrecognized option '{a}'\n")),
+                }
+                continue;
+            }
+            let chars: Vec<char> = a[1..].chars().collect();
+            for (idx, c) in chars.iter().enumerate() {
+                let rest: String = chars[idx + 1..].iter().collect();
+                let mut value = || {
+                    if rest.is_empty() {
+                        args.next().cloned()
+                    } else {
+                        Some(rest.clone())
+                    }
+                };
+                match c {
+                    'a' | 'm' | 'f' | 'h' => continue,
+                    'c' => {
+                        no_create = true;
+                        continue;
+                    }
+                    'd' => {
+                        let Some(v) = value() else {
+                            return fail("touch: option requires an argument -- 'd'\n".into());
+                        };
+                        match self.clock.parse_date(ctx.env.get("TZ"), &v) {
+                            Ok(dt) => target_time = crate::time_compat::from_chrono(dt),
+                            Err(_) => return fail(format!("touch: invalid date format '{v}'\n")),
+                        }
+                    }
+                    't' => {
+                        let Some(v) = value() else {
+                            return fail("touch: option requires an argument -- 't'\n".into());
+                        };
+                        match parse_touch_timestamp(&v) {
+                            Ok(parsed) => target_time = parsed,
+                            Err(err) => return fail(err),
+                        }
+                    }
+                    'r' => {
+                        let Some(v) = value() else {
+                            return fail("touch: option requires an argument -- 'r'\n".into());
+                        };
+                        reference = Some(v);
+                    }
+                    other => return fail(format!("touch: invalid option -- '{other}'\n")),
+                }
+                break;
+            }
+        }
+
+        if let Some(r) = reference {
+            match ctx.fs.stat(&resolve_path(ctx.cwd, &r)).await {
+                Ok(meta) => target_time = meta.modified,
+                Err(_) => {
+                    return fail(format!(
+                        "touch: failed to get attributes of '{r}': No such file or directory\n"
                     ));
                 }
-                match parse_touch_timestamp(&ctx.args[i]) {
-                    Ok(parsed) => target_time = parsed,
-                    Err(err) => return Ok(ExecResult::err(err, 1)),
-                }
-            } else if let Some(stamp) = arg.strip_prefix("-t")
-                && !stamp.is_empty()
-            {
-                match parse_touch_timestamp(stamp) {
-                    Ok(parsed) => target_time = parsed,
-                    Err(err) => return Ok(ExecResult::err(err, 1)),
-                }
-            } else if arg.starts_with('-') {
-                return Ok(ExecResult::err(
-                    format!("touch: invalid option -- '{}'\n", arg),
-                    1,
-                ));
-            } else {
-                files.push(arg);
             }
-            i += 1;
         }
 
         if files.is_empty() {
-            return Ok(ExecResult::err(
-                "touch: missing file operand\n".to_string(),
-                1,
-            ));
+            return fail("touch: missing file operand\n".to_string());
         }
 
         for file in files {
             let path = resolve_path(ctx.cwd, file);
 
-            if !ctx.fs.exists(&path).await.unwrap_or(false)
-                && let Err(e) = ctx.fs.write_file(&path, &[]).await
-            {
-                return Ok(ExecResult::err(
-                    format!("touch: cannot touch '{}': {}\n", file, e),
-                    1,
-                ));
+            if !ctx.fs.exists(&path).await.unwrap_or(false) {
+                if no_create {
+                    continue;
+                }
+                if let Err(e) = ctx.fs.write_file(&path, &[]).await {
+                    return fail(format!(
+                        "touch: cannot touch '{}': {}\n",
+                        file,
+                        crate::error::io_error_reason(&e)
+                    ));
+                }
             }
 
             if let Err(e) = ctx.fs.set_modified_time(&path, target_time).await {
-                return Ok(ExecResult::err(
-                    format!("touch: cannot touch '{}': {}\n", file, e),
-                    1,
+                return fail(format!(
+                    "touch: cannot touch '{}': {}\n",
+                    file,
+                    crate::error::io_error_reason(&e)
                 ));
             }
         }
@@ -599,7 +816,7 @@ pub struct Chmod;
 /// Parse a symbolic mode string and apply it to an existing mode.
 /// Handles: [ugoa]*[+-=][rwxXst]+ (comma-separated clauses).
 /// Examples: +x, u+x, a+r, go-w, u=rwx, ug+rw
-fn apply_symbolic_mode(mode_str: &str, current_mode: u32) -> Option<u32> {
+pub(super) fn apply_symbolic_mode(mode_str: &str, current_mode: u32) -> Option<u32> {
     let mut mode = current_mode;
 
     for clause in mode_str.split(',') {
@@ -657,6 +874,8 @@ fn apply_symbolic_mode(mode_str: &str, current_mode: u32) -> Option<u32> {
 
         // Parse permissions: r, w, x, X, s, t
         let mut perm_bits: u32 = 0;
+        let mut set_id = false;
+        let mut sticky = false;
         for c in chars {
             match c {
                 'r' => perm_bits |= 0o4,
@@ -668,7 +887,8 @@ fn apply_symbolic_mode(mode_str: &str, current_mode: u32) -> Option<u32> {
                         perm_bits |= 0o1;
                     }
                 }
-                's' | 't' => {} // setuid/setgid/sticky: accept but ignore for VFS
+                's' => set_id = true,
+                't' => sticky = true,
                 _ => return None,
             }
         }
@@ -687,6 +907,25 @@ fn apply_symbolic_mode(mode_str: &str, current_mode: u32) -> Option<u32> {
         if who_o {
             mask |= 0o007;
             bits |= perm_bits;
+        }
+        // `u+s` setuid, `g+s` setgid, `+t` sticky.
+        if who_u {
+            mask |= 0o4000;
+            if set_id {
+                bits |= 0o4000;
+            }
+        }
+        if who_g {
+            mask |= 0o2000;
+            if set_id {
+                bits |= 0o2000;
+            }
+        }
+        if who_o {
+            mask |= 0o1000;
+        }
+        if sticky {
+            bits |= 0o1000;
         }
 
         match op {
@@ -768,47 +1007,71 @@ impl Builtin for Chmod {
 
 /// The ln builtin - create links.
 ///
-/// Usage: ln [-s] [-f] TARGET LINK_NAME
-///        ln [-s] [-f] TARGET... DIRECTORY
+/// Usage: ln [-sfnTv] TARGET LINK_NAME
+///        ln [-sfnv] TARGET... DIRECTORY
 ///
 /// Options:
 ///   -s   Create symbolic link (default in Bashkit; hard links not supported in VFS)
 ///   -f   Force: remove existing destination files
+///   -n   Treat a symlink to a directory as the link to replace
+///   -T   Always treat LINK_NAME as the link itself
+///   -v   Print each link made
 ///
 /// Note: In Bashkit's virtual filesystem, all links are symbolic.
 /// Hard links are not supported; `-s` is implied.
 pub struct Ln;
 
+/// Decision: GNU `ln` destination rules, symbolic links only (L-FS-001).
+/// A destination that is a directory (following a symlink unless `-n`)
+/// receives `DIR/basename(TARGET)`; `-n` treats a symlink to a directory as
+/// the link to replace (the `ln -sfn releases/v2 current` idiom); `-T` always
+/// treats the destination as the link name. A real directory is never
+/// replaced, so `-f` cannot orphan its children (issue #1577).
 #[async_trait]
 impl Builtin for Ln {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         if let Some(r) = super::check_help_version(
             ctx.args,
-            "Usage: ln [OPTION]... TARGET LINK_NAME\nCreate a link to TARGET with the name LINK_NAME.\n\n  -s\t\tmake symbolic links instead of hard links\n  -f\t\tremove existing destination files\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
+            "Usage: ln [OPTION]... TARGET LINK_NAME\n  or:  ln [OPTION]... TARGET... DIRECTORY\nCreate a link to TARGET with the name LINK_NAME, or links in DIRECTORY.\n\n  -s, --symbolic\t\tmake symbolic links instead of hard links\n  -f, --force\t\t\tremove existing destination files\n  -n, --no-dereference\t\ttreat LINK_NAME as a normal file if it is a\n\t\t\t\tsymbolic link to a directory\n  -T, --no-target-directory\ttreat LINK_NAME as a normal file always\n  -v, --verbose\t\t\tprint name of each linked file\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
             Some("ln (bashkit) 0.1"),
         ) {
             return Ok(r);
         }
 
         let mut force = false;
+        let mut no_deref = false;
+        let mut no_target_dir = false;
+        let mut verbose = false;
         let mut files: Vec<&str> = Vec::new();
+        let mut opts_done = false;
 
         for arg in ctx.args.iter() {
-            if arg.starts_with('-') && arg.len() > 1 {
-                for c in arg[1..].chars() {
-                    match c {
-                        's' => {} // symbolic — always symbolic in VFS
-                        'f' => force = true,
-                        _ => {
-                            return Ok(ExecResult::err(
-                                format!("ln: invalid option -- '{}'\n", c),
-                                1,
-                            ));
-                        }
-                    }
+            if opts_done || arg == "-" || !arg.starts_with('-') {
+                files.push(arg);
+            } else if arg == "--" {
+                opts_done = true;
+            } else if let Some(long) = arg.strip_prefix("--") {
+                match long {
+                    "symbolic" | "logical" | "physical" => {}
+                    "force" => force = true,
+                    "no-dereference" => no_deref = true,
+                    "no-target-directory" => no_target_dir = true,
+                    "verbose" => verbose = true,
+                    _ => return Ok(super::invalid_option("ln", arg, 1)),
                 }
             } else {
-                files.push(arg);
+                for c in arg[1..].chars() {
+                    match c {
+                        // symbolic: always symbolic in the VFS; -L/-P only
+                        // matter for hard links.
+                        's' | 'L' | 'P' => {}
+                        'f' => force = true,
+                        'n' => no_deref = true,
+                        'T' => no_target_dir = true,
+                        'v' => verbose = true,
+                        _ => return Ok(super::invalid_option("ln", &format!("-{c}"), 1)),
+                    }
+                }
             }
         }
 
@@ -816,46 +1079,92 @@ impl Builtin for Ln {
             return Ok(ExecResult::err("ln: missing file operand\n".to_string(), 1));
         }
 
-        let target = files[0];
-        let link_name = files[1];
-        let link_path = resolve_path(ctx.cwd, link_name);
+        let (targets, dest) = files.split_at(files.len() - 1);
+        let dest = dest[0];
+        let dest_path = resolve_path(ctx.cwd, dest);
 
-        // If link already exists
-        if ctx.fs.exists(&link_path).await.unwrap_or(false) {
-            if force {
-                // Surface remove failures (e.g. non-empty directory) instead
-                // of falling through and overwriting via symlink, which on
-                // the in-memory VFS would orphan children and corrupt state
-                // (issue #1577).
-                if let Err(e) = ctx.fs.remove(&link_path, false).await {
-                    return Ok(ExecResult::err(
-                        format!("ln: cannot remove '{}': {}\n", link_name, e),
-                        1,
-                    ));
-                }
-            } else {
+        let into_dir = if no_target_dir {
+            if targets.len() > 1 {
                 return Ok(ExecResult::err(
-                    format!(
-                        "ln: failed to create symbolic link '{}': File exists\n",
-                        link_name
-                    ),
+                    format!("ln: extra operand '{}'\n", dest),
                     1,
                 ));
             }
-        }
-
-        let target_path = Path::new(target);
-        if let Err(e) = ctx.fs.symlink(target_path, &link_path).await {
+            false
+        } else {
+            let meta = if no_deref {
+                ctx.fs.lstat(&dest_path).await
+            } else {
+                ctx.fs.stat(&dest_path).await
+            };
+            matches!(meta, Ok(m) if m.file_type.is_dir())
+        };
+        if targets.len() > 1 && !into_dir {
             return Ok(ExecResult::err(
-                format!(
-                    "ln: failed to create symbolic link '{}': {}\n",
-                    link_name, e
-                ),
+                format!("ln: target '{}' is not a directory\n", dest),
                 1,
             ));
         }
 
-        Ok(ExecResult::ok(String::new()))
+        let mut out = String::new();
+        let mut errors = String::new();
+        for target in targets {
+            let (link_name, link_path) = if into_dir {
+                let base = target
+                    .trim_end_matches('/')
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(target);
+                let shown = if dest.ends_with('/') {
+                    format!("{dest}{base}")
+                } else {
+                    format!("{dest}/{base}")
+                };
+                (shown, vfs_join(&dest_path, base))
+            } else {
+                (dest.to_string(), dest_path.clone())
+            };
+
+            if let Ok(meta) = ctx.fs.lstat(&link_path).await {
+                if !force {
+                    errors.push_str(&format!(
+                        "ln: failed to create symbolic link '{}': File exists\n",
+                        link_name
+                    ));
+                    continue;
+                }
+                if meta.file_type.is_dir() {
+                    errors.push_str(&format!(
+                        "ln: '{}': cannot overwrite directory\n",
+                        link_name
+                    ));
+                    continue;
+                }
+                if let Err(e) = ctx.fs.remove(&link_path, false).await {
+                    errors.push_str(&format!("ln: cannot remove '{}': {}\n", link_name, e));
+                    continue;
+                }
+            }
+
+            if let Err(e) = ctx.fs.symlink(Path::new(target), &link_path).await {
+                errors.push_str(&format!(
+                    "ln: failed to create symbolic link '{}': {}\n",
+                    link_name, e
+                ));
+                continue;
+            }
+            if verbose {
+                out.push_str(&format!("'{}' -> '{}'\n", link_name, target));
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(ExecResult::ok(out))
+        } else {
+            let mut r = ExecResult::err(errors, 1);
+            r.stdout = out.into();
+            Ok(r)
+        }
     }
 }
 
@@ -932,54 +1241,6 @@ impl Builtin for Chown {
     }
 }
 
-/// The kill builtin - send signal to process (no-op in VFS).
-///
-/// Usage: kill [-s SIGNAL] [-SIGNAL] PID...
-///
-/// Since there are no real processes in the virtual environment, kill is a no-op
-/// that accepts the command syntax for compatibility.
-pub struct Kill;
-
-#[async_trait]
-impl Builtin for Kill {
-    async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        if let Some(r) = super::check_help_version(
-            ctx.args,
-            "Usage: kill [-s SIGNAL | -SIGNAL] PID...\nSend a signal to a process.\n\n  -s SIGNAL\tspecify the signal to send\n  -l, -L\tlist signal names\n      --help\tdisplay this help and exit\n      --version\toutput version information and exit\n",
-            Some("kill (bashkit) 0.1"),
-        ) {
-            return Ok(r);
-        }
-
-        let mut pids: Vec<&str> = Vec::new();
-
-        for arg in ctx.args {
-            if arg == "-l" || arg == "-L" {
-                // List signal names
-                return Ok(ExecResult::ok(
-                    "HUP INT QUIT ILL TRAP ABRT BUS FPE KILL USR1 SEGV USR2 PIPE ALRM TERM\n"
-                        .to_string(),
-                ));
-            }
-            if arg.starts_with('-') {
-                continue; // skip signal spec
-            }
-            pids.push(arg);
-        }
-
-        if pids.is_empty() {
-            return Ok(ExecResult::err(
-                "kill: usage: kill [-s sigspec | -n signum | -sigspec] pid | jobspec ...\n"
-                    .to_string(),
-                2,
-            ));
-        }
-
-        // In VFS, no real processes exist — just succeed silently
-        Ok(ExecResult::ok(String::new()))
-    }
-}
-
 /// The mktemp builtin - create temporary files or directories.
 ///
 /// Argument surface is generated from uutils/coreutils' `uu_app()` via
@@ -995,26 +1256,41 @@ impl Builtin for Kill {
 ///   -q, --quiet          Suppress error diagnostics on failure.
 pub struct Mktemp;
 
-fn mktemp_suffix_for_attempt(attempt: usize) -> String {
+/// `len` random `[A-Za-z0-9]` characters, re-seeded per attempt.
+fn mktemp_random(attempt: usize, len: usize) -> String {
     use std::collections::hash_map::RandomState;
     use std::hash::{BuildHasher, Hasher};
 
-    let mut hasher = RandomState::new().build_hasher();
-    hasher.write_usize(attempt);
-    let random = hasher.finish();
-    format!("{:010x}", random % 0xFF_FFFF_FFFF)
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let state = RandomState::new();
+    (0..len)
+        .map(|i| {
+            let mut hasher = state.build_hasher();
+            hasher.write_usize(attempt);
+            hasher.write_usize(i);
+            CHARS[(hasher.finish() % CHARS.len() as u64) as usize] as char
+        })
+        .collect()
 }
 
-fn mktemp_name(template: Option<&str>, suffix: &str) -> String {
-    if let Some(tmpl) = template {
-        if tmpl.contains("XXXXXX") {
-            tmpl.replacen("XXXXXX", &suffix[..6], 1)
-        } else {
-            format!("{}.{}", tmpl, &suffix[..6])
-        }
-    } else {
-        format!("tmp.{}", &suffix[..10])
+/// Split TEMPLATE into (prefix, X count, suffix) the GNU way: without
+/// `--suffix`, the suffix is whatever follows the last `X`.
+fn mktemp_split<'a>(
+    template: &'a str,
+    suffix: Option<&'a str>,
+) -> std::result::Result<(&'a str, usize, &'a str), String> {
+    let (body, suffix) = match suffix {
+        Some(suf) => (template, suf),
+        None => match template.rfind('X') {
+            Some(i) => (&template[..=i], &template[i + 1..]),
+            None => (template, ""),
+        },
+    };
+    let xs = body.bytes().rev().take_while(|b| *b == b'X').count();
+    if xs < 3 {
+        return Err(format!("mktemp: too few X's in template '{template}'\n"));
     }
+    Ok((&body[..body.len() - xs], xs, suffix))
 }
 
 // Cached `mktemp` arg surface: pre-built once, cloned per invocation.
@@ -1049,93 +1325,114 @@ impl Builtin for Mktemp {
         let create_dir = matches.get_flag("directory");
         let dry_run = matches.get_flag("dry-run");
         let quiet = matches.get_flag("quiet");
-        let use_tmpdir = matches.get_flag("t");
-        // -p and --tmpdir parse to Option<PathBuf>: empty value falls
-        // back to the default. clap stores the *outer* presence as the
-        // arg id, the typed value as Option<PathBuf>.
+        let use_t = matches.get_flag("t");
+        // -p and --tmpdir parse to Option<PathBuf>; an empty value means
+        // "use $TMPDIR or /tmp".
         let p_value: Option<&Option<PathBuf>> = matches.get_one("p");
         let tmpdir_value: Option<&Option<PathBuf>> = matches.get_one("tmpdir");
+        let dir_arg: Option<String> = match (tmpdir_value, p_value) {
+            (Some(Some(p)), _) | (_, Some(Some(p))) => Some(p.to_string_lossy().into_owned()),
+            _ => None,
+        }
+        .filter(|d| !d.is_empty());
         let suffix_arg = matches
             .get_one::<OsString>("suffix")
             .map(|s| s.to_string_lossy().into_owned());
-
-        let prefix_dir: String = match (tmpdir_value, p_value) {
-            (Some(Some(p)), _) | (_, Some(Some(p))) => p.to_string_lossy().into_owned(),
-            _ => "/tmp".to_string(),
-        };
-
-        let template: Option<String> = matches
+        let template_arg: Option<String> = matches
             .get_one::<OsString>("template")
             .map(|s| s.to_string_lossy().into_owned());
 
-        for attempt in 0..MKTEMP_MAX_ATTEMPTS {
-            let rand_part = mktemp_suffix_for_attempt(attempt);
-            let name_with_x = mktemp_name(template.as_deref(), &rand_part);
-            let name = match &suffix_arg {
-                Some(suf) => format!("{name_with_x}{suf}"),
-                None => name_with_x,
-            };
+        let fail = |msg: String| ExecResult::err(if quiet { String::new() } else { msg }, 1);
 
-            let path = if template.as_deref().is_some_and(|t| t.starts_with('/')) {
-                name
-            } else if use_tmpdir || template.is_none() || !name.contains('/') {
-                format!("{}/{}", prefix_dir, name)
-            } else {
-                let p = resolve_path(ctx.cwd, &name);
-                p.to_string_lossy().to_string()
-            };
-
-            let full_path = std::path::PathBuf::from(&path);
-
-            if let Some(parent) = full_path.parent()
-                && !ctx.fs.exists(parent).await.unwrap_or(false)
-            {
-                let _ = ctx.fs.mkdir(parent, true).await;
+        // GNU: no TEMPLATE implies --tmpdir; -t prefers $TMPDIR over -p.
+        let use_dest_dir =
+            template_arg.is_none() || p_value.is_some() || tmpdir_value.is_some() || use_t;
+        let template = template_arg.unwrap_or_else(|| "tmp.XXXXXXXXXX".to_string());
+        if suffix_arg.as_deref().is_some_and(|s| s.contains('/')) {
+            return Ok(fail(format!(
+                "mktemp: invalid suffix '{}', contains directory separator\n",
+                suffix_arg.as_deref().unwrap_or_default()
+            )));
+        }
+        let (prefix, xs, suffix) = match mktemp_split(&template, suffix_arg.as_deref()) {
+            Ok(parts) => parts,
+            Err(msg) => return Ok(fail(msg)),
+        };
+        let env_tmpdir = ctx.env.get("TMPDIR").filter(|d| !d.is_empty()).cloned();
+        let dest_dir = if !use_dest_dir {
+            None
+        } else if use_t {
+            Some(env_tmpdir.or(dir_arg).unwrap_or_else(|| "/tmp".to_string()))
+        } else {
+            Some(dir_arg.or(env_tmpdir).unwrap_or_else(|| "/tmp".to_string()))
+        };
+        if dest_dir.is_some() && template.starts_with('/') {
+            return Ok(fail(format!(
+                "mktemp: invalid template, '{template}'; with --tmpdir, it may not be absolute\n"
+            )));
+        }
+        if use_t && template.contains('/') {
+            return Ok(fail(format!(
+                "mktemp: invalid template, '{template}', contains directory separator\n"
+            )));
+        }
+        // Sandbox convenience: a VFS without /tmp still gets the default
+        // directory (an explicit -p/TMPDIR directory must already exist).
+        if dest_dir.as_deref() == Some("/tmp") {
+            let tmp = std::path::Path::new("/tmp");
+            if !ctx.fs.exists(tmp).await.unwrap_or(false) {
+                let _ = ctx.fs.mkdir(tmp, true).await;
             }
+        }
+        let shown_template = match &dest_dir {
+            Some(dir) => format!("{}/{template}", dir.trim_end_matches('/')),
+            None => template.clone(),
+        };
+
+        for attempt in 0..MKTEMP_MAX_ATTEMPTS {
+            let name = format!("{prefix}{}{suffix}", mktemp_random(attempt, xs));
+            // Shown as built (relative stays relative); created under cwd.
+            let shown = match &dest_dir {
+                Some(dir) => format!("{}/{name}", dir.trim_end_matches('/')),
+                None => name,
+            };
+            let full_path = resolve_path(ctx.cwd, &shown);
 
             if ctx.fs.exists(&full_path).await.unwrap_or(false) {
                 continue;
             }
-
             if dry_run {
-                return Ok(ExecResult::ok(format!("{}\n", path)));
+                return Ok(ExecResult::ok(format!("{shown}\n")));
             }
-
-            if create_dir {
-                match ctx.fs.mkdir(&full_path, false).await {
-                    Ok(_) => return Ok(ExecResult::ok(format!("{}\n", path))),
-                    Err(_) if ctx.fs.exists(&full_path).await.unwrap_or(false) => continue,
-                    Err(e) => {
-                        let msg = if quiet {
-                            String::new()
-                        } else {
-                            format!("mktemp: failed to create directory '{}': {}\n", path, e)
-                        };
-                        return Ok(ExecResult::err(msg, 1));
-                    }
-                }
+            let created = if create_dir {
+                ctx.fs.mkdir(&full_path, false).await
             } else {
-                match ctx.fs.write_file(&full_path, &[]).await {
-                    Ok(_) => return Ok(ExecResult::ok(format!("{}\n", path))),
-                    Err(_) if ctx.fs.exists(&full_path).await.unwrap_or(false) => continue,
-                    Err(e) => {
-                        let msg = if quiet {
-                            String::new()
-                        } else {
-                            format!("mktemp: failed to create file '{}': {}\n", path, e)
-                        };
-                        return Ok(ExecResult::err(msg, 1));
-                    }
+                ctx.fs.write_file(&full_path, &[]).await
+            };
+            match created {
+                Ok(_) => return Ok(ExecResult::ok(format!("{shown}\n"))),
+                Err(_) if ctx.fs.exists(&full_path).await.unwrap_or(false) => continue,
+                Err(_) => {
+                    let what = if create_dir { "directory" } else { "file" };
+                    let parent_missing = match full_path.parent() {
+                        Some(p) => !ctx.fs.exists(p).await.unwrap_or(false),
+                        None => false,
+                    };
+                    let reason = if parent_missing {
+                        "No such file or directory"
+                    } else {
+                        "Permission denied"
+                    };
+                    return Ok(fail(format!(
+                        "mktemp: failed to create {what} via template '{shown_template}': {reason}\n"
+                    )));
                 }
             }
         }
 
-        let msg = if quiet {
-            String::new()
-        } else {
-            "mktemp: failed to create unique temporary path after 64 attempts\n".to_string()
-        };
-        Ok(ExecResult::err(msg, 1))
+        Ok(fail(format!(
+            "mktemp: failed to create file via template '{shown_template}': File exists\n"
+        )))
     }
 }
 #[cfg(test)]
@@ -1235,7 +1532,7 @@ mod tests {
             shell: None,
         };
 
-        let result = Touch.execute(ctx).await.unwrap();
+        let result = Touch::default().execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
         assert!(fs.exists(&cwd.join("newfile.txt")).await.unwrap());
     }
@@ -1268,7 +1565,7 @@ mod tests {
             shell: None,
         };
 
-        let result = Touch.execute(ctx).await.unwrap();
+        let result = Touch::default().execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
 
         let metadata = fs.stat(&file).await.unwrap();
@@ -1307,7 +1604,7 @@ mod tests {
             shell: None,
         };
 
-        let result = Touch.execute(ctx).await.unwrap();
+        let result = Touch::default().execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 1);
         assert!(result.stderr.contains("invalid date format"));
     }
@@ -1472,12 +1769,11 @@ mod tests {
         assert_eq!(meta.mode, 0o755);
     }
 
-    /// Regression: issue #1577. `ln -f` over a non-empty directory must
-    /// surface the underlying remove failure instead of silently
-    /// proceeding to symlink creation, which on the in-memory VFS would
-    /// orphan the directory's children.
+    /// Regression: issue #1577. `ln -f` must never replace a non-empty
+    /// directory (on the in-memory VFS that would orphan its children). Like
+    /// GNU ln, the link goes inside the directory; with `-T` ln refuses.
     #[tokio::test]
-    async fn test_ln_force_over_non_empty_dir_fails() {
+    async fn test_ln_force_over_non_empty_dir_keeps_children() {
         let (fs, mut cwd, mut variables) = create_test_ctx().await;
         let env = HashMap::new();
 
@@ -1490,49 +1786,55 @@ mod tests {
             .await
             .unwrap();
 
-        let args = vec![
-            "-sf".to_string(),
-            "target.txt".to_string(),
-            "destdir".to_string(),
-        ];
-        let ctx = Context {
-            args: &args,
-            env: &env,
-            variables: &mut variables,
-            cwd: &mut cwd,
-            fs: fs.clone(),
-            stdin: None,
-            #[cfg(feature = "http_client")]
-            http_client: None,
-            #[cfg(feature = "git")]
-            git_client: None,
-            #[cfg(feature = "ssh")]
-            ssh_client: None,
-            shell: None,
-        };
-
-        let result = Ln.execute(ctx).await.unwrap();
-        assert_ne!(
-            result.exit_code, 0,
-            "ln -sf must fail when destination is a non-empty directory"
-        );
-        // Child must still exist; ln must not have proceeded to symlink.
-        assert!(
-            fs.exists(&cwd.join("destdir/child.txt")).await.unwrap(),
-            "child file must not be orphaned"
-        );
+        for (flags, want_exit) in [("-sf", 0), ("-sfT", 1)] {
+            let args = vec![
+                flags.to_string(),
+                "target.txt".to_string(),
+                "destdir".to_string(),
+            ];
+            let ctx = Context {
+                args: &args,
+                env: &env,
+                variables: &mut variables,
+                cwd: &mut cwd,
+                fs: fs.clone(),
+                stdin: None,
+                #[cfg(feature = "http_client")]
+                http_client: None,
+                #[cfg(feature = "git")]
+                git_client: None,
+                #[cfg(feature = "ssh")]
+                ssh_client: None,
+                shell: None,
+            };
+            let result = Ln.execute(ctx).await.unwrap();
+            assert_eq!(result.exit_code, want_exit, "ln {flags}");
+            assert!(
+                fs.exists(&cwd.join("destdir/child.txt")).await.unwrap(),
+                "child file must not be orphaned (ln {flags})"
+            );
+        }
+        let link = fs.read_link(&cwd.join("destdir/target.txt")).await.unwrap();
+        assert_eq!(link, std::path::PathBuf::from("target.txt"));
     }
 
     #[test]
-    fn test_mktemp_name_template_replaces_xxxxxx() {
-        let name = mktemp_name(Some("/tmp/myapp.XXXXXX"), "abcdef1234");
-        assert_eq!(name, "/tmp/myapp.abcdef");
+    fn test_mktemp_split_template() {
+        assert_eq!(
+            mktemp_split("/tmp/myapp.XXXXXX", None),
+            Ok(("/tmp/myapp.", 6, ""))
+        );
+        assert_eq!(mktemp_split("aXXXb.txt", None), Ok(("a", 3, "b.txt")));
+        assert_eq!(mktemp_split("aXXXX", Some(".c")), Ok(("a", 4, ".c")));
+        assert!(mktemp_split("/tmp/myapp", None).is_err());
+        assert!(mktemp_split("aXX", None).is_err());
     }
 
     #[test]
-    fn test_mktemp_name_template_without_xxxxxx_appends_suffix() {
-        let name = mktemp_name(Some("/tmp/myapp"), "abcdef1234");
-        assert_eq!(name, "/tmp/myapp.abcdef");
+    fn test_mktemp_random_charset() {
+        let r = mktemp_random(0, 32);
+        assert_eq!(r.len(), 32);
+        assert!(r.bytes().all(|b| b.is_ascii_alphanumeric()));
     }
 
     async fn run_fileop<B: Builtin>(builtin: &B, args: &[&str]) -> ExecResult {

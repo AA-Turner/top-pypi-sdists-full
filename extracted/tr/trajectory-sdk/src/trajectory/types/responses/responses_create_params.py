@@ -9,4 +9,4 @@ from typing import Any, Required, TypedDict
 class ResponsesCreateParams(TypedDict, total=False):
   model: Required[str]
   input: Required[str | Iterable[Mapping[str, Any]]]
-  stream: bool
+  stream: bool | None

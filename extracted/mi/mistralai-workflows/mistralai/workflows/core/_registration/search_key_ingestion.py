@@ -38,10 +38,12 @@ import temporalio.exceptions
 import temporalio.workflow
 import tenacity
 
+from mistralai.workflows.core._registration.null_value_compat import call_stripping_nulls_on_rejection
 from mistralai.workflows.core._registration.search_keys import (
     _RESERVED_KEY_PREFIX,
     _cap_value,
     _coerce_leaf,
+    _repr_key,
 )
 from mistralai.workflows.core.activity import activity
 from mistralai.workflows.core.config.config import (
@@ -63,13 +65,14 @@ logger = structlog.get_logger(__name__)
 UPSERT_SEARCH_KEYS_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}upsert_search_keys"
 DELETE_SEARCH_KEYS_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}delete_search_keys"
 
+# None-valued keys upsert where pre-WFL-2404 histories dispatched nothing; the patch keeps replay deterministic.
+_UPSERT_NONE_SEARCH_KEYS = "upsert-none-valued-search-keys"
+
 SearchKeyValue: TypeAlias = str | int | float | bool | Enum | UUID | date | None
 
 _Payload = TypeVar("_Payload", dict[str, str | None], list[str])
 
 _CONTAINER_TYPES = (Mapping, list, tuple, set, frozenset)
-
-_LOG_KEY_PREVIEW_CHARS = 64
 
 # Retryable alongside 5xx; every other status the server answers with is permanent.
 _RETRYABLE_STATUS_CODES = frozenset({408, 429})
@@ -84,25 +87,26 @@ def _raise_invalid(message: str) -> NoReturn:
     raise temporalio.exceptions.ApplicationError(message, non_retryable=True)
 
 
-def _validate_key(key: object, allow_reserved: bool) -> bool:
-    """Raise on a key the caller must fix; return False for one to drop silently."""
+def _collect_key_errors(key: object, allow_reserved: bool) -> list[str]:
+    """Errors for a key the caller must fix."""
     if not isinstance(key, str):
-        _raise_invalid(f"Search key must be a string, got {type(key).__name__}.")
+        return [f"Search key must be a string, got {type(key).__name__}."]
+    errors: list[str] = []
     if not key or key != key.strip():
-        _raise_invalid("Search key must not be empty or padded with whitespace.")
+        errors.append(f"{_repr_key(key)} must not be empty or padded with whitespace.")
     if ":" in key:
-        _raise_invalid(f"Search key `{key}` must not contain ':'.")
+        errors.append(f"{_repr_key(key)} must not contain ':'.")
+    if key.endswith("="):
+        errors.append(f"{_repr_key(key)} must not end with '='.")
     if not allow_reserved and key.startswith(_RESERVED_KEY_PREFIX):
-        _raise_invalid(f"Search key `{key}` must not start with `{_RESERVED_KEY_PREFIX}`, which the SDK reserves")
+        errors.append(f"{_repr_key(key)} must not start with `{_RESERVED_KEY_PREFIX}`, which the SDK reserves")
     if len(key) > MAX_SEARCH_KEY_CHARS:
-        logger.warning(
-            "Search key exceeded length cap; dropping",
-            search_key=key[:_LOG_KEY_PREVIEW_CHARS],
-            key_chars=len(key),
-            max_chars=MAX_SEARCH_KEY_CHARS,
-        )
-        return False
-    return True
+        errors.append(f"{_repr_key(key)} must be at most {MAX_SEARCH_KEY_CHARS} characters")
+    return errors
+
+
+def _raise_collected(errors: list[str]) -> NoReturn:
+    raise temporalio.exceptions.ApplicationError("\n".join(errors), non_retryable=True)
 
 
 def _validate_and_coerce(
@@ -113,16 +117,18 @@ def _validate_and_coerce(
     if len(search_keys) > MAX_SEARCH_KEYS:
         _raise_invalid(f"add_search_keys accepts at most {MAX_SEARCH_KEYS} keys per call, got {len(search_keys)}.")
 
+    errors: list[str] = []
     coerced: dict[str, str | None] = {}
     for key, value in search_keys.items():
+        key_errors = _collect_key_errors(key, allow_reserved)
+        errors.extend(key_errors)
         if isinstance(value, _CONTAINER_TYPES):
-            _raise_invalid(f"Search key `{key}` must map to a scalar value, got {type(value).__name__}.")
-        if not _validate_key(key, allow_reserved):
+            errors.append(f"{_repr_key(key)} must map to a scalar value, got {type(value).__name__}.")
             continue
-        if value is None:
-            logger.debug("Search key value is None; skipping", search_key=key)
-            continue
-        coerced[key] = _cap_value(key, _coerce_leaf(value))
+        if not key_errors:
+            coerced[key] = None if value is None else _cap_value(key, _coerce_leaf(value))
+    if errors:
+        _raise_collected(errors)
     return coerced
 
 
@@ -133,10 +139,15 @@ def _validate_keys(keys: Sequence[str], allow_reserved: bool = False) -> list[st
     if len(keys) > MAX_SEARCH_KEYS:
         _raise_invalid(f"delete_search_keys accepts at most {MAX_SEARCH_KEYS} keys per call, got {len(keys)}.")
 
+    errors: list[str] = []
     validated: dict[str, None] = {}
     for key in islice(keys, MAX_SEARCH_KEYS):
-        if _validate_key(key, allow_reserved):
+        key_errors = _collect_key_errors(key, allow_reserved)
+        errors.extend(key_errors)
+        if not key_errors:
             validated[key] = None
+    if errors:
+        _raise_collected(errors)
     return list(validated)
 
 
@@ -204,10 +215,13 @@ async def _upsert_search_keys_impl(
     search_key_metadata: dict[str, str | None],
 ) -> None:
     async with _degrade_on_failure("add_search_keys", temporal_workflow_id):
-        response = await client.upsert_execution_metadata_async(
-            temporal_workflow_id=temporal_workflow_id,
-            temporal_run_id=temporal_run_id,
-            search_key_metadata=search_key_metadata,
+        response = await call_stripping_nulls_on_rejection(
+            lambda metadata: client.upsert_execution_metadata_async(
+                temporal_workflow_id=temporal_workflow_id,
+                temporal_run_id=temporal_run_id,
+                search_key_metadata=metadata,
+            ),
+            search_key_metadata,
         )
         if response.metadata_status != "ok":
             logger.warning(
@@ -319,6 +333,9 @@ async def _dispatch(
 
 async def ingest_search_keys(search_keys: Mapping[str, SearchKeyValue], _allow_reserved: bool = False) -> None:
     coerced = _validate_and_coerce(search_keys, allow_reserved=_allow_reserved)
+    if coerced and temporalio.workflow.in_workflow() and all(value is None for value in coerced.values()):
+        if not temporalio.workflow.patched(_UPSERT_NONE_SEARCH_KEYS):
+            coerced = {}
     if coerced:
         await _dispatch(_upsert_search_keys, _upsert_with_retries, coerced, "Failed to upsert search keys")
 

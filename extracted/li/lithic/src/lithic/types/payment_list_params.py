@@ -22,7 +22,7 @@ class PaymentListParams(TypedDict, total=False):
 
     business_account_token: str
 
-    category: Literal["ACH"]
+    category: Literal["ACH", "STABLECOIN"]
 
     end: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Date string in RFC 3339 format.
@@ -50,4 +50,4 @@ class PaymentListParams(TypedDict, total=False):
     Used to retrieve the next page of results after this item.
     """
 
-    status: Literal["DECLINED", "PENDING", "RETURNED", "SETTLED"]
+    status: Literal["DECLINED", "PENDING", "RETURNED", "REVERSED", "SETTLED"]

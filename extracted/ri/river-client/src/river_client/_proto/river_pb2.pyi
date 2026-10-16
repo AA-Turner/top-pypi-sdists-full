@@ -254,26 +254,44 @@ class SessionHeartbeatRequest(_message.Message):
     def __init__(self, session_id: _Optional[str] = ...) -> None: ...
 
 class SessionHeartbeatResponse(_message.Message):
-    __slots__ = ("success",)
+    __slots__ = ("success", "capacity_status")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    CAPACITY_STATUS_FIELD_NUMBER: _ClassVar[int]
     success: bool
-    def __init__(self, success: bool = ...) -> None: ...
+    capacity_status: _containers.RepeatedCompositeFieldContainer[CapacityStatus]
+    def __init__(self, success: bool = ..., capacity_status: _Optional[_Iterable[_Union[CapacityStatus, _Mapping]]] = ...) -> None: ...
+
+class CapacityStatus(_message.Message):
+    __slots__ = ("training_run_id", "workload", "state", "capacity_wait", "observed_at")
+    TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    CAPACITY_WAIT_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    training_run_id: str
+    workload: str
+    state: str
+    capacity_wait: bool
+    observed_at: _timestamp_pb2.Timestamp
+    def __init__(self, training_run_id: _Optional[str] = ..., workload: _Optional[str] = ..., state: _Optional[str] = ..., capacity_wait: bool = ..., observed_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CreateModelRequest(_message.Message):
-    __slots__ = ("session_id", "model_seq_id", "base_model", "lora_config", "user_metadata", "training_data_attestation_id")
+    __slots__ = ("session_id", "model_seq_id", "base_model", "lora_config", "user_metadata", "training_data_attestation_id", "full_weight")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     BASE_MODEL_FIELD_NUMBER: _ClassVar[int]
     LORA_CONFIG_FIELD_NUMBER: _ClassVar[int]
     USER_METADATA_FIELD_NUMBER: _ClassVar[int]
     TRAINING_DATA_ATTESTATION_ID_FIELD_NUMBER: _ClassVar[int]
+    FULL_WEIGHT_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     model_seq_id: int
     base_model: str
     lora_config: LoraConfig
     user_metadata: _struct_pb2.Struct
     training_data_attestation_id: str
-    def __init__(self, session_id: _Optional[str] = ..., model_seq_id: _Optional[int] = ..., base_model: _Optional[str] = ..., lora_config: _Optional[_Union[LoraConfig, _Mapping]] = ..., user_metadata: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., training_data_attestation_id: _Optional[str] = ...) -> None: ...
+    full_weight: bool
+    def __init__(self, session_id: _Optional[str] = ..., model_seq_id: _Optional[int] = ..., base_model: _Optional[str] = ..., lora_config: _Optional[_Union[LoraConfig, _Mapping]] = ..., user_metadata: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., training_data_attestation_id: _Optional[str] = ..., full_weight: bool = ...) -> None: ...
 
 class TrainingDataArtifact(_message.Message):
     __slots__ = ("name", "expected_sha256", "content")
@@ -340,7 +358,7 @@ class PolicyVersion(_message.Message):
     def __init__(self, id: _Optional[str] = ..., lineage_id: _Optional[str] = ..., step: _Optional[int] = ..., parent_id: _Optional[str] = ...) -> None: ...
 
 class GetInfoResponse(_message.Message):
-    __slots__ = ("type", "model_data", "model_id", "is_lora", "lora_rank", "model_name", "policy_version")
+    __slots__ = ("type", "model_data", "model_id", "is_lora", "lora_rank", "model_name", "policy_version", "latest_auto_checkpoint", "last_auto_checkpoint_error", "run_storage_bytes")
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MODEL_DATA_FIELD_NUMBER: _ClassVar[int]
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
@@ -348,6 +366,9 @@ class GetInfoResponse(_message.Message):
     LORA_RANK_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    LATEST_AUTO_CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
+    LAST_AUTO_CHECKPOINT_ERROR_FIELD_NUMBER: _ClassVar[int]
+    RUN_STORAGE_BYTES_FIELD_NUMBER: _ClassVar[int]
     type: str
     model_data: ModelData
     model_id: str
@@ -355,7 +376,22 @@ class GetInfoResponse(_message.Message):
     lora_rank: int
     model_name: str
     policy_version: PolicyVersion
-    def __init__(self, type: _Optional[str] = ..., model_data: _Optional[_Union[ModelData, _Mapping]] = ..., model_id: _Optional[str] = ..., is_lora: bool = ..., lora_rank: _Optional[int] = ..., model_name: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
+    latest_auto_checkpoint: AutoCheckpoint
+    last_auto_checkpoint_error: str
+    run_storage_bytes: int
+    def __init__(self, type: _Optional[str] = ..., model_data: _Optional[_Union[ModelData, _Mapping]] = ..., model_id: _Optional[str] = ..., is_lora: bool = ..., lora_rank: _Optional[int] = ..., model_name: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., latest_auto_checkpoint: _Optional[_Union[AutoCheckpoint, _Mapping]] = ..., last_auto_checkpoint_error: _Optional[str] = ..., run_storage_bytes: _Optional[int] = ...) -> None: ...
+
+class AutoCheckpoint(_message.Message):
+    __slots__ = ("path", "policy_version", "size_bytes", "created_at")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    policy_version: PolicyVersion
+    size_bytes: int
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(self, path: _Optional[str] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., size_bytes: _Optional[int] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class UnloadModelRequest(_message.Message):
     __slots__ = ("model_id", "seq_id")
@@ -475,7 +511,7 @@ class LoadWeightsRequest(_message.Message):
     def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., optimizer: bool = ...) -> None: ...
 
 class SaveWeightsRequest(_message.Message):
-    __slots__ = ("model_id", "seq_id", "path", "mode", "ttl_seconds", "immutable", "expected_policy_id")
+    __slots__ = ("model_id", "seq_id", "path", "mode", "ttl_seconds", "immutable", "expected_policy_id", "durable")
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
@@ -483,6 +519,7 @@ class SaveWeightsRequest(_message.Message):
     TTL_SECONDS_FIELD_NUMBER: _ClassVar[int]
     IMMUTABLE_FIELD_NUMBER: _ClassVar[int]
     EXPECTED_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+    DURABLE_FIELD_NUMBER: _ClassVar[int]
     model_id: str
     seq_id: int
     path: str
@@ -490,7 +527,8 @@ class SaveWeightsRequest(_message.Message):
     ttl_seconds: int
     immutable: bool
     expected_policy_id: str
-    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., mode: _Optional[str] = ..., ttl_seconds: _Optional[int] = ..., immutable: bool = ..., expected_policy_id: _Optional[str] = ...) -> None: ...
+    durable: bool
+    def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ..., path: _Optional[str] = ..., mode: _Optional[str] = ..., ttl_seconds: _Optional[int] = ..., immutable: bool = ..., expected_policy_id: _Optional[str] = ..., durable: bool = ...) -> None: ...
 
 class RetrieveFutureRequest(_message.Message):
     __slots__ = ("request_id", "model_id")
@@ -755,8 +793,16 @@ class SampleFromCheckpointRequest(_message.Message):
     metrics_type: str
     def __init__(self, checkpoint_path: _Optional[str] = ..., base_model: _Optional[str] = ..., prompts: _Optional[_Iterable[_Union[InferencePrompt, _Mapping]]] = ..., metrics_type: _Optional[str] = ...) -> None: ...
 
+class PolicySpan(_message.Message):
+    __slots__ = ("end", "policy_version")
+    END_FIELD_NUMBER: _ClassVar[int]
+    POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    end: int
+    policy_version: PolicyVersion
+    def __init__(self, end: _Optional[int] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
+
 class InferenceResult(_message.Message):
-    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics", "policy_version", "retained_kv", "cached_prompt_tokens", "prompt_tokens", "kv_cache_policy_version")
+    __slots__ = ("text", "token_logprobs", "tokens", "prompt_token_logprobs", "token_ids", "prompt_token_ids", "top_logprobs", "prompt_top_logprobs", "expert_routing", "metrics", "policy_version", "retained_kv", "cached_prompt_tokens", "prompt_tokens", "kv_cache_policy_version", "policy_spans")
     class MetricsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -779,6 +825,7 @@ class InferenceResult(_message.Message):
     CACHED_PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     KV_CACHE_POLICY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    POLICY_SPANS_FIELD_NUMBER: _ClassVar[int]
     text: str
     token_logprobs: _containers.RepeatedScalarFieldContainer[float]
     tokens: _containers.RepeatedScalarFieldContainer[str]
@@ -794,7 +841,8 @@ class InferenceResult(_message.Message):
     cached_prompt_tokens: int
     prompt_tokens: int
     kv_cache_policy_version: PolicyVersion
-    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., prompt_top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ...) -> None: ...
+    policy_spans: _containers.RepeatedCompositeFieldContainer[PolicySpan]
+    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., prompt_top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., policy_spans: _Optional[_Iterable[_Union[PolicySpan, _Mapping]]] = ...) -> None: ...
 
 class ExpertRouting(_message.Message):
     __slots__ = ("num_tokens", "num_decoder_layers", "top_k", "layer_indices", "topk_ids", "topk_weights", "routing_handle")

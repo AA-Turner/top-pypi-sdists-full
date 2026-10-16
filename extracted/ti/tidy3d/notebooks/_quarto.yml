@@ -47,7 +47,6 @@ project:
     - Autograd7Metalens.qmd
     - Autograd8WaveguideBend.qmd
     - Autograd9WDM.qmd
-    - AvalanchePhotodiode.qmd
     - Bandstructure.qmd
     - BatchModeSolver.qmd
     - BayesianOptimizationYJunction.qmd

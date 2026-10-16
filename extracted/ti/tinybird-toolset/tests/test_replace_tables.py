@@ -698,6 +698,11 @@ class TestReplaceTables(unittest.TestCase):
         replacements = {("default", "table"): ("d_012345", "t_wadus")}
         for sql in [
             "EXPLAIN PLAN actions=1 SELECT table.col FROM table",
+            "EXPLAIN PIPELINE header=1 SELECT table.col FROM table",
+            "EXPLAIN QUERY TREE passes=1 SELECT table.col FROM table",
+            "EXPLAIN SYNTAX oneline=1 SELECT table.col FROM table",
+            "EXPLAIN AST SELECT table.col FROM table",
+            "EXPLAIN ESTIMATE SELECT table.col FROM table",
         ]:
             expected_query = sql.replace("FROM table", "FROM d_012345.t_wadus as table").replace("table.col", "t_wadus.col")
             replaced = chquery.replace_tables(sql, replacements, default_database="default")
@@ -709,7 +714,7 @@ class TestReplaceTables(unittest.TestCase):
             "SELECT * FROM file('/etc/passwd', 'CSV', 'a String')",
             "SELECT * FROM view(SELECT 1)",
         ]
-        for explain in ["EXPLAIN", "EXPLAIN PLAN actions=1"]:
+        for explain in ["EXPLAIN", "EXPLAIN PLAN actions=1", "EXPLAIN PIPELINE header=1", "EXPLAIN QUERY TREE passes=1", "EXPLAIN SYNTAX oneline=1", "EXPLAIN AST", "EXPLAIN ESTIMATE"]:
             for query in explained:
                 with self.assertRaisesRegex(ValueError, "is restricted"):
                     chquery.replace_tables(f"{explain} {query}", {("default", "t"): ("d_1", "t_1")})
@@ -723,29 +728,18 @@ class TestReplaceTables(unittest.TestCase):
             self.assertIn("db_b.events_b", replaced_b)
             self.assertNotIn("db_a", replaced_b)
 
-    def test_explain_query_throws_with_unsupported_kinds(self):
-        for kind in ["AST", "SYNTAX", "QUERY TREE", "PIPELINE", "ESTIMATE"]:
-            with self.assertRaisesRegex(ValueError, 'Only plain EXPLAIN is supported'):
-                chquery.replace_tables(f"EXPLAIN {kind} SELECT col FROM table", {("default", "table"): ("d_012345", "t_wadus")})
-
     def test_explain_query_throws_with_unsupported_explained_query(self):
         queries = [
             "EXPLAIN INSERT INTO test.table VALUES (1,2,3)",
             "EXPLAIN INSERT INTO test.table SELECT * FROM other",
             "EXPLAIN CREATE TABLE table_test (`index` String) ENGINE = MergeTree ORDER BY index",
-        ]
-        for q in queries:
-            with self.assertRaisesRegex(ValueError, 'EXPLAIN is only supported for SELECT queries'):
-                chquery.replace_tables(q, {("default", "table"): ("d_012345", "t_wadus")})
-
-        queries = [
             "EXPLAIN TABLE OVERRIDE mysql('127.0.0.1:3306', 'db', 't', 'u', 'p') PARTITION BY toYYYYMM(d)",
             "EXPLAIN CURRENT TRANSACTION",
             "EXPLAIN AST DROP TABLE test",
             "EXPLAIN AST INSERT INTO test.table VALUES (1,2,3)",
         ]
         for q in queries:
-            with self.assertRaisesRegex(ValueError, 'Only plain EXPLAIN is supported'):
+            with self.assertRaisesRegex(ValueError, 'EXPLAIN is only supported for SELECT queries'):
                 chquery.replace_tables(q, {("default", "table"): ("d_012345", "t_wadus")})
 
     def test_replace_of_table_function_throws(self):

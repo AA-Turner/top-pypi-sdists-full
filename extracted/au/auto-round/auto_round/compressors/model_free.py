@@ -110,7 +110,7 @@ import tempfile
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, as_completed, wait
 from dataclasses import asdict, fields
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from safetensors import safe_open
@@ -319,6 +319,7 @@ def _prefetch_shard(
     work_dir: str,
     source_dir: str,
     streaming: bool,
+    subfolder: str | None = None,
 ) -> str | None:
     """Return the local path of the next shard (download if needed)."""
     try:
@@ -326,6 +327,18 @@ def _prefetch_shard(
             # Keep source shards in a dedicated cache directory to avoid
             # colliding with quantized output shard names in output_dir.
             shard_cache_dir = os.path.join(work_dir, ".cache", "model_free_source_shards")
+            if subfolder:
+                if os.path.isdir(model_name_or_path):
+                    model_name_or_path = os.path.join(model_name_or_path, subfolder)
+                else:
+                    local_path = str(resolve_within_directory(shard_cache_dir, shard_name, origin="shard list"))
+                    if os.path.isfile(local_path):
+                        return local_path
+                    remote_name = subfolder + "/" + shard_name
+                    path = _download_single_shard(model_name_or_path, remote_name, shard_cache_dir)
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    shutil.move(path, local_path)
+                    return local_path
             return _download_single_shard(model_name_or_path, shard_name, shard_cache_dir)
         path = str(resolve_within_directory(source_dir, shard_name, origin="shard list"))
         return path if os.path.exists(path) else None
@@ -545,14 +558,14 @@ class _ModelFreeCompressorCore:
         self,
         model_name_or_path: str,
         output_dir: str,
-        scheme: Union[str, QuantizationScheme] = "W4A16",
-        layer_config: Optional[dict] = None,
+        scheme: str | QuantizationScheme = "W4A16",
+        layer_config: dict | None = None,
         ignore_layers: str = "",
-        format: Optional[str] = None,
+        format: str | None = None,
         device: str = "cpu",
         quant_lm_head: bool = False,
         quant_nontext_module: bool = False,
-        enable_torch_compile: Optional[bool] = None,
+        enable_torch_compile: bool | None = None,
         disable_opt_rtn: bool = False,
     ) -> None:
         # --- raw inputs ---
@@ -597,6 +610,8 @@ class _ModelFreeCompressorCore:
         self.is_streaming: bool = False
         self.is_diffusion_model: bool = False
         self.diffusion_root_dir: str = ""
+        self.diffusion_component = "transformer"
+        self._resolved_diffusion_source = None
         self.work_dir: str = ""
         self.source_dir: str = ""
         self.shard_names: list[str] = []
@@ -723,6 +738,17 @@ class _ModelFreeCompressorCore:
     # -------------------------------------------------------------------
 
     def _resolve_source(self) -> None:
+        if self._resolved_diffusion_source is not None:
+            self.diffusion_root_dir, self.is_streaming = self._resolved_diffusion_source
+            self.is_diffusion_model = True
+            component_dir = os.path.join(self.diffusion_root_dir, self.diffusion_component)
+            if self.is_streaming:
+                self.work_dir = component_dir
+            else:
+                self.source_dir = component_dir
+            self.config = _load_config(component_dir)
+            self.source_quantization_config = copy.deepcopy(_find_quantization_config(self.config))
+            return
         os.makedirs(self.output_dir, exist_ok=True)
         cached, cache_reason = _get_model_cache_status(self.model_name_or_path)
         self.is_streaming = not cached
@@ -737,7 +763,7 @@ class _ModelFreeCompressorCore:
                 "(snapshot_download with weight ignore patterns), then fetch "
                 "weight shards on demand (hf_hub_download)."
             )
-            self.work_dir = self.output_dir
+            self.work_dir = os.path.join(self.output_dir, ".cache", "model_free_metadata")
             _download_metadata_files(self.model_name_or_path, self.work_dir)
             transformer_work_dir = os.path.join(self.work_dir, "transformer")
             if (
@@ -750,7 +776,7 @@ class _ModelFreeCompressorCore:
                 self.work_dir = transformer_work_dir
                 logger.info(
                     "Detected diffusion model (no root config.json, found transformer/ subfolder). "
-                    "Only the transformer component will be quantized; other sub-components are skipped."
+                    "All transformer components will be quantized; other sub-components are copied."
                 )
             self.config = _load_config(self.work_dir)
         else:
@@ -770,7 +796,7 @@ class _ModelFreeCompressorCore:
                 self.source_dir = transformer_source_dir
                 logger.info(
                     "Detected diffusion model (no root config.json, found transformer/ subfolder). "
-                    "Only the transformer component will be quantized; other sub-components are skipped."
+                    "All transformer components will be quantized; other sub-components are copied."
                 )
             self.config = _load_config(self.source_dir)
 
@@ -790,7 +816,7 @@ class _ModelFreeCompressorCore:
             if incompatible:
                 # Group by class for a cleaner warning message
                 incompatible_layers = []
-                for cls, layers in incompatible.items():
+                for layers in incompatible.values():
                     incompatible_layers.extend(layers)
                 summary = ", ".join(f"{cls}({len(layers)})" for cls, layers in sorted(incompatible.items()))
                 self.ignore_patterns.extend(incompatible_layers)
@@ -849,12 +875,20 @@ class _ModelFreeCompressorCore:
 
     def _discover_shards(self) -> None:
         search_dir = self.work_dir if self.is_streaming else self.source_dir
-        self.shard_names = _list_weight_shards(search_dir)
-        if self.is_streaming and not self.shard_names:
+        # Source indices live in the isolated metadata cache; never infer streamed
+        # source names from output shards, or include remote files outside the index.
+        has_source_index = any(
+            name.endswith((".safetensors.index.json", ".bin.index.json")) for name in os.listdir(search_dir)
+        )
+        self.shard_names = _list_weight_shards(search_dir) if not self.is_streaming or has_source_index else []
+        if self.is_streaming and not has_source_index:
             from auto_round.utils.model_free_utils import _list_remote_weight_shards
 
-            subfolder = "transformer" if self.is_diffusion_model else None
+            subfolder = self.diffusion_component if self.is_diffusion_model else None
             self.shard_names = _list_remote_weight_shards(self.model_name_or_path, subfolder=subfolder)
+            if subfolder:
+                prefix = subfolder + "/"
+                self.shard_names = [name.removeprefix(prefix) for name in self.shard_names]
         if not self.shard_names:
             raise FileNotFoundError(f"No safetensors or PyTorch weight files found for {self.model_name_or_path}")
 
@@ -1012,12 +1046,12 @@ class _ModelFreeCompressorCore:
     def _quant_output_dir(self) -> str:
         """Effective output directory for quantized weight shards and config.
 
-        For diffusion models the quantized transformer component is written
-        to ``<output_dir>/transformer/``; for all other models the top-level
+        For diffusion models each quantized transformer component is written
+        to its own subdirectory; for all other models the top-level
         ``output_dir`` is used directly.
         """
         if self.is_diffusion_model:
-            return os.path.join(self.output_dir, "transformer")
+            return os.path.join(self.output_dir, self.diffusion_component)
         return self.output_dir
 
     # -------------------------------------------------------------------
@@ -1026,7 +1060,7 @@ class _ModelFreeCompressorCore:
 
     @property
     def _resume_manifest_path(self) -> str:
-        return os.path.join(self.output_dir, ".cache", _RESUME_MANIFEST_NAME)
+        return os.path.join(self._quant_output_dir, ".cache", _RESUME_MANIFEST_NAME)
 
     def _build_resume_parameters(self) -> dict:
         """Return the effective command inputs that determine shard output."""
@@ -1385,6 +1419,7 @@ class _ModelFreeCompressorCore:
                 self.work_dir,
                 self.source_dir,
                 self.is_streaming,
+                self.diffusion_component if self.is_diffusion_model else None,
             )
             download_futures[future] = (shard_idx, shard_name)
             next_download_idx += 1
@@ -1448,6 +1483,7 @@ class _ModelFreeCompressorCore:
                                 quant_output_dir=self._quant_output_dir,
                                 total_shards=total_shards,
                                 enable_torch_compile=self.enable_torch_compile,
+                                disable_opt_rtn=self.disable_opt_rtn,
                                 # Keep donor shards alive for recipient hydration.
                                 cleanup_source_shard=not is_donor,
                                 donor_tensors_to_exclude=donor_tensors,
@@ -1544,12 +1580,37 @@ class _ModelFreeCompressorCore:
         with open(os.path.join(self._quant_output_dir, "quantization_config.json"), "w") as f:
             json.dump(quantization_config, f, indent=2)
 
-    def _copy_metadata_files(self) -> None:
-        if self.is_streaming:
-            # Metadata was downloaded directly to output_dir (or output_dir/transformer/
-            # for diffusion models) — nothing to copy or clean up.
+    def _quantize_additional_transformers(self) -> None:
+        """Run a separate shard pipeline for each additional transformer."""
+        if not self.is_diffusion_model or self.diffusion_component != "transformer":
             return
+        for name in sorted(os.listdir(self.diffusion_root_dir)):
+            if name == "transformer" or not name.startswith("transformer"):
+                continue
+            if not os.path.isfile(os.path.join(self.diffusion_root_dir, name, "config.json")):
+                continue
+            logger.info(f"Model-free quantization of {name}")
+            component = _ModelFreeCompressorCore(
+                model_name_or_path=self.model_name_or_path,
+                output_dir=self.output_dir,
+                scheme=copy.deepcopy(self.scheme_input),
+                layer_config=copy.deepcopy(self.layer_config_input),
+                ignore_layers=self.ignore_layers_input,
+                format=self.format,
+                device=self.device,
+                quant_lm_head=self.quant_lm_head,
+                quant_nontext_module=self.quant_nontext_module,
+                enable_torch_compile=self.enable_torch_compile,
+                disable_opt_rtn=self.disable_opt_rtn,
+            )
+            component.user_scheme_overrides = copy.deepcopy(getattr(self, "user_scheme_overrides", {}))
+            component.diffusion_component = name
+            component._resolved_diffusion_source = (self.diffusion_root_dir, self.is_streaming)
+            component.run()
 
+    def _copy_metadata_files(self) -> None:
+        if self.diffusion_component != "transformer":
+            return
         if self.is_diffusion_model:
             # For diffusion models, copy root-level metadata files and
             # sub-component directories (vae, scheduler, tokenizer, …) to
@@ -1569,10 +1630,11 @@ class _ModelFreeCompressorCore:
                     shutil.copy2(src, dst)
             return
 
-        for fname in os.listdir(self.source_dir):
+        metadata_dir = self.work_dir if self.is_streaming else self.source_dir
+        for fname in os.listdir(metadata_dir):
             if _is_weight_shard(fname) or _is_stale_quantization_metadata(fname):
                 continue
-            src = os.path.join(self.source_dir, fname)
+            src = os.path.join(metadata_dir, fname)
             dst = os.path.join(self.output_dir, fname)
             if os.path.isdir(src):
                 if not os.path.exists(dst):
@@ -1710,6 +1772,7 @@ class _ModelFreeCompressorCore:
         # ---- write outputs ----
         self._write_index()
         self._write_config_files()
+        self._quantize_additional_transformers()
         self._copy_metadata_files()
         self._clear_resume_state()
         self._cleanup_streaming_shard_cache()
@@ -1758,11 +1821,11 @@ class ModelFreeCompressor(_ModelFreeCompressorCore):
     def __init__(
         self,
         model_name_or_path: str,
-        output_dir: Optional[str] = None,
-        scheme: Union[str, QuantizationScheme] = "W4A16",
-        layer_config: Optional[dict] = None,
+        output_dir: str | None = None,
+        scheme: str | QuantizationScheme = "W4A16",
+        layer_config: dict | None = None,
         ignore_layers: str = "",
-        format: Optional[str] = None,
+        format: str | None = None,
         device: str = "cpu",
         quant_lm_head: bool = False,
         quant_nontext_module: bool = False,
@@ -1770,7 +1833,7 @@ class ModelFreeCompressor(_ModelFreeCompressorCore):
         tokenizer: Any = None,
         device_map: Any = None,
         low_cpu_mem_usage: bool = True,
-        enable_torch_compile: Optional[bool] = None,
+        enable_torch_compile: bool | None = None,
         disable_opt_rtn: bool = False,
         **kwargs,
     ) -> None:
@@ -1811,7 +1874,7 @@ class ModelFreeCompressor(_ModelFreeCompressorCore):
 
         # Compressor-role state (mirrors BaseCompressor attributes used by
         # AutoRound's post-processing code)
-        self._output_dir_override: Optional[str] = None  # set by quantize_and_save
+        self._output_dir_override: str | None = None  # set by quantize_and_save
         self.model = None
         self.tokenizer = tokenizer
         self.model_free = True
@@ -1832,6 +1895,10 @@ class ModelFreeCompressor(_ModelFreeCompressorCore):
             model=model_name_or_path,
             iters=0,
             disable_opt_rtn=disable_opt_rtn,
+            # Forward the user's torch.compile choice so the fallback compressor
+            # honors an explicit --enable_torch_compile request. ``None`` keeps the
+            # fallback's default situational policy (auto-disable for RTN/OPT-RTN).
+            enable_torch_compile=enable_torch_compile,
             tokenizer=tokenizer,
             scheme=copy.deepcopy(scheme),
             layer_config=copy.deepcopy(layer_config),
@@ -1857,9 +1924,9 @@ class ModelFreeCompressor(_ModelFreeCompressorCore):
 
         # AutoScheme (two-phase delta-loss selection) state.
         self._auto_scheme_resolved = False
-        self._auto_scheme_family: Optional[str] = None
+        self._auto_scheme_family: str | None = None
 
-    def _fallback_to_base_compressor(self, save_format: Optional[str] = None):
+    def _fallback_to_base_compressor(self, save_format: str | None = None):
         from auto_round.autoround import AutoRound
 
         logger.info(

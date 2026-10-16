@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.47.43"
+version = "0.47.44"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     "pydantic>=2.12.5,<3.0.0",
     "pyyaml>=6.0.2,<7.0.0",
-    "dependency-injector>=4.48.3,<5.0.0",
+    "dependency-injector>=4.49.1,<5.0.0",
     "deepdiff>=8.0.0,<10.0.0",
     "click>=8.3.1,<9.0.0",
     # OMN-15688 (2026-08-04): floor raised to 50.0.0 to clear two HIGH CVEs that
@@ -198,16 +198,16 @@ sql-parser = ["sqlglot>=26.0.0,<31.0.0"]
 # Declared as its own extra rather than folded into a consumer's existing
 # dev dependencies -- pytest/pytest-asyncio become a real import-time
 # dependency of that one submodule, so the wheel metadata says so honestly.
-testing = ["pytest>=8.4.0", "pytest-asyncio>=1.3.0"]
-full = ["omnibase-spi>=0.20.2", "psutil>=7.2.1", "aiokafka>=0.12.0,<1.0.0", "confluent-kafka>=2.12.0,<3.0.0", "redis>=5.0.0,<9.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0", "pytest>=8.4.0", "pytest-asyncio>=1.3.0"]
+testing = ["pytest>=8.4.0", "pytest-asyncio>=1.4,<2"]
+full = ["omnibase-spi>=0.20.2", "psutil>=7.2.1", "aiokafka>=0.12.0,<1.0.0", "confluent-kafka>=2.12.0,<3.0.0", "redis>=5.0.0,<9.0.0", "prometheus-client>=0.21.0,<1.0.0", "sqlglot>=26.0.0,<31.0.0", "pytest>=8.4.0", "pytest-asyncio>=1.4,<2"]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",
-    "pytest-asyncio>=1.3.0",
+    "pytest-asyncio>=1.4,<2",
     "mypy>=1.19.1",
     "pyright>=1.1.408",
-    "ruff>=0.14.13,<0.17.0",
+    "ruff>=0.14.13,<0.18.0",
     "types-pyyaml>=6.0.12.20250822",
     "pre-commit>=4.5.1",
     "types-requests>=2.32.4.20250913",
@@ -229,12 +229,7 @@ dev = [
     "prometheus-client>=0.21.0,<1.0.0",
     "types-psutil>=7.2.1.20260116",
     "sqlglot>=26.0.0,<31.0.0",
-    # Centralized governance hooks (OMN-5135)
-    "onex-change-control>=0.1.0",
 ]
-
-[tool.uv.sources]
-onex-change-control = { git = "https://github.com/OmniNode-ai/onex_change_control.git", rev = "41054810a25db826a4c649f491a2d980bffb0c17" }  # pragma: allowlist secret  # OMN-13762: pinned to immutable SHA (was branch="main"; v0.1.0, last OCC version without omnibase-core circular dep)  # onex-allow-pin-hygiene OMN-13762
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/omnibase_core"]
@@ -404,14 +399,11 @@ ignore = [
 "src/omnibase_core/validation/validator_base.py" = ["T201"]
 "src/omnibase_core/validation/validator_circular_import.py" = ["T201"]
 "src/omnibase_core/validation/validator_cli.py" = ["T201"]
-"src/omnibase_core/validation/validator_receipt_gate_cli.py" = ["T201"]
 "src/omnibase_core/validation/validator_evidence_shape_cli.py" = ["T201"]  # CLI output for the pre-push Evidence-Source shape check (OMN-14682)
-"src/omnibase_core/validation/validator_evidence_commit_binding_cli.py" = ["T201"]  # CLI output for the Evidence-Commit binding check (OMN-15111)
 "src/omnibase_core/validation/validator_receipt_reprobe.py" = ["T201"]  # CLI output for re-probe verification (OMN-9789)
 "src/omnibase_core/validation/validator_receipt_diff_consistency.py" = ["T201"]  # CLI output for the attestation diff-consistency gate (OMN-13927)
 "src/omnibase_core/validation/validator_duplicate_config_ids.py" = ["T201"]  # CLI output for the duplicate-registry-id guard (OMN-14401)
 "scripts/analysis/co_change_dark_matter.py" = ["T201"]
-"scripts/validation/validate_pr_receipts.py" = ["T201"]
 "scripts/validation/validate_pr_deploy_required.py" = ["T201"]
 "scripts/validation/validate_no_except_swallow.py" = ["T201"]
 "scripts/validation/validate_no_none_guard_publish.py" = ["T201"]

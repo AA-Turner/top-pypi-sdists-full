@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-datastream
-Version: 1.20.0
+Version: 1.21.0
 Summary: Google Cloud Datastream API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-datastream
 Author: Google LLC

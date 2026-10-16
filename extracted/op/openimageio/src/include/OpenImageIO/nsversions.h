@@ -148,9 +148,16 @@
 #define OIIO_NS_END } }
 
 // Specialty macro: Make something ABI compatible with 3.1
-#define OIIO_NAMESPACE_3_1_BEGIN OIIO_NAMESPACE_BEGIN
-#define OIIO_NAMESPACE_3_1_END OIIO_NAMESPACE_END
+#define OIIO_NAMESPACE_3_1_BEGIN OIIO_NS_BEGIN(v3_1)
+#define OIIO_NAMESPACE_3_1_END OIIO_NS_END
 
+// Specialty macro: Make something ABI compatible with 3.2
+#define OIIO_NAMESPACE_3_2_BEGIN OIIO_NS_BEGIN(v3_2)
+#define OIIO_NAMESPACE_3_2_END OIIO_NS_END
+
+// Specialty macro: Make something ABI compatible with 3.3
+#define OIIO_NAMESPACE_3_3_BEGIN OIIO_NS_BEGIN(v3_3)
+#define OIIO_NAMESPACE_3_3_END OIIO_NS_END
 
 
 
@@ -200,5 +207,50 @@ namespace Strutil { }
 namespace Sysutil { }
 namespace simd { }
 OIIO_NAMESPACE_3_1_END
+
+OIIO_NAMESPACE_BEGIN
+// libOpenImageIO_Util
+using v3_1::ArgParse;
+using v3_1::ColorConfig;
+using v3_1::ColorProcessor;
+using v3_1::ErrorHandler;
+using v3_1::Filter1D;
+using v3_1::Filter2D;
+using v3_1::FilterDesc;
+using v3_1::ParamValue;
+using v3_1::ParamValueList;
+using v3_1::ParamValueSpan;
+using v3_1::ScopedTimer;
+using v3_1::Timer;
+using v3_1::TypeDesc;
+using v3_1::ustring;
+using v3_1::ustringhash;
+
+// libOpenImageIO
+using v3_1::DeepData;
+using v3_1::ImageBuf;
+using v3_1::ImageBufImpl;
+using v3_1::ImageCache;
+using v3_1::ImageCachePerThreadInfo;
+using v3_1::ImageCacheFile;
+using v3_1::ImageCacheImpl;
+using v3_1::ImageCacheTile;
+using v3_1::ImageInput;
+using v3_1::ImageOutput;
+using v3_1::ImageSpec;
+using v3_1::paropt;
+using v3_1::ROI;
+using v3_1::TextureOptBatch_v1;
+using v3_1::TextureOpt_v2;
+using TextureOpt = v3_1::TextureOpt_v2;
+using TextureOptBatch = v3_1::TextureOptBatch_v1;
+using v3_1::TextureSystem;
+using v3_1::TextureSystemImpl;
+namespace Filesystem { using namespace v3_1::Filesystem; }
+namespace ImageBufAlgo { using namespace v3_1::ImageBufAlgo; }
+namespace Strutil { using namespace v3_1::Strutil; }
+namespace Sysutil { using namespace v3_1::Sysutil; }
+namespace simd { using namespace v3_1::simd; }
+OIIO_NAMESPACE_END
 
 #endif /* defined(OPENIMAGEIO_NSVERSIONS_H) */

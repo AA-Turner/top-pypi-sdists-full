@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot
-Version: 3.19.0
+Version: 3.20.0
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -45,7 +45,7 @@ Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: responses==0.21; extra == "dev"
 Requires-Dist: pytest-asyncio==0.21.1; python_version < "3.14" and extra == "dev"
 Requires-Dist: pytest-asyncio==1.0.0; python_version >= "3.14" and extra == "dev"
-Requires-Dist: pyarrow; extra == "dev"
+Requires-Dist: pyarrow<26; extra == "dev"
 Requires-Dist: pymarkdownlnt; extra == "dev"
 Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "dev"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "dev"
@@ -56,7 +56,7 @@ Requires-Dist: pydantic>=2.11.3; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "dev"
 Requires-Dist: respx; extra == "dev"
-Requires-Dist: fsspec>=2025.5.0; extra == "dev"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "dev"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "dev"
 Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "dev"
 Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "dev"
@@ -82,7 +82,7 @@ Requires-Dist: respx; extra == "dev"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "dev"
 Requires-Dist: pydantic>=2.2.0; extra == "dev"
 Requires-Dist: psutil>=7.2.1; extra == "dev"
-Requires-Dist: fsspec>=2025.5.0; extra == "dev"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "dev"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "dev"
 Requires-Dist: httpx>=0.28.1; extra == "dev"
 Requires-Dist: pydantic>=2.6.1; extra == "dev"
@@ -104,7 +104,7 @@ Requires-Dist: myst-parser==4.0.0; extra == "dev"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "dev"
 Requires-Dist: pydantic>=2.2.0; extra == "dev"
 Requires-Dist: psutil>=7.2.1; extra == "dev"
-Requires-Dist: fsspec>=2025.5.0; extra == "dev"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "dev"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "dev"
 Provides-Extra: examples
 Requires-Dist: jupyter<=5.0; extra == "examples"
@@ -138,7 +138,7 @@ Requires-Dist: respx; extra == "lint"
 Requires-Dist: pydantic-settings>=2.2.0; extra == "lint"
 Requires-Dist: pydantic>=2.2.0; extra == "lint"
 Requires-Dist: psutil>=7.2.1; extra == "lint"
-Requires-Dist: fsspec>=2025.5.0; extra == "lint"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "lint"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "lint"
 Requires-Dist: httpx>=0.28.1; extra == "lint"
 Requires-Dist: pydantic>=2.6.1; extra == "lint"
@@ -167,7 +167,7 @@ Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: responses==0.21; extra == "test"
 Requires-Dist: pytest-asyncio==0.21.1; python_version < "3.14" and extra == "test"
 Requires-Dist: pytest-asyncio==1.0.0; python_version >= "3.14" and extra == "test"
-Requires-Dist: pyarrow; extra == "test"
+Requires-Dist: pyarrow<26; extra == "test"
 Requires-Dist: pymarkdownlnt; extra == "test"
 Requires-Dist: Pillow==10.4.0; (python_version >= "3.8" and python_version < "3.14") and extra == "test"
 Requires-Dist: Pillow==9.5.0; python_version < "3.8" and extra == "test"
@@ -178,7 +178,7 @@ Requires-Dist: pydantic>=2.11.3; extra == "test"
 Requires-Dist: httpx>=0.28.1; extra == "test"
 Requires-Dist: eval-type-backport; python_version < "3.10" and extra == "test"
 Requires-Dist: respx; extra == "test"
-Requires-Dist: fsspec>=2025.5.0; extra == "test"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "test"
 Requires-Dist: sqlalchemy>=2.0.0; extra == "test"
 Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "test"
 Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "test"
@@ -199,7 +199,7 @@ Requires-Dist: pydantic-settings>=2.2.0; extra == "core"
 Requires-Dist: pydantic>=2.2.0; extra == "core"
 Requires-Dist: psutil>=7.2.1; extra == "core"
 Provides-Extra: fs
-Requires-Dist: fsspec>=2025.5.0; extra == "fs"
+Requires-Dist: fsspec<2026.9,>=2025.5.0; extra == "fs"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-sdk<2.0.0,>=1.33.0; extra == "otel"
 Provides-Extra: query-engine
@@ -209,20 +209,22 @@ Requires-Dist: httpx>=0.28.1; python_version >= "3.11" and extra == "application
 Requires-Dist: pydantic>=2.6.1; python_version >= "3.11" and extra == "application-utils"
 Requires-Dist: ag-ui-protocol~=0.1.15; python_version >= "3.11" and extra == "application-utils"
 Provides-Extra: pipelines
-Requires-Dist: aiofiles>=0.8.0; extra == "pipelines"
-Requires-Dist: aiohttp>=3.8.1; extra == "pipelines"
-Requires-Dist: cloudpickle<3,>=2.0.0; extra == "pipelines"
-Requires-Dist: filelock>=3.12.2; extra == "pipelines"
-Requires-Dist: furl>=2.1.3; extra == "pipelines"
-Requires-Dist: networkx>=2.8.6; extra == "pipelines"
-Requires-Dist: toml>=0.10.2; extra == "pipelines"
-Requires-Dist: watchdog>=2.0.3; extra == "pipelines"
-Requires-Dist: psutil>=5.9.0; extra == "pipelines"
-Requires-Dist: arrow>=1.2.2; extra == "pipelines"
-Requires-Dist: ipywidgets>=8.1.3; extra == "pipelines"
-Requires-Dist: packaging; extra == "pipelines"
-Requires-Dist: pydantic-settings>=2.0.0; extra == "pipelines"
-Requires-Dist: rich>=12.0.0; extra == "pipelines"
+Requires-Dist: aiofiles>=0.8.0; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: aiohttp>=3.8.1; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: cloudpickle<3,>=2.0.0; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: filelock>=3.12.2; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: furl>=2.1.3; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: networkx>=2.8.6; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: toml>=0.10.2; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: watchdog>=2.0.3; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: psutil>=5.9.0; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: pydantic>=2.1.1; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: arrow>=1.2.2; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: ipywidgets>=8.1.3; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: packaging; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: pydantic-settings>=2.0.0; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: rich>=12.0.0; python_version >= "3.10" and extra == "pipelines"
+Requires-Dist: pyyaml>=6.0.2; python_version >= "3.10" and extra == "pipelines"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -299,6 +301,9 @@ datarobot has the following optional groups:
 - `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
     This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
 - `fs` (requires Python 3.9+): Provides file system implementation to work with the DataRobot file system.
+- `pipelines` (requires Python 3.10+): Adds the runtime needed to author pipelines locally
+    (the `dr.task` / `dr.pipeline` decorators and `dr.CloudExecutor`). The pipelines REST surface
+    (`dr.Pipelines`, `dr.Pipeline`, `dr.PipelineImage`, ...) is in the base install and needs no extra.
 - `query-engine` (requires Python 3.9+): Engine to run SQLAlchemy-compatible queries against DataRobot data stores
     and JDBC connections.
 

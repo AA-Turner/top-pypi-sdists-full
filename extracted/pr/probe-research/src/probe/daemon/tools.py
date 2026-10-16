@@ -711,7 +711,8 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
     was not asked about, counts in `Deps.lost_writes`."""
     asked = deps.asked
     text, code = await _checked_shell_command(deps, command, verdict, why, cwd, stdin=stdin)
-    if code != 0 and deps.asked == asked and deps.stopped is None and (verdict.note_target or not verdict.safe):
+    if (code != 0 and deps.asked == asked and deps.stopped is None and (verdict.note_target or not verdict.safe)
+            and not text.endswith(_SKILLS_ARE_READ)):  # a skill read pointed at the read tool wrote nothing
         deps.lost_writes += 1
     return text, code
 
@@ -768,6 +769,14 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
             return scripts, None
         if scripts:
             facts["scripts"] = scripts
+        if _names_a_skill_folder(command):
+            # The skills are the daemon's own, a `read` away. Guessed at in the agent's
+            # install folders (`cat ~/.pi/agent/git/.../track-work/reference.md`,
+            # `ls ~/.agents/skills/track-work`), they were outside the working folders and
+            # each guess was a question for the researcher (14 in 14 days). Refused, not
+            # asked: the read tool reads them without anyone's yes. After the notes-write
+            # checks above, so a note write keeps the hint that names the shape that runs.
+            return f"not run: {verdict.reason.rstrip('.')}. {_SKILLS_ARE_READ}", None
     held = {"kind": "shell", "command": command, "cwd": str(cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
     req = _hold(deps, policy="shell.unsafe_command", facts=facts, held=held)
     if req.state == appr.DENIED:
@@ -781,6 +790,34 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
                          status="held", reason=verdict.reason, request=req.id)
     return (f"held for the researcher (request {req.id}) - {verdict.reason.rstrip('.')}. It runs if they say yes - "
             "the answer shows up in a later bite."), None
+
+
+#: How a shell guess at the skills' folders is answered (`_names_a_skill_folder`):
+#: a read pointed at the read tool, never a write that was lost (`_shell_command`).
+_SKILLS_ARE_READ = ("The skills are read with the read tool, by their path in the skills folder: "
+                    "`read track-work/reference.md`.")
+
+
+def _names_a_skill_folder(command: str) -> bool:
+    """Whether a path in `command` runs through one of the shared skills' folders
+    (`bite.SHARED_SKILLS`): a word with a `/` that has the skill's name as a whole
+    part, glob stars aside (`~/.pi/agent/git/x/skills/track-work/reference.md`,
+    `'*track-work/reference.md'`, `skills/edit-notes`). Never a bare word (`grep -rn
+    track-work`), a `rev:path` or `host:path` word (`git show
+    main:agent/skills/track-work/SKILL.md`), `my-track-work.md`, or a heredoc's text."""
+    from probe.daemon.bite import SHARED_SKILLS
+
+    if "<<" in command:
+        return False
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        words = command.split()
+    for word in words:
+        parts = word.split("/")
+        if len(parts) > 1 and ":" not in parts[0] and any(part.strip("*?") in SHARED_SKILLS for part in parts):
+            return True
+    return False
 
 
 async def _run_steps(deps: Deps, steps: list, why: str) -> str:
@@ -1144,7 +1181,8 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
         if refusal is not None:
             return refusal, None
     try:
-        trash = await _server_has_trash(deps) if parsed.path in precheck.DELETES else False
+        # A help request deletes nothing: no trash to ask about (`precheck.Parsed.help`).
+        trash = await _server_has_trash(deps) if parsed.path in precheck.DELETES and not parsed.help else False
     except probe_api.KeyRefused:
         return write_refusal(deps) or NO_LEASE, None
     block = (precheck.check(parsed, cwd=here, trash=trash) or _document_block(deps, parsed)

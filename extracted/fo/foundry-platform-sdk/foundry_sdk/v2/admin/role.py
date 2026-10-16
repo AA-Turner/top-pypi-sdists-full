@@ -68,6 +68,9 @@ class RoleClient:
     ) -> admin_models.Role:
         """
         Get the Role with the specified id.
+
+        Required scopes: [api:admin-read]
+
         :param role_id:
         :type role_id: RoleId
         :param preview: Enables the use of preview functionality.
@@ -121,6 +124,9 @@ class RoleClient:
         Execute multiple get requests on Role.
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:admin-read]
+
         :param body: Body of the request
         :type body: List[GetRolesBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -212,6 +218,9 @@ class AsyncRoleClient:
     ) -> typing.Awaitable[admin_models.Role]:
         """
         Get the Role with the specified id.
+
+        Required scopes: [api:admin-read]
+
         :param role_id:
         :type role_id: RoleId
         :param preview: Enables the use of preview functionality.
@@ -265,6 +274,9 @@ class AsyncRoleClient:
         Execute multiple get requests on Role.
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:admin-read]
+
         :param body: Body of the request
         :type body: List[GetRolesBatchRequestElement]
         :param preview: Enables the use of preview functionality.

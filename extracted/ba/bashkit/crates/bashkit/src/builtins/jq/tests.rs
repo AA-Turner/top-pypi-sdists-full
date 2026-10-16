@@ -338,9 +338,13 @@ async fn exit_status_truthy_returns_0() {
 }
 
 #[tokio::test]
-async fn exit_status_mixed_truthy_wins() {
-    // If any output is non-null/non-false, exit is 0 (unless no output).
+async fn exit_status_last_value_wins() {
+    // jq -e: the last output decides (here false -> 1).
     let result = run_jq_result_with_args(&["-e", ".[]"], "[null, 1, false]")
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 1);
+    let result = run_jq_result_with_args(&["-e", ".[]"], "[null, false, 1]")
         .await
         .unwrap();
     assert_eq!(result.exit_code, 0);
@@ -651,9 +655,13 @@ async fn input_filename_returns_path_when_file_given() {
 }
 
 #[tokio::test]
-async fn input_line_number_increments_per_input() {
-    // For NDJSON stdin, each value advances the line counter by 1.
+async fn input_line_number_counts_lines_read() {
+    // jq reads a line at a time: the last value has no newline after it,
+    // so it still reports line 2 (matches jq 1.7).
     let result = run_jq("input_line_number", "1\n2\n3").await.unwrap();
+    let lines: Vec<&str> = result.trim().split('\n').collect();
+    assert_eq!(lines, vec!["1", "2", "2"]);
+    let result = run_jq("input_line_number", "1\n2\n\n3").await.unwrap();
     let lines: Vec<&str> = result.trim().split('\n').collect();
     assert_eq!(lines, vec!["1", "2", "3"]);
 }
@@ -721,8 +729,11 @@ async fn missing_file_errors() {
     let result = run_jq_with_files(&[".", "/missing.json"], &[])
         .await
         .unwrap();
-    assert_eq!(result.exit_code, 1);
-    assert!(result.stderr.contains("jq: /missing.json:"));
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(
+        result.stderr,
+        "jq: error: Could not open file /missing.json: No such file or directory\n"
+    );
 }
 
 // =========================================================================
@@ -915,7 +926,7 @@ async fn regex_invalid_pattern_yields_short_error() {
         .await
         .unwrap();
     assert_ne!(result.exit_code, 0);
-    assert!(result.stderr.starts_with("jq: error: "));
+    assert!(result.stderr.starts_with("jq: error (at <stdin>:0): "));
     assert!(result.stderr.len() < 300);
     // Must not leak fancy-regex internal Debug shapes
     assert!(!result.stderr.contains("ParseError"));
@@ -1000,7 +1011,7 @@ async fn runtime_error_summarizes_index_operands() {
     assert_eq!(result.exit_code, 5);
     assert_eq!(
         result.stderr,
-        "jq: error: Cannot index array with string \"product_name\"\n"
+        "jq: error (at <stdin>:0): Cannot index array with string \"product_name\"\n"
     );
 }
 
@@ -1010,7 +1021,7 @@ async fn runtime_error_iterate_over_null() {
     assert_eq!(result.exit_code, 5);
     assert_eq!(
         result.stderr,
-        "jq: error: Cannot iterate over null (null)\n"
+        "jq: error (at <stdin>:0): Cannot iterate over null (null)\n"
     );
 }
 
@@ -1117,6 +1128,18 @@ async fn env_does_not_pollute_process_env() {
 // =========================================================================
 // Security: depth limits (TM-DOS-027)
 // =========================================================================
+
+#[tokio::test]
+async fn finite_user_recursion_stays_available() {
+    let result = run_jq_result(
+        "def f($n): if $n == 0 then 42 else f($n - 1) end; f(32)",
+        "null",
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+    assert_eq!(result.stdout.trim(), "42");
+}
 
 #[tokio::test]
 async fn deep_array_input_rejected() {
@@ -1293,6 +1316,7 @@ const JQ_BANNED: &[&str] = &[
     "JQ_COMPAT_DEFS",
     "def setpath",
     "def leaf_paths",
+    "def _bk_joinstr",
     "def @tsv:",
     "def @csv:",
     "def env:",
@@ -1349,6 +1373,17 @@ jq_no_leak!(
 );
 jq_no_leak!(no_leak_iterate_over_null, r#"echo 'null' | jq '.[]'"#);
 jq_no_leak!(no_leak_add_array_and_number, r#"echo '[1,2]' | jq '. + 1'"#);
+// `join` fails inside the compat prelude, so its diagnostics are the ones
+// most likely to carry prelude source out to the caller.
+jq_no_leak!(
+    no_leak_join_non_addable_separator,
+    r#"echo '["a","b"]' | jq 'join(1)'"#
+);
+jq_no_leak!(
+    no_leak_join_nested_array,
+    r#"echo '[[1]]' | jq 'join(",")'"#
+);
+jq_no_leak!(no_leak_join_over_string, r#"echo '"abc"' | jq 'join(",")'"#);
 
 // New: malformed $ARGS / file flags
 jq_no_leak!(no_leak_invalid_jsonargs, "jq -n . --jsonargs 'not json'");
@@ -1407,46 +1442,61 @@ async fn double_dash_separator() {
 // Security: jq filters must not terminate the host process (#1571)
 // =========================================================================
 
+// The tests reaching their assertions at all proves the host wasn't killed:
+// `halt` ends the jq command with its code, never the process.
 #[tokio::test]
-async fn halt_does_not_terminate_host_process() {
-    // Regression for #1571: the upstream `halt` native calls
-    // `std::process::exit(...)`, which would tear down the embedding
-    // process. We strip it from the funs chain; calling `halt` therefore
-    // surfaces as an ordinary jq compile/runtime error rather than process
-    // termination.
-    //
-    // The test reaching the assertion at all proves the host wasn't killed.
-    let result = run_jq_result("halt", r#"{}"#).await.unwrap();
-    assert_ne!(
-        result.exit_code, 0,
-        "halt should fail safely; stdout=<{}> stderr=<{}>",
-        result.stdout, result.stderr
-    );
+async fn halt_ends_the_command_not_the_host() {
+    let result = run_jq_result_with_args(&["-n", "1, halt, 2"], "")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "1\n");
+    assert_eq!(result.exit_code, 0);
+    let result = run_jq_result_with_args(&["-n", "halt(7)"], "")
+        .await
+        .unwrap();
+    assert_eq!(result.exit_code, 7);
 }
 
 #[tokio::test]
-async fn halt_with_arg_does_not_terminate_host_process() {
-    // Regression for #1571: the explicit-arity form `halt(N)` must also
-    // be neutered, not just the wrapper-def `halt`.
-    let result = run_jq_result("halt(7)", r#"{}"#).await.unwrap();
-    assert_ne!(
-        result.exit_code, 0,
-        "halt(7) should fail safely; stdout=<{}> stderr=<{}>",
-        result.stdout, result.stderr
-    );
+async fn halt_stops_remaining_inputs() {
+    let result = run_jq_result_with_args(&["-c", "if . == 2 then halt else . end"], "1 2 3")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "1\n");
+    assert_eq!(result.exit_code, 0);
 }
 
 #[tokio::test]
-async fn halt_error_does_not_terminate_host_process() {
-    // Regression for #1571: `halt_error` is a jq-syntax def in jaq-std
-    // that ultimately calls `halt(...)`. Stripping the native makes the
-    // whole family fail closed.
-    let result = run_jq_result("halt_error", r#""boom""#).await.unwrap();
-    assert_ne!(
-        result.exit_code, 0,
-        "halt_error should fail safely; stdout=<{}> stderr=<{}>",
-        result.stdout, result.stderr
-    );
+async fn halt_error_prints_message_and_exits() {
+    let result = run_jq_result("halt_error", r#""boom\n""#).await.unwrap();
+    assert_eq!(result.stderr, "boom\n");
+    assert_eq!(result.exit_code, 5);
+    let result = run_jq_result("halt_error(3)", r#"{"a":1}"#).await.unwrap();
+    assert_eq!(result.stderr, "{\"a\":1}\n");
+    assert_eq!(result.exit_code, 3);
+    let result = run_jq_result("try halt_error catch 9", "null")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "");
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn debug_and_stderr_write_to_jq_stderr() {
+    let result = run_jq_result_with_args(&["-c", "debug, debug(\"m\"), stderr"], "[1]")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "[1]\n[1]\n[1]\n");
+    assert_eq!(result.stderr, "[\"DEBUG:\",[1]]\n[\"DEBUG:\",\"m\"]\n[1]");
+}
+
+#[tokio::test]
+async fn debug_output_is_capped() {
+    let result = run_jq_result_with_args(&["-n", "[range(200000)] | debug | length"], "")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "200000\n");
+    assert!(result.stderr.len() <= super::messages::MAX_MESSAGE_BYTES);
 }
 
 // =========================================================================
@@ -1732,4 +1782,626 @@ mod differential {
     async fn diff_regex_capture_named() {
         assert_matches(&[r#"capture("(?<word>\\w+),")"#], r#""apple,banana""#).await;
     }
+}
+
+#[tokio::test]
+async fn filter_from_file_treats_positionals_as_inputs() {
+    let files = [
+        ("/f.jq", "# doubled\n.a | map(. * 2)\n"),
+        ("/in.json", r#"{"a":[1,2]}"#),
+    ];
+    let result = run_jq_with_files(&["-c", "-f", "/f.jq", "/in.json"], &files)
+        .await
+        .expect("jq -f runs");
+    assert_eq!(result.stdout, "[2,4]\n");
+    let result = run_jq_with_files(&["-cf", "/missing.jq", "/in.json"], &files)
+        .await
+        .expect("jq -f runs");
+    assert_eq!(result.exit_code, 2);
+    assert!(result.stderr.contains("Could not open /missing.jq"));
+}
+
+// =========================================================================
+// Input stream: -n with input/inputs, per-file names, errors per input
+// (behavior checked against jq 1.7)
+// =========================================================================
+
+#[tokio::test]
+async fn null_input_leaves_stream_to_input_and_inputs() {
+    assert_eq!(
+        run_jq_with_args(&["-n", "input"], "41 42").await.unwrap(),
+        "41\n"
+    );
+    assert_eq!(
+        run_jq_with_args(&["-nc", "[inputs]"], "1 \"a\" [2]")
+            .await
+            .unwrap(),
+        "[1,\"a\",[2]]\n"
+    );
+    assert_eq!(
+        run_jq_with_args(&["-nc", "[limit(2; inputs)], input"], "1 2 3 4")
+            .await
+            .unwrap(),
+        "[1,2]\n3\n"
+    );
+    assert_eq!(
+        run_jq_with_args(&["-n", "reduce inputs as $x (0; . + $x)"], "1 2 39")
+            .await
+            .unwrap(),
+        "42\n"
+    );
+}
+
+/// jq 1.7: with `-n`, stdin is only parsed when `input`/`inputs` reach it,
+/// so invalid JSON on stdin is ignored by a filter that never reads it.
+#[tokio::test]
+async fn null_input_ignores_unread_invalid_stdin() {
+    let result = run_jq_result_with_args(&["-n", "1"], "not json")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "1\n");
+    assert_eq!(result.stderr, "");
+    assert_eq!(result.exit_code, 0);
+
+    // Values before the bad text are still readable.
+    let result = run_jq_result_with_args(&["-n", "input"], "1 x")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "1\n");
+    assert_eq!(result.stderr, "");
+    assert_eq!(result.exit_code, 0);
+}
+
+#[tokio::test]
+async fn null_input_reports_invalid_stdin_once_reached() {
+    let result = run_jq_result_with_args(&["-nc", "[inputs]"], "1 x")
+        .await
+        .unwrap();
+    assert!(result.stderr.starts_with("jq: "), "{}", result.stderr);
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn slurp_of_empty_input_is_empty_array() {
+    assert_eq!(run_jq_with_args(&["-s", "."], "").await.unwrap(), "[]\n");
+    assert_eq!(run_jq_with_args(&["."], "").await.unwrap(), "");
+}
+
+#[tokio::test]
+async fn input_fails_when_stream_is_exhausted() {
+    let result = run_jq_result_with_args(&["-c", "[., input]"], "1 2 3")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "[1,2]\n");
+    assert_eq!(result.stderr, "jq: error (at <stdin>:0): No more inputs\n");
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn input_filename_follows_each_file() {
+    let result = run_jq_with_files(
+        &["-c", "[., input_filename]", "/a.json", "/b.json"],
+        &[("/a.json", "{\"f\":\"a\"}"), ("/b.json", "1 2")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        result.stdout,
+        "[{\"f\":\"a\"},\"/a.json\"]\n[1,\"/b.json\"]\n[2,\"/b.json\"]\n"
+    );
+}
+
+#[tokio::test]
+async fn missing_file_among_others_is_skipped_with_exit_2() {
+    let result = run_jq_with_files(
+        &["-c", ".", "/a.json", "/nope.json"],
+        &[("/a.json", "{\"ok\":true}")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.stdout, "{\"ok\":true}\n");
+    assert_eq!(
+        result.stderr,
+        "jq: error: Could not open file /nope.json: No such file or directory\n"
+    );
+    assert_eq!(result.exit_code, 2);
+}
+
+#[tokio::test]
+async fn runtime_error_moves_on_to_next_input() {
+    let result = run_jq_result_with_args(
+        &["-c", ".a | ascii_downcase"],
+        "{\"a\":\"X\"} 1 {\"a\":\"Y\"}",
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.stdout, "\"x\"\n\"y\"\n");
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): Cannot index number with string \"a\"\n"
+    );
+    // The last input succeeded.
+    assert_eq!(result.exit_code, 0);
+}
+
+#[tokio::test]
+async fn runtime_error_location_names_file_and_line() {
+    let result = run_jq_with_files(
+        &[".[] | .n | ascii_downcase", "/d.json"],
+        &[("/d.json", "[\n  {\"n\": \"A\"},\n  {\"n\": 5}\n]\n")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.stdout, "\"a\"\n");
+    assert!(
+        result.stderr.starts_with("jq: error (at /d.json:4): "),
+        "stderr={}",
+        result.stderr
+    );
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn error_with_string_prints_message_unquoted() {
+    let result = run_jq_result_with_args(&["-n", "error(\"boom\")"], "")
+        .await
+        .unwrap();
+    assert_eq!(result.stderr, "jq: error (at <unknown>): boom\n");
+    let result = run_jq_result_with_args(&["-n", "error({a:1})"], "")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <unknown>) (not a string): {\"a\":1}\n"
+    );
+}
+
+#[tokio::test]
+async fn values_before_a_parse_error_are_processed() {
+    let result = run_jq_result_with_args(&["-c", "."], "{\"a\":1}\n{a:2}")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "{\"a\":1}\n");
+    assert!(
+        result.stderr.contains("invalid JSON"),
+        "stderr={}",
+        result.stderr
+    );
+    assert_eq!(result.exit_code, 5);
+    // A literal glued to junk is one bad token: nothing is emitted.
+    let result = run_jq_result_with_args(&["-c", "."], "1\u{0001}2")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "");
+    assert_eq!(result.exit_code, 5);
+}
+
+// =========================================================================
+// Numbers and value errors (behavior checked against jq 1.7)
+// =========================================================================
+
+#[tokio::test]
+async fn computed_floats_print_like_jq() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "[pow(2;10), (17/5|floor), (1.5*2), 1e17*1, 0.00001*1, (0.1+0.2), (2.5*2.5)]",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(out, "[1024,3,3,1e+17,1e-05,0.30000000000000004,6.25]\n");
+}
+
+#[tokio::test]
+async fn input_number_literals_keep_their_form_until_computed() {
+    let out = run_jq_with_args(&["-c", "[.[], (.[0] + 1)]"], "[1.0, 2.50]")
+        .await
+        .unwrap();
+    assert_eq!(out, "[1.0,2.5,2]\n");
+}
+
+#[tokio::test]
+async fn nan_and_infinities_render_like_jq() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "[nan, infinite, -infinite, (nan|isnan), (infinite|isinfinite)]",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "[null,1.7976931348623157e+308,-1.7976931348623157e+308,true,true]\n"
+    );
+}
+
+#[tokio::test]
+async fn math_errors_use_jq_wording() {
+    let out = run_jq_with_args(
+        &[
+            "-c",
+            "[(try (\"a\"+1) catch .), (try ({\"aaaaaaa\":\"bbbbbbbbbbb\"}+1) catch .), (try ([1]*{}) catch .), (try (1/0) catch .), (try (5%0) catch .)]",
+        ],
+        "null",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        concat!(
+            "[\"string (\\\"a\\\") and number (1) cannot be added\",",
+            "\"object ({\\\"aaaaaaa\\\":...) and number (1) cannot be added\",",
+            "\"array ([1]) and object ({}) cannot be multiplied\",",
+            "\"number (1) and number (0) cannot be divided because the divisor is zero\",",
+            "\"number (5) and number (0) cannot be divided (remainder) because the divisor is zero\"]\n"
+        )
+    );
+}
+
+#[tokio::test]
+async fn math_error_on_huge_operands_stays_bounded() {
+    let out = run_jq_with_args(&["-c", "try ([range(0;200000)] + 1) catch ."], "null")
+        .await
+        .unwrap();
+    assert!(
+        out.len() < 1024,
+        "math error on huge operand leaked {} bytes",
+        out.len()
+    );
+    assert!(out.contains("..."), "huge operand preview should truncate");
+    // Fresh-context follow-up (each helper builds a new shell); true
+    // same-session recovery is covered by `shell_recovers_after_huge_operand_math_error`.
+    let recovered = run_jq_with_args(&["-c", "1 + 2"], "null").await.unwrap();
+    assert_eq!(recovered, "3\n");
+}
+
+#[tokio::test]
+async fn division_by_zero_is_a_runtime_error() {
+    let result = run_jq_result_with_args(&["-c", "1 / .x"], "{\"x\": 2} {\"x\": 0} {\"x\": 4}")
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "0.5\n0.25\n");
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): number (1) and number (0) cannot be divided because the divisor is zero\n"
+    );
+}
+
+#[tokio::test]
+async fn remainder_truncates_operands() {
+    let out = run_jq_with_args(&["-nc", "[5 % 3, -5 % 3, 5 % -3, 5.9 % 3, 1e20 % 7]"], "")
+        .await
+        .unwrap();
+    assert_eq!(out, "[2,-2,2,2,0]\n");
+}
+
+#[tokio::test]
+async fn index_rules_follow_jq() {
+    let out = run_jq_with_args(
+        &["-c", ".[-1], .[-10], .[1.7], (try .[\"a\"] catch .)"],
+        "[1, 2, 3]",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "3\nnull\n2\n\"Cannot index array with string \\\"a\\\"\"\n"
+    );
+    let result = run_jq_result_with_args(&["getpath([\"a\",0])"], "{\"a\":{\"b\":1}}")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): Cannot index object with number\n"
+    );
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn gamma_is_log_gamma() {
+    let out = run_jq_with_args(&["-nc", "[8 | gamma, significand, logb]"], "")
+        .await
+        .unwrap();
+    assert_eq!(out, "[8.525161361065413,1,3]\n");
+}
+
+#[tokio::test]
+async fn update_through_null_creates_containers() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "(.a.b.c = 1), (.[2] = 1), (.[1:3] = [\"x\"]), (.a |= empty), \
+             ([1] | .[3] = 9), ([1] | .[1.7] = 2), ([1] | .[5] |= empty)",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "{\"a\":{\"b\":{\"c\":1}}}\n[null,null,1]\n[\"x\"]\nnull\n[1,null,null,9]\n[1,2]\n[1]\n"
+    );
+}
+
+#[tokio::test]
+async fn update_index_errors_follow_jq() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "(try (.[-1] = 1) catch .), (try ({} | .[1] = 2) catch .), \
+             (try (.[1e9] = 1) catch .), (try (.[] = 1) catch .)",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "\"Out of bounds negative array index\"\n\"Cannot index object with number\"\n\
+         \"Array index too large\"\n\"Cannot iterate over null (null)\"\n"
+    );
+}
+
+#[tokio::test]
+async fn string_builtins_follow_jq() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "([1, null, \"a\", true] | join(\"-\")), ([null] | join(\",\")), \
+             (try ([[1]] | join(\",\")) catch .), (1 | ltrimstr(\"a\")), \
+             (\"ab\" | rtrimstr(1)), (\"a1b2\" | [scan(\"([a-z])([0-9])\")]), \
+             (\"ab\" | capture(\"(?<x>a)(?<y>z)?\")), \"\\u007f\"",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "\"1--a-true\"\n\"\"\n\"string (\\\"\\\") and array ([1]) cannot be added\"\n1\n\"ab\"\n\
+         [[\"a\",\"1\"],[\"b\",\"2\"]]\n{\"x\":\"a\",\"y\":null}\n\"\\u007f\"\n"
+    );
+}
+
+/// `join` is defined in the compat prelude rather than vendored, so its
+/// parity with real jq is only as good as that definition. Every case here
+/// was captured from jq 1.7, including the wording and operand order of the
+/// two error messages: the separator is only ever added once the array holds
+/// a second element, so `["a"] | join(1)` succeeds while `["a","b"] | join(1)`
+/// reports the accumulated string first.
+#[tokio::test]
+async fn join_follows_jq() {
+    let cases = [
+        (r#"[1, null, "a", true] | join("-")"#, "\"1--a-true\""),
+        (r#"[null] | join(",")"#, "\"\""),
+        (r#"[] | join(",")"#, "\"\""),
+        (r#"{} | join(",")"#, "\"\""),
+        (r#"[false] | join(",")"#, "\"false\""),
+        (r#"["a"] | join(1)"#, "\"a\""),
+        (r#"["a","b","c"] | join("")"#, "\"abc\""),
+        (r#"["a","b"] | join("<>")"#, "\"a<>b\""),
+        (
+            r#"["\u00e9","\u00fc"] | join("\u2014")"#,
+            "\"\u{e9}\u{2014}\u{fc}\"",
+        ),
+        (r#"{"a":"x","b":"y"} | join("-")"#, "\"x-y\""),
+        (
+            r#"try ([[1]] | join(",")) catch ."#,
+            r#""string (\"\") and array ([1]) cannot be added""#,
+        ),
+        (
+            r#"try (["a","b"] | join(1)) catch ."#,
+            r#""string (\"a\") and number (1) cannot be added""#,
+        ),
+        (
+            r#"try ([1,2] | join(2)) catch ."#,
+            r#""string (\"1\") and number (2) cannot be added""#,
+        ),
+        (
+            r#"try ("abc" | join(",")) catch ."#,
+            r#""Cannot iterate over string (\"abc\")""#,
+        ),
+    ];
+    for (filter, want) in cases {
+        let out = run_jq_with_args(&["-nc", filter], "").await.unwrap();
+        assert_eq!(out, format!("{want}\n"), "{filter}");
+    }
+}
+
+#[tokio::test]
+async fn unmatched_group_is_reported_like_jq() {
+    let out = run_jq_with_args(&["-c", "[match(\"(a)(z)?\").captures[]]"], "\"ab\"")
+        .await
+        .unwrap();
+    assert_eq!(
+        out,
+        "[{\"offset\":0,\"length\":1,\"string\":\"a\",\"name\":null},\
+         {\"offset\":-1,\"string\":null,\"length\":0,\"name\":null}]\n"
+    );
+}
+
+#[tokio::test]
+async fn from_entries_and_object_keys_follow_jq() {
+    let out = run_jq_with_args(
+        &["-c", "from_entries"],
+        r#"[{"key":"a","value":1},{"name":"c","value":3},{"Name":"N","value":4},{"key":"d"},{"name":"f","Value":6}]"#,
+    )
+    .await
+    .unwrap();
+    assert_eq!(out, "{\"a\":1,\"c\":3,\"N\":4,\"d\":null,\"f\":6}\n");
+    let result = run_jq_result_with_args(&["-c", "from_entries"], r#"[{"key":null,"value":4}]"#)
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): Cannot use null (null) as object key\n"
+    );
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn tostream_round_trips() {
+    let out = run_jq_with_args(
+        &[
+            "-c",
+            "[tostream], fromstream(tostream), [1 | truncate_stream([[0], 1], [[1, 0], 2], [[1, 0]], [[1]])], IN(.[]; 1)",
+        ],
+        r#"[1,{"a":2},[]]"#,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "[[[0],1],[[1,\"a\"],2],[[1,\"a\"]],[[2],[]],[[2]]]\n[1,{\"a\":2},[]]\n[[[0],2],[[0]]]\ntrue\n"
+    );
+}
+
+#[test]
+fn run_loop_never_calls_unwrap_valr() {
+    // THREAT[TM-INF-023]: `jaq_core::unwrap_valr` exits the process on halt.
+    assert!(!include_str!("mod.rs").contains("unwrap_valr("));
+}
+
+#[tokio::test]
+async fn ascii_output_escapes_non_ascii() {
+    let out = run_jq_with_args(&["-ac", "."], r#"{"s":"olá ☃ 😀"}"#)
+        .await
+        .unwrap();
+    assert_eq!(out, "{\"s\":\"ol\\u00e1 \\u2603 \\ud83d\\ude00\"}\n");
+    // -a keeps strings JSON-encoded even under -r, like jq.
+    let out = run_jq_with_args(&["-ra", "."], "\"é\"").await.unwrap();
+    assert_eq!(out, "\"\\u00e9\"\n");
+}
+
+#[tokio::test]
+async fn raw_output0_separates_with_nul() {
+    let out = run_jq_with_args(&["--raw-output0", ".[]"], r#"[1,"x",{}]"#)
+        .await
+        .unwrap();
+    assert_eq!(out, "1\0x\0{}\0");
+    let result = run_jq_result_with_args(&["--raw-output0", ".[]"], r#"["a\u0000b","c"]"#)
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "");
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): Cannot dump a string containing NUL with --raw-output0 option\n"
+    );
+    assert_eq!(result.exit_code, 5);
+}
+
+#[tokio::test]
+async fn stream_flag_feeds_path_events() {
+    let out = run_jq_with_args(&["-c", "--stream", "."], r#"{"a":[1,{"b":null}],"c":"d"}"#)
+        .await
+        .unwrap();
+    assert_eq!(
+        out,
+        "[[\"a\",0],1]\n[[\"a\",1,\"b\"],null]\n[[\"a\",1,\"b\"]]\n[[\"a\",1]]\n[[\"c\"],\"d\"]\n[[\"c\"]]\n"
+    );
+    let out = run_jq_with_args(&["-c", "--stream", "."], "1 [] {}")
+        .await
+        .unwrap();
+    assert_eq!(out, "[[],1]\n[[],[]]\n[[],{}]\n");
+    let out = run_jq_with_args(&["-nc", "--stream", "fromstream(inputs)"], r#"{"a":[1,2]}"#)
+        .await
+        .unwrap();
+    assert_eq!(out, "{\"a\":[1,2]}\n");
+}
+
+#[tokio::test]
+async fn stream_slurp_and_metadata_preserve_event_order() {
+    let result = run_jq_with_files(
+        &[
+            "-c",
+            "--stream",
+            "[input_filename, .]",
+            "/first.json",
+            "/second.json",
+        ],
+        &[("/first.json", "[1,[]]"), ("/second.json", "{}")],
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        result.stdout,
+        "[\"/first.json\",[[0],1]]\n[\"/first.json\",[[1],[]]]\n[\"/first.json\",[[1]]]\n[\"/second.json\",[[],{}]]\n"
+    );
+    let out = run_jq_with_args(&["-sc", "--stream", "."], "[1,[]] {}")
+        .await
+        .unwrap();
+    assert_eq!(out, "[[[0],1],[[1],[]],[[1]],[[],{}]]\n");
+    let out = run_jq_with_args(&["-nc", "--stream", "[limit(1; inputs)], input"], "[1,2]")
+        .await
+        .unwrap();
+    assert_eq!(out, "[[[0],1]]\n[[1],2]\n");
+}
+
+#[tokio::test]
+async fn seq_flag_uses_record_separators() {
+    let out = run_jq_with_args(&["--seq", "-c", "."], "\x1e[1]\n\x1e2\n")
+        .await
+        .unwrap();
+    assert_eq!(out, "\x1e[1]\n\x1e2\n");
+}
+
+#[tokio::test]
+async fn destructuring_alternatives_follow_jq() {
+    let out = run_jq_with_args(
+        &["-c", ".[] as [$x, $y] ?// $x | [$x, $y]"],
+        r#"[1, {"b": 2}, [4, 5]]"#,
+    )
+    .await
+    .unwrap();
+    assert_eq!(out, "[1,null]\n[{\"b\":2},null]\n[4,5]\n");
+    // An error in the body moves on to the next pattern; the last one's
+    // error propagates.
+    let result = run_jq_result_with_args(
+        &[
+            "-c",
+            ".[] as [$a] ?// $a | if $a == 1 then error(\"x\") else $a end",
+        ],
+        "[[1]]",
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.stdout, "[1]\n");
+    let result = run_jq_result_with_args(&["-c", ". as [$a] ?// $a | error(\"e\")"], "[1]")
+        .await
+        .unwrap();
+    assert_eq!(result.stderr, "jq: error (at <stdin>:0): e\n");
+    let result = run_jq_result_with_args(&["-c", ". as [$a] ?// {a: $a} | error(\"e\")"], "[1]")
+        .await
+        .unwrap();
+    assert_eq!(
+        result.stderr,
+        "jq: error (at <stdin>:0): Cannot index array with string \"a\"\n"
+    );
+}
+
+#[tokio::test]
+async fn decoding_builtins_follow_jq() {
+    let out = run_jq_with_args(
+        &[
+            "-nc",
+            "([55296, 65] | implode), (\"YW\" | @base64d), (\"YQ\" | @base64d), \
+             (try (\"!!\" | @base64d) catch .), (try (\"Y\" | @base64d) catch .), \
+             (try (\"x\" | strptime(\"%Y\")) catch .), (try (\"2026-01-15\" | fromdate) catch .), \
+             (\"2026-01-15T12:00:00Z\" | fromdate)",
+        ],
+        "",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        out,
+        "\"\u{fffd}A\"\n\"a\"\n\"a\"\n\"string (\\\"!!\\\") is not valid base64 data\"\n\
+         \"string (\\\"Y\\\") trailing base64 byte found\"\n\
+         \"date \\\"x\\\" does not match format \\\"%Y\\\"\"\n\
+         \"date \\\"2026-01-15\\\" does not match format \\\"%Y-%m-%dT%H:%M:%SZ\\\"\"\n1768478400\n"
+    );
 }

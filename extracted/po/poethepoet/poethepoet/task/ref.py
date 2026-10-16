@@ -92,7 +92,6 @@ class RefTask(PoeTask):
             captured only if its target can. Other options use the default.
             """
             if option_name == "capture_stdout":
-
                 _seen = _seen or set()
                 if id(self) in _seen:
                     # Part of a ref cycle; let graph-build cycle detection report it
@@ -128,8 +127,7 @@ class RefTask(PoeTask):
         if ignore_fail:
             task_state.ignore_failure(ignore_fail)
 
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values, extra_args)
+        extra_args = self._parse_and_register_args(env)
 
         expanded_content = env.fill_template(self._parse_content())
         invocation_tokens = tuple(
@@ -179,15 +177,18 @@ class RefTask(PoeTask):
         from ..exceptions import ExecutionError
         from .graph import TaskExecutionGraph
 
-        graph = TaskExecutionGraph(task, context)
+        graph = TaskExecutionGraph(task, context, parent_env=env)
         plan = graph.get_execution_plan()
         for stage in plan:
             for stage_task in stage:
                 if stage_task == task:
                     # The final sink task gets special treatment
-                    return await task_state.add_child(
-                        await task.run(context=context, parent_env=env)
-                    )
+                    sink_task_run = await task.run(context=context, parent_env=env)
+                    await task_state.add_child(sink_task_run)
+                    # Errors from child task runs are otherwise suppressed, so they
+                    # must be raised here to fail this task
+                    await sink_task_run.wait(suppress_errors=False)
+                    return
 
                 dep_task = await stage_task.run(context=context)
                 await task_state.add_child(dep_task)

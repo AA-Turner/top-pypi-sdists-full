@@ -14,9 +14,9 @@ export type Paragraph = Node<"paragraph", Inline[]>;
 
 export type Code = Node<"code", string>;
 
-// Inline content where the modifier opened mid-line, and block content where it opened at the
-// start of a line, e.g. `*1. foo\n2. bar*` is an italic list.
-type ModifierContent = (Inline | Block | Paragraph | Text)[];
+// Only ever inline content: a modifier covering several blocks splits into a fragment inside each,
+// e.g. `*1. foo\n2. bar*` is a list of two italics.
+type ModifierContent = (Inline | Text)[];
 
 // A spoiler split across blocks, as `||1. foo\n2. ba||r` splits into one in each list item, is one
 // spoiler in fragments that share an id, so that revealing one can reveal them all.
@@ -108,7 +108,7 @@ export type Empty = EmptyNode<"empty">;
 export type Quote = Node<"quote", Block[]>;
 export type Small = Node<"small", { content: Inline[] }>;
 
-export type Block = Empty | Heading | List | Modifier | Quote | Small;
+export type Block = Empty | Heading | List | Quote | Small;
 
 export type NodeType = Inline["type"] | Block["type"];
 

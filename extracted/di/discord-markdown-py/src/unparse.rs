@@ -84,7 +84,7 @@ mod test {
 	use static_assertions::assert_impl_all;
 
 	use super::{Unparse, UnparseDisplay, unparse};
-	use crate::{context::Options, error::Error, node::SpannedNodes, parse};
+	use crate::{context::Options, error::Error, node::Blocks, parse};
 
 	struct Test;
 
@@ -101,7 +101,7 @@ mod test {
 	// `serde_wasm_bindgen::from_value` requires `DeserializeOwned` outright, so a
 	// `#[serde(borrow)]` attribute anywhere in the AST breaks the wasm binding's `unparse`.
 	#[cfg(feature = "serde")]
-	assert_impl_all!(SpannedNodes<'static, ()>: serde::de::DeserializeOwned);
+	assert_impl_all!(Blocks<'static, ()>: serde::de::DeserializeOwned);
 
 	/// Markdown that survives a parse and an unparse byte for byte.
 	///
@@ -179,7 +179,7 @@ mod test {
 
 			let value = serde_json::to_value(&nodes)
 				.unwrap_or_else(|err| panic!("unable to serialize {s:?}: {err}"));
-			let owned: SpannedNodes<'static, ()> = serde_json::from_value(value)
+			let owned: Blocks<'static, ()> = serde_json::from_value(value)
 				.unwrap_or_else(|err| panic!("unable to deserialize {s:?}: {err}"));
 
 			assert_eq!(owned, nodes, "{s:?}");
@@ -204,7 +204,7 @@ mod test {
 				.unwrap_or_else(|err| panic!("unable to serialize {}: {err}", path.display()));
 			// `from_value` deserializes owned whatever the lifetime, which must match `nodes`: a
 			// node is invariant in its lifetime
-			let owned: SpannedNodes<'_, ()> = serde_json::from_value(value)
+			let owned: Blocks<'_, ()> = serde_json::from_value(value)
 				.unwrap_or_else(|err| panic!("unable to deserialize {}: {err}", path.display()));
 
 			assert_eq!(owned, nodes, "{}", path.display());

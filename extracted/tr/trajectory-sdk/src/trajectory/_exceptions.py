@@ -103,6 +103,10 @@ class AuthenticationError(APIStatusError):
   status_code: Literal[401] = 401  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
+class PaymentRequiredError(APIStatusError):
+  status_code: Literal[402] = 402  # pyright: ignore[reportIncompatibleVariableOverride]
+
+
 class PermissionDeniedError(APIStatusError):
   status_code: Literal[403] = 403  # pyright: ignore[reportIncompatibleVariableOverride]
 

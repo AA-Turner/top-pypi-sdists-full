@@ -8,8 +8,8 @@ authors = [
 dependencies = [
     "pyyaml>=6.0.2",
     "python-dateutil>=2.9.0.post0",
+    "croniter>=6.2.4",
     "psycopg[binary]>=3.1",
-    "websockets>=14.0",
     "click>=8.1",
     "sqlalchemy[asyncio]>=2.0.43",
 ]
@@ -35,7 +35,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Framework :: AsyncIO",
 ]
-version = "3.2.0"
+version = "3.3.0"
 
 [project.license]
 text = "MIT"
@@ -55,6 +55,9 @@ validation = [
 ]
 aiosqlite = [
     "aiosqlite>=0.20.0",
+]
+enterprise = [
+    "dbos-enterprise==3.3.0",
 ]
 
 [build-system]
@@ -108,8 +111,6 @@ dev = [
     "isort>=5.13.2",
     "requests>=2.32.3",
     "types-requests>=2.32.0.20240914",
-    "pytz>=2024.2",
-    "GitPython>=3.1.43",
     "confluent-kafka==2.15.0",
     "types-confluent-kafka>=1.2.2",
     "pdm-backend>=2.4.2",
@@ -124,4 +125,5 @@ dev = [
     "sqlalchemy-cockroachdb>=2.0.3",
     "aiosqlite>=0.20.0",
     "types-python-dateutil>=2.9.0.20260518",
+    "types-croniter>=6.2.4",
 ]

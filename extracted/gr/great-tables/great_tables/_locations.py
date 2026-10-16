@@ -18,7 +18,14 @@ from ._gt_data import (
     StyleInfo,
 )
 from ._styles import CellStyle
-from ._tbl_data import PlDataFrame, PlExpr, eval_select, eval_transform, get_column_names
+from ._tbl_data import (
+    PlDataFrame,
+    PlExpr,
+    eval_select,
+    eval_transform,
+    get_column_names,
+    to_list,
+)
 from ._text import _process_text
 
 if TYPE_CHECKING:
@@ -420,7 +427,15 @@ class LocStub(Loc):
     ----------
     rows
         The rows to target within the stub. Can either be a single row name or a series of row names
-        provided in a list. If no rows are specified, all rows are targeted.
+        provided in a list. If no rows are specified, all rows are targeted. With a hierarchical
+        stub and no `columns=`, row names are matched against the values in every stub column, so
+        the name of an outer level targets all of the rows under it.
+    columns
+        For a hierarchical stub (where `rowname_col=` is a list of columns), the stub column(s) to
+        target, as a column name or a list of names. By default, all of the stub columns are
+        targeted. When `columns=` is given, row names in `rows=` are matched against the values in
+        those columns (rather than against the row labels), and a cell that is merged across
+        several rows is targeted if any of its rows are.
 
     Returns
     -------
@@ -455,9 +470,25 @@ class LocStub(Loc):
         .fmt_currency(columns="msrp", decimals=0)
     )
     ```
+
+    With a hierarchical stub, `columns=` targets a single level. Here, the manufacturer cells for
+    the Ferrari rows are highlighted, leaving the model names as they are.
+
+    ```{python}
+    (
+        GT(gtcars[["mfr", "model", "hp", "trq", "msrp"]].head(6), rowname_col=["mfr", "model"])
+        .tab_style(
+            style=style.fill(color="lightgray"),
+            locations=loc.stub(rows="Ferrari", columns="mfr")
+        )
+        .fmt_integer(columns=["hp", "trq"])
+        .fmt_currency(columns="msrp", decimals=0)
+    )
+    ```
     """
 
     rows: RowSelectExpr = None
+    columns: str | list[str] | None = None
 
 
 @dataclass
@@ -652,7 +683,10 @@ class LocBody(Loc):
     ----------
     columns
         The columns to target. Can either be a single column name or a series of column names
-        provided in a list.
+        provided in a list. The stub and row group columns aren't part of the body: naming one
+        raises an error (use [`loc.stub()`](`great_tables.loc.stub`) or
+        [`loc.row_groups()`](`great_tables.loc.row_groups`) instead), and column selectors skip
+        them.
     rows
         The rows to target. Can either be a single row name or a series of row names provided in a
         list.
@@ -1028,6 +1062,30 @@ def resolve_cols_c(
     return [name_pos[0] for name_pos in selected]
 
 
+def _is_stub_selector(x: Any) -> bool:
+    """Whether `x` selects stub columns: the `stub` / `stub(n)` sentinels, or `"stub()"`."""
+    from ._helpers import _StubSentinel
+
+    return isinstance(x, _StubSentinel) or (isinstance(x, str) and x == "stub()")
+
+
+def _resolve_stub_selector(x: Any, data: GTData) -> list[str]:
+    """Get the stub column names (outermost level first) selected by a stub selector."""
+    from ._helpers import _StubSentinel
+
+    stub_cols = [col.var for col in data._boxhead._get_stub_columns()]
+
+    if isinstance(x, _StubSentinel) and x._level is not None:
+        if x._level > len(stub_cols):
+            raise ValueError(
+                f"`{x!r}` refers to stub level {x._level} (counting from the right), but the "
+                f"stub has {len(stub_cols)} column(s)."
+            )
+        return [stub_cols[-x._level]]
+
+    return stub_cols
+
+
 def resolve_cols_i(
     data: GTData | TblData,
     expr: SelectExpr,
@@ -1036,59 +1094,61 @@ def resolve_cols_i(
     excl_group: bool = True,
     null_means: Literal["everything", "nothing"] = "everything",
 ) -> list[tuple[str, int]]:
-    """Return a tuple of (column name, position) pairs, selected by expr."""
+    """Return a tuple of (column name, position) pairs, selected by expr.
 
-    if isinstance(data, GTData):
-        stub_var = data._boxhead.vars_from_type(ColInfoTypeEnum.stub)
-        group_var = data._boxhead.vars_from_type(ColInfoTypeEnum.row_group)
+    As in R gt, the stub and row group columns are excluded from the selection unless
+    `excl_stub=False` / `excl_group=False` (e.g., formatters and `cols_align()` can target the
+    stub). Within `expr`, `stub` selects every stub column and `stub(n)` a single stub level
+    (counting from the right); these are subject to the same exclusion. With `expr=None` (all
+    columns), the stub and row group columns are always excluded: they're only included when
+    selected explicitly.
+    """
 
-        # TODO: special handling of "stub()"
-        if isinstance(expr, list) and any(isinstance(x, str) and x == "stub()" for x in expr):
-            return [(stub_var[0], 1)] if stub_var else []
-
-        # If expr is None, we want to select everything or nothing depending on
-        # the value of `null_means`
-        if expr is None:
-            if null_means == "everything":
-                cols_excl = [*(stub_var if excl_stub else []), *(group_var if excl_group else [])]
-
-                return [
-                    (col, ii)
-                    for ii, col in enumerate(get_column_names(data._tbl_data))
-                    if col not in cols_excl
-                ]
-
-            else:
-                return []
-
-        if not excl_stub:
-            # In most cases we would want to exclude the column that
-            # represents the stub but that isn't always the case (e.g.,
-            # when considering the stub for column sizing); the `excl_stub`
-            # argument will determine whether the stub column is obtained
-            # for exclusion or not (if FALSE, we get NULL which removes the
-            # stub, if present, from `cols_excl`)
-            stub_var = None
-
-        if not excl_group:
-            # The columns that represent the group rows are usually
-            # always excluded but in certain cases (i.e., `rows_add()`)
-            # we may want to include this column
-            _group_vars = data._boxhead.vars_from_type(ColInfoTypeEnum.row_group)
-            group_var = _group_vars[0] if _group_vars else None
-        else:
-            group_var = None
-
-        cols_excl = (stub_var, group_var)
-
-        tbl_data = data._tbl_data
-    else:
+    if not isinstance(data, GTData):
         # I am not sure if this gets used in the R program, but it's
         # convenient for testing
-        tbl_data = data
-        cols_excl = ()
+        return eval_select(data, expr, strict)
 
-    selected = eval_select(tbl_data, expr, strict)
+    stub_var = data._boxhead.vars_from_type(ColInfoTypeEnum.stub)
+    group_var = data._boxhead.vars_from_type(ColInfoTypeEnum.row_group)
+    cols_excl = [*(stub_var if excl_stub else []), *(group_var if excl_group else [])]
+
+    column_names = get_column_names(data._tbl_data)
+
+    # If expr is None, we want to select everything or nothing depending on
+    # the value of `null_means`; "everything" never includes the stub or row group columns (e.g.,
+    # `fmt_integer()` with no `columns=` formats the body columns only)
+    if expr is None:
+        if null_means == "nothing":
+            return []
+
+        return [
+            (col, ii)
+            for ii, col in enumerate(column_names)
+            if col not in stub_var and col not in group_var
+        ]
+
+    # Stub selectors (`stub`, `stub(n)`) are resolved to the stub column names; the rest of the
+    # expression is evaluated as usual
+    if _is_stub_selector(expr):
+        expr = [expr]
+
+    if isinstance(expr, list) and any(_is_stub_selector(x) for x in expr):
+        stub_names = [
+            name for x in expr if _is_stub_selector(x) for name in _resolve_stub_selector(x, data)
+        ]
+        rest = [x for x in expr if not _is_stub_selector(x)]
+
+        selected = [(name, column_names.index(name)) for name in dict.fromkeys(stub_names)]
+        if rest:
+            selected += [
+                name_pos
+                for name_pos in eval_select(data._tbl_data, rest, strict)
+                if name_pos[0] not in stub_names
+            ]
+    else:
+        selected = eval_select(data._tbl_data, expr, strict)
+
     return [name_pos for name_pos in selected if name_pos[0] not in cols_excl]
 
 
@@ -1302,6 +1362,62 @@ def _(loc: LocStub, data: GTData) -> set[int]:
     return cell_pos
 
 
+def _is_row_names(rows: RowSelectExpr) -> bool:
+    """Whether a `rows=` expression is a row name or a list of row names."""
+    return isinstance(rows, str) or (
+        isinstance(rows, list) and all(isinstance(x, str) for x in rows)
+    )
+
+
+def resolve_stub_cells(loc: LocStub, data: GTData) -> list[tuple[int, str | None]]:
+    """Return the (row position, stub column) pairs targeted by `loc.stub()`.
+
+    The column is `None` when `columns=` isn't used, meaning the row's whole stub. Otherwise there
+    is a pair for each targeted stub column, with row names matched against that column's values.
+    Without `columns=`, row names are matched against the values of every stub column (as in R
+    gt), so in a hierarchical stub `rows="A"` also targets the rows under an outer value `"A"`.
+    """
+
+    stub_columns = [col.var for col in data._boxhead._get_stub_columns()]
+
+    if loc.columns is None:
+        if len(stub_columns) > 1 and _is_row_names(loc.rows):
+            rows: set[int] = set()
+            for col in stub_columns:
+                column_values = to_list(data._tbl_data[col])
+                rows.update(
+                    row_pos for _, row_pos in resolve_rows_i(data=column_values, expr=loc.rows)
+                )
+            return [(row, None) for row in sorted(rows)]
+
+        return [(row, None) for row in sorted(resolve(loc, data))]
+
+    columns = [loc.columns] if isinstance(loc.columns, str) else list(loc.columns)
+
+    not_in_stub = [col for col in columns if col not in stub_columns]
+    if not_in_stub:
+        raise ValueError(
+            f"`loc.stub(columns=)` must refer to stub columns ({stub_columns}), but got "
+            f"{not_in_stub}."
+        )
+
+    cells: list[tuple[int, str | None]] = []
+    for col in stub_columns:
+        if col not in columns:
+            continue
+
+        if _is_row_names(loc.rows):
+            # Row names are matched against the values in this stub column
+            column_values = to_list(data._tbl_data[col])
+            rows = resolve_rows_i(data=column_values, expr=loc.rows)
+        else:
+            rows = resolve_rows_i(data=data, expr=loc.rows)
+
+        cells.extend((row_pos, col) for _, row_pos in rows)
+
+    return cells
+
+
 @resolve.register
 def _(loc: LocGrandSummary, data: GTData) -> list[CellPos]:
     if (loc.columns is not None or loc.rows is not None) and loc.mask is not None:
@@ -1353,6 +1469,40 @@ def _(loc: LocSummary, data: GTData) -> list[tuple[str, CellPos]]:
     return result
 
 
+def _check_body_columns_not_stub(columns: SelectExpr, data: GTData) -> None:
+    """Raise if `loc.body(columns=)` names a stub or row group column.
+
+    Body locations don't include the stub or row group columns (selectors such as
+    `cs.numeric()` silently skip them, as in R gt); naming one explicitly is an error that points
+    to the location that does target it.
+    """
+
+    named = [columns] if isinstance(columns, str) or _is_stub_selector(columns) else columns
+    if not isinstance(named, list):
+        return
+
+    stub_var = data._boxhead.vars_from_type(ColInfoTypeEnum.stub)
+    group_var = data._boxhead.vars_from_type(ColInfoTypeEnum.row_group)
+
+    named_stub = [
+        x for x in named if _is_stub_selector(x) or (isinstance(x, str) and x in stub_var)
+    ]
+    if named_stub:
+        names = ", ".join(repr(x) if isinstance(x, str) else f"`{x!r}`" for x in named_stub)
+        raise ValueError(
+            f"`loc.body(columns=)` can't target stub columns, but got {names}. "
+            "Use `loc.stub(columns=...)` to target the stub."
+        )
+
+    named_group = [x for x in named if isinstance(x, str) and x in group_var]
+    if named_group:
+        names = ", ".join(repr(x) for x in named_group)
+        raise ValueError(
+            f"`loc.body(columns=)` can't target the row group column, but got {names}. "
+            "Use `loc.row_groups()` to target the row group labels."
+        )
+
+
 @resolve.register
 def _(loc: LocBody, data: GTData) -> list[CellPos]:
     if (loc.columns is not None or loc.rows is not None) and loc.mask is not None:
@@ -1361,6 +1511,8 @@ def _(loc: LocBody, data: GTData) -> list[CellPos]:
         )
 
     if loc.mask is None:
+        _check_body_columns_not_stub(loc.columns, data=data)
+
         rows = resolve_rows_i(data=data, expr=loc.rows)
         cols = resolve_cols_i(data=data, expr=loc.columns)
         # TODO: dplyr arranges by `Var1`, and does distinct (since you can tidyselect the same
@@ -1536,15 +1688,22 @@ def _(
     for entry in styles:
         entry._raise_if_requires_data(loc)
     # TODO resolve
-    cells = resolve(loc, data)
+    # Each cell is a row position and, for `loc.stub(columns=)`, the targeted stub column
+    if isinstance(loc, LocStub):
+        cells = resolve_stub_cells(loc, data)
+    else:
+        cells = [(row_pos, None) for row_pos in resolve(loc, data)]
 
-    new_styles = [StyleInfo(locname=loc, rownum=rownum, styles=styles) for rownum in cells]
+    new_styles = [
+        StyleInfo(locname=loc, rownum=rownum, colname=colname, styles=styles)
+        for rownum, colname in cells
+    ]
 
     # Handle footnotes
     updated_footnotes = []
-    for row_pos in cells:
+    for row_pos, colname in cells:
         for footnote_info in new_footnotes:
-            updated_footnote = replace(footnote_info, locname=loc, rownum=row_pos)
+            updated_footnote = replace(footnote_info, locname=loc, rownum=row_pos, colname=colname)
             updated_footnotes.append(updated_footnote)
 
     return data._replace(

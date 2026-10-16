@@ -1,10 +1,9 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """MCP tools for Zendesk Support operations.
 
-This module exposes tools for pulling Zendesk tickets (and their comments) and
-for posting internal (private, agent-only) notes to a ticket, so support
-workflows can inspect and annotate ticket context through the hosted Ops MCP
-server.
+This module exposes tools for pulling Zendesk tickets (and their comments),
+posting internal (private, agent-only) notes, and notifying Slack reviewers
+after spam triage through the hosted Ops MCP server.
 
 ## MCP reference
 
@@ -18,14 +17,19 @@ server.
 
 __all__: list[str] = []
 
+import os
 import re
 from typing import Annotated, Any, Literal
 
+import requests
 from fastmcp import FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
+from airbyte_ops_mcp.slack_api import SlackAPIError
+from airbyte_ops_mcp.slack_posting import post_channel_message
 from airbyte_ops_mcp.zendesk_api import (
+    ENV_ZENDESK_SUBDOMAIN,
     ZendeskAPIError,
     add_internal_note,
     add_ticket_tags,
@@ -39,6 +43,15 @@ from airbyte_ops_mcp.zendesk_api import (
     search,
     set_ticket_email_ccs,
 )
+
+# Private #team-support channel; the hydra bot must stay a member.
+_SPAM_ALERT_SLACK_CHANNEL = "C02U1H7M71A"
+_SPAM_ALERT_MENTION_IDS = (
+    "U04QENY1EDV",
+    "U033PU4TMHA",
+    "U0960FC2DEG",
+)  # Michael Moon, Kylee Soper, Vai Ignatavicius
+_SAFE_SESSION_URL_RE = re.compile(r"^https://[^\s<>|]+$")
 
 
 class ZendeskAttachment(BaseModel):
@@ -178,6 +191,17 @@ class ZendeskInternalNoteResponse(BaseModel):
     )
 
 
+class ZendeskSpamAlertResponse(BaseModel):
+    """Response from the `notify_zendesk_spam_ticket` tool."""
+
+    success: bool = Field(description="Whether the Slack alert was posted.")
+    message: str = Field(description="Human-readable status message.")
+    ticket_id: int = Field(description="Zendesk ticket ID.")
+    slack_permalink: str | None = Field(
+        default=None, description="Permalink to the posted Slack alert."
+    )
+
+
 class ZendeskTagsResponse(BaseModel):
     """Response from the `add_zendesk_ticket_tags` tool."""
 
@@ -284,6 +308,28 @@ def _agent_ticket_url(raw_url: str | None, ticket_id: int | None) -> str | None:
     if not host:
         return None
     return f"{host}/agent/tickets/{ticket_id}"
+
+
+def _configured_agent_ticket_url(ticket_id: int) -> str | None:
+    """Build the agent-facing URL from the configured Zendesk subdomain."""
+    subdomain = os.environ.get(ENV_ZENDESK_SUBDOMAIN, "").strip()
+    if not subdomain:
+        return None
+    raw_url = f"https://{subdomain}.zendesk.com/api/v2/tickets/{ticket_id}.json"
+    return _agent_ticket_url(raw_url, ticket_id)
+
+
+def _escape_slack_text(value: str) -> str:
+    """Escape user-provided text for Slack mrkdwn."""
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _normalize_slack_text(value: str, *, limit: int | None = None) -> str:
+    """Collapse whitespace and optionally truncate text for a Slack alert."""
+    normalized = re.sub(r"\s+", " ", value).strip()
+    if limit is not None and len(normalized) > limit:
+        normalized = f"{normalized[: limit - 3].rstrip()}..."
+    return _escape_slack_text(normalized)
 
 
 def _map_attachments(raw_comment: dict[str, Any]) -> list[ZendeskAttachment]:
@@ -965,6 +1011,70 @@ def post_zendesk_internal_comment(
         ),
         ticket_id=resolved_id,
         comment_id=comment_id,
+    )
+
+
+@mcp_tool(
+    read_only=False,
+    idempotent=False,
+    open_world=True,
+)
+def notify_zendesk_spam_ticket(
+    ticket_id: Annotated[
+        int,
+        Field(description="The numeric Zendesk ticket ID to alert reviewers about."),
+    ],
+    reason: Annotated[
+        str,
+        Field(
+            description="One or two sentences on why the ticket was triaged as spam."
+        ),
+    ],
+    subject: Annotated[
+        str | None,
+        Field(default=None, description="Ticket subject, if known."),
+    ] = None,
+    agent_session_url: Annotated[
+        str | None,
+        Field(
+            default=None,
+            description="URL of the Devin session that triaged the ticket.",
+        ),
+    ] = None,
+) -> ZendeskSpamAlertResponse:
+    """Post a spam alert to `#team-support` mentioning the spam reviewers.
+
+    Call this once per ticket after the triage note and tags are written. This
+    tool does not modify the Zendesk ticket. Failures are returned, never raised,
+    so triage can continue.
+    """
+    ticket_url = _configured_agent_ticket_url(ticket_id)
+    ticket_link = f"<{ticket_url}|#{ticket_id}>" if ticket_url else f"#{ticket_id}"
+    subject_text = _normalize_slack_text(subject) if subject else ""
+    subject_suffix = f": {subject_text}" if subject_text else ""
+    mentions = " ".join(f"<@{user_id}>" for user_id in _SPAM_ALERT_MENTION_IDS)
+    text = (
+        f":no_entry_sign: :spam: MoonBot triaged Zendesk ticket {ticket_link}"
+        f"{subject_suffix} as spam. {mentions}\n"
+        f"*Reason:* {_normalize_slack_text(reason, limit=500)}"
+    )
+    if agent_session_url and _SAFE_SESSION_URL_RE.fullmatch(agent_session_url):
+        text += f"\n<{_escape_slack_text(agent_session_url)}|Devin session>"
+
+    try:
+        result = post_channel_message(_SPAM_ALERT_SLACK_CHANNEL, text)
+    except (SlackAPIError, requests.RequestException) as exc:
+        return ZendeskSpamAlertResponse(
+            success=False,
+            message=str(exc),
+            ticket_id=ticket_id,
+        )
+
+    return ZendeskSpamAlertResponse(
+        success=True,
+        message=f"Posted a Slack spam alert for Zendesk ticket {ticket_id}.",
+        ticket_id=ticket_id,
+        slack_permalink=result.permalink,
     )
 
 

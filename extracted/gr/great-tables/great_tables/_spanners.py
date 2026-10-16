@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Literal
 from typing_extensions import TypeAlias, TypedDict
 
 from ._boxhead import cols_label
-from ._gt_data import ColMergeInfo, SpannerInfo, Spanners
-from ._locations import resolve_cols_c, resolve_rows_i
+from ._gt_data import ColInfoTypeEnum, ColMergeInfo, SpannerInfo, Spanners
+from ._locations import RowSelectExpr, resolve_cols_c, resolve_rows_i
 from ._tbl_data import SelectExpr
 from ._text import BaseText, Text
 from ._utils import OrderedSet, _assert_list_is_subset
@@ -481,6 +481,30 @@ def _validate_sel_cols(columns: SelectExpr, sel_cols: list[str], col_vars: list[
         raise ValueError("All `columns` must exist and be visible in the input `data` table.")
 
 
+def _check_movable(data: GTSelf, columns: SelectExpr, arg: str = "columns") -> None:
+    """Raise if stub or row group columns are named in a `cols_move*()` method.
+
+    Their position is set by `rowname_col=` / `groupname_col=` in `GT()`, so (as in R gt) they
+    can't be selected for moving or as the `after=` column.
+    """
+
+    named = [columns] if isinstance(columns, str) else columns
+    if not isinstance(named, list):
+        return
+
+    stub_or_group = [
+        *data._boxhead.vars_from_type(ColInfoTypeEnum.stub),
+        *data._boxhead.vars_from_type(ColInfoTypeEnum.row_group),
+    ]
+    named_stub = [x for x in named if isinstance(x, str) and x in stub_or_group]
+
+    if named_stub:
+        raise ValueError(
+            f"`{arg}=` can't include stub or row group columns ({', '.join(map(repr, named_stub))}); "
+            "their position is set by `rowname_col=` and `groupname_col=` in `GT()`."
+        )
+
+
 def cols_move(self: GTSelf, columns: SelectExpr, after: str) -> GTSelf:
     """Move one or more columns.
 
@@ -538,6 +562,9 @@ def cols_move(self: GTSelf, columns: SelectExpr, after: str) -> GTSelf:
     # If `columns` is a string, convert it to a list
     if isinstance(columns, str):
         columns = [columns]
+
+    _check_movable(self, columns)
+    _check_movable(self, after, arg="after")
 
     sel_cols = resolve_cols_c(data=self, expr=columns)
 
@@ -624,6 +651,8 @@ def cols_move_to_start(self: GTSelf, columns: SelectExpr) -> GTSelf:
     if isinstance(columns, str):
         columns = [columns]
 
+    _check_movable(self, columns)
+
     sel_cols = resolve_cols_c(data=self, expr=columns)
 
     col_vars = [col.var for col in self._boxhead]
@@ -689,6 +718,8 @@ def cols_move_to_end(self: GTSelf, columns: SelectExpr) -> GTSelf:
     # If `columns` is a string, convert it to a list
     if isinstance(columns, str):
         columns = [columns]
+
+    _check_movable(self, columns)
 
     sel_cols = resolve_cols_c(data=self, expr=columns)
 
@@ -758,7 +789,7 @@ def cols_hide(self: GTSelf, columns: SelectExpr) -> GTSelf:
     if isinstance(columns, str):
         columns = [columns]
 
-    sel_cols = resolve_cols_c(data=self, expr=columns)
+    sel_cols = resolve_cols_c(data=self, expr=columns, excl_stub=False)
 
     col_vars = [col.var for col in self._boxhead]
 
@@ -812,7 +843,8 @@ def cols_unhide(self: GTSelf, columns: SelectExpr) -> GTSelf:
     if isinstance(columns, str):
         columns = [columns]
 
-    sel_cols = resolve_cols_c(data=self, expr=columns)
+    # Stub columns can be hidden with `cols_hide()`, so they can be unhidden too
+    sel_cols = resolve_cols_c(data=self, expr=columns, excl_stub=False)
 
     col_vars = [col.var for col in self._boxhead]
 
@@ -905,7 +937,8 @@ def cols_width(self: GTSelf, cases: dict[str, str] | None = None, **kwargs: str)
         A dictionary where the keys are column names and the values are the widths. Widths can be
         specified in pixels (e.g., `"50px"`) or as percentages (e.g., `"20%"`). Use the
         [`stub`](`great_tables.stub`) sentinel as a key to set the width of the stub column without
-        risk of collision with a data column named `"stub"`.
+        risk of collision with a data column named `"stub"`, or `stub(n)` to set one level of a
+        hierarchical stub (counting from the right).
 
     **kwargs
         Keyword arguments to specify column widths. Each keyword corresponds to a column name, with
@@ -1003,7 +1036,9 @@ def cols_width(self: GTSelf, cases: dict[str, str] | None = None, **kwargs: str)
     previous example).
 
     When a table has a stub (row labels), use the [`stub`](`great_tables.stub`) sentinel to set its
-    width. This avoids any ambiguity with a data column that happens to be named `"stub"`.
+    width. This avoids any ambiguity with a data column that happens to be named `"stub"`. With a
+    hierarchical stub, `stub` sets the width of every stub column, and `stub(n)` sets the width of a
+    single level, counting from the right (`stub(1)` is the column holding the row labels).
 
     ```{python}
     from great_tables import GT, stub
@@ -1023,6 +1058,15 @@ def cols_width(self: GTSelf, cases: dict[str, str] | None = None, **kwargs: str)
         )
     )
     ```
+
+    Here's a hierarchical stub with a different width for each level.
+
+    ```{python}
+    (
+        GT(gtcars[["mfr", "model", "year", "hp"]].head(6), rowname_col=["mfr", "model"])
+        .cols_width(cases={stub(2): "120px", stub(1): "200px", "year": "60px", "hp": "60px"})
+    )
+    ```
     """
     cases = cases if cases is not None else {}
     new_cases = cases | kwargs
@@ -1033,19 +1077,30 @@ def cols_width(self: GTSelf, cases: dict[str, str] | None = None, **kwargs: str)
 
     curr_boxhead = self._boxhead
 
-    # Resolve a stub sentinel key to the actual stub column variable name
+    # Resolve stub sentinel keys to the actual stub column variable names: `stub` sets every stub
+    # column, `stub(n)` sets one level (counting from the right), and widths given for named columns
+    # take precedence over both
     from ._helpers import _StubSentinel
 
     stub_keys = [k for k in new_cases if isinstance(k, _StubSentinel)]
     if stub_keys:
-        stub_col = curr_boxhead._get_stub_column()
-        if stub_col is not None:
-            stub_width = new_cases.pop(stub_keys[0])
-            new_cases = {stub_col.var: stub_width} | new_cases
-        else:
-            # No stub column present — drop the sentinel key silently
-            for k in stub_keys:
-                new_cases.pop(k)
+        stub_cols = [col.var for col in curr_boxhead._get_stub_columns()]
+        stub_widths: dict[str, str] = {}
+
+        for key in sorted(stub_keys, key=lambda k: k._level is not None):
+            width = new_cases.pop(key)
+            if key._level is None:
+                # No stub column present: the plain `stub` key is dropped silently
+                stub_widths |= {col: width for col in stub_cols}
+            elif key._level > len(stub_cols):
+                raise ValueError(
+                    f"`{key!r}` refers to stub level {key._level} (counting from the right), but "
+                    f"the stub has {len(stub_cols)} column(s)."
+                )
+            else:
+                stub_widths[stub_cols[-key._level]] = width
+
+        new_cases = stub_widths | new_cases
 
     # Get the full list of column names for the data
     column_names = curr_boxhead._get_columns()
@@ -1073,7 +1128,7 @@ def cols_merge(
     self: GTSelf,
     columns: SelectExpr,
     hide_columns: SelectExpr | Literal[False] = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     pattern: str | None = None,
 ) -> GTSelf:
     """Merge data from two or more columns into a single column.
@@ -1099,9 +1154,10 @@ def cols_merge(
         suppress any hiding of columns, `False` can be used here. By default, all columns other
         than the first one specified in `columns=` will be hidden.
     rows
-        In conjunction with `columns=`, we can specify which of their rows should participate in
-        the merging process. The default is all rows, resulting in all rows in `columns=` being
-        formatted. Alternatively, we can supply a list of row indices.
+        In conjunction with `columns=`, we can specify which of their rows should participate in the
+        merging process. The default is all rows, resulting in all rows in `columns=` being
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     pattern
         A formatting pattern that specifies the arrangement of the column values and any string
         literals. The pattern uses numbers (within `{}`) that correspond to the indices of columns
@@ -1201,7 +1257,7 @@ def cols_merge(
     ```
     """
     # Get the columns supplied in `columns` as a list of column names
-    columns_resolved = resolve_cols_c(data=self, expr=columns)
+    columns_resolved = resolve_cols_c(data=self, expr=columns, excl_stub=False)
 
     if len(columns_resolved) < 2:
         raise ValueError("At least two columns must be specified for merging.")
@@ -1256,7 +1312,7 @@ def cols_merge_uncert(
     self: GTSelf,
     col_val: SelectExpr,
     col_uncert: SelectExpr,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     sep: str = " +/- ",
     autohide: bool = True,
 ) -> GTSelf:
@@ -1283,7 +1339,8 @@ def cols_merge_uncert(
         respectively, should be provided as a list.
     rows
         In conjunction with `col_val`, we can specify which rows should participate in the merging
-        process. The default is all rows. Alternatively, we can supply a list of row indices.
+        process. The default is all rows. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     sep
         The separator text that contains the uncertainty mark for a single uncertainty value. The
         default value of `" +/- "` indicates that an appropriate plus/minus mark will be used
@@ -1355,14 +1412,14 @@ def cols_merge_uncert(
     ```
     """
     # Resolve the col_val column
-    col_val_resolved = resolve_cols_c(data=self, expr=col_val)
+    col_val_resolved = resolve_cols_c(data=self, expr=col_val, excl_stub=False)
     if len(col_val_resolved) != 1:
         raise ValueError(
             f"Column `col_val` must resolve to exactly one column, got {len(col_val_resolved)}."
         )
 
     # Resolve the col_uncert column(s)
-    col_uncert_resolved = resolve_cols_c(data=self, expr=col_uncert)
+    col_uncert_resolved = resolve_cols_c(data=self, expr=col_uncert, excl_stub=False)
     if len(col_uncert_resolved) < 1 or len(col_uncert_resolved) > 2:
         raise ValueError(
             f"Column `col_uncert` must resolve to one or two columns, "
@@ -1403,7 +1460,7 @@ def cols_merge_range(
     self: GTSelf,
     col_begin: SelectExpr,
     col_end: SelectExpr,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     sep: str | None = None,
     autohide: bool = True,
     locale: str | None = None,
@@ -1426,9 +1483,9 @@ def cols_merge_range(
         expressions can be used, it's recommended that a single column name be used to ensure that
         exactly one column is provided here.
     rows
-        In conjunction with `col_begin`, we can specify which rows should participate in the
-        merging process. The default is all rows. Alternatively, we can supply a list of row
-        indices.
+        In conjunction with `col_begin`, we can specify which rows should participate in the merging
+        process. The default is all rows. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     sep
         The separator text that indicates the values are ranged. If not provided, an en dash
         (`"–"`) will be used. You can use `"--"` for an en dash or `"---"` for an em dash.
@@ -1502,14 +1559,14 @@ def cols_merge_range(
     ```
     """
     # Resolve the col_begin column
-    col_begin_resolved = resolve_cols_c(data=self, expr=col_begin)
+    col_begin_resolved = resolve_cols_c(data=self, expr=col_begin, excl_stub=False)
     if len(col_begin_resolved) != 1:
         raise ValueError(
             f"Column `col_begin` must resolve to exactly one column, got {len(col_begin_resolved)}."
         )
 
     # Resolve the col_end column
-    col_end_resolved = resolve_cols_c(data=self, expr=col_end)
+    col_end_resolved = resolve_cols_c(data=self, expr=col_end, excl_stub=False)
     if len(col_end_resolved) != 1:
         raise ValueError(
             f"Column `col_end` must resolve to exactly one column, got {len(col_end_resolved)}."
@@ -1553,7 +1610,7 @@ def cols_merge_n_pct(
     self: GTSelf,
     col_n: SelectExpr,
     col_pct: SelectExpr,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     autohide: bool = True,
 ) -> GTSelf:
     """Merge two columns to combine counts and percentages.
@@ -1574,10 +1631,11 @@ def cols_merge_n_pct(
         The column that contains values for the percentage component. While column selection
         expressions can be used, it's recommended that a single column name be used to ensure that
         exactly one column is provided here. This column should be formatted such that percentages
-        are displayed (e.g., with `fmt_percent()`).
+        are displayed (e.g., with [`fmt_percent()`](`great_tables.GT.fmt_percent`)).
     rows
         In conjunction with `col_n`, we can specify which rows should participate in the merging
-        process. The default is all rows. Alternatively, we can supply a list of row indices.
+        process. The default is all rows. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     autohide
         An option to automatically hide the column specified as `col_pct`. Any columns with their
         state changed to hidden will behave the same as before, they just won't be displayed in
@@ -1606,8 +1664,9 @@ def cols_merge_n_pct(
 
     It is the responsibility of the user to ensure that values are correct in both the `col_n` and
     `col_pct` columns (this function neither generates nor recalculates values in either).
-    Formatting of each column can be done independently in separate `fmt_number()` and
-    `fmt_percent()` calls.
+    Formatting of each column can be done independently in separate
+    [`fmt_number()`](`great_tables.GT.fmt_number`) and
+    [`fmt_percent()`](`great_tables.GT.fmt_percent`) calls.
 
     Examples
     --------
@@ -1650,14 +1709,14 @@ def cols_merge_n_pct(
     ```
     """
     # Resolve the col_n column
-    col_n_resolved = resolve_cols_c(data=self, expr=col_n)
+    col_n_resolved = resolve_cols_c(data=self, expr=col_n, excl_stub=False)
     if len(col_n_resolved) != 1:
         raise ValueError(
             f"Column `col_n` must resolve to exactly one column, got {len(col_n_resolved)}."
         )
 
     # Resolve the col_pct column
-    col_pct_resolved = resolve_cols_c(data=self, expr=col_pct)
+    col_pct_resolved = resolve_cols_c(data=self, expr=col_pct, excl_stub=False)
     if len(col_pct_resolved) != 1:
         raise ValueError(
             f"Column `col_pct` must resolve to exactly one column, got {len(col_pct_resolved)}."

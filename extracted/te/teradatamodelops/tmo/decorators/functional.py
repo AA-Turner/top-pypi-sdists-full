@@ -6,6 +6,18 @@ from typing import Literal, Any
 logger = logging.getLogger(__name__)
 
 
+def _functional_repr(self) -> str:
+    """Readable, recursive representation shared by all @functional classes."""
+    # Local import to avoid a circular dependency with tmo.types
+    from tmo.types.base_entity import BaseEntityMixin
+
+    formatter = BaseEntityMixin()
+    # Unannotated classes can't be formatted field by field; avoid re-entering this repr
+    if not formatter._is_functional_object(self):
+        return object.__repr__(self)
+    return formatter._format_value(self)
+
+
 class functional(object):  # noqa @ NOSONAR
     """
     A class decorator that converts class attributes to properties with getter and setter methods following the functional programming paradigm.
@@ -64,6 +76,8 @@ class functional(object):  # noqa @ NOSONAR
             )
 
         self._cls = args[0]
+        if "__repr__" not in self._cls.__dict__:
+            self._cls.__repr__ = _functional_repr
 
     def __call__(self, *args, **kwargs):
         if len(args) > 0 and len(kwargs) > 0:

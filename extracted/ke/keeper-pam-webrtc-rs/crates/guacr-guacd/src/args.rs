@@ -165,6 +165,9 @@ pub mod protocol_args {
         ArgDescriptor::optional("server-layout"),
         ArgDescriptor::optional("security"),
         ArgDescriptor::optional("ignore-cert"),
+        // Kept because this list's job is to mirror guacd's advertised surface, not guacr's
+        // capabilities. The RDP handler accepts it and ignores it: trust-on-first-use needs a
+        // pin store keyed by hostname and guacr holds no state between sessions.
         ArgDescriptor::optional("cert-tofu"),
         ArgDescriptor::optional("cert-fingerprints"),
         ArgDescriptor::optional("disable-auth"),

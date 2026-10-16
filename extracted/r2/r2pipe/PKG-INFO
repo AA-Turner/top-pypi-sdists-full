@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: r2pipe
-Version: 1.9.8
+Version: 2.0.0
 Summary: Pipe interface for radare2
 Author-email: pancake <pancake@nopcode.org>
 License: MIT

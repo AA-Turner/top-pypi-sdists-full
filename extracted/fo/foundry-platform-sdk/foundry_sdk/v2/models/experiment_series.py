@@ -73,6 +73,9 @@ class ExperimentSeriesClient:
         Retrieve raw time-series data for a single series in JSON format.
         Results are paginated with a default page size of 200 and a maximum of 1000.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -139,6 +142,9 @@ class ExperimentSeriesClient:
     ) -> core.TableResponse:
         """
         Retrieve raw time-series data for a single series as a streamed binary response in Apache Parquet format.
+
+
+        Required scopes: [api:models-read]
 
         :param model_rid:
         :type model_rid: ModelRid
@@ -253,6 +259,9 @@ class AsyncExperimentSeriesClient:
         Retrieve raw time-series data for a single series in JSON format.
         Results are paginated with a default page size of 200 and a maximum of 1000.
 
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param experiment_rid:
@@ -319,6 +328,9 @@ class AsyncExperimentSeriesClient:
     ) -> typing.Awaitable[core.TableResponse]:
         """
                 Retrieve raw time-series data for a single series as a streamed binary response in Apache Parquet format.
+
+
+                Required scopes: [api:models-read]
 
                 :param model_rid:
                 :type model_rid: ModelRid

@@ -6,15 +6,11 @@ import pytest
 from great_tables import GT, exibble
 from great_tables._utils import (
     _assert_list_is_subset,
-    _assert_str_in_set,
-    _assert_str_list,
-    _assert_str_scalar,
     _collapse_list_elements,
     _insert_into_list,
     _match_arg,
     OrderedSet,
     _str_detect,
-    _str_scalar_to_list,
     is_valid_http_schema,
     heading_has_subtitle,
     heading_has_title,
@@ -58,44 +54,6 @@ def test_match_arg_raises():
     assert "is not an allowed option." in exc_info.value.args[0]
 
 
-def test_assert_str_scalar():
-    _assert_str_scalar("a")
-
-
-def test_assert_str_scalar_raises():
-    with pytest.raises(AssertionError) as exc_info:
-        _assert_str_scalar(1)
-
-    assert "is not a string." in exc_info.value.args[0]
-
-
-def test_assert_str_list():
-    _assert_str_list(["a"])
-
-
-def test_assert_str_list_raises():
-    with pytest.raises(AssertionError) as exc_info:
-        _assert_str_list(1)
-
-    assert "is not a list." in exc_info.value.args[0]
-
-    with pytest.raises(AssertionError) as exc_info:
-        _assert_str_list([1])
-
-    assert "Not all elements of the supplied list are strings." in exc_info.value.args[0]
-
-
-def test_assert_str_in_set():
-    _assert_str_in_set("a", ["a", "b", "c"])
-
-
-def test_assert_str_in_set_raises():
-    with pytest.raises(AssertionError) as exc_info:
-        _assert_str_in_set("x", ["a", "b", "c"])
-
-    assert "is not part of the defined `set`." in exc_info.value.args[0]
-
-
 def test_assert_list_is_subset():
     _assert_list_is_subset([1, 2], [1, 2, 3])
 
@@ -105,12 +63,6 @@ def test_assert_list_is_subset_raises():
         _assert_list_is_subset([1, 2], [2, 3, 4])
 
     assert "The columns provided are not present in the table." in exc_info.value.args[0]
-
-
-def test_str_scalar_to_list():
-    x = _str_scalar_to_list("x")
-    assert isinstance(x, list)
-    assert x[0] == "x"
 
 
 def test_orderedSet():
@@ -269,6 +221,40 @@ class TestHtmlEscaping:
 
         assert "<b>mean</b>" not in html
         assert "&lt;b&gt;mean&lt;/b&gt;" in html
+
+    @pytest.mark.parametrize(
+        "method", ["sub_missing", "sub_zero", "sub_small_vals", "sub_large_vals"]
+    )
+    def test_cells_skipped_by_substitution_are_escaped(self, method: str):
+        import pandas as pd
+
+        df = pd.DataFrame({"x": ["<b>not bold</b>", "x & y"], "y": [None, 0.0]})
+        html = getattr(GT(df), method)().as_raw_html()
+
+        assert "<b>not bold</b>" not in html
+        assert "&lt;b&gt;not bold&lt;/b&gt;" in html
+        assert "x &amp; y" in html
+
+    def test_pyarrow_body_cells_are_escaped(self):
+        import pyarrow as pa
+
+        tbl = pa.table({"x": ["<b>not bold</b>", "x & y"]})
+        html = GT(tbl).as_raw_html()
+
+        assert "<b>not bold</b>" not in html
+        assert "&lt;b&gt;not bold&lt;/b&gt;" in html
+        assert "x &amp; y" in html
+
+
+@pytest.mark.parametrize("method", ["sub_missing", "sub_zero", "sub_small_vals"])
+def test_latex_cells_skipped_by_substitution_are_escaped(method: str):
+    import pandas as pd
+
+    df = pd.DataFrame({"x": ["a & b", "50%"], "y": [None, 0.0]})
+    latex = getattr(GT(df), method)().as_latex()
+
+    assert "a \\& b" in latex
+    assert "50\\%" in latex
 
 
 class TestFmtPassthrough:

@@ -1,0 +1,1867 @@
+mod converter;
+
+use crate::apis::database_driver_v1::BindingType;
+use crate::apis::database_driver_v1::DatabaseDriverV1;
+use crate::apis::database_driver_v1::FetchChunkInput;
+use crate::apis::database_driver_v1::Setting;
+use crate::apis::database_driver_v1::error::{
+    ConfigurationSnafu, InvalidWifProviderSnafu, WorkloadIdentityAttestationSnafu,
+};
+use crate::apis::operation_ctx::OperationCtx;
+use crate::chunks::ChunkFormatKind;
+use crate::config::config_manager;
+use crate::config::path_resolver;
+use crate::config::rest_parameters::{WifProvider, WorkloadIdentityConfig};
+use crate::config::toml_loader::FilePermissionCheck;
+use crate::handle_manager::Handle;
+use crate::protobuf::generated::database_driver_v1::*;
+use crate::rest::snowflake::workload_identity;
+use crate::sensitive::SensitiveString;
+use converter::{
+    ToProtobuf, column_metadata_to_row_type, core_validation_issue_to_proto,
+    proto_options_to_hashmap, reader_to_arrow_stream_ptr, toml_value_to_json,
+};
+use error_trace::ErrorTrace;
+use snafu::{OptionExt, ResultExt};
+use std::future::Future;
+use std::sync::LazyLock;
+use tracing::instrument;
+
+#[allow(clippy::result_large_err)]
+fn required<T>(value: Option<T>, message: &str) -> Result<T, DriverException> {
+    value.ok_or_else(|| DriverException {
+        message: message.to_string(),
+        kind: ErrorKind::InvalidArgument as i32,
+        ..Default::default()
+    })
+}
+
+#[allow(clippy::result_large_err)]
+fn binding_type_from_proto(
+    bindings: Option<QueryBindings>,
+) -> Result<Option<BindingType<'static>>, DriverException> {
+    bindings
+        .and_then(|b| b.binding_type)
+        .map(BindingType::try_from)
+        .transpose()
+        .map_err(|e| DriverException {
+            message: e,
+            kind: ErrorKind::InvalidArgument as i32,
+            ..Default::default()
+        })
+}
+
+fn not_implemented(message: &str) -> DriverException {
+    DriverException {
+        message: message.to_string(),
+        kind: ErrorKind::NotImplemented as i32,
+        ..Default::default()
+    }
+}
+
+pub struct DatabaseDriverImpl {
+    driver: DatabaseDriverV1,
+}
+
+impl Default for DatabaseDriverImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DatabaseDriverImpl {
+    pub fn new() -> Self {
+        Self::new_with(DriverProviders::default())
+    }
+
+    pub fn new_with(providers: DriverProviders) -> Self {
+        Self {
+            driver: DatabaseDriverV1::with_providers(providers),
+        }
+    }
+
+    pub fn is_troubleshooting(&self) -> bool {
+        self.driver.is_troubleshooting()
+    }
+
+    pub(crate) fn driver(&self) -> &DatabaseDriverV1 {
+        &self.driver
+    }
+}
+
+impl DatabaseDriver for DatabaseDriverImpl {
+    #[instrument(name = "DatabaseDriverV1::driver_get_fips_status", skip(self, _input))]
+    async fn driver_get_fips_status(
+        &self,
+        _input: DriverGetFipsStatusRequest,
+    ) -> Result<DriverGetFipsStatusResponse, DriverException> {
+        let status = crate::tls::fips_status();
+        Ok(DriverGetFipsStatusResponse {
+            is_fips: status.is_fips,
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::database_new", skip(self, _input))]
+    async fn database_new(
+        &self,
+        _input: DatabaseNewRequest,
+    ) -> Result<DatabaseNewResponse, DriverException> {
+        let handle = self.driver.database_new();
+        Ok(DatabaseNewResponse {
+            db_handle: Some(DatabaseHandle::from(handle)),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::database_set_options", skip(self, input))]
+    async fn database_set_options(
+        &self,
+        input: DatabaseSetOptionsRequest,
+    ) -> Result<DatabaseSetOptionsResponse, DriverException> {
+        let db_handle = required(input.db_handle, "Database handle is required")?;
+        let options = proto_options_to_hashmap(input.options);
+
+        let warnings = self
+            .driver
+            .database_set_options(db_handle.into(), options)
+            .await
+            .to_protobuf()?;
+
+        Ok(DatabaseSetOptionsResponse {
+            warnings: warnings
+                .into_iter()
+                .map(core_validation_issue_to_proto)
+                .collect(),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::database_init", skip(self, input))]
+    async fn database_init(
+        &self,
+        input: DatabaseInitRequest,
+    ) -> Result<DatabaseInitResponse, DriverException> {
+        let db_handle = required(input.db_handle, "Database handle is required")?;
+
+        self.driver.database_init(db_handle.into()).to_protobuf()?;
+        Ok(DatabaseInitResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::database_release", skip(self, input))]
+    async fn database_release(
+        &self,
+        input: DatabaseReleaseRequest,
+    ) -> Result<DatabaseReleaseResponse, DriverException> {
+        let db_handle = required(input.db_handle, "Database handle is required")?;
+
+        self.driver
+            .database_release(db_handle.into())
+            .to_protobuf()?;
+        Ok(DatabaseReleaseResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::database_fetch_chunk", skip(self, input))]
+    async fn database_fetch_chunk(
+        &self,
+        input: DatabaseFetchChunkRequest,
+    ) -> Result<DatabaseFetchChunkResponse, DriverException> {
+        let conn_handle = input.conn_handle.map(|h| h.into());
+        let _ = required(input.chunks.first(), "At least one chunk is required")?;
+
+        // format of the remote chunks, inline chunk is always arrow
+        let chunk_format: ChunkFormatKind = input
+            .chunks
+            .iter()
+            .find_map(|chunk| match chunk.data.as_ref()? {
+                Data::Inline(_) => None,
+                Data::Remote(_) => proto_chunk_format_to_kind(chunk.format),
+            })
+            .unwrap_or(ChunkFormatKind::ArrowIpc);
+
+        let nullable_flags: Vec<bool> = input.columns.iter().map(|c| c.nullable).collect();
+        // Columns are only needed for JSON chunks; Arrow IPC streams are self-describing.
+        let row_types: Vec<RowType> = match chunk_format {
+            ChunkFormatKind::ArrowIpc => Vec::new(),
+            ChunkFormatKind::Json => input
+                .columns
+                .into_iter()
+                .map(|c| column_metadata_to_row_type(&c.into()))
+                .collect::<Result<Vec<_>, _>>()
+                .to_protobuf()?,
+        };
+
+        let chunks: Vec<FetchChunkInput> = input
+            .chunks
+            .iter()
+            .map(FetchChunkInput::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let stream = self
+            .driver
+            .database_fetch_chunk(
+                conn_handle,
+                chunks,
+                chunk_format,
+                &nullable_flags,
+                row_types,
+            )
+            .await
+            .to_protobuf()?;
+
+        let stream_ptr: ArrowArrayStreamPtr = Box::into_raw(stream).into();
+        Ok(DatabaseFetchChunkResponse {
+            stream: Some(stream_ptr),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_new", skip(self, _input))]
+    async fn connection_new(
+        &self,
+        _input: ConnectionNewRequest,
+    ) -> Result<ConnectionNewResponse, DriverException> {
+        let handle = self.driver.connection_new();
+        Ok(ConnectionNewResponse {
+            conn_handle: Some(ConnectionHandle::from(handle)),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_set_options", skip(self, input))]
+    async fn connection_set_options(
+        &self,
+        input: ConnectionSetOptionsRequest,
+    ) -> Result<ConnectionSetOptionsResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let options = proto_options_to_hashmap(input.options);
+
+        let warnings = self
+            .driver
+            .connection_set_options(
+                conn_handle.into(),
+                options,
+                input.no_connection_details,
+                input.connections_file_path.map(std::path::PathBuf::from),
+            )
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionSetOptionsResponse {
+            warnings: warnings
+                .into_iter()
+                .map(core_validation_issue_to_proto)
+                .collect(),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_init",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_init(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionInitRequest,
+    ) -> Result<ConnectionInitResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let db_handle = required(input.db_handle, "Database handle is required")?;
+
+        // If wrapper identity is provided, store it before connection_init
+        // so the session_init telemetry event carries the identity.
+        if let Some(ref wrapper) = input.wrapper_identity
+            && let Some(ref driver_name) = wrapper.driver_name
+            && !driver_name.is_empty()
+        {
+            let identity = crate::apis::database_driver_v1::connection::WrapperIdentity {
+                driver_name: driver_name.clone(),
+                driver_version: wrapper.driver_version.clone().unwrap_or_default(),
+                language_runtime: wrapper.language_runtime.clone().unwrap_or_default(),
+                language_version: wrapper.language_version.clone().unwrap_or_default(),
+                language_compiler: wrapper.language_compiler.clone(),
+                release_type: wrapper.release_type.clone(),
+                application_path: wrapper.application_path.clone(),
+            };
+
+            tracing::debug!(
+                driver_name = %identity.driver_name,
+                driver_version = %identity.driver_version,
+                language_runtime = %identity.language_runtime,
+                language_version = %identity.language_version,
+                "Wrapper identity stored via connection_init"
+            );
+
+            self.driver
+                .set_wrapper_identity(Handle::from(conn_handle), identity)
+                .await
+                .to_protobuf()?;
+        }
+
+        self.driver
+            .connection_init(operation_ctx, conn_handle.into(), db_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionInitResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_release", skip(self, input))]
+    async fn connection_release(
+        &self,
+        input: ConnectionReleaseRequest,
+    ) -> Result<ConnectionReleaseResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        self.driver
+            .connection_release(conn_handle.into())
+            .to_protobuf()?;
+        Ok(ConnectionReleaseResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_close", skip(self, input))]
+    async fn connection_close(
+        &self,
+        input: ConnectionCloseRequest,
+    ) -> Result<ConnectionCloseResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        self.driver
+            .connection_close(conn_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionCloseResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_is_closed", skip(self, input))]
+    async fn connection_is_closed(
+        &self,
+        input: ConnectionIsClosedRequest,
+    ) -> Result<ConnectionIsClosedResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let is_closed = self
+            .driver
+            .connection_is_closed(conn_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionIsClosedResponse { is_closed })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_is_expired", skip(self, input))]
+    async fn connection_is_expired(
+        &self,
+        input: ConnectionIsExpiredRequest,
+    ) -> Result<ConnectionIsExpiredResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let is_expired = self
+            .driver
+            .connection_is_expired(conn_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionIsExpiredResponse { is_expired })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_get_info", skip(self, input))]
+    async fn connection_get_info(
+        &self,
+        input: ConnectionGetInfoRequest,
+    ) -> Result<ConnectionGetInfoResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let info = self
+            .driver
+            .connection_get_info(conn_handle.into())
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionGetInfoResponse::from_info(
+            info,
+            input.include_master_token,
+        ))
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_get_objects", skip(self, input))]
+    async fn connection_get_objects(
+        &self,
+        input: ConnectionGetObjectsRequest,
+    ) -> Result<ConnectionGetObjectsResponse, DriverException> {
+        use crate::apis::database_driver_v1::GetObjectsRequest;
+
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?.into();
+
+        let req = GetObjectsRequest {
+            conn_handle,
+            depth: input.depth,
+            catalog: input.catalog,
+            db_schema: input.db_schema,
+            table_name: input.table_name,
+            table_type: input.table_type,
+            column_name: input.column_name,
+        };
+
+        let info = self
+            .driver
+            .connection_get_objects(req)
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionGetObjectsResponse {
+            result_set_handle: Some(info.handle.into()),
+            result_descriptor: Some(info.descriptor.into()),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_table_schema",
+        skip(self, _input)
+    )]
+    async fn connection_get_table_schema(
+        &self,
+        _input: ConnectionGetTableSchemaRequest,
+    ) -> Result<ConnectionGetTableSchemaResponse, DriverException> {
+        Err(not_implemented(
+            "connection_get_table_schema is not yet implemented",
+        ))
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_table_types",
+        skip(self, _input)
+    )]
+    async fn connection_get_table_types(
+        &self,
+        _input: ConnectionGetTableTypesRequest,
+    ) -> Result<ConnectionGetTableTypesResponse, DriverException> {
+        Err(not_implemented(
+            "connection_get_table_types is not yet implemented",
+        ))
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_commit",
+        skip(self, input),
+        fields(conn_handle = tracing::field::Empty)
+    )]
+    async fn connection_commit(
+        &self,
+        input: ConnectionCommitRequest,
+    ) -> Result<ConnectionCommitResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        tracing::Span::current().record("conn_handle", tracing::field::debug(&conn_handle));
+        self.driver
+            .connection_commit(conn_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionCommitResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_rollback",
+        skip(self, input),
+        fields(conn_handle = tracing::field::Empty)
+    )]
+    async fn connection_rollback(
+        &self,
+        input: ConnectionRollbackRequest,
+    ) -> Result<ConnectionRollbackResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        tracing::Span::current().record("conn_handle", tracing::field::debug(&conn_handle));
+        self.driver
+            .connection_rollback(conn_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionRollbackResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_set_autocommit",
+        skip(self, input),
+        fields(conn_handle = tracing::field::Empty, autocommit = tracing::field::Empty)
+    )]
+    async fn connection_set_autocommit(
+        &self,
+        input: ConnectionSetAutocommitRequest,
+    ) -> Result<ConnectionSetAutocommitResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        tracing::Span::current().record("conn_handle", tracing::field::debug(&conn_handle));
+        tracing::Span::current().record("autocommit", input.autocommit);
+        self.driver
+            .connection_set_autocommit(conn_handle.into(), input.autocommit)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionSetAutocommitResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_use_database",
+        skip(self, input),
+        fields(conn_handle = tracing::field::Empty, database = tracing::field::Empty)
+    )]
+    async fn connection_use_database(
+        &self,
+        input: ConnectionUseDatabaseRequest,
+    ) -> Result<ConnectionUseDatabaseResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        // Record the trimmed form so the span matches what actually executes — the
+        // driver's connection_use_database normalises whitespace before running the SQL.
+        tracing::Span::current().record("conn_handle", tracing::field::debug(&conn_handle));
+        tracing::Span::current().record("database", input.database.trim());
+        self.driver
+            .connection_use_database(conn_handle.into(), &input.database)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUseDatabaseResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_use_schema",
+        skip(self, input),
+        fields(conn_handle = tracing::field::Empty, schema = tracing::field::Empty)
+    )]
+    async fn connection_use_schema(
+        &self,
+        input: ConnectionUseSchemaRequest,
+    ) -> Result<ConnectionUseSchemaResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        tracing::Span::current().record("conn_handle", tracing::field::debug(&conn_handle));
+        tracing::Span::current().record("schema", input.schema.trim());
+        self.driver
+            .connection_use_schema(conn_handle.into(), &input.schema)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUseSchemaResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_set_session_parameters",
+        skip(self, input)
+    )]
+    async fn connection_set_session_parameters(
+        &self,
+        input: ConnectionSetSessionParametersRequest,
+    ) -> Result<ConnectionSetSessionParametersResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        self.driver
+            .connection_set_session_parameters(conn_handle.into(), input.parameters)
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionSetSessionParametersResponse {})
+    }
+
+    #[allow(deprecated)]
+    #[instrument(name = "DatabaseDriverV1::connection_get_parameter", skip(self, input))]
+    async fn connection_get_parameter(
+        &self,
+        input: ConnectionGetParameterRequest,
+    ) -> Result<ConnectionGetParameterResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let setting = self
+            .driver
+            .connection_get_parameter(conn_handle.into(), input.key)
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionGetParameterResponse {
+            value: setting.as_ref().map(Setting::to_wire_string),
+            typed_value: setting.map(Into::into),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_server_version",
+        skip(self, input)
+    )]
+    async fn connection_get_server_version(
+        &self,
+        input: ConnectionGetServerVersionRequest,
+    ) -> Result<ConnectionGetServerVersionResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let server_version = self
+            .driver
+            .connection_get_server_version(conn_handle.into())
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionGetServerVersionResponse { server_version })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_all_parameters",
+        skip(self, input)
+    )]
+    async fn connection_get_all_parameters(
+        &self,
+        input: ConnectionGetAllParametersRequest,
+    ) -> Result<ConnectionGetAllParametersResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let settings = self
+            .driver
+            .connection_get_all_parameters(conn_handle.into())
+            .await
+            .to_protobuf()?;
+
+        let parameters = settings
+            .iter()
+            .map(|(k, v)| (k.clone(), v.to_wire_string()))
+            .collect();
+        let typed_parameters = settings.into_iter().map(|(k, v)| (k, v.into())).collect();
+
+        Ok(ConnectionGetAllParametersResponse {
+            parameters,
+            typed_parameters,
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_validate_options",
+        skip(self, input)
+    )]
+    async fn connection_validate_options(
+        &self,
+        input: ConnectionValidateOptionsRequest,
+    ) -> Result<ConnectionValidateOptionsResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let issues = self
+            .driver
+            .connection_validate_options(conn_handle.into())
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionValidateOptionsResponse {
+            issues: issues
+                .into_iter()
+                .map(core_validation_issue_to_proto)
+                .collect(),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_query_result",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_get_query_result(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionGetQueryResultRequest,
+    ) -> Result<ExecuteQueryResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let result = self
+            .driver
+            .connection_get_query_result(operation_ctx, conn_handle.into(), input.query_id)
+            .await
+            .to_protobuf()?;
+
+        Ok(result.into())
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_result_set",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_get_result_set(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionGetResultSetRequest,
+    ) -> Result<ResultSetResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let result = self
+            .driver
+            .create_result_set_from_sfqid(operation_ctx, conn_handle.into(), input.query_id)
+            .await
+            .to_protobuf()?;
+
+        Ok(result.into())
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_upload_stream_begin",
+        skip(self, input)
+    )]
+    async fn connection_upload_stream_begin(
+        &self,
+        input: ConnectionUploadStreamBeginRequest,
+    ) -> Result<ConnectionUploadStreamBeginResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let upload_handle = self
+            .driver
+            .connection_upload_stream_begin(conn_handle.into(), input.sql)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUploadStreamBeginResponse {
+            upload_handle: Some(upload_handle.into()),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_upload_stream_chunk",
+        skip(self, input)
+    )]
+    async fn connection_upload_stream_chunk(
+        &self,
+        input: ConnectionUploadStreamChunkRequest,
+    ) -> Result<ConnectionUploadStreamChunkResponse, DriverException> {
+        let upload_handle = required(input.upload_handle, "Upload stream handle is required")?;
+        self.driver
+            .connection_upload_stream_chunk(upload_handle.into(), input.data)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUploadStreamChunkResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_upload_stream_finish",
+        skip(self, input)
+    )]
+    async fn connection_upload_stream_finish(
+        &self,
+        input: ConnectionUploadStreamFinishRequest,
+    ) -> Result<ConnectionUploadStreamFinishResponse, DriverException> {
+        let upload_handle = required(input.upload_handle, "Upload stream handle is required")?;
+        let rs_info = self
+            .driver
+            .connection_upload_stream_finish(upload_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUploadStreamFinishResponse {
+            result_set_handle: Some(rs_info.handle.into()),
+            result_descriptor: Some(rs_info.descriptor.into()),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_upload_stream_abort",
+        skip(self, input)
+    )]
+    async fn connection_upload_stream_abort(
+        &self,
+        input: ConnectionUploadStreamAbortRequest,
+    ) -> Result<ConnectionUploadStreamAbortResponse, DriverException> {
+        let upload_handle = required(input.upload_handle, "Upload stream handle is required")?;
+        self.driver
+            .connection_upload_stream_abort(upload_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionUploadStreamAbortResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_download_stream_begin",
+        skip(self, input)
+    )]
+    async fn connection_download_stream_begin(
+        &self,
+        input: ConnectionDownloadStreamBeginRequest,
+    ) -> Result<ConnectionDownloadStreamBeginResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let (download_handle, total_len) = self
+            .driver
+            .download_stream_begin(
+                conn_handle.into(),
+                input.stage_name,
+                input.source_filename,
+                input.decompress,
+            )
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionDownloadStreamBeginResponse {
+            download_handle: Some(download_handle.into()),
+            total_len,
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_download_stream_chunk",
+        skip(self, input)
+    )]
+    async fn connection_download_stream_chunk(
+        &self,
+        input: ConnectionDownloadStreamChunkRequest,
+    ) -> Result<ConnectionDownloadStreamChunkResponse, DriverException> {
+        let download_handle =
+            required(input.download_handle, "Download stream handle is required")?;
+        let (data, eof) = self
+            .driver
+            .download_stream_chunk(download_handle.into(), input.max_len)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionDownloadStreamChunkResponse { data, eof })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_download_stream_close",
+        skip(self, input)
+    )]
+    async fn connection_download_stream_close(
+        &self,
+        input: ConnectionDownloadStreamCloseRequest,
+    ) -> Result<ConnectionDownloadStreamCloseResponse, DriverException> {
+        let download_handle =
+            required(input.download_handle, "Download stream handle is required")?;
+        self.driver
+            .download_stream_close(download_handle.into())
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionDownloadStreamCloseResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_get_query_status",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_get_query_status(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionGetQueryStatusRequest,
+    ) -> Result<ConnectionGetQueryStatusResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let result = self
+            .driver
+            .connection_get_query_status(operation_ctx, conn_handle.into(), &input.query_id)
+            .await
+            .to_protobuf()?;
+
+        Ok(result.into())
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_abort_query", skip(self, input))]
+    async fn connection_abort_query(
+        &self,
+        input: ConnectionAbortQueryRequest,
+    ) -> Result<ConnectionAbortQueryResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let outcome = self
+            .driver
+            .connection_abort_query(conn_handle.into(), input.query_id)
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionAbortQueryResponse {
+            outcome: AbortQueryOutcome::from(outcome) as i32,
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_send_http",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_send_http(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionSendHttpRequest,
+    ) -> Result<ConnectionSendHttpResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let result = self
+            .driver
+            .connection_send_http_request(
+                operation_ctx,
+                conn_handle.into(),
+                input.method,
+                input.url,
+                input.headers,
+                input.body,
+            )
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionSendHttpResponse {
+            status_code: result.status_code,
+            headers: result.headers,
+            body: result.body,
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::connection_request_token",
+        skip(self, operation_ctx, input)
+    )]
+    async fn connection_request_token(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: ConnectionTokenRequest,
+    ) -> Result<ConnectionTokenResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let request_type = match TokenRequestType::try_from(input.request_type) {
+            Ok(TokenRequestType::Issue) => "ISSUE",
+            Ok(TokenRequestType::Renew) => "RENEW",
+            _ => {
+                return Err(DriverException {
+                    message: "request_type must be ISSUE or RENEW".to_string(),
+                    kind: ErrorKind::InvalidArgument as i32,
+                    ..Default::default()
+                });
+            }
+        };
+
+        let result = self
+            .driver
+            .connection_token_request(operation_ctx, conn_handle.into(), request_type.to_string())
+            .await
+            .to_protobuf()?;
+
+        Ok(ConnectionTokenResponse {
+            session_token: result.session_token.reveal().to_string(),
+            validity_in_seconds: result.validity_in_seconds,
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::connection_heartbeat", skip(self, input))]
+    async fn connection_heartbeat(
+        &self,
+        input: ConnectionHeartbeatRequest,
+    ) -> Result<ConnectionHeartbeatResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let timeout = input
+            .timeout_seconds
+            .map(|s| std::time::Duration::from_secs(s as u64));
+        let valid = self
+            .driver
+            .connection_heartbeat_with_timeout(conn_handle.into(), timeout)
+            .await
+            .to_protobuf()?;
+        Ok(ConnectionHeartbeatResponse { valid })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::statement_new", skip(self, input))]
+    async fn statement_new(
+        &self,
+        input: StatementNewRequest,
+    ) -> Result<StatementNewResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+
+        let handle = self
+            .driver
+            .statement_new(conn_handle.into())
+            .to_protobuf()?;
+        Ok(StatementNewResponse {
+            stmt_handle: Some(StatementHandle::from(handle)),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::statement_release", skip(self, input))]
+    async fn statement_release(
+        &self,
+        input: StatementReleaseRequest,
+    ) -> Result<StatementReleaseResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+
+        self.driver
+            .statement_release(stmt_handle.into())
+            .to_protobuf()?;
+        Ok(StatementReleaseResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::statement_set_sql_query", skip(self, input))]
+    async fn statement_set_sql_query(
+        &self,
+        input: StatementSetSqlQueryRequest,
+    ) -> Result<StatementSetSqlQueryResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+
+        self.driver
+            .statement_set_sql_query(stmt_handle.into(), input.query)
+            .await
+            .to_protobuf()?;
+        Ok(StatementSetSqlQueryResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_set_substrait_plan",
+        skip(self, _input)
+    )]
+    async fn statement_set_substrait_plan(
+        &self,
+        _input: StatementSetSubstraitPlanRequest,
+    ) -> Result<StatementSetSubstraitPlanResponse, DriverException> {
+        // TODO: Implement when corresponding API method is available
+        Err(not_implemented(
+            "statement_set_substrait_plan is not yet implemented",
+        ))
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_prepare",
+        skip(self, operation_ctx, input)
+    )]
+    async fn statement_prepare(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: StatementPrepareRequest,
+    ) -> Result<StatementPrepareResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+        let bindings_opt = binding_type_from_proto(input.bindings)?;
+
+        let result = self
+            .driver
+            .statement_prepare(operation_ctx, stmt_handle.into(), bindings_opt)
+            .await
+            .to_protobuf()?;
+        let result_ptr = reader_to_arrow_stream_ptr(result.stream);
+        Ok(StatementPrepareResponse {
+            result: Some(PrepareResult {
+                stream: Some(result_ptr),
+                query_id: result.query_id,
+                columns: result.columns.into_iter().map(|cm| cm.into()).collect(),
+                number_of_binds: result.number_of_binds,
+                query: result.query,
+                sql_state: result.sql_state,
+                array_bind_supported: result.array_bind_supported,
+                binds: result.binds.into_iter().map(|cm| cm.into()).collect(),
+                request_id: result.request_id.to_string(),
+            }),
+        })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::statement_set_options", skip(self, input))]
+    async fn statement_set_options(
+        &self,
+        input: StatementSetOptionsRequest,
+    ) -> Result<StatementSetOptionsResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+        let options = proto_options_to_hashmap(input.options);
+
+        let warnings = self
+            .driver
+            .statement_set_options(stmt_handle.into(), options)
+            .await
+            .to_protobuf()?;
+
+        Ok(StatementSetOptionsResponse {
+            warnings: warnings
+                .into_iter()
+                .map(core_validation_issue_to_proto)
+                .collect(),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_get_parameter_schema",
+        skip(self, _input)
+    )]
+    async fn statement_get_parameter_schema(
+        &self,
+        _input: StatementGetParameterSchemaRequest,
+    ) -> Result<StatementGetParameterSchemaResponse, DriverException> {
+        Err(not_implemented(
+            "statement_get_parameter_schema is not yet implemented",
+        ))
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_execute_query",
+        skip(self, operation_ctx, input)
+    )]
+    async fn statement_execute_query(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: StatementExecuteQueryRequest,
+    ) -> Result<ExecuteQueryResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+        let bindings_opt = binding_type_from_proto(input.bindings)?;
+
+        let timeout_seconds = input.timeout_seconds;
+
+        let result = self
+            .driver
+            .statement_execute_query(
+                operation_ctx,
+                stmt_handle.into(),
+                bindings_opt,
+                timeout_seconds,
+                None,
+                None,
+            )
+            .await
+            .to_protobuf()?;
+
+        Ok(result.into())
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_execute_async",
+        skip(self, operation_ctx, input)
+    )]
+    async fn statement_execute_async(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: StatementExecuteAsyncRequest,
+    ) -> Result<StatementExecuteAsyncResponse, DriverException> {
+        let stmt_handle = required(input.stmt_handle, "Statement handle is required")?;
+        let bindings_opt = binding_type_from_proto(input.bindings)?;
+
+        let result = self
+            .driver
+            .statement_execute_async(operation_ctx, stmt_handle.into(), bindings_opt, None, None)
+            .await
+            .to_protobuf()?;
+
+        Ok(StatementExecuteAsyncResponse {
+            query_id: result.query_id,
+            request_id: result.request_id.to_string(),
+        })
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_execute_partitions",
+        skip(self, _input)
+    )]
+    async fn statement_execute_partitions(
+        &self,
+        _input: StatementExecutePartitionsRequest,
+    ) -> Result<StatementExecutePartitionsResponse, DriverException> {
+        Err(not_implemented(
+            "statement_execute_partitions is not yet implemented",
+        ))
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::statement_read_partition",
+        skip(self, _input)
+    )]
+    async fn statement_read_partition(
+        &self,
+        _input: StatementReadPartitionRequest,
+    ) -> Result<StatementReadPartitionResponse, DriverException> {
+        Err(not_implemented(
+            "statement_read_partition is not yet implemented",
+        ))
+    }
+
+    #[instrument(name = "DatabaseDriverV1::result_set_get_stream", skip(self, input))]
+    async fn result_set_get_stream(
+        &self,
+        input: ResultSetGetStreamRequest,
+    ) -> Result<ResultSetGetStreamResponse, DriverException> {
+        let handle = required(input.result_set_handle, "ResultSet handle is required")?;
+
+        let result = self
+            .driver
+            .result_set_get_stream(handle.into())
+            .await
+            .to_protobuf()?;
+
+        Ok(result.into())
+    }
+
+    #[instrument(name = "DatabaseDriverV1::result_set_get_chunks", skip(self, input))]
+    async fn result_set_get_chunks(
+        &self,
+        input: ResultSetGetChunksRequest,
+    ) -> Result<ResultSetGetChunksResponse, DriverException> {
+        let result_set_handle = required(input.result_set_handle, "ResultSet handle is required")?;
+
+        self.driver
+            .result_set_get_chunks(result_set_handle.into())
+            .await
+            .to_protobuf()?
+            .try_into()
+    }
+
+    #[instrument(name = "DatabaseDriverV1::result_set_release", skip(self, input))]
+    async fn result_set_release(
+        &self,
+        input: ResultSetReleaseRequest,
+    ) -> Result<ResultSetReleaseResponse, DriverException> {
+        let handle = required(input.result_set_handle, "ResultSet handle is required")?;
+
+        self.driver
+            .result_set_release(handle.into())
+            .to_protobuf()?;
+
+        Ok(ResultSetReleaseResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::config_load_all_sections", skip(self, input))]
+    async fn config_load_all_sections(
+        &self,
+        input: ConfigLoadAllSectionsRequest,
+    ) -> Result<ConfigLoadAllSectionsResponse, DriverException> {
+        let paths = if input.config_file.is_some() || input.connections_file.is_some() {
+            path_resolver::ConfigPaths {
+                config_file: input.config_file.map(std::path::PathBuf::from),
+                connections_file: input.connections_file.map(std::path::PathBuf::from),
+            }
+        } else {
+            path_resolver::get_config_paths()
+                .context(ConfigurationSnafu)
+                .to_protobuf()?
+        };
+        let permission_check = if input.skip_permissions {
+            FilePermissionCheck::UnsafeDisabled
+        } else {
+            FilePermissionCheck::Enabled
+        };
+        let merged_toml =
+            config_manager::load_all_config_merged_toml_with_paths(&paths, permission_check)
+                .context(ConfigurationSnafu)
+                .to_protobuf()?;
+
+        let nested_json = toml_value_to_json(&merged_toml);
+        let config_json = serde_json::to_string(&nested_json).map_err(|e| DriverException {
+            message: format!("Failed to serialize config to JSON: {e}"),
+            kind: ErrorKind::InternalError as i32,
+            ..Default::default()
+        })?;
+
+        Ok(ConfigLoadAllSectionsResponse { config_json })
+    }
+
+    #[instrument(name = "DatabaseDriverV1::config_get_paths", skip(self, _input))]
+    async fn config_get_paths(
+        &self,
+        _input: ConfigGetPathsRequest,
+    ) -> Result<ConfigGetPathsResponse, DriverException> {
+        let paths = path_resolver::get_config_paths()
+            .context(ConfigurationSnafu)
+            .to_protobuf()?;
+
+        let config_file = paths.config_file.ok_or_else(|| DriverException {
+            message: "Configuration path for config file is unavailable".to_string(),
+            kind: ErrorKind::InternalError as i32,
+            ..Default::default()
+        })?;
+
+        let connections_file = paths.connections_file.ok_or_else(|| DriverException {
+            message: "Configuration path for connections file is unavailable".to_string(),
+            kind: ErrorKind::InternalError as i32,
+            ..Default::default()
+        })?;
+
+        Ok(ConfigGetPathsResponse {
+            config_file: config_file.to_string_lossy().into_owned(),
+            connections_file: connections_file.to_string_lossy().into_owned(),
+        })
+    }
+
+    // -- Workload Identity Federation (WIF) operations --
+
+    /// Unlike every other `async_first` RPC, cancellation is observed here in the
+    /// dispatch rather than in an `apis::` impl: this operation has no driver-level
+    /// counterpart to observe it in — the whole of it lives in this function.
+    #[instrument(
+        name = "DatabaseDriverV1::wif_create_attestation",
+        skip(self, operation_ctx, input)
+    )]
+    async fn wif_create_attestation(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        input: WifCreateAttestationRequest,
+    ) -> Result<WifCreateAttestationResponse, DriverException> {
+        let provider = WifProvider::parse_str(&input.provider)
+            .context(InvalidWifProviderSnafu {
+                provider: input.provider.clone(),
+            })
+            .to_protobuf()?;
+
+        let config = WorkloadIdentityConfig::new(
+            provider,
+            input.entra_resource.filter(|s| !s.is_empty()),
+            None,
+            input.impersonation_path,
+            input
+                .token
+                .filter(|s| !s.is_empty())
+                .map(SensitiveString::from),
+            input.aws_use_outbound_token.unwrap_or(false),
+            input.wif_host,
+        )
+        .context(ConfigurationSnafu)
+        .to_protobuf()?;
+
+        // The provider modules call cloud metadata / IdP endpoints, not
+        // Snowflake, so the account-specific login client isn't needed; the
+        // client still uses the linked module with default trust. Proxy env
+        // vars are honored, but an explicit `PROXY` connection parameter can't
+        // be: this RPC has no `conn_handle` to read it from (SNOW-2912540).
+        let client = crate::tls::client::default_verified_client_builder()
+            .and_then(|builder| builder.build().context(crate::tls::error::ClientBuildSnafu))
+            .context(crate::rest::snowflake::workload_identity::CryptoProviderSnafu)
+            .context(WorkloadIdentityAttestationSnafu)
+            .to_protobuf()?;
+        // This client has no request timeout, so for the AWS/Azure/GCP providers
+        // — which each await a cloud metadata or IdP endpoint — `operation_ctx` is the only
+        // thing that can end the call short of the endpoint answering. The OIDC
+        // provider makes no request and so has nothing to observe.
+        let create = async {
+            workload_identity::create_attestation(&client, None, &config)
+                .await
+                .context(WorkloadIdentityAttestationSnafu)
+        };
+        let attestation =
+            crate::apis::operation_ctx::run_opt(operation_ctx, "wif_create_attestation", create)
+                .await
+                .to_protobuf()?;
+
+        Ok(WifCreateAttestationResponse {
+            provider: attestation.provider.to_string(),
+            credential: attestation.token.reveal().to_owned(),
+        })
+    }
+
+    // -- Telemetry operations --
+
+    #[instrument(name = "DatabaseDriverV1::telemetry_send_api_usage", skip(self, input))]
+    async fn telemetry_send_api_usage(
+        &self,
+        input: TelemetrySendApiUsageRequest,
+    ) -> Result<TelemetrySendResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let handle = Handle::from(conn_handle);
+
+        let (telemetry_id, wrapper_identity) =
+            self.driver.telemetry_id_and_identity_for_conn(handle).await;
+        let span = crate::snowflake_op_span!("wrapper_api_usage", telemetry_id);
+        let _guard = span.enter();
+        if let Some(ref identity) = wrapper_identity {
+            crate::telemetry::record_wrapper_identity_on_span(identity);
+        }
+        crate::telemetry::record_api_call(&input.api_method, &input.passed_arguments);
+
+        Ok(TelemetrySendResponse {})
+    }
+
+    #[instrument(
+        name = "DatabaseDriverV1::telemetry_send_wrapper_error",
+        skip(self, input)
+    )]
+    async fn telemetry_send_wrapper_error(
+        &self,
+        input: TelemetrySendWrapperErrorRequest,
+    ) -> Result<TelemetrySendResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        let handle = Handle::from(conn_handle);
+
+        let (telemetry_id, wrapper_identity) =
+            self.driver.telemetry_id_and_identity_for_conn(handle).await;
+        let span = crate::snowflake_op_span!("wrapper_error", telemetry_id);
+        let _guard = span.enter();
+        if let Some(ref identity) = wrapper_identity {
+            crate::telemetry::record_wrapper_identity_on_span(identity);
+        }
+        crate::telemetry::record_exception(&input.exception_type, &input.error_source);
+
+        Ok(TelemetrySendResponse {})
+    }
+
+    #[instrument(name = "DatabaseDriverV1::telemetry_send_log", skip(self, input))]
+    async fn telemetry_send_log(
+        &self,
+        input: TelemetrySendLogRequest,
+    ) -> Result<TelemetrySendResponse, DriverException> {
+        let conn_handle = required(input.conn_handle, "Connection handle is required")?;
+        self.driver
+            .telemetry_send_log(
+                Handle::from(conn_handle),
+                input.message_json,
+                input.timestamp_ms,
+            )
+            .await;
+        Ok(TelemetrySendResponse {})
+    }
+}
+
+impl DatabaseDriverServer for DatabaseDriverImpl {}
+
+impl ErrorTrace for DriverException {
+    fn error_trace(&self) -> Vec<error_trace::ErrorTraceEntry> {
+        self.error_trace
+            .iter()
+            .map(|entry| error_trace::ErrorTraceEntry {
+                location: error_trace::Location::new(entry.file.clone(), entry.line, entry.column),
+                message: entry.message.clone(),
+            })
+            .collect()
+    }
+}
+
+pub type DatabaseDriverClient =
+    crate::protobuf::generated::database_driver_v1::DatabaseDriverClient<
+        crate::protobuf::apis::RustTransport,
+    >;
+
+pub use crate::apis::database_driver_v1::{DriverProviders, WrapperPresets};
+use crate::protobuf::apis::database_driver_v1::converter::proto_chunk_format_to_kind;
+use crate::protobuf::generated::database_driver_v1::result_chunk::Data;
+use crate::query_types::RowType;
+
+pub fn database_driver_client() -> DatabaseDriverClient {
+    database_driver_client_with(DriverProviders::default())
+}
+
+pub fn database_driver_client_with(providers: DriverProviders) -> DatabaseDriverClient {
+    DatabaseDriverClient::new(crate::protobuf::apis::RustTransport::new_with(providers))
+}
+
+// Synchronous convenience wrappers used by Rust test helpers and small
+// in-process smoke tests. Production callers should prefer the async
+// client methods directly.
+static BLOCKING_CLIENT_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create blocking protobuf client runtime")
+});
+
+type BlockingProtoError = Box<proto_utils::ProtoError<DriverException>>;
+type BlockingProtoResult<T> = Result<T, BlockingProtoError>;
+
+fn block_on_client_call<F, T>(future: F) -> BlockingProtoResult<T>
+where
+    F: Future<Output = Result<T, proto_utils::ProtoError<DriverException>>>,
+{
+    BLOCKING_CLIENT_RUNTIME.block_on(future).map_err(Box::new)
+}
+
+/// Blocking adapters for synchronous Rust test/support code that drives
+/// the in-process protobuf client. Production async paths should call
+/// the generated async client methods directly.
+#[allow(clippy::result_large_err)]
+pub trait DatabaseDriverClientBlockingExt {
+    fn driver_get_fips_status_blocking(
+        &self,
+        input: DriverGetFipsStatusRequest,
+    ) -> BlockingProtoResult<DriverGetFipsStatusResponse>;
+    fn database_new_blocking(
+        &self,
+        input: DatabaseNewRequest,
+    ) -> BlockingProtoResult<DatabaseNewResponse>;
+    fn database_init_blocking(
+        &self,
+        input: DatabaseInitRequest,
+    ) -> BlockingProtoResult<DatabaseInitResponse>;
+    fn connection_new_blocking(
+        &self,
+        input: ConnectionNewRequest,
+    ) -> BlockingProtoResult<ConnectionNewResponse>;
+    fn connection_init_blocking(
+        &self,
+        input: ConnectionInitRequest,
+    ) -> BlockingProtoResult<ConnectionInitResponse>;
+    fn connection_set_options_blocking(
+        &self,
+        input: ConnectionSetOptionsRequest,
+    ) -> BlockingProtoResult<ConnectionSetOptionsResponse>;
+    fn statement_new_blocking(
+        &self,
+        input: StatementNewRequest,
+    ) -> BlockingProtoResult<StatementNewResponse>;
+    fn statement_execute_query_blocking(
+        &self,
+        input: StatementExecuteQueryRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse>;
+    /// Blocking execute dispatched under `operation`, so a *different* thread can
+    /// `cancel_operation(operation)` while this one is blocked in the query. That
+    /// cross-thread shape is exactly what a cancel test needs and what the plain
+    /// blocking call cannot express.
+    fn statement_execute_query_cancellable_blocking(
+        &self,
+        operation: u64,
+        input: StatementExecuteQueryRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse>;
+    fn statement_execute_async_blocking(
+        &self,
+        input: StatementExecuteAsyncRequest,
+    ) -> BlockingProtoResult<StatementExecuteAsyncResponse>;
+    fn statement_set_sql_query_blocking(
+        &self,
+        input: StatementSetSqlQueryRequest,
+    ) -> BlockingProtoResult<StatementSetSqlQueryResponse>;
+    fn statement_set_options_blocking(
+        &self,
+        input: StatementSetOptionsRequest,
+    ) -> BlockingProtoResult<StatementSetOptionsResponse>;
+    fn statement_release_blocking(
+        &self,
+        input: StatementReleaseRequest,
+    ) -> BlockingProtoResult<StatementReleaseResponse>;
+    fn database_fetch_chunk_blocking(
+        &self,
+        input: DatabaseFetchChunkRequest,
+    ) -> BlockingProtoResult<DatabaseFetchChunkResponse>;
+    fn connection_release_blocking(
+        &self,
+        input: ConnectionReleaseRequest,
+    ) -> BlockingProtoResult<ConnectionReleaseResponse>;
+    fn database_release_blocking(
+        &self,
+        input: DatabaseReleaseRequest,
+    ) -> BlockingProtoResult<DatabaseReleaseResponse>;
+    fn connection_close_blocking(
+        &self,
+        input: ConnectionCloseRequest,
+    ) -> BlockingProtoResult<ConnectionCloseResponse>;
+    fn connection_is_closed_blocking(
+        &self,
+        input: ConnectionIsClosedRequest,
+    ) -> BlockingProtoResult<ConnectionIsClosedResponse>;
+    fn connection_is_expired_blocking(
+        &self,
+        input: ConnectionIsExpiredRequest,
+    ) -> BlockingProtoResult<ConnectionIsExpiredResponse>;
+    fn connection_get_info_blocking(
+        &self,
+        input: ConnectionGetInfoRequest,
+    ) -> BlockingProtoResult<ConnectionGetInfoResponse>;
+    fn connection_get_server_version_blocking(
+        &self,
+        input: ConnectionGetServerVersionRequest,
+    ) -> BlockingProtoResult<ConnectionGetServerVersionResponse>;
+    fn connection_get_result_set_blocking(
+        &self,
+        input: ConnectionGetResultSetRequest,
+    ) -> Result<ResultSetResponse, proto_utils::ProtoError<DriverException>>;
+    fn result_set_get_stream_blocking(
+        &self,
+        input: ResultSetGetStreamRequest,
+    ) -> BlockingProtoResult<ResultSetGetStreamResponse>;
+    fn result_set_get_chunks_blocking(
+        &self,
+        input: ResultSetGetChunksRequest,
+    ) -> BlockingProtoResult<ResultSetGetChunksResponse>;
+    fn result_set_release_blocking(
+        &self,
+        input: ResultSetReleaseRequest,
+    ) -> BlockingProtoResult<ResultSetReleaseResponse>;
+    fn telemetry_send_api_usage_blocking(
+        &self,
+        input: TelemetrySendApiUsageRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse>;
+    fn telemetry_send_wrapper_error_blocking(
+        &self,
+        input: TelemetrySendWrapperErrorRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse>;
+    fn telemetry_send_log_blocking(
+        &self,
+        input: TelemetrySendLogRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse>;
+    fn connection_get_query_result_blocking(
+        &self,
+        input: ConnectionGetQueryResultRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse>;
+    /// Blocking fetch-by-query-id dispatched under `operation`, so another thread
+    /// can `cancel_operation(operation)` while this one is blocked — including
+    /// while it is inside the PUT/GET transfer this RPC dispatches to.
+    fn connection_get_query_result_cancellable_blocking(
+        &self,
+        operation: u64,
+        input: ConnectionGetQueryResultRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse>;
+    fn connection_upload_stream_begin_blocking(
+        &self,
+        input: ConnectionUploadStreamBeginRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamBeginResponse>;
+    fn connection_upload_stream_chunk_blocking(
+        &self,
+        input: ConnectionUploadStreamChunkRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamChunkResponse>;
+    fn connection_upload_stream_finish_blocking(
+        &self,
+        input: ConnectionUploadStreamFinishRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamFinishResponse>;
+    fn connection_download_stream_begin_blocking(
+        &self,
+        input: ConnectionDownloadStreamBeginRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamBeginResponse>;
+    fn connection_download_stream_chunk_blocking(
+        &self,
+        input: ConnectionDownloadStreamChunkRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamChunkResponse>;
+    fn connection_download_stream_close_blocking(
+        &self,
+        input: ConnectionDownloadStreamCloseRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamCloseResponse>;
+    fn connection_abort_query_blocking(
+        &self,
+        input: ConnectionAbortQueryRequest,
+    ) -> BlockingProtoResult<ConnectionAbortQueryResponse>;
+    fn connection_get_query_status_blocking(
+        &self,
+        input: ConnectionGetQueryStatusRequest,
+    ) -> BlockingProtoResult<ConnectionGetQueryStatusResponse>;
+}
+
+#[allow(clippy::result_large_err)]
+impl DatabaseDriverClientBlockingExt for DatabaseDriverClient {
+    fn driver_get_fips_status_blocking(
+        &self,
+        input: DriverGetFipsStatusRequest,
+    ) -> BlockingProtoResult<DriverGetFipsStatusResponse> {
+        block_on_client_call(self.driver_get_fips_status(input))
+    }
+
+    fn database_new_blocking(
+        &self,
+        input: DatabaseNewRequest,
+    ) -> BlockingProtoResult<DatabaseNewResponse> {
+        block_on_client_call(self.database_new(input))
+    }
+
+    fn database_init_blocking(
+        &self,
+        input: DatabaseInitRequest,
+    ) -> BlockingProtoResult<DatabaseInitResponse> {
+        block_on_client_call(self.database_init(input))
+    }
+
+    fn connection_new_blocking(
+        &self,
+        input: ConnectionNewRequest,
+    ) -> BlockingProtoResult<ConnectionNewResponse> {
+        block_on_client_call(self.connection_new(input))
+    }
+
+    fn connection_init_blocking(
+        &self,
+        input: ConnectionInitRequest,
+    ) -> BlockingProtoResult<ConnectionInitResponse> {
+        block_on_client_call(self.connection_init(input))
+    }
+
+    fn connection_set_options_blocking(
+        &self,
+        input: ConnectionSetOptionsRequest,
+    ) -> BlockingProtoResult<ConnectionSetOptionsResponse> {
+        block_on_client_call(self.connection_set_options(input))
+    }
+
+    fn statement_new_blocking(
+        &self,
+        input: StatementNewRequest,
+    ) -> BlockingProtoResult<StatementNewResponse> {
+        block_on_client_call(self.statement_new(input))
+    }
+
+    fn statement_execute_query_blocking(
+        &self,
+        input: StatementExecuteQueryRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse> {
+        block_on_client_call(self.statement_execute_query(input))
+    }
+
+    fn statement_execute_query_cancellable_blocking(
+        &self,
+        operation: u64,
+        input: StatementExecuteQueryRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse> {
+        block_on_client_call(self.statement_execute_query_cancellable(operation, input))
+    }
+
+    fn statement_execute_async_blocking(
+        &self,
+        input: StatementExecuteAsyncRequest,
+    ) -> BlockingProtoResult<StatementExecuteAsyncResponse> {
+        block_on_client_call(self.statement_execute_async(input))
+    }
+
+    fn statement_set_sql_query_blocking(
+        &self,
+        input: StatementSetSqlQueryRequest,
+    ) -> BlockingProtoResult<StatementSetSqlQueryResponse> {
+        block_on_client_call(self.statement_set_sql_query(input))
+    }
+
+    fn statement_set_options_blocking(
+        &self,
+        input: StatementSetOptionsRequest,
+    ) -> BlockingProtoResult<StatementSetOptionsResponse> {
+        block_on_client_call(self.statement_set_options(input))
+    }
+
+    fn statement_release_blocking(
+        &self,
+        input: StatementReleaseRequest,
+    ) -> BlockingProtoResult<StatementReleaseResponse> {
+        block_on_client_call(self.statement_release(input))
+    }
+
+    fn database_fetch_chunk_blocking(
+        &self,
+        input: DatabaseFetchChunkRequest,
+    ) -> BlockingProtoResult<DatabaseFetchChunkResponse> {
+        block_on_client_call(self.database_fetch_chunk(input))
+    }
+
+    fn connection_release_blocking(
+        &self,
+        input: ConnectionReleaseRequest,
+    ) -> BlockingProtoResult<ConnectionReleaseResponse> {
+        block_on_client_call(self.connection_release(input))
+    }
+
+    fn database_release_blocking(
+        &self,
+        input: DatabaseReleaseRequest,
+    ) -> BlockingProtoResult<DatabaseReleaseResponse> {
+        block_on_client_call(self.database_release(input))
+    }
+
+    fn connection_close_blocking(
+        &self,
+        input: ConnectionCloseRequest,
+    ) -> BlockingProtoResult<ConnectionCloseResponse> {
+        block_on_client_call(self.connection_close(input))
+    }
+
+    fn connection_is_closed_blocking(
+        &self,
+        input: ConnectionIsClosedRequest,
+    ) -> BlockingProtoResult<ConnectionIsClosedResponse> {
+        block_on_client_call(self.connection_is_closed(input))
+    }
+
+    fn connection_is_expired_blocking(
+        &self,
+        input: ConnectionIsExpiredRequest,
+    ) -> BlockingProtoResult<ConnectionIsExpiredResponse> {
+        block_on_client_call(self.connection_is_expired(input))
+    }
+
+    fn connection_get_info_blocking(
+        &self,
+        input: ConnectionGetInfoRequest,
+    ) -> BlockingProtoResult<ConnectionGetInfoResponse> {
+        block_on_client_call(self.connection_get_info(input))
+    }
+
+    fn connection_get_server_version_blocking(
+        &self,
+        input: ConnectionGetServerVersionRequest,
+    ) -> BlockingProtoResult<ConnectionGetServerVersionResponse> {
+        block_on_client_call(self.connection_get_server_version(input))
+    }
+
+    fn connection_get_result_set_blocking(
+        &self,
+        input: ConnectionGetResultSetRequest,
+    ) -> Result<ResultSetResponse, proto_utils::ProtoError<DriverException>> {
+        BLOCKING_CLIENT_RUNTIME.block_on(self.connection_get_result_set(input))
+    }
+
+    fn result_set_get_stream_blocking(
+        &self,
+        input: ResultSetGetStreamRequest,
+    ) -> BlockingProtoResult<ResultSetGetStreamResponse> {
+        block_on_client_call(self.result_set_get_stream(input))
+    }
+
+    fn result_set_get_chunks_blocking(
+        &self,
+        input: ResultSetGetChunksRequest,
+    ) -> BlockingProtoResult<ResultSetGetChunksResponse> {
+        block_on_client_call(self.result_set_get_chunks(input))
+    }
+
+    fn result_set_release_blocking(
+        &self,
+        input: ResultSetReleaseRequest,
+    ) -> BlockingProtoResult<ResultSetReleaseResponse> {
+        block_on_client_call(self.result_set_release(input))
+    }
+
+    fn telemetry_send_api_usage_blocking(
+        &self,
+        input: TelemetrySendApiUsageRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse> {
+        block_on_client_call(self.telemetry_send_api_usage(input))
+    }
+
+    fn telemetry_send_wrapper_error_blocking(
+        &self,
+        input: TelemetrySendWrapperErrorRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse> {
+        block_on_client_call(self.telemetry_send_wrapper_error(input))
+    }
+
+    fn telemetry_send_log_blocking(
+        &self,
+        input: TelemetrySendLogRequest,
+    ) -> BlockingProtoResult<TelemetrySendResponse> {
+        block_on_client_call(self.telemetry_send_log(input))
+    }
+
+    fn connection_get_query_result_blocking(
+        &self,
+        input: ConnectionGetQueryResultRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse> {
+        block_on_client_call(self.connection_get_query_result(input))
+    }
+
+    fn connection_get_query_result_cancellable_blocking(
+        &self,
+        operation: u64,
+        input: ConnectionGetQueryResultRequest,
+    ) -> BlockingProtoResult<ExecuteQueryResponse> {
+        block_on_client_call(self.connection_get_query_result_cancellable(operation, input))
+    }
+
+    fn connection_upload_stream_begin_blocking(
+        &self,
+        input: ConnectionUploadStreamBeginRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamBeginResponse> {
+        tracing::debug!("connection_upload_stream_begin_blocking: entry");
+        let result = block_on_client_call(self.connection_upload_stream_begin(input));
+        tracing::debug!("connection_upload_stream_begin_blocking: exit");
+        result
+    }
+
+    fn connection_upload_stream_chunk_blocking(
+        &self,
+        input: ConnectionUploadStreamChunkRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamChunkResponse> {
+        tracing::debug!("connection_upload_stream_chunk_blocking: entry");
+        let result = block_on_client_call(self.connection_upload_stream_chunk(input));
+        tracing::debug!("connection_upload_stream_chunk_blocking: exit");
+        result
+    }
+
+    fn connection_upload_stream_finish_blocking(
+        &self,
+        input: ConnectionUploadStreamFinishRequest,
+    ) -> BlockingProtoResult<ConnectionUploadStreamFinishResponse> {
+        tracing::debug!("connection_upload_stream_finish_blocking: entry");
+        let result = block_on_client_call(self.connection_upload_stream_finish(input));
+        tracing::debug!("connection_upload_stream_finish_blocking: exit");
+        result
+    }
+
+    fn connection_download_stream_begin_blocking(
+        &self,
+        input: ConnectionDownloadStreamBeginRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamBeginResponse> {
+        block_on_client_call(self.connection_download_stream_begin(input))
+    }
+
+    fn connection_download_stream_chunk_blocking(
+        &self,
+        input: ConnectionDownloadStreamChunkRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamChunkResponse> {
+        block_on_client_call(self.connection_download_stream_chunk(input))
+    }
+
+    fn connection_download_stream_close_blocking(
+        &self,
+        input: ConnectionDownloadStreamCloseRequest,
+    ) -> BlockingProtoResult<ConnectionDownloadStreamCloseResponse> {
+        block_on_client_call(self.connection_download_stream_close(input))
+    }
+
+    fn connection_abort_query_blocking(
+        &self,
+        input: ConnectionAbortQueryRequest,
+    ) -> BlockingProtoResult<ConnectionAbortQueryResponse> {
+        block_on_client_call(self.connection_abort_query(input))
+    }
+
+    fn connection_get_query_status_blocking(
+        &self,
+        input: ConnectionGetQueryStatusRequest,
+    ) -> BlockingProtoResult<ConnectionGetQueryStatusResponse> {
+        block_on_client_call(self.connection_get_query_status(input))
+    }
+}

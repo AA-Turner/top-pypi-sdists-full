@@ -222,6 +222,19 @@ def _get_metadata_blob_path(connector_name: str, version: str) -> str:
     return f"{METADATA_FOLDER}/airbyte/{connector_name}/{version}/metadata.yaml"
 
 
+def build_yank_marker_content(*, reason: str = "", approval_url: str = "") -> str:
+    """Build the YAML contents of a `version-yank.yml` marker."""
+    yank_content: dict[str, Any] = {
+        "yanked": True,
+        "yanked_at": datetime.now(tz=timezone.utc).isoformat(),
+    }
+    if reason:
+        yank_content["reason"] = reason
+    if approval_url:
+        yank_content["approval_url"] = approval_url
+    return yaml.dump(yank_content, default_flow_style=False)
+
+
 def yank_connector_version(
     connector_name: str,
     version: str,
@@ -294,16 +307,7 @@ def yank_connector_version(
         )
 
     # Write the yank marker file
-    yank_content: dict[str, Any] = {
-        "yanked": True,
-        "yanked_at": datetime.now(tz=timezone.utc).isoformat(),
-    }
-    if reason:
-        yank_content["reason"] = reason
-    if approval_url:
-        yank_content["approval_url"] = approval_url
-
-    yank_yaml = yaml.dump(yank_content, default_flow_style=False)
+    yank_yaml = build_yank_marker_content(reason=reason, approval_url=approval_url)
     yank_blob.upload_from_string(yank_yaml, content_type="application/x-yaml")
 
     logger.info("Yanked %s version %s in %s", connector_name, version, bucket_name)

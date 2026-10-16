@@ -1,3 +1,3 @@
 """Exact source revision embedded by release automation."""
 
-COMMIT = "c6f3bab7808d7f12aabd2adf3358cd88444401a1"
+COMMIT = "d182c8c794ba6e4931e57834bf4fbfbf0f8fb769"

@@ -225,6 +225,37 @@ async fn test_close_cleanup() {
     );
 }
 
+// Tube::close() sets is_closing before calling WebRTCPeerConnection::close(); close() must still run its full teardown.
+#[tokio::test]
+async fn test_close_after_is_closing_set_still_tears_down() {
+    use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
+
+    let pc = create_test_peer_connection().await;
+    let _ = pc.start_keepalive().await;
+    assert!(pc.is_keepalive_running());
+
+    pc.is_closing.store(true, Ordering::Release);
+
+    pc.close().await.expect("close should succeed");
+
+    assert!(
+        !pc.is_keepalive_running(),
+        "keepalive must be stopped even when is_closing was set before close()"
+    );
+    assert_eq!(
+        pc.peer_connection.connection_state(),
+        RTCPeerConnectionState::Closed,
+        "RTCPeerConnection must be closed even when is_closing was set before close()"
+    );
+}
+
+#[tokio::test]
+async fn test_close_is_idempotent() {
+    let pc = create_test_peer_connection().await;
+    pc.close().await.expect("first close should succeed");
+    pc.close().await.expect("second close should be a no-op");
+}
+
 #[test]
 fn test_resource_limits_configuration() {
     use crate::resource_manager::RESOURCE_MANAGER;

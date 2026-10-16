@@ -1,0 +1,349 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use opentelemetry::KeyValue;
+use opentelemetry::trace::Status;
+use opentelemetry_sdk::metrics::data::{AggregatedMetrics, MetricData, ResourceMetrics};
+use opentelemetry_sdk::trace::SpanData;
+use serde_json::{Value, json};
+
+/// Wrap a list of log entries in Snowflake's `/telemetry/send` envelope.
+/// Shared by every telemetry lane (spans, metrics, raw log batch) so they
+/// cannot drift from the wire contract.
+pub(crate) fn logs_payload(logs: Vec<Value>) -> Value {
+    json!({ "logs": logs })
+}
+
+/// Build one `/telemetry/send` log entry. `timestamp` is any epoch-millis value;
+/// it is serialized to a JSON *string*, matching the legacy `TelemetryData` format.
+pub(crate) fn log_entry(message: Value, timestamp: impl std::fmt::Display) -> Value {
+    json!({ "message": message, "timestamp": timestamp.to_string() })
+}
+
+/// Convert a batch of OTel spans into Snowflake's `/telemetry/send` JSON payload.
+///
+/// Format: `{"logs": [{"message": {...}, "timestamp": "..."}]}`
+pub fn spans_to_snowflake_payload(spans: &[SpanData]) -> Value {
+    let logs: Vec<Value> = spans
+        .iter()
+        .flat_map(|span| span_to_log_entries(span, None))
+        .collect();
+    logs_payload(logs)
+}
+
+/// Convert one span into log entries, stamping `session_id` (when known) as
+/// [`super::SESSION_ID_FIELD`] on each of them.
+pub(crate) fn span_to_log_entries(span: &SpanData, session_id: Option<i64>) -> Vec<Value> {
+    let mut entries = Vec::new();
+    let session_attr = session_id.map(|id| KeyValue::new(super::SESSION_ID_FIELD, id));
+
+    // Events on the span (wrapper api_call, exception, session_init) —
+    // each becomes its own log entry, inheriting span attributes. We override
+    // `event_kind` to "event" so downstream consumers can distinguish event
+    // records from span records that happen to share the same payload shape.
+    for event in span.events.iter() {
+        let mut attrs: Vec<KeyValue> = span
+            .attributes
+            .iter()
+            .filter(|kv| kv.key.as_str() != "event_kind")
+            .cloned()
+            .collect();
+        attrs.push(KeyValue::new("event_kind", "event"));
+        attrs.extend(session_attr.clone());
+        for kv in &event.attributes {
+            attrs.push(kv.clone());
+        }
+        entries.push(attrs_to_log_entry(&event.name, &attrs, event.timestamp));
+    }
+
+    // Operation spans (sf_core entry-points like execute_query, heartbeat)
+    // have no events — emit the span itself as a log entry with duration
+    // and status. The span's `event_kind="span"` attribute carries through.
+    if span.events.is_empty() {
+        let mut attrs = span.attributes.clone();
+        attrs.extend(session_attr);
+        if let Ok(duration) = span.end_time.duration_since(span.start_time) {
+            attrs.push(KeyValue::new("duration_ms", duration.as_millis() as i64));
+        }
+        if let Status::Error { description } = &span.status {
+            attrs.push(KeyValue::new("status", "ERROR"));
+            if !description.is_empty() {
+                attrs.push(KeyValue::new("status_description", description.to_string()));
+            }
+        }
+        entries.push(attrs_to_log_entry(&span.name, &attrs, span.start_time));
+    }
+
+    entries
+}
+
+fn attrs_to_log_entry(
+    name: &str,
+    attributes: &[opentelemetry::KeyValue],
+    timestamp: SystemTime,
+) -> Value {
+    let mut message = serde_json::Map::new();
+    message.insert("type".to_string(), Value::String(name.to_string()));
+
+    for kv in attributes {
+        let key = kv.key.as_str();
+        if key == "type" || key == super::TELEMETRY_ID_FIELD {
+            continue;
+        }
+        message.insert(key.to_string(), otel_value_to_json(&kv.value));
+    }
+
+    let ts = system_time_to_epoch_millis(timestamp);
+    log_entry(Value::Object(message), ts)
+}
+
+macro_rules! collect_sum_data_points {
+    ($logs:expr, $metric_name:expr, $sum:expr) => {{
+        let timestamp = system_time_to_epoch_millis($sum.time());
+        for dp in $sum.data_points() {
+            let mut message = serde_json::Map::new();
+            message.insert("type".to_string(), Value::String($metric_name.to_string()));
+            message.insert("value".to_string(), json!(dp.value()));
+            for kv in dp.attributes() {
+                message.insert(kv.key.as_str().to_string(), otel_value_to_json(&kv.value));
+            }
+            $logs.push(log_entry(Value::Object(message), timestamp));
+        }
+    }};
+}
+
+/// Convert aggregated metric data into Snowflake's `/telemetry/send` JSON payload.
+pub fn metrics_to_snowflake_payload(metrics: &ResourceMetrics) -> Value {
+    let mut logs = Vec::new();
+
+    for scope_metrics in metrics.scope_metrics() {
+        for metric in scope_metrics.metrics() {
+            let metric_name = metric.name();
+            match metric.data() {
+                AggregatedMetrics::U64(MetricData::Sum(sum)) => {
+                    collect_sum_data_points!(logs, metric_name, sum);
+                }
+                AggregatedMetrics::I64(MetricData::Sum(sum)) => {
+                    collect_sum_data_points!(logs, metric_name, sum);
+                }
+                AggregatedMetrics::F64(MetricData::Sum(sum)) => {
+                    collect_sum_data_points!(logs, metric_name, sum);
+                }
+                _ => {
+                    tracing::debug!("Skipping non-Sum metric type for telemetry: {metric_name}");
+                }
+            }
+        }
+    }
+
+    logs_payload(logs)
+}
+
+fn otel_value_to_json(value: &opentelemetry::Value) -> Value {
+    use opentelemetry::Value as OtelValue;
+    match value {
+        OtelValue::Bool(b) => Value::Bool(*b),
+        OtelValue::I64(i) => json!(*i),
+        OtelValue::F64(f) => json!(*f),
+        OtelValue::String(s) => Value::String(s.to_string()),
+        OtelValue::Array(_) => Value::String(format!("{value}")),
+        _ => Value::String(format!("{value}")),
+    }
+}
+
+fn system_time_to_epoch_millis(time: SystemTime) -> u128 {
+    match time.duration_since(UNIX_EPOCH) {
+        Ok(d) => d.as_millis(),
+        Err(_) => {
+            tracing::warn!("SystemTime before UNIX_EPOCH, using 0");
+            0
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use opentelemetry::InstrumentationScope;
+    use opentelemetry::KeyValue;
+    use opentelemetry::trace::{
+        SpanContext, SpanId, SpanKind, Status, TraceFlags, TraceId, TraceState,
+    };
+
+    fn make_test_span(name: &'static str, attributes: Vec<KeyValue>) -> SpanData {
+        SpanData {
+            span_context: SpanContext::new(
+                TraceId::from_hex("0102030405060708090a0b0c0d0e0f10").unwrap(),
+                SpanId::from_hex("0102030405060708").unwrap(),
+                TraceFlags::default(),
+                false,
+                TraceState::default(),
+            ),
+            parent_span_id: SpanId::INVALID,
+            span_kind: SpanKind::Internal,
+            name: name.into(),
+            start_time: UNIX_EPOCH + std::time::Duration::from_millis(1700000000000),
+            end_time: UNIX_EPOCH + std::time::Duration::from_millis(1700000001000),
+            attributes,
+            dropped_attributes_count: 0,
+            events: Default::default(),
+            links: Default::default(),
+            status: Status::Ok,
+            instrumentation_scope: InstrumentationScope::builder("test").build(),
+        }
+    }
+
+    #[test]
+    fn spans_to_payload_basic_structure() {
+        let span = make_test_span(
+            "session_init",
+            vec![KeyValue::new("service.name", "snowflake-python")],
+        );
+
+        let payload = spans_to_snowflake_payload(&[span]);
+
+        let logs = payload["logs"].as_array().unwrap();
+        assert_eq!(logs.len(), 1);
+
+        let entry = &logs[0];
+        assert_eq!(entry["message"]["type"], "session_init");
+        assert_eq!(entry["message"]["service.name"], "snowflake-python");
+        assert_eq!(entry["timestamp"], "1700000000000");
+    }
+
+    #[test]
+    fn spans_to_payload_empty_batch() {
+        let payload = spans_to_snowflake_payload(&[]);
+        let logs = payload["logs"].as_array().unwrap();
+        assert!(logs.is_empty());
+    }
+
+    fn span_with_telemetry_id_and_event() -> SpanData {
+        let mut span = make_test_span(
+            "statement_execute_query",
+            vec![
+                KeyValue::new(crate::telemetry::TELEMETRY_ID_FIELD, "7"),
+                KeyValue::new("db.system", "snowflake"),
+            ],
+        );
+        span.events.events.push(opentelemetry::trace::Event::new(
+            "session_init",
+            UNIX_EPOCH,
+            vec![KeyValue::new("service.name", "snowflake-sdk")],
+            0,
+        ));
+        span
+    }
+
+    #[test]
+    fn span_entries_carry_session_id_and_drop_telemetry_id() {
+        let mut span = span_with_telemetry_id_and_event();
+        let event_entries = span_to_log_entries(&span, Some(42));
+        span.events.events.clear();
+        let span_entries = span_to_log_entries(&span, Some(42));
+
+        for entry in event_entries.iter().chain(&span_entries) {
+            let msg = &entry["message"];
+            assert_eq!(msg[crate::telemetry::SESSION_ID_FIELD], 42, "{msg}");
+            assert_eq!(msg["db.system"], "snowflake", "{msg}");
+            assert!(
+                msg.get(crate::telemetry::TELEMETRY_ID_FIELD).is_none(),
+                "{msg}"
+            );
+        }
+        assert_eq!(event_entries[0]["message"]["type"], "session_init");
+        assert_eq!(
+            span_entries[0]["message"]["type"],
+            "statement_execute_query"
+        );
+    }
+
+    #[test]
+    fn span_entries_omit_session_id_when_unknown() {
+        let entries = span_to_log_entries(&span_with_telemetry_id_and_event(), None);
+        let msg = &entries[0]["message"];
+        assert!(
+            msg.get(crate::telemetry::SESSION_ID_FIELD).is_none(),
+            "{msg}"
+        );
+        assert!(
+            msg.get(crate::telemetry::TELEMETRY_ID_FIELD).is_none(),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn span_boolean_attribute() {
+        let span = make_test_span(
+            "session_init",
+            vec![KeyValue::new("snowflake.driver.is_ci_cd", true)],
+        );
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        assert_eq!(
+            payload["logs"][0]["message"]["snowflake.driver.is_ci_cd"],
+            true
+        );
+    }
+
+    #[test]
+    fn span_numeric_attribute() {
+        let span = make_test_span("session_init", vec![KeyValue::new("login_timeout", 30_i64)]);
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        assert_eq!(payload["logs"][0]["message"]["login_timeout"], 30);
+    }
+
+    #[test]
+    fn child_span_includes_duration_ms() {
+        // Child span: no events, 1 second duration (end - start = 1000ms)
+        let span = make_test_span("statement_execute_query", vec![]);
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        let entry = &payload["logs"][0];
+        assert_eq!(entry["message"]["type"], "statement_execute_query");
+        assert_eq!(entry["message"]["duration_ms"], 1000);
+    }
+
+    #[test]
+    fn child_span_ok_status_has_no_error_fields() {
+        let span = make_test_span("connection_heartbeat", vec![]);
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        let msg = &payload["logs"][0]["message"];
+        assert!(
+            msg.get("status").is_none(),
+            "OK span should not have status field"
+        );
+    }
+
+    #[test]
+    fn child_span_error_status_includes_description() {
+        let mut span = make_test_span("statement_execute_query", vec![]);
+        span.status = Status::Error {
+            description: "SQL compilation error".into(),
+        };
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        let msg = &payload["logs"][0]["message"];
+        assert_eq!(msg["status"], "ERROR");
+        assert_eq!(msg["status_description"], "SQL compilation error");
+        // duration_ms still present
+        assert_eq!(msg["duration_ms"], 1000);
+    }
+
+    #[test]
+    fn child_span_error_empty_description() {
+        let mut span = make_test_span("statement_execute_query", vec![]);
+        span.status = Status::Error {
+            description: "".into(),
+        };
+
+        let payload = spans_to_snowflake_payload(&[span]);
+        let msg = &payload["logs"][0]["message"];
+        assert_eq!(msg["status"], "ERROR");
+        assert!(
+            msg.get("status_description").is_none(),
+            "empty description should be omitted"
+        );
+    }
+}

@@ -94,7 +94,7 @@ class ToolCallClient:
         return self._connector_name
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> Any:
-        """Call a connector tool via the MistralPrivate SDK."""
+        """Call a connector tool via the Mistral SDK."""
         binding = self._resolve_binding()
         credentials_name = self._credentials_name or binding.credentials_name
         run_as = binding.run_as

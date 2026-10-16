@@ -85,7 +85,7 @@ dev = [
 ]
 test = [
   "covdefaults>=2.3",
-  "docutils>=0.23",            # render the docs bench-table directive in tests/test_bench_table_directive.py
+  "docutils>=0.22.4",          # render the docs bench-table directive in tests/test_bench_table_directive.py
   "elementpath>=5.1.4",        # the XPath 2.0 oracle the string-function differential test cross-checks against
   "html5lib>=1.1",             # compare HTML meaning before the native Markdown conversion
   "httpx2>=2.13.1",            # the benchmark corpora and the tools/generate_* scripts fetch pinned data over it
@@ -100,6 +100,7 @@ test = [
   "pytest-cov>=7.1",
   "pytest-mock>=3.16",
   "pytest-run-parallel>=0.10", # runs each test in many threads to surface free-threaded data races
+  "pytest-xdist>=3.8",
   "tenacity>=9.1.4",           # the retry policy wrapping every tools/ HTTP fetch (httpfetch.py)
   "tinycss2>=1.5.1",           # preserve nested CSS contexts during structural reduction
   "typing-extensions>=4.16",
@@ -334,8 +335,9 @@ builtin = "clear,usage,en-GB_to_en-US"
 # opps (the _minify_js PyArg_ParseTuple format "Opps"), fo/nd/te (ISO 639-1 codes in the URL language filter),
 # januar/februar/juni/juli/oktober/dezember (German month names in the date extractor's vocabulary),
 # shttp (a scheme in urllib's uses_relative list the URL join guard mirrors)
+# Tham and Vai (Unicode block names)
 ignore-words-list = """\
-  caf,notin,afe,hava,vave,grey,forin,opps,fo,nd,te,januar,februar,juni,juli,oktober,dezember,tha,shttp\
+  caf,notin,afe,hava,vave,grey,forin,opps,fo,nd,te,januar,februar,juni,juli,oktober,dezember,tha,shttp,tham,vai\
   """
 skip = """\
   */html_generation_tables.py,*/css_generation_tables.py,*/html_entities.h,*/tag_atom.h,*/entity_names.h,*/tld_table.h,\
@@ -398,6 +400,7 @@ ini_options.filterwarnings = [
 # Optional competitors lack wheels on parts of the test matrix. Exclude their checks
 # from portable coverage; the oracle marker scopes exclusions within consolidated modules.
 run.omit = [
+  ".tox/*/cbuild/*",                                   # generated editable-build files can be imported during another tox env's run
   "tests/benchmarks/*",                                # run only under --codspeed (the CI benchmark job), never in the coverage run
   "tests/conformance/test_c14n_conformance.py",        # runs only in the dedicated conformance env; the matrix deselects tests/conformance
   "tests/conformance/test_cssom_jsdom_conformance.py", # differential oracle: skips when the node/jsdom toolchain is absent

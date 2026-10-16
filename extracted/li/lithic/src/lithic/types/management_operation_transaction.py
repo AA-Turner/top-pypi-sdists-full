@@ -33,6 +33,8 @@ class Event(BaseModel):
         "CURRENCY_CONVERSION_REVERSAL",
         "INTEREST",
         "INTEREST_REVERSAL",
+        "INSTALLMENT_FEE",
+        "INSTALLMENT_FEE_REVERSAL",
         "LATE_PAYMENT",
         "LATE_PAYMENT_REVERSAL",
         "BILLING_ERROR",
@@ -51,6 +53,8 @@ class Event(BaseModel):
         "QUARTERLY_REVERSAL",
         "MONTHLY",
         "MONTHLY_REVERSAL",
+        "FEE",
+        "FEE_REVERSAL",
     ]
 
     subtype: Optional[str] = None

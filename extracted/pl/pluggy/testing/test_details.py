@@ -16,9 +16,8 @@ def test_parse_hookimpl_override() -> None:
     class MyPluginManager(PluginManager):
         def parse_hookimpl_opts(self, module_or_class, name):
             opts = PluginManager.parse_hookimpl_opts(self, module_or_class, name)
-            if opts is None:
-                if name.startswith("x1"):
-                    opts = {}  # type: ignore[assignment]
+            if opts is None and name.startswith("x1"):
+                opts = {}  # type: ignore[assignment]
             return opts
 
     class Plugin:
@@ -129,6 +128,30 @@ def test_warn_when_deprecated_args_specified(recwarn) -> None:
     assert record2.lineno == Plugin.foo.__code__.co_firstlineno
 
 
+def test_warn_when_deprecated_args_with_defaults_specified() -> None:
+    warning = DeprecationWarning("old is deprecated")
+
+    class Spec:
+        @hookspec(warn_on_impl_args={"old": warning})
+        def foo(self, old=None, new=None):
+            raise NotImplementedError()
+
+    class Plugin:
+        @hookimpl
+        def foo(self, old=None, new=None):
+            raise NotImplementedError()
+
+    pm = PluginManager(hookspec.project_name)
+    pm.add_hookspecs(Spec)
+
+    with pytest.warns(DeprecationWarning) as records:
+        pm.register(Plugin())
+    (record,) = records
+    assert record.message is warning
+    assert record.filename == Plugin.foo.__code__.co_filename
+    assert record.lineno == Plugin.foo.__code__.co_firstlineno
+
+
 def test_plugin_getattr_raises_errors() -> None:
     """Pluggy must be able to handle plugins which raise weird exceptions
     when getattr() gets called (#11).
@@ -144,7 +167,7 @@ def test_plugin_getattr_raises_errors() -> None:
     module = Module()
     module.x = DontTouchMe()
     with pytest.raises(Exception, match="touch me"):
-        module.x.broken
+        _ = module.x.broken
 
     pm = PluginManager(hookspec.project_name)
     # register() would raise an error
@@ -175,10 +198,41 @@ def test_not_all_arguments_are_provided_issues_a_warning(pm: PluginManager) -> N
         pm.hook.hello(arg2=2)
 
     with pytest.warns(UserWarning, match=r"'arg1', 'arg2'.*cannot be found.*$"):
-        pm.hook.hello.call_extra([], kwargs=dict())
+        pm.hook.hello.call_extra([], kwargs={})
 
     with pytest.warns(UserWarning, match=r"'arg1', 'arg2'.*cannot be found.*$"):
-        pm.hook.herstory.call_historic(kwargs=dict())
+        pm.hook.herstory.call_historic(kwargs={})
+
+
+def test_not_all_arguments_warning_points_at_the_caller(pm: PluginManager) -> None:
+    """The warning must be attributed to the code making the hook call.
+
+    It is raised inside a helper two frames below the caller, so a stacklevel
+    that is off by one blames pluggy's own frame instead.
+    """
+
+    class Spec:
+        @hookspec
+        def hello(self, arg1, arg2):
+            pass  # pragma: no cover
+
+        @hookspec(historic=True)
+        def herstory(self, arg1, arg2):
+            pass  # pragma: no cover
+
+    pm.add_hookspecs(Spec)
+
+    with pytest.warns(UserWarning) as record:
+        pm.hook.hello(arg1=1)
+    assert record[0].filename == __file__
+
+    with pytest.warns(UserWarning) as record:
+        pm.hook.hello.call_extra([], kwargs={})
+    assert record[0].filename == __file__
+
+    with pytest.warns(UserWarning) as record:
+        pm.hook.herstory.call_historic(kwargs={})
+    assert record[0].filename == __file__
 
 
 def test_repr() -> None:
@@ -197,12 +251,47 @@ def test_repr() -> None:
 
 
 def test_dist_facade_list_attributes() -> None:
-    from pluggy._manager import DistFacade
+    from pluggy._compat import DistFacade
 
     fc = DistFacade(distribution("pluggy"))
     res = dir(fc)
     assert res == sorted(res)
     assert set(res) - set(dir(fc._dist)) == {"_dist", "project_name"}
+
+
+def test_dist_facade_project_name_and_delegation() -> None:
+    from pluggy._compat import DistFacade
+
+    dist = distribution("pluggy")
+    fc = DistFacade(dist)
+    assert fc.project_name == dist.metadata["name"]
+    assert fc.version == dist.version
+    assert fc._dist is dist
+    with pytest.raises(AttributeError):
+        _ = fc.definitely_missing_attribute
+
+
+def test_dist_facade_identity_equality_and_hash() -> None:
+    from pluggy._compat import DistFacade
+
+    dist = distribution("pluggy")
+    fc1 = DistFacade(dist)
+    fc2 = DistFacade(dist)
+    # Comparing fc1 with itself is the point: DistFacade equality is identity.
+    assert fc1 == fc1  # noqa: PLR0124
+    assert fc1 is not fc2
+    assert fc1 != fc2
+    assert hash(fc1) == hash(fc1)
+    assert {fc1: "ok"}[fc1] == "ok"
+
+
+def test_dunder_version() -> None:
+    assert pluggy.__version__ == distribution("pluggy").version
+
+
+def test_dunder_getattr_missing_raises() -> None:
+    with pytest.raises(AttributeError, match="module pluggy has no attribute 'nope'"):
+        _ = pluggy.nope
 
 
 def test_hookimpl_disallow_invalid_combination() -> None:
@@ -244,3 +333,10 @@ def test_wrapper_runtimeerror_passtrough(pm: PluginManager) -> None:
     pm.register(Fail())
     with pytest.raises(RuntimeError, match="this is personal"):
         pm.hook.fail_late()
+
+
+def test_package_metadata_links_to_repository() -> None:
+    """The source repository is discoverable from the package metadata (#757)."""
+    urls = distribution("pluggy").metadata.get_all("Project-URL") or []
+    labels = dict(url.split(", ", 1) for url in urls)
+    assert labels["Repository"] == "https://github.com/pytest-dev/pluggy"

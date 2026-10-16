@@ -1,15 +1,17 @@
 [project]
 name = "fastmcp-dishka"
-version = "0.2.0"
+version = "1.0.0"
 description = "Dishka dependency injection integration for FastMCP"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-authors = [
-    { name = "Faddey Valuev", email = "vfaddey@yandex.ru" }
-]
 requires-python = ">=3.10"
-keywords = ["dependency-injection", "dishka", "fastmcp", "mcp"]
+keywords = [
+    "dependency-injection",
+    "dishka",
+    "fastmcp",
+    "mcp",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: AsyncIO",
@@ -21,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
@@ -29,6 +32,10 @@ dependencies = [
     "dishka>=1.10.1",
     "fastmcp>=3.2.4",
 ]
+
+[[project.authors]]
+name = "Faddey Valuev"
+email = "vfaddey@yandex.ru"
 
 [project.urls]
 Homepage = "https://github.com/vfaddey/fastmcp-dishka"
@@ -69,12 +76,23 @@ output = "coverage.xml"
 
 [tool.ruff]
 line-length = 88
-src = ["src", "tests"]
+src = [
+    "src",
+    "tests",
+]
 target-version = "py310"
 
 [tool.ruff.lint]
 fixable = ["ALL"]
-select = ["B", "E", "F", "I", "RUF", "SIM", "UP"]
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "RUF",
+    "SIM",
+    "UP",
+]
 
 [tool.ruff.format]
 docstring-code-format = true

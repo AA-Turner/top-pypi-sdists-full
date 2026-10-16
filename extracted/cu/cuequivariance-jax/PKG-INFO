@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cuequivariance-jax
-Version: 0.12.0
+Version: 0.13.0
 Summary: CUDA accelerated equivariant operations
 Author: NVIDIA Corporation
 License: 

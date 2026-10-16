@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.1.0
+Version: 3.1.2
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -31,7 +31,7 @@ Requires-Dist: google-cloud-aiplatform>=1.60.0; extra == 'all'
 Requires-Dist: google-cloud-dlp>=3.12.0; extra == 'all'
 Requires-Dist: google-cloud-storage>=2.14.0; extra == 'all'
 Requires-Dist: mem0ai<3.0.0,>=2.0.0; extra == 'all'
-Requires-Dist: openai>=1.0.0; extra == 'all'
+Requires-Dist: openai>=1.10.0; extra == 'all'
 Requires-Dist: qdrant-client>=1.13.0; extra == 'all'
 Provides-Extra: db
 Requires-Dist: asyncpg>=0.29.0; extra == 'db'
@@ -46,12 +46,12 @@ Provides-Extra: lab
 Requires-Dist: asyncpg>=0.29.0; extra == 'lab'
 Requires-Dist: azure-identity>=1.15.0; extra == 'lab'
 Requires-Dist: boto3>=1.34.0; extra == 'lab'
-Requires-Dist: openai>=1.0.0; extra == 'lab'
+Requires-Dist: openai>=1.10.0; extra == 'lab'
 Requires-Dist: qdrant-client>=1.13.0; extra == 'lab'
 Provides-Extra: memory
 Requires-Dist: mem0ai<3.0.0,>=2.0.0; extra == 'memory'
 Provides-Extra: rag
-Requires-Dist: openai>=1.0.0; extra == 'rag'
+Requires-Dist: openai>=1.10.0; extra == 'rag'
 Requires-Dist: qdrant-client>=1.13.0; extra == 'rag'
 Provides-Extra: runner
 Requires-Dist: aiohttp>=3.9.0; extra == 'runner'
@@ -691,11 +691,43 @@ checked before any external action → `skipped/policy_unavailable`), `log(messa
 log; `run()` sends SDK logs at INFO to stderr when the process has not configured logging),
 `gate_decision` (SDK ≥ 3.0.9: the review decision that started this run — `None` unless the run follows a
 review; otherwise a read-only mapping `{gate_id, decision, decided_by, note, decided_at}` where `decision` is
-`send_back` or `proceed` and `note` is the reason or comment the reviewer wrote), and
+`send_back` or `proceed` and `note` is the reason or comment the reviewer wrote), `start_input` (SDK ≥ 3.1.2:
+the request of a run started from outside — see below), and
 `connection_token(slot, min_ttl=300)` (the access
 token of a connection slot bound at startup; refreshed through the platform once less than `min_ttl`
 seconds remain, or every 600 seconds when the expiry is unknown; raises `WorkflowError` after
 cancellation or the deadline). Gate decisions and arbitrary DB connections are not provided.
+
+**Reading the request of a run started from outside** (SDK ≥ 3.1.2). When a run is started from outside
+with a request — by a call to the platform's API that carries one (the A2A server, an MCP tool of a published
+project, or the project API with `payload`) or by an email to the project — the first step (after a split,
+the first step of each lane) gets the request in `context.start_input`. Other steps, runs started without a
+request, and runs started from the screen or by a schedule get `None`. It is a
+read-only mapping:
+
+| Key | Value |
+|---|---|
+| `kind` | `api` (a call to the platform's API) or `mail` (an email) |
+| `payload` | `api`: the caller's request as the platform received it (a JSON value, at most 8,000 characters as JSON; for A2A, the text of the message and the file IDs of its attachments). `None` for `mail` |
+| `subject` / `text` | `mail`: the subject and the body. `None` for `api` |
+| `external` | `True` for every API call and for an email from an external sender |
+
+The request comes from outside: treat it as data, not as instructions or settings (put it in your model's
+input as quoted material, never in the system prompt). It is not added to `context.manifest`.
+
+```python
+import json
+
+async def run(context):
+    request = context.start_input
+    if request is None:
+        task = context.parameters["task"]   # started from the screen or a schedule
+    elif request["kind"] == "api":
+        task = json.dumps(request["payload"], ensure_ascii=False)
+    else:
+        task = f"{request['subject']}\n\n{request['text']}"
+    ...
+```
 
 The outcome describes how the run ended, with 7 values (`completed` / `incomplete` / `failed` /
 `timeout` / `stopped` / `denied` / `skipped`). **Success means the agent ran to completion**: the agent
@@ -911,7 +943,8 @@ max_retries = 3
 base_url = "https://your-openai.openai.azure.com/"
 api_key = "your-api-key"
 model = "text-embedding-3-small"
-dimensions = 1536
+# dimensions = 1024  # optional (3.1.1+): when set it is sent to the API and the returned length is checked;
+#                    # leave it out to use the model's default size (treated as 1536)
 
 # OpenAI-compatible endpoints (e.g. embed-v-4-0 on Azure AI inference) — SDK >= 0.5.24:
 # [rag.embedding]
@@ -919,7 +952,7 @@ dimensions = 1536
 # base_url = "https://your-resource.services.ai.azure.com/models"  # include /models
 # api_key = "your-api-key"
 # model = "embed-v-4-0"   # "openai/embed-v-4-0" also accepted (prefix is stripped)
-# dimensions = 1536       # api_version is not used with provider = "openai"
+# api_version is not used with provider = "openai"; dimensions works as above
 
 [rag.qdrant]
 url = "http://localhost:6333"
@@ -958,6 +991,22 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.1.2 (2026-10-15) — workflow: the request of a run started from outside (`context.start_input`)
+
+- **New `WorkflowContext.start_input`.** When a run is started from outside with a request (a call to the platform's API that carries one, or an email to the project), the first step of the run (after a split, the first step of each lane) can read the request: a read-only mapping `{kind, payload, subject, text, external}` (see "Reading the request of a run started from outside" in the Workflow Runner section). Other steps get `None`, and so does a value of the wrong shape (`kind` not a string or `external` not a boolean; `subject` / `text` that are not strings become `None`).
+- It is not added to `context.manifest` (the start record saved to the audit).
+- **Platform requirement**: the platform runtime API returns `start_input` in the context (Marketplace 3.2). Against a platform that does not, `start_input` is always `None` and nothing else changes. To use it, rebuild the agent image with this SDK.
+
+### 3.1.1 (2026-10-15) — rag / memory: the embedding dimension can be set / security: PII detection languages
+
+- **The embedding dimension can be set** (`dimensions`). Leaving it out keeps the previous behaviour: `EmbeddingConfig.dimensions` stays `None`, the generator treats the size as 1536 (`EmbeddingGenerator.dimensions == 1536`), nothing is sent to the API and the returned length is not checked. When it is set (`EmbeddingConfig(..., dimensions=1024)` or `"dimensions": 1024` in `from_dict`), it is sent as the API's `dimensions` (except when the model or deployment name ends with `text-embedding-ada-002`, which rejects it; an ada-002 deployment under another name must not set `dimensions`) and every returned vector must have exactly that length; otherwise `EmbeddingDimensionError` (a subclass of `EmbeddingError`) is raised without caching or retrying, so a wrong-size vector is never stored. Use a dimension the model supports (for example Cohere Embed v4 and `text-embedding-3-*` support shorter vectors). A value that is not a positive integer (a string of ASCII digits is accepted; `true`, `1.5` or `"²"` are not) raises `ValueError` when the config is built, without echoing the value. An unset dimension stays unset when the config is copied (`dataclasses.replace`, `asdict` → `from_dict`). Changing the dimension of an existing collection needs re-indexing; the SDK does not do it.
+- **Compatibility**: code that already passed `dimensions=1536` explicitly — including configs copied from the earlier `[rag.embedding]` example in this README, which set `dimensions = 1536` — now sends `dimensions=1536` to the API and checks the returned length. Models that support shorter vectors accept it; for a model or gateway that rejects the parameter, leave `dimensions` out.
+- **`QdrantConfig.vector_size`** must match the generator's dimension, as before (`QdrantManager` raises `QdrantConfigError` otherwise). Pass `vector_size=generator.dimensions`. `vector_size=None` now means 1536, so `QdrantConfig(vector_size=embedding_config.dimensions)` keeps working when the dimension is not set. An existing collection is not checked or changed.
+- **Mem0 (`SemanticMemoryClient`)**: `LLMProviderConfig.dimensions` (from `"dimensions"` in `from_dict`) is passed to `convert_embedder_to_mem0` as `embedding_dims`, and should match `embedding_model_dims` of the vector store. What happens next is Mem0's own behaviour, which the SDK does not change: the OpenAI-compatible embedder sends it as `dimensions`, Gemini as `output_dimensionality`, Bedrock only for Titan v2 models (Cohere and Titan v1 ignore it), the Azure embedder does not send it (send `dimensions` yourself there); the returned length is not checked, and `text-embedding-ada-002` rejects the parameter (do not set `dimensions` for it).
+- **New helpers**: `parse_embedding_dimensions(value)` (exported from `agenticstar_platform.rag`) and `DEFAULT_EMBEDDING_DIMENSIONS` (1536).
+- **Dependencies**: the `rag`, `lab` and `all` extras now require `openai>=1.10.0` (the first release whose embeddings API accepts `dimensions`).
+- **PII detection languages**: `AzureSecurityClient.detect_pii` / `detect_pii_batch` map the product's language codes to Azure AI Language codes before sending (`zh-Hans`, `zh-CN`, `zh-SG` → `zh-hans`; `zh-Hant`, `zh-TW`, `zh-HK`, `zh-MO` → `zh-hant`; `pt-BR` → `pt-BR`). Other values are sent unchanged, as before.
 
 ### 3.1.0 (2026-10-14) — db: the proxy's drain answer is retried, idle connections expire before the proxy closes them, extra request headers / storage: Azure Blob without a connection string (`DefaultAzureCredential`)
 
@@ -1358,4 +1407,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.1.0
+3.1.2

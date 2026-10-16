@@ -50,6 +50,9 @@ def _int_or_none(val: str | None) -> int | None:
 
 def _parse_version_parts(version: str) -> tuple[int | None, int | None, int | None]:
     versions = tuple(int(i) for i in version.split(".") if i)
+    if not versions:
+        msg = "version must contain a numeric component"
+        raise ValueError(msg)
     if len(versions) > _MAX_VERSION_PARTS:
         msg = "too many version parts"
         raise ValueError(msg)

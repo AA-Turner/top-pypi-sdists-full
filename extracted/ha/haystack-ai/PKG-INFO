@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: haystack-ai
-Version: 3.3.0
+Version: 3.4.0
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro
@@ -18,13 +18,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: anyio>=4.14.2
 Requires-Dist: docstring-parser
 Requires-Dist: filetype
@@ -43,7 +43,6 @@ Requires-Dist: python-dateutil
 Requires-Dist: pyyaml
 Requires-Dist: tenacity!=8.4.0
 Requires-Dist: tqdm
-Requires-Dist: typing-extensions>=4.7
 Description-Content-Type: text/markdown
 
 <div align="center">

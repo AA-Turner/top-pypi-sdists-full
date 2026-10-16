@@ -14,6 +14,28 @@ pub struct Script {
     pub commands: Vec<Command>,
     /// Source span of the entire script
     pub span: Span,
+    /// Syntax error found after `commands` (see `Parser::parse_recovering`).
+    /// Reported as stderr + exit 2 once every command ran, unless one of
+    /// them stopped the script first (`exit`, `set -e`), matching bash's
+    /// line-by-line read-then-execute model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trailing_error: Option<String>,
+    /// Line of each top-level command's terminator (newline, `;`, `&` or
+    /// EOF), parallel to `commands`: where bash's reader stopped after
+    /// reading it. Empty when the script was not built by the parser.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub command_end_lines: Vec<usize>,
+    /// Text the script was parsed from. The interpreter re-reads the rest
+    /// from a later top-level command when `alias` or `shopt -s extglob`
+    /// changed how it parses (bash parses a line at a time). Never
+    /// serialized.
+    #[serde(skip)]
+    pub source: Option<std::sync::Arc<str>>,
+    /// Byte offset into `source` and line where each top-level command
+    /// starts, parallel to `commands`; after a syntax error one more entry
+    /// marks where the unparsed rest starts. Never serialized.
+    #[serde(skip)]
+    pub command_starts: Vec<(usize, usize)>,
 }
 
 /// A single command in the script.
@@ -106,7 +128,8 @@ pub enum CompoundCommand {
     Subshell(Vec<Command>),
     /// Brace group
     BraceGroup(Vec<Command>),
-    /// Arithmetic command ((expression))
+    /// Arithmetic command ((expression)), text as written between the
+    /// parentheses; evaluate `parser::arith_exec_text` of it.
     Arithmetic(String),
     /// Time command - measure execution time
     // Keep the recursive command enum small: time's GNU option payload is
@@ -120,8 +143,8 @@ pub enum CompoundCommand {
 
 /// Coprocess command - runs a command with bidirectional communication.
 ///
-/// In bashkit's sandboxed model, the coprocess runs synchronously and its
-/// stdout is buffered for later reading via the NAME array FDs.
+/// The body runs as a background job on a forked shell, its stdin and
+/// stdout connected to in-process pipes (`interpreter/coproc.rs`).
 /// `NAME[0]` = virtual read FD, `NAME[1]` = virtual write FD, `NAME_PID` = virtual PID.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CoprocCommand {
@@ -194,6 +217,9 @@ pub struct ArithmeticForCommand {
     pub condition: String,
     /// Step/update expression
     pub step: String,
+    /// The three clauses as written (for `type`), when read from source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<Vec<String>>,
     /// Loop body
     pub body: Vec<Command>,
     /// Source span of this command
@@ -277,9 +303,39 @@ pub struct Word {
     /// fall back to `quoted` for every part.
     #[serde(default)]
     pub part_quoted: Vec<bool>,
+    /// Source text as written. Only recorded inside function definitions,
+    /// where `type`/`declare -f` print words the way bash does (as written).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<String>,
 }
 
 impl Word {
+    /// Append `next`, a word whose source text touches this one
+    /// (`x<(true)`). Per-part quote flags keep each side's quoting.
+    pub fn append_word(&mut self, next: Word) {
+        if self.quoted != next.quoted
+            || !self.part_quoted.is_empty()
+            || !next.part_quoted.is_empty()
+        {
+            if self.part_quoted.is_empty() {
+                self.part_quoted = vec![self.quoted; self.parts.len()];
+            }
+            if next.part_quoted.is_empty() {
+                self.part_quoted
+                    .extend(std::iter::repeat_n(next.quoted, next.parts.len()));
+            } else {
+                self.part_quoted.extend(next.part_quoted);
+            }
+        }
+        self.quoted |= next.quoted;
+        self.has_unquoted_glob |= next.has_unquoted_glob;
+        self.raw = match (self.raw.take(), next.raw) {
+            (Some(a), Some(b)) => Some(a + &b),
+            _ => None,
+        };
+        self.parts.extend(next.parts);
+    }
+
     /// Create a simple literal word.
     pub fn literal(s: impl Into<String>) -> Self {
         Self {
@@ -287,6 +343,7 @@ impl Word {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         }
     }
 
@@ -297,6 +354,7 @@ impl Word {
             quoted: true,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         }
     }
 }
@@ -307,7 +365,12 @@ impl fmt::Display for Word {
             match part {
                 WordPart::Literal(s) => write!(f, "{}", s)?,
                 WordPart::Variable(name) => write!(f, "${}", name)?,
-                WordPart::CommandSubstitution(cmd) => write!(f, "$({:?})", cmd)?,
+                WordPart::BadSubstitution(text) => write!(f, "{}", text)?,
+                // Printed as shell text (re-parsed by alias expansion);
+                // never `Debug` (TM-INF-022).
+                WordPart::CommandSubstitution(cmd) => {
+                    write!(f, "$({})", super::print_cmd::inline_commands(cmd))?
+                }
                 WordPart::ArithmeticExpansion(expr) => write!(f, "$(({}))", expr)?,
                 WordPart::ParameterExpansion {
                     name,
@@ -343,15 +406,19 @@ impl fmt::Display for Word {
                         pattern,
                         replacement,
                     } => write!(f, "${{{}///{}/{}}}", name, pattern, replacement)?,
-                    ParameterOp::UpperFirst => write!(f, "${{{}^}}", name)?,
-                    ParameterOp::UpperAll => write!(f, "${{{}^^}}", name)?,
-                    ParameterOp::LowerFirst => write!(f, "{}{{,}}", name)?,
-                    ParameterOp::LowerAll => write!(f, "${{{},,}}", name)?,
+                    ParameterOp::UpperFirst => write!(f, "${{{}^{}}}", name, operand)?,
+                    ParameterOp::UpperAll => write!(f, "${{{}^^{}}}", name, operand)?,
+                    ParameterOp::LowerFirst => write!(f, "${{{},{}}}", name, operand)?,
+                    ParameterOp::LowerAll => write!(f, "${{{},,{}}}", name, operand)?,
+                    ParameterOp::ToggleFirst => write!(f, "${{{}~{}}}", name, operand)?,
+                    ParameterOp::ToggleAll => write!(f, "${{{}~~{}}}", name, operand)?,
                 },
                 WordPart::Length(name) => write!(f, "${{#{}}}", name)?,
                 WordPart::ArrayAccess { name, index } => write!(f, "${{{}[{}]}}", name, index)?,
                 WordPart::ArrayLength(name) => write!(f, "${{#{}[@]}}", name)?,
-                WordPart::ArrayIndices(name) => write!(f, "${{!{}[@]}}", name)?,
+                WordPart::ArrayIndices { name, star } => {
+                    write!(f, "${{!{}[{}]}}", name, if *star { '*' } else { '@' })?
+                }
                 WordPart::Substring {
                     name,
                     offset,
@@ -361,17 +428,6 @@ impl fmt::Display for Word {
                         write!(f, "${{{}:{}:{}}}", name, offset, len)?
                     } else {
                         write!(f, "${{{}:{}}}", name, offset)?
-                    }
-                }
-                WordPart::ArraySlice {
-                    name,
-                    offset,
-                    length,
-                } => {
-                    if let Some(len) = length {
-                        write!(f, "${{{}[@]:{}:{}}}", name, offset, len)?
-                    } else {
-                        write!(f, "${{{}[@]:{}}}", name, offset)?
                     }
                 }
                 WordPart::IndirectExpansion {
@@ -394,13 +450,36 @@ impl fmt::Display for Word {
                         write!(f, "${{!{}}}", name)?
                     }
                 }
-                WordPart::PrefixMatch(prefix) => write!(f, "${{!{}*}}", prefix)?,
+                WordPart::IndirectSuffix { name, suffix } => write!(f, "${{!{name}{suffix}}}")?,
+                WordPart::PrefixMatch { prefix, star } => {
+                    write!(f, "${{!{}{}}}", prefix, if *star { '*' } else { '@' })?
+                }
                 WordPart::ProcessSubstitution { commands, is_input } => {
                     let prefix = if *is_input { "<" } else { ">" };
-                    write!(f, "{}({:?})", prefix, commands)?
+                    write!(
+                        f,
+                        "{}({})",
+                        prefix,
+                        super::print_cmd::inline_commands(commands)
+                    )?
                 }
                 WordPart::Transformation { name, operator } => {
                     write!(f, "${{{}@{}}}", name, operator)?
+                }
+                WordPart::CompoundAssignment {
+                    name,
+                    append,
+                    elements,
+                } => {
+                    let op = if *append { "+=" } else { "=" };
+                    write!(f, "{}{}(", name, op)?;
+                    for (i, element) in elements.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, " ")?;
+                        }
+                        write!(f, "{}", element)?;
+                    }
+                    write!(f, ")")?
                 }
             }
         }
@@ -413,6 +492,18 @@ impl fmt::Display for Word {
 pub enum WordPart {
     /// Literal text
     Literal(String),
+    /// A compound array assignment in argument position, as given to a
+    /// declaration builtin: `declare -a name=(a b)`, `local m+=([k]=v)`.
+    /// Elements are kept unexpanded; the builtin expands them like the
+    /// elements of an `name=(...)` statement.
+    CompoundAssignment {
+        /// Variable name (may carry a subscript, which bash rejects).
+        name: String,
+        /// `+=(...)` rather than `=(...)`.
+        append: bool,
+        /// The element words, `[key]=value` elements included.
+        elements: Vec<Word>,
+    },
     /// Variable expansion ($VAR or ${VAR})
     Variable(String),
     /// Command substitution ($(...))
@@ -433,16 +524,12 @@ pub enum WordPart {
     ArrayAccess { name: String, index: String },
     /// Array length `${#arr[@]}` or `${#arr[*]}`
     ArrayLength(String),
-    /// Array indices `${!arr[@]}` or `${!arr[*]}`
-    ArrayIndices(String),
-    /// Substring extraction `${var:offset}` or `${var:offset:length}`
+    /// Array indices `${!arr[@]}` or (`star`) `${!arr[*]}`
+    ArrayIndices { name: String, star: bool },
+    /// Substring extraction `${var:offset}` or `${var:offset:length}`; on
+    /// `@`, `a[@]` or `a[*]` it slices the parameters or array elements,
+    /// on `a[i]` it takes a substring of the element.
     Substring {
-        name: String,
-        offset: String,
-        length: Option<String>,
-    },
-    /// Array slice `${arr[@]:offset:length}`
-    ArraySlice {
         name: String,
         offset: String,
         length: Option<String>,
@@ -455,8 +542,13 @@ pub enum WordPart {
         operand: String,
         colon_variant: bool,
     },
-    /// Prefix matching `${!prefix*}` or `${!prefix@}` - names of variables with given prefix
-    PrefixMatch(String),
+    /// `${!name<suffix>}` beyond the forms above (`${!r:1}`, `${!r#x}`,
+    /// `${!a[1]}`, `${!r[@]:-x}`): the value of `name` (which may carry a
+    /// subscript) names the parameter that `${<value><suffix>}` expands.
+    IndirectSuffix { name: String, suffix: String },
+    /// Prefix matching `${!prefix*}` (`star`) or `${!prefix@}` - names of
+    /// variables with given prefix
+    PrefixMatch { prefix: String, star: bool },
     /// Process substitution <(cmd) or >(cmd)
     ProcessSubstitution {
         /// The commands to run
@@ -466,6 +558,10 @@ pub enum WordPart {
     },
     /// Parameter transformation `${var@op}` where op is Q, E, P, A, K, a, u, U, L
     Transformation { name: String, operator: char },
+    /// A `${...}` bash cannot expand (`${x!}`, `${}`): parsing succeeds and
+    /// expanding it reports "bad substitution" and abandons the line.
+    /// Holds the source text, `${` and `}` included.
+    BadSubstitution(String),
 }
 
 /// Parameter expansion operators
@@ -505,6 +601,10 @@ pub enum ParameterOp {
     LowerFirst,
     /// ,, lowercase all chars
     LowerAll,
+    /// ~ toggle case of first char
+    ToggleFirst,
+    /// ~~ toggle case of all chars
+    ToggleAll,
 }
 
 /// I/O redirection.
@@ -518,6 +618,10 @@ pub struct Redirect {
     pub kind: RedirectKind,
     /// Target (file, fd, or heredoc content)
     pub target: Word,
+    /// Here-document delimiter as bash prints it (`EOF`, or `'EOF'` when the
+    /// delimiter was quoted). Only set for `<<`/`<<-`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub heredoc_delim: Option<String>,
 }
 
 /// Types of redirections.
@@ -543,6 +647,8 @@ pub enum RedirectKind {
     DupInput,
     /// &> - redirect both stdout and stderr
     OutputBoth,
+    /// <> - open for reading and writing (fd 0 by default)
+    ReadWrite,
 }
 
 /// Variable assignment.
@@ -607,6 +713,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "$HOME");
     }
@@ -618,6 +725,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "$((1+2))");
     }
@@ -629,6 +737,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${#var}");
     }
@@ -643,6 +752,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${arr[0]}");
     }
@@ -654,6 +764,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${#arr[@]}");
     }
@@ -661,10 +772,14 @@ mod tests {
     #[test]
     fn word_display_array_indices() {
         let w = Word {
-            parts: vec![WordPart::ArrayIndices("arr".into())],
+            parts: vec![WordPart::ArrayIndices {
+                name: "arr".into(),
+                star: false,
+            }],
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${!arr[@]}");
     }
@@ -680,6 +795,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:2:3}");
     }
@@ -695,6 +811,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:2}");
     }
@@ -702,14 +819,15 @@ mod tests {
     #[test]
     fn word_display_array_slice_with_length() {
         let w = Word {
-            parts: vec![WordPart::ArraySlice {
-                name: "arr".into(),
+            parts: vec![WordPart::Substring {
+                name: "arr[@]".into(),
                 offset: "1".into(),
                 length: Some("2".into()),
             }],
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${arr[@]:1:2}");
     }
@@ -717,14 +835,15 @@ mod tests {
     #[test]
     fn word_display_array_slice_without_length() {
         let w = Word {
-            parts: vec![WordPart::ArraySlice {
-                name: "arr".into(),
+            parts: vec![WordPart::Substring {
+                name: "arr[@]".into(),
                 offset: "1".into(),
                 length: None,
             }],
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${arr[@]:1}");
     }
@@ -741,6 +860,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${!ref}");
     }
@@ -748,10 +868,14 @@ mod tests {
     #[test]
     fn word_display_prefix_match() {
         let w = Word {
-            parts: vec![WordPart::PrefixMatch("MY_".into())],
+            parts: vec![WordPart::PrefixMatch {
+                prefix: "MY_".into(),
+                star: true,
+            }],
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${!MY_*}");
     }
@@ -766,6 +890,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var@Q}");
     }
@@ -780,6 +905,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "hello $USER");
     }
@@ -796,6 +922,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:-fallback}");
     }
@@ -812,6 +939,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var-fallback}");
     }
@@ -828,6 +956,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:=val}");
     }
@@ -844,6 +973,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:+alt}");
     }
@@ -860,6 +990,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var:?msg}");
     }
@@ -877,6 +1008,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var#pat}");
 
@@ -891,6 +1023,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var##pat}");
 
@@ -905,6 +1038,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var%pat}");
 
@@ -919,6 +1053,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var%%pat}");
     }
@@ -938,6 +1073,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var/old/new}");
 
@@ -954,6 +1090,7 @@ mod tests {
             quoted: false,
             has_unquoted_glob: false,
             part_quoted: Vec::new(),
+            raw: None,
         };
         assert_eq!(format!("{w}"), "${var///old/new}");
     }
@@ -971,11 +1108,13 @@ mod tests {
                 quoted: false,
                 has_unquoted_glob: false,
                 part_quoted: Vec::new(),
+                raw: None,
             };
             assert_eq!(format!("{w}"), expected);
         };
         check(ParameterOp::UpperFirst, "${var^}");
         check(ParameterOp::UpperAll, "${var^^}");
+        check(ParameterOp::LowerFirst, "${var,}");
         check(ParameterOp::LowerAll, "${var,,}");
     }
 
@@ -1005,6 +1144,7 @@ mod tests {
                 fd_var: None,
                 kind: RedirectKind::Output,
                 target: Word::literal("out.txt"),
+                heredoc_delim: None,
             }],
             assignments: vec![],
             span: Span::new(),
@@ -1134,6 +1274,7 @@ mod tests {
             fd_var: None,
             kind: RedirectKind::Input,
             target: Word::literal("input.txt"),
+            heredoc_delim: None,
         };
         assert!(r.fd.is_none());
         assert_eq!(r.kind, RedirectKind::Input);
@@ -1249,6 +1390,7 @@ mod tests {
             init: "i=0".into(),
             condition: "i<10".into(),
             step: "i++".into(),
+            raw: None,
             body: vec![],
             span: Span::new(),
         };
@@ -1281,6 +1423,10 @@ mod tests {
         let script = Script {
             commands: vec![],
             span: Span::new(),
+            trailing_error: None,
+            command_end_lines: Vec::new(),
+            source: None,
+            command_starts: Vec::new(),
         };
         assert!(script.commands.is_empty());
     }

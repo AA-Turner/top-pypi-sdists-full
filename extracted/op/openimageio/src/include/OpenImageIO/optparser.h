@@ -102,3 +102,13 @@ optparser(C& system, const std::string& optstring)
 }
 
 OIIO_NAMESPACE_3_1_END
+
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::optparse1;
+using v3_1::optparser;
+#endif
+OIIO_NAMESPACE_END

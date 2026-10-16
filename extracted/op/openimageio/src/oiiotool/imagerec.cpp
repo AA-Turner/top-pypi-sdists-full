@@ -91,6 +91,12 @@ ImageRec::ImageRec(ImageRec& img, int subimage_to_copy, int miplevel_to_copy,
                 ib = new ImageBuf(srcspec);
                 if (copy_pixels)
                     ib->copy_pixels(srcib);
+                // The spec copy brings the thumbnail_* attributes but not
+                // the thumbnail itself, so copy it over by hand.
+                if (srcib.has_thumbnail())
+                    ib->set_thumbnail(*srcib.get_thumbnail());
+                else
+                    ib->clear_thumbnail();
             } else {
                 // The other image is not modified, and we don't need to be
                 // writable, either.
@@ -302,7 +308,7 @@ ImageRec::read(ReadPolicy readpolicy, string_view channel_set)
             m_imagecache->get_cache_dimensions(uname, spec, s, m);
             imagesize_t imgbytes = spec.image_bytes();
             bool forceread       = (s == 0 && m == 0
-                              && imgbytes * subimages < 50 * 1024 * 1024);
+                                    && imgbytes * subimages < 50 * 1024 * 1024);
             ImageBufRef ib(
                 new ImageBuf(name(), s, m, m_imagecache, configspec()));
 

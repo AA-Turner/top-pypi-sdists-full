@@ -5,28 +5,31 @@ import dataclasses
 import json as json_lib
 import sys
 from datetime import datetime, timedelta, timezone
-from typing import AsyncGenerator, cast
+from typing import AsyncGenerator, Sequence, cast
 
 import click
 from click import UsageError
+from rich.box import SIMPLE, SIMPLE_HEAD
+from rich.style import Style
 from rich.table import Column, Table
 from rich.text import Text
 
 from modal._environments import ensure_env
+from modal._logs import _fetch_time_range, _seconds_to_timestamp, _timestamp_to_seconds
 from modal._object import _get_environment_name
 from modal._server import _Server
 from modal._utils.async_utils import async_map_ordered, synchronizer
-from modal._utils.time_utils import parse_duration
+from modal._utils.time_utils import parse_duration, timestamp_to_localized_str
 from modal.cli.utils import humanize_filesize
 from modal.client import _Client
-from modal.exception import NotFoundError
+from modal.exception import LogsFetchError, NotFoundError
 from modal.output import OutputManager
 from modal.secret import _Secret
 from modal.types import ServerAutoscalerSettings
 from modal_proto import api_pb2
 
 from ._help import ModalGroup
-from ._logs import _parse_time_arg, _run_logs_command, _validate_logs_args
+from ._logs import _parse_fetch_range, _parse_time_arg, _run_logs_command, _validate_logs_args
 from ._stats import (
     _DEFAULT_STATS_WINDOW,
     STATS_HEADING_STYLE,
@@ -34,6 +37,7 @@ from ._stats import (
     STATS_PROBLEM_STYLE,
     STATS_SECTION_STYLE,
     _distribution_map_json,
+    _export_metrics,
     _metric_rows,
     _percentile_table,
     _timestamp,
@@ -49,12 +53,14 @@ from .utils import (
     display_table,
     env_option,
     grouped_utc_timestamp,
+    parse_int,
 )
 
 server_cli = ModalGroup(name="server", help="Inspect Modal Servers.")
 
 _DEFAULT_REQUEST_TAIL = 10
 _MAX_REQUEST_TAIL = 1000
+_MAX_REQUEST_FETCH = 1_000_000
 
 
 def _server_request_status_cell(status: int, no_color: bool = False) -> Text:
@@ -169,16 +175,22 @@ async def info(
     enabled = "Enabled"
     disabled = "Disabled"
 
-    rows: list[str | Text | tuple[str | Text, str | Text]] = []
+    rows: list[str | Text | tuple[str | Text, str | Text] | None] = []
 
-    rows.append(("Server Name:", handle_metadata.function_name))
-    rows.append(("Object ID:", server_id))
-    rows.append(("App ID:", handle_metadata.app_id))
-    rows.append(("Image ID:", str(info.image_info.image_id)))
+    rows.append((Text("Server Name:", style="bold"), handle_metadata.function_name))
+    rows.append(None)
+    rows.append((Text("Object ID:", style="bold"), server_id))
+    rows.append((Text("App ID:", style="bold"), handle_metadata.app_id))
+    rows.append((Text("Image ID:", style="bold"), str(info.image_info.image_id)))
 
     # --- HTTP ---
+    rows.append(None)
     rows.append("HTTP Info:")
-    rows.append(("  URL:", info.server_url))
+
+    url = Text(info.server_url, overflow="fold")
+    url.stylize(style=Style(link=info.server_url), end=len(info.server_url))
+
+    rows.append(("  URL:", url))
     rows.append(("  Port:", not_configured if not info.port else str(info.port)))
     rows.append(("  Authentication:", disabled if info.unauthenticated else enabled))
     rows.append(("  HTTP/2:", disabled if not info.h2_enabled else enabled))
@@ -188,6 +200,7 @@ async def info(
     rows.append(("  Exit Grace Period:", f"{info.exit_grace_period} seconds"))
 
     # --- Resources ---
+    rows.append(None)
     rows.append("Resources:")
     rows.append(
         (
@@ -225,6 +238,7 @@ async def info(
     )
 
     # --- Autoscaling ---
+    rows.append(None)
     rows.append("Autoscaling:")
     rows.append(
         (
@@ -271,6 +285,7 @@ async def info(
     )
 
     # --- Scheduling ---
+    rows.append(None)
     rows.append("Scheduling:")
     rows.append(
         ("  Compute Region(s):", not_configured if not info.compute_regions else " | ".join(info.compute_regions))
@@ -280,6 +295,7 @@ async def info(
         rows.append(("  Cloud Provider:", info.cloud))
 
     if info.cluster_info:
+        rows.append(None)
         rows.append("Clustering:")
         rows.append(("  Cluster Size:", str(info.cluster_info.size)))
         rows.append(("  RDMA:", enabled if info.cluster_info.rdma else disabled))
@@ -288,6 +304,7 @@ async def info(
 
     # --- Mounts ---
     if info.volumes:
+        rows.append(None)
         rows.append("Volume Mounts:")
         for mount_path, volume in info.volumes.items():
             assert volume.volume_id is not None
@@ -306,6 +323,7 @@ async def info(
             rows.append((f"  {mount_path}", volume_text))
 
     if info.cloud_bucket_mounts:
+        rows.append(None)
         rows.append("Cloud Bucket Mounts:")
         for mount_path, cbm in info.cloud_bucket_mounts.items():
             extra = []
@@ -323,6 +341,7 @@ async def info(
 
     # --- Secrets ---
     if info.secrets:
+        rows.append(None)
         rows.append("Secrets:")
 
         async def _hydrate(secret_id: str) -> tuple[str, _Secret | None]:
@@ -362,18 +381,20 @@ async def info(
 
             rows.append((f"  {secret_identifier}", ", ".join(display_keys)))
 
+    t = Table(box=SIMPLE_HEAD, show_header=False)
     for row in rows:
-        t = Table().grid(padding=(0, 0, 3, 3), expand=True)
+        if row is None:
+            t.add_row()
+            continue
 
         if not isinstance(row, tuple):
             if isinstance(row, str):
-                row = Text(row)
+                row = Text(row, style="bold")
 
             if not tty:
                 output_manager.print(row)
             else:
                 t.add_row(row)
-                output_manager.print(t)
 
             continue
 
@@ -386,9 +407,11 @@ async def info(
         if isinstance(left, str):
             left = Text(left, overflow="fold")
         if isinstance(right, str):
-            right = Text(right, overflow="fold", justify="right")
+            right = Text(right, overflow="fold")
 
         t.add_row(left, right)
+
+    if tty:
         output_manager.print(t)
 
 
@@ -668,8 +691,8 @@ def _render_inference(history: api_pb2.ServerGetTimeRangeStatsResponse, use_colo
 
 def _server_stats_time_range(since: str | None, until: str | None) -> tuple[datetime, datetime, timedelta]:
     now = datetime.now(timezone.utc)
-    until_dt = _parse_time_arg(until, default=now)
-    since_dt = _parse_time_arg(since, default=until_dt - _DEFAULT_STATS_WINDOW)
+    until_dt = _parse_time_arg(until, default=now, now=now)
+    since_dt = _parse_time_arg(since, default=until_dt - _DEFAULT_STATS_WINDOW, now=now)
     if since_dt >= until_dt:
         raise UsageError("--since must be before --until.")
 
@@ -900,26 +923,36 @@ async def stats(
     "-n",
     "--tail",
     type=click.IntRange(min=1, max=_MAX_REQUEST_TAIL),
-    default=_DEFAULT_REQUEST_TAIL,
-    show_default=True,
-    help="Show up to the last N Server requests.",
+    default=None,
+    help="Show up to the last N Server requests. Defaults to 10. Cannot be combined with --since or --until.",
 )
+@click.option("--since", help="Fetch requests at or after this time (e.g. '2h' or an ISO 8601 datetime).")
+@click.option("--until", help="Fetch requests before this time (e.g. '1h' or an ISO 8601 datetime).")
 @click.option("--json", "json_output", is_flag=True, default=False, help="Output requests as JSON.")
 @click.option("--no-color", "no_color", is_flag=True, default=False, help="Disable colors in the output.")
 @env_option
 @synchronizer.create_blocking
 async def requests(
     server_identifier: str,
-    tail: int = _DEFAULT_REQUEST_TAIL,
+    tail: int | None = None,
     json_output: bool = False,
     no_color: bool = False,
     *,
     env: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
 ) -> None:
     """Show recent requests handled by a Modal Server.
 
     SERVER may be a Function ID or a deployed Server name in the form
     ``APP_NAME/SERVER_NAME``.
+
+    Use ``--since`` and/or ``--until`` to fetch all inputs in the time range,
+    oldest first. ``--until`` defaults to now. If ``--since`` is omitted, the preceeding hour
+    is fetched. If timezones are omitted, the time is interpreted as local time.
+
+    ``--tail`` cannot be combined with either date option.
+    By default, ``--tail`` returns the latest 10 inputs, newest first.
 
     Examples:
 
@@ -931,12 +964,21 @@ async def requests(
     modal server requests my-app/my-server --tail 500
     ```
 
+    ```
+    modal server requests my-app/my-server --since 2h --until 1h
+    ```
+
     Disable color in the output:
 
     ```
     modal server requests my-app/my-server --no-color
     ```
     """
+    fetch_range = None
+    if since is not None or until is not None:
+        if tail is not None:
+            raise UsageError("--tail cannot be combined with --since or --until.")
+        fetch_range = _parse_fetch_range(since, until)
     environment_name = _get_environment_name(ensure_env(env))
     client = await _Client.from_env()
     function_id, _, _ = await _resolve_function_id(
@@ -946,11 +988,63 @@ async def requests(
         object_type="Server",
         command="requests",
     )
-    response = await client._stub.ServerRequestFetch(
-        api_pb2.ServerRequestFetchRequest(
-            function_id=function_id, tail=api_pb2.ServerRequestFetchRequest.Tail(count=tail)
+    if fetch_range is None:
+        response = await client._stub.ServerRequestFetch(
+            api_pb2.ServerRequestFetchRequest(
+                function_id=function_id,
+                tail=api_pb2.ServerRequestFetchRequest.Tail(count=tail if tail is not None else _DEFAULT_REQUEST_TAIL),
+            )
         )
-    )
+        request_infos: Sequence[api_pb2.ServerRequestInfo] = response.requests
+    else:
+        since_dt, until_dt = fetch_range
+
+        async def count_ranges(start: float, end: float, bucket_secs: int) -> list[tuple[float, float, int]]:
+            counted = await client._stub.ServerCountRequests(
+                api_pb2.ServerCountRequestsRequest(
+                    function_id=function_id,
+                    since=_seconds_to_timestamp(start),
+                    until=_seconds_to_timestamp(end),
+                    bucket_secs=bucket_secs,
+                )
+            )
+            if sum(bucket.count for bucket in counted.buckets) > _MAX_REQUEST_FETCH:
+                raise UsageError(
+                    f"Cannot fetch more than {_MAX_REQUEST_FETCH:,} requests. Consider narrowing the range."
+                )
+            return [
+                (
+                    _timestamp_to_seconds(b.bucket_start_at),
+                    _timestamp_to_seconds(b.bucket_start_at) + bucket_secs,
+                    b.count,
+                )
+                for b in counted.buckets
+            ]
+
+        async def fetch_interval(start: float, end: float, limit: int) -> Sequence[api_pb2.ServerRequestInfo]:
+            fetched = await client._stub.ServerRequestFetch(
+                api_pb2.ServerRequestFetchRequest(
+                    function_id=function_id,
+                    range=api_pb2.ServerRequestFetchRequest.Range(
+                        since=_seconds_to_timestamp(start), until=_seconds_to_timestamp(end), limit=limit
+                    ),
+                )
+            )
+            return fetched.requests
+
+        try:
+            request_infos = [
+                item
+                async for item in _fetch_time_range(
+                    since_dt,
+                    until_dt,
+                    count_ranges,
+                    fetch_interval,
+                    max_concurrent_counts=10,
+                )
+            ]
+        except LogsFetchError:
+            raise UsageError("Too many requests to fetch in time range. Consider narrowing the range.")
 
     if json_output:
         OutputManager.get().print_json(
@@ -963,7 +1057,7 @@ async def requests(
                         "duration_seconds": request.duration_seconds,
                         "status": request.status,
                     }
-                    for request in response.requests
+                    for request in request_infos
                 ]
             )
         )
@@ -971,7 +1065,7 @@ async def requests(
 
     rows: list[list[Text | str]] = []
     previous_request_date = None
-    for request in response.requests:
+    for request in request_infos:
         timestamp, previous_request_date = grouped_utc_timestamp(request.timestamp, previous_request_date)
         rows.append(
             [
@@ -984,7 +1078,13 @@ async def requests(
         )
     output = OutputManager.get()
     output.print("")
-    output.print(Text(f"Server requests for {function_id}"))
+    title = f"Server requests for {function_id}"
+    if fetch_range is not None:
+        since_dt, until_dt = fetch_range
+        since_label = since_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        until_label = until_dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        title += f" · fetch [{since_label}, {until_label}) UTC"
+    output.print(Text(title))
     output.print(
         Text(
             f"Displaying {len(rows):,} {'row' if len(rows) == 1 else 'rows'}",
@@ -1003,4 +1103,370 @@ async def requests(
         rows,
         table_box=HEADER_ONLY,
         border_style=STATS_METADATA_STYLE if not no_color else None,
+    )
+
+
+autoscaler_cli = ModalGroup(name="autoscaler", help="View and Configure Autoscaler settings for Modal Servers.")
+server_cli.add_command(autoscaler_cli)
+
+
+@autoscaler_cli.command("settings", no_args_is_help=True)
+@click.argument("server_identifier", metavar="FUNCTION")
+@click.option("--json", "json", is_flag=True, default=False, help="Output as JSON.")
+@env_option
+@synchronizer.create_blocking
+async def autoscaler_info(server_identifier: str, json: bool = False, env: str | None = None):
+    """Show the current Autsocaling settings for the provided Server.
+
+    In addition to the current settings, this command also shows any active overrides to these
+    settings, along with metadata about who overrode the setting, and when. SERVER may be a
+    Server ID or a deployed Server name in the form ``APP_NAME/SERVER_NAME``.
+
+    If a setting's value is the default and not overridden, its value is omitted in the output.
+
+    Examples:
+
+    Show autoscaling settings for a deployed Server:
+
+    ```
+    modal server autoscaler settings my-app/my-server
+    ```
+
+    Show autoscaling settings using an ID:
+
+    ```
+    modal server autoscaler settings fu-1234
+    ```
+    """
+
+    environment_name = _get_environment_name(ensure_env(env))
+    client = await _Client.from_env()
+    function_id, _, _ = await _resolve_function_id(
+        client,
+        server_identifier,
+        environment_name,
+        object_type="Server",
+        command="autoscaler settings",
+    )
+
+    autoscaler_response = await client._stub.FunctionGetSchedulingParams(
+        api_pb2.FunctionGetSchedulingParamsRequest(function_id=function_id)
+    )
+
+    autoscaler_settings = ServerAutoscalerSettings._from_proto(autoscaler_response.autoscaler_configuration.settings)
+    override_events = autoscaler_response.autoscaler_configuration.override_events
+
+    output_manager = OutputManager.get()
+
+    if json:
+        current_settings = dataclasses.asdict(autoscaler_settings)
+        if current_settings["target_concurrency"] == 0:
+            current_settings["target_concurrency"] = None
+
+        override_events_json: list[dict[str, str]] = []
+        for k, v in override_events.items():
+            if k == "target_concurrency_float":
+                continue
+
+            if v.user_id:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_name": v.requested_by,
+                    "actor_id": v.user_id,
+                    "actor_type": "user",
+                }
+            elif v.service_user_id:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_name": v.requested_by,
+                    "actor_id": v.service_user_id,
+                    "actor_type": "service-user",
+                }
+            else:
+                obj = {
+                    "setting": k,
+                    "updated_at": str(v.timestamp),
+                    "actor_id": "unknown",
+                    "actor_name": "unknown",
+                    "actor_type": "unknown",
+                }
+
+            override_events_json.append(obj)
+
+        output_manager.print_json(
+            json_lib.dumps(
+                {
+                    "current_settings": current_settings,
+                    "override_events": override_events_json,
+                }
+            )
+        )
+
+        return
+
+    human_readable = {
+        "min_containers": "Min Containers",
+        "max_containers": "Max Containers",
+        "buffer_containers": "Buffer Containers",
+        "scaledown_window": "Scaledown Window",
+        "scaleup_window": "Scaleup Window",
+        "target_concurrency": "Target Concurrency",
+    }
+
+    if override_events:
+        t = Table("Setting", "Value", "Overridden By", box=SIMPLE)
+    else:
+        t = Table("Setting", "Value", box=SIMPLE)
+
+    for key, pretty in human_readable.items():
+        value = getattr(autoscaler_settings, key)
+        value_str = str(value)
+
+        override_meta = "-"
+        if key in override_events:
+            override = override_events[key]
+            override_meta = f"{override.requested_by} at {timestamp_to_localized_str(override.timestamp, isotz=False)}"
+
+        if key in {"scaledown_window", "scaleup_window"}:
+            value_str = f"{value} seconds"
+
+        if key == "target_concurrency":
+            value_str = f"{value} requests/container"
+
+        if not value and (key == "target_concurrency" or key not in override_events):
+            value_str = "-"
+
+        if override_events:
+            t.add_row(pretty, value_str, override_meta)
+        else:
+            t.add_row(pretty, value_str)
+
+    output_manager.print(t)
+
+
+@autoscaler_cli.command("update", no_args_is_help=True)
+@click.argument("server_identifier", metavar="SERVER")
+@click.option("--max-containers", "max_containers", default=None, help="Maximum concurrent containers.")
+@click.option("--min-containers", "min_containers", default=None, help="Minimum number of containers to keep running.")
+@click.option(
+    "--buffer-containers",
+    "buffer_containers",
+    default=None,
+    help="Extra containers to keep warm beyond current demand.",
+)
+@click.option(
+    "--scaledown-window",
+    "scaledown_window",
+    default=None,
+    help="Maximum duration (in seconds) idle containers wait before scaling down.",
+)
+@click.option(
+    "--scaleup-window",
+    "scaleup_window",
+    default=None,
+    help="Seconds of sustained demand required before scaling up new containers. ",
+)
+@click.option(
+    "--target-concurrency",
+    "target_concurrency",
+    default=None,
+    help="Target number of concurrent requests per container. May be fractional.",
+)
+@env_option
+@synchronizer.create_blocking
+async def autoscaler_update(
+    server_identifier: str,
+    max_containers: str | None = None,
+    min_containers: str | None = None,
+    buffer_containers: str | None = None,
+    scaledown_window: str | None = None,
+    scaleup_window: str | None = None,
+    target_concurrency: str | None = None,
+    env: str | None = None,
+):
+    """Update the current Autsocaling settings for the provided Server.
+
+    SERVER may be a Server ID or a deployed Server name in the form ``APP_NAME/SERVER_NAME``.
+
+    Settings can be modified using the `--max-containers`, `--min-containers`, `--buffer-containers`,
+    `--scaledown-window`, `--scaleup-window`, and `--target-concurrency` options.
+
+    If provided, Max Containers should be a positive integer, Min and Buffer Containers should be
+    nonnegative integers, Scaledown and Scaleup windows should be positive integers measured in seconds,
+    and Target Concurrency should either be a positive floating point number, or the string "none".
+
+    Examples:
+
+    Update Max Containers for a deployed Server:
+
+    ```
+    modal server autoscaler update my-app/my-server --max-containers 10
+    ```
+
+    Update both Min Containers and Target Concurrency for a Server by ID:
+
+    ```
+    modal server autoscaler update fu-1234 --min-containers 3 --target-concurrency 2.5
+    ```
+
+    Set Target Concurrency to "none" (disabling autoscaling for the Server)
+
+    ```
+    modal server autoscaler update my-app/my-server --target-concurrency none
+    ```
+    """
+
+    environment_name = _get_environment_name(ensure_env(env))
+    client = await _Client.from_env()
+
+    updates: dict[str, int | float] = {}
+    for k, v in {
+        "min_containers": min_containers,
+        "max_containers": max_containers,
+        "buffer_containers": buffer_containers,
+        "scaledown_window": scaledown_window,
+        "scaleup_window": scaleup_window,
+        "target_concurrency": target_concurrency,
+    }.items():
+        if v is None:
+            continue
+
+        if k == "target_concurrency":
+            error_message = (
+                f"Invalid input for '--target-concurrency': {v!r} must be a positive float or the string \"none\""
+            )
+
+            if v == "none":
+                updates[k] = None  # type: ignore
+                continue
+
+            try:
+                updates[k] = float(v)
+            except ValueError as e:
+                raise click.UsageError(error_message) from e
+
+            if updates[k] <= 0:
+                raise click.UsageError(error_message)
+
+            continue
+
+        try:
+            updates[k] = parse_int(
+                v,
+                allow_negative=False,
+                allow_zero=k in {"min_containers", "buffer_containers"},
+            )
+        except ValueError as e:
+            option_name = f"--{k.replace('_', '-')}"
+            raise click.UsageError(f"Invalid input for {option_name!r}: {e}")
+
+    output_manager = OutputManager.get()
+    if not updates:
+        output_manager.print("No autoscaler settings specified.")
+        return
+
+    function_id, handle_metadata, _ = await _resolve_function_id(
+        client,
+        server_identifier,
+        environment_name,
+        object_type="Server",
+        command="autoscaler update",
+    )
+
+    s = _Server._new_from_function(function_id, client, handle_metadata)
+    await s.autoscaler.update(**updates)  # type: ignore
+
+    output_manager.print(f"[green]✓[/green] Updated autoscaler settings for Server {handle_metadata.function_name}")
+
+
+@server_cli.command("metrics", no_args_is_help=True)
+@click.argument("identifier", metavar="SERVER")
+@click.option("--since", help="Start time: ISO 8601 or relative duration (e.g. 2h). Naive times are local.")
+@click.option("--until", help="End time; same syntax as --since. Defaults to now.")
+@click.option(
+    "--group",
+    "groups",
+    multiple=True,
+    type=str,
+    help="Metric group; repeat to select multiple. Defaults to all. Valid values are "
+    "'containers', 'cpu', 'memory', 'network', 'gpu', 'requests'.",
+)
+@click.option(
+    "--bucket-size",
+    type=str,
+    metavar="DURATION",
+    help=(
+        "Bucket width: 1m, 2m, 3m, 4m, 5m, 6m, 10m, 12m, 15m, 20m, 30m, "
+        "1h, 2h, 3h, 4h, 8h, 12h, 1d. By default, a value is chosen that splits the time range "
+        "into approximately 100 buckets."
+    ),
+)
+@click.option("--json", "json_output", is_flag=True, help="Fetch metric samples and output JSON.")
+@click.option("--csv", "csv_output", is_flag=True, help="Fetch metric samples and output CSV.")
+@env_option
+@synchronizer.create_blocking
+async def metrics(
+    identifier: str,
+    since: str | None,
+    until: str | None,
+    groups: tuple[str, ...],
+    bucket_size: str | None,
+    json_output: bool,
+    csv_output: bool,
+    env: str | None,
+) -> None:
+    """Preview and export metrics for a Modal Server.
+
+    SERVER may be an Object ID or a deployed Server name in the form
+    ``APP_NAME/SERVER_NAME``.
+
+    Each metric is a time series over the window from ``--since`` to ``--until``
+    (default: the last hour, maximum: 31 days). Samples are aggregated into
+    fixed-width buckets.
+
+    Set the width with ``--bucket-size``. Each series is limited to 500 buckets, so long windows
+    need wider buckets. Time bounds are rounded down to bucket boundaries in UTC.
+    Results may include data before --since and exclude data between the last boundary and --until.
+
+    Series are grouped by name. Specify which metrics to return with ``--group``.
+
+    By default, prints a schema summarizing the date range, bucket size, and time series that would
+    be returned. Use ``--json`` or ``--csv`` to output the raw samples instead.
+
+    Preview available Server metrics:
+
+    ```shell
+    modal server metrics my-app/my-server
+    ```
+
+    Export requests metrics for the last two hours as JSON:
+
+    ```shell
+    modal server metrics my-app/my-server --group requests --since 2h --json > metrics.json
+    ```
+
+    Export CPU, memory, network, and GPU metrics:
+
+    ```shell
+    modal server metrics my-app/my-server --group cpu --group memory --group network --group gpu --json
+    ```
+
+    Save container metrics with five-minute buckets as CSV:
+
+    ```shell
+    modal server metrics fu-abc123 --group containers --bucket-size 5m --csv > metrics.csv
+    ```
+    """
+    await _export_metrics(
+        identifier,
+        since,
+        until,
+        groups,
+        bucket_size,
+        json_output,
+        csv_output,
+        env,
+        is_server=True,
     )

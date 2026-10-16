@@ -19,10 +19,12 @@ from airbyte_ops_mcp.registry._gcs_helpers import (
 from airbyte_ops_mcp.registry._resolve_gcs_paths import versioned_blob_root
 from airbyte_ops_mcp.registry.markers import (
     PROGRESSIVE_ROLLOUT_MARKER_FILE,
+    YANK_MARKER_FILE,
     inactive_progressive_rollout_marker_file,
     inactive_progressive_rollout_marker_parts,
 )
 from airbyte_ops_mcp.registry.store import RegistryStore
+from airbyte_ops_mcp.registry.yank import build_yank_marker_content
 
 
 @dataclass
@@ -38,6 +40,7 @@ class ProgressiveRolloutMarkerResult:
     message: str
     source_path: str | None = None
     target_path: str | None = None
+    yank_path: str | None = None
     dry_run: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -51,6 +54,7 @@ class ProgressiveRolloutMarkerResult:
             "message": self.message,
             "source_path": self.source_path,
             "target_path": self.target_path,
+            "yank_path": self.yank_path,
             "dry_run": self.dry_run,
         }
 
@@ -327,7 +331,11 @@ def finalize_progressive_rollout_marker(
     version: str | None = None,
     dry_run: bool = False,
 ) -> ProgressiveRolloutMarkerResult:
-    """Rename an active progressive rollout marker to a dated audit marker."""
+    """Finalize a rollout marker by renaming it to a dated audit marker.
+
+    Aborting first writes a `version-yank.yml` marker so the version cannot
+    become `latest` after the active rollout marker is renamed.
+    """
     versions = (
         [version]
         if version
@@ -364,30 +372,81 @@ def finalize_progressive_rollout_marker(
 
     resolved_version = versions[0]
     source_path = _active_marker_blob_path(store, connector_name, resolved_version)
-    target_path = (
-        source_path.rsplit("/", maxsplit=1)[0]
-        + "/"
-        + inactive_progressive_rollout_marker_file(outcome)
-    )
-
-    if dry_run:
-        return ProgressiveRolloutMarkerResult(
-            connector_name=connector_name,
-            version=resolved_version,
-            bucket_name=store.bucket,
-            action="finalize",
-            outcome=outcome,
-            success=True,
-            message=f"[DRY RUN] Would rename {source_path} to {target_path}.",
-            source_path=source_path,
-            target_path=target_path,
-            dry_run=True,
-        )
+    version_dir = source_path.rsplit("/", maxsplit=1)[0]
+    yank_path = f"{version_dir}/{YANK_MARKER_FILE}" if outcome == "aborted" else None
 
     storage_client = get_gcs_storage_client()
     bucket = storage_client.bucket(store.bucket)
     source_blob = bucket.blob(source_path)
-    if not source_blob.exists():
+    source_exists = source_blob.exists()
+    target_path = (
+        f"{version_dir}/{inactive_progressive_rollout_marker_file(outcome)}"
+        if source_exists
+        else None
+    )
+    yank_message = ""
+    should_write_yank = False
+    if outcome == "aborted":
+        metadata_path = f"{version_dir}/metadata.yaml"
+        if not bucket.blob(metadata_path).exists():
+            yank_path = None
+            yank_message = f"Skipped yank because {metadata_path} does not exist"
+        elif not source_exists:
+            prefix = f"{version_dir}/"
+            audit_outcomes: set[str] = set()
+            promoted_audit_path = None
+            for blob in bucket.list_blobs(prefix=prefix):
+                filename = blob.name.removeprefix(prefix)
+                if "/" in filename:
+                    continue
+                parts = inactive_progressive_rollout_marker_parts(filename)
+                if parts is None:
+                    continue
+                audit_outcomes.add(parts[0])
+                if parts[0] == "promoted":
+                    promoted_audit_path = blob.name
+            if promoted_audit_path is not None:
+                yank_path = None
+                yank_message = (
+                    f"Skipped yank because promoted marker {promoted_audit_path} exists"
+                )
+            elif "aborted" not in audit_outcomes:
+                yank_path = None
+                yank_message = (
+                    "Skipped yank because no aborted rollout audit marker exists "
+                    f"in {version_dir}"
+                )
+            elif bucket.blob(yank_path).exists():
+                yank_message = f"Version already yanked at {yank_path}"
+            else:
+                should_write_yank = True
+        else:
+            yank_blob = bucket.blob(yank_path)
+            if yank_blob.exists():
+                yank_message = f"Version already yanked at {yank_path}"
+            else:
+                should_write_yank = True
+
+    if dry_run:
+        if should_write_yank:
+            yank_message = f"Would write {yank_path}"
+        if outcome == "aborted":
+            if source_exists and should_write_yank:
+                message = (
+                    f"[DRY RUN] {yank_message} and then rename "
+                    f"{source_path} to {target_path}."
+                )
+            else:
+                follow_up = (
+                    f"would rename {source_path} to {target_path}"
+                    if source_exists
+                    else f"no active progressive rollout marker found at {source_path}"
+                )
+                message = f"[DRY RUN] {yank_message}; {follow_up}."
+        elif source_exists:
+            message = f"[DRY RUN] Would rename {source_path} to {target_path}."
+        else:
+            message = f"[DRY RUN] No active progressive rollout marker found at {source_path}."
         return ProgressiveRolloutMarkerResult(
             connector_name=connector_name,
             version=resolved_version,
@@ -395,13 +454,50 @@ def finalize_progressive_rollout_marker(
             action="finalize",
             outcome=outcome,
             success=True,
-            message=f"No active progressive rollout marker found at {source_path}.",
+            message=message,
             source_path=source_path,
+            target_path=target_path,
+            yank_path=yank_path,
+            dry_run=True,
+        )
+
+    if should_write_yank:
+        bucket.blob(yank_path).upload_from_string(
+            build_yank_marker_content(
+                reason=f"Progressive rollout of {resolved_version} aborted."
+            ),
+            content_type="application/x-yaml",
+        )
+        yank_message = f"Wrote {yank_path}"
+
+    if not source_exists:
+        message = (
+            f"{yank_message}; no active progressive rollout marker found at "
+            f"{source_path}."
+            if outcome == "aborted" and yank_message
+            else f"No active progressive rollout marker found at {source_path}."
+        )
+        return ProgressiveRolloutMarkerResult(
+            connector_name=connector_name,
+            version=resolved_version,
+            bucket_name=store.bucket,
+            action="finalize",
+            outcome=outcome,
+            success=True,
+            message=message,
+            source_path=source_path,
+            yank_path=yank_path,
             dry_run=False,
         )
 
+    assert target_path is not None
     bucket.copy_blob(source_blob, bucket, new_name=target_path)
     source_blob.delete()
+    message = (
+        f"{yank_message}; renamed {source_path} to {target_path}."
+        if outcome == "aborted"
+        else f"Renamed {source_path} to {target_path}."
+    )
     return ProgressiveRolloutMarkerResult(
         connector_name=connector_name,
         version=resolved_version,
@@ -409,7 +505,8 @@ def finalize_progressive_rollout_marker(
         action="finalize",
         outcome=outcome,
         success=True,
-        message=f"Renamed {source_path} to {target_path}.",
+        message=message,
         source_path=source_path,
         target_path=target_path,
+        yank_path=yank_path,
     )

@@ -17,6 +17,9 @@
 
 mod exec;
 mod pattern;
+
+// Shared with `grep`: one POSIX BRE/ERE -> `regex` crate translator.
+pub(crate) use pattern::translate as translate_posix_regex;
 mod script;
 
 #[cfg(test)]
@@ -34,6 +37,7 @@ use super::{Builtin, Context};
 use crate::error::Result;
 use crate::fs::vfs_join;
 use crate::interpreter::ExecResult;
+use crate::limits::ExecutionBudget;
 
 const HELP: &str = "Usage: sed [OPTION]... {script} [FILE]...\n\
 Stream editor for filtering and transforming text.\n\n  \
@@ -300,7 +304,15 @@ impl Builtin for Sed {
                     let path = resolve(ctx.cwd, name);
                     match ctx.fs.read_file(&path).await {
                         Ok(bytes) => {
-                            script.push_str(String::from_utf8_lossy(&bytes).trim_end_matches('\n'))
+                            let text = String::from_utf8_lossy(&bytes);
+                            let trimmed = text.trim_end_matches('\n');
+                            script.push_str(trimmed);
+                            // An escaped final newline (`i\` + newline) is
+                            // text, an empty line in GNU sed; keep it.
+                            let escapes = trimmed.chars().rev().take_while(|&c| c == '\\').count();
+                            if escapes % 2 == 1 && trimmed.len() < text.len() {
+                                script.push('\n');
+                            }
                         }
                         // GNU exits 4 when a script file cannot be opened.
                         Err(e) => {
@@ -314,7 +326,7 @@ impl Builtin for Sed {
             }
         }
 
-        let program = match script::parse(&script, opts.extended) {
+        let program = match script::parse_with(&script, opts.extended, opts.null_data) {
             Ok(p) => p,
             Err(e) => return Ok(ExecResult::err(format!("sed: {}\n", e.message), e.code)),
         };
@@ -348,6 +360,10 @@ impl Builtin for Sed {
         };
         let mut lines: Vec<InputLine> = Vec::new();
         let mut raw: Vec<String> = Vec::new();
+        // GNU reports an unreadable input file, goes on with the rest, and
+        // exits 2 at the end.
+        let mut read_errors = String::new();
+        let mut unreadable: Vec<usize> = Vec::new();
         for (index, name) in names.iter().enumerate() {
             let content = if name == "-" || opts.files.is_empty() {
                 ctx.stdin.map(ToString::to_string).unwrap_or_default()
@@ -368,9 +384,12 @@ impl Builtin for Sed {
                             String::from_utf8_lossy(e.as_bytes()).into_owned()
                         }
                     },
-                    // GNU exits 2 when an input file cannot be read.
                     Err(e) => {
-                        return Ok(ExecResult::err(format!("sed: can't read {name}: {e}\n"), 2));
+                        let reason = crate::error::io_error_reason(&e);
+                        read_errors.push_str(&format!("sed: can't read {name}: {reason}\n"));
+                        unreadable.push(index);
+                        raw.push(String::new());
+                        continue;
                     }
                 }
             };
@@ -398,14 +417,31 @@ impl Builtin for Sed {
             vec![lines]
         };
 
-        let mut machine = Machine::new(
+        // THREAT[TM-DOS-112]: sed's sinks grow inside the builtin, so they are
+        // charged to the shared live-intermediate budget before allocating. The
+        // stdout *capture* cap is deliberately not used here: sed's output may
+        // be piped to another command or redirected to a file, neither of which
+        // is captured stdout, so bounding it by that cap would truncate
+        // ordinary transformations (see #2455).
+        let execution_budget = ctx
+            .execution_budget()
+            .and_then(|budget| budget.try_with(ExecutionBudget::clone).ok());
+        // A dead budget fails the machine itself (fail closed) rather
+        // than running pattern/hold uncharged.
+        let mut machine = match Machine::new(
             &program,
             &names,
             &read_files,
             opts.quiet,
             opts.line_length,
             sep,
-        );
+            execution_budget,
+        ) {
+            Ok(machine) => machine,
+            Err(error) => {
+                return Ok(ExecResult::err(format!("sed: {error}\n"), 1));
+            }
+        };
 
         let mut stdout = String::new();
         let mut edits: Vec<(usize, String, String)> = Vec::new();
@@ -414,22 +450,36 @@ impl Builtin for Sed {
             if machine.finished() {
                 break;
             }
-            let produced = machine.run_segment(segment);
             let name = names.get(index).map(String::as_str).unwrap_or("-");
-            if opts.separate && opts.in_place.is_some() && name != "-" {
+            // Under -s/-i segments are per operand; skip the unreadable ones.
+            if opts.separate && unreadable.contains(&index) {
+                continue;
+            }
+            let in_place = opts.separate && opts.in_place.is_some() && name != "-";
+            let produced = match machine.run_segment(segment) {
+                Ok(produced) => produced,
+                Err(error) => return Ok(ExecResult::err(format!("sed: {error}\n"), 1)),
+            };
+            if in_place {
                 edits.push((index, name.to_string(), produced));
             } else {
                 stdout.push_str(&produced);
             }
         }
 
-        let mut stderr = std::mem::take(&mut machine.stderr);
-        let exit_code = machine.exit_code.unwrap_or(0);
+        let mut stderr = read_errors;
+        stderr.push_str(&std::mem::take(&mut machine.stderr));
+        let exit_code = machine
+            .exit_code
+            .unwrap_or(if unreadable.is_empty() { 0 } else { 2 });
         let write_files = std::mem::take(&mut machine.write_files);
         drop(machine);
 
         // Files named by `w`/`W`/`s///w`.
         for (name, sink) in write_files {
+            if let Some(error) = sink.error {
+                return Ok(ExecResult::err(format!("sed: {error}\n"), 1));
+            }
             let path = resolve(ctx.cwd, &name);
             if let Err(e) = ctx.fs.write_file(&path, sink.buf.as_bytes()).await {
                 return Ok(ExecResult::err(

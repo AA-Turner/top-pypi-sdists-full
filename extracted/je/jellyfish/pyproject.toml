@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "jellyfish"
 dynamic = ["version"]
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -17,8 +17,8 @@ classifiers = [
 ]
 
 [project.urls]
-homepage = "https://jellyfish.jpt.sh/"
-documentation = "https://jellyfish.jpt.sh/"
+homepage = "https://jpt.sh/projects/jellyfish/"
+documentation = "https://jpt.sh/projects/jellyfish/"
 repository = "https://codeberg.org/jpt/jellyfish/"
 
 

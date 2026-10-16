@@ -18,7 +18,7 @@ readme = "README.md"
 tokio = { workspace = true }
 async-trait = { workspace = true }
 # futures-core / tower are only pulled in by the LLM `BashTool` wrapper
-# (and the `scripted_tool` layer on top of it). Optional, gated under `bash_tool`.
+# (and the `bashkit-scripted-tool` crate on top of it). Optional, gated under `bash_tool`.
 futures-core = { workspace = true, optional = true }
 futures-util = { workspace = true }
 tower = { workspace = true, optional = true }
@@ -30,15 +30,17 @@ anyhow = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml_ng = { workspace = true, optional = true }
+serde_norway = { workspace = true, optional = true }
 
 # Regex
 regex = { workspace = true }
+regex-automata = { workspace = true }
 fancy-regex = { workspace = true }
 
 # Date/Time
 chrono = { workspace = true }
 chrono-tz = { workspace = true, optional = true }
+vt100 = { workspace = true, optional = true }
 
 # HTTP client (for curl/wget) - optional, enabled with http_client feature
 reqwest = { workspace = true, optional = true }
@@ -65,7 +67,18 @@ bitflags = "2"
 # JSON processing (jq) - optional, enabled with jq feature
 jaq-core = { workspace = true, optional = true }
 jaq-std = { workspace = true, optional = true }
-jaq-json = { workspace = true, optional = true }
+# jaq-json is vendored into builtins/jq/jaq_json/ (TM-DOS-110, #2444) so its
+# value operations can enforce size limits; these are its dependencies,
+# pinned to the ranges upstream jaq-json declares. See
+# knowledge/runtimes/jaq-json-vendor.md.
+bstr = { version = "1", default-features = false, optional = true }
+bytes = { version = "1", default-features = false, optional = true }
+foldhash = { version = "0.2", default-features = false, optional = true }
+hifijson = { version = "0.5.0", default-features = false, features = ["alloc", "std"], optional = true }
+indexmap = { version = "2.0", default-features = false, optional = true }
+num-bigint = { version = "0.4.6", default-features = false, optional = true }
+ryu = { version = "1.0.20", optional = true }
+self_cell = { version = "1.2.0", optional = true }
 
 # Compression (for gzip/gunzip and bzip2/bunzip2)
 flate2 = { workspace = true }
@@ -86,6 +99,7 @@ getrandom = { workspace = true }
 md-5 = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }
+blake2 = { workspace = true }
 hmac = "0.13"
 
 # Logging/tracing (optional)
@@ -126,6 +140,11 @@ os_display = "0.1.3"
 # enforcement during an uninterrupted VM loop.
 # See knowledge/runtimes/python-builtin.md § Upgrade blocker.
 monty = { version = "=0.0.19", optional = true }
+
+# Real CPython 3.14 as a WASI guest, precompiled to Pulley (cpython feature).
+# See knowledge/runtimes/cpython-wasm.md.
+bashkit-cpython-wasm = { path = "../bashkit-cpython-wasm", version = "0.19.0", optional = true }
+wasmtime = { workspace = true, optional = true, features = ["pooling-allocator"] }
 monty-types = { version = "=0.0.19", optional = true }
 # Monty's ruff AST uses compact_str 0.9; get-size2 >=0.10.2 only implements
 # GetSize for compact_str 0.10. Enforce downstream too, not only in Cargo.lock.
@@ -142,6 +161,10 @@ zapcode-core = { version = "1.5.1", optional = true }
 # Embedded SQLite engine via Turso (optional, BETA upstream).
 # Pulls a multi-MB transitive dep tree only when the `sqlite` feature is active.
 turso_core = { workspace = true, optional = true }
+
+# Feature-unification shim for `branches`, a transitive dep of `turso_core`.
+# Never referenced in code — see the comment in the workspace Cargo.toml.
+branches = { workspace = true, optional = true }
 
 [features]
 default = ["bash_tool", "ring", "tzdata"]
@@ -180,9 +203,31 @@ wasm_js = [
     "dep:send_wrapper",
     "dep:wasm-bindgen-futures",
 ]
+# In-process terminal: a PTY-like `Terminal` (keystrokes in, screen text out)
+# wrapping a `Bash`, plus the `vi` builtin that needs it. Off by default.
+#
+# Important decision: the screen model is the pure-Rust `vt100` crate, not
+# libghostty. vt100 is MIT, has three small pure-Rust deps, and builds for every
+# bashkit target (wasm32 included). libghostty needs a Zig toolchain and C FFI,
+# which would break the wasm, PyPI and npm builds for a feature this small.
+# See knowledge/integrations/in-process-terminal.md.
+# Usage: cargo build --features terminal
+terminal = ["dep:vt100"]
 # Enable jq builtin via embedded jaq interpreter
 # Usage: cargo build --features jq
-jq = ["dep:jaq-core", "dep:jaq-std", "dep:jaq-json", "dep:serde_yaml_ng"]
+jq = [
+    "dep:jaq-core",
+    "dep:jaq-std",
+    "dep:bstr",
+    "dep:bytes",
+    "dep:foldhash",
+    "dep:hifijson",
+    "dep:indexmap",
+    "dep:num-bigint",
+    "dep:ryu",
+    "dep:self_cell",
+    "dep:serde_norway",
+]
 # HTTP client (curl/wget) over rustls. Does NOT imply a crypto backend: pick
 # `ring` (on by default) or `aws-lc-rs`. Enabling neither is a compile error.
 http_client = ["reqwest", "rustls"]
@@ -215,13 +260,17 @@ git = []
 # Enable ssh/scp/sftp builtins for remote command execution and file transfer
 # Usage: cargo build --features ssh
 ssh = ["russh"]
-# Enable ScriptedTool: compose ToolDef+callback pairs into a single Tool
-# Builds on the `BashTool` contract, so it pulls in the `bash_tool` feature.
-# Usage: cargo build --features scripted_tool
-scripted_tool = ["bash_tool"]
 # Enable python/python3 builtins via embedded Monty interpreter
 # Usage: cargo build --features python
 python = ["dep:monty", "dep:monty-types", "dep:get-size2"]
+# Enable python/python3 builtins via real CPython 3.14 in a WebAssembly sandbox
+# Usage: cargo build --features cpython
+cpython = ["dep:bashkit-cpython-wasm", "dep:wasmtime"]
+# Opt-in: CPython compiled to native machine code at build time instead of
+# Pulley bytecode. ~2x faster calls; needs executable memory, and the first
+# load in a process copies the module (call CPython::warm_up at startup).
+# Usage: cargo build --features cpython-native
+cpython-native = ["cpython", "bashkit-cpython-wasm/native"]
 # Enable ts/node/deno/bun builtins via embedded ZapCode TypeScript interpreter
 # Usage: cargo build --features typescript
 typescript = ["dep:zapcode-core"]
@@ -235,7 +284,7 @@ typescript = ["dep:zapcode-core"]
 # Requires the multi-threaded tokio runtime so the sync `IO` trait can bridge
 # back to the async VFS via `block_in_place`.
 # Usage: cargo build --features sqlite
-sqlite = ["dep:turso_core", "tokio/rt-multi-thread"]
+sqlite = ["dep:turso_core", "dep:branches", "tokio/rt-multi-thread"]
 # Enable RealFs backend for accessing host filesystem directories
 # WARNING: This intentionally breaks the sandbox boundary.
 # Usage: cargo build --features realfs
@@ -297,6 +346,19 @@ name = "sqlite"
 harness = false
 required-features = ["sqlite"]
 
+[[bench]]
+name = "python"
+harness = false
+required-features = ["python", "cpython"]
+
+[[example]]
+name = "terminal_vi"
+required-features = ["terminal"]
+
+[[example]]
+name = "terminal_record"
+required-features = ["terminal"]
+
 [[example]]
 name = "agent_tool"
 required-features = ["http_client"]
@@ -314,16 +376,24 @@ name = "show_tool_output"
 required-features = ["bash_tool"]
 
 [[example]]
-name = "scripted_tool"
-required-features = ["scripted_tool"]
-
-[[example]]
 name = "python_scripts"
 required-features = ["python"]
 
 [[example]]
 name = "python_external_functions"
 required-features = ["python"]
+
+[[example]]
+name = "python_startup"
+required-features = ["python", "cpython"]
+
+[[example]]
+name = "cpython_scripts"
+required-features = ["cpython"]
+
+[[example]]
+name = "cpython_load"
+required-features = ["cpython"]
 
 [[example]]
 name = "typescript_scripts"
@@ -380,3 +450,8 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 # not flag the vendored code. See knowledge/runtimes/coreutils-args-port.md.
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("i18n-decimal"))'] }
+
+# The process feature is native test infrastructure only; keep WASM builds
+# on the workspace Tokio feature set without changing versions or the lock.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { workspace = true, features = ["process"] }

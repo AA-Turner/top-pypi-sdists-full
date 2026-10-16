@@ -6,7 +6,13 @@ from typing_extensions import Self
 
 # Main gt imports ----
 from ._body import body_reassemble
-from ._boxhead import cols_align, cols_label, cols_label_rotate, cols_label_with
+from ._boxhead import (
+    cols_align,
+    cols_align_decimal,
+    cols_label,
+    cols_label_rotate,
+    cols_label_with,
+)
 from ._cols_merge import perform_col_merge
 from ._data_color import data_color
 from ._export import as_latex, as_raw_html, gtsave, save, show, write_raw_html
@@ -50,6 +56,7 @@ from ._locations import (
     LocRowGroups,
     LocStub,
     resolve,
+    resolve_stub_cells,
 )
 from ._modify_rows import (
     grand_summary_rows,
@@ -110,6 +117,7 @@ from ._tab_stub_indent import tab_stub_indent
 from ._tbl_data import _get_cell, _set_cell, n_rows
 from ._utils import _migrate_unformatted_to_output
 from ._utils_render_html import (
+    _get_table_aria_attrs,
     _get_table_defs,
     create_body_component_h,
     create_columns_component_h,
@@ -120,6 +128,7 @@ from ._utils_render_html import (
 if TYPE_CHECKING:
     from ._gt_data import Body, Boxhead, Stub
     from ._helpers import BaseText
+    from ._locations import CellPos
 
 __all__ = ["GT"]
 
@@ -127,7 +136,7 @@ __all__ = ["GT"]
 # =============================================================================
 # Helper for text transforms
 # =============================================================================
-def _apply_text_transforms(data: GT, body: Body) -> Body:
+def _apply_text_transforms(data: GT, body: Body, context: str = "html") -> Body:
     """Apply all registered text transforms to the body cells."""
     from ._tbl_data import is_na
 
@@ -140,6 +149,7 @@ def _apply_text_transforms(data: GT, body: Body) -> Body:
 
         if isinstance(loc, LocBody):
             positions = resolve(loc, data)
+            cells = []
             for pos in positions:
                 cell_value = _get_cell(body.body, pos.row, pos.colname)
                 # If the cell is NA (unformatted), fall back to the raw data value
@@ -147,7 +157,23 @@ def _apply_text_transforms(data: GT, body: Body) -> Body:
                     cell_value = _get_cell(data._tbl_data, pos.row, pos.colname)
                     if is_na(data._tbl_data, cell_value):
                         continue
-                new_value = fn(str(cell_value))
+                cells.append((pos, str(cell_value)))
+
+            if transform.per_column:
+                by_column: dict[str, list[tuple[CellPos, str]]] = {}
+                for pos, value in cells:
+                    by_column.setdefault(pos.colname, []).append((pos, value))
+                cells = [
+                    (pos, new_value)
+                    for col_cells in by_column.values()
+                    for (pos, _), new_value in zip(
+                        col_cells, fn([value for _, value in col_cells], context=context)
+                    )
+                ]
+            else:
+                cells = [(pos, fn(value)) for pos, value in cells]
+
+            for pos, new_value in cells:
                 result = _set_cell(body.body, pos.row, pos.colname, new_value)
                 if result is not None:
                     body.body = result
@@ -158,7 +184,7 @@ def _apply_text_transforms(data: GT, body: Body) -> Body:
 def _apply_text_transforms_stub(data: GT, stub: Stub, body: Body) -> tuple[Stub, Body]:
     """Apply text transforms targeting loc.stub() and loc.row_groups()."""
 
-    from ._gt_data import ColInfoTypeEnum, GroupRows, Stub
+    from ._gt_data import GroupRows, Stub
     from ._tbl_data import is_na
 
     if not data._transforms:
@@ -169,15 +195,18 @@ def _apply_text_transforms_stub(data: GT, stub: Stub, body: Body) -> tuple[Stub,
         fn = transform.fn
 
         if isinstance(loc, LocStub):
-            # Find the stub column name
-            stub_col = next(
-                (col.var for col in data._boxhead if col.type == ColInfoTypeEnum.stub), None
-            )
-            if stub_col is None:
+            # Apply the transform to every stub column (all levels of a multi-col stub), or to the
+            # columns given in `loc.stub(columns=)`
+            stub_cols = [col.var for col in data._boxhead._get_stub_columns()]
+            if not stub_cols:
                 continue
 
-            resolved_rows: set[int] = resolve(loc, data)
-            for row_idx in resolved_rows:
+            cells = [
+                (row_idx, stub_col)
+                for row_idx, col in resolve_stub_cells(loc, data)
+                for stub_col in (stub_cols if col is None else [col])
+            ]
+            for row_idx, stub_col in cells:
                 cell_value = _get_cell(body.body, row_idx, stub_col)
                 if is_na(body.body, cell_value):
                     cell_value = _get_cell(data._tbl_data, row_idx, stub_col)
@@ -257,7 +286,10 @@ class GT(
         A DataFrame object.
     rowname_col
         The column name in the input `data=` table to use as row labels to be placed in the table
-        stub.
+        stub. A list of column names creates a hierarchical stub, where the last column holds the
+        row labels and the columns before it are outer levels (outermost first). Repeated values in
+        the outer levels are merged across adjacent rows. A merged cell takes its row striping and
+        any style (e.g., a `data_color()` fill) from the first of the rows it spans.
     groupname_col
         The column name in the input `data=` table to use as group labels for generation of row
         groups.
@@ -330,12 +362,13 @@ class GT(
 
     However which way you generate the initial table object, you can modify it with a huge variety
     of methods to further customize the presentation. Formatting body cells is commonly done with
-    the family of formatting methods (e.g., `fmt_number()`, `fmt_date()`, etc.). The package
-    supports formatting with internationalization ('i18n' features) and so locale-aware methods
-    all come with a `locale=` argument. To avoid having to use that argument repeatedly, the `GT()`
-    class has its own `locale=` argument. Setting a locale in that will make it available globally.
-    Here's an example of how that works in practice when setting `locale = "fr"` in `GT()` prior to
-    using formatting methods:
+    the family of formatting methods (e.g., [`fmt_number()`](`great_tables.GT.fmt_number`),
+    [`fmt_date()`](`great_tables.GT.fmt_date`), etc.). The package supports formatting with
+    internationalization ('i18n' features) and so locale-aware methods all come with a `locale=`
+    argument. To avoid having to use that argument repeatedly, the `GT()` class has its own
+    `locale=` argument. Setting a locale in that will make it available globally. Here's an example
+    of how that works in practice when setting `locale = "fr"` in `GT()` prior to using formatting
+    methods:
 
     ```{python}
     from great_tables import GT, exibble
@@ -348,15 +381,17 @@ class GT(
     )
     ```
 
-    In this example, the `fmt_currency()`, `fmt_scientific()`, and `fmt_date()` methods understand
-    that the locale for this table is `"fr"` (French), so the appropriate formatting for that locale
-    is apparent in the `currency`, `num`, and `date` columns.
+    In this example, the [`fmt_currency()`](`great_tables.GT.fmt_currency`),
+    [`fmt_scientific()`](`great_tables.GT.fmt_scientific`), and
+    [`fmt_date()`](`great_tables.GT.fmt_date`) methods understand that the locale for this table is
+    `"fr"` (French), so the appropriate formatting for that locale is apparent in the `currency`,
+    `num`, and `date` columns.
     """
 
     def __init__(
         self,
         data: Any,
-        rowname_col: str | None = None,
+        rowname_col: str | list[str] | None = None,
         groupname_col: str | None = None,
         auto_align: bool = True,
         id: str | None = None,
@@ -423,6 +458,7 @@ class GT(
     opt_interactive = opt_interactive
 
     cols_align = cols_align
+    cols_align_decimal = cols_align_decimal
     cols_width = cols_width
     cols_label = cols_label
     cols_label_with = cols_label_with
@@ -498,8 +534,8 @@ class GT(
         new_body = self._body.copy()
 
         # TODO: this body method performs a mutation. Should we make a copy of body?
-        new_body.render_formats(self._tbl_data, self._formats, context)
-        new_body.render_formats(self._tbl_data, self._substitutions, context)
+        formatted_cells = new_body.render_formats(self._tbl_data, self._formats, context)
+        formatted_cells |= new_body.render_formats(self._tbl_data, self._substitutions, context)
 
         # Escape unformatted cells before extracting group labels so that
         # group labels derived from body cells are already safe for the output context
@@ -507,7 +543,7 @@ class GT(
         result = _migrate_unformatted_to_output(
             data=result,
             data_tbl=self._tbl_data,
-            formats=self._formats + self._substitutions,
+            formatted_cells=formatted_cells,
             context=context,
         )
 
@@ -533,7 +569,7 @@ class GT(
         # self = self.reorder_styles()
 
         # Transformations of individual cells at supported locations
-        final_body = _apply_text_transforms(built, final_body)
+        final_body = _apply_text_transforms(built, final_body, context=context)
         final_stub, final_body = _apply_text_transforms_stub(built, final_stub, final_body)
         final_boxhead = _apply_text_transforms_boxhead(built)
 
@@ -581,10 +617,13 @@ class GT(
         else:
             table_colgroups = f"\n{table_defs['table_colgroups']}\n"
 
+        # A table with a title is named after it (and described by its subtitle, if present)
+        table_aria = _get_table_aria_attrs(data=self)
+
         if table_defs["table_style"] is None:
-            table_tag_open = f'<table class="gt_table" data-quarto-disable-processing="{quarto_disable_processing}" data-quarto-bootstrap="{quarto_use_bootstrap}">'
+            table_tag_open = f'<table class="gt_table"{table_aria} data-quarto-disable-processing="{quarto_disable_processing}" data-quarto-bootstrap="{quarto_use_bootstrap}">'
         else:
-            table_tag_open = f'<table style="{table_defs["table_style"]}" class="gt_table" data-quarto-disable-processing="{quarto_disable_processing}" data-quarto-bootstrap="{quarto_use_bootstrap}">'
+            table_tag_open = f'<table style="{table_defs["table_style"]}" class="gt_table"{table_aria} data-quarto-disable-processing="{quarto_disable_processing}" data-quarto-bootstrap="{quarto_use_bootstrap}">'
 
         html_table = f"""{table_tag_open}{table_colgroups}
 <thead>

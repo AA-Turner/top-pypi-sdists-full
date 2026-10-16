@@ -15,7 +15,7 @@ process:
                 the RUN-END path, and pi's session start. Fetch a fresh
                 manifest, compare it against the installed CLI, and only then
                 do what --apply does (or, with the CLI current, only a pi
-                package update a running pi deferred).
+                package update that failed).
 
 WHY --apply-if-newer EXISTS RATHER THAN REUSING --apply.
 
@@ -105,47 +105,6 @@ def _flush_update_reports(base: str) -> None:
         pass
 
 
-def _wait_for_harness() -> bool:
-    """Wait for the coding agent whose session start asked for this update
-    (`autoupdate.WAIT_FOR_HARNESS_PID_ENV`), BEFORE any lock is taken. False
-    means do nothing: that agent outlived the timeout (its next session start
-    asks again), or the restart below failed.
-
-    After the wait this process RESTARTS ITSELF rather than carry on. The wait
-    can last hours, and another agent's update may have replaced the installed
-    CLI meanwhile: carrying on would compare against the version THIS process
-    imported (updating again what is already current) and lazily import the
-    rest from the new files. The restart also drops both pids, which after
-    hours may name unrelated processes.
-    """
-    from probe.cli import autoupdate
-
-    raw = os.environ.get(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "")
-    if not raw.isdigit():
-        return True
-    if not autoupdate.wait_for_pid_exit(int(raw), timeout=autoupdate.WAIT_FOR_HARNESS_TIMEOUT):
-        return False
-    env = {
-        name: value
-        for name, value in os.environ.items()
-        if name
-        not in (
-            autoupdate.WAIT_FOR_HARNESS_PID_ENV,
-            autoupdate.WAIT_FOR_PID_ENV,
-            autoupdate.PI_PID_ENV,
-        )
-    }
-    try:
-        os.execve(
-            sys.executable,
-            [sys.executable, "-m", "probe.cli.version_refresh", "--apply-if-newer", "--no-daemon"],
-            env,
-        )
-    except OSError:
-        return False  # the interpreter is gone with the old install
-    return False  # unreachable: execve does not return
-
-
 def _apply() -> None:
     """Wait out the parent, then upgrade.
 
@@ -192,8 +151,6 @@ def _apply_if_newer() -> None:
     from probe.cli.upgrading import perform_update, update_owed_pi_package
 
     base = version_policy.base_url()
-    if not _wait_for_harness():
-        return
 
     # THE LOCK COMES FIRST, BEFORE THE FETCH, and that ordering is the whole
     # rate limit on this path.
@@ -218,9 +175,9 @@ def _apply_if_newer() -> None:
         except Exception:  # noqa: BLE001 -- see docstring: no manifest, no upgrade
             return
         if not updater.cli_update_available(manifest, __version__):
-            # The CLI is current, but a pi update that a running pi deferred
-            # is still owed: that alone, never the CLI and plugins again.
-            if autoupdate.pi_update_pending():
+            # The CLI is current, but a pi package update that failed is
+            # still owed: that alone, never the CLI and plugins again.
+            if autoupdate.pi_update_due():
                 update_owed_pi_package()
             return
         perform_update(

@@ -5,10 +5,12 @@ These tests verify that the heartbeat_timeout parameter in @activity:
 2. Records progress via heartbeat() calls
 """
 
-import asyncio
 from typing import Any
 
 import pytest
+from temporalio.client import WorkflowFailureError
+from temporalio.exceptions import ActivityError, TimeoutType
+from temporalio.exceptions import TimeoutError as TemporalTimeoutError
 
 from mistralai.workflows.testing import (
     HeartbeatProcessingParams,
@@ -22,11 +24,15 @@ from .fixtures_long_running_activities import (
 from .utils import create_test_worker
 
 
+def _unwrap_activity_errors(exc: BaseException | None) -> BaseException | None:
+    while isinstance(exc, ActivityError) and exc.cause is not None:
+        exc = exc.cause
+    return exc
+
+
 class TestHeartbeatTimeout:
     @pytest.mark.asyncio
-    async def test_detects_stuck_activity_quickly(self, temporal_env: Any) -> None:
-        start_time = asyncio.get_event_loop().time()
-
+    async def test_detects_stuck_activity_via_heartbeat_timeout(self, temporal_env: Any) -> None:
         async with create_test_worker(
             temporal_env,
             workflows=[HeartbeatWorkflow],
@@ -43,19 +49,20 @@ class TestHeartbeatTimeout:
                 task_queue="test-task-queue",
             )
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(WorkflowFailureError) as exc_info:
                 await handle.result()
 
-            detection_time = asyncio.get_event_loop().time() - start_time
-
-        # Heartbeat timeout should detect stuck activity faster than start_to_close_timeout
-        assert detection_time < 8, (
-            f"Detection took {detection_time:.1f}s, expected < 8s. "
-            "Heartbeat timeout should trigger faster than full start_to_close_timeout cycle."
+        # The stuck activity must be caught by the heartbeat timeout, not by the
+        # start_to_close timeout: that distinction is what heartbeat_timeout buys.
+        # Wall-clock assertions here were flaky on loaded CI agents.
+        cause = _unwrap_activity_errors(exc_info.value.cause)
+        assert isinstance(cause, TemporalTimeoutError), (
+            f"Expected a Temporal timeout failure, got {type(cause).__name__}: {cause}"
         )
-
-        # Workflow should have failed (Temporal wraps the error message)
-        assert exc_info.value is not None, "Activity should have failed due to heartbeat timeout"
+        assert cause.type == TimeoutType.HEARTBEAT, (
+            f"Expected a HEARTBEAT timeout, got {cause.type}: heartbeat_timeout must detect "
+            "the stuck activity before start_to_close_timeout expires"
+        )
 
         # Activity should have processed items before getting stuck
         assert fixture_activity_tracker.heartbeat_count >= 50, (

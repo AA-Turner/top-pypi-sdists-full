@@ -14,7 +14,7 @@ from mechbench_compute.torch_backend.decoding import (
     read_cache_offset,
     read_cached_kwargs,
 )
-from mechbench_compute.torch_backend.sites import Site, Sites
+from mechbench_compute.torch_backend.sites import Site, Sites, read_child_output
 from mechbench_compute.torch_backend.tracing import disarm, use_attention, wrap_model
 
 EAGER_POINTS = frozenset({"attn.weights"})
@@ -122,7 +122,7 @@ def make_step(name: str, layer: int | None, point: str, site: Site) -> Step:
 
 
 def plan_steps(envoy: Any, module: Any, sites: Sites, wanted: Iterable[str],
-               arch: Arch) -> list[Step]:
+               arch: Arch, *, logits: bool = True) -> list[Step]:
     by_layer: dict[int, set[str]] = {}
     top: set[str] = set()
     for name in wanted:
@@ -149,8 +149,9 @@ def plan_steps(envoy: Any, module: Any, sites: Sites, wanted: Iterable[str],
     if "final_norm" in top:
         steps.append(make_step("final_norm", None, "final_norm", Site(
             lambda: norm.output, lambda v: setattr(norm, "output", v))))
-    steps.append(make_step("logits", None, "logits", Site(
-        lambda: envoy.output.logits, lambda v: setattr(envoy.output, "logits", v))))
+    if logits:
+        steps.append(make_step("logits", None, "logits", Site(
+            lambda: envoy.output.logits, lambda v: setattr(envoy.output, "logits", v))))
     return steps
 
 
@@ -170,6 +171,22 @@ def plan_rope_qkv(attn: Any, i: int, points: set[str]) -> list[Step]:
             lambda: rope.output, lambda value: setattr(rope, "output", value)),
             lambda held: (held[0], held[1]), pack_pair))
     return steps
+
+
+def read_input(module: Any) -> Site:
+    return Site(lambda: module.input, lambda value: setattr(module, "input", value))
+
+
+def plan_mlp(mlp: Any, i: int, points: set[str]) -> list[Step]:
+    by_point = {
+        "mlp.in_norm": lambda: read_input(mlp),
+        "mlp.gate": lambda: read_child_output("gate_proj", mlp),
+        "mlp.act": lambda: read_child_output("act_fn", mlp),
+        "mlp.up": lambda: read_child_output("up_proj", mlp),
+        "mlp.down_in": lambda: read_input(mlp.down_proj),
+    }
+    return [make_step(f"blocks.{i}.{p}", i, p, site()) for p, site in by_point.items()
+            if p in points]
 
 
 def plan_layer(layer: Any, i: int, points: set[str], sites: Sites) -> list[Step]:
@@ -195,6 +212,7 @@ def plan_layer(layer: Any, i: int, points: set[str], sites: Sites) -> list[Step]
             read_heads, pack_heads))
     if "attn_out" in points:
         steps.append(make_step(named + "attn_out", i, "attn_out", sites.attn_out(layer)))
+    steps.extend(plan_mlp(layer.mlp, i, points))
     if "mlp_out" in points:
         steps.append(make_step(named + "mlp_out", i, "mlp_out", sites.mlp_out(layer)))
     if "gate_out" in points:
@@ -213,27 +231,32 @@ def run_steps(steps: list[Step], hooks: dict[str, HookFn], capture_set: set[str]
 
 def run_forward(model: Any, input_ids: Any, *, sites: Sites, hooks: dict[str, HookFn] | None = None,
                 capture: list[str] | None = None, arch: Arch | None = None,
-                kv_cache: Any = None) -> tuple[Any, ActivationCache]:
+                kv_cache: Any = None,
+                stop_after: int | None = None) -> tuple[Any, ActivationCache]:
 
     hooks = dict(hooks or {})
     capture_set = set(capture or [])
     cache = ActivationCache(offset=read_cache_offset(kv_cache))
     cached = read_cached_kwargs(kv_cache)
     wanted = set(hooks) | capture_set
-    if not wanted - {"logits"}:
+    if stop_after is not None and not wanted:
+        return None, cache
+    if stop_after is None and not wanted - {"logits"}:
         with read_grad_mode():
             logits = model(input_ids=input_ids, **cached).logits
         return dispatch("logits", None, "logits", logits, hooks, capture_set, cache), cache
     envoy = wrap_model(model)
-    steps = plan_steps(envoy, model, sites, wanted, arch)
+    steps = plan_steps(envoy, model, sites, wanted, arch, logits=stop_after is None)
     eager = any(p in EAGER_POINTS for s in steps for p in s.points)
     held: dict[str, Any] = {}
     try:
         with use_attention(model, "eager" if eager else None), read_grad_mode(), \
-                envoy.trace(input_ids=input_ids, **cached):
+                envoy.trace(input_ids=input_ids, **cached) as tracer:
             run_steps(steps, hooks, capture_set, cache, held)
+            if stop_after is not None:
+                tracer.stop()
     finally:
         for step in steps:
             if step.site.settle is not None:
                 step.site.settle()
-    return held["last"], cache
+    return (None if stop_after is not None else held["last"]), cache

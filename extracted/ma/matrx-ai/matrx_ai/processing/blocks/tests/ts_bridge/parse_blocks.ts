@@ -25,8 +25,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as readline from "readline";
 
-// The import uses the @/ alias — tsx resolves it via the tsconfig paths mapping.
-import { splitContentIntoBlocksV2 } from "@/components/mardown-display/markdown-classification/processors/utils/content-splitter-v2";
+// The splitter ships in @ai-matrx/rich-content (the app's copy was deleted). A bare package name resolves from THIS
+// file's directory, not from matrx-frontend, so the @/ alias (-> the frontend root) reaches the frontend's installed copy.
+import { splitContentIntoBlocksV2 } from "@/node_modules/@ai-matrx/rich-content/dist/display/markdown-classification/processors/utils/content-splitter-v2.js";
 
 async function readStdin(): Promise<string> {
   return new Promise((resolve, reject) => {

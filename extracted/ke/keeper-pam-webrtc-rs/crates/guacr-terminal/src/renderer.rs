@@ -115,27 +115,35 @@ impl TerminalRenderer {
         })
     }
 
-    /// Check if a character has a renderable glyph in the given font
+    /// Check if a character has a real glyph in the given font
     ///
-    /// Returns true if the font can render this character (has non-zero width glyph)
-    fn has_glyph(font: &Font, c: char, font_size: f32) -> bool {
-        let (metrics, _) = font.rasterize(c, font_size);
-        metrics.width > 0
+    /// Asks the font's character map, rather than measuring a rasterized bitmap: fontdue
+    /// rasterizes a codepoint the font lacks as glyph 0 (.notdef), and .notdef is usually a
+    /// visible box with non-zero width, so measuring cannot distinguish "has the glyph" from
+    /// "drew a placeholder". Glyph index 0 is .notdef by definition in TrueType/OpenType.
+    fn has_glyph(font: &Font, c: char) -> bool {
+        font.lookup_glyph_index(c) != 0
     }
 
     /// Get the best font for rendering a character
     ///
     /// Tries primary font first, falls back to DejaVu Sans Mono for missing glyphs.
     /// This matches guacd's behavior which uses Pango with system font fallback.
-    fn get_font_for_char(&self, c: char) -> &Font {
-        if Self::has_glyph(&self.font_primary, c, self.font_size) {
+    pub(crate) fn get_font_for_char(&self, c: char) -> &Font {
+        if Self::has_glyph(&self.font_primary, c) {
             &self.font_primary
-        } else if Self::has_glyph(&self.font_fallback, c, self.font_size) {
+        } else if Self::has_glyph(&self.font_fallback, c) {
             &self.font_fallback
         } else {
             // Neither font has the glyph - return primary (will show placeholder)
             &self.font_primary
         }
+    }
+
+    /// The fallback font, so tests can assert which font a character resolved to.
+    #[cfg(test)]
+    pub(crate) fn font_fallback(&self) -> &Font {
+        &self.font_fallback
     }
 
     /// Get the current color scheme

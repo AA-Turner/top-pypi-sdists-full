@@ -170,7 +170,8 @@ class TestInteractiveWorkflowIntegration:
                 task_queue="test-task-queue",
             )
 
-            await wait_for_pending_inputs(handle, expected_count=1, label="Approval Request")
+            pending_inputs = await wait_for_pending_inputs(handle, expected_count=1, label="Approval Request")
+            task_id = pending_inputs[0]["task_id"]
 
             with pytest.raises(WorkflowUpdateFailedError) as exc_info:
                 await handle.execute_update(
@@ -178,6 +179,13 @@ class TestInteractiveWorkflowIntegration:
                     {"task_id": "nonexistent-task", "input": {"approved": True, "reason": "LGTM"}},
                 )
             assert "No pending input request found for task nonexistent-task" in str(exc_info.value.cause)
+
+            await handle.execute_update(
+                "__submit_input",
+                {"task_id": task_id, "input": {"approved": True, "reason": "LGTM"}},
+            )
+            workflow_result = await handle.result()
+            assert workflow_result == {"status": "approved", "reason": "LGTM"}
 
     @pytest.mark.asyncio
     async def test_submit_input_rejects_invalid_input(self, temporal_env: Any) -> None:
@@ -201,6 +209,13 @@ class TestInteractiveWorkflowIntegration:
                     {"task_id": task_id, "input": {"wrong_field": "bad"}},
                 )
             assert "Invalid input for task" in str(exc_info.value.cause)
+
+            await handle.execute_update(
+                "__submit_input",
+                {"task_id": task_id, "input": {"approved": True, "reason": "Corrected input"}},
+            )
+            workflow_result = await handle.result()
+            assert workflow_result == {"status": "approved", "reason": "Corrected input"}
 
 
 class TestInputValidation:

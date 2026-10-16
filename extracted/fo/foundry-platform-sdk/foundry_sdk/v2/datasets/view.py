@@ -73,6 +73,9 @@ class ViewClient:
         Adds one or more backing datasets to a View. Any duplicates with the same dataset RID and branch name are
         ignored.
 
+
+        Required scopes: [api:datasets-write]
+
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
         :param backing_datasets:
@@ -135,6 +138,9 @@ class ViewClient:
         """
         Adds a primary key to a View that does not already have one. Primary keys are treated as
         guarantees provided by the creator of the dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
@@ -207,6 +213,9 @@ class ViewClient:
     ) -> datasets_models.View:
         """
         Create a new View.
+
+        Required scopes: [api:datasets-write]
+
         :param backing_datasets:
         :type backing_datasets: List[ViewBackingDataset]
         :param parent_folder_rid:
@@ -294,6 +303,9 @@ class ViewClient:
     ) -> datasets_models.View:
         """
         Get metadata for a View.
+
+        Required scopes: []
+
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
         :param branch:
@@ -345,6 +357,9 @@ class ViewClient:
         Removes specified backing datasets from a View. Removing a dataset triggers a
         [SNAPSHOT](https://palantir.com/docs/foundry/data-integration/datasets#snapshot) transaction on the next update. If a
         specified dataset does not exist, no error is thrown.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
@@ -406,6 +421,9 @@ class ViewClient:
         """
         Replaces the backing datasets for a View. Removing any backing dataset triggers a
         [SNAPSHOT](https://palantir.com/docs/foundry/data-integration/datasets#snapshot) transaction the next time the View is updated.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
@@ -546,6 +564,9 @@ class AsyncViewClient:
         Adds one or more backing datasets to a View. Any duplicates with the same dataset RID and branch name are
         ignored.
 
+
+        Required scopes: [api:datasets-write]
+
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
         :param backing_datasets:
@@ -608,6 +629,9 @@ class AsyncViewClient:
         """
         Adds a primary key to a View that does not already have one. Primary keys are treated as
         guarantees provided by the creator of the dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
@@ -680,6 +704,9 @@ class AsyncViewClient:
     ) -> typing.Awaitable[datasets_models.View]:
         """
         Create a new View.
+
+        Required scopes: [api:datasets-write]
+
         :param backing_datasets:
         :type backing_datasets: List[ViewBackingDataset]
         :param parent_folder_rid:
@@ -767,6 +794,9 @@ class AsyncViewClient:
     ) -> typing.Awaitable[datasets_models.View]:
         """
         Get metadata for a View.
+
+        Required scopes: []
+
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
         :param branch:
@@ -818,6 +848,9 @@ class AsyncViewClient:
         Removes specified backing datasets from a View. Removing a dataset triggers a
         [SNAPSHOT](https://palantir.com/docs/foundry/data-integration/datasets#snapshot) transaction on the next update. If a
         specified dataset does not exist, no error is thrown.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid
@@ -879,6 +912,9 @@ class AsyncViewClient:
         """
         Replaces the backing datasets for a View. Removing any backing dataset triggers a
         [SNAPSHOT](https://palantir.com/docs/foundry/data-integration/datasets#snapshot) transaction the next time the View is updated.
+
+
+        Required scopes: [api:datasets-write]
 
         :param view_dataset_rid: The rid of the View.
         :type view_dataset_rid: DatasetRid

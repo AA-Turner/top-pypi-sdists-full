@@ -37,7 +37,8 @@ class TestComplianceRuleSummary(unittest.TestCase):
             return ComplianceRuleSummary(
                 id = '',
                 materialized_rule_id = '',
-                name = ''
+                name = '',
+                is_deleted = True
             )
         else:
             return ComplianceRuleSummary(

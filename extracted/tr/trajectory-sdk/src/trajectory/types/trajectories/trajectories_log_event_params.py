@@ -18,5 +18,6 @@ class TrajectoriesLogEventParams(TypedDict, total=False):
   """
   payload: Mapping[str, Any]
   """
-  Optional structured event payload. Does not affect training reward.
+  Optional JSON object recorded with the event. It is not a reward component, but an automatic
+  grader can read it.
   """

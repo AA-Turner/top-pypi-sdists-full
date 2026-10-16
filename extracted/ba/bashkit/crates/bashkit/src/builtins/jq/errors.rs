@@ -6,8 +6,8 @@
 //! Debug shapes that would otherwise leak the prepended compat-defs source
 //! into stderr (TM-INF-022).
 
+use super::jaq_json::Val;
 use jaq_core::compile::Undefined;
-use jaq_json::Val;
 
 /// Cap for formatted compile/parse error messages. Bounds stderr so jaq
 /// internals (file structs, AST debug, ~800 chars of prepended stdlib) never
@@ -79,14 +79,61 @@ pub(super) fn format_load_errors<P>(errs: jaq_core::load::Errors<&str, P>) -> St
     format!("jq: error: {}\n", truncate_text(&body, MAX_JQ_DIAG_CHARS))
 }
 
-/// Format jaq runtime errors without dumping full input values into stderr.
+/// Format a jaq runtime error the way jq reports an error while filtering
+/// one input: `jq: error (at <file>:<line>): ...`. `error("msg")` prints the
+/// message as is, `error({...})` adds jq's `(not a string)` marker.
+///
 /// stderr is agent-facing API: value-bearing diagnostics summarize operand
 /// types and keep generic fallbacks bounded.
-pub(super) fn format_runtime_error(error: &jaq_core::Error<Val>) -> String {
-    let message = error.to_string();
-    let body = humanize(&message)
-        .unwrap_or_else(|| capitalize_first(&truncate_text(&message, MAX_JQ_RUNTIME_ERROR_CHARS)));
-    format!("jq: error: {body}\n")
+pub(super) fn format_runtime_error_at(error: &jaq_core::Error<Val>, location: &str) -> String {
+    // THREAT[TM-DOS-110]: an error quoting a huge or deeply shared value
+    // would render it in full; stop rendering past what the message keeps.
+    let message = render_capped(error, 64 * 1024);
+    let thrown = super::convert::val_to_jq_capped(&error.clone().into_val(), 64 * 1024);
+    match thrown {
+        Some(super::convert::JqJson::String(s)) if message.starts_with('"') => format!(
+            "jq: error (at {location}): {}\n",
+            truncate_text(&s, MAX_JQ_RUNTIME_ERROR_CHARS)
+        ),
+        Some(super::convert::JqJson::String(_)) | None => {
+            let body = humanize(&message).unwrap_or_else(|| {
+                capitalize_first(&truncate_text(&message, MAX_JQ_RUNTIME_ERROR_CHARS))
+            });
+            format!("jq: error (at {location}): {body}\n")
+        }
+        Some(_) => format!(
+            "jq: error (at {location}) (not a string): {}\n",
+            truncate_text(&message, MAX_JQ_RUNTIME_ERROR_CHARS)
+        ),
+    }
+}
+
+/// `Display` into a string, stopping after `max` bytes.
+fn render_capped(value: &impl std::fmt::Display, max: usize) -> String {
+    struct Capped {
+        out: String,
+        max: usize,
+    }
+    impl std::fmt::Write for Capped {
+        fn write_str(&mut self, s: &str) -> std::fmt::Result {
+            if self.out.len() + s.len() > self.max {
+                let mut end = self.max - self.out.len();
+                while !s.is_char_boundary(end) {
+                    end -= 1;
+                }
+                self.out.push_str(&s[..end]);
+                return Err(std::fmt::Error);
+            }
+            self.out.push_str(s);
+            Ok(())
+        }
+    }
+    let mut w = Capped {
+        out: String::new(),
+        max,
+    };
+    let _ = std::fmt::Write::write_fmt(&mut w, format_args!("{value}"));
+    w.out
 }
 
 fn humanize(message: &str) -> Option<String> {

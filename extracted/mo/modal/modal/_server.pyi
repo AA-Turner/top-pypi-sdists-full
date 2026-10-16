@@ -1,6 +1,7 @@
 import datetime
 import modal._functions
 import modal._logs_manager
+import modal._metrics
 import modal._partial_function
 import modal._supports_logs
 import modal.app
@@ -51,6 +52,11 @@ class _Server:
 
     async def _get_log_query_data(self) -> modal._supports_logs._LogQueryData: ...
     @property
+    def metrics(self) -> modal._metrics._ServerMetricsManager:
+        """Access metric samples with `export()` and series definitions with `schema()`."""
+        ...
+
+    @property
     def logs(self) -> modal._logs_manager._ServerLogsManager:
         """Access logs for a `Server`.
 
@@ -68,6 +74,11 @@ class _Server:
     @property
     def sessions(self) -> _ServerSessionsManager:
         """Start and terminate sticky sessions on a Server decorated with `@modal.sessioned()`."""
+        ...
+
+    @property
+    def autoscaler(self) -> _ServerAutoscalerManager:
+        """View and update Autoscaler settings on a Server."""
         ...
 
     async def info(self, *, refresh: bool = False) -> modal.types.ServerInfo:
@@ -444,3 +455,81 @@ class ServerSessionsManager:
             ...
 
     terminate: __terminate_spec
+
+class _ServerAutoscalerManager:
+    def __init__(self, server: _Server):
+        """mdmd:hidden"""
+        ...
+
+    async def settings(self) -> modal.types.ServerAutoscalerSettings:
+        """View the current Autoscaler settings for this Server.
+
+        Returns:
+            A `ServerAutoscalerSettings` dataclass.
+
+        Examples:
+
+            ```python notest
+            server = modal.Server.from_name("my-app", "MyServer")
+            settings = server.autoscaler.settings()
+            ```
+        """
+        ...
+
+    async def update(
+        self,
+        *,
+        target_concurrency: typing.Optional[float] = -1,
+        min_containers: typing.Optional[int] = -1,
+        max_containers: typing.Optional[int] = -1,
+        buffer_containers: typing.Optional[int] = -1,
+        scaledown_window: int = -1,
+        scaleup_window: int = -1,
+    ) -> modal.types.ServerAutoscalerSettings:
+        """Override the current Autoscaler settings for this Server.
+
+        All parameters to this function are optional; not passing an argument for a given parameter
+        will not update its value.
+
+        Note that re-deploying the App containing this Server will wipe any overrides and revert
+        its Autoscaler settings back to those defined on the Server at creation time.
+
+        Args:
+            target_concurrency: Target number of concurrent requests per container. Must either be a
+                positive float (e.g. 1.5 to target 3 requests for every 2 containers), or `None`.
+                Passing `None` will disable autoscaling of this Server (effectively setting target
+                concurrency to infinity).
+            min_containers: Minimum number of containers to keep running. Must be a nonnegative
+                integer, or `None`. Passing `None` is equivalent to setting the minimum to 0.
+            max_containers: Maximum concurrent containers. Must be a positive integer, or `None`.
+                Passing `None` is equivalent to disabling the upper bound on container concurrency at
+                the Server level (note that Environment and Workspace level container upper limits
+                still apply.)
+            buffer_containers: Extra containers to keep warm beyond current demand. Must be a
+                nonnegative integer, or `None`. Passing `None` is equivalent to setting the buffer to
+                0.
+            scaledown_window: Maximum duration (in seconds) idle containers wait before scaling down.
+                Must be a positive integer between 2 and 3600, inclusive.
+            scaleup_window: Seconds of sustained demand required before scaling up new containers.
+                Must be a positive integer.
+
+        Returns:
+            A `ServerAutoscalerSettings` dataclass.
+
+        Examples:
+
+            Update `MyServer` so that 2 containers are always active.
+
+            ```python notest
+            MyServer = modal.Server.from_name("my-app", "MyServer")
+            MyServer.autoscaler.update(min_containers=2)
+            ```
+
+            Update `MyServer` so that there is no Server-level limit on `max_containers`:
+
+            ```python notest
+            MyServer = modal.Server.from_name("my-app", "MyServer")
+            MyServer.autoscaler.update(max_containers=None)
+            ```
+        """
+        ...

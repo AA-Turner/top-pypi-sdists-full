@@ -9,6 +9,7 @@ import numpy as np
 from autograd import numpy as anp
 from pydantic import Field, field_validator, model_validator
 
+from tidy3d._runtime import always_validate
 from tidy3d.components.autograd import get_static
 from tidy3d.components.autograd.path_utils import traced_paths
 from tidy3d.components.autograd.types import PathType
@@ -81,6 +82,7 @@ class TriangleMesh(base.Geometry, ABC):
 
     @field_validator("mesh_dataset")
     @classmethod
+    @always_validate
     def _check_mesh(cls, val: TriangleMeshDataset) -> TriangleMeshDataset:
         """Check that the mesh is valid."""
         if val is None:

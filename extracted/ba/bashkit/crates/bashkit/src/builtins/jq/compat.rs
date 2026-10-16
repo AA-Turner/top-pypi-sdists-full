@@ -10,6 +10,26 @@
 //!    For `scan`, real jq's `scan(re; flags)` with empty flags is global by
 //!    default — we explicitly add `g` if not already present in `flags` to
 //!    avoid a double-`g` regex compile error from `"g" + "g"`.
+//!  - `scan` / `capture` / `join` / `ltrimstr` / `rtrimstr` /
+//!    `from_entries` / `IN` / `tostream` / `fromstream` /
+//!    `truncate_stream`: jq 1.7's definitions (capture groups in `scan`,
+//!    null for an unmatched group, null joins as "", non-strings pass
+//!    through the trim filters).
+//!  - `join`: jq's own definition folds with `(if . == null then "" else
+//!    . + $x end) + $elem`, which keeps the accumulator reachable while the
+//!    right operand is evaluated. A shared accumulator cannot be appended to
+//!    in place, so every element copied the whole result and `join` was
+//!    quadratic: 68 s for 300k elements. The definition below coerces the
+//!    elements first and then folds with the accumulator as the left operand
+//!    of a single add (`. + ($x + $s)`), which is linear -- 14 s for the same
+//!    300k. See knowledge/runtimes/jaq-json-vendor.md for the measurements
+//!    and the rule; `join_follows_jq` pins the observable behaviour.
+//!  - `halt_error`: jq prints a string as is, null as nothing, and other
+//!    values as JSON plus a newline, then halts (the run loop turns the
+//!    halt into the command's exit code, never a process exit).
+//!  - `implode` / `strptime` / `fromdate` / `@base64d`: jq's handling of
+//!    invalid code points (U+FFFD), its strptime error text, and unpadded
+//!    base64 input.
 //!  - `@tsv` / `@csv`: jaq-std doesn't define them. Strict variants reject
 //!    non-scalars with a runtime error matching real jq's wording.
 //!  - `input_filename` / `input_line_number`: bashkit threads these as
@@ -59,13 +79,96 @@ def match(re; flags):
   matches(re; flags)[] |
   .[0] as $m |
   { offset: $m.offset, length: $m.length, string: $m.string,
-    captures: [.[1:][] | { offset: .offset, length: .length, string: .string,
-    name: (if has("name") then .name else null end) }] };
+    captures: [.[1:][] |
+      (if has("name") then .name else null end) as $name |
+      if .offset < 0 then { offset: .offset, string: null, length: .length, name: $name }
+      else { offset: .offset, length: .length, string: .string, name: $name } end] };
 def match(re): match(re; "");
 def scan(re; flags):
-  matches(re; if (flags | test("g")) then flags else "g" + flags end)[]
-  | .[0].string;
+  match(re; if (flags | test("g")) then flags else "g" + flags end)
+  | if (.captures | length) > 0 then [.captures[].string] else .string end;
 def scan(re): scan(re; "");
+def capture(re; flags):
+  match(re; flags)
+  | reduce (.captures[] | select(.name != null)) as $c ({}; . + {($c.name): $c.string});
+def capture(re): capture(re; "");
+# `join`: fold with the accumulator as the left operand of ONE add, and with
+# the right operand fully parenthesized, or the accumulator is shared at the
+# add and every element copies it (quadratic -- see the module docs). The
+# leading separator the fold prepends is sliced off at the end; arrays of 0 or
+# 1 element never reach the fold, so `["a"] | join(1)` still succeeds like jq,
+# and `$p[0] + $x` reproduces jq's error (and its operand order) for a
+# non-addable separator as soon as a second element exists.
+def _bk_joinstr:
+  if . == null then ""
+  elif type == "string" then .
+  elif type == "boolean" or type == "number" then tojson
+  else "" + . end;
+def join($x):
+  [.[] | _bk_joinstr] as $p
+  | if ($p | length) <= 1 then ("" + ($p[0] // ""))
+    else ($p[0] + $x) as $_sep_is_addable
+       | reduce $p[] as $s (""; . + ($x + $s))
+       | .[($x | length):]
+    end;
+def _bk_ltrimstr($x): ltrimstr($x);
+def _bk_rtrimstr($x): rtrimstr($x);
+def ltrimstr($x):
+  if type == "string" and ($x | type) == "string" then _bk_ltrimstr($x) else . end;
+def rtrimstr($x):
+  if type == "string" and ($x | type) == "string" then _bk_rtrimstr($x) else . end;
+def from_entries:
+  reduce .[] as $x ({};
+    . + { ($x | .key // .Key // .name // .Name):
+          ($x | if has("value") then .value else .Value end) });
+def IN(s): any(s == .; .);
+def IN(src; s): any(src == s; .);
+def _bk_postorder: (.[]? | _bk_postorder), .;
+def tostream:
+  path(_bk_postorder) as $p
+  | getpath($p)
+  | reduce path(.[]?) as $q ([$p, .]; [$p + $q]);
+def fromstream(f):
+  { x: null, e: false } as $init
+  | foreach f as $i ($init;
+      if .e then $init else . end
+      | if $i | length == 2
+        then setpath(["e"]; $i[0] | length == 0) | setpath(["x"] + $i[0]; $i[1])
+        else setpath(["e"]; $i[0] | length == 1) end;
+      if .e then .x else empty end);
+def truncate_stream(stream):
+  . as $n | null | stream
+  | if (.[0] | length) > $n then setpath([0]; .[0][$n:]) else empty end;
+def _bk_implode: implode;
+def implode:
+  map(if type == "number" and (. > 1114111 or (. >= 55296 and . <= 57343))
+      then 65533 else . end)
+  | _bk_implode;
+def _bk_strptime($f): strptime($f);
+def strptime($f):
+  if type != "string" or ($f | type) != "string" then
+    error("strptime/1 requires string inputs and arguments")
+  else
+    . as $s
+    | try _bk_strptime($f)
+      catch error("date \($s | tojson) does not match format \($f | tojson)")
+  end;
+def fromdateiso8601: strptime("%Y-%m-%dT%H:%M:%SZ") | mktime;
+def fromdate: fromdateiso8601;
+def @base64d:
+  tostring | . as $s
+  | (sub("=+$"; "")) as $t
+  | ($t | length % 4) as $r
+  | if $r == 1 then error("string (\($s | tojson)) trailing base64 byte found")
+    else
+      ($t + (if $r == 2 then "==" elif $r == 3 then "=" else "" end))
+      | try decode_base64
+        catch error("string (\($s | tojson)) is not valid base64 data")
+    end;
+def halt_error($code):
+  (if type == "string" then . elif . == null then empty else tojson + "\n" end
+   | stderr_empty), halt($code);
+def halt_error: halt_error(5);
 def @tsv:
   [.[] |
     if type == "string" then

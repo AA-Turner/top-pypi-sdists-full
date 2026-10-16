@@ -18,6 +18,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 #: Region excluded from the analysis. Never white, which reads as water.
+#: Dense maps are the exception: there a unit with no data is left unfilled
+#: (white, like the units that were never modelled) and water is tinted.
 #: The matplotlib path expresses the same colour as an RGBA tuple in
 #: ``plot._region_fill`` — a drift-guard test pins the two together.
 NODATA = "#d9d9d9"
@@ -37,6 +39,21 @@ COAST_KW = dict(shorelines="0.3p,gray60", borders="1/0.2p,gray70",
 POLY_PEN = "0.4p,black"
 #: Admin-1 overlay pen, drawn AFTER the choropleth so it sits on top.
 BORDER_PEN = "2/0.7p,black"
+
+# Dense maps (county / municipality scale, see ``plot._DENSE_MAP_REGIONS``).
+# At ~2,500 units a 0.4p black stroke per polygon turns the map into a black
+# mesh that hides the fill, so units get a hairline and the state lines carry
+# the orientation instead (user, 2026-10-15; supersedes the 2026-08-18 "keep
+# county strokes 0.4p black" decision).
+#: Unit outline on dense maps.
+DENSE_POLY_PEN = "0.05p,gray45"
+#: State / province lines on dense maps, from the admin-1 boundary file.
+ADMIN1_LINE_PEN = "0.6p,black"
+#: National outline on dense maps.
+NATIONAL_LINE_PEN = "1p,black"
+#: Sea and lakes on dense maps. Units with no data are left white there, so
+#: water gets a pale tint to keep it from reading as an unforecast unit.
+WATER_FILL = "#eef5fa"
 #: Horizontal colorbar under the frame.
 CBAR_POS = "JBC+w12c/0.35c+h"
 #: Region annotations: name above the centroid, value below (GMT text has

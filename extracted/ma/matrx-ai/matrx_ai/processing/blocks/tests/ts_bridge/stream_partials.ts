@@ -34,7 +34,7 @@
 import * as fs from "fs";
 
 import { IR_ENVELOPE_KEY, isCanonicalBlockIR } from "@ai-matrx/content-ir";
-import { StreamBlockAccumulator } from "@/features/agents/redux/execution-system/utils/stream-block-accumulator";
+import { StreamBlockAccumulator } from "@/node_modules/@ai-matrx/chat/dist/agents/redux/execution-system/utils/stream-block-accumulator.js";
 
 interface Emission {
   blockId: string;

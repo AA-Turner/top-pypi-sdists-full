@@ -38,8 +38,17 @@ if TYPE_CHECKING:
 # ── Reserved field names ─────────────────────────────────────────────────────
 
 # Fields managed by DRSession base — subclasses must not redeclare them.
+# "participants" is a real base field; the rest are read-only base properties.
+# A getter-only property is a data descriptor, so it shadows a subclass's
+# pydantic field of the same name: reads return the property (not the field
+# value sitting in __dict__), and the setattr hydration path raises
+# AttributeError.  Reject the names outright rather than let that happen.
 _SESSION_RESERVED: frozenset[str] = frozenset({
     "participants",
+    "id",
+    "created_at",
+    "version",
+    "lifecycle_strategies",
 })
 
 # Fields managed by DREvent base — subclasses must not redeclare them.

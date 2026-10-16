@@ -409,12 +409,9 @@ def _robots_blocked_urls(site: SiteEvidence, document: RobotsDocument) -> list[s
         if url not in seen:
             seen.add(url)
             wanted.append(url)
-    # The sitemap-membership URLs the crawler DID capture are the other half of
-    # "advertised": they are in the sitemap and they are indexable.
-    for url in site.junk_by_class.get("robots_blocked", []):
-        if url not in seen:
-            seen.add(url)
-            wanted.append(url)
+    # A page our crawler fetched anyway is never "junk" because robots.txt
+    # disallows it; whether the site's own robots.txt blocks its advertised URLs
+    # is judged here, as a robots_txt_health finding, not as sitemap junk.
     blocked = [u for u in wanted[:ROBOTS_BLOCK_SCAN_LIMIT] if not document.is_allowed(u)]
     return blocked
 
@@ -982,7 +979,6 @@ def fold_sitemap_members(
         "redirecting": [],
         "noindexed": [],
         "non_canonical": [],
-        "robots_blocked": [],
     }
     for page in member_pages:
         page_id = str(page.id)
@@ -1027,8 +1023,6 @@ def fold_sitemap_members(
             junk["non_canonical"].append(url)
         elif facts is not None and getattr(facts, "noindex", None) is True:
             junk["noindexed"].append(url)
-        elif evidence.robots is not None and not evidence.robots.is_allowed(url):
-            junk["robots_blocked"].append(url)
 
     evidence.junk_by_class = {label: urls for label, urls in junk.items() if urls}
     evidence.junk_entry_count = sum(len(urls) for urls in evidence.junk_by_class.values())

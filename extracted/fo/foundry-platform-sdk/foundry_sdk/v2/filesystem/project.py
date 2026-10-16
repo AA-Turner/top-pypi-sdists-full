@@ -80,6 +80,9 @@ class ProjectClient:
     ) -> None:
         """
         Adds a list of Organizations to a Project.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param organization_rids:
@@ -145,6 +148,9 @@ class ProjectClient:
         Note that third-party applications using this endpoint via OAuth2 cannot be associated with an
         Ontology SDK as this will reduce the scope of operations to only those within specified projects.
         When creating the application, select "No, I won't use an Ontology SDK" on the Resources page.
+
+
+        Required scopes: [api:filesystem-write]
 
         :param default_roles:
         :type default_roles: List[RoleId]
@@ -233,6 +239,9 @@ class ProjectClient:
     ) -> filesystem_models.Project:
         """
         Creates a project from a project template.
+
+        Required scopes: [api:filesystem-write]
+
         :param template_rid:
         :type template_rid: ProjectTemplateRid
         :param variable_values:
@@ -263,6 +272,7 @@ class ProjectClient:
         :raises MissingVariableValue: A variable defined on the template requested for project creation does not have a value set in the request.
         :raises NotAuthorizedToApplyOrganization: The user is not authorized to apply at least one of the organization markings required to create the project from template.
         :raises OrganizationsNotFound: At least one organization RID could not be found.
+        :raises ProjectNameAlreadyExists: The requested display name for the created project is already being used in the space.
         :raises ProjectNotFound: The given Project could not be found.
         :raises ProjectTemplateNotFound: The project template RID referenced cannot be found.
         :raises TemplateGroupNameConflict: Creating the project from template would attempt to create new groups with names conflicting either with other new groups, or existing groups.
@@ -304,6 +314,7 @@ class ProjectClient:
                     "MissingVariableValue": filesystem_errors.MissingVariableValue,
                     "NotAuthorizedToApplyOrganization": filesystem_errors.NotAuthorizedToApplyOrganization,
                     "OrganizationsNotFound": filesystem_errors.OrganizationsNotFound,
+                    "ProjectNameAlreadyExists": filesystem_errors.ProjectNameAlreadyExists,
                     "ProjectNotFound": filesystem_errors.ProjectNotFound,
                     "ProjectTemplateNotFound": filesystem_errors.ProjectTemplateNotFound,
                     "TemplateGroupNameConflict": filesystem_errors.TemplateGroupNameConflict,
@@ -325,6 +336,9 @@ class ProjectClient:
     ) -> filesystem_models.Project:
         """
         Get the Project with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -371,6 +385,9 @@ class ProjectClient:
         """
         List of Organizations directly applied to a Project. The number of Organizations on a Project is
         typically small so the `pageSize` and `pageToken` parameters are not required.
+
+
+        Required scopes: []
 
         :param project_rid:
         :type project_rid: ProjectRid
@@ -423,6 +440,9 @@ class ProjectClient:
     ) -> None:
         """
         Removes Organizations from a Project.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param organization_rids:
@@ -481,6 +501,9 @@ class ProjectClient:
     ) -> filesystem_models.Project:
         """
         Replace the Project with the specified rid.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param display_name: The display name of the Project. Must be unique and cannot contain a /
@@ -625,6 +648,9 @@ class AsyncProjectClient:
     ) -> typing.Awaitable[None]:
         """
         Adds a list of Organizations to a Project.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param organization_rids:
@@ -690,6 +716,9 @@ class AsyncProjectClient:
         Note that third-party applications using this endpoint via OAuth2 cannot be associated with an
         Ontology SDK as this will reduce the scope of operations to only those within specified projects.
         When creating the application, select "No, I won't use an Ontology SDK" on the Resources page.
+
+
+        Required scopes: [api:filesystem-write]
 
         :param default_roles:
         :type default_roles: List[RoleId]
@@ -778,6 +807,9 @@ class AsyncProjectClient:
     ) -> typing.Awaitable[filesystem_models.Project]:
         """
         Creates a project from a project template.
+
+        Required scopes: [api:filesystem-write]
+
         :param template_rid:
         :type template_rid: ProjectTemplateRid
         :param variable_values:
@@ -808,6 +840,7 @@ class AsyncProjectClient:
         :raises MissingVariableValue: A variable defined on the template requested for project creation does not have a value set in the request.
         :raises NotAuthorizedToApplyOrganization: The user is not authorized to apply at least one of the organization markings required to create the project from template.
         :raises OrganizationsNotFound: At least one organization RID could not be found.
+        :raises ProjectNameAlreadyExists: The requested display name for the created project is already being used in the space.
         :raises ProjectNotFound: The given Project could not be found.
         :raises ProjectTemplateNotFound: The project template RID referenced cannot be found.
         :raises TemplateGroupNameConflict: Creating the project from template would attempt to create new groups with names conflicting either with other new groups, or existing groups.
@@ -849,6 +882,7 @@ class AsyncProjectClient:
                     "MissingVariableValue": filesystem_errors.MissingVariableValue,
                     "NotAuthorizedToApplyOrganization": filesystem_errors.NotAuthorizedToApplyOrganization,
                     "OrganizationsNotFound": filesystem_errors.OrganizationsNotFound,
+                    "ProjectNameAlreadyExists": filesystem_errors.ProjectNameAlreadyExists,
                     "ProjectNotFound": filesystem_errors.ProjectNotFound,
                     "ProjectTemplateNotFound": filesystem_errors.ProjectTemplateNotFound,
                     "TemplateGroupNameConflict": filesystem_errors.TemplateGroupNameConflict,
@@ -870,6 +904,9 @@ class AsyncProjectClient:
     ) -> typing.Awaitable[filesystem_models.Project]:
         """
         Get the Project with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -916,6 +953,9 @@ class AsyncProjectClient:
         """
         List of Organizations directly applied to a Project. The number of Organizations on a Project is
         typically small so the `pageSize` and `pageToken` parameters are not required.
+
+
+        Required scopes: []
 
         :param project_rid:
         :type project_rid: ProjectRid
@@ -968,6 +1008,9 @@ class AsyncProjectClient:
     ) -> typing.Awaitable[None]:
         """
         Removes Organizations from a Project.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param organization_rids:
@@ -1026,6 +1069,9 @@ class AsyncProjectClient:
     ) -> typing.Awaitable[filesystem_models.Project]:
         """
         Replace the Project with the specified rid.
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param display_name: The display name of the Project. Must be unique and cannot contain a /

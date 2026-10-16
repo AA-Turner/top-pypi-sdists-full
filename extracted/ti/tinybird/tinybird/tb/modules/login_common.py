@@ -258,7 +258,7 @@ def open_url(url: str, *, new_tab: bool = False) -> bool:
     # 1. Try the standard library first on CPython ≥ 3.11 this already
     #    recognises WSL and fires up the Windows default browser for us.
     try:
-        wb: Any = webbrowser.get()  # mypy: Any for Py < 3.10
+        wb: Any = webbrowser.get()
         if new_tab:
             if wb.open_new_tab(url):
                 return True

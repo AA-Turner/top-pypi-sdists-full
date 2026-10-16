@@ -28,7 +28,8 @@ TrainingOptionKey: TypeAlias = Literal[
   "intelligent_density_training",
   "algorithm",
   "train_on_truncation",
-  "train_on_ungraded",
+  "train_on_error",
+  "train_on_timeout",
   "disable_thinking",
   "reject_all_fail",
   "reject_all_pass",
@@ -50,8 +51,6 @@ TrainingOptionKey: TypeAlias = Literal[
   "max_output_tokens_per_step",
   "max_total_tokens_per_trajectory",
   "max_turns_per_trajectory",
-  "max_tool_calls_per_step",
-  "max_response_chars_per_tool_call",
 ]
 
 

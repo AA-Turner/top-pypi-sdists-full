@@ -27,11 +27,11 @@ struct WebpHead {
 static bool
 webp_exif_payload_has_tiff_header(cspan<uint8_t> exif)
 {
-    const size_t exif_header_size = 6;
-    const bool has_exif_header    = exif.size() >= exif_header_size
-                                 && exif[0] == 'E' && exif[1] == 'x'
-                                 && exif[2] == 'i' && exif[3] == 'f'
-                                 && exif[4] == 0 && exif[5] == 0;
+    const size_t exif_header_size   = 6;
+    const bool has_exif_header      = exif.size() >= exif_header_size
+                                      && exif[0] == 'E' && exif[1] == 'x'
+                                      && exif[2] == 'i' && exif[3] == 'f'
+                                      && exif[4] == 0 && exif[5] == 0;
     const size_t tiff_header_offset = has_exif_header ? exif_header_size : 0;
     return exif.size() >= tiff_header_offset + sizeof(TIFFHeader);
 }
@@ -141,6 +141,7 @@ WebpInput::open(const std::string& name, ImageSpec& spec,
     m_image_size = io->size();
     if (m_image_size == size_t(-1)) {
         errorfmt("Failed to get size for \"{}\"", m_filename);
+        close();
         return false;
     }
 
@@ -211,6 +212,7 @@ WebpInput::open(const std::string& name, ImageSpec& spec,
             bool ok = decode_exif(exif_span, m_spec);
             if (!ok && OIIO::get_int_attribute("imageinput:strict")) {
                 errorfmt("Could not decode Exif");
+                close();
                 return false;
             }
         }
@@ -237,6 +239,7 @@ WebpInput::open(const std::string& name, ImageSpec& spec,
         if (!ok && OIIO::get_int_attribute("imageinput:strict")) {
             errorfmt("Possible corrupt file, could not decode ICC profile: {}\n",
                      errormsg);
+            close();
             return false;
         }
     }
@@ -245,8 +248,10 @@ WebpInput::open(const std::string& name, ImageSpec& spec,
     // BEFORE allocating the decoded-image buffer, so a malformed header cannot
     // drive a large allocation.
     if (!check_open(m_spec, { 0, (1 << 14) - 1, 0, (1 << 14) - 1, 0, 1, 0, 4 })
-        || !check_compression_ratio(m_spec, m_image_size))
+        || !check_compression_ratio(m_spec, m_image_size)) {
+        close();
         return false;
+    }
 
     // Make space for the decoded image
     m_decoded_image.reset(new uint8_t[m_spec.image_bytes()]);

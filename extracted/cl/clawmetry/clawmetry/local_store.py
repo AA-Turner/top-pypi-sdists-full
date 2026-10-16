@@ -52,6 +52,7 @@ from clawmetry.trail_store import TrailStoreMixin  # intent / back-fill / git jo
 from clawmetry.local_store_agent_meta import AgentMetaMixin  # agent meta label surface (short module for Drift Bot)
 from clawmetry.local_store_projects import ProjectsMixin  # project attribution + budgets (REQ-OBS-PRJ-001)
 from clawmetry.activity_store import ActivityStoreMixin, ACTIVITY_DDL
+from clawmetry.node_activity_store import NodeActivityStoreMixin, NODE_ACTIVITY_DDL
 from clawmetry.incident_store import IncidentStoreMixin, INCIDENT_DDL
 from clawmetry.investigations import InvestigationStoreMixin
 from clawmetry.investigation_catalog import InvestigationCatalogMixin
@@ -2140,6 +2141,76 @@ _DDL = [
         PRIMARY KEY (repo_root, sha)
     )
     """,
+    # ── Delivery attribution (session -> what it produced) ────────────────
+    #
+    # The git_* tables above are the outcome half as seen FROM A REPOSITORY:
+    # they need a local checkout to scan, which the hosted dashboard does not
+    # have and a machine that has since deleted the clone no longer has
+    # either. This table is the same edge derived from the session's OWN tool
+    # stream by ``clawmetry/attribution.py``: no git, no network, no
+    # checkout, and therefore computable for history already in DuckDB.
+    #
+    # One row per (session, artifact). ``cost_usd`` is populated for ``pr``
+    # rows only and is a SPLIT of the session's spend, never a copy of it:
+    # one session routinely touches several pull requests, and copying the
+    # session total onto each produced a $106,946 pull request on a $3,843
+    # node. Per-artifact amounts plus the session's unattributed remainder
+    # sum to the session's own cost; the ``basis`` column names the rule
+    # that divided it. For every other kind ``cost_usd`` is NULL, because a
+    # per-file share of a model call would be an invented number.
+    #
+    # Additive with its own primary key, so it composes with parallel work
+    # adding tables here; CREATE TABLE IF NOT EXISTS keeps it idempotent and
+    # needs no schema-version bump.
+    """
+    CREATE TABLE IF NOT EXISTS session_artifacts (
+        session_id   VARCHAR NOT NULL,
+        agent_type   VARCHAR NOT NULL DEFAULT 'openclaw',
+        kind         VARCHAR NOT NULL,
+        ref          VARCHAR NOT NULL,
+        repo         VARCHAR NOT NULL DEFAULT '',
+        role         VARCHAR DEFAULT 'explored',
+        basis        VARCHAR,
+        source       VARCHAR,
+        confidence   DOUBLE DEFAULT 0,
+        evidence     VARCHAR,
+        first_ts     VARCHAR,
+        last_ts      VARCHAR,
+        mentions     INTEGER DEFAULT 1,
+        cost_usd     DOUBLE,
+        node_id      VARCHAR,
+        updated_at   BIGINT NOT NULL,
+        PRIMARY KEY (session_id, kind, ref, repo)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_session_artifacts_kind ON session_artifacts(kind, repo, ref)",
+    "CREATE INDEX IF NOT EXISTS idx_session_artifacts_session ON session_artifacts(session_id)",
+    # Per-session attribution bookkeeping. Two jobs: it tells the daemon
+    # which sessions it has already attributed (and at what event count, so a
+    # session that grew is recomputed and a dormant one is skipped), and it
+    # holds the remainder that belongs to NO artifact. Showing attributed
+    # spend without that remainder would imply the attributed share is the
+    # whole bill.
+    """
+    CREATE TABLE IF NOT EXISTS session_attribution_state (
+        session_id        VARCHAR NOT NULL,
+        agent_type        VARCHAR NOT NULL DEFAULT 'openclaw',
+        event_count       INTEGER DEFAULT 0,
+        artifact_count    INTEGER DEFAULT 0,
+        total_usd         DOUBLE DEFAULT 0,
+        unattributed_usd  DOUBLE DEFAULT 0,
+        basis             VARCHAR,
+        computed_at       BIGINT NOT NULL,
+        PRIMARY KEY (session_id, agent_type)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_session_attr_state_at ON session_attribution_state(computed_at DESC)",
+    # Which version of the attribution RULES produced these rows. A change
+    # in semantics must re-run over sessions that have not otherwise moved,
+    # or old and new answers sit side by side with nothing to tell them
+    # apart. ALTER so existing stores pick it up; NULL reads as "older than
+    # any released version" and therefore always recomputes.
+    "ALTER TABLE session_attribution_state ADD COLUMN IF NOT EXISTS rules_version VARCHAR",
     # ── Guard policies (detector incident -> enforcement action) ──────────
     # Authored in the dashboard's Guard panel, evaluated by the daemon in
     # ``sync.py::_emit_detector_incidents`` via ``clawmetry.policy_engine``.
@@ -2931,6 +3002,7 @@ def _assistant_decode_conversation(row: tuple[Any, ...]) -> dict[str, Any]:
 
 _DDL.extend(INCIDENT_DDL)
 _DDL.extend(ACTIVITY_DDL)
+_DDL.extend(NODE_ACTIVITY_DDL)
 
 
 def _session_phase_row(row) -> dict:
@@ -4232,13 +4304,21 @@ def _runtime_of_session_id(session_id: str, fallback: str = "openclaw") -> str:
     return fallback or "openclaw"
 
 
-class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin, IncidentStoreMixin, InvestigationStoreMixin, InvestigationCatalogMixin, ActivityStoreMixin):
+class LocalStore(NodeActivityStoreMixin, AgentMetaMixin, ProjectsMixin, TrailStoreMixin, IncidentStoreMixin, InvestigationStoreMixin, InvestigationCatalogMixin, ActivityStoreMixin):
     """Thread-safe local event store with a background batched flusher.
 
     `read_only=True` opens the DuckDB in RO mode — read paths work the same,
     ingest()/flush() raise. Used by the dashboard process while the daemon
     process owns the writer lock.
     """
+
+    def query_asimov_runs(self, *, limit=20, robot_id=None, before_ns=None, before_run_id=None) -> dict:
+        from clawmetry.asimov.store import runs
+        return runs(self, limit=limit, robot_id=robot_id, before_ns=before_ns, before_run_id=before_run_id)
+
+    def query_asimov_events(self, *, run_id, after=0, limit=200) -> dict:
+        from clawmetry.asimov.store import events
+        return events(self, run_id=run_id, after=after, limit=limit)
 
     def robotics_runs(self, *, limit=50, before_ns=None, before_run_id=None) -> dict:
         return self.robotics_query("runs", {"limit": limit, "before_ns": before_ns,
@@ -9421,6 +9501,452 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin, IncidentStoreMi
             "metrics": metrics,
             "coverage": coverage,
         }
+
+    # ── Delivery attribution ────────────────────────────────────────────────
+    #
+    # Writer: :meth:`persist_session_attribution`, called by the daemon after
+    # ``clawmetry.attribution.extract_session_delivery``. Readers:
+    # :meth:`query_delivery` (the roll-up per pull request) and
+    # :meth:`query_session_artifacts` (one session's own row set). Both live
+    # here so the join between spend (``sessions``) and delivery
+    # (``session_artifacts``) has exactly one implementation.
+
+    def persist_session_attribution(self, result: dict[str, Any], *,
+                                    node_id: str | None = None) -> int:
+        """Persist one session's attribution result. Returns rows written.
+
+        Replace-then-insert per session so a recomputation that no longer
+        sees an artifact removes it, rather than leaving a stale pull request
+        attached to the session forever. Both statements run under one
+        write-lock hold, so a reader never observes a session mid-rewrite.
+
+        Permissive by design: attribution failing to persist must not take
+        down the daemon tick that produced it.
+        """
+        if self._read_only:
+            raise RuntimeError(
+                "local_store: persist_session_attribution() called on "
+                "read-only store"
+            )
+        sid = str((result or {}).get("session_id") or "").strip()
+        if not sid:
+            return 0
+        atype = str((result or {}).get("agent_type") or "openclaw")
+        # Stamped so a later change in attribution semantics can find the rows
+        # it needs to recompute (see sessions_pending_attribution).
+        try:
+            from clawmetry.attribution import RULES_VERSION as rules_version
+        except Exception:
+            rules_version = ""
+        artifacts = [a for a in ((result or {}).get("artifacts") or [])
+                     if isinstance(a, dict)]
+        now = int(time.time())
+        rows = []
+        seen_keys: set[tuple] = set()
+        for art in artifacts:
+            ref = str(art.get("ref") or "").strip()
+            kind = str(art.get("kind") or "").strip()
+            if not ref or not kind:
+                continue
+            cost = art.get("cost_usd")
+            try:
+                cost = float(cost) if cost is not None else None
+            except (TypeError, ValueError):
+                cost = None
+            try:
+                conf = float(art.get("confidence") or 0.0)
+            except (TypeError, ValueError):
+                conf = 0.0
+            # Last line of defence on the artifact primary key. A single
+            # colliding pair used to fail the whole executemany on a
+            # constraint error, so ONE bad row cost the entire session its
+            # attribution, on every pass, permanently (measured: seven
+            # consecutive failures on one session). De-duplicating here keeps
+            # a future extractor change from ever reaching that failure mode.
+            pk = (kind[:32], ref[:500], str(art.get("repo") or "")[:255])
+            if pk in seen_keys:
+                continue
+            seen_keys.add(pk)
+            rows.append([
+                sid, atype, kind[:32], ref[:500],
+                str(art.get("repo") or "")[:255],
+                str(art.get("role") or "explored")[:32],
+                str(art.get("basis") or "")[:48],
+                str(art.get("source") or "")[:64],
+                conf,
+                str(art.get("evidence") or "")[:500],
+                str(art.get("first_ts") or "")[:64],
+                str(art.get("last_ts") or "")[:64],
+                int(art.get("mentions") or 1),
+                cost,
+                str(node_id or "")[:128] or None,
+                now,
+            ])
+        try:
+            with self._write_lock:
+                self._conn.execute("BEGIN TRANSACTION")
+                self._conn.execute(
+                    "DELETE FROM session_artifacts WHERE session_id = ?",
+                    [sid])
+                self._conn.execute(
+                    "DELETE FROM session_attribution_state WHERE "
+                    "session_id = ? AND agent_type <> ?", [sid, atype])
+                if rows:
+                    self._conn.executemany(
+                        "INSERT INTO session_artifacts ("
+                        " session_id, agent_type, kind, ref, repo, role,"
+                        " basis, source, confidence, evidence, first_ts,"
+                        " last_ts, mentions, cost_usd, node_id, updated_at"
+                        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                self._conn.execute("""
+                    INSERT INTO session_attribution_state (
+                        session_id, agent_type, event_count, artifact_count,
+                        total_usd, unattributed_usd, basis, computed_at,
+                        rules_version
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT (session_id, agent_type) DO UPDATE SET
+                        event_count      = excluded.event_count,
+                        artifact_count   = excluded.artifact_count,
+                        total_usd        = excluded.total_usd,
+                        unattributed_usd = excluded.unattributed_usd,
+                        basis            = excluded.basis,
+                        computed_at      = excluded.computed_at,
+                        rules_version    = excluded.rules_version
+                """, [
+                    sid, atype,
+                    int(result.get("event_count") or 0), len(rows),
+                    float(result.get("total_usd") or 0.0),
+                    float(result.get("unattributed_usd") or 0.0),
+                    str(result.get("basis") or "unknown")[:48], now,
+                    rules_version,
+                ])
+                self._conn.execute("COMMIT")
+        except Exception as exc:  # noqa: BLE001
+            # All or nothing: a half-written session would show partial rows
+            # on the tab and, with no state row, be recomputed on every pass
+            # forever.
+            try:
+                self._conn.execute("ROLLBACK")
+            except Exception:
+                pass
+            log.warning("persist_session_attribution(%s): %s", sid, exc)
+            return 0
+        return len(rows)
+
+    def sessions_pending_attribution(self, *, limit: int = 25) -> list[dict]:
+        """Sessions whose event count differs from what was last attributed.
+
+        One query rather than "list sessions, then count events per session":
+        the comparison against the watermark happens in SQL, so an idle node
+        does bounded work and a node with 10,000 unchanged sessions returns
+        an empty list instead of 10,000 transcript reads. Newest activity
+        first, because that is what a user is looking at.
+
+        A session qualifies when its event count has moved OR when it was
+        attributed under older rules than *rules_version*. The second half is
+        what makes a semantics fix reach rows that already exist: the count
+        alone only notices a session that grew, so a dormant session would
+        keep its old answer forever and the table would hold two meanings at
+        once with nothing to distinguish them.
+        """
+        try:
+            lim = max(1, min(int(limit), 500))
+        except (TypeError, ValueError):
+            lim = 25
+        try:
+            from clawmetry.attribution import RULES_VERSION as _rules
+        except Exception:
+            _rules = ""
+        try:
+            rows = self._fetch("""
+                SELECT e.session_id,
+                       MAX(COALESCE(e.agent_type, 'openclaw')) AS agent_type,
+                       COUNT(*)    AS event_count,
+                       MAX(e.ts)   AS last_ts
+                  FROM events e
+                 WHERE e.session_id IS NOT NULL AND e.session_id <> ''
+                 GROUP BY e.session_id
+                HAVING COUNT(*) <> COALESCE((
+                           SELECT st.event_count
+                             FROM session_attribution_state st
+                            WHERE st.session_id = e.session_id
+                       ), -1)
+                    OR COALESCE((
+                           SELECT st.rules_version
+                             FROM session_attribution_state st
+                            WHERE st.session_id = e.session_id
+                       ), '') <> ?
+                 ORDER BY last_ts DESC
+                 LIMIT ?
+            """, [str(_rules), lim])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("sessions_pending_attribution: %s", exc)
+            return []
+        out = []
+        for r in rows or []:
+            try:
+                out.append({
+                    "session_id": str(r[0]),
+                    "agent_type": str(r[1] or "openclaw"),
+                    "event_count": int(r[2] or 0),
+                    "last_ts": _coerce_value(r[3]) or "",
+                })
+            except (TypeError, ValueError, IndexError):
+                continue
+        return out
+
+    def attribution_watermarks(self, *, limit: int = 5000) -> dict[str, int]:
+        """``{session_id: event_count}`` already attributed.
+
+        The daemon compares each session's current event count against this
+        so an unchanged session costs one dictionary lookup instead of a
+        re-scan of its whole transcript (the daemon-stays-light rule).
+        """
+        out: dict[str, int] = {}
+        try:
+            rows = self._fetch(
+                "SELECT session_id, event_count FROM "
+                "session_attribution_state ORDER BY computed_at DESC "
+                "LIMIT ?", [int(limit)])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("attribution_watermarks: %s", exc)
+            return out
+        for row in rows or []:
+            try:
+                out[str(row[0])] = int(row[1] or 0)
+            except (TypeError, ValueError, IndexError):
+                continue
+        return out
+
+    def query_session_artifacts(self, *, session_id: str) -> list[dict]:
+        """One session's artifact rows, strongest claim first."""
+        sid = str(session_id or "").strip()
+        if not sid:
+            return []
+        try:
+            rows = self._fetch("""
+                SELECT kind, ref, repo, role, basis, source, confidence,
+                       evidence, first_ts, last_ts, mentions, cost_usd
+                  FROM session_artifacts
+                 WHERE session_id = ?
+                 ORDER BY COALESCE(cost_usd, 0) DESC, confidence DESC, kind, ref
+                 LIMIT 500
+            """, [sid])
+        except Exception as exc:  # noqa: BLE001
+            log.warning("query_session_artifacts(%s): %s", sid, exc)
+            return []
+        cols = ("kind", "ref", "repo", "role", "basis", "source",
+                "confidence", "evidence", "first_ts", "last_ts", "mentions",
+                "cost_usd")
+        return [{c: _coerce_value(v) for c, v in zip(cols, r)}
+                for r in (rows or [])]
+
+    def query_delivery(self, *, kind: str = "pr", runtime: str | None = None,
+                       since: str | None = None, limit: int = 100) -> dict:
+        """Delivered artifacts with the spend attributed to each.
+
+        One row per artifact, carrying how many sessions touched it, the
+        attributed spend, the strongest role claimed, the weakest confidence
+        behind that claim (so a row resting on one soft match cannot look as
+        solid as one resting on an explicit reference), and the pull
+        request's real title/state when a local repository scan happens to
+        know them (``git_pull_requests``, LEFT JOINed, so a machine with no
+        checkout still gets the row).
+
+        ``runtime`` filters server-side on the session's ``agent_type``,
+        which is the runtime-filter contract every view owes the global
+        switcher. Returns ``{"rows": [...], "totals": {...}}``; never raises.
+
+        Rows are folded case-insensitively on the repository name, because
+        GitHub is: two sessions that spell one repository differently are
+        one row here, under the spelling the node's sessions used most.
+        A branch name and a file path keep their case, which is theirs to
+        keep.
+        """
+        want_kind = str(kind or "pr").strip().lower() or "pr"
+        try:
+            lim = max(1, min(int(limit), 500))
+        except (TypeError, ValueError):
+            lim = 100
+        # Fully parameterized rather than a WHERE assembled from fragments:
+        # an absent filter binds '' and the predicate short-circuits, so the
+        # SQL text is a constant. That keeps the optional-filter behaviour
+        # identical while leaving no string-built query for a reader (or a
+        # static analyser) to have to verify.
+        rt = str(runtime or "")
+        since_s = str(since or "")
+        params: list[Any] = [want_kind, rt, rt, since_s, since_s, lim]
+        try:
+            rows = self._fetch("""
+                WITH base AS (
+                    -- One repository spelled two ways is ONE repository:
+                    -- GitHub treats an owner and a name case-insensitively.
+                    -- attribution._fold_repo_case already does this WITHIN a
+                    -- session; the live tab still listed
+                    -- ``ClawMetry/clawmetry-pro`` beside
+                    -- ``clawmetry/clawmetry-pro`` because the two spellings
+                    -- arrived from two different sessions and nothing folded
+                    -- them once they were rows.
+                    --
+                    -- The fold key lowercases only the field that holds a
+                    -- repository NAME: ``ref`` on a repo row, ``repo`` on
+                    -- every other kind. A branch name and a file path are
+                    -- case-sensitive, so folding those would merge two
+                    -- different branches into one.
+                    SELECT sa.session_id                  AS session_id,
+                           sa.repo                        AS repo,
+                           sa.ref                         AS ref,
+                           lower(COALESCE(sa.repo, ''))   AS repo_key,
+                           CASE WHEN sa.kind = 'repo'
+                                THEN lower(COALESCE(sa.ref, ''))
+                                ELSE COALESCE(sa.ref, '')
+                                END                       AS ref_key,
+                           sa.cost_usd                    AS cost_usd,
+                           sa.confidence                  AS confidence,
+                           sa.role                        AS role_name,
+                           sa.first_ts                    AS first_ts,
+                           sa.last_ts                     AS last_ts,
+                           sa.basis                       AS basis,
+                           sa.evidence                    AS evidence
+                      FROM session_artifacts sa
+                     WHERE sa.kind = ?
+                       AND (? = '' OR sa.agent_type = ?)
+                       AND (? = '' OR COALESCE(sa.last_ts, '') >= ?)
+                ), spelling AS (
+                    -- How many sessions used each spelling, so the name on
+                    -- display is the one this node's own agents typed most.
+                    SELECT repo_key, ref_key, repo, ref,
+                           COUNT(DISTINCT session_id)     AS seen
+                      FROM base
+                     GROUP BY 1, 2, 3, 4
+                ), pick AS (
+                    -- A tie falls to the lexicographically smaller spelling
+                    -- rather than to row order, so the same rows always
+                    -- render the same name.
+                    SELECT repo_key, ref_key, repo, ref
+                      FROM (SELECT repo_key, ref_key, repo, ref,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY repo_key, ref_key
+                                       ORDER BY seen DESC, repo ASC, ref ASC
+                                   )                      AS rn
+                              FROM spelling)
+                     WHERE rn = 1
+                ), agg AS (
+                    SELECT repo_key                       AS repo_key,
+                           ref_key                        AS ref_key,
+                           COUNT(DISTINCT session_id)     AS sessions,
+                           SUM(COALESCE(cost_usd, 0))     AS cost_usd,
+                           MAX(confidence)                AS confidence_max,
+                           MIN(confidence)                AS confidence_min,
+                           MAX(CASE role_name WHEN 'authored' THEN 2
+                                              WHEN 'reviewed' THEN 1
+                                              ELSE 0 END) AS role_rank,
+                           MIN(first_ts)                  AS first_ts,
+                           MAX(last_ts)                   AS last_ts,
+                           MAX(basis)                     AS basis,
+                           MAX(evidence)                  AS evidence
+                      FROM base
+                     GROUP BY 1, 2
+                ), pr_meta AS (
+                    -- Pre-aggregated to ONE row per (repo, number) before it
+                    -- is joined. git_repos is keyed on repo_root, and the same
+                    -- GitHub repository has one row per working directory, so
+                    -- every git worktree or second clone on the machine is
+                    -- another repo_root. Joining straight through multiplied
+                    -- each pull request by that count: a single PR showed up
+                    -- five times in the live list, once per checkout.
+                    SELECT gr.owner || '/' || gr.name  AS repo,
+                           CAST(pr.number AS VARCHAR)  AS ref,
+                           MAX(pr.title)               AS title,
+                           MAX(pr.state)               AS state,
+                           MAX(pr.url)                 AS url,
+                           MAX(pr.merged_at)           AS merged_at
+                      FROM git_pull_requests pr
+                      JOIN git_repos gr ON gr.repo_root = pr.repo_root
+                     WHERE COALESCE(gr.owner, '') <> ''
+                       AND COALESCE(gr.name, '')  <> ''
+                     GROUP BY 1, 2
+                )
+                SELECT p.repo, p.ref, a.sessions, a.cost_usd,
+                       a.confidence_max, a.confidence_min, a.role_rank,
+                       a.first_ts, a.last_ts, a.basis, a.evidence,
+                       pm.title, pm.state, pm.url, pm.merged_at
+                  FROM agg a
+                  JOIN pick p ON p.repo_key = a.repo_key
+                             AND p.ref_key  = a.ref_key
+                  LEFT JOIN pr_meta pm
+                         -- Case-insensitive here too: a pull request whose
+                         -- repo was typed in another case than the local
+                         -- checkout reports lost its title, state and URL.
+                         ON p.repo <> ''
+                        AND lower(pm.repo) = a.repo_key
+                        AND pm.ref  = p.ref
+                 ORDER BY a.cost_usd DESC, a.sessions DESC
+                 LIMIT ?
+            """, params)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("query_delivery(%s): %s", want_kind, exc)
+            return {"rows": [], "totals": {}, "available": False,
+                    "reason": "query_failed"}
+        role_of = {2: "authored", 1: "reviewed", 0: "explored"}
+        out: list[dict] = []
+        for r in rows or []:
+            try:
+                out.append({
+                    "repo": _coerce_value(r[0]) or "",
+                    "ref": _coerce_value(r[1]) or "",
+                    "sessions": int(r[2] or 0),
+                    "cost_usd": round(float(r[3] or 0.0), 4),
+                    "confidence": round(float(r[4] or 0.0), 3),
+                    "confidence_min": round(float(r[5] or 0.0), 3),
+                    "role": role_of.get(int(r[6] or 0), "explored"),
+                    "first_ts": _coerce_value(r[7]) or "",
+                    "last_ts": _coerce_value(r[8]) or "",
+                    "basis": _coerce_value(r[9]) or "",
+                    "evidence": _coerce_value(r[10]) or "",
+                    "title": _coerce_value(r[11]) or "",
+                    "state": _coerce_value(r[12]) or "",
+                    "url": _coerce_value(r[13]) or "",
+                    "merged_at": int(r[14] or 0),
+                })
+            except (TypeError, ValueError, IndexError):
+                continue
+        return {"rows": out, "totals": self._delivery_totals(runtime),
+                "available": True, "kind": want_kind}
+
+    def _delivery_totals(self, runtime: str | None = None) -> dict:
+        """Attributed vs unattributed spend, so neither can be read as all.
+
+        The unattributed figure is the whole point of showing totals: a user
+        looking at $600 of attributed spend needs to know whether the node's
+        bill was $620 or $6,000.
+        """
+        totals = {"attributed_usd": 0.0, "unattributed_usd": 0.0,
+                  "sessions_attributed": 0, "artifacts": 0}
+        # Constant SQL with the optional runtime bound as a parameter that
+        # short-circuits when empty, rather than a WHERE concatenated per
+        # call. Same two queries either way, nothing string-built.
+        rt = str(runtime or "")
+        try:
+            row = self._fetch(
+                "SELECT COALESCE(SUM(cost_usd), 0), COUNT(DISTINCT session_id),"
+                " COUNT(*) FROM session_artifacts"
+                " WHERE kind = 'pr' AND (? = '' OR agent_type = ?)",
+                [rt, rt])
+            if row:
+                totals["attributed_usd"] = round(float(row[0][0] or 0.0), 4)
+                totals["sessions_attributed"] = int(row[0][1] or 0)
+                totals["artifacts"] = int(row[0][2] or 0)
+            row2 = self._fetch(
+                "SELECT COALESCE(SUM(unattributed_usd), 0) FROM"
+                " session_attribution_state WHERE (? = '' OR agent_type = ?)",
+                [rt, rt])
+            if row2:
+                totals["unattributed_usd"] = round(float(row2[0][0] or 0.0), 4)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("_delivery_totals: %s", exc)
+        return totals
+
     def ingest_alert_rule(self, rule: dict[str, Any]) -> None:
         """Upsert one alert rule. Required: ``id``.
 

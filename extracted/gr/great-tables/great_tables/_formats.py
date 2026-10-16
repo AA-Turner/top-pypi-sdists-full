@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import math
 import re
 from collections.abc import Callable
@@ -27,15 +28,17 @@ from babel.dates import format_date, format_datetime, format_time
 from ._gt_data import FormatFn, FormatFns, FormatInfo, FormatterSkipElement, GTData, PFrameData
 from ._helpers import px
 from ._locale import (
+    FlagsDataDict,
     _get_currencies_data,
     _get_default_locales_data,
     _get_flags_data,
     _get_locales_data,
 )
-from ._locations import resolve_cols_c, resolve_rows_i
+from ._locations import RowSelectExpr, resolve_cols_c, resolve_rows_i
 from ._tbl_data import (
     Agnostic,
     DataFrameLike,
+    NpBool,
     PlExpr,
     SelectExpr,
     _get_column_dtype,
@@ -43,6 +46,7 @@ from ._tbl_data import (
     is_series,
     to_list,
 )
+from ._styles import FromColumn
 from ._text import _html_escape, _latex_escape, _md_html, _md_latex, escape_pattern_str_latex
 from ._utils import _str_detect, _str_replace, is_valid_http_schema
 from ._utils_nanoplots import _generate_nanoplot
@@ -93,7 +97,7 @@ def fmt(
     self: GTSelf,
     fns: FormatFn,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     is_substitution: bool = False,
 ) -> GTSelf:
     """
@@ -115,7 +119,8 @@ def fmt(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in `columns` being formatted.
-        Alternatively, we can supply a list of row indices.
+        Alternatively, we can supply a row index, a list of row indices, or (for Polars DataFrames)
+        a Polars expression such as `pl.col("x") > 0`.
     is_substitution
         Whether the formatter is a substitution. Substitutions are run last, after other formatters.
 
@@ -152,7 +157,8 @@ def fmt(
     row_res = resolve_rows_i(self, rows)
     row_pos = [name_pos[1] for name_pos in row_res]
 
-    col_res = resolve_cols_c(self, columns)
+    # Formatters can target the stub and the row group column (which formats the group labels)
+    col_res = resolve_cols_c(self, columns, excl_stub=False, excl_group=False)
 
     formatter = FormatInfo(fns, col_res, row_pos)
 
@@ -165,7 +171,7 @@ def fmt(
 def fmt_number(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     decimals: int = 2,
     n_sigfig: int | None = None,
     drop_trailing_zeros: bool = False,
@@ -178,6 +184,7 @@ def fmt_number(
     sep_mark: str = ",",
     dec_mark: str = ".",
     force_sign: bool = False,
+    min_sep_threshold: int = 1,
     locale: str | None = None,
 ) -> GTSelf:
     """
@@ -206,7 +213,8 @@ def fmt_number(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     decimals
         The `decimals` values corresponds to the exact number of decimal places to use. A value such
         as `2.34` can, for example, be formatted with `0` decimal places and it would result in
@@ -257,9 +265,17 @@ def fmt_number(
         Should the positive sign be shown for positive values (effectively showing a sign for all
         values except zero)? If so, use `True` for this option. The default is `False`, where only
         negative numbers will display a minus sign.
+    min_sep_threshold
+        The minimum number of digits in the integer part of a number for digit grouping
+        separators to be used. The default of `1` uses separators from 4-digit numbers onward
+        (e.g., `1,000`), `2` starts at 5-digit numbers (`10,000`), and `3` starts at 6-digit
+        numbers (`100,000`). When a locale is in effect (through `locale=` or a locale set in
+        `GT()`), the locale's own minimum grouping digits value is used instead (it's `2` for
+        locales like `"es"` and `"pl"`).
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+
 
     Returns
     -------
@@ -281,9 +297,10 @@ def fmt_number(
 
     Examples
     --------
-    Let's use the `exibble` dataset to create a table. With the `fmt_number()` method, we'll format
-    the `num` column to have three decimal places (with `decimals=3`) and omit the use of digit
-    separators (with `use_seps=False`).
+    Let's use the `exibble` dataset to create a table. With the
+    [`fmt_number()`](`great_tables.GT.fmt_number`) method, we'll format the `num` column to have
+    three decimal places (with `decimals=3`) and omit the use of digit separators (with
+    `use_seps=False`).
 
     ```{python}
     from great_tables import GT, exibble
@@ -298,6 +315,7 @@ def fmt_number(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
 
     pf_format = partial(
@@ -312,6 +330,7 @@ def fmt_number(
         scale_by=scale_by,
         compact=compact,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
         pattern=pattern,
@@ -332,6 +351,7 @@ def fmt_number_context(
     scale_by: float,
     compact: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     dec_mark: str,
     force_sign: bool,
     pattern: str,
@@ -355,6 +375,7 @@ def fmt_number_context(
             drop_trailing_dec_mark=drop_trailing_dec_mark,
             use_seps=use_seps,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             dec_mark=dec_mark,
             force_sign=force_sign,
         )
@@ -367,9 +388,14 @@ def fmt_number_context(
             drop_trailing_dec_mark=drop_trailing_dec_mark,
             use_seps=use_seps,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             dec_mark=dec_mark,
             force_sign=force_sign,
         )
+
+    # A value that rounds to zero is shown as zero, so it gets no minus sign or accounting style
+    if _rounds_to_zero(x_formatted):
+        is_negative = False
 
     # Implement minus sign replacement for `x_formatted` or use accounting style
     if is_negative:
@@ -381,12 +407,7 @@ def fmt_number_context(
             x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -394,7 +415,7 @@ def fmt_number_context(
 def fmt_integer(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     use_seps: bool = True,
     scale_by: float = 1,
     accounting: bool = False,
@@ -402,6 +423,7 @@ def fmt_integer(
     pattern: str = "{x}",
     sep_mark: str = ",",
     force_sign: bool = False,
+    min_sep_threshold: int = 1,
     locale: str | None = None,
 ) -> GTSelf:
     """
@@ -429,7 +451,8 @@ def fmt_integer(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     use_seps
         The `use_seps` option allows for the use of digit group separators. The type of digit group
         separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
@@ -457,9 +480,17 @@ def fmt_integer(
         Should the positive sign be shown for positive values (effectively showing a sign for all
         values except zero)? If so, use `True` for this option. The default is `False`, where only
         negative numbers will display a minus sign.
+    min_sep_threshold
+        The minimum number of digits in the integer part of a number for digit grouping
+        separators to be used. The default of `1` uses separators from 4-digit numbers onward
+        (e.g., `1,000`), `2` starts at 5-digit numbers (`10,000`), and `3` starts at 6-digit
+        numbers (`100,000`). When a locale is in effect (through `locale=` or a locale set in
+        `GT()`), the locale's own minimum grouping digits value is used instead (it's `2` for
+        locales like `"es"` and `"pl"`).
     locale
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
+
 
     Returns
     -------
@@ -480,9 +511,9 @@ def fmt_integer(
 
     Examples
     --------
-    For this example, we'll use the `exibble` dataset as the input table. With the `fmt_integer()`
-    method, we'll format the `num` column as integer values having no digit separators (with the
-    `use_seps=False` option).
+    For this example, we'll use the `exibble` dataset as the input table. With the
+    [`fmt_integer()`](`great_tables.GT.fmt_integer`) method, we'll format the `num` column as
+    integer values having no digit separators (with the `use_seps=False` option).
 
     ```{python}
     from great_tables import GT, exibble
@@ -498,6 +529,7 @@ def fmt_integer(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
 
     pf_format = partial(
         fmt_integer_context,
@@ -507,6 +539,7 @@ def fmt_integer(
         accounting=accounting,
         compact=compact,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         pattern=pattern,
     )
@@ -522,6 +555,7 @@ def fmt_integer_context(
     accounting: bool,
     compact: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     force_sign: bool,
     pattern: str,
     context: str,
@@ -544,6 +578,7 @@ def fmt_integer_context(
             drop_trailing_dec_mark=True,
             use_seps=use_seps,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             dec_mark="not used",
             force_sign=force_sign,
         )
@@ -557,9 +592,14 @@ def fmt_integer_context(
             drop_trailing_dec_mark=True,
             use_seps=use_seps,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             dec_mark="not used",
             force_sign=force_sign,
         )
+
+    # A value that rounds to zero is shown as zero, so it gets no minus sign or accounting style
+    if _rounds_to_zero(x_formatted):
+        is_negative = False
 
     # Implement minus sign replacement for `x_formatted` or use accounting style
     if is_negative:
@@ -571,12 +611,7 @@ def fmt_integer_context(
             x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -584,7 +619,7 @@ def fmt_integer_context(
 def fmt_scientific(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     decimals: int = 2,
     n_sigfig: int | None = None,
     drop_trailing_zeros: bool = False,
@@ -627,7 +662,8 @@ def fmt_scientific(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     decimals
         The `decimals` values corresponds to the exact number of decimal places to use. A value such
         as `2.34` can, for example, be formatted with `0` decimal places and it would result in
@@ -697,8 +733,8 @@ def fmt_scientific(
     Examples
     --------
     For this example, we'll use the `exibble` dataset as the input table. With the
-    `fmt_scientific()` method, we'll format the `num` column to contain values in scientific
-    formatting.
+    [`fmt_scientific()`](`great_tables.GT.fmt_scientific`) method, we'll format the `num` column to
+    contain values in scientific formatting.
 
     ```{python}
     from great_tables import GT, exibble
@@ -755,6 +791,10 @@ def fmt_scientific_context(
     # Scale `x` value by a defined `scale_by` value
     x = x * scale_by
 
+    # Infinite values (and NaN, e.g., from `inf * 0` with `scale_by=0`) have no mantissa or exponent
+    if not math.isfinite(x):
+        return _format_nonfinite_value(x, force_sign=force_sign_m, pattern=pattern, context=context)
+
     # Determine whether the value is positive
     is_positive = _has_positive_value(value=x)
 
@@ -771,11 +811,12 @@ def fmt_scientific_context(
 
     m_part, n_part = sci_parts
 
-    # Remove trailing zeros and decimal marks from the `m_part`
-    if drop_trailing_zeros:
+    # Remove trailing zeros (from the decimal part only) and decimal marks from the `m_part`; the
+    # zeros are significant digits when formatting to `n_sigfig`, so they're kept then (as in gt)
+    if drop_trailing_zeros and not n_sigfig and dec_mark and dec_mark in m_part:
         m_part = m_part.rstrip("0")
-    if drop_trailing_dec_mark:
-        m_part = m_part.rstrip(".")
+    if drop_trailing_dec_mark and dec_mark:
+        m_part = m_part.rstrip(dec_mark)
 
     # Force the positive sign to be present if the `force_sign_m` option is taken
     if is_positive and force_sign_m:
@@ -786,8 +827,9 @@ def fmt_scientific_context(
         # ('x10n'); this is styled as 'x 10^n' instead of using a fixed symbol like 'E'
 
         # Determine which values don't require the (x 10^n) for scientific formatting
-        # since their order would be zero
-        small_pos = _has_sci_order_zero(value=x)
+        # since their order would be zero (this uses the exponent of the rounded value
+        # so that, e.g., 9.9999 rounding to 1.00 x 10^1 still gets its exponent)
+        small_pos = n_part == "0"
 
         # Force the positive sign to be present if the `force_sign_n` option is taken
         if force_sign_n and not _str_detect(n_part, "-"):
@@ -812,7 +854,7 @@ def fmt_scientific_context(
         # Define the exponent string based on the `exp_style` that's not the default
         # value of 'x10n'
 
-        exp_str = _context_exp_str(exp_style=exp_style)
+        exp_str = _context_exp_str(exp_style=exp_style, context=context)
 
         n_min_width = 1 if _str_detect(exp_style, r"^[a-zA-Z]1$") else 2
 
@@ -834,12 +876,7 @@ def fmt_scientific_context(
         x_formatted = m_part + exp_str + n_part
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -847,7 +884,7 @@ def fmt_scientific_context(
 def fmt_engineering(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     decimals: int = 2,
     n_sigfig: int | None = None,
     drop_trailing_zeros: bool = False,
@@ -892,7 +929,8 @@ def fmt_engineering(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     decimals
         The `decimals` values corresponds to the exact number of decimal places to use. A value such
         as `2.34` can, for example, be formatted with `0` decimal places and it would result in
@@ -979,7 +1017,8 @@ def fmt_engineering(
     Notice that in each case, the exponent is a multiple of `3`.
 
     Let's define a DataFrame that contains two columns of values (one small and one large). After
-    creating a simple table with `GT()`, we'll call `fmt_engineering()` on both columns.
+    creating a simple table with `GT()`, we'll call
+    [`fmt_engineering()`](`great_tables.GT.fmt_engineering`) on both columns.
 
     ```{python}
     small_large_df = pl.DataFrame({
@@ -1075,49 +1114,41 @@ def fmt_engineering_context(
     # Scale `x` value by a defined `scale_by` value
     x = x * scale_by
 
+    # Infinite values (and NaN, e.g., from `inf * 0` with `scale_by=0`) have no mantissa or exponent
+    if not math.isfinite(x):
+        return _format_nonfinite_value(x, force_sign=force_sign_m, pattern=pattern, context=context)
+
     # Determine whether the value is positive
     is_positive = _has_positive_value(value=x)
 
     minus_mark = _context_minus_mark(context=context)
 
     # For engineering notation, we need to calculate the exponent that is a multiple of 3
-    # and adjust the mantissa accordingly
-    if x == 0:
-        # Special case for zero
-        m_part = _value_to_decimal_notation(
-            value=0,
-            decimals=decimals,
-            n_sigfig=n_sigfig,
-            drop_trailing_zeros=drop_trailing_zeros,
-            drop_trailing_dec_mark=drop_trailing_dec_mark,
-            use_seps=False,
-            sep_mark=",",
-            dec_mark=dec_mark,
-            force_sign=False,
-        )
-        n_part = "0"
-        power_3 = 0
-    else:
-        # Calculate the power of 1000 (engineering notation uses multiples of 3)
-        power_3 = int(math.floor(math.log10(abs(x)) / 3) * 3)
+    # (zero, which has no logarithm, gets an exponent of 0) and adjust the mantissa accordingly
+    power_3 = 0 if x == 0 else int(math.floor(math.log10(abs(x)) / 3) * 3)
 
-        # Calculate the mantissa by dividing by 10^power_3
-        mantissa = x / (10**power_3)
+    # Calculate the mantissa by dividing by 10^power_3
+    m_value = x / 10**power_3
 
-        # Format the mantissa
-        m_part = _value_to_decimal_notation(
-            value=mantissa,
-            decimals=decimals,
-            n_sigfig=n_sigfig,
-            drop_trailing_zeros=drop_trailing_zeros,
-            drop_trailing_dec_mark=drop_trailing_dec_mark,
-            use_seps=False,
-            sep_mark=",",
-            dec_mark=dec_mark,
-            force_sign=False,
-        )
+    # If rounding carries the mantissa up to 1000 (e.g., 999,999.5 with two decimals
+    # would give `1000.00 x 10^3`), use the next power of 1000 instead (`1.00 x 10^6`); the
+    # mantissa is then exactly 1
+    if _rounds_up_to(m_value, threshold=1000, decimals=decimals, n_sigfig=n_sigfig):
+        power_3 += 3
+        m_value = math.copysign(1.0, x)
 
-        n_part = str(power_3)
+    m_part = _value_to_decimal_notation(
+        value=m_value,
+        decimals=decimals,
+        n_sigfig=n_sigfig,
+        drop_trailing_zeros=drop_trailing_zeros,
+        drop_trailing_dec_mark=drop_trailing_dec_mark,
+        use_seps=False,
+        sep_mark=",",
+        dec_mark=dec_mark,
+        force_sign=False,
+    )
+    n_part = str(power_3)
 
     # Force the positive sign to be present if the `force_sign_m` option is taken
     if is_positive and force_sign_m:
@@ -1153,7 +1184,7 @@ def fmt_engineering_context(
         # Define the exponent string based on the `exp_style` that's not the default
         # value of 'x10n'
 
-        exp_str = _context_exp_str(exp_style=exp_style)
+        exp_str = _context_exp_str(exp_style=exp_style, context=context)
 
         n_min_width = 1 if _str_detect(exp_style, r"^[a-zA-Z]1$") else 2
 
@@ -1175,12 +1206,7 @@ def fmt_engineering_context(
         x_formatted = m_part + exp_str + n_part
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -1188,7 +1214,7 @@ def fmt_engineering_context(
 def fmt_number_si(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     unit: str | None = None,
     decimals: int = 2,
     n_sigfig: int | None = None,
@@ -1233,7 +1259,8 @@ def fmt_number_si(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     unit
         A character string specifying the unit to append after the SI prefix (e.g., `"g"` for
         grams, `"W"` for watts, `"Hz"` for hertz, `"m"` for meters). If `None`, only the prefix
@@ -1378,8 +1405,8 @@ def fmt_number_si(
     )
     ```
 
-    You can combine `fmt_number_si()` with `fmt_units()` and `cols_merge()` to format measurements
-    with SI prefixes on units that need special typesetting.
+    You can combine [`fmt_number_si()`](`great_tables.GT.fmt_number_si`) with `fmt_units()` and
+    `cols_merge()` to format measurements with SI prefixes on units that need special typesetting.
 
     ```{python}
     measurements_df = pl.DataFrame(
@@ -1413,6 +1440,7 @@ def fmt_number_si(
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=True, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=1, locale=locale)
 
     # Stop if `n_sigfig` does not have a valid value
     if n_sigfig is not None:
@@ -1430,6 +1458,7 @@ def fmt_number_si(
         prefix_mode=prefix_mode,
         sep_mark=sep_mark,
         dec_mark=dec_mark,
+        min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         incl_space=incl_space,
         pattern=pattern,
@@ -1492,6 +1521,45 @@ _SI_PREFIXES_DECIMAL: list[tuple[int, str]] = [
 ]
 
 
+def _get_si_prefix(
+    abs_x: float, si_table: list[tuple[int, str]], prefix_mode: str
+) -> tuple[int, str]:
+    """Get the exponent and symbol of the SI prefix to use for an absolute value."""
+
+    if abs_x == 0 or math.isinf(abs_x):
+        # Zero and infinity get no prefix
+        return 0, ""
+
+    if abs_x >= 1 and abs_x < 1000 and (prefix_mode != "decimal" or abs_x < 10):
+        # Values in [1, 1000) need no prefix in engineering mode
+        # In decimal mode, values in [1, 10) need no prefix
+        return 0, ""
+
+    # Find the best SI prefix: the largest exponent where mantissa >= 1
+    for exp, symbol in si_table:
+        if abs_x >= 10.0**exp:
+            return exp, symbol
+
+    return 0, ""
+
+
+def _get_next_si_prefix(exp: int, si_table: list[tuple[int, str]]) -> tuple[int, str] | None:
+    """
+    Get the exponent and symbol of the next larger SI prefix.
+
+    Having no prefix counts as a step (`(0, "")`); `None` is returned above the largest prefix.
+    """
+
+    # The table is ordered from largest to smallest exponent, and has no entry for exponent 0
+    larger = [(e, symbol) for e, symbol in si_table if e > exp]
+
+    if exp < 0 and (not larger or larger[-1][0] > 0):
+        # Below the smallest positive prefix, the next step up is having no prefix at all
+        return 0, ""
+
+    return larger[-1] if larger else None
+
+
 def fmt_number_si_context(
     x: float | None,
     data: GTData,
@@ -1504,6 +1572,7 @@ def fmt_number_si_context(
     prefix_mode: str,
     sep_mark: str,
     dec_mark: str,
+    min_sep_threshold: int,
     force_sign: bool,
     incl_space: bool,
     pattern: str,
@@ -1525,32 +1594,31 @@ def fmt_number_si_context(
         si_table = _SI_PREFIXES_ENGINEERING
 
     # Determine the appropriate SI prefix
-    abs_x = abs(x)
-    si_symbol = ""
+    exp, si_symbol = _get_si_prefix(abs(x), si_table=si_table, prefix_mode=prefix_mode)
 
-    if abs_x == 0:
-        # Zero gets no prefix
-        pass
-    elif abs_x >= 1 and abs_x < 1000:
-        # Values in [1, 1000) need no prefix in engineering mode
-        # In decimal mode, values in [1, 10) need no prefix
-        if prefix_mode == "decimal" and abs_x >= 10:
-            for exp, symbol in si_table:
-                if exp > 0 and abs_x >= 10**exp:
-                    x = x / (10**exp)
-                    si_symbol = symbol
-                    break
-    else:
-        # Find the best SI prefix: the largest exponent where mantissa >= 1
-        for exp, symbol in si_table:
-            if abs_x >= 10.0**exp:
-                x = x / (10.0**exp)
-                si_symbol = symbol
-                break
+    # Scale the value to the prefix (this is the value itself when there is no prefix)
+    scaled_value = x / 10.0**exp if si_symbol else x
+
+    # If rounding the scaled value carries it up to the next prefix (e.g., 999.96 with one
+    # decimal would give `1,000.0`), use the next prefix instead (`1.0 k`); the value is then
+    # exactly 1 of the next prefix
+    next_prefix = _get_next_si_prefix(exp, si_table=si_table)
+    if (
+        math.isfinite(x)
+        and next_prefix is not None
+        and _rounds_up_to(
+            scaled_value,
+            threshold=10.0 ** (next_prefix[0] - exp),
+            decimals=decimals,
+            n_sigfig=n_sigfig,
+        )
+    ):
+        exp, si_symbol = next_prefix
+        scaled_value = math.copysign(1.0, x)
 
     # Format the value to decimal notation
     x_formatted = _value_to_decimal_notation(
-        value=x,
+        value=scaled_value,
         decimals=decimals,
         n_sigfig=n_sigfig,
         drop_trailing_zeros=drop_trailing_zeros,
@@ -1559,7 +1627,12 @@ def fmt_number_si_context(
         sep_mark=sep_mark,
         dec_mark=dec_mark,
         force_sign=force_sign,
+        min_sep_threshold=min_sep_threshold,
     )
+
+    # A value that rounds to zero is shown as zero, so it gets no minus sign
+    if _rounds_to_zero(x_formatted):
+        is_negative = False
 
     # Build the suffix string (space + prefix + unit)
     space_character = " " if incl_space else ""
@@ -1574,12 +1647,7 @@ def fmt_number_si_context(
         x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -1587,12 +1655,13 @@ def fmt_number_si_context(
 def fmt_percent(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     decimals: int = 2,
     drop_trailing_zeros: bool = False,
     drop_trailing_dec_mark: bool = True,
     scale_values: bool = True,
     use_seps: bool = True,
+    min_sep_threshold: int = 1,
     accounting: bool = False,
     pattern: str = "{x}",
     sep_mark: str = ",",
@@ -1631,7 +1700,8 @@ def fmt_percent(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     decimals
         The `decimals` values corresponds to the exact number of decimal places to use. A value such
         as `2.34` can, for example, be formatted with `0` decimal places and it would result in
@@ -1653,6 +1723,13 @@ def fmt_percent(
         The `use_seps` option allows for the use of digit group separators. The type of digit group
         separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
         setting is `True` by default.
+    min_sep_threshold
+        The minimum number of digits in the integer part of a number for digit grouping
+        separators to be used. The default of `1` uses separators from 4-digit numbers onward
+        (e.g., `1,000`), `2` starts at 5-digit numbers (`10,000`), and `3` starts at 6-digit
+        numbers (`100,000`). When a locale is in effect (through `locale=` or a locale set in
+        `GT()`), the locale's own minimum grouping digits value is used instead (it's `2` for
+        locales like `"es"` and `"pl"`).
     accounting
         Whether to use accounting style, which wraps negative numbers in parentheses instead of
         using a minus sign.
@@ -1682,6 +1759,7 @@ def fmt_percent(
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
 
+
     Returns
     -------
     GT
@@ -1702,9 +1780,9 @@ def fmt_percent(
 
     Examples
     --------
-    Let’s use the `towny` dataset as the input table. With the `fmt_percent()` method, we'll format
-    the `pop_change_2016_2021_pct` column to to display values as percentages (to two decimal
-    places).
+    Let’s use the `towny` dataset as the input table. With the
+    [`fmt_percent()`](`great_tables.GT.fmt_percent`) method, we'll format the
+    `pop_change_2016_2021_pct` column to to display values as percentages (to two decimal places).
 
     ```{python}
     from great_tables import GT
@@ -1723,6 +1801,7 @@ def fmt_percent(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
 
     if scale_values:
@@ -1740,6 +1819,7 @@ def fmt_percent(
         accounting=accounting,
         scale_by=scale_by,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
         placement=placement,
@@ -1760,6 +1840,7 @@ def fmt_percent_context(
     accounting: bool,
     scale_by: float,
     sep_mark: str,
+    min_sep_threshold: int,
     dec_mark: str,
     force_sign: bool,
     placement: str,
@@ -1785,6 +1866,7 @@ def fmt_percent_context(
         drop_trailing_dec_mark=drop_trailing_dec_mark,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
     )
@@ -1799,6 +1881,10 @@ def fmt_percent_context(
         if placement == "right"
         else f"{percent_mark}{space_character}{{x}}"
     )
+
+    # A value that rounds to zero is shown as zero, so it gets no sign
+    if _rounds_to_zero(x_formatted):
+        is_negative = is_positive = False
 
     if is_negative and placement == "left":
         x_formatted = x_formatted.replace("-", "")
@@ -1821,12 +1907,7 @@ def fmt_percent_context(
             x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -1846,7 +1927,7 @@ _PARTSPER_UNITS: dict[str, dict[str, Any]] = {
 def fmt_partsper(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     to_units: str = "per-mille",
     symbol: str = "auto",
     decimals: int = 2,
@@ -1897,7 +1978,8 @@ def fmt_partsper(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     to_units
         A keyword that signifies the desired output quantity. This can be any from the following
         set: `"per-mille"`, `"per-myriad"`, `"pcm"`, `"ppm"`, `"ppb"`, `"ppt"`, or `"ppq"`.
@@ -2019,6 +2101,7 @@ def fmt_partsper(
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=1, locale=locale)
 
     # Determine the scale factor
     if scale_values:
@@ -2048,6 +2131,7 @@ def fmt_partsper(
         scale_by=scale_by,
         sep_mark=sep_mark,
         dec_mark=dec_mark,
+        min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         symbol=resolved_symbol,
         incl_space=resolved_incl_space,
@@ -2067,6 +2151,7 @@ def fmt_partsper_context(
     scale_by: float,
     sep_mark: str,
     dec_mark: str,
+    min_sep_threshold: int,
     force_sign: bool,
     symbol: str,
     incl_space: bool,
@@ -2093,7 +2178,12 @@ def fmt_partsper_context(
         sep_mark=sep_mark,
         dec_mark=dec_mark,
         force_sign=force_sign,
+        min_sep_threshold=min_sep_threshold,
     )
+
+    # A value that rounds to zero is shown as zero, so it gets no sign
+    if _rounds_to_zero(x_formatted):
+        is_negative = is_positive = False
 
     # Get the context-specific symbol (escape for LaTeX if needed)
     if context == "latex":
@@ -2128,12 +2218,7 @@ def fmt_partsper_context(
         x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -2141,12 +2226,13 @@ def fmt_partsper_context(
 def fmt_currency(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     currency: str | None = None,
     use_subunits: bool = True,
     decimals: int | None = None,
     drop_trailing_dec_mark: bool = True,
     use_seps: bool = True,
+    min_sep_threshold: int = 1,
     accounting: bool = False,
     scale_by: float = 1,
     compact: bool = False,
@@ -2162,12 +2248,12 @@ def fmt_currency(
     Format values as currencies.
 
     With numeric values in a **gt** table, we can perform currency-based formatting with the
-    `fmt_currency()` method. This supports both automatic formatting with a three-letter currency
-    code. We have fine control over the conversion from numeric values to currency values, where we
-    could take advantage of the following options:
+    [`fmt_currency()`](`great_tables.GT.fmt_currency`) method. This supports both automatic
+    formatting with a three-letter currency code. We have fine control over the conversion from
+    numeric values to currency values, where we could take advantage of the following options:
 
-    - the currency: providing a currency code or common currency name will procure the correct
-    currency symbol and number of currency subunits
+    - the currency: providing a currency code will procure the correct currency symbol and number of
+    currency subunits
     - currency symbol placement: the currency symbol can be placed before or after the values
     - decimals/subunits: choice of the number of decimal places, and a choice of the decimal symbol,
     and an option on whether to include or exclude the currency subunits (the decimal portion)
@@ -2186,10 +2272,14 @@ def fmt_currency(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     currency
         The currency to use for the numeric value. This input can be supplied as a 3-letter currency
-        code (e.g., `"USD"` for U.S. Dollars, `"EUR"` for the Euro currency).
+        code (e.g., `"USD"` for U.S. Dollars, `"EUR"` for the Euro currency). In LaTeX output,
+        currency symbols are written as Unicode characters. Some of them (e.g., `"₹"` for `"INR"`,
+        `"₪"` for `"ILS"`, `"₽"` for `"RUB"`, or `"₺"` for `"TRY"`) aren't available in pdfLaTeX, so
+        tables using these currencies need to be compiled with XeLaTeX or LuaLaTeX.
     use_subunits
         An option for whether the subunits portion of a currency value should be displayed. For
         example, with an input value of `273.81`, the default formatting will produce `"$273.81"`.
@@ -2208,6 +2298,13 @@ def fmt_currency(
         The `use_seps` option allows for the use of digit group separators. The type of digit group
         separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
         setting is `True` by default.
+    min_sep_threshold
+        The minimum number of digits in the integer part of a number for digit grouping
+        separators to be used. The default of `1` uses separators from 4-digit numbers onward
+        (e.g., `1,000`), `2` starts at 5-digit numbers (`10,000`), and `3` starts at 6-digit
+        numbers (`100,000`). When a locale is in effect (through `locale=` or a locale set in
+        `GT()`), the locale's own minimum grouping digits value is used instead (it's `2` for
+        locales like `"es"` and `"pl"`).
     accounting
         Whether to use accounting style, which wraps negative numbers in parentheses instead of
         using a minus sign.
@@ -2245,6 +2342,7 @@ def fmt_currency(
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
 
+
     Returns
     -------
     GT
@@ -2266,8 +2364,9 @@ def fmt_currency(
 
     Examples
     --------
-    Let's use the `exibble` dataset to create a table. With the `fmt_currency()` method, we'll
-    format the `currency` column to display monetary values.
+    Let's use the `exibble` dataset to create a table. With the
+    [`fmt_currency()`](`great_tables.GT.fmt_currency`) method, we'll format the `currency` column to
+    display monetary values.
 
     ```{python}
     from great_tables import GT, exibble
@@ -2287,6 +2386,7 @@ def fmt_currency(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
 
     # Resolve the currency either from direct input in `currency` or through a locale
@@ -2316,6 +2416,7 @@ def fmt_currency(
         scale_by=scale_by,
         compact=compact,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
         placement=placement,
@@ -2337,6 +2438,7 @@ def fmt_currency_context(
     scale_by: float,
     compact: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     dec_mark: str,
     force_sign: bool,
     placement: str,
@@ -2359,6 +2461,10 @@ def fmt_currency_context(
 
     if currency_symbol == "$":
         currency_symbol = _context_dollar_mark(context=context)
+    elif context == "latex":
+        # Symbols are stored for HTML (e.g., `&#8364;` for EUR), so write them as characters and
+        # escape any LaTeX special characters (e.g., the `$` in `R$` for BRL)
+        currency_symbol = _latex_escape(html.unescape(currency_symbol))
 
     # Choose the appropriate formatting function based on the `compact=` option
     if compact:
@@ -2375,6 +2481,7 @@ def fmt_currency_context(
         drop_trailing_dec_mark=drop_trailing_dec_mark,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
     )
@@ -2386,6 +2493,10 @@ def fmt_currency_context(
         if placement == "right"
         else f"{currency_symbol}{space_character}{{x}}"
     )
+
+    # A value that rounds to zero is shown as zero, so it gets no sign
+    if _rounds_to_zero(x_formatted):
+        is_negative = is_positive = False
 
     if is_negative and placement == "left":
         x_formatted = x_formatted.replace("-", "")
@@ -2408,12 +2519,7 @@ def fmt_currency_context(
             x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -2421,7 +2527,7 @@ def fmt_currency_context(
 def fmt_roman(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     case: str = "upper",
     pattern: str = "{x}",
 ) -> GTSelf:
@@ -2439,7 +2545,8 @@ def fmt_roman(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     case
         Should Roman numerals should be rendered as uppercase (`"upper"`) or lowercase (`"lower"`)
         letters? By default, this is set to `"upper"`.
@@ -2458,7 +2565,7 @@ def fmt_roman(
     --------
     Let's first create a DataFrame containing small numeric values and then introduce that to
     [`GT()`](`great_tables.GT`). We'll then format the `roman` column to appear as Roman numerals
-    with the `fmt_roman()` method.
+    with the [`fmt_roman()`](`great_tables.GT.fmt_roman`) method.
 
     ```{python}
     import pandas as pd
@@ -2499,17 +2606,20 @@ def fmt_roman_context(
     # Get the absolute value of `x` so that negative values are handled
     x = abs(x)
 
-    # Round x to 0 digits with the R-H-U method of rounding (for reproducibility purposes)
-    x = _round_rhu(x, 0)
+    # Round x to 0 digits with the R-H-U method of rounding (for reproducibility purposes);
+    # infinity is left as is since, like other values that are too large, it can't be a
+    # roman numeral
+    if not math.isinf(x):
+        x = _round_rhu(x, 0)
 
     # Determine if `x` is in the range of 1 to 3899 and if it is zero
     x_is_in_range = x > 0 and x < 3900
     x_is_zero = x == 0
 
     if not x_is_in_range and not x_is_zero:
-        # We cannot format a 'large' integer to roman numerals, so we return a string
-        # that indicates this
-        return "ex terminis"
+        # We cannot format a 'large' integer to roman numerals, so we use a string that
+        # indicates this (it is still decorated by `pattern=` below)
+        x_formatted = "ex terminis"
     elif x_is_zero:
         # Zero is a special case and is handled separately with the character 'N'
         # which stands for 'nulla' (i.e., 'nothing')
@@ -2525,12 +2635,7 @@ def fmt_roman_context(
         x_formatted = x_formatted.lower()
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -2538,7 +2643,7 @@ def fmt_roman_context(
 def fmt_fraction(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     accuracy: str | int = "low",
     simplify: bool = True,
     layout: str = "inline",
@@ -2573,7 +2678,8 @@ def fmt_fraction(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     accuracy
         The accuracy of the fraction. Use `"low"` for denominators up to 1 digit (e.g., halves,
         thirds, quarters, etc.), `"med"` for up to 2-digit denominators, and `"high"` for up to
@@ -2717,6 +2823,7 @@ def fmt_fraction(
 
     locale = _resolve_locale(self, locale=locale)
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=1, locale=locale)
 
     pf_format = partial(
         fmt_fraction_context,
@@ -2726,6 +2833,7 @@ def fmt_fraction(
         layout=layout,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         pattern=pattern,
     )
 
@@ -2738,9 +2846,12 @@ def _gcd(a: int, b: int) -> int:
     return a
 
 
-def _format_whole_number(value: int, use_seps: bool, sep_mark: str) -> str:
+def _format_whole_number(
+    value: int, use_seps: bool, sep_mark: str, min_sep_threshold: int = 1
+) -> str:
     s = str(value)
-    if not use_seps or not sep_mark:
+    # Grouping starts at `min_sep_threshold + 3` digits (four with the default of `1`)
+    if not use_seps or not sep_mark or len(s) < min_sep_threshold + 3:
         return s
     result = ""
     count = 0
@@ -2768,6 +2879,7 @@ def fmt_fraction_context(
     layout: str,
     use_seps: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     pattern: str,
     context: str,
 ) -> str:
@@ -2777,13 +2889,15 @@ def fmt_fraction_context(
         return x
 
     if not math.isfinite(x):
-        return str(x)
+        return _format_nonfinite_value(x, force_sign=False, pattern=pattern, context=context)
 
     is_negative = x < 0
     x_abs = abs(x)
 
-    big_x = int(math.trunc(x_abs))
-    small_x = x_abs - big_x
+    # `int()` and `float()` are used so that NumPy scalars (e.g., from a pandas `int64` column) are
+    # handled too: NumPy integers don't support `math.trunc()` and can overflow when scaled below
+    big_x = int(x_abs)
+    small_x = float(x_abs - big_x)
 
     # Round fractional part to 3 decimal places (Round-Half-Up for consistency with gt R)
     small_x = _round_rhu(small_x * 1000, 0) / 1000
@@ -2813,7 +2927,9 @@ def fmt_fraction_context(
         fraction_str = ""
 
     # Format the whole-number part
-    big_x_str = _format_whole_number(big_x, use_seps, sep_mark) if big_x != 0 else ""
+    big_x_str = (
+        _format_whole_number(big_x, use_seps, sep_mark, min_sep_threshold) if big_x != 0 else ""
+    )
 
     # Build the diagonal fraction HTML if needed
     if fraction_str and layout == "diagonal" and context == "html" and "/" in fraction_str:
@@ -2837,10 +2953,7 @@ def fmt_fraction_context(
         minus_mark = _context_minus_mark(context=context)
         x_formatted = minus_mark + x_formatted
 
-    if pattern != "{x}":
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -2848,17 +2961,17 @@ def fmt_fraction_context(
 def fmt_chem(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
 ) -> GTSelf:
     """
     Format chemical formulas.
 
-    With `fmt_chem()` you can format chemical formulas and reactions in the table body. Often the
-    input text will be in a common form representing single compounds (like `"C2H4O"` for
-    acetaldehyde) but chemical reactions can also be used (e.g., `"2 CH3OH -> CH3OCH3 + H2O"`).
-    So long as the text within the targeted cells conforms to the specialized chemistry notation,
-    the appropriate conversions will occur. Details on chemistry notation can be found in the
-    section entitled *How to use chemistry notation*.
+    With [`fmt_chem()`](`great_tables.GT.fmt_chem`) you can format chemical formulas and reactions
+    in the table body. Often the input text will be in a common form representing single compounds
+    (like `"C2H4O"` for acetaldehyde) but chemical reactions can also be used (e.g., `"2 CH3OH ->
+    CH3OCH3 + H2O"`). So long as the text within the targeted cells conforms to the specialized
+    chemistry notation, the appropriate conversions will occur. Details on chemistry notation can be
+    found in the section entitled *How to use chemistry notation*.
 
     Parameters
     ----------
@@ -2868,7 +2981,8 @@ def fmt_chem(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
 
     Returns
     -------
@@ -2911,9 +3025,10 @@ def fmt_chem(
     Examples
     --------
     Let's use the `reactions` dataset and create a table of gas-phase reaction rate constants for
-    selected terminal alkenes. The `cmpd_formula` column contains chemical formulas and `fmt_chem()`
-    will render them with properly subscripted numerals. Notice that the column labels for O₃ and
-    NO₃ use the `{{%...%}}` chemistry notation within `cols_label()`.
+    selected terminal alkenes. The `cmpd_formula` column contains chemical formulas and
+    [`fmt_chem()`](`great_tables.GT.fmt_chem`) will render them with properly subscripted numerals.
+    Notice that the column labels for O₃ and NO₃ use the `{{%...%}}` chemistry notation within
+    `cols_label()`.
 
     ```{python}
     import polars as pl
@@ -2952,8 +3067,9 @@ def fmt_chem(
     ```
 
     The `photolysis` dataset contains photolysis pathways where both the `cmpd_formula` and
-    `products` columns hold chemistry notation. We can format both columns with `fmt_chem()` and use
-    `cols_merge()` to combine the compound name with its formatted formula.
+    `products` columns hold chemistry notation. We can format both columns with
+    [`fmt_chem()`](`great_tables.GT.fmt_chem`) and use `cols_merge()` to combine the compound name
+    with its formatted formula.
 
     ```{python}
     photolysis_mini = (
@@ -2982,8 +3098,8 @@ def fmt_chem(
     ```
 
     The `nuclides` dataset contains isotope data with nuclide notation (e.g., `"^{12}_{6}C"`) that
-    `fmt_chem()` renders with properly overstruck mass and atomic numbers. Here we show isotopes of
-    hydrogen and carbon.
+    [`fmt_chem()`](`great_tables.GT.fmt_chem`) renders with properly overstruck mass and atomic
+    numbers. Here we show isotopes of hydrogen and carbon.
 
     ```{python}
     from great_tables import md
@@ -3025,39 +3141,113 @@ def fmt_chem(
     ```
     """
 
-    def fmt_chem_fn(x: str):
+    def fmt_chem_fn(x: str, context: str = "html"):
         if is_na(self._tbl_data, x):
             return x
 
-        return _chem_to_html(x)
+        return _chem_to_latex(x) if context == "latex" else _chem_to_html(x)
 
-    return fmt(self, fns=fmt_chem_fn, columns=columns, rows=rows)
+    return fmt_by_context(self, pf_format=fmt_chem_fn, columns=columns, rows=rows)
 
 
+# Reaction arrows, longest first so that `<-->` isn't read as `<-` and `->`; the HTML and LaTeX
+# forms are the same characters (LaTeX's are math symbols from its base fonts)
 _REACTION_ARROWS = [
-    ("<-->", "&#8596;"),
-    ("<=>>", "&#8640;"),
-    ("<<=>", "&#8637;"),
-    ("<=>", "&#8652;"),
-    ("<->", "&#8596;"),
-    ("->", "&#8594;"),
-    ("<-", "&#8592;"),
+    ("<-->", "&#8596;", "\\ensuremath{\\leftrightarrow}"),
+    ("<=>>", "&#8640;", "\\ensuremath{\\rightharpoonup}"),
+    ("<<=>", "&#8637;", "\\ensuremath{\\leftharpoondown}"),
+    ("<=>", "&#8652;", "\\ensuremath{\\rightleftharpoons}"),
+    ("<->", "&#8596;", "\\ensuremath{\\leftrightarrow}"),
+    ("->", "&#8594;", "\\ensuremath{\\rightarrow}"),
+    ("<-", "&#8592;", "\\ensuremath{\\leftarrow}"),
 ]
 
-_SUB = '<sub style="line-height:0;">'
-_SUP = '<span style="white-space:nowrap;"><sup style="line-height:0;">'
-_THIN_SP = "&#8201;"
+
+@dataclass(frozen=True)
+class _ChemMarkup:
+    """The output-specific pieces of a formatted chemical formula (see `_chem_to_html()`)."""
+
+    arrows: dict[str, str]
+    thin_space: str
+    middot: str
+    minus: str
+    escape: Callable[[str], str]
+    em: Callable[[str], str]
+    sub: Callable[[str], str]
+    sup: Callable[[str], str]
+    # The mass number (superscript) and atomic number (subscript, may be "") of a nuclide
+    nuclide: Callable[[str, str], str]
+    # A `:name:` symbol (e.g., `:alpha:`)
+    symbol: Callable[[str], str]
+
+
+def _chem_html_nuclide(mass: str, atomic: str) -> str:
+    from great_tables._helpers import _units_html_sub_super
+
+    return _units_html_sub_super(content_sub=atomic or "&nbsp;", content_sup=mass)
+
+
+def _chem_html_symbol(sym: str) -> str:
+    from great_tables._helpers import _units_symbol_replacements
+
+    return _units_symbol_replacements(sym)
+
+
+def _chem_latex_symbol(sym: str) -> str:
+    from great_tables._helpers import UNITS_SYMBOLS_LATEX
+
+    return UNITS_SYMBOLS_LATEX.get(sym, _latex_escape(sym))
+
+
+_CHEM_HTML = _ChemMarkup(
+    arrows={text: html_arrow for text, html_arrow, _ in _REACTION_ARROWS},
+    thin_space="&#8201;",
+    middot="&middot;",
+    minus="&minus;",
+    escape=lambda text: text,
+    em=lambda text: f"<em>{text}</em>",
+    sub=lambda text: (
+        f'<span style="white-space:nowrap;"><sub style="line-height:0;">{text}</sub></span>'
+    ),
+    sup=lambda text: (
+        f'<span style="white-space:nowrap;"><sup style="line-height:0;">{text}</sup></span>'
+    ),
+    nuclide=_chem_html_nuclide,
+    symbol=_chem_html_symbol,
+)
+
+# In LaTeX, a nuclide's mass and atomic numbers are stacked as math pre-scripts (`{}^{14}_{6}`)
+_CHEM_LATEX = _ChemMarkup(
+    arrows={text: latex_arrow for text, _, latex_arrow in _REACTION_ARROWS},
+    thin_space="\\,",
+    middot="\\ensuremath{\\cdot}",
+    minus="\\ensuremath{-}",
+    escape=_latex_escape,
+    em=lambda text: f"\\emph{{{text}}}",
+    sub=lambda text: f"\\textsubscript{{{text}}}",
+    sup=lambda text: f"\\textsuperscript{{{text}}}",
+    nuclide=lambda mass, atomic: (
+        f"\\ensuremath{{{{}}^{{{mass}}}_{{{atomic}}}}}"
+        if atomic
+        else f"\\ensuremath{{{{}}^{{{mass}}}}}"
+    ),
+    symbol=_chem_latex_symbol,
+)
 
 
 def _chem_to_html(formula: str) -> str:
-    from great_tables._helpers import (
-        _md_html,
-        _units_html_sub_super,
-        _units_symbol_replacements,
-    )
+    return _chem_render(formula, _CHEM_HTML)
 
-    for arrow_text, arrow_char in _REACTION_ARROWS:
-        formula = formula.replace(arrow_text, f" \x00ARROW{arrow_char}\x00 ")
+
+def _chem_to_latex(formula: str) -> str:
+    return _chem_render(formula, _CHEM_LATEX)
+
+
+def _chem_render(formula: str, markup: _ChemMarkup) -> str:
+    # Arrows are swapped for placeholders holding their index (their text would be matched by a
+    # later, shorter arrow)
+    for i, (arrow_text, _, _) in enumerate(_REACTION_ARROWS):
+        formula = formula.replace(arrow_text, f" \x00ARROW{i}\x00 ")
 
     tokens = formula.split()
     parts: list[str] = []
@@ -3068,7 +3258,7 @@ def _chem_to_html(formula: str) -> str:
             if pending_coeff is not None:
                 parts.append(pending_coeff)
                 pending_coeff = None
-            arrow = token[6:-1]
+            arrow = markup.arrows[_REACTION_ARROWS[int(token[6:-1])][0]]
             parts.append(f" {arrow} ")
             continue
 
@@ -3083,14 +3273,12 @@ def _chem_to_html(formula: str) -> str:
             if pending_coeff is not None:
                 parts.append(pending_coeff)
                 pending_coeff = None
-            parts.append(" &middot; ")
+            parts.append(f" {markup.middot} ")
             continue
 
         if pending_coeff is not None:
-            part = _chem_token_to_html(
-                token, _md_html, _units_html_sub_super, _units_symbol_replacements
-            )
-            parts.append(pending_coeff + _THIN_SP + part)
+            part = _chem_token(token, markup)
+            parts.append(pending_coeff + markup.thin_space + part)
             pending_coeff = None
             continue
 
@@ -3099,17 +3287,15 @@ def _chem_to_html(formula: str) -> str:
             continue
 
         if token in ("x", "n"):
-            pending_coeff = f"<em>{token}</em>"
+            pending_coeff = markup.em(token)
             continue
 
         star_m = re.match(r"^\*([a-zA-Z])\*$", token)
         if star_m:
-            pending_coeff = f"<em>{star_m.group(1)}</em>"
+            pending_coeff = markup.em(star_m.group(1))
             continue
 
-        part = _chem_token_to_html(
-            token, _md_html, _units_html_sub_super, _units_symbol_replacements
-        )
+        part = _chem_token(token, markup)
         parts.append(part)
 
     if pending_coeff is not None:
@@ -3118,12 +3304,7 @@ def _chem_to_html(formula: str) -> str:
     return "".join(parts)
 
 
-def _chem_token_to_html(
-    token: str,
-    md_html: Callable[[str], str],
-    html_sub_super: Callable[[str, str], str],
-    symbol_replacements: Callable[[str], str],
-) -> str:
+def _chem_token(token: str, markup: _ChemMarkup) -> str:
     isotope_m = re.match(
         r"^\^(?:\{([0-9+-]+)\}|([0-9+-]+))(?:_(?:\{([0-9+-]+)\}|([0-9+-]+)))?(.+)$",
         token,
@@ -3132,52 +3313,49 @@ def _chem_token_to_html(
         mass = isotope_m.group(1) or isotope_m.group(2)
         atomic = isotope_m.group(3) or isotope_m.group(4) or ""
         rest = isotope_m.group(5)
-        if not atomic:
-            atomic = "&nbsp;"
-        prefix = html_sub_super(content_sub=atomic, content_sup=mass)
-        return prefix + _chem_token_to_html(rest, md_html, html_sub_super, symbol_replacements)
+        return markup.nuclide(mass, atomic) + _chem_token(rest, markup)
 
     colon_m = re.match(r"^(:[a-zA-Z]+:)(.*)$", token)
     if colon_m:
-        sym = symbol_replacements(colon_m.group(1))
+        sym = markup.symbol(colon_m.group(1))
         rest = colon_m.group(2)
         if rest:
-            return sym + _chem_token_to_html(rest, md_html, html_sub_super, symbol_replacements)
+            return sym + _chem_token(rest, markup)
         return sym
 
     stoich_m = re.match(r"^([0-9]+(?:\.[0-9]+)?|[0-9]+/[0-9]+|\([0-9]+/[0-9]+\))([A-Z].*)$", token)
     if stoich_m:
         coeff = stoich_m.group(1)
         rest = stoich_m.group(2)
-        return coeff + _THIN_SP + _chem_simple_formula_html(rest)
+        return coeff + markup.thin_space + _chem_simple_formula(rest, markup)
 
     bond_m = re.match(r"^([^-=]+)([-=])([^-=]+)$", token)
     if bond_m and re.search(r"[A-Z]", bond_m.group(1)) and re.search(r"[A-Z]", bond_m.group(3)):
-        left = _chem_simple_formula_html(bond_m.group(1))
+        left = _chem_simple_formula(bond_m.group(1), markup)
         bond = bond_m.group(2)
-        right = _chem_simple_formula_html(bond_m.group(3))
+        right = _chem_simple_formula(bond_m.group(3), markup)
         return f"{left}{bond}{right}"
 
     italic_m = re.match(r"^\*([a-zA-Z])\*(.*)$", token)
     if italic_m:
         letter = italic_m.group(1)
         rest = italic_m.group(2)
-        result = f"<em>{letter}</em>"
+        result = markup.em(letter)
         if rest:
             if rest.startswith("-") or rest.startswith("="):
                 result += rest[0]
                 rest = rest[1:]
             if rest:
-                result += _chem_simple_formula_html(rest)
+                result += _chem_simple_formula(rest, markup)
         return result
 
     if token == "x" or token == "n":
-        return f"<em>{token}</em>"
+        return markup.em(token)
 
-    return _chem_simple_formula_html(token)
+    return _chem_simple_formula(token, markup)
 
 
-def _chem_simple_formula_html(token: str) -> str:
+def _chem_simple_formula(token: str, markup: _ChemMarkup) -> str:
     charge_m = re.match(r"^(.*?)(?:\^(?:\{([^}]+)\}|([0-9]*[+-]|n[+-]?)))$", token)
     charge = None
     if charge_m:
@@ -3192,34 +3370,26 @@ def _chem_simple_formula_html(token: str) -> str:
 
     italic_sub_m = re.match(r"^(.+)_([a-z])$", token)
     if italic_sub_m:
-        base = _chem_subscript_numbers(italic_sub_m.group(1))
-        sub_letter = italic_sub_m.group(2)
-        result = (
-            base
-            + '<span style="white-space:nowrap;"><sub style="line-height:0;">'
-            + f"<em>{sub_letter}</em></sub></span>"
-        )
+        base = _chem_subscript_numbers(italic_sub_m.group(1), markup)
+        result = base + markup.sub(markup.em(italic_sub_m.group(2)))
     else:
-        result = _chem_subscript_numbers(token)
+        result = _chem_subscript_numbers(token, markup)
 
     if charge is not None:
-        charge_html = charge.replace("-", "&minus;")
+        charge_text = markup.escape(charge).replace("-", markup.minus)
         if re.match(r"^[a-z]", charge):
-            charge_html = f"<em>{charge_html[0]}</em>{charge_html[1:]}"
-        result += f"{_SUP}{charge_html}</sup></span>"
+            charge_text = markup.em(charge_text[0]) + charge_text[1:]
+        result += markup.sup(charge_text)
 
     return result
 
 
-def _chem_subscript_numbers(text: str) -> str:
-    result = re.sub(
+def _chem_subscript_numbers(text: str, markup: _ChemMarkup) -> str:
+    # Text is escaped first; LaTeX's escapes end in `}` or a symbol, so no digit follows a letter
+    return re.sub(
         r"(?<=[A-Za-z)\]])(\d+)",
-        lambda m: f"{_SUB}{m.group(1)}</sub></span>",
-        text,
-    )
-    return result.replace(
-        _SUB,
-        '<span style="white-space:nowrap;"><sub style="line-height:0;">',
+        lambda m: markup.sub(m.group(1)),
+        markup.escape(text),
     )
 
 
@@ -3229,7 +3399,7 @@ _INDEX_LETTERS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 def fmt_index(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     case: str = "upper",
     index_algo: str = "repeat",
     pattern: str = "{x}",
@@ -3254,7 +3424,8 @@ def fmt_index(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     case
         The case of the resulting index characters. Use `"upper"` (the default) for uppercase
         letters or `"lower"` for lowercase.
@@ -3385,8 +3556,8 @@ def fmt_index_context(
     if is_na(data._tbl_data, x):
         return x
 
-    if math.isinf(x):
-        return str(x)
+    if not math.isfinite(x):
+        return _format_nonfinite_value(x, force_sign=False, pattern=pattern, context=context)
 
     x_int = int(abs(_round_rhu(x, 0)))
 
@@ -3400,8 +3571,8 @@ def fmt_index_context(
     if case == "lower":
         x_formatted = x_formatted.lower()
 
-    if x_formatted and pattern != "{x}":
-        x_formatted = pattern.replace("{x}", x_formatted)
+    if x_formatted:
+        x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -3477,10 +3648,18 @@ def _build_link_html(
     )
 
 
+def _build_link_latex(href: str, label: str) -> str:
+    # `%`, `#` and `&` would otherwise start a comment, a macro parameter or a new cell;
+    # hyperref drops the backslashes again when writing the link target
+    href = re.sub(r"([%#&])", r"\\\1", href)
+
+    return f"\\href{{{href}}}{{{_latex_escape(label)}}}"
+
+
 def fmt_url(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     label: str | Callable[[str], str] | None = None,
     as_button: bool = False,
     color: str = "auto",
@@ -3493,9 +3672,13 @@ def fmt_url(
     """
     Format values as URL links.
 
-    With `fmt_url()`, input URL strings in the table body are transformed into HTML anchor elements
-    (`<a>` tags). The URLs can be displayed as-is, with a static label, or with a label generated by
-    a function. The links can also be styled as buttons with customizable colors and dimensions.
+    With [`fmt_url()`](`great_tables.GT.fmt_url`), input URL strings in the table body are
+    transformed into HTML anchor elements (`<a>` tags). The URLs can be displayed as-is, with a
+    static label, or with a label generated by a function. The links can also be styled as buttons
+    with customizable colors and dimensions.
+
+    In LaTeX output, the links are written with the `href` command (so the **hyperref** package
+    needs to be loaded) and the styling options only apply to HTML output.
 
     Parameters
     ----------
@@ -3505,7 +3688,8 @@ def fmt_url(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     label
         An optional label to use for the link. If a string is provided, it will be used as the
         visible text for all links. If a callable is provided, it will be called with the URL string
@@ -3634,7 +3818,7 @@ def fmt_url(
 
                 resolved_color = _ideal_fgnd_color(bgnd_color=resolved_fill)
 
-    def fmt_url_fn(x: str):
+    def fmt_url_fn(x: str, context: str):
         if is_na(self._tbl_data, x):
             return x
 
@@ -3654,6 +3838,9 @@ def fmt_url(
             else:
                 display = label
 
+        if context == "latex":
+            return _build_link_latex(href=href, label=display)
+
         return _build_link_html(
             href=href,
             label=display,
@@ -3666,13 +3853,13 @@ def fmt_url(
             target=target,
         )
 
-    return fmt(self, fns=fmt_url_fn, columns=columns, rows=rows)
+    return fmt_by_context(self, pf_format=fmt_url_fn, columns=columns, rows=rows)
 
 
 def fmt_email(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     display_name: str | Callable[[str], str] | None = None,
     as_button: bool = False,
     color: str = "auto",
@@ -3685,9 +3872,12 @@ def fmt_email(
     """
     Format values as email links.
 
-    The `fmt_email()` method transforms email addresses in the table body into clickable `mailto:`
-    links. Like `fmt_url()`, the links can be styled as buttons or as plain underlined text, with
-    customizable colors.
+    The [`fmt_email()`](`great_tables.GT.fmt_email`) method transforms email addresses in the table
+    body into clickable `mailto:` links. Like [`fmt_url()`](`great_tables.GT.fmt_url`), the links
+    can be styled as buttons or as plain underlined text, with customizable colors.
+
+    In LaTeX output, the links are written with the `href` command (so the **hyperref** package
+    needs to be loaded) and the styling options only apply to HTML output.
 
     Parameters
     ----------
@@ -3697,7 +3887,8 @@ def fmt_email(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     display_name
         An optional display name to use instead of the raw email address. If a string is
         provided, it will be used as the visible text for all links. If a callable is provided, it
@@ -3838,7 +4029,7 @@ def fmt_email(
 
                 resolved_color = _ideal_fgnd_color(bgnd_color=resolved_fill)
 
-    def fmt_email_fn(x: str):
+    def fmt_email_fn(x: str, context: str):
         if is_na(self._tbl_data, x):
             return x
 
@@ -3850,6 +4041,9 @@ def fmt_email(
             display = display_name(email)
         else:
             display = display_name
+
+        if context == "latex":
+            return _build_link_latex(href=f"mailto:{email}", label=display)
 
         extra_attrs = ""
         if target == "_blank":
@@ -3868,19 +4062,20 @@ def fmt_email(
             extra_attrs=extra_attrs,
         )
 
-    return fmt(self, fns=fmt_email_fn, columns=columns, rows=rows)
+    return fmt_by_context(self, pf_format=fmt_email_fn, columns=columns, rows=rows)
 
 
 def fmt_bytes(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     standard: str = "decimal",
     decimals: int = 1,
     n_sigfig: int | None = None,
     drop_trailing_zeros: bool = True,
     drop_trailing_dec_mark: bool = True,
     use_seps: bool = True,
+    min_sep_threshold: int = 1,
     pattern: str = "{x}",
     sep_mark: str = ",",
     dec_mark: str = ".",
@@ -3892,13 +4087,13 @@ def fmt_bytes(
     Format values as bytes.
 
     With numeric values in a table, we can transform those to values of bytes with human readable
-    units. The `fmt_bytes()` method allows for the formatting of byte sizes to either of two common
-    representations: (1) with decimal units (powers of 1000, examples being `"kB"` and `"MB"`), and
-    (2) with binary units (powers of 1024, examples being `"KiB"` and `"MiB"`). It is assumed the
-    input numeric values represent the number of bytes and automatic truncation of values will
-    occur. The numeric values will be scaled to be in the range of 1 to <1000 and then decorated
-    with the correct unit symbol according to the standard chosen. For more control over the
-    formatting of byte sizes, we can use the following options:
+    units. The [`fmt_bytes()`](`great_tables.GT.fmt_bytes`) method allows for the formatting of byte
+    sizes to either of two common representations: (1) with decimal units (powers of 1000, examples
+    being `"kB"` and `"MB"`), and (2) with binary units (powers of 1024, examples being `"KiB"` and
+    `"MiB"`). It is assumed the input numeric values represent the number of bytes and automatic
+    truncation of values will occur. The numeric values will be scaled to be in the range of 1 to
+    <1000 and then decorated with the correct unit symbol according to the standard chosen. For more
+    control over the formatting of byte sizes, we can use the following options:
 
     - decimals: choice of the number of decimal places, option to drop trailing zeros, and a choice
     of the decimal symbol
@@ -3916,7 +4111,8 @@ def fmt_bytes(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     standard
         The form of expressing large byte sizes is divided between: (1) decimal units (powers of
         1000; e.g., `"kB"` and `"MB"`), and (2) binary units (powers of 1024; e.g., `"KiB"` and
@@ -3938,6 +4134,13 @@ def fmt_bytes(
         The `use_seps` option allows for the use of digit group separators. The type of digit group
         separator is set by `sep_mark` and overridden if a locale ID is provided to `locale`. This
         setting is `True` by default.
+    min_sep_threshold
+        The minimum number of digits in the integer part of a number for digit grouping
+        separators to be used. The default of `1` uses separators from 4-digit numbers onward
+        (e.g., `1,000`), `2` starts at 5-digit numbers (`10,000`), and `3` starts at 6-digit
+        numbers (`100,000`). When a locale is in effect (through `locale=` or a locale set in
+        `GT()`), the locale's own minimum grouping digits value is used instead (it's `2` for
+        locales like `"es"` and `"pl"`).
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -3961,6 +4164,7 @@ def fmt_bytes(
         An optional locale identifier that can be used for formatting values according the locale's
         rules. Examples include `"en"` for English (United States) and `"fr"` for French (France).
 
+
     Returns
     -------
     GT
@@ -3982,8 +4186,8 @@ def fmt_bytes(
     Examples
     --------
     Let's use a single column from the `exibble` dataset and create a new table. We'll format the
-    `num` column to display as byte sizes in the decimal standard through use of the `fmt_bytes()`
-    method.
+    `num` column to display as byte sizes in the decimal standard through use of the
+    [`fmt_bytes()`](`great_tables.GT.fmt_bytes`) method.
 
     ```{python}
     from great_tables import GT, exibble
@@ -3999,6 +4203,7 @@ def fmt_bytes(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=min_sep_threshold, locale=locale)
     dec_mark = _get_locale_dec_mark(default=dec_mark, locale=locale)
 
     # Stop if `n_sigfig` does not have a valid value
@@ -4026,6 +4231,7 @@ def fmt_bytes(
         drop_trailing_dec_mark=drop_trailing_dec_mark,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
         incl_space=incl_space,
@@ -4046,6 +4252,7 @@ def fmt_bytes_context(
     drop_trailing_dec_mark: bool,
     use_seps: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     dec_mark: str,
     force_sign: bool,
     incl_space: bool,
@@ -4054,6 +4261,9 @@ def fmt_bytes_context(
 ) -> str:
     if is_na(data._tbl_data, x):
         return x
+
+    if not math.isfinite(x):
+        return _format_nonfinite_value(x, force_sign=force_sign, pattern=pattern, context=context)
 
     # Truncate all byte values by casting to an integer; this is done because bytes
     # are always whole numbers
@@ -4076,6 +4286,13 @@ def fmt_bytes_context(
         num_power_idx = math.floor(math.log(abs(x), base)) + 1
         num_power_idx = max(1, min(len(byte_units), num_power_idx))
 
+        # If rounding the scaled value carries it up to `base` (e.g., 999,999 bytes
+        # would give `1,000 kB`), use the next unit instead (`1 MB`)
+        if num_power_idx < len(byte_units) and _rounds_up_to(
+            x / base ** (num_power_idx - 1), threshold=base, decimals=decimals, n_sigfig=n_sigfig
+        ):
+            num_power_idx += 1
+
     # The `units_str` is obtained by indexing the `byte_units` list with the `num_power_idx`
     # value; this is the string that will be affixed to the formatted value
     units_str = byte_units[num_power_idx - 1]
@@ -4095,6 +4312,7 @@ def fmt_bytes_context(
         drop_trailing_dec_mark=drop_trailing_dec_mark,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
     )
@@ -4108,16 +4326,11 @@ def fmt_bytes_context(
 
     # Implement minus sign replacement for `x_formatted`
     if is_negative:
-        minus_mark = _context_minus_mark(context="html")
+        minus_mark = _context_minus_mark(context=context)
         x_formatted = _replace_minus(x_formatted, minus_mark=minus_mark)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -4282,7 +4495,7 @@ def _apply_duration_pattern(patterns: dict[str, str], value: int, formatted_valu
 def fmt_duration(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     input_units: str | None = None,
     output_units: str | list[str] | None = None,
     duration_style: DurationStyle = "narrow",
@@ -4311,7 +4524,8 @@ def fmt_duration(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     input_units
         If one or more selected columns contains numeric values (not `timedelta` values, which
         contain the duration units), a keyword must be provided for `input_units` for the values to
@@ -4393,8 +4607,9 @@ def fmt_duration(
 
     Compatibility of formatting function with data values
     -----------------------------------------------------
-    `fmt_duration()` is compatible with body cells that are of `int`, `float`, or
-    `datetime.timedelta` types. Any other types of body cells are ignored during formatting.
+    [`fmt_duration()`](`great_tables.GT.fmt_duration`) is compatible with body cells that are of
+    `int`, `float`, or `datetime.timedelta` types. Any other types of body cells are ignored during
+    formatting.
 
     Examples
     --------
@@ -4455,8 +4670,8 @@ def fmt_duration(
     control exactly which components appear in the colon-separated output.
 
     When working with `timedelta` columns (common in Pandas when computing differences between
-    timestamps), `fmt_duration()` automatically detects the units—no `input_units` argument is
-    needed.
+    timestamps), [`fmt_duration()`](`great_tables.GT.fmt_duration`) automatically detects the
+    units—no `input_units` argument is needed.
 
     ```{python}
     from datetime import datetime
@@ -4514,6 +4729,7 @@ def fmt_duration(
 
     # Use locale-based marks if a locale ID is provided
     sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+    min_sep_threshold = _get_locale_min_sep_threshold(default=1, locale=locale)
 
     # Validate input_units
     if input_units is not None and input_units not in _DURATION_INPUT_UNITS:
@@ -4579,7 +4795,9 @@ def fmt_duration(
     if duration_style == "iso":
         resolved_output_units = ["days", "hours", "minutes", "seconds"]
         max_output_units = None
-        trim_zero_units = ["leading", "trailing"]
+        # Zero-valued units are left out everywhere, giving the minimal form (`P7DT1M1S` rather
+        # than R gt's `P7DT0H1M1S`); a zero duration keeps its smallest unit (`PT0S`)
+        trim_zero_units = ["leading", "trailing", "internal"]
 
     # Resolve trim_zero_units to a list of keywords
     if isinstance(trim_zero_units, bool):
@@ -4618,6 +4836,7 @@ def fmt_duration(
         colon_sep_output_units=colon_sep_output_units,
         colon_sep_trim_leading=colon_sep_trim_leading,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         force_sign=force_sign,
         pattern=pattern,
         locale=locale,
@@ -4637,6 +4856,7 @@ def fmt_duration_context(
     colon_sep_output_units: list[str] | None,
     colon_sep_trim_leading: bool,
     sep_mark: str,
+    min_sep_threshold: int,
     force_sign: bool,
     pattern: str,
     locale: str | None,
@@ -4663,6 +4883,12 @@ def fmt_duration_context(
         x_seconds = float(x) * _SECONDS_CONVERSION[input_units]
     else:
         return str(x)
+
+    # An infinite (or NaN) duration can't be split into time parts
+    if not math.isfinite(x_seconds):
+        return _format_nonfinite_value(
+            x_seconds, force_sign=force_sign, pattern=pattern, context=context
+        )
 
     # Determine sign
     is_negative = x_seconds < 0
@@ -4702,6 +4928,7 @@ def fmt_duration_context(
             colon_sep_output_units=colon_sep_output_units,
             colon_sep_trim_leading=colon_sep_trim_leading,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
         )
     elif duration_style == "iso":
         x_formatted = _format_duration_iso(time_parts=time_parts)
@@ -4709,6 +4936,7 @@ def fmt_duration_context(
         x_formatted = _format_duration_narrow(
             time_parts=time_parts,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             has_sub_unit_remainder=has_sub_unit_remainder,
             locale=locale,
         )
@@ -4716,6 +4944,7 @@ def fmt_duration_context(
         x_formatted = _format_duration_wide(
             time_parts=time_parts,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             has_sub_unit_remainder=has_sub_unit_remainder,
             locale=locale,
         )
@@ -4723,23 +4952,33 @@ def fmt_duration_context(
         x_formatted = _format_duration_narrow(
             time_parts=time_parts,
             sep_mark=sep_mark,
+            min_sep_threshold=min_sep_threshold,
             has_sub_unit_remainder=has_sub_unit_remainder,
             locale=locale,
         )
 
-    # Apply sign
+    # Escape the `<` of values below the smallest output unit (e.g., `<1s`) for LaTeX
+    if context == "latex":
+        x_formatted = _latex_escape(x_formatted)
+
+    # A duration shown as zero in the colon and ISO styles (e.g., `00:00:00` for `-0.4` seconds)
+    # gets no sign, as with numbers that round to zero; the narrow and wide styles show such a
+    # duration as `<1s`, which keeps its sign
+    if duration_style in ("colon-sep", "iso") and all(value == 0 for _, value in time_parts):
+        is_negative = False
+        x_seconds_abs = 0
+
+    # Apply sign; the ISO style is machine-readable, so it always uses an ASCII hyphen (ISO 8601
+    # parsers don't accept a typographic minus)
     if is_negative:
-        minus_mark = _context_minus_mark(context=context)
+        minus_mark = "-" if duration_style == "iso" else _context_minus_mark(context=context)
         x_formatted = minus_mark + x_formatted
 
     if force_sign and not is_negative and x_seconds_abs > 0:
         x_formatted = "+" + x_formatted
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -4781,9 +5020,10 @@ def _trim_duration_parts(
     return result
 
 
-def _format_number_for_duration(value: int, sep_mark: str) -> str:
+def _format_number_for_duration(value: int, sep_mark: str, min_sep_threshold: int = 1) -> str:
     """Format an integer with optional separator marks."""
-    if sep_mark and value >= 1000:
+    # Grouping starts at `min_sep_threshold + 3` digits (four with the default of `1`)
+    if sep_mark and value >= 10 ** (min_sep_threshold + 2):
         # Apply thousands separator
         s = str(value)
         groups = []
@@ -4797,6 +5037,7 @@ def _format_number_for_duration(value: int, sep_mark: str) -> str:
 def _format_duration_narrow(
     time_parts: list[tuple[str, int]],
     sep_mark: str,
+    min_sep_threshold: int,
     has_sub_unit_remainder: bool,
     locale: str | None = None,
 ) -> str:
@@ -4805,7 +5046,7 @@ def _format_duration_narrow(
 
     parts = []
     for unit, value in time_parts:
-        formatted_value = _format_number_for_duration(value, sep_mark)
+        formatted_value = _format_number_for_duration(value, sep_mark, min_sep_threshold)
         if locale_patterns and unit in locale_patterns:
             parts.append(_apply_duration_pattern(locale_patterns[unit], value, formatted_value))
         else:
@@ -4829,6 +5070,7 @@ def _format_duration_narrow(
 def _format_duration_wide(
     time_parts: list[tuple[str, int]],
     sep_mark: str,
+    min_sep_threshold: int,
     has_sub_unit_remainder: bool,
     locale: str | None = None,
 ) -> str:
@@ -4837,7 +5079,7 @@ def _format_duration_wide(
 
     parts = []
     for unit, value in time_parts:
-        formatted_value = _format_number_for_duration(value, sep_mark)
+        formatted_value = _format_number_for_duration(value, sep_mark, min_sep_threshold)
         if locale_patterns and unit in locale_patterns:
             parts.append(_apply_duration_pattern(locale_patterns[unit], value, formatted_value))
         else:
@@ -4873,13 +5115,10 @@ def _format_duration_iso(time_parts: list[tuple[str, int]]) -> str:
 
     result = "P"
     result += "".join(date_parts)
-    if date_parts:
-        # T separator always follows date parts (matching R gt behavior)
-        result += "T"
     if time_parts_iso:
-        if not date_parts:
-            # Time-only: no T separator when there are no date parts
-            pass
+        # The T designator must precede any time parts (`PT1M` is one minute while `P1M` would
+        # be one month) and is left out when there are no time parts
+        result += "T"
         result += "".join(time_parts_iso)
 
     return result
@@ -4891,6 +5130,7 @@ def _format_duration_colon_sep(
     colon_sep_output_units: list[str] | None,
     colon_sep_trim_leading: bool,
     sep_mark: str,
+    min_sep_threshold: int = 1,
 ) -> str:
     """Format duration in colon-separated style (e.g., '1/08:24:00')."""
 
@@ -4931,7 +5171,7 @@ def _format_duration_colon_sep(
 
     for unit, value in filtered_parts:
         if unit == "days":
-            day_part = _format_number_for_duration(value, sep_mark) + "/"
+            day_part = _format_number_for_duration(value, sep_mark, min_sep_threshold) + "/"
         else:
             # Zero-pad hours, minutes, seconds to 2 digits
             hms_parts.append(f"{value:02d}")
@@ -4942,7 +5182,7 @@ def _format_duration_colon_sep(
 def fmt_date(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     date_style: DateStyle = "iso",
     pattern: str = "{x}",
     locale: str | None = None,
@@ -4961,7 +5201,8 @@ def fmt_date(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     date_style
         The date style to use. By default this is the short name `"iso"` which corresponds to
         ISO 8601 date formatting. There are 41 date styles in total.
@@ -5000,6 +5241,10 @@ def fmt_date(
     | 16 | `"year_week"`         | `"2000-W09"`            |
     | 17 | `"year_quarter"`      | `"2000-Q1"`             |
 
+    The `"year_week"` style gives the ISO 8601 week date in every locale: weeks start on Monday,
+    week 1 is the week containing the first Thursday of the year, and the year shown is the one the
+    week belongs to (so `2024-12-30` is `"2025-W01"`).
+
     Returns
     -------
     GT
@@ -5017,8 +5262,8 @@ def fmt_date(
     Examples
     --------
     Let's use the `exibble` dataset to create a simple, two-column table (keeping only the `date`
-    and `time` columns). With the `fmt_date()` method, we'll format the `date` column to display
-    dates formatted with the `"month_day_year"` date style.
+    and `time` columns). With the [`fmt_date()`](`great_tables.GT.fmt_date`) method, we'll format
+    the `date` column to display dates formatted with the `"month_day_year"` date style.
 
     ```{python}
     from great_tables import GT, exibble
@@ -5075,15 +5320,10 @@ def fmt_date_context(
         locale = _str_replace(locale, "-", "_")
 
     # Format the date object to a string using Babel's `format_date()` function
-    x_formatted = format_date(x, format=date_format_str, locale=locale)
+    x_formatted = format_date(x, format=_resolve_iso_week(date_format_str, x), locale=locale)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -5091,7 +5331,7 @@ def fmt_date_context(
 def fmt_time(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     time_style: TimeStyle = "iso",
     pattern: str = "{x}",
     locale: str | None = None,
@@ -5101,6 +5341,9 @@ def fmt_time(
 
     Format input values to time values using one of 5 preset time styles. Input can be in the form
     of `time` values, or strings in the ISO 8601 forms of `HH:MM:SS` or `YYYY-MM-DD HH:MM:SS`.
+    For `datetime` values (and datetime strings), the time part is formatted. Dates without a time
+    (e.g., `"2024-01-05"`) raise an error; use [`fmt_date()`](`great_tables.GT.fmt_date`) for
+    those.
 
     Parameters
     ----------
@@ -5110,7 +5353,8 @@ def fmt_time(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     time_style
         The time style to use. By default this is the short name `"iso"` which corresponds to how
         times are formatted within ISO 8601 datetime values. There are 5 time styles in total.
@@ -5154,8 +5398,8 @@ def fmt_time(
     Examples
     --------
     Let's use the `exibble` dataset to create a simple, two-column table (keeping only the `date`
-    and `time` columns). With the `fmt_time()` method, we'll format the `time` column to display
-    times formatted with the `"h_m_s_p"` time style.
+    and `time` columns). With the [`fmt_time()`](`great_tables.GT.fmt_time`) method, we'll format
+    the `time` column to display times formatted with the `"h_m_s_p"` time style.
 
     ```{python}
     from great_tables import GT, exibble
@@ -5202,6 +5446,10 @@ def fmt_time_context(
         # Convert the ISO time string to a time object
         x = _iso_str_to_time(x)
 
+    elif isinstance(x, datetime):
+        # Use the time part of a datetime (as for datetime strings)
+        x = x.time()
+
     else:
         # Stop if `x` is not a valid time object
         _validate_time_obj(x=x)
@@ -5216,12 +5464,7 @@ def fmt_time_context(
     x_formatted = format_time(x, format=time_format_str, locale=locale)
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -5229,7 +5472,7 @@ def fmt_time_context(
 def fmt_datetime(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     date_style: DateStyle = "iso",
     time_style: TimeStyle = "iso",
     format_str: str | None = None,
@@ -5252,7 +5495,8 @@ def fmt_datetime(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     date_style
         The date style to use. By default this is the short name `"iso"` which corresponds to
         ISO 8601 date formatting. There are 41 date styles in total.
@@ -5302,6 +5546,10 @@ def fmt_datetime(
     | 15 | `"y.mn.day"`          | `"00/02/29"`            |
     | 16 | `"year_week"`         | `"2000-W09"`            |
     | 17 | `"year_quarter"`      | `"2000-Q1"`             |
+
+    The `"year_week"` style gives the ISO 8601 week date in every locale: weeks start on Monday,
+    week 1 is the week containing the first Thursday of the year, and the year shown is the one the
+    week belongs to (so `2024-12-30` is `"2025-W01"`).
 
     The time styles can also handle localization to any supported locale. The following table
     provides a listing of all time styles and their output values (corresponding to an input time of
@@ -5406,15 +5654,12 @@ def fmt_datetime_context(
             locale = _str_replace(locale, "-", "_")
 
         # Format the datetime object to a string using Babel's `format_datetime()` function
-        x_formatted = format_datetime(x, format=datetime_format_str, locale=locale)
+        x_formatted = format_datetime(
+            x, format=_resolve_iso_week(datetime_format_str, x), locale=locale
+        )
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -5422,7 +5667,7 @@ def fmt_datetime_context(
 def fmt_tf(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     tf_style: str = "true-false",
     pattern: str = "{x}",
     true_val: str | None = None,
@@ -5452,7 +5697,8 @@ def fmt_tf(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     tf_style
         The `True`/`False` mapping style to use. By default this is the short name `"true-false"`
         which corresponds to the words `"true"` and `"false"`. Two other `tf_style=` values produce
@@ -5570,6 +5816,9 @@ def fmt_tf_context(
 ) -> str | FormatterSkipElement:
     if is_na(data._tbl_data, x):
         x = None
+    elif isinstance(x, NpBool):
+        # pandas gives NumPy booleans, which aren't instances of `bool`
+        x = bool(x)
     elif not isinstance(x, bool):
         raise ValueError(f"Expected boolean value or NA, but got {type(x)}.")
 
@@ -5617,16 +5866,7 @@ def fmt_tf_context(
         x_styled = x_formatted
 
     # Use a supplied pattern specification to decorate the formatted value
-    if pattern != "{x}":
-        # Escape LaTeX special characters from literals in the pattern
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-
-        x_out = pattern.replace("{x}", x_styled)
-    else:
-        x_out = x_styled
-
-    return x_out
+    return _apply_value_pattern(x_styled, pattern=pattern, context=context)
 
 
 TF_FORMATS: dict[str, list[str]] = {
@@ -5737,13 +5977,13 @@ class TfMap:
 def fmt_markdown(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
 ) -> GTSelf:
     """
     Format Markdown text.
 
     Any Markdown-formatted text in the incoming cells will be transformed during render when using
-    the `fmt_markdown()` method.
+    the [`fmt_markdown()`](`great_tables.GT.fmt_markdown`) method.
 
     Parameters
     ----------
@@ -5753,7 +5993,8 @@ def fmt_markdown(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
 
     Returns
     -------
@@ -5765,7 +6006,7 @@ def fmt_markdown(
     -------
     Let’s first create a DataFrame containing some text that is Markdown-formatted and then introduce
     that to [`GT()`](`great_tables.GT`). We’ll then transform the `md` column with the
-    `fmt_markdown()` method.
+    [`fmt_markdown()`](`great_tables.GT.fmt_markdown`) method.
 
     ```{python}
     import pandas as pd
@@ -5822,7 +6063,7 @@ def fmt_markdown_context(
 def fmt_units(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     pattern: str = "{x}",
 ) -> GTSelf:
     """
@@ -5843,7 +6084,8 @@ def fmt_units(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     pattern
         A formatting pattern that allows for decoration of the formatted value. The formatted value
         is represented by the `{x}` (which can be used multiple times, if needed) and all other
@@ -5952,6 +6194,7 @@ def fmt_units(
     def fmt_units_fn(
         x: str,
         pattern: str = pattern,
+        context: str = "html",
     ):
         # If the `x` value is a missing value, then return the same value
         if is_na(self._tbl_data, x):
@@ -5959,15 +6202,49 @@ def fmt_units(
 
         from great_tables._helpers import define_units
 
-        x_formatted = define_units(x).to_html()
+        units = define_units(x)
+        x_formatted = units.to_latex() if context == "latex" else units.to_html()
 
         # Use a supplied pattern specification to decorate the formatted value
-        if pattern != "{x}":
-            x_formatted = pattern.replace("{x}", x_formatted)
+        x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
         return x_formatted
 
-    return fmt(self, fns=fmt_units_fn, columns=columns, rows=rows)
+    return fmt_by_context(self, pf_format=fmt_units_fn, columns=columns, rows=rows)
+
+
+def _apply_value_pattern(x_formatted: str, pattern: str, context: str) -> str:
+    """
+    Decorate a formatted value with a `pattern=` specification (e.g., `"({x})"`).
+
+    In LaTeX, special characters in the pattern's literals are escaped (the `{x}` placeholder is
+    left as is).
+    """
+
+    if pattern == "{x}":
+        return x_formatted
+
+    if context == "latex":
+        pattern = escape_pattern_str_latex(pattern_str=pattern)
+
+    return pattern.replace("{x}", x_formatted)
+
+
+def _format_nonfinite_value(x: float, force_sign: bool, pattern: str, context: str) -> str:
+    """
+    Format an infinite or NaN value the way `fmt_number()` does.
+
+    Non-finite values have no mantissa, exponent, unit or fraction, so formatters that need one of
+    these use this instead.
+    """
+
+    x_formatted = _value_to_decimal_notation(value=x, force_sign=force_sign)
+    x_formatted = _replace_minus(x_formatted, minus_mark=_context_minus_mark(context=context))
+
+    # Use a supplied pattern specification to decorate the formatted value
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
+
+    return x_formatted
 
 
 def _value_to_decimal_notation(
@@ -5980,6 +6257,7 @@ def _value_to_decimal_notation(
     sep_mark: str = ",",
     dec_mark: str = ".",
     force_sign: bool = False,
+    min_sep_threshold: int = 1,
 ) -> str:
     """
     Decimal notation.
@@ -5990,7 +6268,8 @@ def _value_to_decimal_notation(
 
     is_positive = value > 0
 
-    if n_sigfig:
+    # Infinity has no significant digits, so it always takes the conventional pathway
+    if n_sigfig and not math.isinf(value):
         # If there is a value provided to `n_sigfig` then number formatting proceeds through the
         # significant digits pathway, which ignores `decimals` and any removal of trailing zero values
         # in the decimal portion of the value
@@ -6001,6 +6280,7 @@ def _value_to_decimal_notation(
             sep_mark=sep_mark,
             dec_mark=dec_mark,
             preserve_integer=False,
+            min_sep_threshold=min_sep_threshold,
         )
 
     else:
@@ -6014,6 +6294,7 @@ def _value_to_decimal_notation(
             use_seps=use_seps,
             sep_mark=sep_mark,
             dec_mark=dec_mark,
+            min_sep_threshold=min_sep_threshold,
         )
 
     # Drop the trailing decimal mark if it is present
@@ -6023,6 +6304,12 @@ def _value_to_decimal_notation(
     # Add in a trailing decimal mark under specific circumstances
     if drop_trailing_dec_mark is False and dec_mark not in result:
         result = result + dec_mark
+
+    # A value that rounds to zero (e.g., `-0.001` with two decimals) is shown as zero, without a
+    # sign; the sign is decided from the rounded value rather than the input
+    if _rounds_to_zero(result):
+        result = result.lstrip("-")
+        is_positive = False
 
     # Force the positive sign to be present if the `force_sign` option is taken
     if is_positive and force_sign:
@@ -6069,6 +6356,7 @@ def _format_number_n_sigfig(
     sep_mark: str = ",",
     dec_mark: str = ".",
     preserve_integer: bool = False,
+    min_sep_threshold: int = 1,
 ) -> str:
     sig_digits, power, is_negative = _get_number_profile(value, n_sigfig)
 
@@ -6089,8 +6377,9 @@ def _format_number_n_sigfig(
     if preserve_integer and "." not in formatted_value:
         formatted_value = f"{value:0.0f}"
 
-    # Insert grouping separators within the integer part
-    if use_seps:
+    # Insert grouping separators within the integer part, but only when it has enough digits
+    # for the `min_sep_threshold` (the default of `1` starts grouping at four digits)
+    if use_seps and len(integer_part) >= min_sep_threshold + 3:
         count = 0
         for digit in reversed(integer_part):
             if count and count % 3 == 0:
@@ -6117,6 +6406,7 @@ def _format_number_fixed_decimals(
     use_seps: bool = True,
     sep_mark: str = ",",
     dec_mark: str = ".",
+    min_sep_threshold: int = 1,
 ) -> str:
     # If `number` is a string, cast it into a float
     if isinstance(value, str):
@@ -6141,12 +6431,19 @@ def _format_number_fixed_decimals(
     integer_part = number_parts[0].lstrip("-")
     decimal_part = number_parts[1] if len(number_parts) > 1 else ""
 
+    # Drop any trailing zeros if option is taken; only the decimal part is stripped so that
+    # zeros in the integer part (e.g., `100` with `decimals=0`) are kept (this purposefully
+    # doesn't apply to numbers formatted to a specific number of significant digits)
+    if drop_trailing_zeros:
+        decimal_part = decimal_part.rstrip("0")
+
     # Initialize formatted representations of integer and decimal parts
     formatted_integer = ""
     formatted_decimal = dec_mark + decimal_part if decimal_part else ""
 
-    # Insert grouping separators within the integer part
-    if use_seps:
+    # Insert grouping separators within the integer part, but only when it has enough digits
+    # for the `min_sep_threshold` (the default of `1` starts grouping at four digits)
+    if use_seps and len(integer_part) >= min_sep_threshold + 3:
         count = 0
         for digit in reversed(integer_part):
             if count and count % 3 == 0:
@@ -6163,12 +6460,31 @@ def _format_number_fixed_decimals(
     # Combine the integer and decimal parts
     result = formatted_integer + formatted_decimal
 
-    # Drop any trailing zeros if option is taken (this purposefully doesn't apply to numbers
-    # formatted to a specific number of significant digits)
-    if drop_trailing_zeros:
-        result = result.rstrip("0")
-
     return result
+
+
+def _rounds_up_to(
+    scaled_value: float, threshold: float, decimals: int, n_sigfig: int | None
+) -> bool:
+    """
+    Check whether formatting a scaled value carries it up to the next unit.
+
+    Formatters that divide a value by a unit (a suffix, prefix, byte unit or power of 1000) pick
+    the unit before formatting, so rounding can carry the scaled value up to `threshold` (e.g.,
+    999,999 with two decimals would give `1,000.00K`). The check formats `scaled_value` exactly
+    as the final output is formatted (with plain separators, so any `dec_mark=` or `sep_mark=`
+    is irrelevant) and compares the formatted magnitude, so it can't disagree with the output.
+    """
+
+    formatted = _value_to_decimal_notation(
+        value=abs(scaled_value),
+        decimals=decimals,
+        n_sigfig=n_sigfig,
+        use_seps=False,
+        dec_mark=".",
+    )
+
+    return float(formatted) >= threshold
 
 
 def _format_number_compactly(
@@ -6181,43 +6497,52 @@ def _format_number_compactly(
     sep_mark: str,
     dec_mark: str,
     force_sign: bool,
+    min_sep_threshold: int = 1,
 ) -> str:
     # If the value is exactly zero, then we can return `0` immediately
     if value == 0:
         return "0"
 
+    # Infinity (and NaN) has no suffix, so it is formatted the same as without `compact=True`
+    if not math.isfinite(value):
+        return _value_to_decimal_notation(value=value, force_sign=force_sign)
+
     # Stop if `n_sigfig` does not have a valid value
     if n_sigfig is not None:
         _validate_n_sigfig(n_sigfig=n_sigfig)
 
-    # Determine the power index for the value
-    if value == 0:
-        # If the value is zero, then the power index is 1; otherwise, we'd get
-        # an error when trying to calculate the log of zero
-        num_power_idx = 1
-    else:
-        # Determine the power index for the value and put it in the range of 0 to 5 which
-        # corresponds to the list of suffixes `["", "K", "M", "B", "T", "Q"]`
-        num_power_idx = math.floor(math.log(abs(value), 1000))
-        num_power_idx = max(0, min(5, num_power_idx))
+    # Determine the power index for the value and put it in the range of 0 to 5 which
+    # corresponds to the list of suffixes `["", "K", "M", "B", "T", "Q"]`
+    num_power_idx = math.floor(math.log(abs(value), 1000))
+    num_power_idx = max(0, min(5, num_power_idx))
+
+    # Scale `x` value by a defined `base` value, this is done by dividing by the `base`
+    # value (`1000`) raised to the power index
+    scaled_value = value / 1000**num_power_idx
+
+    # If rounding the scaled value carries it up to 1000 (e.g., 999,999 with two
+    # decimals would give `1,000.00K`), use the next suffix instead (`1.00M`); the value is
+    # then exactly 1 of the next suffix
+    if num_power_idx < 5 and _rounds_up_to(
+        scaled_value, threshold=1000, decimals=decimals, n_sigfig=n_sigfig
+    ):
+        num_power_idx += 1
+        scaled_value = math.copysign(1.0, value)
 
     # The `units_str` is obtained by indexing a list of suffixes with the `num_power_idx`
     units_str = ["", "K", "M", "B", "T", "Q"][num_power_idx]
 
-    # Scale `x` value by a defined `base` value, this is done by dividing by the `base`
-    # value (`1000`) raised to the power index
-    value = value / 1000**num_power_idx
-
     # Format the value to decimal notation; this is done before the `byte_units` text
     # is affixed to the value
     x_formatted = _value_to_decimal_notation(
-        value=value,
+        value=scaled_value,
         decimals=decimals,
         n_sigfig=n_sigfig,
         drop_trailing_zeros=drop_trailing_zeros,
         drop_trailing_dec_mark=drop_trailing_dec_mark,
         use_seps=use_seps,
         sep_mark=sep_mark,
+        min_sep_threshold=min_sep_threshold,
         dec_mark=dec_mark,
         force_sign=force_sign,
     )
@@ -6256,9 +6581,11 @@ def _get_number_profile(value: float, n_sigfig: int) -> tuple[str, int, bool]:
         power = -1 * math.floor(math.log10(value)) + n_sigfig - 1
         value_power = value * 10.0**power
 
-        if value < 1 and math.floor(math.log10(int(round(value_power)))) > math.floor(
-            math.log10(int(value_power))
-        ):
+        # If rounding carries over into an extra digit (e.g., 9.9999 to three significant
+        # digits gives 1000), shift the power down by one so that the result keeps `n_sigfig`
+        # digits (and its magnitude increases by a power of ten); comparing the rounded value
+        # against 10^n_sigfig avoids false carries from floating-point error in `value_power`
+        if round(value_power) >= 10**n_sigfig:
             power -= 1
 
         sig_digits = str(int(round(value * 10.0**power)))
@@ -6358,16 +6685,21 @@ def _has_negative_value(value: float) -> bool:
     return value < 0
 
 
+def _rounds_to_zero(x_formatted: str) -> bool:
+    """Whether a formatted number shows as zero (all of its digits are `0`), e.g., `-0.00`.
+
+    Non-finite values (`inf`, `nan`) have no digits, so they aren't zero.
+    """
+    digits = [char for char in x_formatted if char.isdigit()]
+    return bool(digits) and all(char == "0" for char in digits)
+
+
 def _has_positive_value(value: float) -> bool:
     return value > 0
 
 
 def _has_zero_value(value: float) -> bool:
     return value == 0
-
-
-def _has_sci_order_zero(value: float) -> bool:
-    return (value >= 1 and value < 10) or (value <= -1 and value > -10) or value == 0
 
 
 def _context_exp_marks(context: str) -> list[str]:
@@ -6381,10 +6713,13 @@ def _context_exp_marks(context: str) -> list[str]:
     return marks
 
 
-def _context_exp_str(exp_style: str) -> str:
+def _context_exp_str(exp_style: str, context: str) -> str:
     if exp_style == "low-ten":
         # For the 'low-ten' style, use a specialized `exp_str` string value
-        exp_str = "<sub style='font-size: 65%;'>10</sub>"
+        if context == "latex":
+            exp_str = "\\textsubscript{10}"
+        else:
+            exp_str = "<sub style='font-size: 65%;'>10</sub>"
 
     elif _str_detect(exp_style, "^[a-zA-Z]{1}1?$"):
         # If there is a single letter (or a letter and a '1') then
@@ -6512,6 +6847,24 @@ def _get_locale_dec_mark(default: str, locale: str | None = None) -> str:
         raise TypeError(f"Variable type mismatch. Expected str, got {type(dec_mark)}.")
 
     return dec_mark
+
+
+def _get_locale_min_sep_threshold(default: int, locale: str | None = None) -> int:
+    # Stop if `min_sep_threshold` isn't a whole number of at least 1
+    if isinstance(default, bool) or not isinstance(default, int) or default < 1:
+        raise ValueError(
+            f"The `min_sep_threshold=` value must be an integer of 1 or more, not {default!r}."
+        )
+
+    # If `locale` is None then return the default `min_sep_threshold`
+    if locale is None:
+        return default
+
+    # As in gt, a locale's own minimum grouping digits value takes precedence (e.g., it is `2` for
+    # the "es" and "pl" locales, so that four-digit numbers are written without a separator)
+    pd_df_row = _filter_pd_df_to_row(pd_df=_get_locales_data(), column="locale", filter_expr=locale)
+
+    return int(pd_df_row["minimum_grouping_digits"])
 
 
 def _get_locales_list() -> list[str]:
@@ -6795,18 +7148,16 @@ def _get_currency_exponent(currency: str) -> int:
     # get the curr_code column from currencies df as a list
     matches = [entry["exponent"] for entry in currencies if entry["curr_code"] == currency]
 
-    if matches:
-        exponent = matches[0]
+    if not matches:
+        # An unknown code uses the most common exponent (`fmt_currency()` validates the code
+        # first, so this only applies to internal callers)
+        return 2
 
-        # TODO: why does this happen here if we control currency data?
-        exponent = int(exponent)
+    # The data is read as strings; some codes (e.g., `XAU` for gold) have no minor unit, which
+    # is recorded as `NA` and means no decimal places (as in R gt)
+    exponent = matches[0]
 
-    else:
-        # TODO: in what situation are we given a currency code with no match?
-        # why return this? E.g. what if someone misspelled a currency code?
-        exponent = 2
-
-    return exponent
+    return 0 if exponent == "NA" else int(exponent)
 
 
 def _validate_n_sigfig(n_sigfig: int) -> None:
@@ -6839,6 +7190,9 @@ def _round_rhu(x: float, digits: int = 0) -> float:
     """
     Rounds a number using the 'Round-Half-Up' (R-H-U) algorithm.
 
+    As in `round_gt()` from the R gt package, the absolute value is rounded and the sign is
+    then restored, so halves are rounded away from zero (e.g., `-2.5` becomes `-3`).
+
     Args:
         x (float): The number to round.
         digits (int): The number of digits to round to.
@@ -6847,8 +7201,10 @@ def _round_rhu(x: float, digits: int = 0) -> float:
         float: The rounded number.
     """
 
-    # Multiply the number by 10^digits to move the decimal point to the right
-    z = x * 10**digits
+    # Multiply the absolute value by 10^digits to move the decimal point to the right (`x` is
+    # converted to a float first since NumPy scalars, like `float32` values, don't support
+    # `math.trunc()`)
+    z = abs(float(x)) * 10**digits
 
     # Add 0.5 + 2.220446049250313e-16 to the number to ensure that the number is rounded up
     z += 0.5 + math.sqrt(2.220446049250313e-16)
@@ -6859,7 +7215,8 @@ def _round_rhu(x: float, digits: int = 0) -> float:
     # Divide the number by 10^digits to move the decimal point back to the original position
     z /= 10**digits
 
-    return z
+    # Restore the sign of the original number (a value that rounds to zero stays at 0.0)
+    return -z if x < 0 and z != 0 else z
 
 
 def _as_roman(x: int) -> str:
@@ -6912,6 +7269,30 @@ def _validate_case(case: str) -> None:
         raise ValueError(f"The `case` argument must be either 'upper' or 'lower' (not '{case}').")
 
 
+# The `year_week` date style: an ISO 8601 week date (e.g., `2000-W09`), written with the CLDR fields
+# for the week-based year and the week of that year
+_ISO_WEEK_PATTERN = "Y-'W'ww"
+
+
+def _resolve_iso_week(format_str: str, x: date) -> str:
+    """Replace the ISO week-date fields in a format string with their values for `x`.
+
+    Babel numbers weeks by the locale's rules (e.g., in `en_US` weeks start on Sunday), so the
+    `year_week` style is filled in with the ISO 8601 week-based year and week (weeks start on Monday
+    and week 1 is the week containing the first Thursday of the year) before formatting, giving the
+    same week in every locale.
+    """
+
+    if _ISO_WEEK_PATTERN not in format_str:
+        return format_str
+
+    iso_year, iso_week, _ = x.isocalendar()
+
+    # Only the letter `W` needs quoting (digits and `-` are literals in a CLDR pattern); leaving the
+    # value unquoted at both ends keeps it from merging with an adjacent quoted literal into `''`
+    return format_str.replace(_ISO_WEEK_PATTERN, f"{iso_year:04d}-'W'{iso_week:02d}")
+
+
 def _get_date_formats_dict() -> dict[str, str]:
     date_formats = {
         "iso": "yyyy-MM-dd",
@@ -6929,7 +7310,7 @@ def _get_date_formats_dict() -> dict[str, str]:
         "day": "dd",
         "year.mn.day": "y/MM/dd",
         "y.mn.day": "yy/MM/dd",
-        "year_week": "y-'W'ww",
+        "year_week": _ISO_WEEK_PATTERN,
         "year_quarter": "y-'Q'Q",
     }
 
@@ -7034,13 +7415,36 @@ def _iso_str_to_time(x: str) -> time:
     """
     Converts a string in ISO format to a time object.
 
+    The string can be a time (`HH:MM:SS`) or a datetime (`YYYY-MM-DD HH:MM:SS`), in which case
+    its time part is used. A date without a time (`YYYY-MM-DD`) is rejected rather than read as
+    midnight.
+
     Args:
         x (str): The string to be converted.
 
     Returns:
         time: The converted time object.
     """
-    return time.fromisoformat(x)
+    try:
+        return time.fromisoformat(x)
+    except ValueError as e:
+        time_error = e
+
+    # A date in a time column is more likely a mistake than midnight
+    try:
+        date.fromisoformat(x)
+    except ValueError:
+        pass
+    else:
+        raise ValueError(
+            f"Invalid time string: '{x}' is a date without a time. Use `fmt_date()` to format dates."
+        )
+
+    try:
+        return datetime.fromisoformat(x).time()
+    except ValueError:
+        # The string is neither a time nor a datetime, so report the error for a time string
+        raise time_error from None
 
 
 def _iso_str_to_datetime(x: str) -> datetime:
@@ -7123,25 +7527,27 @@ def _validate_datetime_obj(x: Any) -> None:
 def fmt_image(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     height: str | int | None = None,
     width: str | int | None = None,
     sep: str = " ",
     path: str | Path | None = None,
     file_pattern: str = "{}",
     encode: bool = True,
+    alt: str | FromColumn | None = None,
 ) -> GTSelf:
     """Format image paths to generate images in cells.
 
-    To more easily insert graphics into body cells, we can use the `fmt_image()` method. This allows
-    for one or more images to be placed in the targeted cells. The cells need to contain some
-    reference to an image file, either: (1) local paths to the files; (2) complete http/https to the
-    files; (3) the file names, where a common path can be provided via `path=`; or (4) a fragment of
-    the file name, where the `file_pattern=` argument helps to compose the entire file name and
-    `path=` provides the path information. This should be expressly used on columns that contain
-    *only* references to image files (i.e., no image references as part of a larger block of text).
-    Multiple images can be included per cell by separating image references by commas. The `sep=`
-    argument allows for a common separator to be applied between images.
+    To more easily insert graphics into body cells, we can use the
+    [`fmt_image()`](`great_tables.GT.fmt_image`) method. This allows for one or more images to be
+    placed in the targeted cells. The cells need to contain some reference to an image file, either:
+    (1) local paths to the files; (2) complete http/https to the files; (3) the file names, where a
+    common path can be provided via `path=`; or (4) a fragment of the file name, where the
+    `file_pattern=` argument helps to compose the entire file name and `path=` provides the path
+    information. This should be expressly used on columns that contain *only* references to image
+    files (i.e., no image references as part of a larger block of text). Multiple images can be
+    included per cell by separating image references by commas. The `sep=` argument allows for a
+    common separator to be applied between images.
 
     Parameters
     ----------
@@ -7151,7 +7557,8 @@ def fmt_image(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     height
         The height of the rendered images.
     width
@@ -7169,6 +7576,13 @@ def fmt_image(
     encode
         The option to always use Base64 encoding for image paths that are determined to be local. By
         default, this is `True`.
+    alt
+        Alternative text for the images, which screen readers announce in place of an image. This
+        can be a string, in which `{x}` is replaced by the image's reference in the cell (e.g.,
+        `"Logo of {x}"`), or [`from_column()`](`great_tables.from_column`) to take each row's text
+        from a column. By default, images get an empty `alt=""`, which marks them as decorative so
+        that screen readers skip them; provide alternative text whenever an image conveys
+        information that isn't also in the table as text.
 
     Returns
     -------
@@ -7183,10 +7597,11 @@ def fmt_image(
     corresponding to lines served at each station. We have a directory of SVG graphics for all of
     these lines in the package (the path for the image directory can be accessed via
     `files("great_tables") / "data/metro_images"`, using the `importlib_resources` package). The
-    filenames roughly corresponds to the data in the `lines` column. The `fmt_image()` method can
-    be used with these inputs since the `path=` and `file_pattern=` arguments allow us to compose
-    complete and valid file locations. What you get from this are sequences of images in the table
-    cells, taken from the referenced graphics files on disk.
+    filenames roughly corresponds to the data in the `lines` column. The
+    [`fmt_image()`](`great_tables.GT.fmt_image`) method can be used with these inputs since the
+    `path=` and `file_pattern=` arguments allow us to compose complete and valid file locations.
+    What you get from this are sequences of images in the table cells, taken from the referenced
+    graphics files on disk.
 
     ```{python}
     from great_tables import GT
@@ -7222,13 +7637,38 @@ def fmt_image(
     if height is None and width is None:
         height = "2em"
 
-    formatter = FmtImage(self._tbl_data, height, width, sep, path, file_pattern, encode)
-    return fmt(
-        self,
-        fns=FormatFns(html=formatter.to_html, latex=formatter.to_latex, default=formatter.to_html),
-        columns=columns,
-        rows=rows,
-    )
+    def format_images(gt: GTSelf, alt_text: str | None, rows: RowSelectExpr) -> GTSelf:
+        formatter = FmtImage(
+            gt._tbl_data, height, width, sep, path, file_pattern, encode, alt=alt_text
+        )
+        return fmt(
+            gt,
+            fns=FormatFns(
+                html=formatter.to_html, latex=formatter.to_latex, default=formatter.to_html
+            ),
+            columns=columns,
+            rows=rows,
+        )
+
+    if not isinstance(alt, FromColumn):
+        return format_images(self, alt, rows)
+
+    # With `from_column()`, each row's alternative text comes from a column: the rows are
+    # grouped by their text, and each group is formatted with it
+    alt_values = to_list(self._tbl_data[alt.column])
+    rows_by_alt: dict[str, list[int]] = {}
+    for _, row in resolve_rows_i(self, rows):
+        value = alt_values[row]
+        if is_na(self._tbl_data, value):
+            text = ""
+        else:
+            text = str(alt.fn(value) if alt.fn is not None else value)
+        rows_by_alt.setdefault(text, []).append(row)
+
+    res = self
+    for text, alt_rows in rows_by_alt.items():
+        res = format_images(res, text, alt_rows)
+    return res
 
 
 @dataclass
@@ -7240,6 +7680,9 @@ class FmtImage:
     path: str | Path | None = None
     file_pattern: str = "{}"
     encode: bool = True
+    # Alternative text, with `{x}` replaced by each image's reference in the cell (an empty `alt`
+    # marks the image as decorative)
+    alt: str | None = None
 
     SPAN_TEMPLATE: ClassVar = '<span style="white-space:nowrap;">{}</span>'
 
@@ -7272,7 +7715,7 @@ class FmtImage:
         full_files = self._apply_pattern(self.file_pattern, files)
 
         out: list[str] = []
-        for file in full_files:
+        for file_ref, file in zip(files, full_files):
             # Case 1: from url via `dispatch_on`
             if self.path is None and is_valid_http_schema(file):
                 uri = file.rstrip().removesuffix("/")
@@ -7290,7 +7733,8 @@ class FmtImage:
                     uri = filename
 
             # TODO: do we have a way to create tags, that is good at escaping, etc..?
-            out.append(self._build_img_tag(uri, height, self.width))
+            alt_text = "" if self.alt is None else self.alt.replace("{x}", file_ref)
+            out.append(self._build_img_tag(uri, height, self.width, alt=alt_text))
 
         img_tags = self.sep.join(out)
         span = self.SPAN_TEMPLATE.format(img_tags)
@@ -7334,7 +7778,9 @@ class FmtImage:
         return f"image/{suffix}"
 
     @staticmethod
-    def _build_img_tag(uri: str, height: str | None = None, width: str | None = None) -> str:
+    def _build_img_tag(
+        uri: str, height: str | None = None, width: str | None = None, alt: str = ""
+    ) -> str:
         style_string = "".join(
             [
                 f"height: {height};" if height is not None else "",
@@ -7343,13 +7789,13 @@ class FmtImage:
             ]
         )
 
-        return f'<img src="{uri}" style="{style_string}">'
+        return f'<img src="{uri}" alt="{html.escape(alt)}" style="{style_string}">'
 
 
 def fmt_icon(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     height: str | None = None,
     sep: str = " ",
     stroke_color: str | None = None,
@@ -7377,7 +7823,8 @@ def fmt_icon(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     height
         The absolute height of the icon in the table cell. By default, this is set to "1em".
     sep
@@ -7591,9 +8038,10 @@ class FmtIcon:
                 height=height,
                 stroke=self.stroke_color,
                 stroke_width=stroke_width,
-                stroke_opacity=str(self.stroke_alpha),
+                # (`str(None)` would give the invalid CSS `stroke-opacity:None`)
+                stroke_opacity=None if self.stroke_alpha is None else str(self.stroke_alpha),
                 fill=fill_color,
-                fill_opacity=str(self.fill_alpha),
+                fill_opacity=None if self.fill_alpha is None else str(self.fill_alpha),
                 margin_left=self.margin_left,
                 margin_right=self.margin_right,
             )
@@ -7618,24 +8066,29 @@ class FmtIcon:
 def fmt_flag(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     height: str | float | None = "1em",
     sep: str = " ",
     use_title: bool = True,
 ) -> GTSelf:
     """Generate flag icons for countries from their country codes.
 
-    While it is fairly straightforward to insert images into body cells (using `fmt_image()` is one
-    way to it), there is often the need to incorporate specialized types of graphics within a table.
-    One such group of graphics involves iconography representing different countries, and the
-    `fmt_flag()` method helps with inserting a flag icon (or multiple) in body cells. To make this
-    work seamlessly, the input cells need to contain some reference to a country, and this can be in
-    the form of a 2- or 3-letter ISO 3166-1 country code (e.g., Egypt has the `"EG"` country code).
-    This method will parse the targeted body cells for those codes and insert the appropriate flag
-    graphics.
+    While it is fairly straightforward to insert images into body cells (using
+    [`fmt_image()`](`great_tables.GT.fmt_image`) is one way to it), there is often the need to
+    incorporate specialized types of graphics within a table. One such group of graphics involves
+    iconography representing different countries, and the `fmt_flag()` method helps with inserting a
+    flag icon (or multiple) in body cells. To make this work seamlessly, the input cells need to
+    contain some reference to a country, and this can be in the form of a 2- or 3-letter ISO 3166-1
+    country code (e.g., Egypt has the `"EG"` country code). This method will parse the targeted body
+    cells for those codes and insert the appropriate flag graphics.
 
     Multiple flags can be included per cell by separating country codes with commas (e.g.,
     `"GB,TT"`). The `sep=` argument allows for a common separator to be applied between flag icons.
+
+    Any code that isn't recognized as a 2- or 3-letter country code is left as is (i.e., the text
+    is retained in place of a flag icon). This means that a column with a mix of valid and invalid
+    codes can still be formatted, and the cells without flags can be identified and styled
+    separately (e.g., with `tab_style()`).
 
     Parameters
     ----------
@@ -7645,7 +8098,8 @@ def fmt_flag(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     height
         The height of the flag icons. The default value is `"1em"`. If given as a number, it is
         assumed to be in pixels.
@@ -7748,8 +8202,6 @@ class FmtFlag:
         if is_na(self.dispatch_on, val):
             return val
 
-        val = val.upper()
-
         if "," in val:
             flag_list = re.split(r",\s*", val)
         else:
@@ -7765,19 +8217,15 @@ class FmtFlag:
 
         out: list[str] = []
 
+        flags_data = _get_flags_data()
+
         for flag in flag_list:
-            # If the number of characters in the country code is not 2 or 3, then we raise an error
-            if len(flag) not in (2, 3):
-                raise ValueError("The country code provided must be either 2 or 3 characters long.")
+            flag_dict = self._lookup_flag(flags_data=flags_data, code=flag.upper())
 
-            # Since we allow 2- or 3- character country codes, create the name of the lookup
-            # column based on the length of the country code
-            lookup_column = "country_code_2" if len(flag) == 2 else "country_code_3"
-
-            # Get the correct dictionary entries based on the provided 'country_code_2' value
-            flag_dict = _filter_pd_df_to_row(
-                pd_df=_get_flags_data(), column=lookup_column, filter_expr=flag
-            )
+            # If the country code isn't recognized, keep the original text in place of a flag
+            if flag_dict is None:
+                out.append(_html_escape(flag))
+                continue
 
             # Get the SVG string and country name for the flag
             flag_svg = str(flag_dict["country_flag"])
@@ -7806,10 +8254,30 @@ class FmtFlag:
         return FormatterSkipElement()
 
     @staticmethod
+    def _lookup_flag(flags_data: list[FlagsDataDict], code: str) -> FlagsDataDict | None:
+        # Since we allow 2- or 3- character country codes, create the name of the lookup
+        # column based on the length of the country code
+        if len(code) == 2:
+            lookup_column = "country_code_2"
+        elif len(code) == 3:
+            lookup_column = "country_code_3"
+        else:
+            return None
+
+        return next((entry for entry in flags_data if entry[lookup_column] == code), None)
+
+    @staticmethod
     def _replace_flag_svg(flag_svg: str, height: str, use_title: bool, flag_title: str) -> str:
+        # With a title, the flag is an image named after the country; otherwise it's decorative
+        # and hidden from assistive technology
+        if use_title:
+            a11y_attrs = f'role="img" aria-label="{html.escape(flag_title)}" '
+        else:
+            a11y_attrs = 'aria-hidden="true" role="img" '
+
         replacement = (
             '<svg xmlns="http://www.w3.org/2000/svg" '
-            'aria-hidden="true" role="img" '
+            f"{a11y_attrs}"
             'width="512" height="512" '
             'viewBox="0 0 512 512" '
             'style="vertical-align:-0.125em;'
@@ -7820,7 +8288,7 @@ class FmtFlag:
         )
 
         if use_title:
-            replacement += f"<title>{flag_title}</title>"
+            replacement += f"<title>{html.escape(flag_title)}</title>"
 
         return re.sub(r"<svg.*?>", replacement, flag_svg)
 
@@ -7828,7 +8296,7 @@ class FmtFlag:
 def fmt_nanoplot(
     self: GTSelf,
     columns: str | None = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     plot_type: PlotType = "line",
     plot_height: str = "2em",
     missing_vals: MissingVals = "gap",
@@ -7838,6 +8306,7 @@ def fmt_nanoplot(
     expand_x: list[int] | list[float] | list[int | float] | None = None,
     expand_y: list[int] | list[float] | list[int | float] | None = None,
     options: dict[str, Any] | None = None,
+    alt: str | FromColumn | None = None,
 ) -> GTSelf:
     """Format data for nanoplot visualizations.
 
@@ -7857,7 +8326,8 @@ def fmt_nanoplot(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     plot_type
         Nanoplots can either take the form of a line plot (using `"line"`) or a bar plot (with
         `"bar"`). A line plot, by default, contains layers for a data line, data points, and a data
@@ -7899,6 +8369,12 @@ def fmt_nanoplot(
     options
         By using the [`nanoplot_options()`](`great_tables.nanoplot_options`) helper function here,
         you can alter the layout and styling of the nanoplots in the new column.
+    alt
+        Alternative text for the nanoplots, which screen readers announce in place of the plot. By
+        default, each nanoplot is described by a summary of its values (e.g., `"Line plot of 8
+        values from 12.0 to 47.0, ending at 30.0"`). A string replaces that summary, with any `{x}`
+        replaced by it (e.g., `"Weekly sales: {x}"`), and
+        [`from_column()`](`great_tables.from_column`) takes each row's text from a column.
 
     Returns
     -------
@@ -8049,8 +8525,6 @@ def fmt_nanoplot(
     ```
     """
 
-    from great_tables._utils import _str_detect
-
     # guards ----
 
     if not isinstance(columns, str):
@@ -8069,129 +8543,66 @@ def fmt_nanoplot(
     # Get the internal data table
     data_tbl = self._tbl_data
 
-    column_d_type = _get_column_dtype(data_tbl, columns)
+    # Values in the targeted rows, which are resolved the same way as in the other fmt_*() methods
+    col_vals = to_list(data_tbl[columns])
+    target_vals = [col_vals[i] for _, i in resolve_rows_i(self, rows)]
 
-    col_class = str(column_d_type).lower()
+    col_class = str(_get_column_dtype(data_tbl, columns)).lower()
 
-    if (
-        _str_detect(col_class, "int")
-        or _str_detect(col_class, "uint")
-        or _str_detect(col_class, "float")
-    ):
-        scalar_vals = True
-    else:
-        scalar_vals = False
-
-    # If a bar plot is requested and the data consists of single y values, then we need to
-    # obtain a list of all single y values in the targeted column (from `columns`)
-    if plot_type in ("line", "bar") and scalar_vals:
-        # Check each cell in the column and get each of them that contains a scalar value
-        # Why are we grabbing the first element of a tuple? (Note this also happens again below.)
-        if rows is not None:
-            all_single_y_vals = to_list(data_tbl[columns][rows])
-        else:
-            all_single_y_vals = to_list(data_tbl[columns])
-
+    # A numeric column has a single `y` value per cell; these are drawn as horizontal bars or lines
+    # on a scale shared by all of the targeted cells (so autoscaling doesn't apply)
+    if col_class.startswith(("int", "uint", "float")):
+        all_single_y_vals = target_vals
         autoscale = False
-
     else:
         all_single_y_vals = None
 
     if options is None:
         from great_tables._helpers import nanoplot_options
 
-        options_plots = nanoplot_options()
-    else:
-        options_plots = options
+        options = nanoplot_options()
 
-    # For autoscale, we need to get the minimum and maximum from all values for the y-axis
+    # For autoscale, the `y` scale of every nanoplot spans the `y` values of all targeted cells
+    # (missing cells and missing values are left out)
     if autoscale:
-        from great_tables._utils import _flatten_list
+        all_y_vals = [
+            val
+            for cell in target_vals
+            if not is_na(data_tbl, cell)
+            for val in _get_cell_y_vals(cell)
+            if not is_na(data_tbl, val)
+        ]
 
-        # TODO: if a column of delimiter separated strings is passed. E.g. "1 2 3 4". Does this mean
-        # that autoscale does not work? In this case, is col_i_y_vals_raw a string that gets processed?
-        # downstream?
-        if rows is not None:
-            all_y_vals_raw = to_list(data_tbl[columns][rows])
-        else:
-            all_y_vals_raw = to_list(data_tbl[columns])
+        if all_y_vals:
+            expand_y = [min(all_y_vals), max(all_y_vals)]
 
-        all_y_vals = []
+    # Generate a function that turns the nanoplot data in a cell into an SVG nanoplot (with the
+    # given alternative text)
+    def make_fmt_nanoplot_fn(alt_text: str | None) -> Callable[[Any, str], str]:
+        return lambda x, context: fmt_nanoplot_fn(x, context, alt_text)
 
-        for data_vals_i in all_y_vals_raw:
-            # TODO: this dictionary handling seems redundant with _generate_data_vals dict handling?
-            # Can this if-clause be removed?
-            if isinstance(data_vals_i, dict):
-                if len(data_vals_i) == 1:
-                    # If there is only one key in the dictionary, then we can assume that the
-                    # dictionary deals with y-values only
-                    data_vals_i = list(data_vals_i.values())[0]
-
-                else:
-                    # Otherwise assume that the dictionary contains x and y values; extract
-                    # the y values
-                    data_vals_i = data_vals_i["y"]
-
-            data_vals_i = _generate_data_vals(data_vals=data_vals_i)
-
-            # If not a list, then convert to a list
-            if not isinstance(data_vals_i, list):
-                data_vals_i = [data_vals_i]
-
-            all_y_vals.extend(data_vals_i)
-
-        all_y_vals = _flatten_list(all_y_vals)
-
-        # Get the minimum and maximum values from the list
-        expand_y = [min(all_y_vals), max(all_y_vals)]
-
-    # Generate a function that will operate on single `x` values in the table body using both
-    # the date and time format strings
-    def fmt_nanoplot_fn(
-        x: Any,
-        context: str,
-        plot_type: PlotType = plot_type,
-        plot_height: str = plot_height,
-        missing_vals: MissingVals = missing_vals,
-        reference_line: str | float | None = reference_line,
-        reference_area: list[Any] | None = reference_area,
-        all_single_y_vals: list[int | float] | None = all_single_y_vals,
-        options_plots: dict[str, Any] = options_plots,
-    ) -> str:
+    def fmt_nanoplot_fn(x: Any, context: str, alt_text: str | None = None) -> str:
         if context == "latex":
             raise NotImplementedError("fmt_nanoplot() is not supported in LaTeX.")
 
-        # If the `x` value is a Pandas 'NA', then return the same value
-        # We have to pass in a dataframe to this function. Everything action that
-        # requires a dataframe import should go through _tbl_data.
+        # A missing cell value is returned as is
         if is_na(data_tbl, x):
             return x
 
-        # Generate data vals from the input `x` value
-        x = _generate_data_vals(data_vals=x)
+        data_vals = _generate_data_vals(data_vals=x)
 
-        # TODO: where are tuples coming from? Need example / tests that induce tuples
-        # If `x` is a tuple, then we have x and y values; otherwise, we only have y values
-        if isinstance(x, tuple):
-            x_vals, y_vals = x
+        # A cell with both `x` and `y` values (a dictionary with "x" and "y" keys) gives a tuple of
+        # two lists of the same length
+        if isinstance(data_vals, tuple):
+            x_vals, y_vals = data_vals
 
-            # Ensure that both objects are lists
-            if not isinstance(x_vals, list) or not isinstance(y_vals, list):  # pragma: no cover
-                raise ValueError("The 'x' and 'y' values must be lists.")
-
-            # Ensure that the lists contain only numeric values (ints and floats)
-            if not all(isinstance(val, (int, float)) for val in x_vals):  # pragma: no cover
+            if not all(isinstance(val, (int, float)) for val in x_vals):
                 raise ValueError("The 'x' values must be numeric.")
 
-            # Ensure that the lengths of the x and y values are the same
-            if len(x_vals) != len(y_vals):  # pragma: no cover
-                raise ValueError("The lengths of the 'x' and 'y' values must be the same.")
-
         else:
-            y_vals = x
-            x_vals = None
+            x_vals, y_vals = None, data_vals
 
-        nanoplot = _generate_nanoplot(
+        return _generate_nanoplot(
             y_vals=y_vals,
             y_ref_line=reference_line,
             y_ref_area=reference_area,
@@ -8202,12 +8613,43 @@ def fmt_nanoplot(
             all_single_y_vals=all_single_y_vals,
             plot_type=plot_type,
             svg_height=plot_height,
-            **options_plots,
+            alt=alt_text,
+            **options,
         )
 
-        return nanoplot
+    if not isinstance(alt, FromColumn):
+        return fmt_by_context(self, pf_format=make_fmt_nanoplot_fn(alt), columns=columns, rows=rows)
 
-    return fmt_by_context(self, pf_format=fmt_nanoplot_fn, columns=columns, rows=rows)
+    # With `from_column()`, each row's alternative text comes from a column: the rows are grouped
+    # by their text, and each group is formatted with it (sharing the scale computed above)
+    alt_values = to_list(data_tbl[alt.column])
+    rows_by_alt: dict[str, list[int]] = {}
+    for _, row in resolve_rows_i(self, rows):
+        value = alt_values[row]
+        if is_na(data_tbl, value):
+            text = ""
+        else:
+            text = str(alt.fn(value) if alt.fn is not None else value)
+        rows_by_alt.setdefault(text, []).append(row)
+
+    res = self
+    for text, alt_rows in rows_by_alt.items():
+        res = fmt_by_context(
+            res, pf_format=make_fmt_nanoplot_fn(text or None), columns=columns, rows=alt_rows
+        )
+    return res
+
+
+def _get_cell_y_vals(cell: Any) -> list[int | float]:
+    """Get the `y` values from a cell of nanoplot data (see `_generate_data_vals()`)."""
+
+    data_vals = _generate_data_vals(data_vals=cell)
+
+    # A cell with both `x` and `y` values gives a tuple of the two lists
+    if isinstance(data_vals, tuple):
+        data_vals = data_vals[1]
+
+    return data_vals if isinstance(data_vals, list) else [data_vals]
 
 
 def _generate_data_vals(
@@ -8309,13 +8751,16 @@ def _process_number_stream(data_vals: str) -> list[float]:
         list[float]: A list of numeric values.
     """
 
-    number_stream = re.sub(r"[;,]", " ", data_vals)
-    number_stream = re.sub(r"\\[|\\]", " ", number_stream)
-    number_stream = re.sub(r"^\\s+|\\s+$", "", number_stream)
-    number_stream = [val for val in number_stream.split()]
+    # Values are separated by whitespace, commas, or semicolons, and may be wrapped in brackets
+    number_stream = re.sub(r"[;,\[\]]", " ", data_vals).split()
 
     result: list[float] = []
     for val in number_stream:
+        # An `NA` marks a missing value, just like `nan` (which `float()` already accepts)
+        if val.upper() == "NA":
+            result.append(float("nan"))
+            continue
+
         try:
             result.append(float(val))
         except ValueError:
@@ -8346,7 +8791,7 @@ def _process_time_stream(data_vals: str) -> list[float]:
 def fmt_passthrough(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     escape: bool = True,
     pattern: str = "{x}",
 ) -> GTSelf:
@@ -8374,7 +8819,8 @@ def fmt_passthrough(
     rows
         In conjunction with `columns=`, we can specify which of their rows should undergo
         formatting. The default is all rows, resulting in all rows in targeted columns being
-        formatted. Alternatively, we can supply a list of row indices.
+        formatted. Alternatively, we can supply a row index, a list of row indices, or (for Polars
+        DataFrames) a Polars expression such as `pl.col("x") > 0`.
     escape
         Should the cell values be escaped for the output context? When `True` (the default),
         HTML special characters like `<`, `>`, and `&` are escaped in HTML output, and LaTeX special
@@ -8453,10 +8899,7 @@ def fmt_passthrough_context(
         elif context == "latex":
             x_formatted = _latex_escape(x_formatted)
 
-    if pattern != "{x}":
-        if context == "latex":
-            pattern = escape_pattern_str_latex(pattern_str=pattern)
-        x_formatted = pattern.replace("{x}", x_formatted)
+    x_formatted = _apply_value_pattern(x_formatted, pattern=pattern, context=context)
 
     return x_formatted
 
@@ -8465,7 +8908,7 @@ def fmt_by_context(
     self: GTSelf,
     pf_format: Callable[[Any], str],
     columns: SelectExpr,
-    rows: int | list[int] | None,
+    rows: RowSelectExpr,
 ) -> GTSelf:
     return fmt(
         self,

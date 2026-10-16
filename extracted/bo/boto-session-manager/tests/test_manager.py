@@ -1,207 +1,351 @@
 # -*- coding: utf-8 -*-
 
 from boto_session_manager.manager import BotoSesManager
-from boto_session_manager.manager import AwsServiceEnum
 from boto_session_manager.manager import PATH_DEFAULT_SNAPSHOT
 
 import pytest
 
 import os
 import json
+import shutil
 import subprocess
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 
-# fmt: off
+from boto_session_manager.services import AwsServiceEnum
+from boto_session_manager.tests.settings import AWS_REGION
+from boto_session_manager.tests.settings import IS_CI
+from boto_session_manager.tests.settings import TEST_AWS_PROFILE_ENV_VAR
 from boto_session_manager.tests.settings import TEST_IAM_USER_NAME
 from boto_session_manager.tests.settings import TEST_IAM_ROLE_NAME
+from boto_session_manager.tests.settings import TEST_IAM_ROLE_WITH_EXTERNAL_ID_NAME
+from boto_session_manager.tests.settings import TEST_ROLE_EXTERNAL_ID
 from boto_session_manager.tests.settings import load_bsm_project
 
-if "CI" in os.environ:  # pragma: no cover
-    IS_CI = True
-# to test this on your local, make sure your DEFAULT AWS profile
-# is NOT project_boto_session_manager
-# and also the aws account is NOT the same as project_boto_session_manager
-else:  # pragma: no cover
-    IS_CI = False
+AWS_CLI_ENV_VARS = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_REGION",
+    "AWS_PROFILE",
+]
 
-bsm_project = load_bsm_project()
 
-class TestBotoSesManager:
-    def test_aws_account_id_and_region(self):
-        _ = bsm_project.aws_account_user_id
-        _ = bsm_project.masked_aws_account_user_id
-        _ = bsm_project.aws_account_id
-        _ = bsm_project.masked_aws_account_id
-        _ = bsm_project.principal_arn
-        _ = bsm_project.masked_principal_arn
-        _ = bsm_project.aws_region
-        _ = bsm_project.aws_account_alias
+def make_offline_bsm(**kwargs) -> BotoSesManager:
+    """
+    A manager with fake static credentials: creating clients and reading the
+    credentials never calls AWS, so these tests run without network.
+    """
+    return BotoSesManager(
+        aws_access_key_id="AKIAFAKE",
+        aws_secret_access_key="fake-secret",
+        region_name=AWS_REGION,
+        **kwargs,
+    )
 
-        bsm_assumed = bsm_project.assume_role(
-            role_arn=f"arn:aws:iam::{bsm_project.aws_account_id}:role/{TEST_IAM_ROLE_NAME}"
-        )
-        _ = bsm_assumed.aws_account_user_id
-        _ = bsm_assumed.masked_aws_account_user_id
-        _ = bsm_assumed.aws_account_id
-        _ = bsm_assumed.masked_aws_account_id
-        _ = bsm_assumed.principal_arn
-        _ = bsm_assumed.masked_principal_arn
-        _ = bsm_assumed.aws_region
-        _ = bsm_assumed.aws_account_alias
 
-        # bsm.print_who_am_i()
-        # bsm_assumed.print_who_am_i()
-
+# ------------------------------------------------------------------------------
+# Offline: no AWS call
+# ------------------------------------------------------------------------------
+class TestCache:
     def test_get_client(self):
-        s3_client1 = bsm_project.get_client(AwsServiceEnum.S3)
-        s3_client2 = bsm_project.get_client(AwsServiceEnum.S3)
-        assert id(s3_client1) == id(s3_client2)
+        bsm = make_offline_bsm()
+        s3_client = bsm.get_client(AwsServiceEnum.S3)
+        assert bsm.get_client(AwsServiceEnum.S3) is s3_client
+        # the typed property shares the cache
+        assert bsm.s3_client is s3_client
+        # the cache key is the service name only: later kwargs are ignored
+        assert bsm.get_client(AwsServiceEnum.S3, region_name="eu-west-1") is s3_client
 
     def test_get_resource(self):
-        s3_resource1 = bsm_project.get_resource(AwsServiceEnum.S3)
-        s3_resource2 = bsm_project.get_resource(AwsServiceEnum.S3)
-        assert id(s3_resource1) == id(s3_resource2)
+        bsm = make_offline_bsm()
+        s3_resource = bsm.get_resource(AwsServiceEnum.S3)
+        assert bsm.get_resource(AwsServiceEnum.S3) is s3_resource
+
+    def test_default_client_kwargs(self):
+        endpoint_url = "http://localhost:4566"
+        bsm = make_offline_bsm(default_client_kwargs={"endpoint_url": endpoint_url})
+        assert bsm.s3_client.meta.endpoint_url == endpoint_url
+        s3_resource = bsm.get_resource(AwsServiceEnum.S3)
+        assert s3_resource.meta.client.meta.endpoint_url == endpoint_url
+
+    def test_create_boto_ses(self):
+        bsm = make_offline_bsm()
+        assert bsm.boto_ses is bsm.boto_ses
+        assert bsm.create_boto_ses() is not bsm.boto_ses
+        assert bsm.aws_region == AWS_REGION
 
     def test_clear_cache(self):
-        _ = bsm_project.s3_client
-        assert len(bsm_project._client_cache) >= 1
+        bsm = make_offline_bsm()
+        boto_ses = bsm.boto_ses
+        s3_client = bsm.s3_client
+        _ = bsm.get_resource(AwsServiceEnum.S3)
+        _ = bsm.aws_region
+        bsm.clear_cache()
+        assert len(bsm._client_cache) == 0
+        assert len(bsm._resource_cache) == 0
+        assert bsm.boto_ses is not boto_ses
+        assert bsm.s3_client is not s3_client
 
-        bsm_project.clear_cache()
-        assert len(bsm_project._client_cache) == 0
 
-    def test_is_expired(self):
-        assert bsm_project.is_expired() is False
+class TestExpiration:
+    def test_default(self):
+        bsm = make_offline_bsm()
+        assert bsm.is_expired() is False
+        # the default expiration time is one year from now
+        assert bsm.is_expired(delta=400 * 24 * 3600) is True
 
-    def test_assume_role(self):
-        # Test STS get caller identity
-        aws_account_id = bsm_project.sts_client.get_caller_identity()["Account"]
-        assert aws_account_id == bsm_project.aws_account_id
+    def test_explicit_expiration_time(self):
+        now = datetime.now(timezone.utc)
+        bsm = make_offline_bsm(expiration_time=now + timedelta(seconds=600))
+        assert bsm.is_expired() is False
+        assert bsm.is_expired(delta=300) is False
+        assert bsm.is_expired(delta=900) is True
 
-        # Test IAM role and Assumed IAM Role
-        bsm_assumed = bsm_project.assume_role(
-            role_arn=f"arn:aws:iam::{aws_account_id}:role/{TEST_IAM_ROLE_NAME}"
-        )
-        sts_client_assumed = bsm_assumed.get_client(AwsServiceEnum.STS)
-        res = sts_client_assumed.get_caller_identity()
-        arn = f"arn:aws:sts::{aws_account_id}:assumed-role/{TEST_IAM_ROLE_NAME}"
-        assert res["Arn"].startswith(arn)
-        assert bsm_assumed.expiration_time <= bsm_project.expiration_time
 
-    def _assert_aws_cli_env_var_exists(self):
-        assert "AWS_ACCESS_KEY_ID" in os.environ
-        assert "AWS_SECRET_ACCESS_KEY" in os.environ
-        assert "AWS_SESSION_TOKEN" in os.environ
-        assert "AWS_REGION" in os.environ
+class TestSnapshot:
+    def test_to_and_from_snapshot(self):
+        bsm = make_offline_bsm()
+        snapshot = bsm.to_snapshot()
+        assert snapshot == {
+            "region_name": AWS_REGION,
+            "aws_access_key_id": "AKIAFAKE",
+            "aws_secret_access_key": "fake-secret",
+        }
+        bsm_restored = BotoSesManager.from_snapshot(snapshot)
+        assert bsm_restored.to_snapshot() == snapshot
 
-    def _assert_default_aws_cli_credential_is_different(self, bsm: BotoSesManager):
-        args = ["aws", "sts", "get-caller-identity"]
-        response = json.loads(
-            subprocess.run(args, capture_output=True).stdout.decode("utf-8")
-        )
-        user_id, aws_account_id, arn = (
-            response["UserId"],
-            response["Account"],
-            response["Arn"],
-        )
-        assert aws_account_id != bsm.aws_account_id
-        assert not arn.endswith(TEST_IAM_USER_NAME)
+    def test_to_snapshot_with_session_token(self):
+        bsm = make_offline_bsm(aws_session_token="fake-token")
+        assert bsm.to_snapshot()["aws_session_token"] == "fake-token"
 
-        assert "AWS_ACCESS_KEY_ID" not in os.environ
-        assert "AWS_SECRET_ACCESS_KEY" not in os.environ
-        assert "AWS_SESSION_TOKEN" not in os.environ
-        assert "AWS_REGION" not in os.environ
+    def test_temp_snapshot(self, tmp_path):
+        path = tmp_path / "snapshot.json"
+        bsm = make_offline_bsm()
+        with bsm.temp_snapshot(path=path) as bsm_yielded:
+            assert bsm_yielded is bsm
+            assert json.loads(path.read_text()) == bsm.to_snapshot()
+            bsm_restored = BotoSesManager.from_snapshot_file(path)
+            assert bsm_restored.to_snapshot() == bsm.to_snapshot()
+        assert path.exists() is False
 
-    def _ensure_default_aws_account_is_not_project_aws_account(self):
-        bsm = BotoSesManager()
-        if bsm_project == bsm.aws_account_id:
-            raise EnvironmentError(
-                "For this test, the default AWS account cannot be the same as "
-                "the project AWS account"
-            )
+    def test_from_snapshot_file_missing(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            BotoSesManager.from_snapshot_file(tmp_path / "missing.json")
 
-    @pytest.mark.skipif(
-        IS_CI,
-        reason="we don't want to expose real AWS credentials in CI",
-    )
-    def test_cli_context_manager_with_arguments(self):
-        self._ensure_default_aws_account_is_not_project_aws_account()
+    def test_default_snapshot_path(self):
+        assert PATH_DEFAULT_SNAPSHOT.name == ".bsm-snapshot.json"
 
-        # the bsm object is using the profile "project_boto_session_manager"
-        # which is an IAM user.
-        # however, the aws cli uses different AWS profile
-        self._assert_default_aws_cli_credential_is_different(bsm_project)
 
-        def get_caller_identity() -> tuple[str, str, str]:
-            args = ["aws", "sts", "get-caller-identity"]
-            response = json.loads(
-                subprocess.run(args, capture_output=True).stdout.decode("utf-8")
-            )
-            user_id, aws_account_id, arn = (
-                response["UserId"],
-                response["Account"],
-                response["Arn"],
-            )
-            return user_id, aws_account_id, arn
-
-        # iam user
-        # the aws cli uses the same AWS profile as the bsm object
-        with bsm_project.awscli():
-            user_id, aws_account_id, arn = get_caller_identity()
-            assert aws_account_id == bsm_project.aws_account_id
-            assert arn.endswith(f"user/{TEST_IAM_USER_NAME}")
-            assert "AWS_ACCESS_KEY_ID" in os.environ
-            assert "AWS_SECRET_ACCESS_KEY" in os.environ
+class TestAwsCliEnvVar:
+    def test_static_credentials(self, monkeypatch):
+        """
+        Inside the block: the key pair and region, no token, no profile.
+        After the block: every variable is back to its value before the block.
+        """
+        bsm = make_offline_bsm()
+        # boto3 reads AWS_PROFILE when it creates the session: create it first
+        _ = bsm.boto_ses
+        monkeypatch.setenv("AWS_PROFILE", "before")
+        monkeypatch.setenv("AWS_SESSION_TOKEN", "before")
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        with bsm.awscli() as bsm_yielded:
+            assert bsm_yielded is bsm
+            assert os.environ["AWS_ACCESS_KEY_ID"] == "AKIAFAKE"
+            assert os.environ["AWS_SECRET_ACCESS_KEY"] == "fake-secret"
+            assert os.environ["AWS_REGION"] == AWS_REGION
             assert "AWS_SESSION_TOKEN" not in os.environ
             assert "AWS_PROFILE" not in os.environ
+        assert os.environ["AWS_PROFILE"] == "before"
+        assert os.environ["AWS_SESSION_TOKEN"] == "before"
+        assert "AWS_ACCESS_KEY_ID" not in os.environ
+        assert "AWS_REGION" not in os.environ
 
-        self._assert_default_aws_cli_credential_is_different(bsm_project)
+    def test_temporary_credentials(self, monkeypatch):
+        for name in AWS_CLI_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        bsm = make_offline_bsm(aws_session_token="fake-token")
+        with bsm.awscli():
+            assert os.environ["AWS_SESSION_TOKEN"] == "fake-token"
+            assert os.environ["AWS_ACCESS_KEY_ID"] == "AKIAFAKE"
+        for name in AWS_CLI_ENV_VARS:
+            assert name not in os.environ
 
-        # assume role
-        bsm_assumed = bsm_project.assume_role(
-            role_arn=f"arn:aws:iam::{aws_account_id}:role/{TEST_IAM_ROLE_NAME}"
-        )
-        # the aws cli uses the sts session token as the same as the assumed role
-        with bsm_assumed.awscli():
-            user_id, aws_account_id, arn = get_caller_identity()
-            assert aws_account_id == bsm_assumed.aws_account_id
-            assert f"assumed-role/{TEST_IAM_ROLE_NAME}" in arn
-            assert "AWS_ACCESS_KEY_ID" in os.environ
-            assert "AWS_SECRET_ACCESS_KEY" in os.environ
-            assert "AWS_SESSION_TOKEN" in os.environ
-            assert "AWS_PROFILE" not in os.environ
+    def test_restored_on_error(self, monkeypatch):
+        monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
+        bsm = make_offline_bsm()
+        with pytest.raises(ZeroDivisionError):
+            with bsm.awscli():
+                _ = 1 / 0
+        assert "AWS_ACCESS_KEY_ID" not in os.environ
 
-        self._assert_default_aws_cli_credential_is_different(bsm_project)
+    @pytest.mark.skipif(IS_CI, reason="CI has no ~/.aws profile")
+    def test_profile(self, monkeypatch):
+        """
+        A manager built from a profile passes the profile, not the keys.
+        """
+        for name in AWS_CLI_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        profile = os.environ[TEST_AWS_PROFILE_ENV_VAR]
+        bsm = BotoSesManager(profile_name=profile, region_name=AWS_REGION)
+        with bsm.awscli():
+            assert os.environ["AWS_PROFILE"] == profile
+            assert "AWS_ACCESS_KEY_ID" not in os.environ
+        assert "AWS_PROFILE" not in os.environ
 
-        bsm_default = BotoSesManager()
 
-        with bsm_default.awscli():
-            user_id, aws_account_id, arn = get_caller_identity()
-            assert bsm_default.aws_account_id == aws_account_id
-            assert "AWS_ACCESS_KEY_ID" in os.environ
-            assert "AWS_SECRET_ACCESS_KEY" in os.environ
-            if bsm_default.boto_ses.get_credentials().token:
-                assert "AWS_SESSION_TOKEN" in os.environ
-            else:
-                assert "AWS_SESSION_TOKEN" not in os.environ
-            assert "AWS_PROFILE" not in os.environ
+# ------------------------------------------------------------------------------
+# Real AWS: the test IAM user and roles of ``mise run setup-aws-ci``
+# ------------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def bsm_project() -> BotoSesManager:
+    return load_bsm_project()
 
-    @pytest.mark.skipif(
-        IS_CI,
-        reason="we don't want to expose real AWS credentials in CI",
+
+def get_role_arn(bsm: BotoSesManager, role_name: str) -> str:
+    return f"arn:aws:iam::{bsm.aws_account_id}:role/{role_name}"
+
+
+def get_caller_arn_via_aws_cli() -> str:
+    """
+    Run ``aws sts get-caller-identity`` in a subprocess, which only sees the
+    credentials through the environment variables.
+    """
+    aws = shutil.which("aws")
+    if aws is None:  # pragma: no cover
+        raise EnvironmentError("the aws CLI is not on PATH; run 'mise install'")
+    res = subprocess.run(
+        [aws, "sts", "get-caller-identity", "--output", "json"],
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    def test_temp_snapshot(self):
-        self._ensure_default_aws_account_is_not_project_aws_account()
+    return json.loads(res.stdout)["Arn"]
 
-        bsm_default = BotoSesManager()
-        assert bsm_default.aws_account_id != bsm_project.aws_account_id
 
-        with bsm_default.temp_snapshot():
+class TestIdentity:
+    def test_iam_user(self, bsm_project):
+        sts_res = bsm_project.sts_client.get_caller_identity()
+        assert bsm_project.aws_account_id == sts_res["Account"]
+        assert bsm_project.aws_account_user_id == sts_res["UserId"]
+        assert bsm_project.principal_arn == sts_res["Arn"]
+        assert bsm_project.principal_arn.endswith(f":user/{TEST_IAM_USER_NAME}")
+        assert bsm_project.aws_region == AWS_REGION
+
+        assert bsm_project.masked_aws_account_id != bsm_project.aws_account_id
+        assert "*" in bsm_project.masked_aws_account_user_id
+        assert bsm_project.aws_account_id not in bsm_project.masked_principal_arn
+
+        alias = bsm_project.aws_account_alias
+        assert alias is None or isinstance(alias, str)
+
+
+class TestAssumeRole:
+    def test_assume_role(self, bsm_project):
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_NAME),
+            duration_seconds=900,
+        )
+        assert bsm_role is not bsm_project
+        assert bsm_role.aws_account_id == bsm_project.aws_account_id
+        assert f":assumed-role/{TEST_IAM_ROLE_NAME}/" in bsm_role.principal_arn
+        assert bsm_role.aws_region == bsm_project.aws_region
+        assert bsm_role.is_expired() is False
+        # 900 seconds: expired with a 20 minute safety margin
+        assert bsm_role.is_expired(delta=1200) is True
+        _ = bsm_role.aws_account_alias
+
+    def test_assume_role_with_all_options(self, bsm_project):
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_NAME),
+            role_session_name="bsm-unit-test",
+            duration_seconds=900,
+            tags=[{"Key": "Project", "Value": "boto_session_manager"}],
+            transitive_tag_keys=["Project"],
+            source_identity="bsm-unit-test",
+            region_name="us-west-2",
+        )
+        assert bsm_role.principal_arn.endswith(
+            f":assumed-role/{TEST_IAM_ROLE_NAME}/bsm-unit-test"
+        )
+        assert bsm_role.aws_region == "us-west-2"
+
+    def test_assume_role_with_external_id(self, bsm_project):
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_WITH_EXTERNAL_ID_NAME),
+            duration_seconds=900,
+            external_id=TEST_ROLE_EXTERNAL_ID,
+        )
+        assert (
+            f":assumed-role/{TEST_IAM_ROLE_WITH_EXTERNAL_ID_NAME}/"
+            in bsm_role.principal_arn
+        )
+
+    def test_assume_role_without_external_id_is_denied(self, bsm_project):
+        sts_client = bsm_project.sts_client
+        with pytest.raises(sts_client.exceptions.ClientError) as e:
+            bsm_project.assume_role(
+                role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_WITH_EXTERNAL_ID_NAME),
+                duration_seconds=900,
+            )
+        assert e.value.response["Error"]["Code"] == "AccessDenied"
+
+    def test_assume_role_auto_refresh(self, bsm_project):
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_NAME),
+            duration_seconds=900,
+            auto_refresh=True,
+        )
+        assert f":assumed-role/{TEST_IAM_ROLE_NAME}/" in bsm_role.principal_arn
+        # refreshable credentials never expire on the manager side
+        assert bsm_role.is_expired(delta=365 * 24 * 3600) is False
+        assert bsm_role.default_client_kwargs == bsm_project.default_client_kwargs
+
+
+class TestAwsCli:
+    def test_aws_cli_sees_the_session(self, bsm_project, monkeypatch):
+        """
+        A subprocess running the AWS CLI acts as the IAM user, then as the
+        assumed role, then as neither once the blocks end.
+        """
+        for name in AWS_CLI_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+
+        with bsm_project.awscli():
+            assert get_caller_arn_via_aws_cli() == bsm_project.principal_arn
+
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_NAME),
+            duration_seconds=900,
+        )
+        with bsm_role.awscli():
+            assert "AWS_SESSION_TOKEN" in os.environ
+            assert get_caller_arn_via_aws_cli() == bsm_role.principal_arn
+
+        for name in AWS_CLI_ENV_VARS:
+            assert name not in os.environ
+
+    def test_temp_snapshot_across_processes(self, bsm_project, monkeypatch, tmp_path):
+        """
+        Inside another session's awscli() block, the default session is that
+        session, but the snapshot still gives back the original one.
+        """
+        for name in AWS_CLI_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        path = tmp_path / "snapshot.json"
+
+        bsm_role = bsm_project.assume_role(
+            role_arn=get_role_arn(bsm_project, TEST_IAM_ROLE_NAME),
+            duration_seconds=900,
+        )
+        with bsm_role.temp_snapshot(path=path):
             with bsm_project.awscli():
-                bsm_new = BotoSesManager()
-                assert bsm_new.aws_account_id == bsm_project.aws_account_id
-                bsm_origin = BotoSesManager.from_snapshot_file()
-                assert bsm_origin.aws_account_id == bsm_default.aws_account_id
-
-        assert PATH_DEFAULT_SNAPSHOT.exists() is False
+                assert BotoSesManager().principal_arn == bsm_project.principal_arn
+                bsm_origin = BotoSesManager.from_snapshot_file(path)
+                assert bsm_origin.principal_arn == bsm_role.principal_arn
+        assert path.exists() is False
 
 
 if __name__ == "__main__":

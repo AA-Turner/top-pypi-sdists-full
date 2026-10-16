@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - name: Configure
         run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
@@ -26,3 +28,8 @@ jobs:
         run: >
           MallocScribble=1 MallocGuardEdges=1
           leaks --atExit -- ./build/all_tests
+
+      - name: Run sparsediff_linalg tests under guard-malloc + leaks
+        run: >
+          MallocScribble=1 MallocGuardEdges=1
+          leaks --atExit -- ./build/sparsediff_linalg/sparsediff_linalg_tests

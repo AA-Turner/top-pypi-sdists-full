@@ -115,7 +115,6 @@ _EMBEDDING_DIM = 32
 _common_mock_metadata = dict(
     languages=None,
     open_weights=True,
-    revision="2",
     release_date=None,
     n_parameters=0,
     n_embedding_parameters=0,
@@ -418,6 +417,7 @@ class RandomEncoderBaseline:
 random_encoder_baseline = ModelMeta(
     loader=RandomEncoderBaseline,
     name="mteb/baseline-random-encoder",
+    revision="2",
     model_type=["dense"],
     embed_dim=[_EMBEDDING_DIM, 10],
     similarity_fn_name="cosine",
@@ -474,9 +474,54 @@ class RandomCrossEncoderBaseline:
 random_cross_encoder_baseline = ModelMeta(
     loader=RandomCrossEncoderBaseline,
     name="mteb/baseline-random-cross-encoder",
+    revision="2",
     model_type=["cross-encoder"],
     embed_dim=None,
     similarity_fn_name="cosine",
+    **_common_mock_metadata,
+)
+
+
+class NoRerankingBaseline:
+    """A reranking baseline that keeps the first-stage order (an identity mapping).
+
+    Reranking tasks pass the candidates of each query in the order of the first-stage
+    ranking, so scoring each pair by its position within its query reproduces the
+    first-stage ranking. Useful as the reference point that a reranker should improve on.
+    """
+
+    mteb_model_meta: ModelMeta | None = None
+
+    def __init__(self, model_name: str, revision: str | None, **kwargs: Any) -> None:
+        pass
+
+    def predict(  # noqa: PLR6301
+        self,
+        inputs1: DataLoader[BatchedInput],
+        inputs2: DataLoader[BatchedInput],
+        *,
+        task_metadata: TaskMetadata,
+        hf_split: str,
+        hf_subset: str,
+        prompt_type: PromptType | None = None,
+        **kwargs: Any,
+    ) -> Array:
+        query_ids = inputs1.dataset["id"]
+        scores = []
+        rank = 0
+        for i, query_id in enumerate(query_ids):
+            rank = rank + 1 if i > 0 and query_id == query_ids[i - 1] else 0
+            scores.append(-rank)
+        return np.array(scores, dtype=np.float32)
+
+
+no_reranking_baseline = ModelMeta(
+    loader=NoRerankingBaseline,
+    name="mteb/baseline-no-reranking",
+    revision="2",
+    model_type=["cross-encoder"],
+    embed_dim=None,
+    similarity_fn_name=None,
     **_common_mock_metadata,
 )
 
@@ -565,6 +610,7 @@ class RandomSparseEncoderBaseline:
 random_sparse_encoder_baseline = ModelMeta(
     loader=RandomSparseEncoderBaseline,
     name="mteb/baseline-random-sparse-encoder",
+    revision="2",
     model_type=["sparse"],
     embed_dim=_SPARSE_EMBEDDING_DIM,
     similarity_fn_name="dot",
@@ -718,6 +764,7 @@ class RandomColBERTBaseline:
 random_colbert_baseline = ModelMeta(
     loader=RandomColBERTBaseline,
     name="mteb/baseline-random-colbert",
+    revision="2",
     model_type=["late-interaction"],
     embed_dim=_LATE_INTERACTION_EMBEDDING_DIM,
     similarity_fn_name="MaxSim",

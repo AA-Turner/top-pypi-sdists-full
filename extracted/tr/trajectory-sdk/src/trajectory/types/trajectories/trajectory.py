@@ -9,6 +9,26 @@ from trajectory.types.trajectories.steps.step import Step
 from trajectory.types.trajectory_rollout_status import TrajectoryRolloutStatus
 
 
+class RewardComponent(BaseModel):
+  name: str
+  """Reward component name."""
+
+  value: float
+  """Raw value as logged."""
+
+  scaled_value: float
+  """Value scaled to [0, 1]: (value - score_range_min) / (score_range_max - score_range_min)."""
+
+  weight: float
+  """Weight of this component in the logged reward."""
+
+  score_range_min: float
+
+  score_range_max: float
+
+  explanation: str | None = None
+
+
 class Trajectory(BaseModel):
   trajectory_id: str
 
@@ -54,3 +74,6 @@ class Trajectory(BaseModel):
   error: str | None = None
 
   steps: list[Step] | None = None
+
+  reward_components: list[RewardComponent] | None = None
+  """Logged reward components, in logged order."""

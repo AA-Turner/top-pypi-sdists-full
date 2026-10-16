@@ -84,3 +84,20 @@ async def test_a_plain_503_is_still_a_route_outage(monkeypatch) -> None:
     _transport(monkeypatch, handler)
     data = await proxy.exec_command(DESKTOP, "pwd")
     assert data["exit_code"] == 0 and calls["n"] == 2
+
+
+async def test_not_found_names_the_file_asked_for_not_the_endpoint(monkeypatch) -> None:
+    """A missing file reads "Not found: <that file>", never "Not found: /fs/read"."""
+    _transport(
+        monkeypatch,
+        lambda _r: httpx.Response(
+            404, json={"detail": {"code": "NOT_FOUND", "message": "No such file or directory"}}
+        ),
+    )
+
+    with pytest.raises(proxy.SandboxProxyError) as raised:
+        await proxy.fs_read(DESKTOP, "/Users/person/missing-notes.txt")
+
+    assert raised.value.status == 404
+    assert "/Users/person/missing-notes.txt" in str(raised.value)
+    assert "/fs/read" not in str(raised.value)

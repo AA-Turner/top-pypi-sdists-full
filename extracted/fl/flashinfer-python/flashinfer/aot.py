@@ -101,6 +101,7 @@ from .jit.cake_kda_packed_t1 import (
 from .jit.cake_megamoe_topk_reduce import gen_cake_megamoe_topk_reduce_module
 from .jit.nvfp4_attention_sm120 import gen_nvfp4_attention_sm120_module
 from .jit.fp8_quantization import gen_mxfp8_quantization_sm100_module
+from .jit.cudnn_frost import FROST_DTYPES, gen_cudnn_frost_moe_module
 from .jit.fused_moe import (
     gen_alphamoe_fused_router_module,
     gen_alphamoe_sm100_module,
@@ -119,10 +120,12 @@ from .jit.bgmv_moe import (
     BGMV_MOE_SUPPORTED_MAJOR_VERSIONS,
     gen_bgmv_moe_module,
 )
-from .jit.blackwell_bgmv_moe import (
-    BLACKWELL_BGMV_MOE_DTYPES,
-    BLACKWELL_BGMV_MOE_HIDDEN_SIZES,
-    gen_blackwell_bgmv_moe_module,
+from .jit.cake_bgmv_moe import (
+    CAKE_BGMV_MOE_DTYPES,
+    CAKE_BGMV_MOE_GENERIC_RANKS,
+    CAKE_BGMV_MOE_HIDDEN_SIZES,
+    gen_cake_bgmv_moe_generic_module,
+    gen_cake_bgmv_moe_module,
 )
 from .jit.monomoe import gen_monomoe_module
 from .jit.cute_sm12x_gemm import gen_gemm_sm120_module_cute
@@ -158,6 +161,9 @@ from .jit.mamba import (
     gen_selective_state_update_module,
     gen_selective_state_update_sm90_module,
 )
+from .jit.mamba.cake_selective_state_update import (
+    gen_cake_selective_state_update_modules,
+)
 from .jit.mhc import gen_mhc_module
 from .jit.cake_minimax_h3_mxfp8 import (
     MiniMaxH3Mxfp8Target,
@@ -174,6 +180,17 @@ from .jit.cake_minimax_h3_qkv_pack import (
 from .jit.mla import (
     gen_mla_module,
     gen_sparse_mla_sm120_module,
+)
+from .jit.cake_sparse_mla_sm120_dsv4_nvfp4 import (
+    gen_cake_sparse_mla_sm120_dsv4_nvfp4_module,
+)
+from .jit.cake_dsv4_nvfp4_rope_insert import (
+    cake_dsv4_nvfp4_rope_insert_available,
+    gen_cake_dsv4_nvfp4_rope_insert_module,
+)
+from .jit.cake_sparse_mla_sm120_dsv41_mixed import (
+    cake_sparse_mla_sm120_dsv41_mixed_available,
+    gen_cake_sparse_mla_sm120_dsv41_mixed_module,
 )
 from .jit.api_log_stats import gen_api_log_stats_module
 from .jit.norm import gen_norm_module
@@ -285,6 +302,7 @@ def gen_attention(
     has_sm90: bool,
     has_sm100: bool,
     has_sm103: bool,
+    has_sm110: bool,
     add_gemma: bool,
     add_oai_oss: bool,
 ) -> Iterator[JitSpec]:
@@ -430,7 +448,7 @@ def gen_attention(
 
     # fmha_cutlass_sm100a
     # NOTE: currently there's only one uri.
-    if has_sm100 or has_sm103:
+    if has_sm100 or has_sm103 or has_sm110:
         yield gen_fmha_cutlass_sm100a_module(
             dtype_q=torch.bfloat16,
             dtype_kv=torch.bfloat16,
@@ -443,7 +461,8 @@ def gen_attention(
             use_logits_soft_cap=False,
         )
 
-        # trtllm_gen_fmha
+    if has_sm100 or has_sm103:
+        # trtllm_gen_fmha loads prebuilt SM10x cubins, so SM110 cannot share it.
         yield gen_trtllm_gen_fmha_module()
 
     # MLA
@@ -462,8 +481,8 @@ def gen_attention(
                 use_profiler=False,
             )
 
-    # MLA SM100
-    if has_sm100 or has_sm103:
+    # MLA SM100 (also builds for SM110)
+    if has_sm100 or has_sm103 or has_sm110:
         yield gen_mla_module()
 
 
@@ -624,6 +643,12 @@ def gen_all_modules(
     has_cake_megamoe_topk_reduce_sm103a = sm_capabilities.get(
         "cake_megamoe_topk_reduce_sm103a", False
     )
+    has_cake_selective_state_update_sm100a = sm_capabilities.get(
+        "cake_selective_state_update_sm100a", False
+    )
+    has_cake_selective_state_update_sm103a = sm_capabilities.get(
+        "cake_selective_state_update_sm103a", False
+    )
     has_sm100f = sm_capabilities.get("sm100f", False)
     has_sm103 = sm_capabilities.get("sm103", False)
     has_sm103a_exact = sm_capabilities.get("sm103a_exact", False)
@@ -644,6 +669,7 @@ def gen_all_modules(
             has_sm90,
             has_sm100,
             has_sm103,
+            has_sm110,
             add_gemma,
             add_oai_oss,
         )
@@ -806,12 +832,23 @@ def gen_all_modules(
         # Multi-LoRA MoE BGMV kernel
         if has_bgmv_moe:
             jit_specs.append(gen_bgmv_moe_module())
+        for cake_bgmv_arch, cake_bgmv_flag in (
+            ("sm90a", "sm90a_exact"),
+            ("sm100a", "sm100a_exact"),
+            ("sm103a", "sm103a_exact"),
+        ):
+            if sm_capabilities.get(cake_bgmv_flag, False):
+                jit_specs.extend(
+                    gen_cake_bgmv_moe_module(hidden_size, dtype, cake_bgmv_arch)
+                    for hidden_size in CAKE_BGMV_MOE_HIDDEN_SIZES
+                    for dtype in CAKE_BGMV_MOE_DTYPES
+                )
+                jit_specs.extend(
+                    gen_cake_bgmv_moe_generic_module(rank, dtype, cake_bgmv_arch)
+                    for rank in CAKE_BGMV_MOE_GENERIC_RANKS
+                    for dtype in CAKE_BGMV_MOE_DTYPES
+                )
         if sm_capabilities.get("sm100a_exact", False):
-            jit_specs.extend(
-                gen_blackwell_bgmv_moe_module(hidden_size, dtype)
-                for hidden_size in BLACKWELL_BGMV_MOE_HIDDEN_SIZES
-                for dtype in BLACKWELL_BGMV_MOE_DTYPES
-            )
             jit_specs.append(gen_cake_fused_moe_warp_decode_module("sm100a"))
         # DSv4 hash-based MoE routing (SM-portable)
         jit_specs.append(gen_hash_topk_module())
@@ -819,6 +856,11 @@ def gen_all_modules(
             jit_specs.append(gen_cake_megamoe_topk_reduce_module("sm_100a"))
         if has_cake_megamoe_topk_reduce_sm103a:
             jit_specs.append(gen_cake_megamoe_topk_reduce_module("sm_103a"))
+        # Cake selective state update: every delivered program instantiation per architecture.
+        if has_cake_selective_state_update_sm100a:
+            jit_specs.extend(gen_cake_selective_state_update_modules("sm_100a"))
+        if has_cake_selective_state_update_sm103a:
+            jit_specs.extend(gen_cake_selective_state_update_modules("sm_103a"))
         if has_sm90:
             jit_specs.append(gen_gemm_sm90_module())
             # fp8 blockscale GEMM (SM90)
@@ -851,11 +893,13 @@ def gen_all_modules(
             jit_specs.append(gen_trtllm_low_latency_gemm_module())
             jit_specs.append(gen_gemm_sm100_module())
             jit_specs.append(gen_gemm_sm100_module_cutlass_nvfp4_svdquant())
+            jit_specs.append(gen_trtllm_gen_fused_moe_sm100_module())
+            jit_specs.append(gen_trtllm_gen_routing_module())
+        if has_sm100 or has_sm103 or has_sm110:
+            # These SM100-named modules also build for SM110, which loads them at runtime.
             jit_specs.append(gen_gemm_sm100_module_cutlass_fp8())
             jit_specs.append(gen_gemm_sm100_module_cutlass_mxfp8())
             jit_specs.append(gen_mxfp8_quantization_sm100_module())
-            jit_specs.append(gen_trtllm_gen_fused_moe_sm100_module())
-            jit_specs.append(gen_trtllm_gen_routing_module())
         if has_sm100f or has_sm103:
             # Add TGV GEMM modules compiled with SM100f flags for both bf16 and fp16
             jit_specs.append(
@@ -881,16 +925,22 @@ def gen_all_modules(
         if sm_capabilities.get("sm103a_exact", False):
             jit_specs.append(gen_cake_fused_moe_warp_decode_module("sm103a"))
         if has_sm107:
+            jit_specs.extend(
+                gen_cudnn_frost_moe_module(dtype) for dtype in FROST_DTYPES
+            )
             jit_specs.append(gen_fp4_quantization_sm107_module())
             jit_specs.append(gen_trtllm_gen_gemm_module(enable_rubin=True))
             jit_specs.append(gen_trtllm_low_latency_gemm_module(enable_rubin=True))
             jit_specs.append(gen_trtllm_gen_fused_moe_sm100_module(enable_rubin=True))
         if has_sm110:
             jit_specs.append(gen_fp4_quantization_sm110_module())
-            # fused_moe_100 also targets SM110 and must ship in its provider.
+            # fused_moe_100 and fp4_gemm_cutlass also target SM110 and must ship in
+            # its provider.
             if not has_sm100:
                 jit_specs.append(gen_cutlass_fused_moe_sm100_module())
+                jit_specs.append(gen_gemm_sm100_module_cutlass_fp4())
         if has_sm120:
+            jit_specs.append(gen_cudnn_frost_moe_module("bf16", "sm_120a"))
             jit_specs.append(gen_fp4_quantization_sm120_module())
         if has_sm121:
             jit_specs.append(gen_fp4_quantization_sm121_module())
@@ -933,9 +983,11 @@ def gen_all_modules(
             jit_specs.append(gen_trtllm_comm_module())
         if has_sm100 or has_sm103:
             jit_specs.append(gen_trtllm_mnnvl_comm_module())
+        if has_sm100 or has_sm103 or has_sm110:
             # dcp_alltoall: kernel itself supports SM90+, but ptxas 12.6.0 has
             # a known state-space inference bug on cp.async.bulk that aborts
-            # compilation. has_sm100/has_sm103 imply CUDA >= 12.8, which avoids the bug.
+            # compilation. has_sm100/has_sm103 imply CUDA >= 12.8 and has_sm110
+            # implies CUDA >= 13.0, which avoids the bug.
             # SM90/SM12x users still get this via JIT.
             jit_specs.append(gen_dcp_alltoall_module())
         if (
@@ -1119,6 +1171,16 @@ def gen_all_modules(
     # Sparse-MLA paged attention for SM120 family (DSv4 + DSv3.2 / GLM5.1).
     if has_sm120 or has_sm121:
         jit_specs.append(gen_sparse_mla_sm120_module())
+        # Cake DSv4 NVFP4 sparse-MLA decode + prefill (backend="cake" on SM120/SM121).
+        jit_specs.append(gen_cake_sparse_mla_sm120_dsv4_nvfp4_module())
+        # Cake DSv4 NVFP4 cache writers (fused GPT-J RoPE + quantize + paged insert
+        # for the backend="cake" / kv_cache_format="nvfp4" route); present once exported.
+        if cake_dsv4_nvfp4_rope_insert_available():
+            jit_specs.append(gen_cake_dsv4_nvfp4_rope_insert_module())
+        # Cake DSv4.1 mixed-cache sparse-MLA decode (backend="cake",
+        # kv_cache_format="fp8_dsv41_fp4_ca"); present once the family is exported.
+        if cake_sparse_mla_sm120_dsv41_mixed_available():
+            jit_specs.append(gen_cake_sparse_mla_sm120_dsv41_mixed_module())
 
     # Add cuDNN FMHA module
     jit_specs.append(gen_cudnn_fmha_module())
@@ -1385,6 +1447,14 @@ def detect_sm_capabilities():
             and cuda_version >= Version("12.8")
         ),
         "cake_megamoe_topk_reduce_sm103a": (
+            (10, "3a") in compilation_context.TARGET_CUDA_ARCHS
+            and cuda_version >= Version("12.9")
+        ),
+        "cake_selective_state_update_sm100a": (
+            (10, "0a") in compilation_context.TARGET_CUDA_ARCHS
+            and cuda_version >= Version("12.8")
+        ),
+        "cake_selective_state_update_sm103a": (
             (10, "3a") in compilation_context.TARGET_CUDA_ARCHS
             and cuda_version >= Version("12.9")
         ),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.32.0
+Version: 0.32.2
 Summary: LLMs with MLX and the Hugging Face Hub
 Author-email: MLX Contributors <mlx@group.apple.com>
 License-Expression: MIT
@@ -28,12 +28,15 @@ Requires-Dist: jinja2
 Provides-Extra: test
 Requires-Dist: datasets; extra == "test"
 Requires-Dist: lm-eval; extra == "test"
+Requires-Dist: Pillow; extra == "test"
 Provides-Extra: train
 Requires-Dist: datasets; extra == "train"
 Requires-Dist: tqdm; extra == "train"
 Provides-Extra: evaluate
 Requires-Dist: lm-eval; extra == "evaluate"
 Requires-Dist: tqdm; extra == "evaluate"
+Provides-Extra: vision
+Requires-Dist: Pillow; extra == "vision"
 Provides-Extra: cuda13
 Requires-Dist: mlx[cuda13]>=0.32.2; extra == "cuda13"
 Provides-Extra: cuda12

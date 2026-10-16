@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: entrypoints
-Version: 0.4.1
+Version: 0.4.2
 Summary: Discover and load entry points from installed packages.
 Author-email: Thomas Kluyver <thomas@kluyver.me.uk>
 Requires-Python: >=3.6

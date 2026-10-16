@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .base import TaskSpecFactory
 
 
-SUBTASK_OPTIONS_BLOCKLIST = ("args",)
+SUBTASK_OPTIONS_BLOCKLIST = ("args", "deps", "uses", "uses_env")
 
 
 class SequenceTask(PoeTask):
@@ -124,10 +124,12 @@ class SequenceTask(PoeTask):
             Perform validations on this TaskSpec that apply to a specific task type
             """
             for subtask in self.subtasks:
-                if subtask.has_args:
-                    raise ConfigValidationError(
-                        "Unsupported option 'args' for task declared inside sequence"
-                    )
+                for banned_option in SUBTASK_OPTIONS_BLOCKLIST:
+                    if subtask.options.get(banned_option, None) is not None:
+                        raise ConfigValidationError(
+                            f"Unsupported option {banned_option!r} for task "
+                            "declared inside sequence"
+                        )
 
                 subtask.validate(config, task_specs)
 
@@ -177,8 +179,7 @@ class SequenceTask(PoeTask):
     async def _handle_run(
         self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values, extra_args)
+        self._parse_and_register_args(env)
 
         if len(self._subtasks) > 1:
             # Indicate on the global context that there are multiple stages

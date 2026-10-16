@@ -15,8 +15,13 @@ zmq-transport = ["dep:zmq"]
 [dependencies]
 async-trait.workspace = true
 bytes.workspace = true
+# Terminal-family handlers record binary opcode frames, so classifying what a frame
+# carries means reading the opcode byte against the real `Opcode` enum rather than
+# re-declaring the numbers here. guacr-protocol depends on none of our crates.
+guacr-protocol = { path = "../guacr-protocol" }
 chrono.workspace = true
 log.workspace = true
+rustix = { version = "1.1.5", features = ["fs"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true

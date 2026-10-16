@@ -33,6 +33,30 @@ impl FileRecordingTransport {
         let async_file = tokio::fs::File::from_std(file);
         Ok(Self { file: async_file })
     }
+
+    /// Open a file or rendezvous with a FIFO reader without blocking Tokio's worker.
+    pub async fn new_async(
+        path: &std::path::Path,
+        wait: std::time::Duration,
+    ) -> Result<Self, std::io::Error> {
+        #[cfg(unix)]
+        let file = crate::fifo_open::open_video(path.to_path_buf(), wait)
+            .await
+            .map_err(|error| match error {
+                crate::RecordingError::Io(error) => error,
+                other => std::io::Error::other(other),
+            })?;
+        #[cfg(not(unix))]
+        let file = tokio::task::spawn_blocking({
+            let path = path.to_path_buf();
+            move || std::fs::File::create(path)
+        })
+        .await
+        .map_err(std::io::Error::other)??;
+        Ok(Self {
+            file: tokio::fs::File::from_std(file),
+        })
+    }
 }
 
 #[async_trait]

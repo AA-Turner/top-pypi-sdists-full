@@ -12,7 +12,14 @@ jobs:
     #  NO_NET: 1
     strategy:
       matrix:
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        python-version: [
+            ["python", "3.11"],
+            ["python", "3.12"],
+            ["python", "3.13"],
+            ["python", "3.14"],
+            ["python", "3.15"],
+            ["python-freethreading", "3.14" ],
+        ]
         os: [windows-latest, ubuntu-latest, macos-latest]
         platform: [x64, x32]
         exclude:
@@ -24,17 +31,17 @@ jobs:
         shell: bash -l {0}
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: true
 
     - name: Setup Micromamba
-      uses: mamba-org/setup-micromamba@v2
+      uses: mamba-org/setup-micromamba@v3
       with:
         environment-name: TEST
         init-shell: bash
         create-args: >-
-          python=${{ matrix.python-version }}
+          ${{ matrix.python-version[0] }}=${{ matrix.python-version[1] }}
           numpy cython pip setuptools pytest hdf5 libnetcdf cftime zlib certifi typing-extensions
           --channel conda-forge
 
@@ -48,7 +55,7 @@ jobs:
         if [ "$RUNNER_OS" == "Windows" ]; then
            export HDF5_PLUGIN_PATH="${CONDA_PREFIX}\\Library\\hdf5\\lib\\plugin"
         else
-           export HDF5_PLUGIN_PATH="${CONDA_PREFIX}/hdf5/lib/plugin/"
+           export HDF5_PLUGIN_PATH="${CONDA_PREFIX}/lib/hdf5/plugin/"
         fi
         pytest -s -rxs -v test
 
@@ -63,12 +70,12 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: true
 
     - name: Setup Micromamba
-      uses: mamba-org/setup-micromamba@v2
+      uses: mamba-org/setup-micromamba@v3
       with:
         environment-name: TEST
         init-shell: bash

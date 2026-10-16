@@ -27,7 +27,9 @@ from modal.cli.utils import (
 )
 from modal.client import _Client
 from modal.exception import ConflictError, InvalidError
-from modal.sandbox import SandboxVersion, _container_exec, _get_sandbox_version, _Sandbox
+from modal.sandbox._common import SandboxVersion, _get_sandbox_version
+from modal.sandbox._sandbox import _Sandbox
+from modal.sandbox.sandbox import _container_exec
 from modal_proto import api_pb2
 
 from ._help import ModalGroup
@@ -246,8 +248,8 @@ async def logs(
             since_dt = default_since_dt
             until_dt = default_until_dt
         else:
-            since_dt = _parse_time_arg(since, default=default_since_dt)
-            until_dt = _parse_time_arg(until, default=default_until_dt)
+            since_dt = _parse_time_arg(since, default=default_since_dt, now=now)
+            until_dt = _parse_time_arg(until, default=default_until_dt, now=now)
 
         if since is not None and until is not None and since_dt >= until_dt:
             # User provided both --since and --until, but did so incorrectly

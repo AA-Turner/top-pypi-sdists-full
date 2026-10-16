@@ -7563,19 +7563,6 @@ PerturbationMediumType = PerturbationMedium | PerturbationPoleResidue
 T = TypeVar("T")
 
 
-# Update forward references for all Custom medium classes that inherit from AbstractCustomMedium
-def _get_all_subclasses(cls: T) -> list[type[T]]:
-    """Recursively get all subclasses of a class."""
-    all_subclasses = []
-    for subclass in cls.__subclasses__():
-        all_subclasses.append(subclass)
-        all_subclasses.extend(_get_all_subclasses(subclass))
-    return all_subclasses
-
-
-for _custom_medium_cls in _get_all_subclasses(AbstractCustomMedium):
-    _custom_medium_cls.model_rebuild()
-
 MediumType3D = (
     Medium
     | AnisotropicMedium

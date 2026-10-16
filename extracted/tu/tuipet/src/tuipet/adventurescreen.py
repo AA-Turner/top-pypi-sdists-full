@@ -160,9 +160,9 @@ def _curtain_pts(x, y, w, h):
 
 
 class AdventurePanel(menu.SubHost):
-    def __init__(self, pet, zone=None):
+    def __init__(self, pet, zone=None, hunt=None):
         self.pet = pet
-        self.adv = Adventure(pet, zone=zone)   # zone chosen by the picker (or the frontier)
+        self.adv = Adventure(pet, zone=zone, hunt=hunt)   # zone chosen by the picker (or the frontier)
         self.frame_i = 0
         self.sfx = None
         self.sub = None
@@ -583,6 +583,10 @@ class AdventurePanel(menu.SubHost):
         if won and enemy is not None:
             self.adv.award_bits(enemy)        # the bounty into the purse + run tally
             drop = self.adv.award_drop(enemy)  # a boss's map reward (first clear)
+            zi = adventure.zone_index(self.adv.zone)
+            if zi is not None and enemy.get("num") is not None:
+                from . import persistence
+                persistence.wild_beaten_add(zi, enemy["num"])   # species-on-map egg gates
         if self._fighting_boss:
             self._fighting_boss = False
             out = self.adv.resolve_boss(won, fled=fled)
@@ -631,9 +635,9 @@ class AdventurePanel(menu.SubHost):
         # a wayside wild
         out = self.adv.resolve(won, fled=fled)
         if out == "won" and drop:
-            e = shop.entry(drop) or {}
+            names = " and ".join((shop.entry(k) or {}).get("name", k) for k in drop)
             # the strip speaks the drop over the plain "road clears" line
-            self.adv.last = f"It drops {e.get('name', 'loot')} — bagged!"
+            self.adv.last = f"Victory! It drops {names} — bagged!"
         if out == "failed":
             self._home_msg = f"Driven back from {self.adv.name}.{self._bits_tail()}"
             self._go_home()
@@ -1396,7 +1400,7 @@ class ZonePickPanel:
     zone can be replayed, the frontier is the next challenge.  Returns the
     chosen zone dict on ENTER, or None on ESC (back out of Adventure)."""
 
-    VIS = 8
+    VIS = 5
 
     def __init__(self, pet):
         from . import persistence
@@ -1405,6 +1409,7 @@ class ZonePickPanel:
         self.indices = adventure.unlocked_indices(pet)   # unlocked zone indices, in order
         self.cursor = len(self.indices) - 1              # default: the frontier (newest)
         self.holiday = adventure.active_holiday()        # festival banner + double rewards
+        self.hunts = {}
         self.bests = persistence.zone_bests()            # standing run scores per zone
 
     def anim(self):
@@ -1418,14 +1423,21 @@ class ZonePickPanel:
             self.cursor = (self.cursor + 1) % n
         elif k in ("pageup", "pagedown"):       # up to 30 maps unlock
             self.cursor = menu.page_step(self.cursor, n, self.VIS, k)
+        elif k == "h":
+            zi = self.indices[self.cursor]
+            choices = [None, *adventure.hunt_targets(ZONES[zi])]
+            self.hunts[zi] = choices[(choices.index(self.hunts.get(zi)) + 1) % len(choices)]
         elif k in ("enter", "space"):
-            return ("done", ZONES[self.indices[self.cursor]])   # embark
+            zi = self.indices[self.cursor]
+            if self.hunts.get(zi) is not None:
+                return ("done", (ZONES[zi], self.hunts[zi]))
+            return ("done", ZONES[zi])   # embark
         elif k in ("escape", "a"):
             return ("done", None)                               # back out
         return None
 
     def strip(self):
-        return menu.hints(("↑↓", "pick"), ("ENTER", "go"), ("ESC", "back"))
+        return menu.hints(("↑↓", "pick"), ("H", "hunt"), ("ENTER", "go"), ("ESC", "back"))
 
     def _fmt(self, zi, _i):
         z = ZONES[zi]
@@ -1452,7 +1464,7 @@ class ZonePickPanel:
                 and self._bounty_claimed(self.indices[self.cursor])):
             out.append_text(menu.note("✓ veteran — bounty claimed today"))
         elif self.holiday:
-            out.append_text(menu.note(f"★ {self.holiday}: 2× bits · more loot!"))
+            out.append_text(menu.note(f"★ {self.holiday}: hunts 1→2,2→4,4→8"))
         elif adventure.is_conquered(self.pet, self.indices[self.cursor]):
             # the VETERAN ROAD tease (replay scaling 2026-07-21) -- the
             # festival note owns the slot when the bounty is still available
@@ -1464,5 +1476,26 @@ class ZonePickPanel:
             # cursor crosses a conquered row (audit 2026-07-25: the footer
             # hopped a row)
             out.append_text(menu.note(""))
+        from . import persistence
+        z = ZONES[self.indices[self.cursor]]
+        zi = adventure.zone_index(z)
+        prog = persistence.get_progress()
+        nums = {data.canonical_num(e["num"]) for e in z["randoms"]}
+        beaten = {data.canonical_num(e["num"]) for e in z["randoms"]
+                  if f"{zi}:{e['num']}" in prog["wilds_beaten"]}
+        # the HUNT BOARD (map fun #1, 2026-10-15) in three rows -- the phone LCD
+        # has 12 (tests/test_render_budgets): the list shows VIS=5 to make room
+        targets = adventure.hunt_targets(z, prog)
+        target = self.hunts.get(zi)
+        hunt = data.record_for(target).get("name", "?") if target is not None else "none"
+        out.append_text(menu.note(f"beaten {len(beaten)}/{len(nums)} · H hunt: {hunt}"))
+        goal = targets.get(target) or next(iter(targets.values()), "")
+        goal = goal.split(" on the ")[0] if goal else "no egg target here"
+        out.append_text(menu.note("egg: " + goal[:1].lower() + goal[1:] if goal != "no egg target here" else goal))
+        pool = adventure.find_pool(z, prog)
+        rare = [shop.CATALOG[k].name for k in pool if shop.tier_weight(k) <= 2]
+        mult = adventure.HOLIDAY_FIND_MULT if self.holiday else 1
+        out.append_text(menu.note(f"finds {adventure.FIND_CHANCE * mult:.0%}"
+                                  + (" · rare: " + ", ".join(rare) if rare else f" · {len(pool)} kinds")))
         out.append_text(menu.footer(""))
         return out

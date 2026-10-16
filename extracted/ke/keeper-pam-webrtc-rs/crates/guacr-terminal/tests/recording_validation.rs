@@ -1,6 +1,8 @@
 // Comprehensive recording validation tests
 // Based on KCM patches and real-world recording requirements
 
+use bytes::Bytes;
+use guacr_protocol::GuacamoleParser;
 use guacr_terminal::{AsciicastHeader, DualFormatRecorder};
 use std::collections::HashMap;
 use std::fs;
@@ -153,9 +155,7 @@ fn test_ses_format() {
     )
     .unwrap();
 
-    // .ses format records Guacamole protocol instructions, not raw terminal output
-    use bytes::Bytes;
-
+    // .ses format records Guacamole protocol instructions, not raw terminal output.
     // Record a size instruction
     let size_instr = Bytes::from("4.size,1.0,2.80,2.24;");
     recorder.record_server_to_client(&size_instr).unwrap();
@@ -166,44 +166,22 @@ fn test_ses_format() {
 
     recorder.finalize().unwrap();
 
-    // .ses format is raw Guacamole protocol (one instruction per line)
-    let content = fs::read_to_string(&ses_path).unwrap();
+    // .ses format is raw Guacamole protocol: instructions back to back, nothing
+    // between them. Parsing by declared element length is therefore the only way to
+    // recover them, and it rejects both a stray separator and the old broken
+    // "TIMESTAMP.DIRECTION.INSTRUCTION" framing.
+    let content = fs::read(&ses_path).unwrap();
     assert!(!content.is_empty(), ".ses file should have content");
+    assert!(
+        !content.contains(&b'\n'),
+        ".ses should hold no bytes between instructions"
+    );
 
-    let lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
-    assert!(lines.len() >= 2, "Should have at least 2 instructions");
-
-    // Validate raw Guacamole protocol format (NOT timestamp.direction.instruction)
-    for line in lines {
-        // Each line should be a valid Guacamole protocol instruction
-        assert!(
-            line.ends_with(';'),
-            "Line should end with semicolon: {}",
-            line
-        );
-        assert!(
-            line.contains('.'),
-            "Line should have Guacamole protocol format: {}",
-            line
-        );
-
-        // First element should be LENGTH.OPCODE
-        let first_part = line.split(',').next().unwrap();
-        let dot_pos = first_part.find('.').expect("Should have length.opcode");
-        let length_str = &first_part[..dot_pos];
-        length_str
-            .parse::<usize>()
-            .expect("Length prefix should be numeric");
-
-        // Verify the opcode length matches the declared length
-        let opcode = &first_part[dot_pos + 1..];
-        assert_eq!(
-            length_str.parse::<usize>().unwrap(),
-            opcode.len(),
-            "Length prefix should match opcode length for: {}",
-            line
-        );
-    }
+    let recorded = Bytes::from(content);
+    let instructions = GuacamoleParser::parse_instructions(&recorded)
+        .expect("recording should parse as Guacamole protocol");
+    let opcodes: Vec<&str> = instructions.iter().map(|instr| instr.opcode).collect();
+    assert_eq!(opcodes, ["size", "img"]);
 }
 
 /// Test dual format recording (both asciicast and .ses)
@@ -215,8 +193,6 @@ fn test_dual_format_recording() {
 
     let mut recorder =
         DualFormatRecorder::new(Some(&cast_path), Some(&ses_path), 80, 24, None).unwrap();
-
-    use bytes::Bytes;
 
     // Record terminal output (goes to asciicast)
     recorder.record_output(b"test\n").unwrap();

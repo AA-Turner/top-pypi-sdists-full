@@ -2,7 +2,7 @@
 
 from ansys.fluent.core.solver.settings_builtin_bases import _SingletonSetting, _CreatableNamedObjectSetting, _NonCreatableNamedObjectSetting, _CommandSetting, Solver
 from ansys.fluent.core.solver.flobject import SettingsBase
-from ansys.fluent.core.pyfluent_warnings import PyFluentDeprecationWarning
+from ansys.fluent.core.diagnostics.exceptions import PyFluentDeprecationWarning
 import warnings
 
 
@@ -475,7 +475,7 @@ class CellZoneCondition(_NonCreatableNamedObjectSetting):
 
     _db_name = "CellZoneCondition"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None):
         super().__init__(settings_source=settings_source, name=name)
 
 class FluidCellZones(_SingletonSetting):
@@ -523,7 +523,7 @@ class BoundaryCondition(_NonCreatableNamedObjectSetting):
 
     _db_name = "BoundaryCondition"
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str = None):
+    def __init__(self, settings_source: SettingsBase | Solver | None = None, name: str | None = None):
         super().__init__(settings_source=settings_source, name=name)
 
 class AxisBoundaries(_SingletonSetting):

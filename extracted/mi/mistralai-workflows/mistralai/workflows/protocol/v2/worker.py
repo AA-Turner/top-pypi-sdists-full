@@ -54,3 +54,7 @@ class EventRouteClaims(BaseModel):
     # Identifies one start of an execution, spanning its continue-as-new, retry and
     # reset runs and every sub-workflow below it. Optional while workers roll out.
     chain_run_id: str | None = Field(default=None, min_length=1)
+    # Where the execution's events are routed. Optional; absent on tokens that predate them.
+    stream_name: str | None = Field(default=None, min_length=1)
+    stream_subject_format: str | None = Field(default=None, min_length=1)
+    stream_routing_revision: int = Field(default=0, ge=0)

@@ -76,6 +76,26 @@ check("map/nullable boolean remains noul",
       questions_from_json_schema({"type": "object", "properties": {"a": {"type": ["null", "boolean"]}}})["a"]["type"],
       "noul")
 
+for value in (True, False):
+    for constraint in ({"enum": [value]}, {"const": value}):
+        schema = {"type": "object", "properties": {"flag": {"type": "boolean", **constraint}}}
+        question = questions_from_json_schema(schema)["flag"]
+        case = "boolean singleton %r" % constraint
+        check("map/%s is a choice" % case, question["type"], "choice")
+        check("map/%s has only the allowed option" % case,
+              question.get("criteria"), {str(value): None})
+        projected = answers_to_json({"flag": {"type": "choice", "choice": str(value)}}, schema)
+        check_true("project/%s preserves its boolean value" % case, projected["flag"] is value)
+
+for options in ([True, False], [False, True]):
+    schema = {"type": "object", "properties": {"flag": {"enum": options}}}
+    check("map/two boolean options %r remain noul" % options,
+          questions_from_json_schema(schema)["flag"]["type"], "noul")
+    for probability, value in ((0.2, False), (0.8, True)):
+        projected = answers_to_json({"flag": {"type": "noul", "noul": probability}}, schema)
+        check_true("project/boolean options %r with noul %s" % (options, probability),
+                   projected["flag"] is value)
+
 
 # --------------------------------------------------------------- projection
 ANSWERS = {
@@ -143,6 +163,16 @@ try:
 except SchemaError as exc:
     check("reject/colliding enum names the field", str(exc),
           "properties.x: enum values produce duplicate choice labels")
+# A JSON 'enum' is an array. A bare scalar used to leak TypeError from len(), and a bare string
+# silently split into per-character options; both must now raise a SchemaError naming the path.
+for scalar in (5, 1.5, True, None, "abc"):
+    check_raises("reject/non-array enum %r" % (scalar,), SchemaError,
+                 _bad({"type": "object", "properties": {"x": {"enum": scalar}}}))
+try:
+    questions_from_json_schema({"type": "object", "properties": {"x": {"enum": "abc"}}})
+except SchemaError as exc:
+    check("reject/non-array enum names the field and type", str(exc),
+          "properties.x: 'enum' must be an array of values, got str")
 check_raises("reject/non-object root", SchemaError, _bad({"type": "array"}))
 check_raises("reject/empty properties", SchemaError, _bad({"type": "object", "properties": {}}))
 
@@ -542,6 +572,22 @@ try:
     })
     check("pydantic/instance", (ticket.department, ticket.urgency, ticket.needs_human),
           ("support", 1, True))
+
+    class BooleanLiterals(pydantic.BaseModel):
+        enabled: Literal[True]
+        disabled: Literal[False]
+
+    literal_questions = questions_from_pydantic(BooleanLiterals)
+    check("pydantic/true literal has one option", literal_questions["enabled"].get("criteria"),
+          {"True": None})
+    check("pydantic/false literal has one option", literal_questions["disabled"].get("criteria"),
+          {"False": None})
+    literals = answer_to_pydantic(BooleanLiterals, {
+        "enabled": {"type": "choice", "choice": "True"},
+        "disabled": {"type": "choice", "choice": "False"},
+    })
+    check_true("pydantic/boolean literals preserve their values",
+               literals.enabled is True and literals.disabled is False)
 except ImportError:
     PASS.append("pydantic/skipped (not installed)")
 

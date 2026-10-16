@@ -17,10 +17,18 @@ params JSON schema:
       "do_borders": bool,
       "annotate": bool,               # use the "_label" column
       "admin1_borders": bool,         # overlay state/province lines (admin_2 maps)
+      "dense": bool,                  # county/municipality scale: hairline unit
+                                      # outlines, tinted water
+      "admin1_lines": str,            # optional OGR_GMT file of state lines; drawn
+                                      # instead of GMT's border level 2
+      "national_lines": str,          # optional OGR_GMT file of the national outline
       "colorbar": {
-         "type": "continuous"|"qualitative"|"none",
-         "colors": [hex, ...],        # continuous: ramp stops; qualitative: per-class
+         "type": "continuous"|"classes"|"qualitative"|"none",
+         "colors": [hex, ...],        # continuous: ramp stops; classes: one per
+                                      # class; qualitative: per-category
          "vmin": float, "vmax": float,      # continuous only
+         "edges": [float, ...],             # classes only: len(colors) + 1
+         "extend": "max"|"min"|"both"|"neither",  # classes only: end caps
          "cat_labels": [str, ...]           # qualitative only
       }
     }
@@ -39,14 +47,36 @@ import geopandas as gpd
 # env (same directory on sys.path, no geocif installed there).
 try:
     from geocif.viz._style import (
-        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
+        ADMIN1_LINE_PEN, ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
         ANNOT_VAL_OFFSET, AREA_THRESH, BORDER_PEN, CBAR_POS, COAST_KW,
-        NODATA, POLY_PEN)
+        DENSE_POLY_PEN, NATIONAL_LINE_PEN, NODATA, POLY_PEN, WATER_FILL)
 except ImportError:  # standalone: `python _pygmt_render.py ...`
     from _style import (
-        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
+        ADMIN1_LINE_PEN, ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
         ANNOT_VAL_OFFSET, AREA_THRESH, BORDER_PEN, CBAR_POS, COAST_KW,
-        NODATA, POLY_PEN)
+        DENSE_POLY_PEN, NATIONAL_LINE_PEN, NODATA, POLY_PEN, WATER_FILL)
+
+#: GMT colorbar end-cap suffix per ``extend`` value.
+_CBAR_EXTEND = {"max": "+ef", "min": "+eb", "both": "+e"}
+
+
+def write_class_cpt(path, edges, colors):
+    """Discrete CPT: one flat colour per class, foreground = top class.
+
+    The foreground (``F``) colour paints values above the last edge, matching
+    the clipped fill the caller gave those regions, and is what the ``+ef``
+    end cap draws.
+    """
+    with open(path, "w") as fh:
+        for lo, hi, c in zip(edges[:-1], edges[1:], colors):
+            fh.write(f"{lo:g} {c} {hi:g} {c}\n")
+        fh.write(f"B {colors[0]}\nF {colors[-1]}\nN {NODATA}\n")
+
+
+def class_annotation_step(edges):
+    """Annotate every edge up to 12 classes, every other edge beyond that."""
+    step = edges[1] - edges[0]
+    return step if len(edges) <= 13 else 2 * step
 
 
 def annotate_centroids(fig, gdf, label_col, val_col=None, fmt="{}",
@@ -96,9 +126,12 @@ def render(geojson_path, params):
     title = p.get("title") or ""
     frame = ["af", f"+t{title}"] if title else ["af"]
     fig.basemap(region=p["region"], projection=p.get("projection", "M15c"), frame=frame)
-    fig.coast(**COAST_KW)
+    dense = bool(p.get("dense"))
+    fig.coast(**COAST_KW, **({"water": WATER_FILL} if dense else {}))
 
-    pen = POLY_PEN if p.get("do_borders", True) else None
+    pen = None
+    if p.get("do_borders", True):
+        pen = DENSE_POLY_PEN if dense else POLY_PEN
     with tempfile.TemporaryDirectory() as td:
         # one plot call per distinct fill color (fewer GMT invocations)
         for i, (color, grp) in enumerate(gdf.groupby("_fill")):
@@ -108,15 +141,27 @@ def render(geojson_path, params):
 
         # admin_1 (state/province) boundaries, drawn AFTER the choropleth so
         # they sit ON TOP of it — fig.coast above runs before the polygons, so
-        # borders requested there would be painted over. GMT border level 2 is
-        # state/province. Slim, but heavier than the county stroke (0.4p) so it
-        # reads above the county mesh instead of vanishing into it.
-        if p.get("admin1_borders"):
-            fig.coast(borders=BORDER_PEN, area_thresh=5000)
+        # borders requested there would be painted over. Preferred source: the
+        # project's own admin-1 file (only the mapped country's states, plus
+        # its national outline). Fallback: GMT border level 2, which also
+        # draws every neighbouring country's provinces.
+        if p.get("admin1_lines"):
+            fig.plot(data=p["admin1_lines"], pen=ADMIN1_LINE_PEN)
+            if p.get("national_lines"):
+                fig.plot(data=p["national_lines"], pen=NATIONAL_LINE_PEN)
+        elif p.get("admin1_borders"):
+            fig.coast(borders=BORDER_PEN, area_thresh=AREA_THRESH)
 
         cb = p.get("colorbar", {})
         label = p.get("label") or ""
-        if cb.get("type") == "qualitative" and cb.get("colors"):
+        if cb.get("type") == "classes" and cb.get("colors"):
+            cpt = os.path.join(td, "classes.cpt")
+            write_class_cpt(cpt, cb["edges"], cb["colors"])
+            step = class_annotation_step(cb["edges"])
+            fig.colorbar(cmap=cpt,
+                         position=CBAR_POS + _CBAR_EXTEND.get(cb.get("extend"), ""),
+                         frame=[f"xa{step:g}"] + ([f"x+l{label}"] if label else []))
+        elif cb.get("type") == "qualitative" and cb.get("colors"):
             labels = [str(x).replace(",", " ") for x in cb.get("cat_labels", [])]
             cols = cb["colors"][:len(labels)]
             # N discrete categories -> N CPT nodes (0..N-1). Using [0, N, 1]

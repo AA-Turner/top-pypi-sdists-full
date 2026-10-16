@@ -268,6 +268,25 @@ def test_a_second_status_inside_the_window_does_not_spawn_again(strand_ai):
     assert (strand_ai["tap_state"] / "heal" / SID).exists()
 
 
+@pytest.mark.parametrize("args", [[], ["--session", SID]])
+def test_the_daemons_status_read_heals_nothing_and_claims_no_capture(strand_ai, monkeypatch, args):
+    """The same machine, read by the Probe daemon: its `probe` calls name no
+    coding agent, only `PROBE_DAEMON_SESSION`. It read Claude Code's watcher for
+    this pi session ("not installed", so "tracked, not capturing session
+    transcript"), and the heal behind the read could start `tap start`. Nothing is
+    started, and nothing about capture or the agent's writes is claimed."""
+    monkeypatch.delenv("PI_CODING_AGENT")
+    monkeypatch.delenv("PI_SESSION_ID")
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", SID)
+    result = runner.invoke(app, ["session", "status", *args])
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["session_id"] == SID and payload["tracking"] is True
+    assert payload["capture"] is None and payload["effective"] is None and payload["writes_allowed"] is None
+    assert payload["note"].startswith("run by the Probe daemon")
+    assert strand_ai["spawned"] == [] and not (strand_ai["tap_state"] / "heal" / SID).exists()
+
+
 def test_removing_the_package_entirely_is_not_healed(strand_ai):
     """A filtered extension and a removed package must stay different cases.
 

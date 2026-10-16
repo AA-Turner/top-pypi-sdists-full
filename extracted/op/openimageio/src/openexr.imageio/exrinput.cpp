@@ -52,6 +52,8 @@ OIIO_GCC_PRAGMA(GCC diagnostic ignored "-Wunused-parameter")
 #include <OpenEXR/ImfMatrixAttribute.h>
 #include <OpenEXR/ImfMultiPartInputFile.h>
 #include <OpenEXR/ImfPartType.h>
+#include <OpenEXR/ImfPreviewImage.h>
+#include <OpenEXR/ImfPreviewImageAttribute.h>
 #include <OpenEXR/ImfRationalAttribute.h>
 #include <OpenEXR/ImfStringAttribute.h>
 #include <OpenEXR/ImfStringVectorAttribute.h>
@@ -87,8 +89,7 @@ OIIO_PLUGIN_NAMESPACE_BEGIN
 // the extern "C" block below) so the linkage matches the definition in the
 // non-embedded (dynamic plugin) build where OIIO_PLUGIN_EXPORTS_BEGIN is
 // `extern "C"`. Use OIIO_EXPORT to ensure safe unity build on Windows.
-extern OIIO_EXPORT ImageInput*
-openexrcore_input_imageio_create();
+extern OIIO_EXPORT ImageInput* openexrcore_input_imageio_create();
 #endif
 
 
@@ -140,9 +141,9 @@ static std::map<std::string, std::string> exr_tag_to_oiio_std {
     { "tiledesc", "" },
     { "tiles", "" },
     { "type", "" },
+    { "preview", "" },  // we have thumbnail_* trio instead
 
     // FIXME: Things to consider in the future:
-    // preview
     // screenWindowCenter
     // adoptedNeutral
     // renderingTransform, lookModTransform
@@ -155,8 +156,7 @@ static std::map<std::string, std::string> exr_tag_to_oiio_std {
 
 namespace pvt {
 
-void
-set_exr_threads();
+void set_exr_threads();
 
 
 // Split a full channel name into layer and suffix.
@@ -196,7 +196,10 @@ channels_are_rgb(const ImageSpec& spec)
 
 
 
-OpenEXRInput::OpenEXRInput() { init(); }
+OpenEXRInput::OpenEXRInput()
+{
+    init();
+}
 
 
 
@@ -214,6 +217,17 @@ OpenEXRInput::valid_file(Filesystem::IOProxy* ioproxy) const
     }
 }
 
+
+
+// Color space shared by all parts of the file, taken from the first part.
+static std::string
+file_color_interop_id(const Imf::MultiPartInputFile* multipart)
+{
+    const Imf::StringAttribute* attr
+        = multipart->header(0).findTypedAttribute<Imf::StringAttribute>(
+            "colorInteropID");
+    return attr ? attr->value() : std::string();
+}
 
 
 bool
@@ -244,6 +258,7 @@ OpenEXRInput::open(const std::string& name, ImageSpec& newspec,
 
     if (!valid_file(m_io)) {
         errorfmt("\"{}\" is not an OpenEXR file", name);
+        close();
         return false;
     }
 
@@ -287,6 +302,7 @@ OpenEXRInput::open(const std::string& name, ImageSpec& newspec,
             std::string e = m_io->error();
             errorfmt("Could not open \"{}\" ({})", name,
                      e.size() ? e : std::string("unknown error"));
+            close();
             return false;
         }
         m_io->seek(0);
@@ -294,10 +310,12 @@ OpenEXRInput::open(const std::string& name, ImageSpec& newspec,
     } catch (const std::exception& e) {
         m_input_stream = NULL;
         errorfmt("OpenEXR exception: {}", e.what());
+        close();
         return false;
     } catch (...) {  // catch-all for edge cases or compiler bugs
         m_input_stream = NULL;
         errorfmt("OpenEXR exception: unknown");
+        close();
         return false;
     }
 
@@ -306,13 +324,12 @@ OpenEXRInput::open(const std::string& name, ImageSpec& newspec,
     try {
         m_input_multipart = new Imf::MultiPartInputFile(*m_input_stream);
     } catch (const std::exception& e) {
-        delete m_input_stream;
-        m_input_stream = NULL;
         errorfmt("OpenEXR exception: {}", e.what());
+        close();
         return false;
     } catch (...) {  // catch-all for edge cases or compiler bugs
-        m_input_stream = NULL;
         errorfmt("OpenEXR exception: unknown");
+        close();
         return false;
     }
 
@@ -320,6 +337,8 @@ OpenEXRInput::open(const std::string& name, ImageSpec& newspec,
     m_parts.resize(m_nsubimages);
     m_subimage = -1;
     m_miplevel = -1;
+
+    m_file_color_interop_id = file_color_interop_id(m_input_multipart);
 
     // Set up for the first subimage ("part"). This will trigger reading
     // information about all the parts.
@@ -428,6 +447,7 @@ OpenEXRInput::PartInfo::parse_header(OpenEXRInput* in,
     compressattr = header->findTypedAttribute<Imf::CompressionAttribute>(
         "compression");
     if (compressattr) {
+        pvt::prime_htj2k_if_needed(compressattr->value());
         const char* comp = NULL;
         switch (compressattr->value()) {
         case Imf::NO_COMPRESSION: comp = "none"; break;
@@ -446,10 +466,35 @@ OpenEXRInput::PartInfo::parse_header(OpenEXRInput* in,
 #ifdef IMF_HTJ2K32_COMPRESSION
         case Imf::HTJ2K32_COMPRESSION: comp = "htj2k32"; break;
 #endif
+#ifdef IMF_LJ2K_COMPRESSION
+        case Imf::LJ2K_COMPRESSION: comp = "lj2k"; break;
+#endif
+#ifdef IMF_ZSTD_COMPRESSION
+        case Imf::ZSTD_COMPRESSION: comp = "zstd"; break;
+#endif
         default: break;
         }
-        if (comp)
+        if (comp) {
             spec.attribute("compression", comp);
+        } else {
+            in->errorfmt("Unknown compression code {}",
+                         int(compressattr->value()));
+            return false;
+        }
+        if (spec.tile_width == 0 && !spec.deep) {
+            // Scanline file: advertise how many scanlines are packed into
+            // each compressed chunk, so that callers can align their reads
+            // to whole chunks (see ImageInput::read_image, read_scanlines).
+            // Must match what exrinput_c.cpp reports for the same file, and
+            // that comes from the library, which says 1 for a deep scanline
+            // file no matter what its compression attribute claims.
+            scansperchunk = exr_scanlines_per_chunk(compressattr->value());
+            if (scansperchunk > 1)
+                spec.attribute("oiio:RowsPerChunk", scansperchunk);
+        }
+    } else {
+        in->errorfmt("No compression information found");
+        return false;
     }
 
     for (auto hit = header->begin(); hit != header->end(); ++hit) {
@@ -699,6 +744,16 @@ OpenEXRInput::PartInfo::parse_header(OpenEXRInput* in,
         }
     }
 
+    // The header's "preview" is a small RGBA image. Extract dimensions only.
+    if (header->hasPreviewImage()) {
+        const Imf::PreviewImage& preview(header->previewImage());
+        if (preview.width() > 0 && preview.height() > 0) {
+            spec.attribute("thumbnail_width", int(preview.width()));
+            spec.attribute("thumbnail_height", int(preview.height()));
+            spec.attribute("thumbnail_nchannels", 4);
+        }
+    }
+
     float aspect   = spec.get_float_attribute("PixelAspectRatio", 0.0f);
     float xdensity = spec.get_float_attribute("XResolution", 0.0f);
     if (xdensity) {
@@ -716,8 +771,15 @@ OpenEXRInput::PartInfo::parse_header(OpenEXRInput* in,
     // Try to figure out the color space for some unambiguous cases
     if (spec.get_int_attribute("acesImageContainerFlag") == 1) {
         spec.set_colorspace("lin_ap0_scene");
-    } else if (auto c = spec.find_attribute("colorInteropID", TypeString)) {
-        spec.set_colorspace(c->get_ustring());
+    } else {
+        // Follow the color interop forum recommendation for OpenEXR files,
+        // inheriting the colorInteropID from the first part.
+        string_view interop_id = spec.get_string_attribute("colorInteropID");
+        if (!interop_id.empty()) {
+            spec.set_colorspace(interop_id);
+        } else if (!in->m_file_color_interop_id.empty()) {
+            spec.set_colorspace(in->m_file_color_interop_id);
+        }
     }
 
     // Squash some problematic texture metadata if we suspect it's wrong
@@ -1058,12 +1120,16 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
         if (m_input_multipart)
             header = &(m_input_multipart->header(subimage));
         if (!part.parse_header(this, header)) {
-            errorfmt("Could not seek to subimage={}: unable to parse header",
-                     subimage, miplevel);
+            // Any errors in parse_header will already have called errorfmt
             return false;
         }
         part.initialized = true;
     }
+
+    // Check this before touching anything below, so that probing for a
+    // miplevel that doesn't exist leaves the reader exactly as it was.
+    if (miplevel < 0 || miplevel >= part.nmiplevels)  // out of range
+        return false;
 
     if (subimage != m_subimage) {
         delete m_scanline_input_part;
@@ -1081,6 +1147,7 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
                 if (subimage != 0 || miplevel != 0) {
                     errorfmt(
                         "Non-zero subimage or miplevel are not supported for luminance-chroma images.");
+                    invalidate_current();
                     return false;
                 }
                 m_input_stream->seekg(0);
@@ -1109,6 +1176,7 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
             m_deep_scanline_input_part = NULL;
             m_deep_tiled_input_part    = NULL;
             m_input_rgba               = NULL;
+            invalidate_current();
             return false;
         } catch (...) {  // catch-all for edge cases or compiler bugs
             errorfmt("OpenEXR exception: unknown");
@@ -1117,15 +1185,12 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
             m_deep_scanline_input_part = NULL;
             m_deep_tiled_input_part    = NULL;
             m_input_rgba               = NULL;
+            invalidate_current();
             return false;
         }
     }
 
     m_subimage = subimage;
-
-    if (miplevel < 0 || miplevel >= part.nmiplevels)  // out of range
-        return false;
-
     m_miplevel = miplevel;
     m_spec     = part.spec;
 
@@ -1134,15 +1199,26 @@ OpenEXRInput::seek_subimage(int subimage, int miplevel)
     // if (m_miplevel == 0 && part.nmiplevels > 1)
     //     m_spec.attribute("oiio:miplevels", part.nmiplevels);
 
-    if (!check_open(m_spec, { 0, 1 << 30, 0, 1 << 30, 0, 1, 0, 1 << 12 }))
+    // The checks below reject this subimage. Invalidate rather than leave it
+    // as the current one, or a repeat of this same seek would take the early
+    // out above and hand back the spec we just refused.
+    if (!check_open(m_spec, { 0, 1 << 30, 0, 1 << 30, 0, 1, 0, 1 << 12 })) {
+        invalidate_current();
         return false;
+    }
 
     // check_open's size cap still admits a dataWindow that is absurd for a tiny
     // compressed file, so also bound the declared-vs-compressed ratio.
     imagesize_t filesize = m_io ? m_io->size()
                                 : Filesystem::file_size(m_filename);
-    if (!check_compression_ratio(m_spec, filesize))
+    if (!check_compression_ratio(m_spec, filesize)) {
+        invalidate_current();
         return false;
+    }
+
+    // The part passed. Only now may spec() serve its cached spec without
+    // repeating this.
+    part.validated = true;
 
     if (miplevel == 0 && part.levelmode == Imf::ONE_LEVEL) {
         return true;
@@ -1164,11 +1240,11 @@ OpenEXRInput::spec(int subimage, int miplevel)
     if (subimage < 0 || subimage >= m_nsubimages)
         return ret;  // invalid
     const PartInfo& part(m_parts[subimage]);
-    if (!part.initialized) {
-        // Only if this subimage hasn't yet been inventoried do we need
-        // to lock and seek.
+    if (!part.validated) {
+        // Only if this subimage hasn't yet been inventoried and validated do
+        // we need to lock and seek.
         lock_guard lock(*this);
-        if (!part.initialized) {
+        if (!part.validated) {
             if (!seek_subimage(subimage, miplevel))
                 return ret;
         }
@@ -1189,11 +1265,11 @@ OpenEXRInput::spec_dimensions(int subimage, int miplevel)
     if (subimage < 0 || subimage >= m_nsubimages)
         return ret;  // invalid
     const PartInfo& part(m_parts[subimage]);
-    if (!part.initialized) {
-        // Only if this subimage hasn't yet been inventoried do we need
-        // to lock and seek.
+    if (!part.validated) {
+        // Only if this subimage hasn't yet been inventoried and validated do
+        // we need to lock and seek.
         lock_guard lock(*this);
-        if (!seek_subimage(subimage, miplevel))
+        if (!part.validated && !seek_subimage(subimage, miplevel))
             return ret;
     }
     if (miplevel < 0 || miplevel >= part.nmiplevels)
@@ -1240,10 +1316,56 @@ OpenEXRInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
 }
 
 
+
+// Serve scanlines [ybegin,yend) out of the chunk [cbegin,cend), which is a
+// full chunk of the file, decoding that chunk if we don't already have it in
+// hand. Only called when the request is a proper subset of the chunk.
+bool
+OpenEXRInput::read_cached_chunk(int subimage, int miplevel, int ybegin,
+                                int yend, int chbegin, int chend, int cbegin,
+                                int cend, size_t scanlinebytes, void* data)
+{
+    if (m_chunkcache.fetch(subimage, miplevel, cbegin, cend, chbegin, chend,
+                           ybegin, yend, scanlinebytes, data))
+        return true;
+
+    // Cache miss. Decode the whole chunk. The use_chunk_cache=false of
+    // this recursive call asks for exactly one full chunk, so it won't come
+    // back here -- this matters when the decode fails and tolerance is on:
+    // without the skip, the per-scanline retry would re-enter the chunk
+    // cache and recurse forever.
+    default_init_vector<uint8_t> chunk(scanlinebytes * size_t(cend - cbegin));
+    if (!read_native_scanlines_impl(subimage, miplevel, cbegin, cend, 0,
+                                    chbegin, chend, chunk.data(),
+                                    /*use_chunk_cache=*/false))
+        return false;
+    memcpy(data, chunk.data() + scanlinebytes * size_t(ybegin - cbegin),
+           scanlinebytes * size_t(yend - ybegin));
+    m_chunkcache.adopt(subimage, miplevel, cbegin, cend, chbegin, chend, chunk);
+    return true;
+}
+
+
+
+// This is the externally-called read_native_scanlines, which is a wrapper
+// around the internal version (read_native_scanlines_impl) that takes an
+// additional parameter saying whether to use the chunk cache or not. When
+// called externally, we always do.
 bool
 OpenEXRInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
                                     int yend, int z, int chbegin, int chend,
                                     void* data)
+{
+    return read_native_scanlines_impl(subimage, miplevel, ybegin, yend, z,
+                                      chbegin, chend, data,
+                                      /*use_chunk_cache=*/true);
+}
+
+bool
+OpenEXRInput::read_native_scanlines_impl(int subimage, int miplevel, int ybegin,
+                                         int yend, int z, int chbegin,
+                                         int chend, void* data,
+                                         bool use_chunk_cache)
 {
     lock_guard lock(*this);
     if (!seek_subimage(subimage, miplevel))
@@ -1261,7 +1383,66 @@ OpenEXRInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
     size_t pixelbytes    = m_spec.pixel_bytes(chbegin, chend, true);
     size_t scanlinebytes = (size_t)m_spec.width * pixelbytes;
     char* buf            = (char*)data - m_spec.x * stride_t(pixelbytes)
-                - ybegin * stride_t(scanlinebytes);
+                           - ybegin * stride_t(scanlinebytes);
+
+    int endy = m_spec.y + m_spec.height;
+    yend     = std::min(endy, yend);
+    if (ybegin >= yend)
+        return true;
+
+#if OPENEXR_CODED_VERSION >= 30302 && OPENEXR_CODED_VERSION < 30403
+    // These versions of the classic ScanLineInputFile keep one decoded
+    // ScanLineProcess alive across readPixels() calls, and only choose the
+    // pixel-unpack routine on the first of them. Later calls refresh the
+    // destination pointers but keep that routine, and the specialized
+    // routines write every channel through channels[0].decode_to_ptr. So
+    // after a full-channel read, a channel-subset read overruns the caller's
+    // buffer (or writes through a null pointer, if channel 0 was one of the
+    // ones dropped). Introduced in 3.3.2 and 3.4.0 by OpenEXR PR 1899, fixed
+    // in 3.4.3 by PR 2150, which resets the cached process in
+    // setFrameBuffer(); never fixed on the 3.3 branch. Work around it by
+    // reading every channel into a scratch buffer -- the layout the cached
+    // routine expects -- and copying out the range that was asked for.
+    if ((chbegin != 0 || chend != m_spec.nchannels) && !part.luminance_chroma) {
+        size_t fullpixelbytes = m_spec.pixel_bytes(true);
+        size_t fullscanbytes  = size_t(m_spec.width) * fullpixelbytes;
+        default_init_vector<uint8_t> scratch(fullscanbytes
+                                             * size_t(yend - ybegin));
+        if (!read_native_scanlines_impl(subimage, miplevel, ybegin, yend, z, 0,
+                                        m_spec.nchannels, scratch.data()))
+            return false;
+        size_t choff = m_spec.pixel_bytes(0, chbegin, true);
+        for (int y = ybegin; y < yend; ++y) {
+            const uint8_t* src = scratch.data()
+                                 + size_t(y - ybegin) * fullscanbytes + choff;
+            char* dst = (char*)data + size_t(y - ybegin) * scanlinebytes;
+            for (int x = 0; x < m_spec.width; ++x) {
+                memcpy(dst, src, pixelbytes);
+                src += fullpixelbytes;
+                dst += pixelbytes;
+            }
+        }
+        return true;
+    }
+#endif
+
+    // If the request is only part of a single chunk, go through the chunk
+    // cache: decoding a whole chunk to hand back a few of its scanlines is
+    // expensive, and a client that reads a scanline (or any other sub-chunk
+    // swath) at a time will ask for the rest of that chunk next. (The
+    // library has a stash of its own, but it drops it every time we set the
+    // frame buffer, which we must do on every read.)
+    if (part.scansperchunk > 1 && !part.luminance_chroma && use_chunk_cache
+        && ybegin >= m_spec.y) {
+        int ychunkstart = m_spec.y
+                          + round_down_to_multiple(ybegin - m_spec.y,
+                                                   part.scansperchunk);
+        int ychunkend   = std::min(ychunkstart + part.scansperchunk, endy);
+        if (yend <= ychunkend && (ybegin > ychunkstart || yend < ychunkend))
+            return read_cached_chunk(subimage, miplevel, ybegin, yend, chbegin,
+                                     chend, ychunkstart, ychunkend,
+                                     scanlinebytes, data);
+    }
 
     try {
         if (part.luminance_chroma) {
@@ -1343,10 +1524,10 @@ OpenEXRInput::read_native_scanlines(int subimage, int miplevel, int ybegin,
             } else {
                 // Read of many tiles -- don't know which failed, so try
                 // again to read them all individually.
-                return read_native_scanlines_individually(subimage, miplevel,
-                                                          ybegin, yend, z,
-                                                          chbegin, chend, data,
-                                                          scanlinebytes);
+                return read_native_scanlines_individually(
+                    subimage, miplevel, ybegin, yend, z, chbegin, chend, data,
+                    scanlinebytes,
+                    /*use_chunk_cache=*/false);
             }
         } else {
             errorfmt("Failed OpenEXR read: {}", err);
@@ -1518,15 +1699,16 @@ bool
 OpenEXRInput::read_native_scanlines_individually(int subimage, int miplevel,
                                                  int ybegin, int yend, int z,
                                                  int chbegin, int chend,
-                                                 void* data, stride_t ystride)
+                                                 void* data, stride_t ystride,
+                                                 bool use_chunk_cache)
 {
     // Note: this is only called by read_native_scanlines, which still holds
     // the mutex, so it's safe to directly access m_spec.
     bool ok = true;
     for (int y = ybegin; y < yend; ++y) {
         char* d = (char*)data + (y - ybegin) * ystride;
-        ok &= read_native_scanlines(subimage, miplevel, y, y + 1, z, chbegin,
-                                    chend, d);
+        ok &= read_native_scanlines_impl(subimage, miplevel, y, y + 1, z,
+                                         chbegin, chend, d, use_chunk_cache);
     }
     return ok;
 }
@@ -1743,6 +1925,43 @@ OpenEXRInput::read_native_deep_tiles(int subimage, int miplevel, int xbegin,
         m_deep_tiled_input_part->readTiles(firstxtile, firstxtile + xtiles - 1,
                                            firstytile, firstytile + ytiles - 1,
                                            m_miplevel, m_miplevel);
+    } catch (const std::exception& e) {
+        errorfmt("Failed OpenEXR read: {}", e.what());
+        return false;
+    } catch (...) {  // catch-all for edge cases or compiler bugs
+        errorfmt("Failed OpenEXR read: unknown exception");
+        return false;
+    }
+
+    return true;
+}
+
+
+
+bool
+OpenEXRInput::get_thumbnail(ImageBuf& thumb, int subimage)
+{
+    lock_guard lock(*this);
+    if (!m_input_multipart || subimage < 0 || subimage >= m_nsubimages)
+        return false;
+
+    try {
+        const Imf::Header& header(m_input_multipart->header(subimage));
+        if (!header.hasPreviewImage())
+            return false;
+        const Imf::PreviewImage& preview(header.previewImage());
+        int width                      = int(preview.width());
+        int height                     = int(preview.height());
+        const Imf::PreviewRgba* pixels = preview.pixels();
+        if (width < 1 || height < 1 || !pixels)
+            return false;
+
+        // An EXR preview is always 4 channels of 8 bit RGBA, gamma 2.2 encoded
+        static_assert(sizeof(Imf::PreviewRgba) == 4,
+                      "Imf::PreviewRgba is not packed RGBA bytes");
+        ImageSpec thumbspec(width, height, 4, TypeUInt8);
+        thumb.reset(thumbspec);
+        memcpy(thumb.localpixels(), pixels, size_t(width) * size_t(height) * 4);
     } catch (const std::exception& e) {
         errorfmt("Failed OpenEXR read: {}", e.what());
         return false;

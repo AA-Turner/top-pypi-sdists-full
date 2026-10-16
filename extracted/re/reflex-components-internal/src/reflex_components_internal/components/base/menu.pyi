@@ -6,11 +6,14 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from reflex_base.event import EventHandler, EventType, PointerEventInfo
+from reflex_base.event import EventHandler, EventType, KeyInputInfo, PointerEventInfo
 from reflex_base.vars.base import Var
 from reflex_components_core.core.breakpoints import Breakpoints
+from reflex_components_core.el.elements.forms import Input as ReflexInput
 
 from reflex.components.component import Component, ComponentNamespace
+from reflex.vars.base import NoneVar
+from reflex.vars.function import FunctionVar
 from reflex_components_internal.components.base_ui import BaseUIComponent
 
 LiteralOpenChangeReason = Literal[
@@ -35,6 +38,7 @@ class ClassNames:
     TRIGGER = "flex min-w-48 items-center justify-between gap-3 select-none text-sm [&>span]:line-clamp-1 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-4 group/trigger"
     PORTAL = "relative"
     ICON = "flex size-4 text-secondary-10 group-data-[disabled]/trigger:text-current"
+    INPUT = "w-full bg-transparent px-2 py-1.5 text-sm font-medium text-secondary-12 placeholder:text-secondary-10 outline-none focus-visible:ring-1 focus-visible:ring-primary-4"
     POPUP = "group/popup max-h-[17.25rem] overflow-y-auto origin-(--transform-origin) p-1 border border-secondary-a4 bg-secondary-1 shadow-large transition-[transform,scale,opacity] data-[ending-style]:scale-95 data-[starting-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 outline-none [scrollbar-width:thin]"
     ITEM = "grid min-w-(--anchor-width) grid-cols-[1fr_auto] items-center gap-2 text-sm select-none font-medium group-data-[side=none]/popup:min-w-[calc(var(--anchor-width)+1rem)] text-secondary-12 cursor-pointer outline-none data-[highlighted]:bg-secondary-3 scroll-m-1 text-start"
     ITEM_INDICATOR = "text-current"
@@ -120,6 +124,88 @@ class MenuBaseComponent(BaseUIComponent):
             The component.
         """
 
+class MenuFilterProvider(MenuBaseComponent):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        default_value: Var[str] | str | None = None,
+        value: Var[str] | str | None = None,
+        auto_highlight: Literal["always"]
+        | Var[Literal["always"] | bool]
+        | bool
+        | None = None,
+        filter: FunctionVar | NoneVar | None = None,
+        locale: Var[list[str] | str] | list[str] | str | None = None,
+        unstyled: Var[bool] | bool | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Any | Var] | None = None,
+        on_blur: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        on_value_change: EventType[()] | EventType[str] | None = None,
+        **props,
+    ) -> MenuFilterProvider:
+        """Create a filter provider, preserving explicit None as JavaScript null.
+
+        Args:
+            *children: The menu or submenu root to make filterable.
+            default_value: The initial uncontrolled filter query.
+            value: The controlled filter query. Resets to an empty string when the menu closes.
+            auto_highlight: Highlight the first match while filtering, or always when set to "always".
+            filter: A frontend function matching an item's text against the query, or null for external filtering.
+            locale: The locale or locales used by the default text comparison.
+            unstyled: Whether the component should be unstyled
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: Attributes passed directly to the component.
+            on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+            on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+            on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+            on_context_menu: Fired when the user right-clicks on an element.
+            on_double_click: Fired when the user double-clicks on an element.
+            on_mouse_down: Fired when the user presses a mouse button on an element.
+            on_mouse_enter: Fired when the mouse pointer enters the element.
+            on_mouse_leave: Fired when the mouse pointer leaves the element.
+            on_mouse_move: Fired when the mouse pointer moves over the element.
+            on_mouse_out: Fired when the mouse pointer moves out of the element.
+            on_mouse_over: Fired when the mouse pointer moves onto the element.
+            on_mouse_up: Fired when the user releases a mouse button on an element.
+            on_scroll: Fired when the user scrolls the element.
+            on_scroll_end: Fired when scrolling ends on the element.
+            on_mount: Fired when the component is mounted to the page.
+            on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            on_value_change: Called with the new query when it changes.
+            **props: The filtering properties. Set filter to None for external filtering.
+
+        Returns:
+            The filter provider component.
+        """
+
 class MenuRoot(MenuBaseComponent):
     @classmethod
     def create(
@@ -150,6 +236,7 @@ class MenuRoot(MenuBaseComponent):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
+        on_item_highlighted: EventType[()] | EventType[str | None] | EventType[str | None, str] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
         on_mouse_enter: EventType[()] | None = None,
@@ -169,6 +256,460 @@ class MenuRoot(MenuBaseComponent):
 
         Returns:
             The component.
+        """
+
+class MenuInput(MenuBaseComponent, ReflexInput):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        render_: Component | Var[Component] | None = None,
+        unstyled: Var[bool] | bool | None = None,
+        accept: Var[str] | str | None = None,
+        alt: Var[str] | str | None = None,
+        auto_complete: Var[str] | str | None = None,
+        auto_focus: Var[bool] | bool | None = None,
+        capture: Literal["environment", "user"]
+        | Var[Literal["environment", "user"] | bool]
+        | bool
+        | None = None,
+        checked: Var[bool] | bool | None = None,
+        default_checked: Var[bool] | bool | None = None,
+        default_value: Var[float | int | str] | float | int | str | None = None,
+        disabled: Var[bool] | bool | None = None,
+        form: Var[str] | str | None = None,
+        form_action: Var[str] | str | None = None,
+        form_enc_type: Var[str] | str | None = None,
+        form_method: Var[str] | str | None = None,
+        form_no_validate: Var[bool] | bool | None = None,
+        form_target: Var[str] | str | None = None,
+        list: Var[str] | str | None = None,
+        max: Var[float | int | str] | float | int | str | None = None,
+        max_length: Var[float | int] | float | int | None = None,
+        min_length: Var[float | int] | float | int | None = None,
+        min: Var[float | int | str] | float | int | str | None = None,
+        multiple: Var[bool] | bool | None = None,
+        name: Var[str] | str | None = None,
+        pattern: Var[str] | str | None = None,
+        placeholder: Var[str] | str | None = None,
+        read_only: Var[bool] | bool | None = None,
+        required: Var[bool] | bool | None = None,
+        size: Var[float | int | str] | float | int | str | None = None,
+        src: Var[str] | str | None = None,
+        step: Var[float | int | str] | float | int | str | None = None,
+        type: Literal[
+            "button",
+            "checkbox",
+            "color",
+            "date",
+            "datetime-local",
+            "email",
+            "file",
+            "hidden",
+            "image",
+            "month",
+            "number",
+            "password",
+            "radio",
+            "range",
+            "reset",
+            "search",
+            "submit",
+            "tel",
+            "text",
+            "time",
+            "url",
+            "week",
+        ]
+        | Var[
+            Literal[
+                "button",
+                "checkbox",
+                "color",
+                "date",
+                "datetime-local",
+                "email",
+                "file",
+                "hidden",
+                "image",
+                "month",
+                "number",
+                "password",
+                "radio",
+                "range",
+                "reset",
+                "search",
+                "submit",
+                "tel",
+                "text",
+                "time",
+                "url",
+                "week",
+            ]
+        ]
+        | None = None,
+        value: Var[float | int | str] | float | int | str | None = None,
+        access_key: Var[str] | str | None = None,
+        auto_capitalize: Literal[
+            "characters", "none", "off", "on", "sentences", "words"
+        ]
+        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
+        | None = None,
+        content_editable: Literal["inherit", "plaintext-only"]
+        | Var[Literal["inherit", "plaintext-only"] | bool]
+        | bool
+        | None = None,
+        context_menu: Var[str] | str | None = None,
+        dir: Var[str] | str | None = None,
+        draggable: Var[bool] | bool | None = None,
+        enter_key_hint: Literal[
+            "done", "enter", "go", "next", "previous", "search", "send"
+        ]
+        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
+        | None = None,
+        hidden: Var[bool] | bool | None = None,
+        input_mode: Literal[
+            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
+        ]
+        | Var[
+            Literal[
+                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
+            ]
+        ]
+        | None = None,
+        item_prop: Var[str] | str | None = None,
+        lang: Var[str] | str | None = None,
+        role: Literal[
+            "alert",
+            "alertdialog",
+            "application",
+            "article",
+            "banner",
+            "button",
+            "cell",
+            "checkbox",
+            "columnheader",
+            "combobox",
+            "complementary",
+            "contentinfo",
+            "definition",
+            "dialog",
+            "directory",
+            "document",
+            "feed",
+            "figure",
+            "form",
+            "grid",
+            "gridcell",
+            "group",
+            "heading",
+            "img",
+            "link",
+            "list",
+            "listbox",
+            "listitem",
+            "log",
+            "main",
+            "marquee",
+            "math",
+            "menu",
+            "menubar",
+            "menuitem",
+            "menuitemcheckbox",
+            "menuitemradio",
+            "navigation",
+            "none",
+            "note",
+            "option",
+            "presentation",
+            "progressbar",
+            "radio",
+            "radiogroup",
+            "region",
+            "row",
+            "rowgroup",
+            "rowheader",
+            "scrollbar",
+            "search",
+            "searchbox",
+            "separator",
+            "slider",
+            "spinbutton",
+            "status",
+            "switch",
+            "tab",
+            "table",
+            "tablist",
+            "tabpanel",
+            "term",
+            "textbox",
+            "timer",
+            "toolbar",
+            "tooltip",
+            "tree",
+            "treegrid",
+            "treeitem",
+        ]
+        | Var[
+            Literal[
+                "alert",
+                "alertdialog",
+                "application",
+                "article",
+                "banner",
+                "button",
+                "cell",
+                "checkbox",
+                "columnheader",
+                "combobox",
+                "complementary",
+                "contentinfo",
+                "definition",
+                "dialog",
+                "directory",
+                "document",
+                "feed",
+                "figure",
+                "form",
+                "grid",
+                "gridcell",
+                "group",
+                "heading",
+                "img",
+                "link",
+                "list",
+                "listbox",
+                "listitem",
+                "log",
+                "main",
+                "marquee",
+                "math",
+                "menu",
+                "menubar",
+                "menuitem",
+                "menuitemcheckbox",
+                "menuitemradio",
+                "navigation",
+                "none",
+                "note",
+                "option",
+                "presentation",
+                "progressbar",
+                "radio",
+                "radiogroup",
+                "region",
+                "row",
+                "rowgroup",
+                "rowheader",
+                "scrollbar",
+                "search",
+                "searchbox",
+                "separator",
+                "slider",
+                "spinbutton",
+                "status",
+                "switch",
+                "tab",
+                "table",
+                "tablist",
+                "tabpanel",
+                "term",
+                "textbox",
+                "timer",
+                "toolbar",
+                "tooltip",
+                "tree",
+                "treegrid",
+                "treeitem",
+            ]
+        ]
+        | None = None,
+        slot: Var[str] | str | None = None,
+        spell_check: Var[bool] | bool | None = None,
+        tab_index: Var[int] | int | None = None,
+        title: Var[str] | str | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Any | Var] | None = None,
+        on_blur: EventType[()] | EventType[str] | None = None,
+        on_change: EventType[()] | EventType[str] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | EventType[str] | None = None,
+        on_key_down: EventType[()] | EventType[str] | EventType[str, KeyInputInfo] | None = None,
+        on_key_up: EventType[()] | EventType[str] | EventType[str, KeyInputInfo] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        **props,
+    ) -> MenuInput:
+        """Create the menu filter input.
+
+        Args:
+            *children: The children of the component.
+            render_: The render prop.
+            unstyled: Whether the component should be unstyled
+            accept: Accepted types of files when the input is file type
+            alt: Alternate text for input type="image"
+            auto_complete: Whether the input should have autocomplete enabled
+            auto_focus: Automatically focuses the input when the page loads
+            capture: Captures media from the user (camera or microphone)
+            checked: Indicates whether the input is checked (for checkboxes and radio buttons)
+            default_checked: The initial value (for checkboxes and radio buttons)
+            default_value: The initial value for a text field
+            disabled: Disables the input
+            form: Associates the input with a form (by id)
+            form_action: URL to send the form data to (for type="submit" buttons)
+            form_enc_type: How the form data should be encoded when submitting to the server (for type="submit" buttons)
+            form_method: HTTP method to use for sending form data (for type="submit" buttons)
+            form_no_validate: Bypasses form validation when submitting (for type="submit" buttons)
+            form_target: Specifies where to display the response after submitting the form (for type="submit" buttons)
+            list: References a datalist for suggested options
+            max: Specifies the maximum value for the input
+            max_length: Specifies the maximum number of characters allowed in the input
+            min_length: Specifies the minimum number of characters required in the input
+            min: Specifies the minimum value for the input
+            multiple: Indicates whether multiple values can be entered in an input of the type email or file
+            name: Name of the input, used when sending form data
+            pattern: Regex pattern the input's value must match to be valid
+            placeholder: Placeholder text in the input
+            read_only: Indicates whether the input is read-only
+            required: Indicates that the input is required
+            size: Specifies the visible width of a text control
+            src: URL for image inputs
+            step: Specifies the legal number intervals for an input
+            type: Specifies the type of input
+            value: Value of the input
+            access_key: Provides a hint for generating a keyboard shortcut for the current element.
+            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
+            content_editable: Indicates whether the element's content is editable.
+            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
+            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
+            draggable: Defines whether the element can be dragged.
+            enter_key_hint: Hints what media types the media element is able to play.
+            hidden: Defines whether the element is hidden.
+            input_mode: Defines the type of the element.
+            item_prop: Defines the name of the element for metadata purposes.
+            lang: Defines the language used in the element.
+            role: Defines the role of the element.
+            slot: Assigns a slot in a shadow DOM shadow tree to an element.
+            spell_check: Defines whether the element may be checked for spelling errors.
+            tab_index: Defines the position of the current element in the tabbing order.
+            title: Defines a tooltip for the element.
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: Attributes passed directly to the component.
+            on_focus: Fired when the input gains focus
+            on_blur: Fired when the input loses focus
+            on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+            on_context_menu: Fired when the user right-clicks on an element.
+            on_double_click: Fired when the user double-clicks on an element.
+            on_mouse_down: Fired when the user presses a mouse button on an element.
+            on_mouse_enter: Fired when the mouse pointer enters the element.
+            on_mouse_leave: Fired when the mouse pointer leaves the element.
+            on_mouse_move: Fired when the mouse pointer moves over the element.
+            on_mouse_out: Fired when the mouse pointer moves out of the element.
+            on_mouse_over: Fired when the mouse pointer moves onto the element.
+            on_mouse_up: Fired when the user releases a mouse button on an element.
+            on_scroll: Fired when the user scrolls the element.
+            on_scroll_end: Fired when scrolling ends on the element.
+            on_mount: Fired when the component is mounted to the page.
+            on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            on_key_down: Fired when a key is pressed down
+            on_key_up: Fired when a key is released
+            on_change: Fired when the input value changes
+            **props: The input properties, including an accessible label.
+
+        Returns:
+            The filter input component.
+        """
+
+class MenuList(MenuBaseComponent):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        render_: Component | Var[Component] | None = None,
+        unstyled: Var[bool] | bool | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Any | Var] | None = None,
+        on_blur: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        **props,
+    ) -> MenuList:
+        """Create the menu item list.
+
+        Args:
+            *children: The menu items and groups.
+            render_: The render prop.
+            unstyled: Whether the component should be unstyled
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: Attributes passed directly to the component.
+            on_focus: Fired when the element (or some element inside of it) receives focus. For example, it is called when the user clicks on a text input.
+            on_blur: Fired when focus has left the element (or left some element inside of it). For example, it is called when the user clicks outside of a focused text input.
+            on_click: Fired when the user clicks on an element. For example, it's called when the user clicks on a button.
+            on_context_menu: Fired when the user right-clicks on an element.
+            on_double_click: Fired when the user double-clicks on an element.
+            on_mouse_down: Fired when the user presses a mouse button on an element.
+            on_mouse_enter: Fired when the mouse pointer enters the element.
+            on_mouse_leave: Fired when the mouse pointer leaves the element.
+            on_mouse_move: Fired when the mouse pointer moves over the element.
+            on_mouse_out: Fired when the mouse pointer moves out of the element.
+            on_mouse_over: Fired when the mouse pointer moves onto the element.
+            on_mouse_up: Fired when the user releases a mouse button on an element.
+            on_scroll: Fired when the user scrolls the element.
+            on_scroll_end: Fired when scrolling ends on the element.
+            on_mount: Fired when the component is mounted to the page.
+            on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
+            **props: Additional properties of the list.
+
+        Returns:
+            The menu list component.
         """
 
 class MenuTrigger(MenuBaseComponent):
@@ -523,6 +1064,7 @@ class MenuSubMenuRoot(MenuBaseComponent):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
+        on_item_highlighted: EventType[()] | EventType[str | None] | EventType[str | None, str] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
         on_mouse_enter: EventType[()] | None = None,
@@ -978,6 +1520,7 @@ class HighLevelMenu(MenuRoot):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
+        on_item_highlighted: EventType[()] | EventType[str | None] | EventType[str | None, str] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
         on_mouse_enter: EventType[()] | None = None,
@@ -1034,6 +1577,7 @@ class HighLevelMenu(MenuRoot):
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
             on_open_change: Event handler called when the menu is opened or closed.
             on_open_change_complete: Event handler called after any animations complete when the menu is closed.
+            on_item_highlighted: Called with the item label (or None) and reason: "keyboard", "pointer", or "none".
             **props: Additional properties to apply to the menu component.
 
         Returns:
@@ -1042,6 +1586,9 @@ class HighLevelMenu(MenuRoot):
 
 class Menu(ComponentNamespace):
     root = staticmethod(MenuRoot.create)
+    filter_provider = staticmethod(MenuFilterProvider.create)
+    input = staticmethod(MenuInput.create)
+    list = staticmethod(MenuList.create)
     trigger = staticmethod(MenuTrigger.create)
     portal = staticmethod(MenuPortal.create)
     positioner = staticmethod(MenuPositioner.create)
@@ -1098,6 +1645,7 @@ class Menu(ComponentNamespace):
         on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
         on_focus: EventType[()] | None = None,
+        on_item_highlighted: EventType[()] | EventType[str | None] | EventType[str | None, str] | None = None,
         on_mount: EventType[()] | None = None,
         on_mouse_down: EventType[()] | None = None,
         on_mouse_enter: EventType[()] | None = None,
@@ -1154,6 +1702,7 @@ class Menu(ComponentNamespace):
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
             on_open_change: Event handler called when the menu is opened or closed.
             on_open_change_complete: Event handler called after any animations complete when the menu is closed.
+            on_item_highlighted: Called with the item label (or None) and reason: "keyboard", "pointer", or "none".
             **props: Additional properties to apply to the menu component.
 
         Returns:

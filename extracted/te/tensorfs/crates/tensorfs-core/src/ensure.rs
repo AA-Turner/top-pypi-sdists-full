@@ -280,13 +280,9 @@ impl Parts {
                     landing = self.landed.wait(landing).unwrap();
                 }
             };
+            let landed = Landed(self, &mine);
             let pulled = self.pull(request, &mine);
-            let mut landing = self.landing.lock().unwrap();
-            for object in &mine {
-                landing.remove(&object.sha256);
-            }
-            self.landed.notify_all();
-            drop(landing);
+            drop(landed);
             pulled?;
         }
     }
@@ -448,7 +444,8 @@ fn land(
 
     let stop = (Mutex::new(false), Condvar::new());
     let pulled = std::thread::scope(|scope| {
-        scope.spawn(|| {
+        // A sampler the container refuses to start leaves the pull running unsampled.
+        let _ = std::thread::Builder::new().spawn_scoped(scope, || {
             let (mut at, mut last) = (Instant::now(), meter.moved.load(Ordering::Relaxed));
             let mut stopped = stop.0.lock().unwrap();
             while !*stopped {
@@ -466,10 +463,8 @@ fn land(
                 });
             }
         });
-        let pulled = attempts(request, &store, &closure, &counters, &on_plan, &on_object);
-        *stop.0.lock().unwrap() = true;
-        stop.1.notify_all();
-        pulled
+        let _stop = Stop(&stop);
+        attempts(request, &store, closure, &counters, &on_plan, &on_object)
     });
     let report = pulled?;
     record.bytes_done = total;
@@ -518,7 +513,8 @@ fn land(
 fn ticking<T>(every: Duration, tick: &(dyn Fn() + Sync), work: impl FnOnce() -> T) -> T {
     let stop = (Mutex::new(false), Condvar::new());
     std::thread::scope(|scope| {
-        scope.spawn(|| {
+        // A ticker the container refuses to start leaves the work running untold.
+        let _ = std::thread::Builder::new().spawn_scoped(scope, || {
             let mut stopped = stop.0.lock().unwrap();
             loop {
                 stopped = stop.1.wait_timeout(stopped, every).unwrap().0;
@@ -528,11 +524,35 @@ fn ticking<T>(every: Duration, tick: &(dyn Fn() + Sync), work: impl FnOnce() -> 
                 tick();
             }
         });
-        let out = work();
-        *stop.0.lock().unwrap() = true;
-        stop.1.notify_all();
-        out
+        let _stop = Stop(&stop);
+        work()
     })
+}
+
+/// Takes a fetch's objects off the landing set as its pull ends, by return or by unwind alike:
+/// the fetches waiting on them never wait forever.
+struct Landed<'a>(&'a Parts, &'a [ObjectRef]);
+
+impl Drop for Landed<'_> {
+    fn drop(&mut self) {
+        let mut landing = self.0.landing.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        for object in self.1 {
+            landing.remove(&object.sha256);
+        }
+        self.0.landed.notify_all();
+    }
+}
+
+/// Stops a sampling thread as its work ends, by return or by unwind alike: a panic in the
+/// work (a thread the container refused) would otherwise leave its scope waiting forever on
+/// a sampler that never stops, and the pull's flight held (2026-10-15).
+struct Stop<'a>(&'a (Mutex<bool>, Condvar));
+
+impl Drop for Stop<'_> {
+    fn drop(&mut self) {
+        *self.0 .0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = true;
+        self.0 .1.notify_all();
+    }
 }
 
 /// Pull until done. A pull that failed on the link is re-attempted; one that landed nothing

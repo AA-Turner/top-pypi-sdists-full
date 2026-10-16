@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "json",
+    "pipx",
+    "pipx.commands.common",
+    "pipx.commands.transaction",
+    "pipx.pipx_metadata_file",
+    "pipx.venv",
+]
+
 import json
 import logging
 import sys
@@ -7,7 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 from pipx import paths
 from pipx.colors import bold
-from pipx.commands.common import VenvProblems, get_venv_summary, venv_health_check
+from pipx.commands.common import VenvProblems, get_venv_summary, reuse_resource_dir_scans, venv_health_check
+from pipx.commands.transaction import is_unfinished
 from pipx.constants import EXIT_CODE_LIST_PROBLEM, EXIT_CODE_OK, ExitCode
 from pipx.emojis import sleep
 from pipx.pipx_metadata_file import JsonEncoderHandlesPath, PipxMetadata
@@ -57,13 +67,14 @@ def list_text(venv_dirs: Iterable[Path], venv_root_dir: str, *, include_injected
     )
 
     all_venv_problems = VenvProblems()
-    for venv_dir in venv_dirs:
-        package_summary, venv_problems = get_venv_summary(venv_dir, include_injected=include_injected)
-        if venv_problems.any_():
-            logger.warning(package_summary)
-        else:
-            print(package_summary)  # ruff:ignore[print]  # user-facing CLI output
-        all_venv_problems.or_(venv_problems)
+    with reuse_resource_dir_scans():
+        for venv_dir in venv_dirs:
+            package_summary, venv_problems = get_venv_summary(venv_dir, include_injected=include_injected)
+            if venv_problems.any_():
+                logger.warning(package_summary)
+            else:
+                print(package_summary)  # ruff:ignore[print]  # user-facing CLI output
+            all_venv_problems.or_(venv_problems)
 
     return all_venv_problems
 
@@ -170,7 +181,14 @@ def list_packages(  # ruff:ignore[too-many-arguments]  # flat CLI-facing list op
             "   Please uninstall and install these package(s) to fix."
         )
 
-    if all_venv_problems.any_():
+    if unfinished := [venv_dir.name for venv_dir in venv_dirs if is_unfinished(venv_dir)]:
+        logger.warning(
+            "\nOne or more packages were left half changed by an interrupted pipx run: %s.\n"
+            "   To fix, execute: pipx upgrade-all, or pipx reinstall PACKAGE",
+            ", ".join(unfinished),
+        )
+
+    if all_venv_problems.any_() or unfinished:
         print(file=sys.stderr)  # ruff:ignore[print]  # user-facing CLI output
         return EXIT_CODE_LIST_PROBLEM
 

@@ -104,14 +104,33 @@ ERR_FRAGMENT: str = "Please consider raising an issue at https://github.com/pyth
 
 
 class DAVError(Exception):
+    """Base class for the errors raised on a failed request.
+
+    ``preconditions`` holds the Clark-notation tags of any precondition
+    elements in a ``DAV:error`` response body (RFC 4918 section 16), and
+    ``body`` the raw response body (or None).  A server may explain any
+    failure that way, whatever the status: e.g. ``["{DAV:}valid-sync-token"]``
+    for an expired sync token (RFC 6578 section 3.2), or
+    ``["{urn:ietf:params:xml:ns:caldav}no-uid-conflict"]`` for a create whose
+    UID is already taken (RFC 4791 section 5.3.2.1).
+    """
+
     url: str | None = None
     reason: str = "no reason"
 
-    def __init__(self, url: str | None = None, reason: str | None = None) -> None:
+    def __init__(
+        self,
+        url: str | None = None,
+        reason: str | None = None,
+        preconditions: list[str] | None = None,
+        body: bytes | str | None = None,
+    ) -> None:
         if url:
             self.url = url
         if reason:
             self.reason = reason
+        self.preconditions = list(preconditions) if preconditions else []
+        self.body = body
 
     def __str__(self) -> str:
         return "%s at '%s', reason %s" % (
@@ -121,14 +140,58 @@ class DAVError(Exception):
         )
 
 
+def parse_preconditions(body: object) -> list[str]:
+    """Return the precondition/postcondition element tags of a DAV:error body.
+
+    RFC 4918 section 16 lets a server explain a 403/409 with a body like
+    ``<D:error><D:valid-sync-token/></D:error>``; this returns the Clark-notation
+    tags of the DAV:error children (e.g. ``["{DAV:}valid-sync-token"]``).
+    Anything that is not a well-formed DAV:error document - an empty body, HTML,
+    plain text, some other XML root - yields an empty list rather than an error.
+    """
+    if isinstance(body, str):
+        body = body.encode("utf-8")
+    if not isinstance(body, bytes) or not body.strip():
+        return []
+    from lxml import etree
+
+    try:
+        root = etree.fromstring(
+            body,
+            parser=etree.XMLParser(resolve_entities=False, no_network=True),
+        )
+    except Exception:
+        return []
+    if root.tag != "{DAV:}error":
+        return []
+    return [child.tag for child in root if isinstance(child.tag, str)]
+
+
 class AuthorizationError(DAVError):
     """
-    The client encountered an HTTP 403 error and is passing it on
+    The client encountered an HTTP 401 or 403 error and is passing it on
     to the user. The url property will contain the url in question,
     the reason property will contain the excuse the server sent.
+
+    A 403 with an empty ``preconditions`` list is most likely a genuine
+    permission problem.
     """
 
-    pass
+
+def error_from_response(
+    cls: type[DAVError], response: object, message: str | None = None
+) -> DAVError:
+    """Build a ``cls`` error for a failed ``DAVResponse``, keeping its body
+    and the precondition elements in it (issue #756).  ``message`` defaults
+    to ``errmsg(response)``."""
+    body = getattr(response, "_raw", None) or None
+    if not isinstance(body, (bytes, str)):
+        body = None
+    return cls(
+        errmsg(response) if message is None else message,
+        preconditions=parse_preconditions(body),
+        body=body,
+    )
 
 
 class PropsetError(DAVError):
@@ -159,6 +222,28 @@ class PutError(DAVError):
     pass
 
 
+## RFC 4791 section 5.3.2.1 and RFC 6638 section 3.2.4.1
+UID_CONFLICT_PRECONDITIONS = frozenset(
+    {
+        "{urn:ietf:params:xml:ns:caldav}no-uid-conflict",
+        "{urn:ietf:params:xml:ns:caldav}unique-scheduling-object-resource",
+    }
+)
+
+
+class UidConflictError(PutError):
+    """The server refused a PUT because another object in the calendar
+    already holds its UID: ``CALDAV:no-uid-conflict`` (RFC 4791 section
+    5.3.2.1) or ``CALDAV:unique-scheduling-object-resource`` (RFC 6638
+    section 3.2.4.1).  Radicale answers 409, Xandikos and Stalwart 412,
+    Cyrus 403.  https://github.com/python-caldav/caldav/issues/756
+
+    Where earlier versions raised another error for the same answer, a
+    subclass that is also that error is raised instead
+    (``UID_CONFLICT_ERRORS``), so existing handlers keep catching it.
+    """
+
+
 class DeleteError(DAVError):
     pass
 
@@ -181,6 +266,26 @@ class ScheduleTagMismatchError(DAVError):
 
 class ETagMismatchError(DAVError):
     pass
+
+
+class UidConflictScheduleTagMismatchError(UidConflictError, ScheduleTagMismatchError):
+    """A 412 UID conflict on a save sending If-Schedule-Tag-Match."""
+
+
+class UidConflictETagMismatchError(UidConflictError, ETagMismatchError):
+    """A 412 UID conflict on a save sending If-Match."""
+
+
+class UidConflictAuthorizationError(UidConflictError, AuthorizationError):
+    """A 403 UID conflict (Cyrus)."""
+
+
+## The UidConflictError to raise in place of what earlier versions raised
+UID_CONFLICT_ERRORS: dict[type[DAVError], type[UidConflictError]] = {
+    AuthorizationError: UidConflictAuthorizationError,
+    ETagMismatchError: UidConflictETagMismatchError,
+    ScheduleTagMismatchError: UidConflictScheduleTagMismatchError,
+}
 
 
 class RateLimitError(DAVError):
@@ -278,7 +383,7 @@ def raise_if_rate_limited(
     )
 
 
-exception_by_method: dict[str, DAVError] = defaultdict(lambda: DAVError)
+exception_by_method: dict[str, type[DAVError]] = defaultdict(lambda: DAVError)
 for method in (
     "delete",
     "put",

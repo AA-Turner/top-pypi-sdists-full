@@ -17,6 +17,7 @@ from git import Actor, Repo
 
 from plato.git_ops import (
     GitOpRequest,
+    WorldGitSshTimeoutError,
     checkout_main_from_bare,
     ensure_remote_git_server,
     run_remote_git_checked,
@@ -35,6 +36,49 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 _AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
+
+# Stays above the 45s world-git ssh limit, so a lost link fails first with the ssh error.
+_CLONE_SETUP_TIMEOUT_S = 60
+
+# SSH options for the agent VM's connection back to the world VM (``world-git``),
+# which every clone, fetch and push uses. Without them, a lost TCP SYN or a
+# stalled session leaves git silent until the caller's 60s git-op timeout,
+# with no stderr, and the hung op keeps the agent daemon's per-repo lock. With
+# them, ssh retries the connect and then fails with its own error (3 x 15s =
+# 45s, inside the 60s push timeout). Same values as the world -> agent options
+# in ``plato.utils.subprocess``.
+_WORLD_GIT_SSH_TIMEOUT_OPTIONS = "".join(
+    f"    {option}\n"
+    for option in (
+        "ConnectTimeout 15",
+        "ConnectionAttempts 3",
+        "ServerAliveInterval 10",
+        "ServerAliveCountMax 3",
+    )
+)
+
+
+class GitSetupTimeoutError(RuntimeError):
+    """The agent VM's initial clone of the world bare timed out.
+
+    Raised only from ``setup_agent``, before the agent starts, so no agent
+    work exists yet. ``plato.agents.execution`` retries the run on a fresh VM
+    for this error.
+    """
+
+    def __init__(self, hostname: str, detail: str) -> None:
+        super().__init__(f"Git clone_setup timed out on agent VM {hostname}: {detail}")
+        self.hostname = hostname
+
+
+def _is_git_op_timeout(exc: BaseException) -> bool:
+    """True for a git-op timeout on either transport (SSH stdio or agent daemon)."""
+    from plato.git_ops.client import GitOpTimeoutError
+    from plato.rpc.errors import RpcException
+
+    if isinstance(exc, GitOpTimeoutError):
+        return True
+    return isinstance(exc, RpcException) and exc.error.code == "DEADLINE_EXCEEDED"
 
 
 class GitPushConflict(RuntimeError):
@@ -572,6 +616,7 @@ class GitTransport(Transport):
             "    StrictHostKeyChecking no\n"
             "    UserKnownHostsFile /dev/null\n"
             "    LogLevel ERROR\n"
+            f"{_WORLD_GIT_SSH_TIMEOUT_OPTIONS}"
         )
         await run_ssh(
             self.ssh_key_path,
@@ -587,17 +632,22 @@ class GitTransport(Transport):
         branch_name = mount.git_checkout.branch_name if mount.git_checkout is not None else None
         t2 = _time.monotonic()
         logger.debug("GitTransport.setup_agent: cloning %s -> %s on %s", self._bare_repo_path, remote, hostname)
-        await self._run_remote_git_checked(
-            hostname,
-            request=GitOpRequest.clone_setup(
-                remote,
-                bare_repo_path=self._bare_repo_path,
-                checkout_ref=checkout_ref,
-                branch_name=branch_name or "plato-task",
-            ),
-            timeout=120,
-            error_context="Failed to clone git repo on agent VM",
-        )
+        try:
+            await self._run_remote_git_checked(
+                hostname,
+                request=GitOpRequest.clone_setup(
+                    remote,
+                    bare_repo_path=self._bare_repo_path,
+                    checkout_ref=checkout_ref,
+                    branch_name=branch_name or "plato-task",
+                ),
+                timeout=_CLONE_SETUP_TIMEOUT_S,
+                error_context="Failed to clone git repo on agent VM",
+            )
+        except Exception as exc:
+            if _is_git_op_timeout(exc) or isinstance(exc, WorldGitSshTimeoutError):
+                raise GitSetupTimeoutError(hostname, str(exc)) from exc
+            raise
 
         if mount.git_sync is not None and mount.git_sync.mode == "none" and mount.git_sync.readonly:
             await self._install_readonly_hook(hostname, remote)

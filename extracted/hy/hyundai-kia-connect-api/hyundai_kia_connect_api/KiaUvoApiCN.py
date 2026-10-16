@@ -56,7 +56,6 @@ import json
 import logging
 import math
 import re
-import typing as ty
 import uuid
 from time import sleep
 from zoneinfo import ZoneInfo
@@ -71,7 +70,6 @@ from .const import (
     DOMAIN,
     ENGINE_TYPES,
     ORDER_STATUS,
-    VEHICLE_LOCK_ACTION,
 )
 from .exceptions import (
     APIError,
@@ -346,7 +344,6 @@ class KiaUvoApiCN(ApiImplType1):
         self,
         username: str,
         password: str,
-        otp_handler: ty.Callable[[dict], dict] | None = None,
         pin: str | None = None,
     ) -> Token:
         """Full password login.  Five-step live-verified flow (see module
@@ -500,40 +497,6 @@ class KiaUvoApiCN(ApiImplType1):
     # ------------------------------------------------------------------
     # Vehicles / state (business surface --same schema as the old code)
     # ------------------------------------------------------------------
-    def get_vehicles(self, token: Token) -> list[Vehicle]:
-        url = self.SPA_API_URL + "vehicles"
-        response = self.session.get(
-            url, headers=self._get_authenticated_headers(token)
-        ).json()
-        _LOGGER.debug(f"{DOMAIN} - Get Vehicles Response: {response}")
-        _check_response_for_errors(response)
-        result = []
-        for entry in response["resMsg"]["vehicles"]:
-            entry_engine_type = None
-            if entry["type"] == "GN":
-                entry_engine_type = ENGINE_TYPES.ICE
-            elif entry["type"] == "EV":
-                entry_engine_type = ENGINE_TYPES.EV
-            elif entry["type"] == "PHEV":
-                entry_engine_type = ENGINE_TYPES.PHEV
-            elif entry["type"] == "HV":
-                entry_engine_type = ENGINE_TYPES.HEV
-            vehicle: Vehicle = Vehicle(
-                id=entry["vehicleId"],
-                name=entry["nickname"],
-                model=entry["vehicleName"],
-                registration_date=entry["regDate"],
-                VIN=entry["vin"],
-                timezone=self.data_timezone,
-                engine_type=entry_engine_type,
-                # DIFFERENCE vs ApiImplType1.get_vehicles: the China vehicle
-                # list does not include ccuCCS2ProtocolSupport (verified on a
-                # 2025 Custo) --default to 0 so the legacy status path is used.
-                ccu_ccs2_protocol_support=entry.get("ccuCCS2ProtocolSupport", 0),
-            )
-            result.append(vehicle)
-        return result
-
     def update_vehicle_with_cached_state(self, token: Token, vehicle: Vehicle) -> None:
         state = self._get_cached_vehicle_state(token, vehicle)
         self._update_vehicle_properties(vehicle, state)
@@ -620,7 +583,7 @@ class KiaUvoApiCN(ApiImplType1):
 
         return response
 
-    def _get_location(self, token: Token, vehicle: Vehicle) -> dict:
+    def _get_location(self, token: Token, vehicle: Vehicle) -> dict | None:
         url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/location"
 
         try:
@@ -654,20 +617,6 @@ class KiaUvoApiCN(ApiImplType1):
     # follows the inherited Type1 dispatch: legacy vehicles use the access
     # token, CCS2 vehicles use the PIN-derived control token)
     # ------------------------------------------------------------------
-    def lock_action(
-        self, token: Token, vehicle: Vehicle, action: VEHICLE_LOCK_ACTION
-    ) -> str:
-        url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/control/door"
-
-        payload = {"action": action.value, "deviceId": token.device_id}
-        _LOGGER.debug(f"{DOMAIN} - Lock Action Request: {payload}")
-        response = self.session.post(
-            url, json=payload, headers=self._get_authenticated_headers(token)
-        ).json()
-        _LOGGER.debug(f"{DOMAIN} - Lock Action Response: {response}")
-        _check_response_for_errors(response)
-        return response["msgId"]
-
     def charge_port_action(
         self, token: Token, vehicle: Vehicle, action: CHARGE_PORT_ACTION
     ) -> str:

@@ -8,7 +8,7 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -1281,7 +1281,7 @@ class TestJobRunningWorker:
 
         with (
             patch("dstack._internal.server.services.runner.pool.SSHTunnel") as ssh_tunnel_cls,
-            freeze_time(job.disconnected_at + timedelta(minutes=5)),
+            time_machine.travel(job.disconnected_at + timedelta(minutes=5), tick=False),
         ):
             from dstack._internal.core.errors import SSHError
 
@@ -1622,7 +1622,7 @@ class TestJobRunningWorker:
 
         with (
             patch("dstack._internal.server.services.runner.pool.SSHTunnel") as ssh_tunnel_cls,
-            freeze_time(job.disconnected_at + timedelta(minutes=5)),
+            time_machine.travel(job.disconnected_at + timedelta(minutes=5), tick=False),
         ):
             ssh_tunnel_cls.side_effect = SSHError
             await _process_job(session, worker, job)
@@ -1858,7 +1858,7 @@ class TestJobRunningWorker:
             patch(
                 "dstack._internal.server.services.runner.client.RunnerClient.from_address"
             ) as runner_client_cls,
-            freeze_time(now),
+            time_machine.travel(now, tick=False),
         ):
             runner_client_mock = runner_client_cls.return_value
             runner_client_mock.pull.return_value = PullResponse(
@@ -1909,7 +1909,7 @@ class TestJobRunningWorker:
             ),
         ],
     )
-    @freeze_time(datetime(2023, 1, 1, 12, 30, tzinfo=timezone.utc))
+    @time_machine.travel(datetime(2023, 1, 1, 12, 30, tzinfo=timezone.utc), tick=False)
     async def test_gpu_utilization(
         self,
         test_db,
@@ -2968,7 +2968,7 @@ class TestJobRunningWorker:
             run_spec=get_run_spec(
                 run_name="test",
                 repo_id=repo.name,
-                configuration=_router_service_configuration("sglang", gateway="test-gateway"),
+                configuration=_router_service_configuration("smg", gateway="test-gateway"),
             ),
             gateway=gateway,
         )
@@ -3046,7 +3046,7 @@ class TestJobRunningWorker:
                 run_name="test",
                 repo_id=repo.name,
                 configuration=_router_service_configuration(
-                    "sglang",
+                    "smg",
                     probes=[ProbeConfig(type="http", url="/health", ready_after=1)],
                 ),
             ),
@@ -3148,7 +3148,7 @@ class TestPrepareStartupContextRouterEnv:
             result.job_update_map.get("termination_reason_message") or ""
         )
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_router_not_provisioned_within_timeout_defers(self):
         context = self._make_context(
             submitted_at=datetime(2023, 1, 1, 11, 45, 0, tzinfo=timezone.utc),
@@ -3162,7 +3162,7 @@ class TestPrepareStartupContextRouterEnv:
         assert out is None
         assert result.job_update_map == {}
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_router_not_provisioned_past_timeout_terminates(self):
         context = self._make_context(
             submitted_at=datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
@@ -3262,7 +3262,7 @@ class TestPrepareStartupContextClusterWait:
             instance_access_revoked=False,
         )
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_submitted_sibling_defers(self):
         context = self._make_context()
         result = _ProcessResult()
@@ -3345,7 +3345,7 @@ class TestPrepareStartupContextGroupsIpWait:
             ),
         )
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_groups_ip_not_ready_defers(self):
         context = self._make_context()
         result = _ProcessResult()
@@ -3556,7 +3556,7 @@ class TestPrepareStartupContextReplicaIpWait:
             ),
         )
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_replica_ip_not_ready_defers(self):
         context = self._make_context(router_ip="")
         result = _ProcessResult()
@@ -3568,7 +3568,7 @@ class TestPrepareStartupContextReplicaIpWait:
         assert result.job_update_map == {}
         assert context.job.job_spec.commands == ["echo ${{ groups[0].replicas[0].IP_ADDRESS }}"]
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_replica_ip_ready_substitutes(self):
         context = self._make_context(router_ip="10.0.0.5")
         result = _ProcessResult()
@@ -3579,7 +3579,7 @@ class TestPrepareStartupContextReplicaIpWait:
         assert out is not None
         assert context.job.job_spec.commands == ["echo 10.0.0.5"]
 
-    @freeze_time("2023-01-01 12:00:00Z")
+    @time_machine.travel(datetime(2023, 1, 1, 12, tzinfo=timezone.utc), tick=False)
     async def test_nodes_ref_in_service_terminates(self):
         context = self._make_context(
             router_ip="10.0.0.5",
@@ -3645,7 +3645,7 @@ class TestFetchRunModelDynamoBranch:
         repo = await create_repo(session=session, project_id=project.id)
         run_spec = get_run_spec(
             repo_id=repo.name,
-            configuration=_router_service_configuration("sglang"),
+            configuration=_router_service_configuration("smg"),
         )
         run = await create_run(
             session=session, project=project, repo=repo, user=user, run_spec=run_spec
@@ -3674,7 +3674,7 @@ class TestFetchRunModelDynamoBranch:
         )
         assert {j.replica_num for j in run_model.jobs} == {0}
 
-    async def test_sglang_with_replica_ip_refs_loads_all_replicas(
+    async def test_smg_with_replica_ip_refs_loads_all_replicas(
         self, test_db, session: AsyncSession
     ):
         project = await create_project(session=session)
@@ -3683,7 +3683,7 @@ class TestFetchRunModelDynamoBranch:
         run_spec = get_run_spec(
             repo_id=repo.name,
             configuration=_router_service_configuration(
-                "sglang",
+                "smg",
                 router_commands=["echo ${{ groups[0].replicas[0].IP_ADDRESS }}"],
             ),
         )
@@ -3714,7 +3714,7 @@ class TestFetchRunModelDynamoBranch:
         )
         assert {j.replica_num for j in run_model.jobs} == {0, 1}
 
-    async def test_sglang_without_replica_ip_refs_loads_only_own_replica(
+    async def test_smg_without_replica_ip_refs_loads_only_own_replica(
         self, test_db, session: AsyncSession
     ):
         project = await create_project(session=session)
@@ -3722,7 +3722,7 @@ class TestFetchRunModelDynamoBranch:
         repo = await create_repo(session=session, project_id=project.id)
         run_spec = get_run_spec(
             repo_id=repo.name,
-            configuration=_router_service_configuration("sglang"),
+            configuration=_router_service_configuration("smg"),
         )
         run = await create_run(
             session=session, project=project, repo=repo, user=user, run_spec=run_spec
@@ -3751,7 +3751,7 @@ class TestFetchRunModelDynamoBranch:
         )
         assert {j.replica_num for j in run_model.jobs} == {1}
 
-    async def test_sglang_with_replica_ip_refs_drops_terminated_replicas(
+    async def test_smg_with_replica_ip_refs_drops_terminated_replicas(
         self, test_db, session: AsyncSession
     ):
         project = await create_project(session=session)
@@ -3760,7 +3760,7 @@ class TestFetchRunModelDynamoBranch:
         run_spec = get_run_spec(
             repo_id=repo.name,
             configuration=_router_service_configuration(
-                "sglang",
+                "smg",
                 router_commands=["echo ${{ groups[0].replicas[0].IP_ADDRESS }}"],
             ),
         )

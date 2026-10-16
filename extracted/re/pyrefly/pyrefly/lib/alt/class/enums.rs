@@ -177,7 +177,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     ///
     /// Return None if either this is not an enum or this is not a special-case
     /// attribute.
-    fn special_case_enum_attr_lookup(
+    pub(super) fn special_case_enum_attr_lookup(
         &self,
         class: &ClassType,
         enum_literal: Option<&LitEnum>,
@@ -316,8 +316,6 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     } else {
                         mixed_in.clone()
                     }
-                } else if value_ty.is_implicit_literal() {
-                    value_ty.promote_implicit_literals(self.stdlib)
                 } else {
                     value_ty
                 })

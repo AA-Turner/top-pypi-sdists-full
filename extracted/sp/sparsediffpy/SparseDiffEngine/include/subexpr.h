@@ -19,12 +19,8 @@
 #define SUBEXPR_H
 
 #include "expr.h"
-#include "utils/CSC_matrix.h"
-#include "utils/CSR_matrix.h"
-#include "utils/matrix.h"
-
-/* Forward declaration */
-struct int_double_pair;
+#include "sparsediff_linalg/CSR_matrix.h"
+#include "sparsediff_linalg/matrix.h"
 
 /* Parameter ID for fixed constants (not updatable) */
 #define PARAM_FIXED -1
@@ -39,14 +35,6 @@ typedef struct parameter_expr
     int param_id;
 } parameter_expr;
 
-/* Linear operator: y = A * x + b
- * The matrix A is stored as node->jacobian (CSR_matrix). */
-typedef struct linear_op_expr
-{
-    expr base;
-    double *b; /* constant offset vector (NULL if no offset) */
-} linear_op_expr;
-
 /* Power: y = x^p */
 typedef struct power_expr
 {
@@ -56,15 +44,29 @@ typedef struct power_expr
 
 /* Quadratic form: y = x'*Q*x. Q is a polymorphic matrix: a sparse (CSR) backend
    on the sparse path, or a dense (permuted_dense) backend on the dense path. */
+typedef struct quad_over_lin_expr
+{
+    expr base;
+    /* Composition case x = f(u): J = (2 f(u)/y)^T J_f + (-value/y) e_y^T, formed
+       as the dispatcher's B^T A with d = 2 f(u)/y (n x 1 permuted_dense) as the
+       transposed operand, plus a one-entry row at y's column, summed. */
+    matrix *d;     /* n x 1 permuted_dense holding 2 f(u)/y */
+    matrix *xpart; /* 1 x n_vars, d^T J_f (permuted_dense from BTA) */
+    matrix *ypart; /* 1 x n_vars sparse with one entry at y->var_id */
+} quad_over_lin_expr;
+
 typedef struct quad_form_expr
 {
     expr base;
     matrix *Q;
-    /* Q * J_f for the composition chain-rule hessian; exactly one is used per
-       node. Sparse path: CSC (raw symmetric products, no matrix-vtable form).
-       Dense path: permuted_dense via the matrix dispatchers. */
-    CSC_matrix *QJf;
-    matrix *QJf_dense;
+    /* Q * J_f for the composition chain-rule hessian, formed through the matrix
+       dispatchers on both paths: a permuted_dense when Q is dense, J_f's kind
+       when Q is sparse (Q symmetric, so it is Q^T J_f with Q as the transposed
+       operand). */
+    matrix *QJf;
+    /* Q f(x) as an n x 1 permuted_dense: the transposed operand that forms the
+       composition Jacobian 2 (Q f(x))^T J_f through the matrix dispatchers. */
+    matrix *Qx;
     int n; /* quadratic dimension = left->size */
 
     /* parametric dense path: param_source feeds Q each solve (NULL otherwise) */
@@ -82,7 +84,7 @@ typedef struct sum_expr
 typedef struct trace_expr
 {
     expr base;
-    int *idx_map; /* maps child nnz to summed-row positions */
+    matrix *diag_rows; /* the d1 rows of J_X at X's diagonal (row_gather) */
 } trace_expr;
 
 /* Product of all entries */
@@ -110,33 +112,26 @@ typedef struct hstack_expr
     expr base;
     expr **args;
     int n_args;
-    CSR_matrix *CSR_work; /* for summing Hessians of children */
+    matrix **child_jac;  /* args' Jacobians: the operands of the vstack */
+    matrix **child_hess; /* args' Hessians: the operands of the sum */
 } hstack_expr;
 
 /* Elementwise multiplication */
 typedef struct elementwise_mult_expr
 {
     expr base;
-    matrix *C;       /* C  = Jg2^T diag(w) Jg1 (Sparse or PD) */
-    matrix *CT;      /* CT = C^T; same concrete type as C */
-    int *idx_map_C;  /* C[j]  -> wsum_hess pos */
-    int *idx_map_CT; /* CT[j] -> wsum_hess pos */
-    int *idx_map_Hx; /* x->wsum_hess[j] -> pos */
-    int *idx_map_Hy; /* y->wsum_hess[j] -> pos */
+    matrix *C;  /* C  = Jg2^T diag(w) Jg1 (Sparse or PD) */
+    matrix *CT; /* CT = C^T; same concrete type as C */
 } elementwise_mult_expr;
 
-/* Left matrix multiplication: y = A * f(x) where f(x) is an expression. Note that
-here A does not have global column indices but it is a local matrix. This is an
-important distinction compared to linear_op_expr. */
+/* Left matrix multiplication: y = A * f(x) where f(x) is an expression. A has
+local column indices (f(x)'s entries), not global variable indices. */
 typedef struct left_matmul_expr
 {
     expr base;
     matrix *A;
     matrix *AT;
     int n_blocks;
-    CSC_matrix *Jchild_CSC;
-    CSC_matrix *J_CSC;
-    int *csc_to_csr_work;
     expr *param_source;
     void (*refresh_param_values)(struct left_matmul_expr *);
 } left_matmul_expr;
@@ -167,8 +162,7 @@ typedef struct convolve_expr
     expr *param_source; /* length-m kernel */
     int m;              /* kernel length */
     int n;              /* input length */
-    CSR_matrix *T;      /* (m+n-1) x n convolution matrix */
-    CSC_matrix *Jchild_CSC;
+    matrix *T;          /* (m+n-1) x n convolution matrix (sparse) */
 } convolve_expr;
 
 /* Kronecker product Z = kron(A, B) where one operand is variable-free (held by
@@ -189,21 +183,18 @@ typedef struct kron_expr
 typedef struct matmul_expr
 {
     expr base;
-    /* Jacobian workspace */
-    CSR_matrix *term1_CSR; /* (Y^T x I_m) @ J_f */
-    CSR_matrix *term2_CSR; /* (I_n x X) @ J_g */
+    /* Jacobian workspace (chain rule): J_h = (Y^T kron I_m) J_f + (I_n kron X) J_g.
+       YT and X are full permuted_dense holding the children's current values. */
+    matrix *YT;    /* n x k, Y^T */
+    matrix *X;     /* m x k */
+    matrix *term1; /* (Y^T kron I_m) @ J_f */
+    matrix *term2; /* (I_n kron X) @ J_g */
 
-    /* Hessian workspace (composite only) */
-    CSR_matrix *B;       /* cross-Hessian B(w), mk x kn */
-    CSR_matrix *BJg;     /* B @ J_g */
-    CSC_matrix *BJg_CSC; /* BJg in CSC_matrix */
-    int *BJg_csc_work;   /* CSR_matrix-to-CSC_matrix workspace */
-    CSR_matrix *C;       /* J_f^T @ B @ J_g */
-    CSR_matrix *CT;      /* C^T */
-    int *idx_map_C;
-    int *idx_map_CT;
-    int *idx_map_Hf;
-    int *idx_map_Hg;
+    /* Hessian workspace (chain rule): H = C + C^T + H_f + H_g. */
+    matrix *B;   /* cross-Hessian B(w), mk x kn */
+    matrix *BJg; /* B @ J_g */
+    matrix *C;   /* J_f^T @ B @ J_g */
+    matrix *CT;  /* C^T */
 } matmul_expr;
 
 /* Index/slicing: y = child[indices] where indices is a list of flat positions */

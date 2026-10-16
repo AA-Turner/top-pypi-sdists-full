@@ -1064,6 +1064,13 @@ def roadmap_map():
             ],
             [],
         ),
+        (
+            "§6 full WASM build",
+            [
+                ("MMG under Emscripten (after §4.3)", "M"),
+            ],
+            [],
+        ),
     ]
     per_row = 4
     col_w = 176

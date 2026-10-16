@@ -71,6 +71,9 @@ class ActionTypeClient:
         """
         Gets a specific action type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param action_type: The name of the action type in the API.
@@ -125,6 +128,9 @@ class ActionTypeClient:
     ) -> ontologies_models.ActionTypeV2:
         """
         Gets a specific action type with the given RID.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -184,6 +190,9 @@ class ActionTypeClient:
 
         The maximum batch size for this endpoint is 100.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param requests:
@@ -241,6 +250,9 @@ class ActionTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -303,6 +315,9 @@ class ActionTypeClient:
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response. Search results are eventually
         consistent with the latest Ontology version and may lag slightly behind the last Ontology modification.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -434,6 +449,9 @@ class AsyncActionTypeClient:
         """
         Gets a specific action type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param action_type: The name of the action type in the API.
@@ -488,6 +506,9 @@ class AsyncActionTypeClient:
     ) -> typing.Awaitable[ontologies_models.ActionTypeV2]:
         """
         Gets a specific action type with the given RID.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -547,6 +568,9 @@ class AsyncActionTypeClient:
 
         The maximum batch size for this endpoint is 100.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param requests:
@@ -604,6 +628,9 @@ class AsyncActionTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -666,6 +693,9 @@ class AsyncActionTypeClient:
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response. Search results are eventually
         consistent with the latest Ontology version and may lag slightly behind the last Ontology modification.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

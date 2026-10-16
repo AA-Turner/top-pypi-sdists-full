@@ -36,9 +36,7 @@ and :func:`verify_receipts_by_reexecuting_probes` (batch, producing a
 :class:`ModelReceiptReprobeReport`).
 
 CLI: ``python -m omnibase_core.validation.validator_receipt_reprobe``
-exposes a ``--receipts-dir`` driver. The receipt-gate CLI in
-``receipt_gate_cli.py`` accepts ``--reexecute-probes`` (default OFF in CI;
-ON in the manual scaffold session-end ritual).
+exposes a ``--receipts-dir`` driver.
 """
 
 from __future__ import annotations
@@ -305,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--receipts-dir",
-        default="onex_change_control/drift/dod_receipts",
+        default="drift/dod_receipts",
         help="Directory tree containing ModelDodReceipt YAML files.",
     )
     args = parser.parse_args(argv)

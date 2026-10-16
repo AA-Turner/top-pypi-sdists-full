@@ -179,6 +179,7 @@ OWN_BROWSER_REASONS: frozenset[str] = frozenset(
         "login_wall",
         "paywall",
         "bad_status",
+        "blocked",
         "cloudflare_block",
         "empty_content",
         "thin_content",

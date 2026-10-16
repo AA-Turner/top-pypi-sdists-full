@@ -20,7 +20,7 @@ from river_client.client import (
     _merge_forward_backward_sub_batch_results,
 )
 from river_client.losses import CustomLoss
-from river_client.types import Checkpoint
+from river_client.types import Checkpoint, RiverError
 
 from .advantages import (
     Batchwise,
@@ -50,7 +50,7 @@ from .engine import call, group_from_state, group_state
 from .env import Env
 from .progress import Activities
 from .streaming_custom_loss import StreamingCustomLoss
-from .trajectory import Span
+from .trajectory import Span, decode_state
 
 
 @dataclass
@@ -130,6 +130,23 @@ def _require_finite_update(metrics, step):
             f"optimizer step {step} reported a non-finite gradient norm; "
             "its policy was not published, evaluated or saved"
         )
+
+
+class PolicyRewoundError(RiverError):
+    """The server rewound a full-weight run to an earlier committed step.
+
+    A full-weight RL run whose trainer crew restarts resumes from its newest
+    auto checkpoint, and the updates after it are gone. Run the trainer again
+    with the same :class:`Checkpointing` directory to resume from ``step``.
+    """
+
+    def __init__(self, step: int):
+        super().__init__(
+            f"the server rewound this run to optimizer step {step}, its newest "
+            "auto checkpoint; run the trainer again with the same Checkpointing "
+            "directory to resume from it"
+        )
+        self.step = step
 
 
 _DEFAULT_TRUNCATION = Truncation()
@@ -627,6 +644,14 @@ class AsyncTrainer:
     async def _save_state(self, *, background=False):
         if self._state_write is not None:
             await self._wait_state_write(self._state_write)
+        if self._full_weight:
+            # Full-weight runs make no training saves of their own (R48): a
+            # restart resumes from the server's newest committed auto checkpoint.
+            latest = await self._call(
+                "auto_checkpoint", self.engine.model.latest_auto_checkpoint
+            )
+            if latest is not None:
+                self._base = latest
         state = {
             "version": 1,
             **self._fingerprints,
@@ -635,7 +660,16 @@ class AsyncTrainer:
             "model_step": self.engine.model.step,
             "dataset_images": self._dataset_images,
             "sampling_schedule": dataclasses.asdict(self.engine.schedule),
-            "base": dataclasses.asdict(self._base),
+            "base": None if self._base is None else dataclasses.asdict(self._base),
+            **(
+                {
+                    "training_run_id": self.engine.model.training_run_id,
+                    # Steps repeat after a rewind; only the id names the weights.
+                    "policy_id": self._policy.id,
+                }
+                if self._full_weight
+                else {}
+            ),
             "journal": copy.deepcopy(self._journal),
             "admitted_policy_steps": self._admitted_policy_steps.copy(),
             "active": sorted(self._active),
@@ -735,6 +769,7 @@ class AsyncTrainer:
                         policy_step=self.engine.model.step - age,
                         run=span.run,
                         policy_version=sampled,
+                        policy_spans=span.policy_spans,
                         retained_kv=span.retained_kv,
                         kv_cache_policy_version=span.kv_cache_policy_version,
                         routing_handle=span.routing_handle,
@@ -772,25 +807,105 @@ class AsyncTrainer:
         if self._published_sampling_step == step:
             return
         # Called before new admissions, after committed training state is
-        # recoverable. Existing trajectories may keep using prior snapshots.
+        # recoverable. Full-weight publication also updates active trajectories.
         if self._store and not recovering and self._saved_model_step != step:
             await self._save_state()
+        # A full-weight run pushes its weights to the run's own sampler and
+        # stores nothing, so there is no snapshot version to keep. Other runs
+        # keep each snapshot on NFS only, with no cloud copy.
+        mode = "publish" if self._full_weight else "inference"
+        storage = {} if self._full_weight else {"durable": False}
+        immutable = {} if self._full_weight else {"immutable": True}
         checkpoint = await self._call(
             "sampling_snapshot",
             self.engine.model.save_weights,
             f"rl-{self._run_key}-sampling-{step:08d}",
-            mode="inference",
-            **({"immutable": True, **self._policy_guard()} if self._policy else {}),
+            mode=mode,
+            **storage,
+            **({**immutable, **self._policy_guard()} if self._policy else {}),
         )
         if (
             checkpoint.step != step
-            or checkpoint.checkpoint_type != "inference"
+            or checkpoint.checkpoint_type != mode
             or (self._policy is not None and checkpoint.policy_version != self._policy)
         ):
             raise RuntimeError(
                 "published sampling snapshot does not match the committed policy"
             )
         self._published_sampling_step = step
+
+    def _admit(self, row, group_id):
+        group_id = self.engine.submit(
+            row,
+            group_size=self.group_size,
+            completion=self.completion,
+            id=group_id,
+            priority=self._committed_step if self.stale_policy == "wait" else 0,
+        )
+        if self.stale_policy == "wait":
+            self._admitted_policy_steps[group_id] = self._committed_step
+        self._active.add(group_id)
+
+    async def _resume_full_weight(self, saved):
+        """Resume at the server's committed step, never the saved one (R56).
+
+        The same run continues from the step the server committed, which is
+        the newest auto checkpoint when its crew restarted. A new run loads
+        the newest auto checkpoint recorded before the restart, or keeps the
+        weights it was created with if there was none. No update is replayed.
+        When the resumed policy is not the saved one, every unconsumed group
+        is sampled again from the resumed weights, so no sample from
+        discarded weights is trained on. The batch counter is kept.
+
+        Returns None when the saved rollout state applies as is. Otherwise it
+        empties that state and returns the ``(group_id, row)`` pairs to admit
+        again, in admission order; the caller must save the new state before
+        any update, or a later resume could restore the discarded rollouts.
+        """
+        model = self.engine.model
+        self._base = None if saved["base"] is None else Checkpoint(**saved["base"])
+        if saved["training_run_id"] == model.training_run_id:
+            await call(model.sync_committed_policy)
+        elif self._base is not None:
+            await self._call(
+                "load_weights", model.load_weights, self._base, load_optimizer=True
+            )
+        await self._refresh_policy()
+        self._committed_step = model.step
+        if self._policy.id == saved["policy_id"]:
+            return None
+        unconsumed = set(saved["active"]) | {g["id"] for g in saved["pending"]}
+        engine = saved["engine"]
+        rows = {
+            g["id"]: g["row"]
+            for g in (*engine["groups"], *engine["outbox"], *saved["pending"])
+            if g["id"] in unconsumed
+        }
+        if rows.keys() != unconsumed:
+            raise ValueError("resume is missing rows for unconsumed rollout groups")
+        saved.update(
+            active=[],
+            pending=[],
+            finished=sorted(set(saved["finished"]) - unconsumed),
+            admitted_policy_steps={},
+            accumulating_groups=[],
+            engine={**engine, "groups": [], "outbox": []},
+        )
+        return [
+            (group_id, decode_state(rows[group_id]))
+            for group_id in sorted(
+                unconsumed, key=lambda group_id: int(group_id.rpartition("-")[2])
+            )
+        ]
+
+    async def _raise_if_rewound(self, error):
+        try:
+            committed = await call(self.engine.model.get_policy_version)
+        except Exception:
+            # The original failure is the one to report.
+            return
+        if committed is not None and committed.step < self._committed_step:
+            raise PolicyRewoundError(committed.step) from error
 
     async def _periodic_checkpoint(self):
         while True:
@@ -1438,6 +1553,12 @@ class AsyncTrainer:
         if self._running:
             raise RuntimeError("trainer is already running")
         _integer(steps, "steps", 1)
+        self._full_weight = getattr(self.engine.model, "full_weight", False) is True
+        if self._full_weight and self.evaluator is not None:
+            raise ValueError(
+                "checkpoint evaluation samples saved checkpoints, which a "
+                "full-weight run cannot serve"
+            )
         rows = list(dataset)
         image_session = self._image_session()
         if not rows or steps < 1:
@@ -1539,8 +1660,15 @@ class AsyncTrainer:
                 )
                 async with self.engine:
                     sampling_before = self.engine.sampling_metrics()
+                    if self._full_weight and self.engine.server_capabilities:
+                        self.engine.server_capabilities.require_model(
+                            self.engine.model.base_model, "full_weight_rl_v1"
+                        )
                     await self._refresh_policy()
-                    if saved:
+                    readmit = None
+                    if saved and self._full_weight:
+                        readmit = await self._resume_full_weight(saved)
+                    elif saved:
                         self._base = Checkpoint(**saved["base"])
                         await self._call(
                             "load_weights",
@@ -1565,6 +1693,7 @@ class AsyncTrainer:
                             raise ValueError(
                                 "recovered optimizer step disagrees with saved trainer state"
                             )
+                    if saved:
                         self._n, self._submitted = saved["n"], saved["submitted"]
                         self._active, self._finished, self._received = (
                             set(saved["active"]),
@@ -1591,18 +1720,29 @@ class AsyncTrainer:
                             self.dataset_scheduler.load_state_dict(
                                 saved["dataset_scheduler"]
                             )
-                        self.engine.load_state_dict(saved["engine"])
+                        self.engine.load_state_dict(
+                            saved["engine"],
+                            restart_pinned_trajectories=self.engine._latest_snapshot_sampling,
+                        )
                         if self.evaluator:
                             self.evaluator.load_state_dict(saved["eval_history"])
+                        if readmit is not None:
+                            for group_id, row in readmit:
+                                self._admit(row, group_id)
+                            await self._save_state()
                     else:
                         if self.init_checkpoint is not None:
+                            # A full-weight run loads only with its optimizer
+                            # state; the server refuses a weights-only load.
                             await call(
                                 self.engine.model.load_weights,
                                 self.init_checkpoint,
-                                load_optimizer=False,
+                                load_optimizer=self._full_weight,
                             )
                             await self._refresh_policy()
-                        if self._store:
+                        if self._store and self._full_weight:
+                            await self._save_state()
+                        elif self._store:
                             await self._save_weights()
                     self._committed_step = self.engine.model.step
                     # Reconcile external effects of the last committed batch
@@ -1675,22 +1815,7 @@ class AsyncTrainer:
                                             self._submitted, rows
                                         )
                                     )
-                                    group_id = self.engine.submit(
-                                        row,
-                                        group_size=self.group_size,
-                                        completion=self.completion,
-                                        id=f"group-{self._submitted}",
-                                        priority=(
-                                            self._committed_step
-                                            if self.stale_policy == "wait"
-                                            else 0
-                                        ),
-                                    )
-                                    if self.stale_policy == "wait":
-                                        self._admitted_policy_steps[group_id] = (
-                                            self._committed_step
-                                        )
-                                    self._active.add(group_id)
+                                    self._admit(row, f"group-{self._submitted}")
                                     self._submitted += 1
                             wait_seconds, wait_count = 0.0, 0
                             # Restored pending groups may already have populated
@@ -1873,7 +1998,9 @@ class AsyncTrainer:
                                             "chunks": self._streamed_chunks,
                                             "optimizer": optimizer_kwargs,
                                         }
-                                    if self._store:
+                                    # A full-weight resume never replays updates
+                                    # (R56), so it keeps no journal.
+                                    if self._store and not self._full_weight:
                                         self._journal.append(update)
                                     self._committed_step = self.engine.model.step
                                     self._updating = False
@@ -1984,8 +2111,10 @@ class AsyncTrainer:
                                     async with self._lock:
                                         await self._save_state()
                                 raise
-                    except Exception:
+                    except Exception as error:
                         healthy = False
+                        if self._full_weight:
+                            await self._raise_if_rewound(error)
                         raise
                     finally:
                         # Submitted RPCs keep running even if their waiter is

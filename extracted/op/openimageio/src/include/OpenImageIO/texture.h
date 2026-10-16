@@ -1774,3 +1774,18 @@ private:
 };
 
 OIIO_NAMESPACE_3_1_END
+
+
+
+// Compatibility
+#ifndef OIIO_DOXYGEN
+OIIO_NAMESPACE_BEGIN
+namespace Tex {
+using namespace v3_1::Tex;
+}
+namespace pvt {
+using v3_1::pvt::EnvLayout;
+using v3_1::pvt::TexFormat;
+}  // namespace pvt
+OIIO_NAMESPACE_END
+#endif

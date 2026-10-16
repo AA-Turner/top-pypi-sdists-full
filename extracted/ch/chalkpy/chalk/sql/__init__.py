@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from os import PathLike
-from typing import Any, Dict, Optional, Union, overload
+from typing import Any, Dict, Mapping, Optional, Union, overload
 
 from chalk.sql._internal.incremental import IncrementalSettings
 from chalk.sql._internal.integrations.athena import AthenaSourceImpl
@@ -51,7 +51,11 @@ def SnowflakeSource(*, permission_tags: list[str] | None = ...) -> BaseSQLSource
 
 @overload
 def SnowflakeSource(
-    *, name: str, engine_args: Optional[Dict[str, Any]] = ..., permission_tags: list[str] | None = ...
+    *,
+    name: str,
+    engine_args: Optional[Dict[str, Any]] = ...,
+    permission_tags: list[str] | None = ...,
+    warehouse_by_resource_group: Optional[Mapping[str, str]] = ...,
 ) -> BaseSQLSourceProtocol:
     """Chalk's injects environment variables to support data integrations.
 
@@ -67,6 +71,9 @@ def SnowflakeSource(
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine. These arguments will be
         merged with any default arguments from the named integration.
+    warehouse_by_resource_group
+        Mapping of resource group name to the Snowflake warehouse to use when running in that
+        resource group. Resource groups not in the mapping use the default warehouse.
 
     Returns
     -------
@@ -97,6 +104,7 @@ def SnowflakeSource(
     unload_external_location: str | None = ...,
     engine_args: Optional[Dict[str, Any]] = ...,
     permission_tags: list[str] | None = ...,
+    warehouse_by_resource_group: Optional[Mapping[str, str]] = ...,
 ) -> BaseSQLSourceProtocol:
     """You can also configure the integration directly using environment
     variables on your local machine or from those added through the
@@ -135,6 +143,9 @@ def SnowflakeSource(
         DESCRIBE <unload_stage> if unload_stage is a Snowflake stage.
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
+    warehouse_by_resource_group
+        Mapping of resource group name to the Snowflake warehouse to use when running in that
+        resource group. Resource groups not in the mapping use the default warehouse.
 
     Returns
     -------
@@ -173,6 +184,7 @@ def SnowflakeSource(
     unload_external_location: Optional[str] = None,
     engine_args: Optional[Dict[str, Any]] = None,
     permission_tags: list[str] | None = None,
+    warehouse_by_resource_group: Optional[Mapping[str, str]] = None,
 ) -> BaseSQLSourceProtocol:
     """Create a Snowflake data source. SQL-based data sources
     created without arguments assume a configuration in your
@@ -198,6 +210,7 @@ def SnowflakeSource(
         unload_external_location=unload_external_location,
         engine_args=engine_args,
         permission_tags=permission_tags,
+        warehouse_by_resource_group=warehouse_by_resource_group,
     )
 
 

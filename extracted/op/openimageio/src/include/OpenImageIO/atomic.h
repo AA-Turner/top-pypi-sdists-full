@@ -80,3 +80,16 @@ atomic_fetch_add(atomic<double>& a, double f)
 }
 
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using std::atomic;
+using atomic_int = atomic<int>;
+using atomic_ll  = atomic<long long>;
+using v3_1::atomic_fetch_add;
+using v3_1::atomic_max;
+using v3_1::atomic_min;
+#endif
+OIIO_NAMESPACE_END

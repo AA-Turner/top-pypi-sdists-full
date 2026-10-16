@@ -68,6 +68,9 @@ class ModelStudioTrainerClient:
     ) -> models_models.ModelStudioTrainer:
         """
         Gets details about a specific trainer by its ID and optional version.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_trainer_trainer_id:
         :type model_studio_trainer_trainer_id: TrainerId
         :param preview: Enables the use of preview functionality.
@@ -120,6 +123,9 @@ class ModelStudioTrainerClient:
     ) -> models_models.ListModelStudioTrainersResponse:
         """
         Lists all available trainers for Model Studios.
+
+        Required scopes: [api:models-read]
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
@@ -209,6 +215,9 @@ class AsyncModelStudioTrainerClient:
     ) -> typing.Awaitable[models_models.ModelStudioTrainer]:
         """
         Gets details about a specific trainer by its ID and optional version.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_trainer_trainer_id:
         :type model_studio_trainer_trainer_id: TrainerId
         :param preview: Enables the use of preview functionality.
@@ -261,6 +270,9 @@ class AsyncModelStudioTrainerClient:
     ) -> typing.Awaitable[models_models.ListModelStudioTrainersResponse]:
         """
         Lists all available trainers for Model Studios.
+
+        Required scopes: [api:models-read]
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.

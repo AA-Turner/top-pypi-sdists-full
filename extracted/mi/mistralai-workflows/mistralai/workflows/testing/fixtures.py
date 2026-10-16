@@ -22,13 +22,20 @@ def event_loop() -> Generator[Any, None, None]:
 
 @pytest.fixture(autouse=True)
 def setup_test_config() -> Generator[None, None, None]:
-    """Set up test configuration for Temporal deployment name."""
+    """Set up the Temporal deployment name, and drop the client-side retry sleeps.
+
+    Zeroing the local multiplier keeps the retries and every assertion about them; it only
+    removes the fixed 6s an activity expected to raise otherwise sleeps.
+    """
     original_deployment_name = config.worker.deployment_name
+    original_local_retry_backoff = config.worker.local_retry_backoff_coefficient
     config.worker.deployment_name = "test-task-queue"
+    config.worker.local_retry_backoff_coefficient = 0
 
     yield
 
     config.worker.deployment_name = original_deployment_name
+    config.worker.local_retry_backoff_coefficient = original_local_retry_backoff
 
 
 @pytest.fixture(autouse=True)

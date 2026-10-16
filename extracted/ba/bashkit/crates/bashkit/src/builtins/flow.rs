@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 
-use super::{Builtin, Context};
+use super::{Builtin, BuiltinSideEffect, Context};
 use crate::error::Result;
 use crate::interpreter::{ControlFlow, ExecResult};
 
@@ -44,17 +44,37 @@ impl Builtin for False {
 
 /// The exit builtin - exit the shell with a status code.
 /// Bash truncates exit codes to 8-bit unsigned range (0-255) via `& 0xFF`.
+/// Without an argument it exits with `$?`; a non-numeric argument is
+/// reported and exits 2; more than one argument is an error (status 1) that
+/// abandons the rest of the line instead of exiting.
 pub struct Exit;
 
 #[async_trait]
 impl Builtin for Exit {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        let exit_code = ctx
-            .args
-            .first()
-            .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or(0)
-            & 0xFF;
+        let exit_code = match ctx.args.first() {
+            None => ctx.shell.as_ref().map_or(0, |s| s.last_exit_code),
+            Some(arg) => match arg.trim().parse::<i64>() {
+                Ok(n) => (n & 0xFF) as i32,
+                Err(_) => {
+                    let mut result = ExecResult::with_control_flow(ControlFlow::Exit(2));
+                    result.exit_code = 2;
+                    result.stderr =
+                        format!("bash: exit: {arg}: numeric argument required\n").into();
+                    return Ok(result);
+                }
+            },
+        };
+        if ctx.args.len() > 1 {
+            // bash discards the rest of the line (`jump_to_top_level(DISCARD)`):
+            // the script resumes at the next line, a subshell ends.
+            let mut result = ExecResult::err("bash: exit: too many arguments\n", 1);
+            result.control_flow = ControlFlow::Abort;
+            result
+                .side_effects
+                .push(BuiltinSideEffect::DiscardCommandString);
+            return Ok(result);
+        }
 
         Ok(ExecResult {
             exit_code,
@@ -64,19 +84,67 @@ impl Builtin for Exit {
     }
 }
 
+/// Resolve the level count of `break`/`continue` against the enclosing loops.
+///
+/// Bash semantics: outside a loop the command only warns (status 0); a count
+/// below 1 is an error (status 1); a count above the loop depth leaves every
+/// enclosing loop of the current function, never a caller's loop (a function
+/// call starts outside any loop, so the count is clamped to its depth).
+fn loop_control(name: &str, ctx: &Context<'_>, make: fn(u32) -> ControlFlow) -> ExecResult {
+    // Builtins run without shell state (e.g. direct unit calls) keep the
+    // plain unwinding behaviour.
+    let depth = ctx.shell.as_ref().map_or(u32::MAX, |s| {
+        u32::try_from(s.loop_depth).unwrap_or(u32::MAX)
+    });
+    if depth == 0 {
+        return ExecResult::err(
+            format!("bash: {name}: only meaningful in a `for', `while', or `until' loop\n"),
+            0,
+        );
+    }
+    if let Some(arg) = ctx.args.first()
+        && arg.trim().parse::<i64>().is_ok()
+        && ctx.args.len() > 1
+    {
+        // Like `exit`: bash discards the rest of the line.
+        let mut result = ExecResult::err(format!("bash: {name}: too many arguments\n"), 1);
+        result.control_flow = ControlFlow::Abort;
+        result
+            .side_effects
+            .push(BuiltinSideEffect::DiscardCommandString);
+        return result;
+    }
+    let levels = match ctx.args.first() {
+        None => 1,
+        Some(arg) => match arg.trim().parse::<i64>() {
+            Ok(n) if n >= 1 => n,
+            Ok(_) => {
+                // Bash still leaves every enclosing loop.
+                let mut result = ExecResult::with_control_flow(ControlFlow::Break(depth));
+                result.exit_code = 1;
+                result.stderr = format!("bash: {name}: {arg}: loop count out of range\n").into();
+                return result;
+            }
+            Err(_) => {
+                // A special-builtin usage error ends a non-interactive shell.
+                let mut result = ExecResult::with_control_flow(ControlFlow::Exit(128));
+                result.exit_code = 128;
+                result.stderr = format!("bash: {name}: {arg}: numeric argument required\n").into();
+                return result;
+            }
+        },
+    };
+    let levels = u32::try_from(levels).unwrap_or(u32::MAX).min(depth);
+    ExecResult::with_control_flow(make(levels))
+}
+
 /// The break builtin - break out of a loop
 pub struct Break;
 
 #[async_trait]
 impl Builtin for Break {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        let levels = ctx
-            .args
-            .first()
-            .and_then(|s| s.parse::<u32>().ok())
-            .unwrap_or(1);
-
-        Ok(ExecResult::with_control_flow(ControlFlow::Break(levels)))
+        Ok(loop_control("break", &ctx, ControlFlow::Break))
     }
 }
 
@@ -86,33 +154,47 @@ pub struct Continue;
 #[async_trait]
 impl Builtin for Continue {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        let levels = ctx
-            .args
-            .first()
-            .and_then(|s| s.parse::<u32>().ok())
-            .unwrap_or(1);
-
-        Ok(ExecResult::with_control_flow(ControlFlow::Continue(levels)))
+        Ok(loop_control("continue", &ctx, ControlFlow::Continue))
     }
 }
 
-/// The return builtin - return from a function.
+/// The return builtin - return from a function or sourced file.
 /// Bash truncates return codes to 8-bit unsigned range (0-255) via `& 0xFF`.
+/// Without an argument it returns `$?`; outside a function or sourced file
+/// it fails with status 2 and the script goes on.
 pub struct Return;
 
 #[async_trait]
 impl Builtin for Return {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
-        let exit_code = ctx
-            .args
-            .first()
-            .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or(0)
-            & 0xFF;
+        if let Some(shell) = ctx.shell.as_ref()
+            && shell.return_depth == 0
+        {
+            return Ok(ExecResult::err(
+                "bash: return: can only `return' from a function or sourced script\n",
+                2,
+            ));
+        }
+        let exit_code = match ctx.args.first() {
+            None => ctx.shell.as_ref().map_or(0, |s| s.last_exit_code),
+            Some(arg) => match arg.trim().parse::<i64>() {
+                Ok(n) => (n & 0xFF) as i32,
+                Err(_) => {
+                    let mut result = ExecResult::with_control_flow(ControlFlow::Return(2));
+                    result.exit_code = 2;
+                    result.stderr =
+                        format!("bash: return: {arg}: numeric argument required\n").into();
+                    return Ok(result);
+                }
+            },
+        };
+        if ctx.args.len() > 1 {
+            return Ok(ExecResult::err("bash: return: too many arguments\n", 1));
+        }
 
-        Ok(ExecResult::with_control_flow(ControlFlow::Return(
-            exit_code,
-        )))
+        let mut result = ExecResult::with_control_flow(ControlFlow::Return(exit_code));
+        result.exit_code = exit_code;
+        Ok(result)
     }
 }
 
@@ -236,13 +318,30 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn exit_non_numeric_defaults_zero() {
+    async fn exit_non_numeric_is_usage_error() {
         let (fs, mut cwd, mut variables) = setup().await;
         let env = HashMap::new();
         let args = vec!["abc".to_string()];
         let ctx = Context::new_for_test(&args, &env, &mut variables, &mut cwd, fs.clone(), None);
         let result = Exit.execute(ctx).await.unwrap();
-        assert_eq!(result.exit_code, 0);
+        assert_eq!(result.exit_code, 2);
+        assert_eq!(result.control_flow, ControlFlow::Exit(2));
+        assert!(
+            result
+                .stderr
+                .contains("exit: abc: numeric argument required")
+        );
+    }
+
+    #[tokio::test]
+    async fn exit_too_many_args_aborts_the_line() {
+        let (fs, mut cwd, mut variables) = setup().await;
+        let env = HashMap::new();
+        let args = vec!["1".to_string(), "2".to_string()];
+        let ctx = Context::new_for_test(&args, &env, &mut variables, &mut cwd, fs.clone(), None);
+        let result = Exit.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 1);
+        assert_eq!(result.control_flow, ControlFlow::Abort);
     }
 
     // ==================== break ====================
@@ -269,13 +368,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn break_non_numeric_defaults_one() {
+    async fn break_non_numeric_exits_the_shell() {
         let (fs, mut cwd, mut variables) = setup().await;
         let env = HashMap::new();
         let args = vec!["abc".to_string()];
         let ctx = Context::new_for_test(&args, &env, &mut variables, &mut cwd, fs.clone(), None);
         let result = Break.execute(ctx).await.unwrap();
-        assert!(matches!(result.control_flow, ControlFlow::Break(1)));
+        assert!(matches!(result.control_flow, ControlFlow::Exit(128)));
+        assert!(result.stderr.contains("numeric argument required"));
     }
 
     // ==================== continue ====================

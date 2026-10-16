@@ -375,9 +375,7 @@ private:
 
 
 /// heapsize specialization for `ParamValue`
-template<>
-OIIO_API size_t
-pvt::heapsize<ParamValue>(const ParamValue&);
+template<> OIIO_API size_t pvt::heapsize<ParamValue>(const ParamValue&);
 
 
 
@@ -847,3 +845,14 @@ public:
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::make_pv;
+using v3_1::ParamValue;
+using v3_1::ParamValueList;
+#endif
+OIIO_NAMESPACE_END

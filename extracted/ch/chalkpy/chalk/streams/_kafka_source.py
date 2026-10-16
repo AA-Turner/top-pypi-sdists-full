@@ -10,10 +10,7 @@ from chalk.utils.string import comma_join, comma_whitespace_split
 if TYPE_CHECKING:
     from pydantic import BaseModel, Field
 else:
-    try:
-        from pydantic.v1 import BaseModel, Field
-    except ImportError:
-        from pydantic import BaseModel, Field
+    from chalk.utils.pydanticutil.sdk import BaseModel, Field
 
 
 _KAFKA_BOOTSTRAP_SERVER_NAME = "KAFKA_BOOTSTRAP_SERVER"

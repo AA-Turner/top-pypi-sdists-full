@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.7.1
+Version: 0.7.2
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 License-Expression: Apache-2.0
@@ -8,6 +8,8 @@ Project-URL: Homepage, https://github.com/flashinfer-ai/flashinfer
 Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: LICENSE.kda-for-kda.txt
+License-File: licenses/LICENSE.kda-for-kda
 Requires-Dist: apache-tvm-ffi<0.2,>=0.1.11
 Requires-Dist: click
 Requires-Dist: cuda-python>=12.0
@@ -17,7 +19,7 @@ Requires-Dist: nccl-extensions>=0.1.0
 Requires-Dist: nccl4py>=0.4.1
 Requires-Dist: ninja
 Requires-Dist: numpy
-Requires-Dist: nvidia-cudnn-frontend>=1.30.0
+Requires-Dist: nvidia-cudnn-frontend>=1.31.0
 Requires-Dist: nvidia-cutlass-dsl>=4.6.2a0
 Requires-Dist: nvidia-ml-py
 Requires-Dist: packaging>=24.2
@@ -25,6 +27,18 @@ Requires-Dist: requests
 Requires-Dist: tabulate
 Requires-Dist: torch
 Requires-Dist: tqdm
+Provides-Extra: b12x
+Requires-Dist: torch>=2.12.0; extra == "b12x"
+Requires-Dist: nvidia-cutlass-dsl==4.7.1; extra == "b12x"
+Requires-Dist: nvidia-cutlass-dsl-libs-base==4.7.1; extra == "b12x"
+Requires-Dist: nvidia-cutlass-dsl-libs-core==4.7.1; extra == "b12x"
+Requires-Dist: nvidia-cutlass-dsl-libs-cu12==4.7.1; extra == "b12x"
+Requires-Dist: nvidia-cutlass-dsl-libs-cu13==4.7.1; extra == "b12x"
+Requires-Dist: rich>=13; extra == "b12x"
+Requires-Dist: safetensors>=0.6; extra == "b12x"
+Provides-Extra: ptx
+Requires-Dist: nvidia-cuda-nvcc>=13.2; extra == "ptx"
+Requires-Dist: apache-tvm-ffi<0.2,>=0.1.12; extra == "ptx"
 Provides-Extra: cu12
 Requires-Dist: nvidia-cutlass-dsl>=4.7.0a0; extra == "cu12"
 Provides-Extra: cu13

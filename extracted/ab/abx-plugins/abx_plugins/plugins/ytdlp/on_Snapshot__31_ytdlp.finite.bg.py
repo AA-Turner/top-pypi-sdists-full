@@ -57,6 +57,9 @@ import rich_click as click
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
 CONFIG_PATH = Path(__file__).resolve().with_name("config.json")
+# yt-dlp extractor overrides loaded via yt-dlp's own plugin system; see the
+# override module for why each exists and when to delete it.
+YTDLP_PLUGIN_DIRS = Path(__file__).resolve().with_name("yt-dlp-plugins")
 CONFIG = load_config(CONFIG_PATH, hydrate_binaries=False)
 SNAP_DIR = Path(CONFIG.SNAP_DIR or ".").resolve()
 OUTPUT_DIR = SNAP_DIR / PLUGIN_DIR
@@ -224,6 +227,8 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
     # Build command (later options take precedence)
     cmd = [
         binary,
+        # Before YTDLP_ARGS so a user's --no-plugin-dirs can still opt out.
+        f"--plugin-dirs={YTDLP_PLUGIN_DIRS}",
         *ytdlp_args,
         # Format with max_size limit (appended after YTDLP_ARGS so it can be overridden by YTDLP_ARGS_EXTRA)
         f"--format=(bv*+ba/b)[filesize<={max_size}][filesize_approx<=?{max_size}]/(bv*+ba/b)",
@@ -277,18 +282,17 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
         except subprocess.TimeoutExpired:
             stop_active_process()
             reader.join(timeout=1)
-            output = selected_output(downloaded_files(output_dir))
-            if output:
-                return True, output, ""
+            # Retain partial files and metadata without claiming a completed download.
             return False, None, f"Timed out after {timeout} seconds"
 
         reader.join(timeout=1)
         ACTIVE_PROCESS = None
         combined_output = "".join(OUTPUT_LINES)
 
-        # Check if any media files were downloaded
+        # Metadata and thumbnails can be written before a media download fails.
+        # Preserve those files, but do not let them hide the downloader's error.
         output = selected_output(downloaded_files(output_dir))
-        if output:
+        if output and process.returncode == 0:
             return True, output, ""
         else:
             stderr = combined_output
@@ -308,7 +312,7 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             if "URL could be a direct video link" in stderr:
                 return True, "No media found", ""
             if re.search(
-                r"(?m)^ERROR: \[twitter\] \d+: No video could be found in this tweet$",
+                r"(?m)^ERROR: \[twitter(?:\+archivebox)?\] \d+: No video could be found in this tweet$",
                 stderr,
             ):
                 return True, "No media found", ""
@@ -332,7 +336,7 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             # Reddit's extractor reports text-only posts with this expected
             # no-format error. Keep HTTP and extraction failures above authoritative.
             if re.search(
-                r"(?m)^ERROR: \[Reddit\] [0-9a-z]+: No media found$",
+                r"(?m)^ERROR: \[Reddit(?:\+archivebox)?\] [0-9a-z]+: No media found$",
                 stderr,
             ):
                 return True, "No media found", ""
@@ -340,9 +344,6 @@ def save_ytdlp(url: str) -> tuple[bool, str | None, str]:
             return False, None, f"yt-dlp error: {stderr}"
 
     except subprocess.TimeoutExpired:
-        output = selected_output(downloaded_files(Path(".")))
-        if output:
-            return True, output, ""
         return False, None, f"Timed out after {timeout} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"

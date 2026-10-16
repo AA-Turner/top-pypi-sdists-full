@@ -370,9 +370,11 @@ def approvals_cmd(
         from .feedback_cli import flush_quietly
 
         flush_quietly()
-    if in_agent and not list_only:
+    if in_agent:
+        # `--list` too: the agent lists these in the daemon profile, whose guard
+        # refuses its `probe deny`. Both answers are the researcher's, in their terminal.
         typer.echo("\n(this shell belongs to a coding agent, so it answers nothing: the researcher answers in a "
-                   "terminal of their own with `probe approvals`; anyone may say no with `probe deny <id>`)")
+                   "terminal of their own, with `probe approvals` there, or says no with `probe deny <id>` there)")
     elif not interactive:
         typer.echo("\n(answer in your own terminal: `probe approvals`; say no with `probe deny <id>`)")
 

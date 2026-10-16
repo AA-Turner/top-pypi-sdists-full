@@ -20,7 +20,15 @@ from datetime import date, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from xknx.dpt import DPTPressure, DPTPressure2Byte
+from xknx.dpt import (
+    DPTAngle,
+    DPTHumidity,
+    DPTLux,
+    DPTPressure,
+    DPTPressure2Byte,
+    DPTTemperature,
+    DPTWsp,
+)
 from xknx.remote_value import (
     GroupAddressesType,
     RemoteValue,
@@ -32,7 +40,7 @@ from xknx.remote_value import (
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -87,7 +95,8 @@ class Weather(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_temperature: GroupAddressesType = None,
         group_address_brightness_south: GroupAddressesType = None,
         group_address_brightness_north: GroupAddressesType = None,
@@ -106,13 +115,13 @@ class Weather(Device):
         invert_day_night: bool = False,
     ) -> None:
         """Initialize Weather class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self._temperature = RemoteValueNumeric(
             xknx,
+            value_type=DPTTemperature,
             group_address_state=group_address_temperature,
             sync_state=sync_state,
-            value_type="temperature",
             device_name=self.name,
             feature_name="Temperature",
             after_update_cb=self.after_update,
@@ -120,9 +129,9 @@ class Weather(Device):
 
         self._brightness_south = RemoteValueNumeric(
             xknx,
+            value_type=DPTLux,
             group_address_state=group_address_brightness_south,
             sync_state=sync_state,
-            value_type="illuminance",
             device_name=self.name,
             feature_name="Brightness south",
             after_update_cb=self.after_update,
@@ -130,9 +139,9 @@ class Weather(Device):
 
         self._brightness_north = RemoteValueNumeric(
             xknx,
+            value_type=DPTLux,
             group_address_state=group_address_brightness_north,
             sync_state=sync_state,
-            value_type="illuminance",
             device_name=self.name,
             feature_name="Brightness north",
             after_update_cb=self.after_update,
@@ -140,9 +149,9 @@ class Weather(Device):
 
         self._brightness_west = RemoteValueNumeric(
             xknx,
+            value_type=DPTLux,
             group_address_state=group_address_brightness_west,
             sync_state=sync_state,
-            value_type="illuminance",
             device_name=self.name,
             feature_name="Brightness west",
             after_update_cb=self.after_update,
@@ -150,9 +159,9 @@ class Weather(Device):
 
         self._brightness_east = RemoteValueNumeric(
             xknx,
+            value_type=DPTLux,
             group_address_state=group_address_brightness_east,
             sync_state=sync_state,
-            value_type="illuminance",
             device_name=self.name,
             feature_name="Brightness east",
             after_update_cb=self.after_update,
@@ -160,9 +169,9 @@ class Weather(Device):
 
         self._wind_speed = RemoteValueNumeric(
             xknx,
+            value_type=DPTWsp,
             group_address_state=group_address_wind_speed,
             sync_state=sync_state,
-            value_type="wind_speed_ms",
             device_name=self.name,
             feature_name="Wind speed",
             after_update_cb=self.after_update,
@@ -170,9 +179,9 @@ class Weather(Device):
 
         self._wind_bearing = RemoteValueNumeric(
             xknx,
+            value_type=DPTAngle,
             group_address_state=group_address_wind_bearing,
             sync_state=sync_state,
-            value_type="angle",
             device_name=self.name,
             feature_name="Wind bearing",
             after_update_cb=self.after_update,
@@ -227,9 +236,9 @@ class Weather(Device):
 
         self._humidity = RemoteValueNumeric(
             xknx,
+            value_type=DPTHumidity,
             group_address_state=group_address_humidity,
             sync_state=sync_state,
-            value_type="humidity",
             device_name=self.name,
             feature_name="Humidity",
             after_update_cb=self.after_update,
@@ -251,7 +260,7 @@ class Weather(Device):
         yield self._air_pressure
         yield self._humidity
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         for remote_value in self._iter_remote_values():
             remote_value.process(telegram)

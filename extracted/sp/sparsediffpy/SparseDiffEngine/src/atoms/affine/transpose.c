@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 #include "atoms/affine.h"
-#include "utils/mini_numpy.h"
-#include "utils/tracked_alloc.h"
+#include "sparsediff_linalg/dense.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -71,7 +71,7 @@ static void wsum_hess_init_impl(expr *node)
     wsum_hess_init(x);
 
     /* same sparsity pattern as child */
-    node->wsum_hess = x->wsum_hess->copy_sparsity(x->wsum_hess);
+    node->wsum_hess = copy_sparsity_matrices_alloc(x->wsum_hess);
 
     /* for computing Kw where K is the commutation matrix */
     node->work->dwork = (double *) sp_malloc(node->size * sizeof(double));

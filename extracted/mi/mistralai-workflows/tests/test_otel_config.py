@@ -1,16 +1,27 @@
 import logging
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import MagicMock
 
+import jwt
 import pytest
+import requests
 import structlog
+from opentelemetry._logs import SeverityNumber
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs._internal import LogRecord
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import SecretStr
 
 from mistralai.workflows._version import __version__
-from mistralai.workflows.core.auth import StaticTokenProvider
-from mistralai.workflows.core.tracing import _otel_config
+from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider
+from mistralai.workflows.core.tracing import _otel_config, exporters
 from mistralai.workflows.core.tracing._otel_config import (
     TELEMETRY_DISTRO_NAME_ATTRIBUTE,
     TELEMETRY_DISTRO_VERSION_ATTRIBUTE,
@@ -19,22 +30,28 @@ from mistralai.workflows.core.tracing._otel_config import (
     _create_resource,
 )
 
+from .otel_endpoints import RecordingTelemetryEndpoint
 
-class _RecordingExporter:
-    """Stand-in for an OTLP exporter: records construction kwargs and exposes a settable
-    ``_session.auth`` so tests can verify the dynamic per-request bearer injection."""
 
-    def __init__(self, **kwargs: Any) -> None:
+class _RecordingExporter(exporters._OTLPExporterBase):
+    """Stand-in for an OTLP exporter: records construction kwargs (including the injected session)."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.kwargs = kwargs
-        self._session = SimpleNamespace(auth=None)
+        exporters._OTLPExporterBase.__init__(
+            self,
+            status_recorder=kwargs.get("status_recorder"),
+            token_provider=kwargs.get("token_provider"),
+        )
 
 
 def _bearer_of(exporter: _RecordingExporter) -> str | None:
-    """Run the exporter's session auth against a dummy request and return the Authorization header."""
-    if exporter._session.auth is None:
+    """Run the injected session's auth against a dummy request and return the Authorization header."""
+    auth = exporter.kwargs["session"].auth
+    if auth is None:
         return None
     request = SimpleNamespace(headers={})
-    exporter._session.auth(request)
+    auth(request)
     return request.headers.get("Authorization")
 
 
@@ -71,18 +88,18 @@ def exporter_calls(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, list[A
     """
     calls: dict[str, list[Any]] = {"span": [], "metric": [], "log": []}
 
-    def recorder(bucket: str) -> Any:
-        def _factory(*_args: Any, **kwargs: Any) -> _RecordingExporter:
-            exporter = _RecordingExporter(**kwargs)
-            calls[bucket].append(exporter)
-            return exporter
+    def recorder(bucket: str) -> type[_RecordingExporter]:
+        class _StubExporter(_RecordingExporter):
+            def __init__(self, **kwargs: Any) -> None:
+                super().__init__(**kwargs)
+                calls[bucket].append(self)
 
-        return _factory
+        return _StubExporter
 
-    # config_otel instantiates the logging wrapper subclasses, so patch those to record construction.
-    monkeypatch.setattr(_otel_config, "_LoggingOTLPSpanExporter", recorder("span"))
-    monkeypatch.setattr(_otel_config, "_LoggingOTLPMetricExporter", recorder("metric"))
-    monkeypatch.setattr(_otel_config, "_LoggingOTLPLogExporter", recorder("log"))
+    # The builders (now in exporters) instantiate the logging wrapper subclasses; patch those to record.
+    monkeypatch.setattr(exporters, "_LoggingOTLPSpanExporter", recorder("span"))
+    monkeypatch.setattr(exporters, "_LoggingOTLPMetricExporter", recorder("metric"))
+    monkeypatch.setattr(exporters, "_LoggingOTLPLogExporter", recorder("log"))
     for name in (
         "BatchSpanProcessor",
         "BatchLogRecordProcessor",
@@ -92,10 +109,10 @@ def exporter_calls(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, list[A
         "LoggerProvider",
     ):
         monkeypatch.setattr(_otel_config, name, lambda *a, **k: MagicMock())
-    # Span redaction wraps the raw exporter; keep the raw _RecordingExporter so _session is inspectable.
+    # Span redaction wraps the raw exporter; keep the raw _RecordingExporter so kwargs are inspectable.
     monkeypatch.setattr(_otel_config, "_apply_span_redaction", lambda exporter, _redaction: exporter)
     # Real handler (not a MagicMock) so the root logger can compare levels when config_otel logs.
-    monkeypatch.setattr(_otel_config, "LoggingHandler", lambda *a, **k: logging.NullHandler())
+    monkeypatch.setattr(_otel_config, "_StructlogAwareLoggingHandler", lambda *a, **k: logging.NullHandler())
 
     root = logging.getLogger()
     original_handlers = list(root.handlers)
@@ -115,7 +132,7 @@ def _init_tracing_from_env(
     Returns the structlog events captured during init_tracing so tests can assert on startup logs.
     """
     from mistralai.workflows.core.config.config import AppConfig
-    from mistralai.workflows.core.tracing import init_tracing
+    from mistralai.workflows.core.tracing import exporters, init_tracing
 
     monkeypatch.setenv("OTEL_ENABLED", "true")
     monkeypatch.setenv("OTEL_LOCAL", "false")
@@ -131,8 +148,10 @@ def _init_tracing_from_env(
     if fresh_config.worker.agent.mistral_client_server_url is None:
         monkeypatch.setattr(fresh_config.worker.agent, "mistral_client_server_url", "http://api.test")
 
+    # The per-signal precedence and token-provider resolution now live in exporters.resolve_otlp_export_options,
+    # which reads its own module-level config/get_token_provider bindings.
     monkeypatch.setattr(
-        init_tracing,
+        exporters,
         "get_token_provider",
         lambda explicit=None: (
             StaticTokenProvider(explicit.get_secret_value() if explicit else provider_token)
@@ -140,6 +159,7 @@ def _init_tracing_from_env(
             else None
         ),
     )
+    monkeypatch.setattr(exporters, "config", fresh_config)
     monkeypatch.setattr(init_tracing, "config", fresh_config)
     monkeypatch.setattr(init_tracing, "HTTPXClientInstrumentor", lambda: MagicMock())
     if init_tracing._HAS_AIOHTTP_INSTRUMENTATION:
@@ -201,11 +221,11 @@ class TestApiKeyScoping:
 
         # Explicit endpoints authenticate via OTEL_EXPORTER_OTLP_HEADERS; we attach no dynamic auth.
         assert exporter_calls["span"][0].kwargs["endpoint"].startswith("http://custom-traces:4318")
-        assert exporter_calls["span"][0]._session.auth is None
+        assert exporter_calls["span"][0].kwargs["session"].auth is None
         assert exporter_calls["metric"][0].kwargs["endpoint"].startswith("http://custom-metrics:4318")
-        assert exporter_calls["metric"][0]._session.auth is None
+        assert exporter_calls["metric"][0].kwargs["session"].auth is None
         assert exporter_calls["log"][0].kwargs["endpoint"].startswith("http://custom-logs:4318")
-        assert exporter_calls["log"][0]._session.auth is None
+        assert exporter_calls["log"][0].kwargs["session"].auth is None
 
     def test_default_endpoint_env_sends_api_key_for_all_signals(
         self, monkeypatch: pytest.MonkeyPatch, exporter_calls: dict[str, list[Any]]
@@ -230,15 +250,16 @@ class TestApiKeyScoping:
         assert _bearer_of(exporter_calls["log"][0]) == "Bearer sa-token"
 
     def test_dynamic_auth_rereads_token_each_export(self) -> None:
-        # The auth hook must call the provider on every request so rotation is picked up.
+        # The session auth must call the provider on every request so rotation is picked up.
         tokens = iter(["first-token", "rotated-token"])
 
         class _RotatingProvider:
             def get_token(self) -> str:
                 return next(tokens)
 
-        exporter = _RecordingExporter(endpoint="http://api.test/telemetry/v1/traces")
-        _otel_config._attach_dynamic_auth(exporter, _RotatingProvider())
+        exporter = _RecordingExporter.build(
+            endpoint="http://api.test/telemetry/v1/traces", token_provider=_RotatingProvider()
+        )
 
         assert _bearer_of(exporter) == "Bearer first-token"
         assert _bearer_of(exporter) == "Bearer rotated-token"
@@ -379,19 +400,144 @@ class TestTemporalRuntimeMetricsBuffer:
         assert otel_configs[0]["headers"] is None
 
 
-def test_real_otlp_exporters_expose_session_for_dynamic_auth() -> None:
-    # _attach_dynamic_auth relies on the exporter's private ``_session`` (a requests.Session) to recompute
-    # the bearer per export. The dynamic-auth unit tests use a stand-in exporter, so this guards the real
-    # dependency layout: a bump that drops/renames ``_session`` must fail here rather than silently ship
-    # unauthenticated telemetry.
-    import requests
+def _sa_jwt(subject: str) -> str:
+    """A short-lived service-account JWT; the signature is never verified by the provider."""
+    return jwt.encode(
+        {"exp": int(time.time()) + 60, "sub": subject}, "test-signing-key-long-enough-for-hs256", algorithm="HS256"
+    )
+
+
+def _signal_exporter(signal: str, endpoint: str, token_provider: Any) -> Any:
+    """Build a real _Logging* exporter through the SDK factory (injected session, dynamic auth)."""
+    exporter_cls = {
+        "traces": exporters._LoggingOTLPSpanExporter,
+        "logs": exporters._LoggingOTLPLogExporter,
+        "metrics": exporters._LoggingOTLPMetricExporter,
+    }[signal]
+    return exporter_cls.build(endpoint=f"{endpoint}/v1/{signal}", token_provider=token_provider)
+
+
+def _emit_export(exporter: Any, signal: str) -> Callable[[str], None]:
+    """Build a real per-signal pipeline (provider + processor) that exports through the exporter."""
+    if signal == "traces":
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        tracer = provider.get_tracer("test")
+
+        def emit(name: str) -> None:
+            with tracer.start_as_current_span(name):
+                pass
+
+        return emit
+    if signal == "logs":
+        provider = LoggerProvider()
+        provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+        logger = provider.get_logger("test")
+
+        def emit(name: str) -> None:
+            logger.emit(LogRecord(timestamp=int(time.time() * 1e9), severity_number=SeverityNumber.INFO, body=name))
+
+        return emit
+
+    def emit(_name: str) -> None:
+        assert exporter.export(MetricsData(resource_metrics=[])) is MetricExportResult.SUCCESS
+
+    return emit
+
+
+class TestRotatingSaTokenTelemetryAuth:
+    @pytest.mark.parametrize("signal", ["traces", "metrics", "logs"])
+    def test_rotating_sa_token_bearer_reaches_telemetry_endpoint_on_each_export(
+        self, signal: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # SA deployments run without a static API key, so AppConfig.otel_headers bakes nothing into
+        # OTEL_EXPORTER_OTLP_HEADERS: the injected session's auth is their only telemetry auth.
+        # Real exporter classes, real HTTP transport, real FileTokenProvider; only the endpoint is
+        # a stand-in. The refresh margin exceeds the token lifetime, so every export re-reads the
+        # mounted file (the K8s service-account rotation pattern).
+        # A dev shell may export MISTRAL_API_KEY, which the SDK config load bakes into
+        # OTEL_EXPORTER_OTLP_HEADERS; drop it so the only possible bearer is the session auth's.
+        monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
+
+        endpoint = RecordingTelemetryEndpoint()
+        token_file = tmp_path / "sa-token"
+        # _sa_jwt embeds int(time.time()) in exp, so recomputing it in the assert can cross a
+        # second boundary and produce a different token; compare against the written one.
+        token_v1 = _sa_jwt("token-v1")
+        token_file.write_text(token_v1)
+        provider = FileTokenProvider(token_file, refresh_margin_seconds=300)
+
+        exporter = _signal_exporter(signal, endpoint.url, provider)
+        emit = _emit_export(exporter, signal)
+        try:
+            emit("export-1")
+            assert endpoint.bearer_of(0) == f"Bearer {token_v1}"
+
+            token_v2 = _sa_jwt("token-v2")
+            token_file.write_text(token_v2)
+            emit("export-2")
+            assert endpoint.bearer_of(1) == f"Bearer {token_v2}"
+            # The hook adds the bearer without dropping the exporter's own headers.
+            assert endpoint.requests[-1]["content-type"] == "application/x-protobuf"
+        finally:
+            endpoint.close()
+
+
+def test_real_otlp_exporters_accept_injected_session() -> None:
+    # Dynamic auth and status capture both ride on the exporters' public ``session`` constructor kwarg.
+    # The unit tests use stand-ins, so a version bump that removes the kwarg must fail here rather
+    # than silently ship unauthenticated telemetry. Whether exports actually route through the
+    # injected session is proven end-to-end by TestRotatingSaTokenTelemetryAuth.
     from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter as RealLog
     from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter as RealMetric
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as RealSpan
 
-    for exporter in (
-        RealSpan(endpoint="http://api.test/v1/traces"),
-        RealMetric(endpoint="http://api.test/v1/metrics"),
-        RealLog(endpoint="http://api.test/v1/logs"),
-    ):
-        assert isinstance(getattr(exporter, "_session", None), requests.Session)
+    for exporter_cls in (RealSpan, RealMetric, RealLog):
+        exporter_cls(endpoint="http://api.test/v1/traces", session=requests.Session())
+
+
+class TestOtelLoggingHandlerStripsStructlogExtras:
+    @pytest.mark.parametrize(
+        ("record_extras", "expected_exported"),
+        [
+            ({"_logger": logging.Logger("mistralai.test"), "_name": "info"}, {}),
+            (
+                {"_logger": logging.Logger("mistralai.test"), "_name": "info", "status_code": 404},
+                {"status_code": 404},
+            ),
+        ],
+    )
+    def test_structlog_private_extras_are_dropped_and_no_otel_warning_is_logged(
+        self, caplog: pytest.LogCaptureFixture, record_extras: dict[str, Any], expected_exported: dict[str, Any]
+    ) -> None:
+        from opentelemetry.sdk._logs import LoggerProvider
+        from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
+
+        provider = LoggerProvider()
+        exporter = InMemoryLogRecordExporter()
+        provider.add_log_record_processor(SimpleLogRecordProcessor(exporter))
+        handler = _otel_config._StructlogAwareLoggingHandler(logger_provider=provider)
+
+        record = logging.LogRecord(
+            name="mistralai.workflows.core.worker",
+            level=logging.INFO,
+            pathname="worker.py",
+            lineno=1,
+            msg="OpenTelemetry tracing initialized for worker",
+            args=(),
+            exc_info=None,
+        )
+        # Attached by structlog's ProcessorFormatter.wrap_for_formatter via logging ``extra``;
+        # the handler's formatter reads them, so they must stay on the record itself.
+        record.__dict__.update(record_extras)
+
+        with caplog.at_level(logging.WARNING, logger="opentelemetry.attributes"):
+            handler.emit(record)
+
+        finished = exporter.get_finished_logs()
+        assert len(finished) == 1
+        exported = {
+            key: value for key, value in finished[0].log_record.attributes.items() if not key.startswith("code.")
+        }
+        assert exported == expected_exported
+        assert not [entry for entry in caplog.records if entry.name == "opentelemetry.attributes"]

@@ -174,6 +174,7 @@ class Evaluator:
             return
         if str(step) in self._jobs:
             return
+        # Unfinished jobs persist in trainer state and may resume after a long pause.
         checkpoint = await call(
             model.save_weights, f"rl-eval-{step:08d}", mode="inference"
         )

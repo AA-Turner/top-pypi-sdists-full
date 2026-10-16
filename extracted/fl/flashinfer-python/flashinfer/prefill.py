@@ -2750,7 +2750,9 @@ class BatchPrefillWithPagedKVCacheWrapper:
 
         if max_sequence_kv is not None:
             self._max_kv_len = max_sequence_kv
-        else:
+        # Non-cuDNN planners still consume host page metadata even when the
+        # caller supplies a maximum. Keep cuDNN's device-length fast path.
+        if max_sequence_kv is None or self._backend != "cudnn":
             paged_kv_indptr_host = paged_kv_indptr.to("cpu")
             paged_kv_last_page_len_host = paged_kv_last_page_len.to("cpu")
             if seq_lens is None:
@@ -2767,7 +2769,8 @@ class BatchPrefillWithPagedKVCacheWrapper:
             self._kv_lens_buffer[:required_size].copy_(
                 kv_lens_arr_host, non_blocking=non_blocking
             )
-            self._max_kv_len = kv_lens_arr_host.max().item()
+            if max_sequence_kv is None:
+                self._max_kv_len = kv_lens_arr_host.max().item()
 
         if self.is_cuda_graph_enabled:
             if self._max_total_num_rows is None:
@@ -6933,8 +6936,6 @@ def trtllm_batch_context_with_kv_cache(
             k_cache, v_cache = kv_cache.unbind(dim=1)
 
     if k_cache.dtype == torch.uint8 or v_cache.dtype == torch.uint8:
-        if get_compute_capability(query.device) == (10, 7):
-            raise ValueError("KV Cache NVFP4 is not supported on SM107")
         if kv_cache_sf is None:
             raise ValueError("kv_cache_sf must be provided for NVFP4 KV cache.")
     key_block_scales, value_block_scales = (
@@ -7826,11 +7827,12 @@ def trtllm_fmha_v2_prefill(
 
 
 @flashinfer_experimental_api
-def prepare_nvfp4_attention(q, k, v, out, *, causal=False, backend="cake"):
-    """Prepare NVFP4 attention from contiguous BF16 [B,H,S,128] tensors.
+def prepare_nvfp4_attention(q, k, v, out, *, backend="cake"):
+    """Prepare NVFP4 attention from BF16 [B,H,S,128] tensors.
 
     The experimental Cake backend requires SM103 and noncausal S divisible
-    by 512. Preparation quantizes Q/K/V to block-scaled E2M1 and returns an
+    by 512. ``q``, ``k`` and ``v`` may have any strides; ``out`` is contiguous.
+    Preparation quantizes Q/K/V to block-scaled E2M1 and returns an
     NVFP4AttentionRunner. Calling the runner executes QK, softmax and PV
     attention and writes the caller-owned BF16 output without CUDA allocation.
     Prepare a new runner after changing input values or bindings. CUDA Graph
@@ -7842,7 +7844,7 @@ def prepare_nvfp4_attention(q, k, v, out, *, causal=False, backend="cake"):
         prepare_nvfp4_attention as prepare,
     )
 
-    return prepare(q, k, v, out, causal=causal, backend="cake")
+    return prepare(q, k, v, out, backend="cake")
 
 
 @flashinfer_experimental_api(feature="MiniMax-H3 packed-varlen BF16 attention")
@@ -7869,7 +7871,16 @@ def minimax_h3_varlen_attention(
     Parameters
     ----------
     query, key, value : torch.Tensor
-        Contiguous BF16 ``[T, H, 128]`` packed THD tensors on one CUDA device.
+        BF16 ``[T, H, 128]`` packed THD tensors on one CUDA device.  Any
+        token-major view with ``stride(2) == 1``, a head stride ``stride(1)``
+        of at least 128 elements, a token stride ``stride(0)`` of at least
+        ``H * stride(1)`` elements (both multiples of 8 elements = 16 bytes)
+        and a 16-byte-aligned data pointer is consumed in place; the
+        kernel's tensor maps and ragged-tail path take the strides as
+        arguments.  This covers the engine's column chunks of the fused QKV
+        projection ``[T, 3 * H * 128]`` (strides ``(3 * H * 128, 128, 1)``)
+        and the kind slices of the Cake pre-attention pack ``[T, H, 3, 128]``
+        (strides ``(H * 384, 384, 1)``), as well as contiguous tensors.
     cu_seqlens : torch.Tensor
         int32 ``[B + 1]`` segment bounds on the same device with
         ``cu_seqlens[0] == 0``, non-decreasing entries and ``cu_seqlens[B] == T``.
@@ -7877,7 +7888,7 @@ def minimax_h3_varlen_attention(
     softmax_scale : Optional[float]
         Defaults to ``1 / sqrt(128)``.
     out : Optional[torch.Tensor]
-        Optional caller-owned BF16 ``[T, H, 128]`` output.
+        Optional caller-owned contiguous BF16 ``[T, H, 128]`` output.
     cu_seqlens_host : Optional[Sequence[int]]
         Host copy of ``cu_seqlens``; when omitted the values are read back
         from the device once to build the segment plan.
@@ -7887,8 +7898,8 @@ def minimax_h3_varlen_attention(
     Returns
     -------
     torch.Tensor
-        The BF16 ``[T, H, 128]`` output (``out`` when given).  For repeated
-        launches or CUDA Graph capture use
+        The contiguous BF16 ``[T, H, 128]`` output (``out`` when given).  For
+        repeated launches or CUDA Graph capture use
         ``flashinfer.experimental.minimax_h3_varlen_attention.cake_backend.prepare_minimax_h3_varlen_attention``,
         whose runner launches with no allocation or synchronization.  See
         ``flashinfer/experimental/minimax_h3_varlen_attention/README.md``.

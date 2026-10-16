@@ -142,13 +142,26 @@ def split_directed(args: Sequence[str]) -> tuple[list[str], bool]:
 
 
 def _command_words(args: Sequence[str]) -> list[str]:
-    """Everything before the first `--`: where a `--help` means help."""
+    """Everything before the first `--`: where a `--help` can mean help."""
     words: list[str] = []
     for arg in args:
         if arg == "--":
             break
         words.append(arg)
     return words
+
+
+def _asks_help(args: Sequence[str]) -> bool:
+    """Does this invocation only print help? Asked of the CLI's own parser
+    (`precheck.asks_help`), never of the words: `probe notes delete --run R --note
+    --help --yes` names the note `--help` and deletes it, and a token search let it
+    past the gate under read-only. Looked up only when the word is there at all,
+    so no other command pays for the parse."""
+    if session_marker.HELP_FLAG not in _command_words(args):
+        return False
+    from probe.daemon.precheck import asks_help
+
+    return asks_help(list(args))
 
 
 def _run_argument(args: Sequence[str]) -> str | None:
@@ -205,12 +218,12 @@ def refusal(
         return None
     words = session_marker.command_words(list(args))
     if words[:2] == ["session", "parent"] and len(words) > 2 and not directed:
-        if session_marker.HELP_FLAG not in _command_words(args):
+        if not _asks_help(args):
             return DENY_REASON_PARENT.format(matched="probe session parent " + words[2])
     state = session_marker.session_state(session_id)
     if state is None:
         return None
-    if session_marker.HELP_FLAG in _command_words(args):
+    if _asks_help(args):
         return None  # asking what a command does is never a write
     kind, matched = session_marker.classify_probe_args(list(args))
     if kind is None:
@@ -328,7 +341,7 @@ def excluded_refusal(args: Sequence[str], env: Mapping[str, str] | None = None) 
     names is. `probe exec` instead runs its command unrecorded (`child`), as the
     switch does. Reads are never refused. Never raises."""
     try:
-        if session_marker.HELP_FLAG in _command_words(args):
+        if _asks_help(args):
             return None
         words = session_marker.command_words(list(args))
         is_exec = words[:1] == ["exec"]

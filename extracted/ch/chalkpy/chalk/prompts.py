@@ -7,10 +7,7 @@ import pyarrow as pa
 if TYPE_CHECKING:
     from pydantic import BaseModel
 else:
-    try:
-        from pydantic.v1 import BaseModel
-    except ImportError:
-        from pydantic import BaseModel
+    from chalk.utils.pydanticutil.sdk import BaseModel
 
 from chalk.features.underscore import Underscore, UnderscoreFunction
 from chalk.utils.pydanticutil.pydantic_compat import get_pydantic_output_structure
@@ -300,7 +297,7 @@ class RuntimeStats(BaseModel):
 
     total_latency: float
     """Total time in seconds to generate the response, including any retries."""
-    last_try_latency: Optional[float]
+    last_try_latency: Optional[float] = None
     """Time in seconds to generate the response in the last successful try."""
     total_retries: int
     """Total number of retries."""
@@ -311,7 +308,7 @@ class RuntimeStats(BaseModel):
 class PromptResponse(BaseModel):
     """Response from the model."""
 
-    response: Optional[str]
+    response: Optional[str] = None
     """Response from the model. Raw string if no output structure specified, json encoded string otherwise. None if the response was not received or incorrectly formatted."""
     prompt: Prompt
     """Prompt used to generate the response."""
@@ -324,7 +321,7 @@ class PromptResponse(BaseModel):
 class MultimodalPromptResponse(BaseModel):
     """Response from the model."""
 
-    response: Optional[str]
+    response: Optional[str] = None
     """Response from the model. Raw string if no output structure specified, json encoded string otherwise. None if the response was not received or incorrectly formatted."""
     prompt: MultimodalPrompt
     """Prompt used to generate the response."""

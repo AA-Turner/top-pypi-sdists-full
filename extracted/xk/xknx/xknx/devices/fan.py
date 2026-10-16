@@ -26,7 +26,7 @@ from xknx.remote_value import (
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.xknx import XKNX
 
 DEFAULT_TURN_ON_SPEED = 50
@@ -47,7 +47,8 @@ class Fan(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_speed: GroupAddressesType = None,
         group_address_speed_state: GroupAddressesType = None,
         group_address_oscillation: GroupAddressesType = None,
@@ -59,7 +60,7 @@ class Fan(Device):
         max_step: int | None = None,
     ) -> None:
         """Initialize fan class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self.speed: RemoteValueDptValue1Ucount | RemoteValueScaling
         self.mode = FanSpeedMode.STEP if max_step else FanSpeedMode.PERCENT
@@ -159,7 +160,7 @@ class Fan(Device):
         """Set the fan oscillation mode on or off."""
         self.oscillation.set(oscillation)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.switch.process(telegram)
         self.speed.process(telegram)

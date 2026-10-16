@@ -68,6 +68,9 @@ class ProjectResourceReferenceClient:
         """
         Add references to the given project
 
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param resources:
@@ -127,6 +130,9 @@ class ProjectResourceReferenceClient:
         """
         List all references in the given project
 
+
+        Required scopes: [api:filesystem-read]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param page_size: The page size to use for the endpoint.
@@ -181,6 +187,9 @@ class ProjectResourceReferenceClient:
     ) -> None:
         """
         Remove references from the given project
+
+
+        Required scopes: [api:filesystem-write]
 
         :param project_rid:
         :type project_rid: ProjectRid
@@ -287,6 +296,9 @@ class AsyncProjectResourceReferenceClient:
         """
         Add references to the given project
 
+
+        Required scopes: [api:filesystem-write]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param resources:
@@ -346,6 +358,9 @@ class AsyncProjectResourceReferenceClient:
         """
         List all references in the given project
 
+
+        Required scopes: [api:filesystem-read]
+
         :param project_rid:
         :type project_rid: ProjectRid
         :param page_size: The page size to use for the endpoint.
@@ -400,6 +415,9 @@ class AsyncProjectResourceReferenceClient:
     ) -> typing.Awaitable[None]:
         """
         Remove references from the given project
+
+
+        Required scopes: [api:filesystem-write]
 
         :param project_rid:
         :type project_rid: ProjectRid

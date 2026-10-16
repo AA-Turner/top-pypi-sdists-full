@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -20,6 +20,9 @@ __all__ = [
     "Avs",
     "Card",
     "Merchant",
+    "NameValidation",
+    "NameValidationName",
+    "NameValidationNameOnFileMatch",
     "ServiceLocation",
     "FleetInfo",
     "LatestChallenge",
@@ -133,6 +136,14 @@ class Card(BaseModel):
 
     state: Literal["CLOSED", "OPEN", "PAUSED", "PENDING_ACTIVATION", "PENDING_FULFILLMENT"]
 
+    tags: Dict[str, str]
+    """Key-value pairs for tagging resources.
+
+    Tags allow you to associate arbitrary metadata with a resource for your own
+    purposes. A resource can have at most 50 tags, with keys up to 40 characters and
+    values up to 500 characters
+    """
+
     type: Literal["SINGLE_USE", "MERCHANT_LOCKED", "UNLOCKED", "PHYSICAL", "DIGITAL_WALLET", "VIRTUAL"]
 
 
@@ -147,6 +158,43 @@ class Merchant(merchant.Merchant):
 
     street_address: Optional[str] = None
     """Street address of card acceptor."""
+
+
+class NameValidationName(BaseModel):
+    """Cardholder name as provided by the card network."""
+
+    first: str
+    """First name"""
+
+    last: str
+    """Last name"""
+
+    middle: Optional[str] = None
+    """Middle name"""
+
+
+class NameValidationNameOnFileMatch(BaseModel):
+    """
+    Lithic's computed match result comparing the network-provided name to the name on file.
+    """
+
+    full_name: Literal["MATCH", "PARTIAL_MATCH", "NO_MATCH", "UNVERIFIED"]
+    """Overall name match result."""
+
+
+class NameValidation(BaseModel):
+    """
+    Network name validation data, present when the card network requested name validation for this transaction. Contains the cardholder name provided by the network and Lithic's computed match result against KYC data on file.
+    """
+
+    name: NameValidationName
+    """Cardholder name as provided by the card network."""
+
+    name_on_file_match: NameValidationNameOnFileMatch
+    """
+    Lithic's computed match result comparing the network-provided name to the name
+    on file.
+    """
 
 
 class ServiceLocation(BaseModel):
@@ -201,6 +249,15 @@ class LatestChallenge(BaseModel):
     The latest Authorization Challenge that was issued to the cardholder for this merchant.
     """
 
+    completed_at: Optional[datetime] = None
+    """The date and time when the Authorization Challenge was completed in UTC.
+
+    Filled only if the challenge has been completed.
+    """
+
+    created: datetime
+    """The date and time when the Authorization Challenge was created in UTC"""
+
     method: Literal["SMS", "OUT_OF_BAND"]
     """The method used to deliver the challenge to the cardholder
 
@@ -222,12 +279,6 @@ class LatestChallenge(BaseModel):
     - `PENDING` - Challenge is still open
     - `EXPIRED` - Challenge has expired without being completed
     - `ERROR` - There was an error processing the challenge
-    """
-
-    completed_at: Optional[datetime] = None
-    """The date and time when the Authorization Challenge was completed in UTC.
-
-    Present only if the status is `COMPLETED`.
     """
 
 
@@ -440,12 +491,13 @@ class CardAuthorization(BaseModel):
 
     cash_amount: int
     """
-    The portion of the transaction requested as cash back by the cardholder, and
-    does not include any acquirer fees. The amount field includes the purchase
-    amount, the requested cash back amount, and any acquirer fees.
+    The amount of cash requested by the cardholder, in the cardholder billing
+    currency's smallest unit. For purchase-with-cashback transactions this is the
+    cashback portion only; for ATM transactions this is the full amount. This amount
+    includes all acquirer fees.
 
-    If no cash back was requested, the value of this field will be 0, and the field
-    will always be present.
+    If no cash was requested, the value of this field will be 0, and the field will
+    always be present.
     """
 
     created: datetime
@@ -466,6 +518,13 @@ class CardAuthorization(BaseModel):
 
     merchant_currency: str
     """3-character alphabetic ISO 4217 code for the local currency of the transaction."""
+
+    name_validation: Optional[NameValidation] = None
+    """
+    Network name validation data, present when the card network requested name
+    validation for this transaction. Contains the cardholder name provided by the
+    network and Lithic's computed match result against KYC data on file.
+    """
 
     service_location: Optional[ServiceLocation] = None
     """

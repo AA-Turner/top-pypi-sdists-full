@@ -88,6 +88,9 @@ class FileClient:
         To **get a file's content from a specific transaction** specify the Transaction's resource identifier as both the
         `startTransactionRid` and `endTransactionRid`.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param file_path:
@@ -172,6 +175,9 @@ class FileClient:
         as `transactionRid`. The transaction must be of type `DELETE`. This is useful for deleting multiple files in a
         single transaction. See [createTransaction](https://palantir.com/docs/foundry/api/datasets-resources/transactions/create-transaction/) to
         open a transaction.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -270,6 +276,9 @@ class FileClient:
         To **get a file's metadata from a specific transaction** specify the Transaction's resource identifier as both the
         `startTransactionRid` and `endTransactionRid`.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param file_path:
@@ -364,6 +373,9 @@ class FileClient:
         `startTransactionRid` and `endTransactionRid`. This will include only files that were modified as part of that
         Transaction.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name: The name of the Branch on which to list Files. Defaults to `master` for most enrollments.
@@ -455,6 +467,9 @@ class FileClient:
         To **upload a file on a manually opened transaction** specify the Transaction's resource identifier as
         `transactionRid`. This is useful for uploading multiple files in a single transaction.
         See [createTransaction](https://palantir.com/docs/foundry/api/datasets-resources/transactions/create-transaction/) to open a transaction.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -618,6 +633,9 @@ class AsyncFileClient:
         To **get a file's content from a specific transaction** specify the Transaction's resource identifier as both the
         `startTransactionRid` and `endTransactionRid`.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param file_path:
@@ -702,6 +720,9 @@ class AsyncFileClient:
         as `transactionRid`. The transaction must be of type `DELETE`. This is useful for deleting multiple files in a
         single transaction. See [createTransaction](https://palantir.com/docs/foundry/api/datasets-resources/transactions/create-transaction/) to
         open a transaction.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -800,6 +821,9 @@ class AsyncFileClient:
         To **get a file's metadata from a specific transaction** specify the Transaction's resource identifier as both the
         `startTransactionRid` and `endTransactionRid`.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param file_path:
@@ -894,6 +918,9 @@ class AsyncFileClient:
         `startTransactionRid` and `endTransactionRid`. This will include only files that were modified as part of that
         Transaction.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name: The name of the Branch on which to list Files. Defaults to `master` for most enrollments.
@@ -985,6 +1012,9 @@ class AsyncFileClient:
         To **upload a file on a manually opened transaction** specify the Transaction's resource identifier as
         `transactionRid`. This is useful for uploading multiple files in a single transaction.
         See [createTransaction](https://palantir.com/docs/foundry/api/datasets-resources/transactions/create-transaction/) to open a transaction.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid

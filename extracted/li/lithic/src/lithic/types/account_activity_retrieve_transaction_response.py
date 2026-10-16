@@ -26,6 +26,7 @@ class FinancialTransaction(BaseModel):
     category: Literal[
         "ACH",
         "WIRE",
+        "STABLECOIN",
         "BALANCE_OR_FUNDING",
         "FEE",
         "REWARD",
@@ -37,6 +38,7 @@ class FinancialTransaction(BaseModel):
         "EXTERNAL_CHECK",
         "EXTERNAL_FEDNOW",
         "EXTERNAL_RTP",
+        "EXTERNAL_STABLECOIN",
         "EXTERNAL_TRANSFER",
         "EXTERNAL_WIRE",
         "MANAGEMENT_ADJUSTMENT",
@@ -46,6 +48,7 @@ class FinancialTransaction(BaseModel):
         "MANAGEMENT_DISBURSEMENT",
         "HOLD",
         "PROGRAM_FUNDING",
+        "PROGRAM_TRANSFER",
     ]
     """Transaction category"""
 

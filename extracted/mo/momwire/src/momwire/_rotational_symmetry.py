@@ -46,7 +46,8 @@ import math
 from typing import NamedTuple
 
 import numpy as np
-import scipy.linalg
+from ._vec3 import norm3
+from . import _lapack
 
 # 1e-9 of the deck's largest extent. The registered tolerance (§3.1): the
 # structure probe measures rotated radials landing 3.9e-16 m (4 radials) to
@@ -103,13 +104,13 @@ def _rho(pl, axis):
 
 
 def _arc_length(pl):
-    return float(np.sum(np.linalg.norm(np.diff(pl, axis=0), axis=1)))
+    return float(np.sum(norm3(np.diff(pl, axis=0))))
 
 
 def _worst_z_angle(pl):
     """(degrees off z, of the worst edge). 0 for a purely vertical wire."""
     d = np.diff(pl, axis=0)
-    n = np.linalg.norm(d, axis=1)
+    n = norm3(d)
     cos = np.abs(d[:, 2]) / np.maximum(n, 1e-300)
     return float(np.max(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0)))))
 
@@ -207,7 +208,7 @@ def _match_under(polylines, wires, axis, theta, tol):
             b = polylines[u]
             if b.shape != a.shape:
                 continue
-            d = float(np.max(np.linalg.norm(a - b, axis=1)))
+            d = float(np.max(norm3(a - b)))
             if d <= tol and u not in taken:
                 best = u
                 break
@@ -399,7 +400,7 @@ def _port_sites(solver, polylines):
     sites = []
     for i, (w, arc, _v) in enumerate(solver.feeds):
         pl = polylines[int(w)]
-        seg = np.linalg.norm(np.diff(pl, axis=0), axis=1)
+        seg = norm3(np.diff(pl, axis=0))
         total = float(np.sum(seg))
         s = 0.5 * total if arc is None else float(arc)
         s = min(max(s, 0.0), total)
@@ -721,7 +722,7 @@ def solve(solver, Z, v, kcl_A, sectors, axial, row_of=None):
     n = len(sectors)
     sq = math.sqrt(n)
     K0, m, _p = harmonic_zero_block(solver, Z, sectors, axial, row_of=row_of)
-    lu = scipy.linalg.lu_factor(K0, overwrite_a=True)
+    lu = _lapack.lu_factor(K0, overwrite_a=True)
 
     def z_inv(rhs):
         rhs = np.asarray(rhs, dtype=np.complex128).reshape(rhs.shape[0], -1)
@@ -733,7 +734,7 @@ def solve(solver, Z, v, kcl_A, sectors, axial, row_of=None):
         refuse_if_not_invariant(rhs, sectors)
         r0 = rhs[sectors[0]]
         top = np.vstack([sq * r0, rhs[axial]])
-        sol = scipy.linalg.lu_solve(lu, top)
+        sol = _lapack.lu_solve(lu, top)
         out = np.empty((rhs.shape[0], rhs.shape[1]), dtype=np.complex128)
         per_sector = sol[:m] / sq
         for t in range(n):
@@ -745,7 +746,7 @@ def solve(solver, Z, v, kcl_A, sectors, axial, row_of=None):
     if kcl_A.shape[0] == 0:
         return w
     X = z_inv(kcl_A.T.astype(np.complex128))
-    lam = scipy.linalg.solve(kcl_A @ X, kcl_A @ w)
+    lam = _lapack.solve(kcl_A @ X, kcl_A @ w)
     return w - X @ lam
 
 

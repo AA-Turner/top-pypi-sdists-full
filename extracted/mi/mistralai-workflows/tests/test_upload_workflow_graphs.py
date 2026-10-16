@@ -511,14 +511,16 @@ class TestUploadWorkflowGraphs:
         classes = [FakeWorkflow] * len(refs)
 
         async def summarise(**kwargs):
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.25)
             return SummaryResult(status="ready", summaries={"step_a": NodeSummary(short="s", long="l")})
 
         with (
             patch("mistralai.workflows.core._graph.build_graph_dynamically", side_effect=lambda cls: _fake_graph()),
             patch(_SUMMARISE_PATH, side_effect=summarise),
             # Room for one summary but not for the three waves ahead of the last one.
-            patch("mistralai.workflows.core.worker._GRAPH_SUMMARY_LIFECYCLE_TIMEOUT_S", 0.1),
+            # The two durations are an order of magnitude apart so a slow CI event loop
+            # cannot flip which side of the budget a summary lands on.
+            patch("mistralai.workflows.core.worker._GRAPH_SUMMARY_LIFECYCLE_TIMEOUT_S", 0.5),
             _MOCK_SUMMARY_CONFIG,
         ):
             await _upload_workflow_graphs(refs=refs, classes=classes, client=client)

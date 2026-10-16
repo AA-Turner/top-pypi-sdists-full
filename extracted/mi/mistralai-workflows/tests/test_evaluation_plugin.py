@@ -4,27 +4,36 @@ from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from mistralai.evaluations.models import Dataset
+from temporalio.client import WorkflowFailureError
 
 from mistralai.workflows import get_workflow_definition, workflow
 from mistralai.workflows.core.execution.concurrency import ParallelExecutionWorkflow
-from mistralai.workflows.plugins.evaluations import evaluation
+from mistralai.workflows.plugins.evaluations import _record_workflow, evaluation
 from mistralai.workflows.plugins.evaluations._activities import (
     _get_obs_client_factory,
     create_optimization,
     create_optimization_trial,
+    execute_run_metadata,
+    execute_run_scorer,
+    fetch_dataset_record,
+    heartbeat_run,
     patch_optimization,
     patch_optimization_trial,
     patch_optimization_trial_run,
+    patch_run_status,
+    resolve_dataset_record_ids,
     setup_evaluation_run,
     upload_input_records,
     upload_output_records,
     upload_run_scores,
 )
-from mistralai.workflows.plugins.evaluations._record_workflow import EvalRecordWorkflow
+from mistralai.workflows.plugins.evaluations._record_workflow import EvalRecordBatchWorkflow, EvalRecordWorkflow
 from mistralai.workflows.plugins.evaluations.types import (
     Evaluator,
     Goal,
@@ -357,6 +366,8 @@ _EVAL_ACTIVITIES = [
     upload_input_records,
     upload_output_records,
     upload_run_scores,
+    execute_run_scorer,
+    execute_run_metadata,
     create_optimization,
     create_optimization_trial,
     patch_optimization,
@@ -365,11 +376,34 @@ _EVAL_ACTIVITIES = [
 ]
 
 
+def _run_records_page(num_records: int) -> SimpleNamespace:
+    """One page of persisted run records, as run-level callbacks read them back from AI Studio."""
+    score = SimpleNamespace(model_dump=lambda: {"value": 1.0, "status": "success"})
+    records = [
+        SimpleNamespace(
+            input={"text": f"record-{i}"},
+            dataset_record_id=None,
+            output_record=SimpleNamespace(
+                metadata={},
+                generations=[
+                    SimpleNamespace(
+                        output="ok", status="success", error=None, metadata={}, scores={"accuracy": [score]}
+                    )
+                ],
+            ),
+        )
+        for i in range(num_records)
+    ]
+    return SimpleNamespace(records=SimpleNamespace(results=records, next=None))
+
+
 def _make_mock_obs_client_with_run_evaluators(
     run_evaluator_names: list[str] | None = None,
+    num_records: int = 1,
 ) -> MagicMock:
     """Build a mock obs client that also supports run evaluators."""
     client = _make_mock_obs_client()
+    client.evaluation.beta.list_records = AsyncMock(return_value=_run_records_page(num_records))
     names = run_evaluator_names or ["mean_accuracy"]
     run_evaluator_objs = []
     for i, name in enumerate(names):
@@ -406,7 +440,7 @@ def _create_test_worker_with_mock_obs(temporal_env, workflows, activities, mock_
         async def __aenter__(self):
             worker_ctx = create_test_worker(
                 temporal_env,
-                workflows=[*workflows, ParallelExecutionWorkflow, EvalRecordWorkflow],
+                workflows=[*workflows, ParallelExecutionWorkflow, EvalRecordBatchWorkflow, EvalRecordWorkflow],
                 activities=activities,
             )
             self._worker_ctx = worker_ctx
@@ -477,7 +511,7 @@ class TestEvaluationPlugin:
 
     @pytest.mark.asyncio
     async def test_evaluation_with_run_evaluators(self, temporal_env: Any) -> None:
-        mock_client = _make_mock_obs_client_with_run_evaluators()
+        mock_client = _make_mock_obs_client_with_run_evaluators(num_records=2)
         async with _create_test_worker_with_mock_obs(
             temporal_env,
             workflows=[EvalWorkflowWithRunEvaluators],
@@ -509,6 +543,8 @@ class TestEvaluationPlugin:
             assert run_score["value"] == 1.0
             assert run_score["status"] == "success"
             assert "Mean across" in run_score["rationale"]
+            # Run evaluators read the run's records back from AI Studio
+            mock_client.evaluation.beta.list_records.assert_awaited_with("test-run-id", page=1, page_size=100)
 
     @pytest.mark.asyncio
     async def test_evaluation_task_as_workflow(self, temporal_env: Any) -> None:
@@ -1318,3 +1354,236 @@ class TestMetadataAlwaysDict:
             assert "meta_type" in stats
             # metadata_type_scorer returns 1.0 when metadata is a dict
             assert stats["meta_type"]["avg"] == 1.0
+
+
+# -- Managed datasets --
+
+
+@workflow.define(name="test-eval-workflow-managed-dataset")
+class EvalWorkflowManagedDataset:
+    @workflow.entrypoint
+    async def run(self, params: dict) -> dict:
+        dataset = params.get("dataset") or Dataset(id=params.get("dataset_id"), slug=params.get("dataset_slug"))
+        result = await evaluation.run(
+            dataset=dataset,
+            task=echo_task,
+            evaluators=[Evaluator(name="accuracy", scorer=always_one_scorer)],
+            run_evaluators=[RunEvaluator(name="mean_accuracy", scorer=mean_accuracy_run_scorer)],
+        )
+        return {
+            "run_id": result.run_id,
+            "run_scores": {k: v.model_dump() for k, v in result.run_scores.items()},
+        }
+
+
+_MANAGED_DATASET_ACTIVITIES = [
+    echo_task,
+    always_one_scorer,
+    mean_accuracy_run_scorer,
+    resolve_dataset_record_ids,
+    fetch_dataset_record,
+    patch_run_status,
+    heartbeat_run,
+    *_EVAL_ACTIVITIES,
+]
+
+
+_MANAGED_DATASET_ID = "0b6c2f4e-8d7a-4f3b-9c1e-2a5d6e7f8a9b"
+
+
+def _make_mock_obs_client_with_dataset(payloads: dict[str, dict], unfetchable: set[str] | None = None) -> MagicMock:
+    """Mock client serving a managed dataset one record per page, as records are listed and fetched."""
+    client = _make_mock_obs_client_with_run_evaluators(num_records=len(payloads))
+    record_ids = list(payloads)
+
+    async def list_records_async(*, dataset_id: str, page_size: int, page: int) -> SimpleNamespace:
+        record_id = record_ids[page - 1]
+        has_next = page < len(record_ids)
+        results = [SimpleNamespace(id=record_id, payload=payloads[record_id])]
+        return SimpleNamespace(records=SimpleNamespace(count=len(record_ids), results=results, next=has_next or None))
+
+    async def fetch_async(*, dataset_record_id: str) -> SimpleNamespace:
+        if dataset_record_id in (unfetchable or set()):
+            raise RuntimeError("record unavailable")
+        return SimpleNamespace(payload=payloads[dataset_record_id])
+
+    datasets = client.beta.observability.datasets
+    datasets.fetch_async = AsyncMock(return_value=SimpleNamespace(id=_MANAGED_DATASET_ID))
+    datasets.list_records_async = AsyncMock(side_effect=list_records_async)
+    datasets.records.fetch_async = AsyncMock(side_effect=fetch_async)
+    return client
+
+
+def _uploaded(mock: AsyncMock) -> list[Any]:
+    return [record for call in mock.await_args_list for record in call.kwargs["records"]]
+
+
+class TestManagedDataset:
+    @pytest.mark.asyncio
+    async def test_records_are_resolved_by_id_and_fetched_by_each_child(self, temporal_env: Any) -> None:
+        mock_client = _make_mock_obs_client_with_dataset({"rec-1": {"text": "hello"}, "rec-2": {"text": "world"}})
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset_id": _MANAGED_DATASET_ID}},
+                id="test-eval-managed-dataset",
+                task_queue="test-task-queue",
+            )
+            result = await handle.result()
+
+        assert result["result"]["run_scores"]["mean_accuracy"]["value"] == 1.0
+        assert mock_client.evaluation.beta.create_run.await_args.kwargs["dataset_id"] == _MANAGED_DATASET_ID
+        assert mock_client.beta.observability.datasets.list_records_async.await_count == 2
+        inputs = sorted(_uploaded(mock_client.evaluation.beta.upload_input_records), key=lambda r: r.dataset_record_id)
+        assert [(r.dataset_record_id, r.input) for r in inputs] == [
+            ("rec-1", {"text": "hello"}),
+            ("rec-2", {"text": "world"}),
+        ]
+        outputs = [
+            g.output for r in _uploaded(mock_client.evaluation.beta.upload_output_records) for g in r.generations
+        ]
+        assert sorted(outputs) == ["hello", "world"]
+
+    @pytest.mark.asyncio
+    async def test_dataset_referenced_by_slug_is_resolved_to_its_id(self, temporal_env: Any) -> None:
+        mock_client = _make_mock_obs_client_with_dataset({"rec-1": {"text": "hello"}})
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset_slug": "my-dataset"}},
+                id="test-eval-managed-dataset-slug",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+        datasets = mock_client.beta.observability.datasets
+        datasets.fetch_async.assert_awaited_once_with(dataset_id="my-dataset")
+        assert datasets.list_records_async.await_args.kwargs["dataset_id"] == _MANAGED_DATASET_ID
+        assert mock_client.evaluation.beta.create_run.await_args.kwargs["dataset_id"] == _MANAGED_DATASET_ID
+
+    @pytest.mark.asyncio
+    async def test_unfetchable_record_is_persisted_as_failed(self, temporal_env: Any) -> None:
+        mock_client = _make_mock_obs_client_with_dataset(
+            {"rec-1": {"text": "hello"}, "rec-2": {"text": "world"}}, unfetchable={"rec-2"}
+        )
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset_id": _MANAGED_DATASET_ID}},
+                id="test-eval-managed-dataset-unfetchable",
+                task_queue="test-task-queue",
+            )
+            await handle.result()
+
+        inputs = {r.dataset_record_id: r for r in _uploaded(mock_client.evaluation.beta.upload_input_records)}
+        assert inputs["rec-2"].input == {}
+        failed = next(
+            r
+            for r in _uploaded(mock_client.evaluation.beta.upload_output_records)
+            if r.input_record_id == inputs["rec-2"].id
+        )
+        assert [(g.status, g.error is not None) for g in failed.generations] == [("error", True)]
+
+    @pytest.mark.asyncio
+    async def test_run_fails_when_an_input_cannot_be_saved(self, temporal_env: Any) -> None:
+        mock_client = _make_mock_obs_client_with_run_evaluators()
+        mock_client.evaluation.beta.upload_input_records = AsyncMock(side_effect=RuntimeError("studio down"))
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset": [{"text": "hello"}]}},
+                id="test-eval-input-not-saved",
+                task_queue="test-task-queue",
+            )
+            with pytest.raises(WorkflowFailureError) as exc_info:
+                await handle.result()
+
+        assert "could not be saved to AI Studio" in str(exc_info.value.cause)
+        mock_client.evaluation.beta.update_run.assert_any_await("test-run-id", status="failed")
+        mock_client.evaluation.beta.list_records.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_task_outputs_stay_out_of_the_parent_history(self, temporal_env: Any) -> None:
+        mock_client = _make_mock_obs_client_with_dataset({"rec-1": {"text": "hello"}, "rec-2": {"text": "world"}})
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset_id": _MANAGED_DATASET_ID}},
+                id="test-eval-outputs-out-of-history",
+                task_queue="test-task-queue",
+            )
+            result = await handle.result()
+            history = await handle.fetch_history()
+
+        child_results = [
+            payload.data
+            for event in history.events
+            if event.HasField("child_workflow_execution_completed_event_attributes")
+            for payload in event.child_workflow_execution_completed_event_attributes.result.payloads
+        ]
+        assert len(child_results) == 1
+        assert not any(b"hello" in data or b"world" in data for data in child_results)
+        assert result["result"]["run_scores"]["mean_accuracy"]["value"] == 1.0
+        outputs = [
+            g.output for r in _uploaded(mock_client.evaluation.beta.upload_output_records) for g in r.generations
+        ]
+        assert sorted(outputs) == ["hello", "world"]
+
+    @pytest.mark.asyncio
+    async def test_records_run_in_batches_that_keep_the_parent_history_small(
+        self, temporal_env: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(_record_workflow, "_MAX_RECORDS_PER_BATCH", 2)
+        texts = [f"text-{i}" for i in range(5)]
+        mock_client = _make_mock_obs_client_with_dataset({f"rec-{i}": {"text": text} for i, text in enumerate(texts)})
+        async with _create_test_worker_with_mock_obs(
+            temporal_env,
+            workflows=[EvalWorkflowManagedDataset],
+            activities=_MANAGED_DATASET_ACTIVITIES,
+            mock_client=mock_client,
+        ):
+            handle = await temporal_env.client.start_workflow(
+                get_workflow_definition(EvalWorkflowManagedDataset).name,
+                {"params": {"dataset_id": _MANAGED_DATASET_ID}},
+                id="test-eval-record-batches",
+                task_queue="test-task-queue",
+            )
+            result = await handle.result()
+            history = await handle.fetch_history()
+
+        started_children = [
+            event.start_child_workflow_execution_initiated_event_attributes.workflow_type.name
+            for event in history.events
+            if event.HasField("start_child_workflow_execution_initiated_event_attributes")
+        ]
+        assert started_children == ["eval-record-batch"] * 3
+        assert result["result"]["run_scores"]["mean_accuracy"]["value"] == 1.0
+        outputs = [
+            g.output for r in _uploaded(mock_client.evaluation.beta.upload_output_records) for g in r.generations
+        ]
+        assert sorted(outputs) == texts

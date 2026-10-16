@@ -24,6 +24,22 @@ from .statements import (
     StatementsWithStreamingResponse,
     AsyncStatementsWithStreamingResponse,
 )
+from .open_to_buy import (
+    OpenToBuyResource,
+    AsyncOpenToBuyResource,
+    OpenToBuyResourceWithRawResponse,
+    AsyncOpenToBuyResourceWithRawResponse,
+    OpenToBuyResourceWithStreamingResponse,
+    AsyncOpenToBuyResourceWithStreamingResponse,
+)
+from .installment_plans import (
+    InstallmentPlans,
+    AsyncInstallmentPlans,
+    InstallmentPlansWithRawResponse,
+    AsyncInstallmentPlansWithRawResponse,
+    InstallmentPlansWithStreamingResponse,
+    AsyncInstallmentPlansWithStreamingResponse,
+)
 from .financial_accounts import (
     FinancialAccounts,
     AsyncFinancialAccounts,
@@ -72,6 +88,12 @@ __all__ = [
     "AsyncBalancesWithRawResponse",
     "BalancesWithStreamingResponse",
     "AsyncBalancesWithStreamingResponse",
+    "OpenToBuyResource",
+    "AsyncOpenToBuyResource",
+    "OpenToBuyResourceWithRawResponse",
+    "AsyncOpenToBuyResourceWithRawResponse",
+    "OpenToBuyResourceWithStreamingResponse",
+    "AsyncOpenToBuyResourceWithStreamingResponse",
     "FinancialTransactions",
     "AsyncFinancialTransactions",
     "FinancialTransactionsWithRawResponse",
@@ -96,6 +118,12 @@ __all__ = [
     "AsyncLoanTapesWithRawResponse",
     "LoanTapesWithStreamingResponse",
     "AsyncLoanTapesWithStreamingResponse",
+    "InstallmentPlans",
+    "AsyncInstallmentPlans",
+    "InstallmentPlansWithRawResponse",
+    "AsyncInstallmentPlansWithRawResponse",
+    "InstallmentPlansWithStreamingResponse",
+    "AsyncInstallmentPlansWithStreamingResponse",
     "LoanTapeConfigurationResource",
     "AsyncLoanTapeConfigurationResource",
     "LoanTapeConfigurationResourceWithRawResponse",

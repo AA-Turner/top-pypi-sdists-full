@@ -15,7 +15,9 @@ class RecordedRunOptions(BaseModel):
 
   train_on_truncation: bool | None = None
 
-  train_on_ungraded: bool | None = None
+  train_on_error: bool | None = None
+
+  train_on_timeout: bool | None = None
 
   evaluation_max_samples: int | None = None
 
@@ -52,7 +54,3 @@ class RecordedRunOptions(BaseModel):
   max_total_tokens_per_trajectory: int | None = None
 
   max_turns_per_trajectory: int | None = None
-
-  max_tool_calls_per_step: int | None = None
-
-  max_response_chars_per_tool_call: int | None = None

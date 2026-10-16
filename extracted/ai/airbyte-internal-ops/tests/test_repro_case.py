@@ -7,6 +7,7 @@ was called, so the code under test spawns real processes.
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -29,6 +30,7 @@ from airbyte_ops_mcp.regression_tests.repro_case import (
     CREDENTIAL_PLACEHOLDER,
     CaseExpectations,
     CaseOrigin,
+    InjectedFailure,
     ReproCase,
     ReproGoal,
     SandboxCli,
@@ -36,7 +38,9 @@ from airbyte_ops_mcp.regression_tests.repro_case import (
     SandboxSide,
     SideEvaluation,
     SideOutcome,
+    StreamFinding,
     check_twin_gaps,
+    classify_findings,
     evaluate_reproduction,
     evaluate_side,
     origin_metadata_problems,
@@ -603,8 +607,10 @@ def test_unhashable_message_fields_are_skipped_not_fatal(tmp_path, case):
 
     evaluation = _evaluate(result, case)
 
-    # Only the last line is a protocol message, and it matches no stream.
-    assert evaluation.outcome is SideOutcome.VIOLATES
+    # Only the last line is a protocol message, and it matches no stream, so
+    # the side completed without a record: nothing to judge, but no crash.
+    assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+    assert evaluation.reason.startswith("completed without emitting a record for")
 
 
 def test_null_message_payloads_are_skipped_not_fatal(tmp_path, case):
@@ -729,6 +735,968 @@ def test_the_reproduced_goal_needs_both_sides_to_violate(
     assert verdict.regression_detected is False
 
 
+# --- Empty streams ---------------------------------------------------------------
+
+VACUOUS_STRIPE_DIR = (
+    Path(__file__).parent / "fixtures" / "repro_case" / "vacuous-stripe"
+)
+EMPTY_STREAM_REASON = "completed without emitting a record for"
+# What a side that reached the twin looks like after `check_twin_gaps`.
+REACHED_TWIN = SandboxSide(generation=1, requests=3)
+
+
+MINIMAL_EXPECTATIONS = json.loads((CASE_DIR / "expectations.json").read_text())
+
+
+def _case_with(
+    tmp_path: Path, extra_streams: Sequence[str] = (), **changes: object
+) -> ReproCase:
+    """The minimal case with top-level expectation keys replaced (None removes one).
+
+    `extra_streams` are configured in the catalog, shaped like `threads`.
+    """
+    directory = tmp_path / "case"
+    shutil.copytree(CASE_DIR, directory)
+    for name in extra_streams:
+        _add_stream(directory, name)
+    expectations = json.loads((directory / "expectations.json").read_text())
+    for key, value in changes.items():
+        if value is None:
+            expectations.pop(key, None)
+        else:
+            expectations[key] = value
+    (directory / "expectations.json").write_text(json.dumps(expectations))
+    return ReproCase.load(directory)
+
+
+def _add_stream(case_dir: Path, name: str) -> None:
+    """Configure a second stream, shaped like `threads`, in the case's catalog."""
+    catalog = json.loads((case_dir / "catalog.json").read_text())
+    stream = copy.deepcopy(catalog["streams"][0])
+    stream["stream"]["name"] = name
+    catalog["streams"].append(stream)
+    (case_dir / "catalog.json").write_text(json.dumps(catalog))
+
+
+def _append_records(result: dict, stream: str, count: int) -> None:
+    with open(result["stdout_file"], "a") as stdout:
+        for index in range(count):
+            stdout.write(
+                "\n"
+                + _message(
+                    "RECORD",
+                    record={
+                        "stream": stream,
+                        "data": {"channel_id": "C9", "ts": f"{index}.0"},
+                        "emitted_at": 1,
+                    },
+                )
+            )
+
+
+def _judge(result: dict, case: ReproCase, final_states: dict) -> SideEvaluation:
+    return evaluate_side(
+        result, case, sandbox_side=REACHED_TWIN, final_states=final_states
+    )
+
+
+@pytest.mark.parametrize(
+    "findings,counts,outcome",
+    [
+        ((), {}, SideOutcome.SATISFIES),
+        (
+            (StreamFinding("a", "a: missing 1 record(s)"),),
+            {"a": 0},
+            SideOutcome.INCONCLUSIVE,
+        ),
+        # A stream the counts do not know is empty.
+        ((StreamFinding("a", "a: missing 1 record(s)"),), {}, SideOutcome.INCONCLUSIVE),
+        (
+            (
+                StreamFinding("b", "b: missing 1 record(s)"),
+                StreamFinding("a", "a: missing 1 record(s)"),
+            ),
+            {"a": 2, "b": 0},
+            SideOutcome.VIOLATES,
+        ),
+        # A finding about no stream in particular always counts.
+        ((StreamFinding(None, "something else"),), {}, SideOutcome.VIOLATES),
+    ],
+)
+def test_classify_findings(findings, counts, outcome):
+    evaluation = classify_findings(findings, counts)
+
+    assert evaluation.outcome is outcome
+    assert evaluation.findings == tuple(finding.message for finding in findings)
+
+
+def test_the_inconclusive_reason_names_the_empty_streams_in_order():
+    evaluation = classify_findings(
+        [StreamFinding("b", "b: x"), StreamFinding("a", "a: y")], {}
+    )
+
+    assert evaluation.reason == (
+        "completed without emitting a record for a, b, so nothing was reproduced there"
+    )
+
+
+@pytest.mark.parametrize(
+    "final_states",
+    [
+        {},
+        # An empty read still emits its start cursor; that is not evidence.
+        {(None, "threads"): {"state": {"float_ts": "1"}}},
+        {(None, "threads"): EXPECTED_STATE},
+    ],
+)
+def test_a_side_that_emitted_no_expected_record_is_inconclusive(
+    tmp_path, case, final_states
+):
+    evaluation = _judge(_write_side(tmp_path, "s"), case, final_states)
+
+    assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+    assert evaluation.reason.startswith(f"{EMPTY_STREAM_REASON} threads")
+    assert any("threads: missing 2 record(s)" in text for text in evaluation.findings)
+
+
+def test_records_for_a_stream_the_case_does_not_judge_are_not_evidence(tmp_path, case):
+    result = _write_side(tmp_path, "s")
+    _append_records(result, "users", 3)
+
+    evaluation = _judge(result, case, {(None, "threads"): EXPECTED_STATE})
+
+    assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+    assert evaluation.reason.startswith(EMPTY_STREAM_REASON)
+
+
+@pytest.mark.parametrize(
+    "replies,outcome",
+    [
+        # `replies` emitted nothing, so its miss cannot be the violation.
+        (0, SideOutcome.INCONCLUSIVE),
+        (1, SideOutcome.VIOLATES),
+    ],
+)
+def test_an_empty_stream_cannot_supply_a_violation_next_to_a_correct_one(
+    tmp_path, replies, outcome
+):
+    case = _case_with(
+        tmp_path,
+        extra_streams=("replies",),
+        records={
+            **MINIMAL_EXPECTATIONS["records"],
+            "replies": [{"channel_id": "C1", "ts": "1.0"}],
+        },
+    )
+    result = _write_side(tmp_path, "s", records=EXPECTED_RECORDS)
+    # Emitted, but not the expected key: a miss on a stream that read data.
+    _append_records(result, "replies", replies)
+
+    evaluation = _judge(result, case, {(None, "threads"): EXPECTED_STATE})
+
+    assert evaluation.outcome is outcome
+    assert any("replies: missing 1 record(s)" in text for text in evaluation.findings)
+    if outcome is SideOutcome.INCONCLUSIVE:
+        assert evaluation.reason.startswith(f"{EMPTY_STREAM_REASON} replies")
+
+
+@pytest.mark.parametrize(
+    "records,state,outcome",
+    [
+        (0, None, SideOutcome.INCONCLUSIVE),
+        (0, {"cursor": "0"}, SideOutcome.INCONCLUSIVE),
+        (0, {"cursor": "9"}, SideOutcome.SATISFIES),
+        (2, None, SideOutcome.VIOLATES),
+        (2, {"cursor": "0"}, SideOutcome.VIOLATES),
+        (2, {"cursor": "9"}, SideOutcome.SATISFIES),
+    ],
+)
+def test_a_stream_judged_only_by_its_final_state(tmp_path, records, state, outcome):
+    case = _case_with(
+        tmp_path,
+        extra_streams=("channels",),
+        final_state={
+            **MINIMAL_EXPECTATIONS["final_state"],
+            "channels": {"cursor": "9"},
+        },
+    )
+    result = _write_side(tmp_path, "s", records=EXPECTED_RECORDS)
+    _append_records(result, "channels", records)
+    final_states = {(None, "threads"): EXPECTED_STATE}
+    if state is not None:
+        final_states[(None, "channels")] = state
+
+    evaluation = _judge(result, case, final_states)
+
+    assert evaluation.outcome is outcome
+    if outcome is SideOutcome.INCONCLUSIVE:
+        assert evaluation.reason.startswith(f"{EMPTY_STREAM_REASON} channels")
+
+
+@pytest.mark.parametrize(
+    "final_state,emitted,outcome",
+    [
+        # Nothing expected and nothing emitted is what such a case asks for.
+        (None, None, SideOutcome.SATISFIES),
+        (
+            {"threads": {"state": {"float_ts": "9"}}},
+            {"state": {"float_ts": "9"}},
+            SideOutcome.SATISFIES,
+        ),
+        ({"threads": {"state": {"float_ts": "9"}}}, None, SideOutcome.INCONCLUSIVE),
+        (
+            {"threads": {"state": {"float_ts": "9"}}},
+            {"state": {"float_ts": "1"}},
+            SideOutcome.INCONCLUSIVE,
+        ),
+    ],
+)
+def test_a_stream_expected_to_emit_no_records(tmp_path, final_state, emitted, outcome):
+    case = _case_with(tmp_path, records={"threads": []}, final_state=final_state)
+    final_states = {(None, "threads"): emitted} if emitted is not None else {}
+
+    evaluation = _judge(_write_side(tmp_path, "s"), case, final_states)
+
+    assert evaluation.outcome is outcome
+    if outcome is SideOutcome.INCONCLUSIVE:
+        assert evaluation.reason.startswith(f"{EMPTY_STREAM_REASON} threads")
+
+
+def test_a_failed_side_with_the_expected_error_still_violates(tmp_path, case):
+    """The failed-run branch comes first, so an empty failing side is unaffected."""
+    result = _write_side(tmp_path, "c", error=EXPECTED_ERROR, success=False)
+
+    assert _judge(result, case, {}).outcome is SideOutcome.VIOLATES
+
+
+def _recorded_stripe_side(side: str) -> dict:
+    return {
+        "success": True,
+        "exit_code": 0,
+        "stdout_file": str(VACUOUS_STRIPE_DIR / "outputs" / f"{side}-stdout.txt"),
+        "stderr_file": "",
+    }
+
+
+@pytest.mark.parametrize("goal", list(ReproGoal))
+def test_the_recorded_empty_stripe_run_no_longer_passes(goal):
+    """The stripe 6.0.13 control and the affected-ref target both read a dataset
+    with no events (source-stripe #84355, 2026-10-13).
+
+    Both sides completed with only a start cursor and missed the one expected
+    customer; before this rule `reproduced` passed on that.
+    """
+    case = ReproCase.load(VACUOUS_STRIPE_DIR / "case")
+    # Each side's last recorded STATE: only a start cursor.
+    cursors = {"control": "1789356044", "target": "1789356050"}
+    control, target = (
+        evaluate_side(
+            _recorded_stripe_side(side),
+            case,
+            sandbox_side=REACHED_TWIN,
+            final_states={(None, "customers"): {"updated": cursors[side]}},
+        )
+        for side in ("control", "target")
+    )
+
+    for evaluation in (control, target):
+        assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+        assert evaluation.reason.startswith(f"{EMPTY_STREAM_REASON} customers")
+        assert evaluation.findings == (
+            "customers: missing 1 record(s) [('\"cus_SAMESECOND0001\"',)]",
+        )
+    assert evaluate_reproduction(control, target, goal).label == "FAIL (inconclusive)"
+
+
+# --- Expectations v2 -------------------------------------------------------------
+
+CHECK_ERROR = "no stream slices were found"
+QUOTA_ERROR = "Daily YouTube API project quota is exhausted."
+
+
+def _check_case(tmp_path: Path) -> ReproCase:
+    return _case_with(
+        tmp_path,
+        records=None,
+        final_state=None,
+        command="check",
+        check_status="SUCCEEDED",
+        control_error_contains=CHECK_ERROR,
+    )
+
+
+def _failure_case(tmp_path: Path) -> ReproCase:
+    return _case_with(
+        tmp_path,
+        records=None,
+        final_state=None,
+        target_error_contains=QUOTA_ERROR,
+        target_failure_type="transient_error",
+    )
+
+
+def _error_line(
+    message: str, internal: str = "boom", failure_type: str = "system_error"
+) -> str:
+    return _message(
+        "TRACE",
+        trace={
+            "type": "ERROR",
+            "emitted_at": 1,
+            "error": {
+                "message": message,
+                "internal_message": internal,
+                "failure_type": failure_type,
+            },
+        },
+    )
+
+
+def _side_with_lines(
+    tmp_path: Path, name: str, lines: Sequence[str], **result: object
+) -> dict:
+    stdout = tmp_path / f"{name}-stdout.txt"
+    stdout.write_text(
+        "\n".join([_message("LOG", log={"level": "INFO", "message": "hi"}), *lines])
+    )
+    return {
+        "success": True,
+        "exit_code": 0,
+        "stdout_file": str(stdout),
+        "stderr_file": "",
+        **result,
+    }
+
+
+def test_a_check_case_loads(tmp_path):
+    case = _check_case(tmp_path)
+
+    assert case.expectations.mode == "check"
+    assert case.expectations.records == {}
+
+
+def test_a_failure_case_loads_with_its_injected_failures(tmp_path):
+    case = _failure_case(tmp_path)
+
+    assert case.expectations.mode == "failure"
+    # The minimal case's behavior.json rate-limits conversations.replies.
+    assert case.injected_failures == (
+        InjectedFailure(
+            status=429,
+            provider="slack",
+            method="GET",
+            path="/api/conversations.replies",
+        ),
+    )
+
+
+# The shape `sandbox scenario state` returns: no operation id, no query.
+YOUTUBE_REPORTS_TRACE = {
+    "provider": "youtube_analytics",
+    "method": "GET",
+    "path": "/v1/jobs/job-1/reports",
+    "status": 429,
+    "run_id": "run-1",
+    "generation": 1,
+    "started_at": "2026-10-14T00:00:00+00:00",
+    "duration_ms": 1.5,
+}
+
+
+@pytest.mark.parametrize(
+    "failure,trace,answered",
+    [
+        (
+            InjectedFailure(
+                429, "slack", method="GET", path="/api/conversations.replies"
+            ),
+            _trace(1, 429),
+            True,
+        ),
+        # The rule's status from another endpoint is the twin's own answer.
+        (
+            InjectedFailure(429, "slack", method="GET", path="/api/conversations.list"),
+            _trace(1, 429),
+            False,
+        ),
+        (
+            InjectedFailure(
+                403, "slack", method="GET", path="/api/conversations.replies"
+            ),
+            _trace(1, 429),
+            False,
+        ),
+        (
+            InjectedFailure(
+                429, "slack", method="POST", path="/api/conversations.replies"
+            ),
+            _trace(1, 429),
+            False,
+        ),
+        # A `{param}` path template matches one concrete segment, as the
+        # sandbox matches it; traces carry no operation id to match instead.
+        (
+            InjectedFailure(
+                429, "youtube_analytics", method="GET", path="/v1/jobs/{job_id}/reports"
+            ),
+            YOUTUBE_REPORTS_TRACE,
+            True,
+        ),
+        (
+            InjectedFailure(
+                429, "youtube_analytics", method="GET", path="/v1/jobs/{job_id}/reports"
+            ),
+            {**YOUTUBE_REPORTS_TRACE, "path": "/v1/jobs/job-1/reports/report-1"},
+            False,
+        ),
+        (
+            InjectedFailure(
+                429, "stripe", method="GET", path="/api/conversations.replies"
+            ),
+            _trace(1, 429),
+            False,
+        ),
+    ],
+)
+def test_an_injected_failure_answers_only_requests_its_rule_matches(
+    failure, trace, answered
+):
+    assert failure.answered(trace) is answered
+
+
+@pytest.mark.parametrize(
+    "match,message",
+    [
+        ({"operation": "get.api.conversations.replies"}, "match by method and path"),
+        (
+            {
+                "method": "GET",
+                "path": "/api/conversations.replies",
+                "query": {"a": "1"},
+            },
+            "cannot match on query",
+        ),
+    ],
+)
+def test_a_failure_rule_traces_cannot_attribute_is_refused(tmp_path, match, message):
+    directory = tmp_path / "case"
+    shutil.copytree(CASE_DIR, directory)
+    rule = {"id": "r", "match": match, "when": {"first": 1}, "status": 429}
+    (directory / "sandbox" / "behavior.json").write_text(
+        json.dumps({"version": 1, "providers": {"slack": {"failures": [rule]}}})
+    )
+    (directory / "expectations.json").write_text(
+        json.dumps({"target_error_contains": QUOTA_ERROR})
+    )
+
+    with pytest.raises(ValueError, match=message):
+        ReproCase.load(directory)
+
+
+def test_a_failure_case_needs_a_failure_rule(tmp_path):
+    directory = tmp_path / "case"
+    shutil.copytree(CASE_DIR, directory)
+    (directory / "sandbox" / "behavior.json").write_text(
+        json.dumps({"version": 1, "providers": {"slack": {"failures": []}}})
+    )
+    (directory / "expectations.json").write_text(
+        json.dumps({"target_error_contains": QUOTA_ERROR})
+    )
+
+    with pytest.raises(ValueError, match="at least one failure rule"):
+        ReproCase.load(directory)
+
+
+def test_a_new_stream_needs_expected_records(tmp_path):
+    with pytest.raises(ValueError, match="needs expected records"):
+        _case_with(
+            tmp_path, records={"threads": []}, final_state=None, new_streams=["threads"]
+        )
+
+
+@pytest.mark.parametrize(
+    "payload,message",
+    [
+        ({"command": "spec", "records": {"threads": []}}, "`command`"),
+        (
+            {"command": "check", "control_error_contains": "x"},
+            "needs `check_status`",
+        ),
+        (
+            {"command": "check", "check_status": "SUCCEEDED"},
+            "`control_error_contains`",
+        ),
+        (
+            {
+                "command": "check",
+                "check_status": "FAILED",
+                "control_error_contains": "x",
+            },
+            "`check_status`",
+        ),
+        (
+            {
+                "command": "check",
+                "check_status": "SUCCEEDED",
+                "control_error_contains": "x",
+                "records": {"threads": []},
+            },
+            "cannot be combined",
+        ),
+        ({"check_status": "SUCCEEDED", "records": {"threads": []}}, "needs `command"),
+        ({"target_failure_type": "config_error"}, "needs `target_error_contains`"),
+        (
+            {"target_error_contains": "x", "target_failure_type": "oops"},
+            "`target_failure_type`",
+        ),
+        (
+            {"target_error_contains": "x", "records": {"threads": []}},
+            "cannot be combined",
+        ),
+        ({"target_error_contains": ""}, "non-empty"),
+        ({"records": {"threads": []}, "allow_duplicate_pks": "threads"}, "list"),
+        ({"records": {"threads": []}, "new_streams": ["a", "a"]}, "twice"),
+        ({"records": {"threads": []}, "record_fields": {"threads": []}}, "non-empty"),
+    ],
+)
+def test_malformed_v2_expectations_are_rejected(payload, message):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        CaseExpectations.from_json(payload)
+
+
+@pytest.mark.parametrize(
+    "changes,message",
+    [
+        ({"allow_duplicate_pks": ["users"]}, "`allow_duplicate_pks` names 'users'"),
+        ({"new_streams": ["users"]}, "`new_streams` names 'users'"),
+        (
+            {
+                "record_fields": {
+                    "threads": [{"channel_id": "C1", "ts": "1700000000.000100"}]
+                }
+            },
+            "at least one other field",
+        ),
+        (
+            {"record_fields": {"threads": [{"channel_id": "C1", "text": "x"}]}},
+            "primary key fields",
+        ),
+        (
+            {
+                "record_fields": {
+                    "threads": [{"channel_id": "C9", "ts": "1.0", "text": "x"}]
+                }
+            },
+            "does not expect",
+        ),
+    ],
+)
+def test_v2_keys_must_fit_the_case(tmp_path, changes, message):
+    with pytest.raises(ValueError, match=re.escape(message)):
+        _case_with(tmp_path, **changes)
+
+
+def test_a_failure_case_needs_an_injected_failure(tmp_path):
+    directory = tmp_path / "case"
+    shutil.copytree(CASE_DIR, directory)
+    (directory / "sandbox" / "behavior.json").unlink()
+    (directory / "expectations.json").write_text(
+        json.dumps({"target_error_contains": QUOTA_ERROR})
+    )
+
+    with pytest.raises(ValueError, match=re.escape("needs sandbox/behavior.json")):
+        ReproCase.load(directory)
+
+
+# Records mode -------------------------------------------------------------------
+
+
+def test_allowed_duplicates_are_not_a_finding(tmp_path):
+    case = _case_with(tmp_path, allow_duplicate_pks=["threads"])
+    result = _write_side(
+        tmp_path,
+        "s",
+        records=[*EXPECTED_RECORDS, EXPECTED_RECORDS[0]],
+        state=EXPECTED_STATE,
+    )
+
+    assert (
+        _judge(result, case, result["_final_states"]).outcome is SideOutcome.SATISFIES
+    )
+
+
+def _dedup_case(tmp_path: Path, expected: dict, destination: str = "append_dedup"):
+    directory = tmp_path / "case"
+    shutil.copytree(CASE_DIR, directory)
+    catalog = json.loads((directory / "catalog.json").read_text())
+    catalog["streams"][0]["destination_sync_mode"] = destination
+    (directory / "catalog.json").write_text(json.dumps(catalog))
+    expectations = {
+        "records": {"threads": [{"channel_id": "C1", "ts": "1.0"}]},
+        "allow_duplicate_pks": ["threads"],
+        "record_fields": {"threads": [{"channel_id": "C1", "ts": "1.0", **expected}]},
+    }
+    (directory / "expectations.json").write_text(json.dumps(expectations))
+    return ReproCase.load(directory)
+
+
+def _thread(float_ts: object, text: str) -> str:
+    return _message(
+        "RECORD",
+        record={
+            "stream": "threads",
+            "data": {
+                "channel_id": "C1",
+                "ts": "1.0",
+                "float_ts": float_ts,
+                "text": text,
+            },
+            "emitted_at": 1,
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    "records,kept,destination",
+    [
+        # A cursor tie goes to the record emitted last.
+        ([(5, "first"), (5, "last")], "last", "append_dedup"),
+        # A higher cursor wins even when emitted first.
+        ([(6, "newer"), (5, "older")], "newer", "append_dedup"),
+        # A null cursor never beats a value.
+        ([(5, "value"), (None, "null")], "value", "append_dedup"),
+        ([(None, "null"), (5, "value")], "value", "append_dedup"),
+        # A null cursor never beats one that compares with nothing else.
+        ([("opaque", "value"), (None, "null")], "value", "append_dedup"),
+        # Large integer cursors compare exactly.
+        ([(2**53 + 1, "larger"), (2**53, "smaller")], "larger", "append_dedup"),
+        # ISO datetimes compare as instants, not as strings.
+        (
+            [
+                ("2026-01-01T00:00:00.500Z", "later"),
+                ("2026-01-01T00:00:00Z", "earlier"),
+            ],
+            "later",
+            "append_dedup",
+        ),
+        # Without deduplication the destination keeps the last record emitted.
+        ([(6, "newer"), (5, "older")], "older", "append"),
+    ],
+)
+def test_record_fields_check_the_record_a_destination_keeps(
+    tmp_path, records, kept, destination
+):
+    case = _dedup_case(tmp_path, {"text": kept}, destination)
+    result = _side_with_lines(
+        tmp_path, "s", [_thread(cursor, text) for cursor, text in records]
+    )
+
+    assert _judge(result, case, {}).outcome is SideOutcome.SATISFIES
+    other = next(text for _cursor, text in records if text != kept)
+    case = _dedup_case(tmp_path / "other", {"text": other}, destination)
+    evaluation = _judge(result, case, {})
+    assert evaluation.outcome is SideOutcome.VIOLATES
+    assert any("the kept record" in text for text in evaluation.findings)
+
+
+@pytest.mark.parametrize(
+    "created_cursor_offset,outcome",
+    [
+        # source-stripe 6.0.13: both events' records carry the same cursor, so
+        # the created event's stale record, emitted last, is the one kept.
+        (0, SideOutcome.VIOLATES),
+        # 6.0.14 moves the created event's record one second back.
+        (-1, SideOutcome.SATISFIES),
+    ],
+)
+def test_the_same_second_stripe_events(tmp_path, created_cursor_offset, outcome):
+    directory = tmp_path / "case"
+    shutil.copytree(VACUOUS_STRIPE_DIR / "case", directory)
+    expectations = json.loads((directory / "expectations.json").read_text())
+    expectations["allow_duplicate_pks"] = ["customers"]
+    expectations["record_fields"] = {
+        "customers": [{"id": "cus_SAMESECOND0001", "metadata": {"tier": "gold"}}]
+    }
+    (directory / "expectations.json").write_text(json.dumps(expectations))
+    case = ReproCase.load(directory)
+
+    def customer(updated: int, metadata: dict) -> str:
+        data = {"id": "cus_SAMESECOND0001", "updated": updated, "metadata": metadata}
+        return _message("RECORD", record={"stream": "customers", "data": data})
+
+    # The twin lists events newest first: the update, then the creation.
+    result = _side_with_lines(
+        tmp_path,
+        "s",
+        [
+            customer(1791946971, {"tier": "gold"}),
+            customer(1791946971 + created_cursor_offset, {}),
+        ],
+    )
+
+    assert _judge(result, case, {}).outcome is outcome
+
+
+def test_a_record_fields_miss_on_an_empty_stream_is_not_evidence(tmp_path):
+    case = _dedup_case(tmp_path, {"text": "x"})
+
+    evaluation = _judge(_side_with_lines(tmp_path, "s", []), case, {})
+
+    assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+    assert evaluation.reason.startswith(EMPTY_STREAM_REASON)
+
+
+ZENDESK_CONTROL_STDOUT = _message(
+    "LOG",
+    log={
+        "level": "INFO",
+        "message": "MemoryMonitor instantiated with critical threshold: 95%",
+    },
+)
+
+
+@pytest.mark.parametrize("requests", [0, 4])
+def test_a_side_that_shows_no_sign_of_a_declared_new_stream_violates(
+    tmp_path, requests
+):
+    """source-zendesk-support 5.2.12 emits one LOG line for an unknown stream."""
+    case = _case_with(tmp_path, new_streams=["threads"])
+    stdout = tmp_path / "control-stdout.txt"
+    stdout.write_text(ZENDESK_CONTROL_STDOUT)
+    result = {"success": True, "exit_code": 0, "stdout_file": str(stdout)}
+
+    evaluation = evaluate_side(
+        result,
+        case,
+        sandbox_side=SandboxSide(generation=1, requests=requests),
+        final_states={},
+    )
+
+    assert evaluation.outcome is SideOutcome.VIOLATES
+    assert evaluation.findings == ("threads: the release does not define this stream",)
+
+
+def test_without_the_declaration_the_same_output_is_inconclusive(tmp_path, case):
+    stdout = tmp_path / "control-stdout.txt"
+    stdout.write_text(ZENDESK_CONTROL_STDOUT)
+    result = {"success": True, "exit_code": 0, "stdout_file": str(stdout)}
+
+    evaluation = evaluate_side(
+        result,
+        case,
+        sandbox_side=SandboxSide(generation=1, requests=0),
+        final_states={},
+    )
+
+    assert evaluation.outcome is SideOutcome.INCONCLUSIVE
+
+
+def test_an_incomplete_status_alone_is_no_sign_of_a_declared_new_stream(tmp_path):
+    """What the CDK emits for a configured stream the source does not define."""
+    case = _case_with(tmp_path, new_streams=["threads"])
+    result = _side_with_lines(
+        tmp_path,
+        "s",
+        [
+            _message(
+                "TRACE",
+                trace={
+                    "type": "STREAM_STATUS",
+                    "stream_status": {
+                        "stream_descriptor": {"name": "threads"},
+                        "status": "INCOMPLETE",
+                    },
+                },
+            )
+        ],
+    )
+
+    evaluation = _judge(result, case, {})
+
+    assert evaluation.outcome is SideOutcome.VIOLATES
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        _message(
+            "TRACE",
+            trace={
+                "type": "STREAM_STATUS",
+                "stream_status": {
+                    "stream_descriptor": {"name": "threads"},
+                    "status": "STARTED",
+                },
+            },
+        ),
+        _message(
+            "STATE",
+            state={
+                "type": "STREAM",
+                "stream": {
+                    "stream_descriptor": {"name": "threads"},
+                    "stream_state": {},
+                },
+            },
+        ),
+    ],
+)
+def test_a_side_that_knows_a_declared_new_stream_is_judged_normally(tmp_path, line):
+    case = _case_with(tmp_path, new_streams=["threads"])
+    result = _write_side(tmp_path, "t", records=EXPECTED_RECORDS)
+    with open(result["stdout_file"], "a") as stdout:
+        stdout.write("\n" + line)
+
+    evaluation = _judge(result, case, {(None, "threads"): EXPECTED_STATE})
+
+    assert evaluation.outcome is SideOutcome.SATISFIES
+
+
+# Failure mode -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "result_kwargs,lines,side,outcome",
+    [
+        # The fix fails fast, with its own message.
+        (
+            {"success": False, "exit_code": 1},
+            [_error_line(QUOTA_ERROR, failure_type="transient_error")],
+            SandboxSide(generation=1, requests=1, injected_responses=1),
+            SideOutcome.SATISFIES,
+        ),
+        # The right text with another failure type is not the fix.
+        (
+            {"success": False, "exit_code": 1},
+            [_error_line(QUOTA_ERROR, failure_type="config_error")],
+            SandboxSide(generation=1, requests=1, injected_responses=1),
+            SideOutcome.INCONCLUSIVE,
+        ),
+        # The affected release retries through the injected 429 and completes.
+        (
+            {},
+            [],
+            SandboxSide(generation=1, requests=3, injected_responses=1),
+            SideOutcome.VIOLATES,
+        ),
+        # Completing without the injected failure says nothing.
+        (
+            {},
+            [],
+            SandboxSide(generation=1, requests=3, injected_responses=0),
+            SideOutcome.INCONCLUSIVE,
+        ),
+        # A crash before reaching the twin, such as a DNS failure.
+        (
+            {"success": False, "exit_code": 1},
+            [_error_line(QUOTA_ERROR, failure_type="transient_error")],
+            SandboxSide(generation=1, requests=0, injected_responses=0),
+            SideOutcome.INCONCLUSIVE,
+        ),
+        # The control's own expected error still counts, once the twin was reached.
+        (
+            {"success": False, "exit_code": 1},
+            [_error_line("generic", internal=EXPECTED_ERROR)],
+            SandboxSide(generation=1, requests=2, injected_responses=1),
+            SideOutcome.VIOLATES,
+        ),
+    ],
+)
+def test_a_failure_case_side(tmp_path, result_kwargs, lines, side, outcome):
+    case = _failure_case(tmp_path)
+    result = _side_with_lines(tmp_path, "s", lines, **result_kwargs)
+
+    evaluation = evaluate_side(result, case, sandbox_side=side, final_states={})
+
+    assert evaluation.outcome is outcome
+
+
+# Check mode ---------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "status,message,requests,outcome",
+    [
+        ("SUCCEEDED", "", 2, SideOutcome.SATISFIES),
+        (
+            "FAILED",
+            f"Unable to connect to stream x - {CHECK_ERROR}",
+            2,
+            SideOutcome.VIOLATES,
+        ),
+        # Before the token endpoint existed, CHECK failed on DNS on both sides.
+        ("FAILED", "NameResolutionError", 2, SideOutcome.INCONCLUSIVE),
+        (None, "", 2, SideOutcome.INCONCLUSIVE),
+        ("SUCCEEDED", "", 0, SideOutcome.INCONCLUSIVE),
+        # A CHECK that reports success but then crashes is not a clean success.
+        ("SUCCEEDED-crashed", "", 2, SideOutcome.INCONCLUSIVE),
+        ("FAILED", CHECK_ERROR, 0, SideOutcome.INCONCLUSIVE),
+    ],
+)
+def test_a_check_case_side(tmp_path, status, message, requests, outcome):
+    case = _check_case(tmp_path)
+    crashed = status == "SUCCEEDED-crashed"
+    result = _side_with_lines(
+        tmp_path,
+        "s",
+        [],
+        connection_status="SUCCEEDED" if crashed else status,
+        connection_status_message=message,
+        success=not crashed,
+        exit_code=1 if crashed else 0,
+    )
+
+    evaluation = evaluate_side(
+        result,
+        case,
+        sandbox_side=SandboxSide(generation=1, requests=requests),
+        final_states=None,
+    )
+
+    assert evaluation.outcome is outcome
+
+
+def test_the_check_error_can_come_from_an_error_trace(tmp_path):
+    case = _check_case(tmp_path)
+    result = _side_with_lines(
+        tmp_path,
+        "s",
+        [_error_line("check failed", internal=CHECK_ERROR)],
+        connection_status="FAILED",
+        connection_status_message="check failed",
+    )
+
+    assert _judge(result, case, {}).outcome is SideOutcome.VIOLATES
+
+
+# Sandbox traces -----------------------------------------------------------------
+
+
+def test_injected_responses_and_rejected_paths(fake_sandbox, tmp_path, monkeypatch):
+    rejected = {**_trace(12, 404, "path"), "path": "/rate_limit"}
+    _set_traces(
+        tmp_path,
+        monkeypatch,
+        [_trace(12, 429), _trace(12), rejected, _trace(11, 429)],
+    )
+
+    side = check_twin_gaps(
+        SandboxCli(),
+        "scn-1",
+        SandboxSide(generation=12),
+        (
+            InjectedFailure(
+                429, "slack", method="GET", path="/api/conversations.replies"
+            ),
+            InjectedFailure(404, "slack", method="GET", path="/rate_limit"),
+        ),
+    )
+
+    # A request the gateway rejected is a twin gap, never an injected failure.
+    assert side.twin_gaps == ("GET /rate_limit: path",)
+    assert (side.requests, side.injected_responses) == (3, 1)
+
+
 # --- CLI -------------------------------------------------------------------------
 
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
@@ -752,7 +1720,10 @@ def case_run(tmp_path, monkeypatch, fake_sandbox):
     config.write_text("{}")
 
     def _run(
-        sides: dict[str, dict], command: str = "read", **options: object
+        sides: dict[str, dict],
+        command: str = "read",
+        case_dir: Path = CASE_DIR,
+        **options: object,
     ) -> dict[str, object]:
         seen: list[dict] = []
 
@@ -777,7 +1748,7 @@ def case_run(tmp_path, monkeypatch, fake_sandbox):
             control_image="airbyte/source-test:1.0.0",
             command=command,
             config_path=str(config),
-            repro_case_dir=str(CASE_DIR),
+            repro_case_dir=str(case_dir),
             sandbox_scenario="scn-1",
             output_dir=str(tmp_path / "out"),
             **options,
@@ -964,6 +1935,7 @@ def test_the_setup_command_reports_the_scenario_and_config(
         "scenario_id": "scn-1",
         "config_path": str(tmp_path / "config.json"),
         "case_dir": str(CASE_DIR.resolve()),
+        "command": "read",
     }
     assert (
         json.loads((tmp_path / "config.json").read_text())["credentials"]["api_token"]
@@ -974,3 +1946,132 @@ def test_the_setup_command_reports_the_scenario_and_config(
     assert [line for line in lines if "xoxb-saas-secret" in line] == (
         ["::add-mask::xoxb-saas-secret"] if on_github_actions else []
     )
+
+
+def test_case_mode_is_inconclusive_when_both_sides_emit_nothing(tmp_path, case_run):
+    """Both sides reached the twin (one traced request each) but read no data."""
+    outputs = case_run(
+        {
+            side: _write_side(tmp_path, side, state={"state": {"float_ts": "1"}})
+            for side in ("control", "target")
+        },
+        repro_goal="reproduced",
+    )
+
+    assert outputs["success"] is False
+    assert outputs["reproduction_verdict"] == "FAIL (inconclusive)"
+    result = json.loads((tmp_path / "out" / CASE_RESULT_FILE).read_text())
+    for side in ("control", "target"):
+        assert result["sides"][side]["reason"].startswith(
+            f"{EMPTY_STREAM_REASON} threads"
+        )
+
+
+def test_a_check_case_runs_check_and_writes_its_verdict(tmp_path, case_run):
+    case = _check_case(tmp_path)
+    outputs = case_run(
+        {
+            "control": _side_with_lines(
+                tmp_path,
+                "control",
+                [],
+                connection_status="FAILED",
+                connection_status_message=CHECK_ERROR,
+            ),
+            "target": _side_with_lines(
+                tmp_path, "target", [], connection_status="SUCCEEDED"
+            ),
+        },
+        command="check",
+        case_dir=case.directory,
+    )
+
+    assert outputs["reproduction_verdict"] == "PASS (reproduced and fixed)"
+    assert all(run["command"] is Command.CHECK for run in outputs["_seen"])
+    # A CHECK reads nothing, so the case's catalog is not passed.
+    assert all(run["catalog_path"] is None for run in outputs["_seen"])
+    result = json.loads((tmp_path / "out" / CASE_RESULT_FILE).read_text())
+    assert result["sides"]["control"]["outcome"] == "violates"
+
+
+def test_a_check_case_refuses_a_read(tmp_path, capsys, case_run):
+    case = _check_case(tmp_path)
+
+    with pytest.raises(SystemExit):
+        case_run({}, command="read", case_dir=case.directory)
+
+    captured = _ANSI_ESCAPE.sub("", "".join(capsys.readouterr()))
+    assert "This case runs only `--command check`" in captured
+
+
+def test_the_setup_command_reports_a_check_cases_command(
+    tmp_path, fake_sandbox, monkeypatch
+):
+    outputs: dict[str, object] = {}
+    monkeypatch.setattr(cloud, "write_github_outputs", outputs.update)
+    case = _check_case(tmp_path)
+
+    cloud.regression_case_setup(
+        case_dir=str(case.directory), config_output=str(tmp_path / "config.json")
+    )
+
+    assert outputs["command"] == "check"
+
+
+@pytest.mark.parametrize(
+    "result_kwargs,outcome",
+    [
+        # An annotated run (as printed for #82712) says success false for a
+        # FAILED CHECK that exited cleanly; guarded should one reach here.
+        (
+            {"success": False, "exit_code": 0, "exited_cleanly": True},
+            SideOutcome.VIOLATES,
+        ),
+        ({"success": True, "exit_code": 0}, SideOutcome.VIOLATES),
+        # The expected text followed by a crash is not the bug reproducing.
+        ({"success": False, "exit_code": 1}, SideOutcome.INCONCLUSIVE),
+        (
+            {"success": False, "exit_code": 1, "exited_cleanly": False},
+            SideOutcome.INCONCLUSIVE,
+        ),
+    ],
+)
+def test_a_failed_check_counts_only_after_a_clean_exit(
+    tmp_path, result_kwargs, outcome
+):
+    case = _check_case(tmp_path)
+    result = _side_with_lines(
+        tmp_path,
+        "s",
+        [],
+        connection_status="FAILED",
+        connection_status_message=CHECK_ERROR,
+        **result_kwargs,
+    )
+
+    evaluation = _judge(result, case, {})
+
+    assert evaluation.outcome is outcome
+    if outcome is SideOutcome.INCONCLUSIVE:
+        assert evaluation.reason == "CHECK reported FAILED but exited 1"
+
+
+def test_two_crashing_checks_do_not_reproduce(tmp_path, case_run):
+    case = _check_case(tmp_path)
+    crashed = {
+        "connection_status": "FAILED",
+        "connection_status_message": CHECK_ERROR,
+        "success": False,
+        "exit_code": 1,
+    }
+    outputs = case_run(
+        {
+            side: _side_with_lines(tmp_path, side, [], **crashed)
+            for side in ("control", "target")
+        },
+        command="check",
+        case_dir=case.directory,
+        repro_goal="reproduced",
+    )
+
+    assert outputs["reproduction_verdict"] == "FAIL (inconclusive)"

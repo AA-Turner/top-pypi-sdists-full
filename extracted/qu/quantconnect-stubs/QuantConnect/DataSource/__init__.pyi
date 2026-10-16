@@ -1504,6 +1504,277 @@ class FINRAWeeklySummaryUniverse(QuantConnect.Data.UniverseSelection.BaseDataCol
         ...
 
 
+class Factors(QuantConnect.Data.DynamicData):
+    """
+    Precomputed factors. One class serves both kinds of factor data:
+    linked factors for a single US Equity (subscribe with the Equity's Symbol)
+    and unlinked factors that aren't tied to a tradable security, such as US
+    Treasury yield curve rates (subscribe with UNLINKED).
+    Each data point behaves like a dictionary of factor name to value.
+    """
+
+    UNLINKED: str = "$UNLINKED"
+    """Ticker for the unlinked factors subscription"""
+
+    ROC_1_DAY: str = "technical_roc_1d"
+    """1-day rate of change of the closing price: close<t> / close<t-1> - 1"""
+
+    VOLATILITY_21_DAY: str = "technical_volatility_21d"
+    """21-day realized volatility of daily returns: the standard deviation of 1-day closing-price returns over the trailing 21 days"""
+
+    VOLUME_Z_21_DAY: str = "technical_volume_z_21d"
+    """21-day volume z-score: the number of standard deviations the current trading volume sits above or below its trailing 21-day mean"""
+
+    FINRA_SHORT_SALE_VOLUME_SHORT_VOLUME_RATIO_SMA_21_DAY: str = "alternative_finra_short_sale_volume_short_volume_ratio_sma_21d"
+    """21-day simple moving average of the FINRA Reg SHO daily short volume ratio: the share (0-1) of a security's off-exchange reported volume executed as short sales during regular trading hours, aggregated from trades broker-dealers file with FINRA"""
+
+    SPECTRAL_TICK_FLOW_SIGNAL_EXECUTION_SCORE: str = "alternative_spectral_tick_flow_signal_execution_score"
+    """Algorithmic execution-flow intensity: the normalized strength of the strongest recurring intraday execution rhythm in the security's tick data, derived by QuantConnect's Fourier transform-like decomposition of daily US Equity trades (SpectralTickFlowSignal.ExecutionScore); a non-negative normalized score, higher meaning trade flow more strongly backed by an active, repeating execution signature."""
+
+    UST_YIELD_1_MONTH: str = "market_ust_yield_1m"
+    """1-month US Treasury yield curve rate"""
+
+    EARNING_YIELD: str = "fundamental_earning_yield"
+    """Trailing earnings yield: Morningstar's ValuationRatios.EarningYield, diluted EPS divided by price (the inverse trailing P/E), so higher values indicate cheaper stocks relative to trailing earnings."""
+
+    MFI_21_DAY: str = "technical_mfi_21d"
+    """21-day Money Flow Index: volume-weighted buying vs. selling pressure, from daily typical price changes signed and weighted by volume, accumulated over 21 sessions and bounded 0-100."""
+
+    MOM_12_MONTH: str = "technical_mom_12m"
+    """Twelve-month momentum skipping the most recent month: the stock's return over months t-11 through t-1, computed each session from LEAN's adjusted daily closes, from Jegadeesh and Titman (1993, JF), where higher values predicted higher returns"""
+
+    INT_MOM: str = "technical_int_mom"
+    """Intermediate momentum: the stock's return over months t-12 through t-7, computed each session from LEAN's adjusted daily closes, from Novy-Marx (2012, JFE), where higher values predicted higher returns"""
+
+    MOM_12_MONTH_OFF_SEASON: str = "technical_mom_12m_off_season"
+    """Momentum without the seasonal month: the mean of the monthly returns of months t-1 through t-10, which leaves out the current month and month t-11, the month one year before the coming month, computed each session from LEAN's adjusted daily closes, from Heston and Sadka (2008, JFE), where higher values predicted higher returns"""
+
+    VIX: str = "market_vix"
+    """CBOE Volatility Index (VIX) daily close: the market's expectation of 30-day S&P 500 volatility implied by index option prices, in annualized percentage points"""
+
+    WTI_CRUDE_OIL: str = "market_wti_crude_oil"
+    """WTI crude oil price: the daily mid close of Oanda's West Texas Oil CFD, in US dollars per barrel, a continuous quote that tracks the front NYMEX contract without roll jumps"""
+
+    MONETARY_CYCLE: str = "market_monetary_cycle"
+    """Monetary cycle: the monetary environment of Jensen, Mercer and Johnson (1996), +1 while the most recent change in the Federal Reserve's primary credit rate was a decrease (expansive) and -1 while it was an increase (restrictive), read from LEAN's risk-free interest rate model for every calendar day at midnight New York; the state flips on the day the model's rate changes"""
+
+    VOLUME_TREND: str = "technical_volume_trend"
+    """Volume trend: the slope of a regression of monthly volume on a linear time trend over the trailing 60 months, divided by the mean monthly volume over those months, computed each session from LEAN's split- and dividend-adjusted daily volume with 21 sessions to a month and at least 30 months required, from Haugen and Baker (1996, JFE), where higher values predicted lower returns"""
+
+    MOM_SEASON_SHORT: str = "technical_mom_season_short"
+    """Return seasonality last year: the stock's return over the 21 sessions from 252 to 231 sessions ago, the month one year before the coming month, computed each session from LEAN's adjusted daily closes, from Heston and Sadka (2008, JFE), where higher values predicted higher returns"""
+
+    ILLIQUIDITY: str = "technical_illiquidity"
+    """Amihud illiquidity: the mean over the past 12 months of the daily ratio of the absolute return to the dollar volume traded, computed each session from LEAN's adjusted daily bars, from Amihud (2002, JFM), where higher values predicted higher returns"""
+
+    M_2_GROWTH_1_MONTH: str = "market_m2_growth_1m"
+    """M2 money supply growth from one monthly release to the next: the Federal Reserve's seasonally adjusted monthly M2 over its value for the month before, minus one, from FRED's series M2SL as currently revised; each month's value is stamped at 13:00 New York on the fourth Tuesday of the following month, when the Federal Reserve's H.6 release publishes it"""
+
+    EQUITY_FACTOR_NAMES: typing.List[str] = ...
+    """
+    Column order of the per-Equity factor files, fixed by the dataset
+    specification so rows parse without header state
+    """
+
+    UNLINKED_FACTOR_NAMES: typing.List[str] = ...
+    """
+    Column order of the unlinked factor file, fixed by the dataset
+    specification so rows parse without header state
+    """
+
+    @property
+    def keys(self) -> typing.Iterable[str]:
+        """Names of the factors this data point carries a value for"""
+        ...
+
+    @property
+    def is_unlinked(self) -> bool:
+        """
+        True when this data point carries the unlinked factors rather than a
+        tradable security's factors
+        """
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        Time the factor values became available. Linked values are stamped at the
+        Equity session close in New York time; unlinked values keep their source
+        series' native end time.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def __getitem__(self, factor_name: str) -> float:
+        """
+        Gets the value of the given factor, e.g. factors<Factors.Roc1Day>
+        
+        :param factor_name: Name of the factor
+        """
+        ...
+
+    def __init__(self) -> None:
+        """Creates an empty instance, required by LEAN to construct the type"""
+        ...
+
+    def contains_key(self, factor_name: str) -> bool:
+        """
+        Checks whether this data point carries a value for the given factor
+        
+        :param factor_name: Name of the factor
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. All factor timestamps are
+        New York time.
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN.
+        CSV format: "yyyyMMdd HH:mm" time column, then one column per factor in
+        EQUITY_FACTOR_NAMES or UNLINKED_FACTOR_NAMES order.
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance, or null for the header line.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: true for the per-Equity subscription, false for the unlinked one.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+    def try_get_value(self, factor_name: str, value: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        """
+        Gets the value of the given factor if this data point carries one
+        
+        :param factor_name: Name of the factor
+        :param value: The factor value
+        """
+        ...
+
+
+class FactorsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Universe selection data for the precomputed factors: the collection LEAN
+    delivers to the selection function holds one Factors row per
+    US Equity with the security's most recent factor values, plus one row
+    carrying the unlinked factors (check Factors.is_unlinked), so
+    a selection function can filter and rank the whole universe with both
+    per-security and market-wide context.
+    """
+
+    COLUMN_FACTOR_NAMES: typing.List[str] = ...
+    """
+    Column order of the universe files after the identifier column: the
+    per-Equity factors followed by the unlinked factors, fixed by the
+    dataset specification so rows parse without header state
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. Universe rows derive from
+        factor timestamps already converted to New York time.
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN.
+        CSV format: an identifier column (a security identifier, or
+        Factors.UNLINKED for the unlinked row), then one column per
+        factor in COLUMN_FACTOR_NAMES order.
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance, or null for the header line.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
 class BenzingaNews(QuantConnect.Data.IndexedBaseData):
     """News data powered by Benzinga - https://docs.benzinga.io/benzinga/newsfeed-v2.html"""
 
@@ -5607,6 +5878,14264 @@ class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
 
 class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
     """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
+
+
+class FDICBankFinancial(QuantConnect.Data.BaseData):
+    """
+    One quarterly call report of one FDIC-insured bank, as the FDIC publishes it. Every insured
+    bank files a call report for each quarter with its balance sheet, income statement, asset
+    quality and regulatory capital.
+    
+    The record is filed under the listed holding company that owned the bank in that quarter,
+    and nothing is summed: a holding company with several banks carries one record per bank,
+    and its totals are left to the algorithm. The points an algorithm receives are
+    FDICBankFinancials, the collection of every record a holding company carries for one day.
+    """
+
+    @property
+    def report_date(self) -> datetime.datetime:
+        """
+        The last day of the quarter the figures describe. It is not the day the record became
+        available, which is Time: call reports are filed about a month after the quarter ends,
+        and an amended report can arrive years later.
+        """
+        ...
+
+    @report_date.setter
+    def report_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def certificate(self) -> int:
+        """
+        FDIC certificate number of the bank, its permanent identifier with the FDIC. It stays
+        the same when the bank is renamed or changes owner.
+        """
+        ...
+
+    @certificate.setter
+    def certificate(self, value: int) -> None:
+        ...
+
+    @property
+    def institution_name(self) -> str:
+        """
+        Name of the bank as the FDIC records it today, read from the institutions file that
+        ships beside the data. It is the current name even on an old report, and null for a
+        bank the file does not carry.
+        """
+        ...
+
+    @institution_name.setter
+    def institution_name(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """
+        Two-letter code of the state where the bank had its headquarters in the quarter of the
+        report, as the call report states it.
+        """
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def city(self) -> str:
+        """City where the bank had its headquarters in the quarter of the report."""
+        ...
+
+    @city.setter
+    def city(self, value: str) -> None:
+        ...
+
+    @property
+    def holding_company_id(self) -> typing.Optional[int]:
+        """
+        Federal Reserve identifier (RSSD ID) of the holding company that owned the bank in the
+        quarter of the report. It is what ties the bank to the listed company the record is
+        filed under.
+        """
+        ...
+
+    @holding_company_id.setter
+    def holding_company_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def total_assets(self) -> typing.Optional[float]:
+        """Total assets, in thousands of dollars. This is also the data point's Value."""
+        ...
+
+    @total_assets.setter
+    def total_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_liabilities(self) -> typing.Optional[float]:
+        """Total liabilities, in thousands of dollars."""
+        ...
+
+    @total_liabilities.setter
+    def total_liabilities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_equity_capital(self) -> typing.Optional[float]:
+        """Total equity capital, in thousands of dollars."""
+        ...
+
+    @total_equity_capital.setter
+    def total_equity_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def risk_weighted_assets(self) -> typing.Optional[float]:
+        """Risk-weighted assets as used for the tier 1 and common equity tier 1 ratios, in thousands of dollars."""
+        ...
+
+    @risk_weighted_assets.setter
+    def risk_weighted_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def tier_1_capital(self) -> typing.Optional[float]:
+        """Tier 1 risk-based capital, in thousands of dollars."""
+        ...
+
+    @tier_1_capital.setter
+    def tier_1_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def common_equity_tier_1_capital(self) -> typing.Optional[float]:
+        """Common equity tier 1 capital, in thousands of dollars."""
+        ...
+
+    @common_equity_tier_1_capital.setter
+    def common_equity_tier_1_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_risk_based_capital(self) -> typing.Optional[float]:
+        """Total risk-based capital, tier 1 plus tier 2, in thousands of dollars."""
+        ...
+
+    @total_risk_based_capital.setter
+    def total_risk_based_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_deposits(self) -> typing.Optional[float]:
+        """Total deposits, domestic and foreign offices, in thousands of dollars."""
+        ...
+
+    @total_deposits.setter
+    def total_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def domestic_deposits(self) -> typing.Optional[float]:
+        """Deposits held in domestic offices, in thousands of dollars."""
+        ...
+
+    @domestic_deposits.setter
+    def domestic_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def estimated_insured_deposits(self) -> typing.Optional[float]:
+        """Deposits estimated to be covered by FDIC insurance, in thousands of dollars."""
+        ...
+
+    @estimated_insured_deposits.setter
+    def estimated_insured_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def estimated_uninsured_deposits(self) -> typing.Optional[float]:
+        """Deposits in domestic offices estimated to exceed the insurance limit, in thousands of dollars."""
+        ...
+
+    @estimated_uninsured_deposits.setter
+    def estimated_uninsured_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def core_deposits(self) -> typing.Optional[float]:
+        """Core deposits as the FDIC defines them, in thousands of dollars."""
+        ...
+
+    @core_deposits.setter
+    def core_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def brokered_deposits(self) -> typing.Optional[float]:
+        """Deposits placed through brokers, in thousands of dollars."""
+        ...
+
+    @brokered_deposits.setter
+    def brokered_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_loans_and_leases(self) -> typing.Optional[float]:
+        """Total loans and leases before the allowance for credit losses, in thousands of dollars."""
+        ...
+
+    @total_loans_and_leases.setter
+    def total_loans_and_leases(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_loans_and_leases(self) -> typing.Optional[float]:
+        """Total loans and leases net of unearned income and of the allowance for credit losses, in thousands of dollars."""
+        ...
+
+    @net_loans_and_leases.setter
+    def net_loans_and_leases(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def real_estate_loans(self) -> typing.Optional[float]:
+        """Loans secured by real estate, in thousands of dollars."""
+        ...
+
+    @real_estate_loans.setter
+    def real_estate_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def construction_and_land_development_loans(self) -> typing.Optional[float]:
+        """Construction and land development loans, in thousands of dollars."""
+        ...
+
+    @construction_and_land_development_loans.setter
+    def construction_and_land_development_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def nonfarm_nonresidential_loans(self) -> typing.Optional[float]:
+        """Loans secured by nonfarm nonresidential properties, in thousands of dollars."""
+        ...
+
+    @nonfarm_nonresidential_loans.setter
+    def nonfarm_nonresidential_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def multifamily_loans(self) -> typing.Optional[float]:
+        """Loans secured by multifamily residential properties, in thousands of dollars."""
+        ...
+
+    @multifamily_loans.setter
+    def multifamily_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def residential_mortgage_loans(self) -> typing.Optional[float]:
+        """Loans secured by one to four family residential properties, in thousands of dollars."""
+        ...
+
+    @residential_mortgage_loans.setter
+    def residential_mortgage_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def commercial_and_industrial_loans(self) -> typing.Optional[float]:
+        """Commercial and industrial loans, in thousands of dollars."""
+        ...
+
+    @commercial_and_industrial_loans.setter
+    def commercial_and_industrial_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consumer_loans(self) -> typing.Optional[float]:
+        """Loans to individuals for household, family and other personal expenditures, in thousands of dollars."""
+        ...
+
+    @consumer_loans.setter
+    def consumer_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def credit_card_loans(self) -> typing.Optional[float]:
+        """Consumer credit card loans, in thousands of dollars."""
+        ...
+
+    @credit_card_loans.setter
+    def credit_card_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def auto_loans(self) -> typing.Optional[float]:
+        """Consumer automobile loans, in thousands of dollars."""
+        ...
+
+    @auto_loans.setter
+    def auto_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_securities(self) -> typing.Optional[float]:
+        """Total securities, in thousands of dollars."""
+        ...
+
+    @total_securities.setter
+    def total_securities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def held_to_maturity_securities_amortized_cost(self) -> typing.Optional[float]:
+        """Held-to-maturity securities at amortized cost, the value they carry on the balance sheet, in thousands of dollars."""
+        ...
+
+    @held_to_maturity_securities_amortized_cost.setter
+    def held_to_maturity_securities_amortized_cost(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def held_to_maturity_securities_fair_value(self) -> typing.Optional[float]:
+        """Held-to-maturity securities at fair value, in thousands of dollars. The gap to the amortized cost is the unrealized gain or loss the balance sheet does not show."""
+        ...
+
+    @held_to_maturity_securities_fair_value.setter
+    def held_to_maturity_securities_fair_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def available_for_sale_securities_amortized_cost(self) -> typing.Optional[float]:
+        """Available-for-sale securities at amortized cost, in thousands of dollars."""
+        ...
+
+    @available_for_sale_securities_amortized_cost.setter
+    def available_for_sale_securities_amortized_cost(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def available_for_sale_securities_fair_value(self) -> typing.Optional[float]:
+        """Available-for-sale securities at fair value, the value they carry on the balance sheet, in thousands of dollars."""
+        ...
+
+    @available_for_sale_securities_fair_value.setter
+    def available_for_sale_securities_fair_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def cash_and_due_from_banks(self) -> typing.Optional[float]:
+        """Cash and balances due from depository institutions, in thousands of dollars."""
+        ...
+
+    @cash_and_due_from_banks.setter
+    def cash_and_due_from_banks(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trading_assets(self) -> typing.Optional[float]:
+        """Trading account assets, in thousands of dollars."""
+        ...
+
+    @trading_assets.setter
+    def trading_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intangible_assets(self) -> typing.Optional[float]:
+        """Intangible assets, including goodwill, in thousands of dollars."""
+        ...
+
+    @intangible_assets.setter
+    def intangible_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interest_income_year_to_date(self) -> typing.Optional[float]:
+        """Total interest income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @interest_income_year_to_date.setter
+    def interest_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interest_expense_year_to_date(self) -> typing.Optional[float]:
+        """Total interest expense, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @interest_expense_year_to_date.setter
+    def interest_expense_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def noninterest_income_year_to_date(self) -> typing.Optional[float]:
+        """Total noninterest income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @noninterest_income_year_to_date.setter
+    def noninterest_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def noninterest_expense_year_to_date(self) -> typing.Optional[float]:
+        """Total noninterest expense, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @noninterest_expense_year_to_date.setter
+    def noninterest_expense_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def provision_for_credit_losses_year_to_date(self) -> typing.Optional[float]:
+        """Provision for credit losses, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @provision_for_credit_losses_year_to_date.setter
+    def provision_for_credit_losses_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def income_taxes_year_to_date(self) -> typing.Optional[float]:
+        """Applicable income taxes, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @income_taxes_year_to_date.setter
+    def income_taxes_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_income_year_to_date(self) -> typing.Optional[float]:
+        """Net income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @net_income_year_to_date.setter
+    def net_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_charge_offs_year_to_date(self) -> typing.Optional[float]:
+        """Loan and lease charge-offs net of recoveries, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @net_charge_offs_year_to_date.setter
+    def net_charge_offs_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def past_due_30_to_89_days(self) -> typing.Optional[float]:
+        """Assets 30 to 89 days past due and still accruing, in thousands of dollars."""
+        ...
+
+    @past_due_30_to_89_days.setter
+    def past_due_30_to_89_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def past_due_90_days_or_more(self) -> typing.Optional[float]:
+        """Assets 90 days or more past due and still accruing, in thousands of dollars."""
+        ...
+
+    @past_due_90_days_or_more.setter
+    def past_due_90_days_or_more(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def nonaccrual_assets(self) -> typing.Optional[float]:
+        """Assets in nonaccrual status, in thousands of dollars."""
+        ...
+
+    @nonaccrual_assets.setter
+    def nonaccrual_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def full_time_equivalent_employees(self) -> typing.Optional[float]:
+        """Number of full-time equivalent employees."""
+        ...
+
+    @full_time_equivalent_employees.setter
+    def full_time_equivalent_employees(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def domestic_offices(self) -> typing.Optional[float]:
+        """Number of domestic offices, headquarters included."""
+        ...
+
+    @domestic_offices.setter
+    def domestic_offices(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The record covers the day it became available and ends at midnight that night, which is
+        when an algorithm receives it. Nothing is readable before the FDIC published it.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file per listed holding company."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a holding company only has records on the days the FDIC publishes them."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one line of the file into one call report."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Linked to Equities, so renames and delistings are applied through map files."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only, the quarterly cadence is modeled as Daily)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDICBankFailure(QuantConnect.Data.BaseData):
+    """
+    One failure of an FDIC-insured bank, or one assistance transaction that kept a bank open, as
+    the FDIC records it. The series covers every failure since 1934 and is not linked to any
+    security: almost every failed bank was privately held, so it reads as a measure of stress in
+    the banking sector rather than a signal on one company.
+    
+    The points an algorithm receives are FDICBankFailures, the collection of every failure of
+    one day.
+    """
+
+    @property
+    def failure_date(self) -> datetime.datetime:
+        """
+        The day the bank failed or was assisted. It is not always the day the record became
+        available, which is Time: the FDIC announces a failure the day it happens, but a failure
+        the job finds later is dated the day it found it.
+        """
+        ...
+
+    @failure_date.setter
+    def failure_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def certificate(self) -> int:
+        """FDIC certificate number of the failed bank, or 0 for the early failures the FDIC recorded without one."""
+        ...
+
+    @certificate.setter
+    def certificate(self, value: int) -> None:
+        ...
+
+    @property
+    def institution_name(self) -> str:
+        """Name of the failed bank."""
+        ...
+
+    @institution_name.setter
+    def institution_name(self, value: str) -> None:
+        ...
+
+    @property
+    def city(self) -> str:
+        """City where the failed bank had its headquarters."""
+        ...
+
+    @city.setter
+    def city(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """Two-letter code of the state where the failed bank had its headquarters."""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def charter_class(self) -> str:
+        """
+        Charter class of the failed bank, such as N for a national bank, SM for a state member
+        bank, NM for a state nonmember bank and SB or SA for savings institutions.
+        """
+        ...
+
+    @charter_class.setter
+    def charter_class(self, value: str) -> None:
+        ...
+
+    @property
+    def insurance_fund(self) -> str:
+        """The insurance fund that covered the bank, such as DIF, BIF, SAIF, FSLIC or RTC."""
+        ...
+
+    @insurance_fund.setter
+    def insurance_fund(self, value: str) -> None:
+        ...
+
+    @property
+    def resolution_type(self) -> str:
+        """FAILURE when the bank was closed, ASSISTANCE when the FDIC helped it stay open."""
+        ...
+
+    @resolution_type.setter
+    def resolution_type(self, value: str) -> None:
+        ...
+
+    @property
+    def transaction(self) -> str:
+        """
+        How the FDIC resolved the bank, such as PA for a purchase and assumption, where another
+        bank took over the deposits, or PO for a payout of insured deposits.
+        """
+        ...
+
+    @transaction.setter
+    def transaction(self, value: str) -> None:
+        ...
+
+    @property
+    def total_assets(self) -> typing.Optional[float]:
+        """Total assets at the last report before the failure, in thousands of dollars. This is also the data point's Value."""
+        ...
+
+    @total_assets.setter
+    def total_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_deposits(self) -> typing.Optional[float]:
+        """Total deposits at the last report before the failure, in thousands of dollars."""
+        ...
+
+    @total_deposits.setter
+    def total_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def acquirer(self) -> str:
+        """Name of the bank that acquired the failed bank, empty when there was none."""
+        ...
+
+    @acquirer.setter
+    def acquirer(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The record covers the day it became available and reaches an algorithm at midnight that
+        night. A failure is announced the day it happens, usually after the market closes on a
+        Friday.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file for the whole series."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """One file for the whole series, so a missing file is never expected."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one line of the file into one failure."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Not linked to any security."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDICBankFailures(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Every FDIC bank failure of one day: one FDICBankFailure per bank. The FDIC often closes
+    several banks on the same Friday, so a day can carry several records.
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file for the whole series."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """One file for the whole series."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Reads one line of the file into one failure; the engine folds a day's lines into one point."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Not linked to any security."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDIC(System.Object):
+    """Readable names for the FDIC series that are not tied to a listed company."""
+
+    class Banks(System.Object):
+        """
+        FDIC certificate numbers of the active insured banks, grouped by the state of their
+        headquarters, for use as the ticker in AddData<FDICBankReports>(FDIC.Banks.Ohio.X).
+        """
+
+        class Alabama(System.Object):
+            """Banks headquartered in Alabama."""
+
+            _22_ND_STATE_BANKING_COMPANY: str = "16910"
+            """22nd State Banking Company, Mobile"""
+
+            AMERI_FIRST_BANK: str = "2838"
+            """AmeriFirst Bank, Montgomery"""
+
+            AUBURN_BANK: str = "35"
+            """AuburnBank, Auburn"""
+
+            BANK_INDEPENDENT: str = "16604"
+            """Bank Independent, Sheffield"""
+
+            BANK_OF_BREWTON: str = "5605"
+            """Bank of Brewton, Brewton"""
+
+            BANK_OF_EVERGREEN: str = "49"
+            """Bank of Evergreen, Evergreen"""
+
+            BANK_OF_MOUNDVILLE: str = "9057"
+            """Bank of Moundville, Moundville"""
+
+            BANK_OF_WALKER_COUNTY: str = "57640"
+            """Bank of Walker County, Jasper"""
+
+            BANK_47: str = "32968"
+            """Bank47, Huntsville"""
+
+            BANK_SOUTH: str = "77"
+            """BankSouth, Dothan"""
+
+            BHM_BANK: str = "35314"
+            """BHM Bank, Birmingham"""
+
+            BRANTLEY_BANK_AND_TRUST_COMPANY: str = "16386"
+            """Brantley Bank and Trust Company, Brantley"""
+
+            BRYANT_BANK: str = "57997"
+            """Bryant Bank, Tuscaloosa"""
+
+            CB_AND_S_BANK_INC: str = "15310"
+            """CB&S Bank, Inc., Russellville"""
+
+            CCB_COMMUNITY_BANK: str = "16595"
+            """CCB Community Bank, Andalusia"""
+
+            CENTRAL_STATE_BANK: str = "72"
+            """Central State Bank, Calera"""
+
+            CITIZENS_BANK_AND_TRUST: str = "57483"
+            """Citizens Bank & Trust, Guntersville"""
+
+            CITIZENS_BANK_INC: str = "23523"
+            """Citizens' Bank, Inc., Robertsdale"""
+
+            COMMERCE_ONE_BANK: str = "59114"
+            """CommerceOne Bank, Birmingham"""
+
+            COMMONWEALTH_NATIONAL_BANK: str = "22229"
+            """Commonwealth National Bank, Mobile"""
+
+            COMMUNITY_NEIGHBOR_BANK: str = "2787"
+            """Community Neighbor Bank, Camden"""
+
+            COMMUNITY_SPIRIT_BANK: str = "50"
+            """Community Spirit Bank, Red Bay"""
+
+            CULLMAN_SAVINGS_BANK: str = "30167"
+            """Cullman Savings Bank, Cullman"""
+
+            DOZIER_BANK: str = "2794"
+            """Dozier Bank, Dozier"""
+
+            EVA_BANK: str = "26799"
+            """EvaBank, Eva"""
+
+            FARMERS_AND_MERCHANTS_BANK_LAFAYETTE: str = "13887"
+            """Farmers and Merchants Bank, Lafayette"""
+
+            FARMERS_AND_MERCHANTS_BANK_PIEDMONT: str = "1735"
+            """Farmers and Merchants Bank, Piedmont"""
+
+            FIRST_BANK_OF_ALABAMA: str = "2832"
+            """First Bank of Alabama, Talladega"""
+
+            FIRST_BANK_OF_BOAZ: str = "2784"
+            """First Bank of Boaz, Boaz"""
+
+            FIRST_CAHAWBA_BANK: str = "58636"
+            """First Cahawba Bank, Selma"""
+
+            FIRST_CITIZENS_BANK: str = "23152"
+            """First Citizens Bank, Luverne"""
+
+            FIRST_COMMUNITY_BANK_OF_CENTRAL_ALABAMA: str = "57124"
+            """First Community Bank of Central Alabama, Wetumpka"""
+
+            FIRST_FEDERAL_BANK_A_FSB: str = "31127"
+            """First Federal Bank, A FSB, Tuscaloosa"""
+
+            FIRST_FINANCIAL_BANK: str = "19440"
+            """First Financial Bank, Bessemer"""
+
+            FIRST_JACKSON_BANK_INC: str = "23376"
+            """First Jackson Bank, Inc., Stevenson"""
+
+            FIRST_METRO_BANK: str = "27381"
+            """First Metro Bank, Muscle Shoals"""
+
+            FIRST_NATIONAL_BANK: str = "22271"
+            """First National Bank, Hamilton"""
+
+            FIRST_PROGRESSIVE_BANK: str = "22549"
+            """First Progressive Bank, Brewton"""
+
+            FIRST_SOUTHERN_BANK: str = "29332"
+            """First Southern Bank, Florence"""
+
+            FIRST_SOUTHERN_STATE_BANK: str = "2829"
+            """First Southern State Bank, Stevenson"""
+
+            FIRST_STATE_BANK_OF_DE_KALB_COUNTY: str = "23815"
+            """First State Bank of DeKalb County, Fort Payne"""
+
+            FIRST_STATE_BANK_OF_THE_SOUTH_INC: str = "21050"
+            """First State Bank of the South, Inc., Sulligent"""
+
+            FIRST_US_BANK: str = "17077"
+            """First US Bank, Birmingham"""
+
+            FIRST_STATE_BANK: str = "20468"
+            """FirstState Bank, Lineville"""
+
+            FRIEND_BANK: str = "2828"
+            """Friend Bank, Slocomb"""
+
+            HNB_FIRST_BANK: str = "2805"
+            """HNB First Bank, Headland"""
+
+            LIBERTY_BANK: str = "20429"
+            """Liberty Bank, Geraldine"""
+
+            LOCAL_BANK: str = "9614"
+            """Local Bank, Tuscaloosa"""
+
+            MARION_COMMUNITY_BANK: str = "14184"
+            """Marion Community Bank, Marion"""
+
+            MERCHANTS_AND_FARMERS_BANK_OF_GREENE_COUNTY_ALABAMA: str = "855"
+            """Merchants & Farmers Bank of Greene County, Alabama, Eutaw"""
+
+            MERIT_BANK: str = "15270"
+            """Merit Bank, Huntsville"""
+
+            METRO_BANK: str = "27510"
+            """Metro Bank, Pell City"""
+
+            MID_SOUTH_BANK: str = "2777"
+            """MidSouth Bank, Dothan"""
+
+            MILLENNIAL_BANK: str = "34460"
+            """Millennial Bank, Leeds"""
+
+            NOBLE_BANK_AND_TRUST: str = "58111"
+            """NobleBank & Trust, Anniston"""
+
+            NORTH_ALABAMA_BANK: str = "27560"
+            """North Alabama Bank, Hazel Green"""
+
+            NOVA_BANK: str = "59326"
+            """Nova Bank, Huntsville"""
+
+            OAKWORTH_CAPITAL_BANK: str = "58783"
+            """Oakworth Capital Bank, Birmingham"""
+
+            PEOPLES_BANK_OF_ALABAMA: str = "22537"
+            """Peoples Bank of Alabama, Cullman"""
+
+            PEOPLES_BANK_OF_GREENSBORO: str = "1730"
+            """Peoples Bank of Greensboro, Greensboro"""
+
+            PEOPLES_EXCHANGE_BANK: str = "70"
+            """Peoples Exchange Bank, Monroeville"""
+
+            PEOPLES_INDEPENDENT_BANK: str = "27233"
+            """Peoples Independent Bank, Boaz"""
+
+            PEOPLES_TRUST_BANK: str = "57569"
+            """PeoplesTrust Bank, Hamilton"""
+
+            PHENIX_GIRARD_BANK: str = "41"
+            """Phenix-Girard Bank, Phenix City"""
+
+            PINNACLE_BANK: str = "29548"
+            """Pinnacle Bank, Jasper"""
+
+            PREMIER_BANK_OF_THE_SOUTH: str = "27118"
+            """Premier Bank of the South, Cullman"""
+
+            REGIONS_BANK: str = "12368"
+            """Regions Bank, Birmingham"""
+
+            RIVER_BANK_AND_TRUST: str = "58255"
+            """River Bank & Trust, Prattville"""
+
+            ROBERTSON_BANKING_COMPANY: str = "39"
+            """Robertson Banking Company, Demopolis"""
+
+            SERVIS_FIRST_BANK: str = "57993"
+            """ServisFirst Bank, Birmingham"""
+
+            SOLUTIONS_PLUS_BANK: str = "59362"
+            """Solutions Plus Bank, Albertville"""
+
+            SOUTHERN_INDEPENDENT_BANK: str = "58357"
+            """Southern Independent Bank, Opp"""
+
+            SOUTH_POINT_BANK: str = "58088"
+            """SouthPoint Bank, Birmingham"""
+
+            STATE_BANK_AND_TRUST: str = "861"
+            """State Bank & Trust, Winfield"""
+
+            SWEET_WATER_STATE_BANK: str = "9615"
+            """Sweet Water State Bank, Sweet Water"""
+
+            THE_BANK_OF_VERNON: str = "51"
+            """The Bank of Vernon, Vernon"""
+
+            THE_CITIZENS_BANK_ENTERPRISE: str = "16369"
+            """The Citizens Bank, Enterprise"""
+
+            THE_CITIZENS_BANK_GREENSBORO: str = "22358"
+            """The Citizens Bank, Greensboro"""
+
+            THE_CITIZENS_BANK_OF_WINFIELD: str = "52"
+            """The Citizens Bank of Winfield, Winfield"""
+
+            THE_COMMERCIAL_BANK_OF_OZARK: str = "17975"
+            """The Commercial Bank Of Ozark, Ozark"""
+
+            THE_EXCHANGE_BANK_OF_ALABAMA: str = "54"
+            """The Exchange Bank of Alabama, Altoona"""
+
+            THE_FARMERS_AND_MERCHANTS_BANK: str = "1745"
+            """The Farmers & Merchants Bank, Waterloo"""
+
+            THE_FIRST_NATIONAL_BANK_AND_TRUST: str = "2779"
+            """The First National Bank and Trust, Atmore"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HARTFORD: str = "2804"
+            """The First National Bank of Hartford, Hartford"""
+
+            THE_HOMETOWN_BANK_OF_ALABAMA: str = "57540"
+            """The Hometown Bank of Alabama, Oneonta"""
+
+            THE_SAMSON_BANKING_COMPANY_INC: str = "16185"
+            """The Samson Banking Company, Inc., Samson"""
+
+            THE_SOUTHERN_BANK_COMPANY: str = "29731"
+            """The Southern Bank Company, Gadsden"""
+
+            TRADITIONS_BANK: str = "57554"
+            """Traditions Bank, Cullman"""
+
+            TROY_BANK_AND_TRUST_COMPANY: str = "5598"
+            """Troy Bank & Trust Company, Troy"""
+
+            UNION_STATE_BANK: str = "5602"
+            """Union State Bank, Pell City"""
+
+            UNITED_BANK: str = "58"
+            """United Bank, Atmore"""
+
+            VALLEY_STATE_BANK: str = "26021"
+            """Valley State Bank, Russellville"""
+
+            WEST_ALABAMA_BANK_AND_TRUST: str = "16175"
+            """West Alabama Bank & Trust, Reform"""
+
+        class Alaska(System.Object):
+            """Banks headquartered in Alaska."""
+
+            DENALI_STATE_BANK: str = "26530"
+            """Denali State Bank, Fairbanks"""
+
+            FIRST_BANK: str = "14885"
+            """First Bank, Ketchikan"""
+
+            FIRST_NATIONAL_BANK_ALASKA: str = "16130"
+            """First National Bank Alaska, Anchorage"""
+
+            MT_MC_KINLEY_BANK: str = "19525"
+            """Mt. McKinley Bank, Fairbanks"""
+
+            NORTHRIM_BANK: str = "33216"
+            """Northrim Bank, Anchorage"""
+
+        class Arizona(System.Object):
+            """Banks headquartered in Arizona."""
+
+            BNC_NATIONAL_BANK: str = "57197"
+            """BNC National Bank, Glendale"""
+
+            GAINEY_BUSINESS_BANK: str = "59273"
+            """Gainey Business Bank, Scottsdale"""
+
+            GATEWAY_COMMERCIAL_BANK: str = "58678"
+            """Gateway Commercial Bank, Mesa"""
+
+            GOLDWATER_BANK_NA: str = "58405"
+            """Goldwater Bank, N.A., Phoenix"""
+
+            INTEGRO_BANK: str = "59283"
+            """Integro Bank, Phoenix"""
+
+            MISSION_BANK: str = "57137"
+            """Mission Bank, Kingman"""
+
+            SCOTTSDALE_COMMUNITY_BANK: str = "59203"
+            """Scottsdale Community Bank, Scottsdale"""
+
+            SOUTHWEST_HERITAGE_BANK: str = "29087"
+            """Southwest Heritage Bank, Scottsdale"""
+
+            USAA_FEDERAL_SAVINGS_BANK: str = "32188"
+            """USAA Federal Savings Bank, Phoenix"""
+
+            WEST_VALLEY_NATIONAL_BANK: str = "58426"
+            """West Valley National Bank, Goodyear"""
+
+            WESTERN_ALLIANCE_BANK: str = "57512"
+            """Western Alliance Bank, Phoenix"""
+
+            ZENITH_BANK_AND_TRUST: str = "59318"
+            """Zenith Bank & Trust, Scottsdale"""
+
+        class Arkansas(System.Object):
+            """Banks headquartered in Arkansas."""
+
+            ANSTAFF_BANK: str = "3869"
+            """Anstaff Bank, Green Forest"""
+
+            ARMOR_BANK: str = "28812"
+            """Armor Bank, Forrest City"""
+
+            ARVEST_BANK: str = "8728"
+            """Arvest Bank, Fayetteville"""
+
+            BANK_OF_1889: str = "3854"
+            """Bank of 1889, Berryville"""
+
+            BANK_OF_BEARDEN: str = "16282"
+            """Bank of Bearden, Bearden"""
+
+            BANK_OF_CAVE_CITY: str = "105"
+            """Bank of Cave City, Cave City"""
+
+            BANK_OF_DELIGHT: str = "99"
+            """Bank of Delight, Delight"""
+
+            BANK_OF_ENGLAND: str = "13303"
+            """Bank of England, England"""
+
+            BANK_OF_LAKE_VILLAGE: str = "15547"
+            """Bank of Lake Village, Lake Village"""
+
+            BANK_OF_LITTLE_ROCK: str = "91280"
+            """Bank of Little Rock, Little Rock"""
+
+            BANK_OF_SALEM: str = "11243"
+            """Bank of Salem, Salem"""
+
+            BANK_OZK: str = "110"
+            """Bank OZK, Little Rock"""
+
+            BODCAW_BANK: str = "5624"
+            """Bodcaw Bank, Stamps"""
+
+            CENTENNIAL_BANK: str = "11241"
+            """Centennial Bank, Conway"""
+
+            CENTRAL_BANK: str = "1756"
+            """Central Bank, Little Rock"""
+
+            CHAMBERS_BANK: str = "5615"
+            """Chambers Bank, Danville"""
+
+            CITIZENS_BANK_AND_TRUST_CO: str = "8738"
+            """Citizens' Bank & Trust Co., Van Buren"""
+
+            COMMERCIAL_BANK_AND_TRUST_COMPANY: str = "90"
+            """Commercial Bank & Trust Company, Monticello"""
+
+            COMMUNITY_STATE_BANK: str = "5619"
+            """COMMUNITY STATE BANK, Bradley"""
+
+            CONNECT_BANK: str = "5634"
+            """Connect Bank, Star City"""
+
+            CROSS_BANK: str = "13821"
+            """Cross Bank, Wynne"""
+
+            CS_BANK: str = "5635"
+            """CS Bank, Eureka Springs"""
+
+            DIAMOND_BANK: str = "1527"
+            """Diamond Bank, Murfreesboro"""
+
+            EAGLE_BANK_AND_TRUST_COMPANY: str = "3873"
+            """Eagle Bank and Trust Company, Little Rock"""
+
+            ENCORE_BANK: str = "34562"
+            """ENCORE BANK, Little Rock"""
+
+            EVOLVE_BANK_AND_TRUST: str = "1299"
+            """Evolve Bank & Trust, West Memphis"""
+
+            FARMERS_BANK: str = "1296"
+            """Farmers Bank, Greenwood"""
+
+            FARMERS_BANK_AND_TRUST_COMPANY: str = "1291"
+            """Farmers Bank & Trust Company, Magnolia"""
+
+            FBT_BANK_AND_MORTGAGE: str = "1028"
+            """FBT Bank & Mortgage, Fordyce"""
+
+            FIDELITY_BANK: str = "19644"
+            """Fidelity Bank, West Memphis"""
+
+            FIRST_ARKANSAS_BANK_AND_TRUST: str = "16849"
+            """First Arkansas Bank and Trust, Jacksonville"""
+
+            FIRST_COMMUNITY_BANK: str = "34533"
+            """First Community Bank, Batesville"""
+
+            FIRST_FINANCIAL_BANK: str = "28905"
+            """First Financial Bank, El Dorado"""
+
+            FIRST_NATIONAL_BANK: str = "3887"
+            """First National Bank, Paragould"""
+
+            FIRST_NATIONAL_BANK_OF_COMMERCE: str = "3896"
+            """First National Bank Of Commerce, Walnut Ridge"""
+
+            FIRST_NATIONAL_BANK_OF_EASTERN_ARKANSAS: str = "3863"
+            """First National Bank of Eastern Arkansas, Forrest City"""
+
+            FIRST_NATURALSTATE_BANK: str = "21379"
+            """First Naturalstate Bank, Mcgehee"""
+
+            FIRST_SECURITY_BANK: str = "5633"
+            """First Security Bank, Searcy"""
+
+            FIRST_SERVICE_BANK: str = "18519"
+            """First Service Bank, Greenbrier"""
+
+            FIRST_STATE_BANK_LONOKE: str = "15050"
+            """First State Bank, Lonoke"""
+
+            FIRST_STATE_BANK_RUSSELLVILLE: str = "13632"
+            """First State Bank, Russellville"""
+
+            FIRST_STATE_BANK_OF_DE_QUEEN: str = "21805"
+            """First State Bank of DeQueen, De Queen"""
+
+            FIRST_WESTERN_BANK: str = "13083"
+            """First Western Bank, Booneville"""
+
+            FM_BANK_AND_TRUST: str = "1027"
+            """Fm Bank And Trust, Blytheville"""
+
+            FNBC_BANK: str = "1294"
+            """FNBC Bank, Ash Flat"""
+
+            GATEWAY_BANK: str = "8730"
+            """Gateway Bank, Rison"""
+
+            GENERATIONS_BANK: str = "88"
+            """Generations Bank, Rogers"""
+
+            HORATIO_STATE_BANK: str = "109"
+            """Horatio State Bank, Horatio"""
+
+            LEGACY_BANK: str = "57953"
+            """Legacy Bank, Springdale"""
+
+            LOGAN_COUNTY_BANK: str = "5632"
+            """Logan County Bank, Scranton"""
+
+            MERCHANTS_AND_PLANTERS_BANK: str = "16464"
+            """Merchants & Planters' Bank, Newport"""
+
+            MERCHANTS_AND_FARMERS_BANK: str = "8735"
+            """Merchants and Farmers Bank, Dumas"""
+
+            PARTNERS_BANK: str = "15729"
+            """Partners Bank, Helena"""
+
+            PEOPLES_BANK: str = "57058"
+            """PEOPLES BANK, Sheridan"""
+
+            PETIT_JEAN_STATE_BANK: str = "35084"
+            """Petit Jean State Bank, Morrilton"""
+
+            PRIORITY_BANK: str = "33818"
+            """Priority Bank, Fayetteville"""
+
+            PRODUCERS_BANK_AND_TRUST: str = "11242"
+            """Producers Bank & Trust, Mcgehee"""
+
+            RELYANCE_BANK: str = "19371"
+            """Relyance Bank, White Hall"""
+
+            RIVER_BANK: str = "31711"
+            """RiverBank, Pocahontas"""
+
+            RIVERSIDE_BANK: str = "93"
+            """Riverside Bank, Sparkman"""
+
+            RIVERWIND_BANK: str = "15035"
+            """Riverwind Bank, Augusta"""
+
+            SIGNATURE_BANK_OF_ARKANSAS: str = "89"
+            """Signature Bank of Arkansas, Fayetteville"""
+
+            SIMMONS_BANK: str = "3890"
+            """Simmons Bank, Pine Bluff"""
+
+            SMACKOVER_STATE_BANK: str = "5623"
+            """Smackover State Bank, Smackover"""
+
+            SOUTHERN_BANCORP_BANK: str = "1528"
+            """Southern Bancorp Bank, Arkadelphia"""
+
+            STONE_BANK: str = "17431"
+            """Stone Bank, Mountain View"""
+
+            THE_CITIZENS_BANK: str = "17211"
+            """The Citizens Bank, Batesville"""
+
+            THE_FARMERS_AND_MERCHANTS_BANK: str = "16216"
+            """The Farmers & Merchants Bank, Stuttgart"""
+
+            THE_FIRST_NATIONAL_BANK_OF_FORT_SMITH: str = "3864"
+            """The First National Bank of Fort Smith, Fort Smith"""
+
+            THE_FIRST_NATIONAL_BANK_OF_IZARD_COUNTY: str = "11252"
+            """The First National Bank of Izard County, Calico Rock"""
+
+            THE_MALVERN_NATIONAL_BANK: str = "14644"
+            """The Malvern National Bank, Malvern"""
+
+            THE_MERCHANTS_AND_PLANTERS_BANK: str = "107"
+            """The Merchants & Planters Bank, Clarendon"""
+
+            THE_PEOPLES_BANK: str = "12531"
+            """The Peoples Bank, Magnolia"""
+
+            TODAY_S_BANK: str = "33470"
+            """Today's Bank, Huntsville"""
+
+            UNION_BANK: str = "14597"
+            """Union Bank, Mena"""
+
+            UNION_BANK_AND_TRUST_COMPANY: str = "1753"
+            """Union Bank & Trust Company, Monticello"""
+
+            UNITED_BANK: str = "32025"
+            """United Bank, Springdale"""
+
+            WARREN_BANK_AND_TRUST_COMPANY: str = "81"
+            """Warren Bank and Trust Company, Warren"""
+
+        class California(System.Object):
+            """Banks headquartered in California."""
+
+            ALTOS_BANK: str = "59339"
+            """Altos Bank, Los Altos"""
+
+            AMERICAN_BUSINESS_BANK: str = "34788"
+            """American Business Bank, Los Angeles"""
+
+            AMERICAN_CONTINENTAL_BANK: str = "57444"
+            """American Continental Bank, City Of Industry"""
+
+            AMERICAN_PLUS_BANK_NA: str = "58469"
+            """American Plus Bank, N.A., Arcadia"""
+
+            AMERICAN_RIVIERA_BANK: str = "58281"
+            """American Riviera Bank, Santa Barbara"""
+
+            ASIAN_PACIFIC_NATIONAL_BANK: str = "33013"
+            """Asian Pacific National Bank, San Gabriel"""
+
+            AVIDBANK: str = "57510"
+            """Avidbank, San Jose"""
+
+            AXOS_BANK: str = "35546"
+            """Axos Bank, San Diego"""
+
+            BAC_COMMUNITY_BANK: str = "19434"
+            """BAC Community Bank, Stockton"""
+
+            BALBOA_THRIFT_AND_LOAN_ASSOCIATION: str = "26704"
+            """Balboa Thrift and Loan Association, Chula Vista"""
+
+            BANC_OF_CALIFORNIA: str = "24045"
+            """Banc of California, Los Angeles"""
+
+            BANK_IRVINE: str = "59296"
+            """Bank Irvine, Irvine"""
+
+            BANK_OF_AMERICA_CALIFORNIA_NATIONAL_ASSOCIATION: str = "25178"
+            """Bank of America California, National Association, San Francisco"""
+
+            BANK_OF_HOPE: str = "26610"
+            """Bank of Hope, Los Angeles"""
+
+            BANK_OF_MARIN: str = "32779"
+            """Bank of Marin, Novato"""
+
+            BANK_OF_SAN_FRANCISCO: str = "58069"
+            """Bank of San Francisco, San Francisco"""
+
+            BANK_OF_STOCKTON: str = "1536"
+            """Bank of Stockton, Stockton"""
+
+            BANK_OF_THE_ORIENT: str = "20387"
+            """Bank of the Orient, San Francisco"""
+
+            BANK_OF_THE_SIERRA: str = "22597"
+            """Bank of the Sierra, Porterville"""
+
+            BANK_OF_WHITTIER_NATIONAL_ASSOCIATION: str = "24211"
+            """Bank of Whittier, National Association, Whittier"""
+
+            BEACH_CITIES_COMMERCIAL_BANK: str = "59290"
+            """Beach Cities Commercial Bank, Irvine"""
+
+            BEACON_BUSINESS_BANK_NATIONAL_ASSOCIATION: str = "25644"
+            """BEACON BUSINESS BANK, NATIONAL ASSOCIATION, San Francisco"""
+
+            BENEFICIAL_STATE_BANK: str = "58490"
+            """Beneficial State Bank, Oakland"""
+
+            C_3_BANK_NATIONAL_ASSOCIATION: str = "25249"
+            """C3bank, National Association, Encinitas"""
+
+            CALIFORNIA_BANK_OF_COMMERCE_NATIONAL_ASSOCIATION: str = "57044"
+            """California Bank of Commerce, National Association, San Diego"""
+
+            CALIFORNIA_BUSINESS_BANK: str = "58037"
+            """California Business Bank, Irvine"""
+
+            CALIFORNIA_INTERNATIONAL_BANK_NA: str = "57974"
+            """California International Bank, N.A., Westminster"""
+
+            CALIFORNIA_PACIFIC_BANK: str = "23242"
+            """California Pacific Bank, Hayward"""
+
+            CAL_PRIVATE_BANK: str = "58291"
+            """CalPrivate Bank, La Jolla"""
+
+            CAPITAL_BANK_AND_TRUST_COMPANY: str = "35164"
+            """Capital Bank and Trust Company, Irvine"""
+
+            CATHAY_BANK: str = "18503"
+            """Cathay Bank, Los Angeles"""
+
+            CHINO_COMMERCIAL_BANK_NA: str = "35366"
+            """Chino Commercial Bank, N.A., Chino"""
+
+            CITIZENS_BUSINESS_BANK_NATIONAL_ASSOCIATION: str = "21716"
+            """Citizens Business Bank, National Association, Ontario"""
+
+            CITY_NATIONAL_BANK: str = "17281"
+            """City National Bank, Los Angeles"""
+
+            COMMERCE_WEST_BANK: str = "57176"
+            """Commerce West Bank, Irvine"""
+
+            COMMERCIAL_BANK_OF_CALIFORNIA: str = "57417"
+            """Commercial Bank of California, Irvine"""
+
+            COMMONWEALTH_BUSINESS_BANK: str = "57873"
+            """Commonwealth Business Bank, Los Angeles"""
+
+            COMMUNITY_BANK_OF_SANTA_MARIA: str = "57073"
+            """Community Bank of Santa Maria, Santa Maria"""
+
+            COMMUNITY_COMMERCE_BANK: str = "26363"
+            """Community Commerce Bank, Claremont"""
+
+            COMMUNITY_WEST_BANK: str = "23030"
+            """Community West Bank, Fresno"""
+
+            CTBC_BANK_CORP_USA: str = "19416"
+            """CTBC Bank Corp. (USA), Los Angeles"""
+
+            EAST_WEST_BANK: str = "31628"
+            """East West Bank, Pasadena"""
+
+            EASTERN_INTERNATIONAL_BANK: str = "32277"
+            """Eastern International Bank, Los Angeles"""
+
+            EL_DORADO_SAVINGS_BANK_FSB: str = "30953"
+            """El Dorado Savings Bank, F.S.B., Placerville"""
+
+            ENDEAVOR_BANK: str = "59099"
+            """Endeavor Bank, San Diego"""
+
+            EVER_TRUST_BANK: str = "34010"
+            """EverTrust Bank, City Of Industry"""
+
+            EXCHANGE_BANK: str = "8468"
+            """Exchange Bank, Santa Rosa"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_CENTRAL_CALIFORNIA: str = "1331"
+            """Farmers & Merchants Bank of Central California, Lodi"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_LONG_BEACH: str = "1225"
+            """Farmers and Merchants Bank of Long Beach, Long Beach"""
+
+            FFB_BANK: str = "58090"
+            """FFB Bank, Fresno"""
+
+            FIRST_AMERICAN_TRUST_FSB: str = "26312"
+            """First American Trust, FSB, Santa Ana"""
+
+            FIRST_COMMERCIAL_BANK_USA: str = "34496"
+            """First Commercial Bank (USA), Alhambra"""
+
+            FIRST_CREDIT_BANK: str = "24332"
+            """First Credit Bank, Los Angeles"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_SAN_RAFAEL: str = "31406"
+            """First Federal Savings and Loan Association of San Rafael, San Rafael"""
+
+            FIRST_GENERAL_BANK: str = "58060"
+            """First General Bank, Rowland Heights"""
+
+            FIRST_NORTHERN_BANK_OF_DIXON: str = "3440"
+            """First Northern Bank of Dixon, Dixon"""
+
+            FIRST_PACIFIC_BANK: str = "58218"
+            """First Pacific Bank, Whittier"""
+
+            FIVE_STAR_BANK: str = "35361"
+            """Five Star Bank, Roseville"""
+
+            FREMONT_BANK: str = "19222"
+            """Fremont Bank, Fremont"""
+
+            GATEWAY_BANK_FSB: str = "33103"
+            """Gateway Bank, F.S.B., Oakland"""
+
+            GBC_INTERNATIONAL_BANK: str = "22366"
+            """GBC International Bank, Los Angeles"""
+
+            GENESIS_BANK: str = "59245"
+            """Genesis Bank, Newport Beach"""
+
+            GOLDEN_STATE_BANK: str = "57585"
+            """Golden State Bank, Glendale"""
+
+            GOLDEN_VALLEY_BANK: str = "58278"
+            """Golden Valley Bank, Chico"""
+
+            HANMI_BANK: str = "24170"
+            """Hanmi Bank, Los Angeles"""
+
+            HATCH_BANK: str = "25803"
+            """Hatch Bank, San Marcos"""
+
+            HCN_BANK: str = "21606"
+            """HCN Bank, Riverside"""
+
+            HOME_BANK_OF_CALIFORNIA: str = "26271"
+            """Home Bank of California, San Diego"""
+
+            ICON_BUSINESS_BANK: str = "59314"
+            """Icon Business Bank, Riverside"""
+
+            INFINITY_BANK: str = "59098"
+            """Infinity Bank, Santa Ana"""
+
+            LEGACY_BANK: str = "59204"
+            """Legacy Bank, Murrieta"""
+
+            LIBERTY_BANK_NATIONAL_ASSOCIATION: str = "35331"
+            """Liberty Bank, National Association, Irvine"""
+
+            MALAGA_BANK_FSB: str = "32282"
+            """Malaga Bank F.S.B., Palos Verdes Peninsula"""
+
+            MECHANICS_BANK: str = "1768"
+            """Mechanics Bank, Walnut Creek"""
+
+            MEGA_BANK: str = "58401"
+            """Mega Bank, San Gabriel"""
+
+            METROPOLITAN_BANK: str = "25869"
+            """Metropolitan Bank, Oakland"""
+
+            MISSION_BANK: str = "34805"
+            """Mission Bank, Bakersfield"""
+
+            MISSION_NATIONAL_BANK: str = "23749"
+            """Mission National Bank, San Francisco"""
+
+            MISSION_VALLEY_BANK: str = "57101"
+            """Mission Valley Bank, Sun Valley"""
+
+            MIZRAHI_TEFAHOT_BANK_LTD: str = "33661"
+            """Mizrahi Tefahot Bank, Ltd., Los Angeles"""
+
+            MONTECITO_BANK_AND_TRUST: str = "21956"
+            """Montecito Bank & Trust, Santa Barbara"""
+
+            MONTEREY_COUNTY_BANK: str = "22460"
+            """Monterey County Bank, Monterey"""
+
+            MURPHY_BANK: str = "25726"
+            """Murphy Bank, Fresno"""
+
+            NANO_BANC: str = "58590"
+            """Nano Banc, Irvine"""
+
+            NEIGHBORHOOD_NATIONAL_BANK: str = "34548"
+            """Neighborhood National Bank, El Cajon"""
+
+            NEW_OMNI_BANK_NATIONAL_ASSOCIATION: str = "23086"
+            """New OMNI Bank, National Association, Alhambra"""
+
+            OAK_VALLEY_COMMUNITY_BANK: str = "33457"
+            """Oak Valley Community Bank, Oakdale"""
+
+            OPEN_BANK: str = "57944"
+            """Open Bank, Los Angeles"""
+
+            PACIFIC_ALLIANCE_BANK: str = "58234"
+            """Pacific Alliance Bank, San Gabriel"""
+
+            PACIFIC_COAST_BANKERS_BANK: str = "34252"
+            """Pacific Coast Bankers' Bank, Walnut Creek"""
+
+            PACIFIC_VALLEY_BANK: str = "57740"
+            """Pacific Valley Bank, Salinas"""
+
+            PARTNERS_BANK_OF_CALIFORNIA: str = "58588"
+            """Partners Bank of California, Mission Viejo"""
+
+            PCB_BANK: str = "57463"
+            """PCB Bank, Los Angeles"""
+
+            PINNACLE_BANK: str = "58297"
+            """Pinnacle Bank, Gilroy"""
+
+            PLUMAS_BANK: str = "23275"
+            """Plumas Bank, Quincy"""
+
+            POPPY_BANK: str = "57903"
+            """Poppy Bank, Santa Rosa"""
+
+            PREFERRED_BANK: str = "33539"
+            """Preferred Bank, Los Angeles"""
+
+            PROVIDENT_SAVINGS_BANK_FSB: str = "30879"
+            """Provident Savings Bank, F.S.B., Riverside"""
+
+            REDWOOD_CAPITAL_BANK: str = "57610"
+            """Redwood Capital Bank, Eureka"""
+
+            RIVER_CITY_BANK: str = "18983"
+            """River City Bank, Sacramento"""
+
+            RIVER_VALLEY_COMMUNITY_BANK: str = "58276"
+            """River Valley Community Bank, Yuba City"""
+
+            ROYAL_BUSINESS_BANK: str = "58816"
+            """Royal Business Bank, Los Angeles"""
+
+            SAVINGS_BANK_OF_MENDOCINO_COUNTY: str = "8011"
+            """Savings Bank of Mendocino County, Ukiah"""
+
+            SMBC_MANUBANK: str = "18618"
+            """SMBC MANUBANK, Los Angeles"""
+
+            STATE_BANK_OF_INDIA_CALIFORNIA: str = "23998"
+            """State Bank of India (California), Los Angeles"""
+
+            SUMMIT_BANK: str = "23864"
+            """Summit Bank, Oakland"""
+
+            SUMMIT_STATE_BANK: str = "32203"
+            """Summit State Bank, Santa Rosa"""
+
+            THE_BANK_OF_NEW_YORK_MELLON_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "23472"
+            """The Bank of New York Mellon Trust Company, National Association, Los Angeles"""
+
+            TRI_COUNTIES_BANK: str = "21943"
+            """Tri Counties Bank, Chico"""
+
+            TUSTIN_COMMUNITY_BANK: str = "32908"
+            """Tustin Community Bank, Tustin"""
+
+            UNITED_BUSINESS_BANK: str = "57716"
+            """United Business Bank, Walnut Creek"""
+
+            UNITED_PACIFIC_BANK: str = "23805"
+            """United Pacific Bank, City Of Industry"""
+
+            UNIVERSAL_BANK: str = "30722"
+            """Universal Bank, West Covina"""
+
+            US_METRO_BANK: str = "58310"
+            """US Metro Bank, Garden Grove"""
+
+            WEST_COAST_COMMUNITY_BANK: str = "57591"
+            """West Coast Community Bank, Santa Cruz"""
+
+            WESTAMERICA_BANK: str = "3430"
+            """Westamerica Bank, San Rafael"""
+
+        class Colorado(System.Object):
+            """Banks headquartered in Colorado."""
+
+            _5_STAR_BANK: str = "91005"
+            """5Star Bank, Colorado Springs"""
+
+            ALAMOSA_STATE_BANK: str = "13947"
+            """Alamosa State Bank, Alamosa"""
+
+            ALPINE_BANK: str = "23091"
+            """Alpine Bank, Glenwood Springs"""
+
+            AMG_NATIONAL_TRUST_BANK: str = "57295"
+            """AMG National Trust Bank, Boulder"""
+
+            ANB_BANK: str = "19220"
+            """ANB Bank, Denver"""
+
+            BANK_OF_COLORADO: str = "16980"
+            """Bank of Colorado, Fort Collins"""
+
+            BANK_OF_ESTES_PARK: str = "19351"
+            """Bank of Estes Park, Estes Park"""
+
+            BANKERS_BANK_OF_THE_WEST: str = "23210"
+            """Bankers' Bank of the West, Denver"""
+
+            CENTURY_SAVINGS_AND_LOAN_ASSOCIATION: str = "28860"
+            """Century Savings and Loan Association, Trinidad"""
+
+            CHAMPION_BANK: str = "57031"
+            """Champion Bank, Parker"""
+
+            COLORADO_FEDERAL_SAVINGS_BANK: str = "33111"
+            """Colorado Federal Savings Bank, Greenwood Village"""
+
+            COMMUNITY_STATE_BANK: str = "58732"
+            """Community State Bank, Lamar"""
+
+            DEL_NORTE_BANK: str = "29066"
+            """Del Norte Bank, Del Norte"""
+
+            EQUITABLE_SAVINGS_AND_LOAN_ASSOCIATION: str = "30707"
+            """Equitable Savings and Loan Association, Sterling"""
+
+            EVERGREEN_NATIONAL_BANK: str = "23404"
+            """Evergreen National Bank, Evergreen"""
+
+            FARMERS_BANK: str = "57335"
+            """Farmers Bank, Ault"""
+
+            FARMERS_STATE_BANK_OF_CALHAN: str = "1780"
+            """Farmers State Bank of Calhan, Calhan"""
+
+            FIRST_AMERICAN_STATE_BANK: str = "34040"
+            """First American State Bank, Greenwood Village"""
+
+            FIRST_FARM_BANK: str = "58508"
+            """First FarmBank, Greeley"""
+
+            FIRST_NATIONAL_BANK_COLORADO: str = "3034"
+            """First National Bank Colorado, Las Animas"""
+
+            FIRST_NATIONAL_BANK_CORTEZ: str = "17872"
+            """First National Bank, Cortez, Cortez"""
+
+            FIRST_PIONEER_NATIONAL_BANK: str = "3063"
+            """First Pioneer National Bank, Wray"""
+
+            FIRST_SOUTHWEST_BANK: str = "57741"
+            """First Southwest Bank, Durango"""
+
+            FIRST_WESTERN_TRUST_BANK: str = "57607"
+            """First Western Trust Bank, Denver"""
+
+            FLAT_IRONS_BANK: str = "57280"
+            """FlatIrons Bank, Boulder"""
+
+            FMS_BANK: str = "23764"
+            """FMS Bank, Fort Morgan"""
+
+            FORTIS_BANK: str = "34401"
+            """Fortis Bank, Denver"""
+
+            FOWLER_STATE_BANK: str = "12372"
+            """Fowler State Bank, Fowler"""
+
+            FRONTIER_BANK: str = "14730"
+            """Frontier Bank, Lamar"""
+
+            GUNNISON_SAVINGS_AND_LOAN_ASSOCIATION: str = "30388"
+            """Gunnison Savings and Loan Association, Gunnison"""
+
+            HIGH_COUNTRY_BANK: str = "29783"
+            """High Country Bank, Salida"""
+
+            HIGH_PLAINS_BANK: str = "3017"
+            """High Plains Bank, Flagler"""
+
+            HOME_LOAN_STATE_BANK: str = "90040"
+            """Home Loan State Bank, Grand Junction"""
+
+            INTEGRITY_BANK_AND_TRUST: str = "57587"
+            """Integrity Bank & Trust, Monument"""
+
+            MC_CLAVE_STATE_BANK: str = "11261"
+            """McClave State Bank, Mcclave"""
+
+            MOUNTAIN_VALLEY_BANK: str = "17411"
+            """Mountain Valley Bank, Walden"""
+
+            NATIVE_AMERICAN_BANK_NATIONAL_ASSOCIATION: str = "27026"
+            """Native American Bank, National Association, Denver"""
+
+            NBH_BANK: str = "59052"
+            """NBH Bank, Greenwood Village"""
+
+            NORTH_VALLEY_BANK: str = "18710"
+            """North Valley Bank, Thornton"""
+
+            PARK_STATE_BANK_AND_TRUST: str = "19381"
+            """Park State Bank & Trust, Woodland Park"""
+
+            PB_AND_T_BANK: str = "12594"
+            """PB&T Bank, Pueblo"""
+
+            PIKES_PEAK_NATIONAL_BANK: str = "17782"
+            """Pikes Peak National Bank, Colorado Springs"""
+
+            POINTS_WEST_COMMUNITY_BANK: str = "3031"
+            """Points West Community Bank, Windsor"""
+
+            REDSTONE_BANK: str = "58826"
+            """Redstone Bank, Centennial"""
+
+            RG_BANK_A_SAVINGS_AND_LOAN_ASSOCIATION: str = "28315"
+            """RG Bank, A Savings and Loan Association, Monte Vista"""
+
+            ROCKY_MOUNTAIN_BANK_AND_TRUST: str = "3019"
+            """Rocky Mountain Bank & Trust, Florence"""
+
+            SAN_LUIS_VALLEY_FEDERAL_BANK: str = "28208"
+            """San Luis Valley Federal Bank, Alamosa"""
+
+            SOLERA_NATIONAL_BANK: str = "58534"
+            """Solera National Bank, Lakewood"""
+
+            STOCKMENS_BANK: str = "8321"
+            """Stockmens Bank, Colorado Springs"""
+
+            THE_CITIZENS_STATE_BANK_OF_OURAY: str = "1779"
+            """The Citizens State Bank of Ouray, Ouray"""
+
+            THE_COLORADO_BANK_AND_TRUST_COMPANY_OF_LA_JUNTA: str = "1141"
+            """The Colorado Bank and Trust Company of La Junta, La Junta"""
+
+            THE_DOLORES_STATE_BANK: str = "17959"
+            """The Dolores State Bank, Dolores"""
+
+            THE_EASTERN_COLORADO_BANK: str = "16125"
+            """The Eastern Colorado Bank, Cheyenne Wells"""
+
+            THE_FARMERS_STATE_BANK_OF_BRUSH: str = "10407"
+            """The Farmers State Bank of Brush, Brush"""
+
+            THE_FIRST_NATIONAL_BANK_IN_TRINIDAD: str = "14584"
+            """The First National Bank in Trinidad, Trinidad"""
+
+            THE_FIRST_NATIONAL_BANK_OF_FLEMING: str = "3018"
+            """The First National Bank of Fleming, Fleming"""
+
+            THE_GUNNISON_BANK_AND_TRUST_COMPANY: str = "11259"
+            """The Gunnison Bank and Trust Company, Gunnison"""
+
+            TIMBERLINE_BANK: str = "57857"
+            """Timberline Bank, Grand Junction"""
+
+            TRANSACT_BANK_NATIONAL_ASSOCIATION: str = "13986"
+            """Transact Bank, National Association, Denver"""
+
+            VERUS_BANK_OF_COMMERCE: str = "58025"
+            """Verus Bank of Commerce, Fort Collins"""
+
+            WRAY_STATE_BANK: str = "22447"
+            """Wray State Bank, Wray"""
+
+            YAMPA_VALLEY_BANK: str = "35407"
+            """Yampa Valley Bank, Steamboat Springs"""
+
+            YOUNG_AMERICANS_BANK: str = "27010"
+            """Young Americans Bank, Denver"""
+
+        class Connecticut(System.Object):
+            """Banks headquartered in Connecticut."""
+
+            ASCEND_BANK: str = "18194"
+            """Ascend Bank, Guilford"""
+
+            BANKWELL_BANK: str = "57368"
+            """Bankwell Bank, New Canaan"""
+
+            CHELSEA_GROTON_BANK: str = "18238"
+            """Chelsea Groton Bank, Groton"""
+
+            CONNECTICUT_COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "34876"
+            """Connecticut Community Bank, National Association, Norwalk"""
+
+            DIME_BANK: str = "18200"
+            """Dime Bank, Norwich"""
+
+            DR_BANK: str = "58257"
+            """DR Bank, Darien"""
+
+            ESSEX_BANK: str = "17262"
+            """Essex Bank, Essex"""
+
+            FAIRFIELD_COUNTY_BANK: str = "18213"
+            """Fairfield County Bank, Ridgefield"""
+
+            FIELDPOINT_PRIVATE_BANK_AND_TRUST: str = "58741"
+            """Fieldpoint Private Bank & Trust, Greenwich"""
+
+            FIRST_COUNTY_BANK: str = "18204"
+            """First County Bank, Stamford"""
+
+            ION_BANK: str = "18198"
+            """Ion Bank, Naugatuck"""
+
+            IVES_BANK: str = "15912"
+            """Ives Bank, Danbury"""
+
+            JEWETT_CITY_SAVINGS_BANK: str = "18237"
+            """Jewett City Savings Bank, Jewett City"""
+
+            LIBERTY_BANK: str = "17943"
+            """Liberty Bank, Middletown"""
+
+            NEW_HAVEN_BANK: str = "58952"
+            """New Haven Bank, New Haven"""
+
+            NEWTOWN_SAVINGS_BANK: str = "18199"
+            """Newtown Savings Bank, Newtown"""
+
+            NORTHWEST_COMMUNITY_BANK: str = "18229"
+            """Northwest Community Bank, Winsted"""
+
+            PATRIOT_BANK_NATIONAL_ASSOCIATION: str = "33928"
+            """Patriot Bank, National Association, Stamford"""
+
+            STAFFORD_SAVINGS_BANK: str = "18227"
+            """Stafford Savings Bank, Stafford Springs"""
+
+            THE_FIRST_BANK_OF_GREENWICH: str = "58307"
+            """The First Bank of Greenwich, Cos Cob"""
+
+            THE_MILFORD_BANK: str = "16101"
+            """The Milford Bank, Milford"""
+
+            THE_NATIONAL_IRON_BANK: str = "2496"
+            """The National Iron Bank, Salisbury"""
+
+            THE_TORRINGTON_SAVINGS_BANK: str = "16636"
+            """The Torrington Savings Bank, Torrington"""
+
+            THOMASTON_SAVINGS_BANK: str = "18258"
+            """Thomaston Savings Bank, Thomaston"""
+
+            UNION_SAVINGS_BANK: str = "18190"
+            """Union Savings Bank, Danbury"""
+
+            WINDSOR_FEDERAL_BANK: str = "29632"
+            """Windsor Federal Bank, Windsor"""
+
+        class Delaware(System.Object):
+            """Banks headquartered in Delaware."""
+
+            APPLIED_BANK: str = "34193"
+            """Applied Bank, Wilmington"""
+
+            ARTISANS_BANK: str = "17123"
+            """Artisans' Bank, Wilmington"""
+
+            BARCLAYS_BANK_DELAWARE: str = "57203"
+            """Barclays Bank Delaware, Wilmington"""
+
+            BNY_MELLON_TRUST_OF_DELAWARE: str = "24867"
+            """BNY Mellon Trust of Delaware, Wilmington"""
+
+            COMENITY_BANK: str = "27499"
+            """Comenity Bank, Wilmington"""
+
+            COMMUNITY_BANK_DELAWARE: str = "58311"
+            """Community Bank Delaware, Lewes"""
+
+            COUNTY_BANK: str = "33009"
+            """County Bank, Rehoboth Beach"""
+
+            DEUTSCHE_BANK_TRUST_COMPANY_DELAWARE: str = "26392"
+            """Deutsche Bank Trust Company Delaware, Newark"""
+
+            HSBC_TRUST_COMPANY_DELAWARE_NATIONAL_ASSOCIATION: str = "58188"
+            """HSBC Trust Company (Delaware), National Association, Wilmington"""
+
+            PNC_BANK_NATIONAL_ASSOCIATION: str = "6384"
+            """PNC Bank, National Association, Wilmington"""
+
+            SANTANDER_BANK_NA: str = "29950"
+            """Santander Bank, N.A., Wilmington"""
+
+            STIFEL_TRUST_COMPANY_DELAWARE_NATIONAL_ASSOCIATION: str = "59043"
+            """Stifel Trust Company Delaware, National Association, Greenville"""
+
+            TD_BANK_USA_NATIONAL_ASSOCIATION: str = "33947"
+            """TD Bank USA, National Association, Wilmington"""
+
+            TD_BANK_NATIONAL_ASSOCIATION: str = "18409"
+            """TD Bank, National Association, Wilmington"""
+
+            WILMINGTON_SAVINGS_FUND_SOCIETY_FSB: str = "17838"
+            """Wilmington Savings Fund Society, FSB, Wilmington"""
+
+            WILMINGTON_TRUST_NATIONAL_ASSOCIATION: str = "34069"
+            """Wilmington Trust, National Association, Wilmington"""
+
+        class DistrictOfColumbia(System.Object):
+            """Banks headquartered in District Of Columbia."""
+
+            CITY_FIRST_BANK_NATIONAL_ASSOCIATION: str = "34352"
+            """City First Bank, National Association, Washington"""
+
+            FOUNDERS_BANK: str = "59193"
+            """Founders Bank, Washington"""
+
+            INDUSTRIAL_BANK: str = "14679"
+            """Industrial Bank, Washington"""
+
+            THE_NATIONAL_CAPITAL_BANK_OF_WASHINGTON: str = "2093"
+            """The National Capital Bank of Washington, Washington"""
+
+        class FederatedStatesOfMicronesia(System.Object):
+            """Banks headquartered in Federated States Of Micronesia."""
+
+            BANK_OF_THE_FEDERATED_STATES_OF_MICRONESIA: str = "26539"
+            """Bank of the Federated States of Micronesia, Kolonia"""
+
+        class Florida(System.Object):
+            """Banks headquartered in Florida."""
+
+            AMERANT_BANK_NATIONAL_ASSOCIATION: str = "22953"
+            """Amerant Bank, National Association, Coral Gables"""
+
+            ANCHOR_BANK: str = "57931"
+            """Anchor Bank, Palm Beach Gardens"""
+
+            AXIOM_BANK_NATIONAL_ASSOCIATION: str = "31390"
+            """Axiom Bank, National Association, Maitland"""
+
+            BANCO_DO_BRASIL_AMERICAS: str = "26725"
+            """Banco do Brasil Americas, Miami"""
+
+            BANESCO_USA: str = "57815"
+            """Banesco USA, Miami"""
+
+            BANK_OF_BELLE_GLADE: str = "18930"
+            """Bank of Belle Glade, Belle Glade"""
+
+            BANK_OF_CENTRAL_FLORIDA: str = "58479"
+            """Bank of Central Florida, Lakeland"""
+
+            BANK_OF_PENSACOLA: str = "21284"
+            """Bank of Pensacola, Pensacola"""
+
+            BANK_FLORIDA: str = "58537"
+            """BankFlorida, Dade City"""
+
+            BANK_MIAMI: str = "59354"
+            """BankMiami, Coral Gables"""
+
+            BANK_UNITED_NATIONAL_ASSOCIATION: str = "58979"
+            """BankUnited, National Association, Miami Lakes"""
+
+            BAY_FIRST_NATIONAL_BANK: str = "34997"
+            """BayFirst National Bank, Saint Petersburg"""
+
+            BRADESCO_BANK: str = "21265"
+            """Bradesco Bank, Coral Gables"""
+
+            BRANNEN_BANK: str = "5676"
+            """Brannen Bank, Inverness"""
+
+            CAPITAL_CITY_BANK: str = "9622"
+            """Capital City Bank, Tallahassee"""
+
+            CENTRAL_BANK: str = "58377"
+            """Central Bank, Tampa"""
+
+            CENTURY_BANK_OF_FLORIDA: str = "35558"
+            """Century Bank of Florida, Tampa"""
+
+            CITIZENS_BANK_AND_TRUST: str = "5673"
+            """Citizens Bank and Trust, Frostproof"""
+
+            CITY_NATIONAL_BANK_OF_FLORIDA: str = "20234"
+            """City National Bank of Florida, Miami"""
+
+            CLIMATE_FIRST_BANK: str = "59257"
+            """Climate First Bank, Saint Petersburg"""
+
+            COGENT_BANK: str = "34908"
+            """Cogent Bank, Orlando"""
+
+            COMMERCE_BANK_AND_TRUST: str = "57429"
+            """Commerce Bank & Trust, Winter Park"""
+
+            COMMUNITY_BANK_OF_THE_SOUTH: str = "35212"
+            """Community Bank of the South, Merritt Island"""
+
+            CREWS_BANK_AND_TRUST: str = "8021"
+            """Crews Bank & Trust, Wauchula"""
+
+            CYPRESS_BANK_AND_TRUST: str = "35506"
+            """Cypress Bank & Trust, Melbourne"""
+
+            DESJARDINS_BANK_NATIONAL_ASSOCIATION: str = "33565"
+            """Desjardins Bank, National Association, Hallandale"""
+
+            DLP_BANK: str = "17734"
+            """DLP Bank, Starke"""
+
+            EASTERN_NATIONAL_BANK: str = "20026"
+            """Eastern National Bank, Miami"""
+
+            ECHELON_BANK: str = "59377"
+            """Echelon Bank, Clearwater"""
+
+            EDISON_NATIONAL_BANK: str = "34489"
+            """Edison National Bank, Fort Myers"""
+
+            EMIGRANT_BANK: str = "57083"
+            """Emigrant Bank, Miami"""
+
+            EVER_BANK_NATIONAL_ASSOCIATION: str = "34775"
+            """EverBank, National Association, Jacksonville"""
+
+            EVERMORE_BANK: str = "59306"
+            """Evermore Bank, Fort Lauderdale"""
+
+            FIRST_BANK: str = "9620"
+            """First Bank, Clewiston"""
+
+            FIRST_COLONY_BANK_OF_FLORIDA: str = "58644"
+            """First Colony Bank of Florida, Maitland"""
+
+            FIRST_FEDERAL_BANK: str = "31313"
+            """First Federal Bank, Lake City"""
+
+            FIRST_NATIONAL_BANK_OF_PASCO: str = "26829"
+            """First National Bank of Pasco, Dade City"""
+
+            FIRST_NATIONAL_BANK_OF_WAUCHULA: str = "18136"
+            """First National Bank of Wauchula, Wauchula"""
+
+            FIRST_STATE_BANK: str = "17509"
+            """First State Bank, Key West"""
+
+            FLAGSHIP_BANK: str = "58113"
+            """Flagship Bank, Clearwater"""
+
+            FLORIDA_CAPITAL_BANK_NATIONAL_ASSOCIATION: str = "26323"
+            """Florida Capital Bank, National Association, Jacksonville"""
+
+            FNBT_BANK: str = "17580"
+            """FNBT BANK, Fort Walton Beach"""
+
+            GALA_BANK: str = "59358"
+            """Gala Bank, Ocala"""
+
+            GROVE_BANK_AND_TRUST: str = "8018"
+            """Grove Bank & Trust, Miami"""
+
+            GULF_ATLANTIC_BANK: str = "59181"
+            """Gulf Atlantic Bank, Key West"""
+
+            GULF_COAST_BUSINESS_BANK: str = "59281"
+            """Gulf Coast Business Bank, Fort Myers"""
+
+            GULFSIDE_BANK: str = "59140"
+            """Gulfside Bank, Sarasota"""
+
+            HELM_BANK_USA: str = "32718"
+            """Helm Bank USA, Miami"""
+
+            INTERAMERICAN_BANK_A_FSB: str = "31823"
+            """Interamerican Bank, A FSB, Miami"""
+
+            INTERNATIONAL_FINANCE_BANK: str = "24823"
+            """International Finance Bank, Miami"""
+
+            INTRACOASTAL_BANK: str = "58692"
+            """Intracoastal Bank, Palm Coast"""
+
+            LAFAYETTE_STATE_BANK: str = "16396"
+            """Lafayette State Bank, Mayo"""
+
+            LOCALITY_BANK: str = "59278"
+            """Locality Bank, Fort Lauderdale"""
+
+            MADISON_COUNTY_COMMUNITY_BANK: str = "35056"
+            """Madison County Community Bank, Madison"""
+
+            MAINSTREET_COMMUNITY_BANK_OF_FLORIDA: str = "57598"
+            """Mainstreet Community Bank of Florida, Deland"""
+
+            MARINE_BANK_AND_TRUST_COMPANY: str = "34233"
+            """Marine Bank & Trust Company, Vero Beach"""
+
+            MEMBERS_TRUST_COMPANY: str = "57470"
+            """Members Trust Company, Tampa"""
+
+            NATBANK_NATIONAL_ASSOCIATION: str = "33959"
+            """Natbank, National Association, Hollywood"""
+
+            NEWTEK_BANK_NATIONAL_ASSOCIATION: str = "18734"
+            """Newtek Bank, National Association, Miami"""
+
+            OCEAN_BANK: str = "24156"
+            """Ocean Bank, Miami"""
+
+            OPTIMUM_BANK: str = "35430"
+            """OptimumBank, Fort Lauderdale"""
+
+            PACIFIC_NATIONAL_BANK: str = "26299"
+            """Pacific National Bank, Miami"""
+
+            PARADISE_BANK: str = "58030"
+            """Paradise Bank, Boca Raton"""
+
+            PEOPLES_BANK_OF_GRACEVILLE: str = "21692"
+            """Peoples Bank of Graceville, Graceville"""
+
+            PIBANK_NATIONAL_ASSOCIATION: str = "25258"
+            """Pibank, National Association, Miami"""
+
+            PNB_COMMUNITY_BANK: str = "26687"
+            """PNB Community Bank, Niceville"""
+
+            PORTRAIT_BANK: str = "59381"
+            """Portrait Bank, Winter Park"""
+
+            PRIME_MERIDIAN_BANK: str = "58694"
+            """Prime Meridian Bank, Tallahassee"""
+
+            RAYMOND_JAMES_BANK: str = "33893"
+            """Raymond James Bank, Saint Petersburg"""
+
+            SANIBEL_CAPTIVA_COMMUNITY_BANK: str = "57425"
+            """Sanibel Captiva Community Bank, Sanibel"""
+
+            SEACOAST_NATIONAL_BANK: str = "131"
+            """Seacoast National Bank, Stuart"""
+
+            SOUTH_STATE_BANK_NATIONAL_ASSOCIATION: str = "33555"
+            """SouthState Bank, National Association, Winter Haven"""
+
+            SUNRISE_BANK: str = "58029"
+            """Sunrise Bank, Orlando"""
+
+            SUNSTATE_BANK: str = "34643"
+            """Sunstate Bank, Miami"""
+
+            SURETY_BANK: str = "33026"
+            """Surety Bank, Deland"""
+
+            TCM_BANK_NATIONAL_ASSOCIATION: str = "34535"
+            """TCM Bank, National Association, Tampa"""
+
+            TERRABANK_NATIONAL_ASSOCIATION: str = "26442"
+            """Terrabank, National Association, Coral Gables"""
+
+            THE_BANK_OF_TAMPA: str = "21031"
+            """The Bank of Tampa, Tampa"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MOUNT_DORA: str = "3579"
+            """The First National Bank of Mount Dora, Mount Dora"""
+
+            THE_WARRINGTON_BANK: str = "17193"
+            """The Warrington Bank, Pensacola"""
+
+            US_CENTURY_BANK: str = "57369"
+            """U. S. Century Bank, Doral"""
+
+            UNITED_SOUTHERN_BANK: str = "15465"
+            """United Southern Bank, Umatilla"""
+
+            WATERFALL_BANK: str = "59265"
+            """Waterfall Bank, Clearwater"""
+
+        class Georgia(System.Object):
+            """Banks headquartered in Georgia."""
+
+            AB_AND_T: str = "35029"
+            """AB&T, Albany"""
+
+            ALTAMAHA_BANK_AND_TRUST_COMPANY: str = "19590"
+            """Altamaha Bank & Trust Company, Vidalia"""
+
+            AMERICAN_COMMERCE_BANK_NATIONAL_ASSOCIATION: str = "57686"
+            """American Commerce Bank, National Association, Bremen"""
+
+            AMERICAN_PRIDE_BANK: str = "58584"
+            """American Pride Bank, Macon"""
+
+            AMERIS_BANK: str = "20504"
+            """Ameris Bank, Atlanta"""
+
+            APEX_BANKING_COMPANY_OF_GEORGIA: str = "10074"
+            """Apex Banking Company of Georgia, Cleveland"""
+
+            BANK_OF_ALAPAHA: str = "155"
+            """Bank of Alapaha, Alapaha"""
+
+            BANK_OF_CAMILLA: str = "17190"
+            """Bank of Camilla, Camilla"""
+
+            BANK_OF_DADE: str = "17543"
+            """Bank of Dade, Trenton"""
+
+            BANK_OF_DAWSON: str = "876"
+            """Bank of Dawson, Dawson"""
+
+            BANK_OF_DUDLEY: str = "9068"
+            """Bank of Dudley, Dudley"""
+
+            BANK_OF_HANCOCK_COUNTY: str = "10057"
+            """Bank of Hancock County, Sparta"""
+
+            BANK_OF_HAZLEHURST: str = "149"
+            """Bank of Hazlehurst, Hazlehurst"""
+
+            BANK_OF_MADISON: str = "148"
+            """Bank of Madison, Madison"""
+
+            BANK_OF_MONTICELLO: str = "2145"
+            """Bank of Monticello, Monticello"""
+
+            BANK_OF_NEWINGTON: str = "5704"
+            """Bank of Newington, Newington"""
+
+            BANK_SOUTH: str = "16418"
+            """BankSouth, Greensboro"""
+
+            BARWICK_BANKING_COMPANY: str = "22205"
+            """Barwick Banking Company, Barwick"""
+
+            CARVER_STATE_BANK: str = "16584"
+            """Carver State Bank, Savannah"""
+
+            CENTURY_BANK_AND_TRUST: str = "147"
+            """Century Bank and Trust, Milledgeville"""
+
+            CIBC_NATIONAL_TRUST_COMPANY: str = "91325"
+            """CIBC National Trust Company, Atlanta"""
+
+            CITIZENS_BANK_OF_AMERICUS: str = "15477"
+            """Citizens Bank of Americus, Americus"""
+
+            CITIZENS_BANK_OF_THE_SOUTH: str = "19420"
+            """Citizens Bank of the South, Sandersville"""
+
+            CITIZENS_COMMUNITY_BANK: str = "12079"
+            """Citizens Community Bank, Hahira"""
+
+            CITIZENS_TRUST_BANK: str = "8033"
+            """Citizens Trust Bank, Atlanta"""
+
+            CLASSIC_CITY_BANK: str = "59219"
+            """Classic City Bank, Athens"""
+
+            COLONY_BANK: str = "22257"
+            """Colony Bank, Fitzgerald"""
+
+            COMMERCIAL_BANKING_COMPANY: str = "16246"
+            """Commercial Banking Company, Valdosta"""
+
+            COMMUNITY_BANK_OF_GEORGIA: str = "57579"
+            """Community Bank of Georgia, Baxley"""
+
+            COMMUNITY_BANK_OF_PICKENS_COUNTY: str = "35513"
+            """Community Bank of Pickens County, Jasper"""
+
+            COMMUNITY_BANKING_COMPANY: str = "34160"
+            """Community Banking Company, Fitzgerald"""
+
+            CRAFT_BANK: str = "59209"
+            """Craft Bank, Atlanta"""
+
+            DOUGLAS_NATIONAL_BANK: str = "57230"
+            """Douglas National Bank, Douglas"""
+
+            DURDEN_BANKING_COMPANY_INCORPORATED: str = "15336"
+            """Durden Banking Company, Incorporated, Twin City"""
+
+            EMBASSY_NATIONAL_BANK: str = "58413"
+            """Embassy National Bank, Lawrenceville"""
+
+            EXCHANGE_BANK: str = "160"
+            """Exchange Bank, Milledgeville"""
+
+            F_AND_M_BANK_AND_TRUST_COMPANY: str = "16916"
+            """F & M Bank and Trust Company, Manchester"""
+
+            F_AND_M_BANK: str = "16897"
+            """F&M Bank, Washington"""
+
+            FAMILY_BANK: str = "29357"
+            """Family Bank, Pelham"""
+
+            FARMERS_AND_MERCHANTS_BANK_EATONTON: str = "9069"
+            """Farmers & Merchants Bank, Eatonton"""
+
+            FARMERS_AND_MERCHANTS_BANK_LAKELAND: str = "5716"
+            """Farmers and Merchants Bank, Lakeland"""
+
+            FARMERS_AND_MERCHANTS_BANK_SYLVANIA: str = "16440"
+            """Farmers and Merchants Bank, Sylvania"""
+
+            FARMERS_STATE_BANK_DUBLIN: str = "19720"
+            """Farmers State Bank, Dublin"""
+
+            FARMERS_STATE_BANK_LINCOLNTON: str = "879"
+            """Farmers State Bank, Lincolnton"""
+
+            FIRST_AMERICAN_BANK_AND_TRUST_COMPANY: str = "16858"
+            """First American Bank and Trust Company, Athens"""
+
+            FIRST_BANK_OF_COASTAL_GEORGIA: str = "15580"
+            """First Bank of Coastal Georgia, Pembroke"""
+
+            FIRST_BANK_OF_PIKE: str = "9070"
+            """First Bank of Pike, Zebulon"""
+
+            FIRST_CENTURY_BANK_NATIONAL_ASSOCIATION: str = "57123"
+            """First Century Bank, National Association, Commerce"""
+
+            FIRST_CITY_BANK: str = "16281"
+            """First City Bank, Alpharetta"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_VALDOSTA: str = "29164"
+            """First Federal Savings and Loan Association of Valdosta, Valdosta"""
+
+            FIRST_NATIONAL_BANK_OF_COFFEE_COUNTY: str = "33506"
+            """First National Bank of Coffee County, Douglas"""
+
+            FIRST_NATIONAL_BANK_OF_DECATUR_COUNTY: str = "57694"
+            """First National Bank of Decatur County, Bainbridge"""
+
+            FIRST_NATIONAL_BANK_OF_GRIFFIN: str = "169"
+            """First National Bank of Griffin, Griffin"""
+
+            FIRST_NATIONAL_COMMUNITY_BANK: str = "22092"
+            """First National Community Bank, Chatsworth"""
+
+            FIRST_PEOPLES_BANK: str = "33010"
+            """First Peoples Bank, Pine Mountain"""
+
+            FIRST_PORT_CITY_BANK: str = "21784"
+            """First Port City Bank, Bainbridge"""
+
+            FIRST_SOUTHERN_BANK: str = "10055"
+            """First Southern Bank, Waycross"""
+
+            FIRST_STATE_BANK: str = "19163"
+            """First State Bank, Wrens"""
+
+            FIRST_STATE_BANK_OF_BLAKELY: str = "15496"
+            """First State Bank of Blakely, Blakely"""
+
+            FIRST_STATE_BANK_OF_RANDOLPH_COUNTY: str = "2157"
+            """First State Bank of Randolph County, Cuthbert"""
+
+            FLINT_COMMUNITY_BANK: str = "58074"
+            """Flint Community Bank, Albany"""
+
+            FNB_SOUTH: str = "17011"
+            """FNB SOUTH, Alma"""
+
+            GEORGIA_BANKING_COMPANY: str = "57071"
+            """Georgia Banking Company, Atlanta"""
+
+            GEORGIA_COMMUNITY_BANK: str = "35320"
+            """Georgia Community Bank, Albany"""
+
+            GEORGIA_FIRST_BANK: str = "889"
+            """Georgia First Bank, Soperton"""
+
+            GLENNVILLE_BANK: str = "9244"
+            """Glennville Bank, Glennville"""
+
+            GREAT_OAKS_BANK: str = "16780"
+            """Great Oaks Bank, Richmond Hill"""
+
+            GUARDIAN_BANK: str = "57127"
+            """Guardian Bank, Valdosta"""
+
+            LEGACY_STATE_BANK: str = "57882"
+            """Legacy State Bank, Loganville"""
+
+            LOYAL_TRUST_BANK: str = "59182"
+            """Loyal Trust Bank, Johns Creek"""
+
+            MAGNOLIA_STATE_BANK: str = "877"
+            """Magnolia State Bank, Eastman"""
+
+            METRO_CITY_BANK: str = "58181"
+            """Metro City Bank, Doraville"""
+
+            MOULTRIE_BANK_AND_TRUST: str = "59285"
+            """Moultrie Bank & Trust, Moultrie"""
+
+            MOUNT_VERNON_BANK: str = "8028"
+            """Mount Vernon Bank, Mount Vernon"""
+
+            NORTHEAST_GEORGIA_BANK: str = "15771"
+            """Northeast Georgia Bank, Lavonia"""
+
+            OCONEE_STATE_BANK: str = "18143"
+            """Oconee State Bank, Watkinsville"""
+
+            PEOPLES_BANK: str = "15216"
+            """Peoples Bank, Lyons"""
+
+            PEOPLES_BANK_AND_TRUST: str = "25795"
+            """Peoples Bank & Trust, Buford"""
+
+            PEOPLES_SOUTH_BANK: str = "21292"
+            """PeoplesSouth Bank, Colquitt"""
+
+            PINELAND_BANK: str = "15699"
+            """Pineland Bank, Alma"""
+
+            PLANTERS_AND_CITIZENS_BANK: str = "10072"
+            """Planters and Citizens Bank, Camilla"""
+
+            PLANTERS_FIRST_BANK: str = "9064"
+            """Planters First Bank, Cordele"""
+
+            PRIME_SOUTH_BANK: str = "5694"
+            """PrimeSouth Bank, Blackshear"""
+
+            PROMISE_ONE_BANK: str = "58657"
+            """PromiseOne Bank, Duluth"""
+
+            QUEENSBOROUGH_NATIONAL_BANK_AND_TRUST_COMPANY: str = "2138"
+            """Queensborough National Bank & Trust Company, Louisville"""
+
+            RABUN_COUNTY_BANK: str = "22138"
+            """Rabun County Bank, Clayton"""
+
+            RBC_BANK_GEORGIA_NATIONAL_ASSOCIATION: str = "26342"
+            """RBC Bank, (Georgia) National Association, Atlanta"""
+
+            RIVER_CITY_BANK: str = "58289"
+            """River City Bank, Rome"""
+
+            ROCHELLE_STATE_BANK: str = "16609"
+            """Rochelle State Bank, Rochelle"""
+
+            SOUTH_COAST_BANK_AND_TRUST: str = "16283"
+            """South Coast Bank & Trust, Brunswick"""
+
+            SOUTH_GEORGIA_BANK: str = "32532"
+            """South Georgia Bank, Glennville"""
+
+            SOUTH_GEORGIA_BANKING_COMPANY: str = "20198"
+            """South Georgia Banking Company, Omega"""
+
+            SOUTHEAST_FIRST_NATIONAL_BANK: str = "19819"
+            """Southeast First National Bank, Summerville"""
+
+            SOUTHEASTERN_BANK: str = "5685"
+            """Southeastern Bank, Darien"""
+
+            SUNMARK_COMMUNITY_BANK: str = "16825"
+            """Sunmark Community Bank, Perry"""
+
+            TALBOT_STATE_BANK: str = "178"
+            """Talbot State Bank, Woodland"""
+
+            THE_BANK_OF_EDISON: str = "5686"
+            """The Bank of Edison, Edison"""
+
+            THE_BANK_OF_LA_FAYETTE_GEORGIA: str = "9245"
+            """The Bank of LaFayette, Georgia, La Fayette"""
+
+            THE_CITIZENS_BANK_OF_COCHRAN: str = "16275"
+            """The Citizens Bank of Cochran, Cochran"""
+
+            THE_CITIZENS_BANK_OF_GEORGIA: str = "34229"
+            """The Citizens Bank of Georgia, Cumming"""
+
+            THE_CITIZENS_BANK_OF_SWAINSBORO: str = "11295"
+            """The Citizens Bank of Swainsboro, Swainsboro"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_QUITMAN: str = "14731"
+            """The Citizens National Bank of Quitman, Quitman"""
+
+            THE_CLAXTON_BANK: str = "15826"
+            """The Claxton Bank, Bellville"""
+
+            THE_COMMERCIAL_BANK: str = "175"
+            """The Commercial Bank, Crawford"""
+
+            THE_FARMERS_BANK: str = "5709"
+            """The Farmers Bank, Greensboro"""
+
+            THE_FIRST_NATIONAL_BANK_OF_WAYNESBORO: str = "2160"
+            """The First National Bank of Waynesboro, Waynesboro"""
+
+            THE_FOUR_COUNTY_BANK: str = "15904"
+            """The Four County Bank, Allentown"""
+
+            THE_GEO_D_WARTHEN_BANK: str = "2154"
+            """The Geo. D. Warthen Bank, Sandersville"""
+
+            THE_MERCHANTS_AND_CITIZENS_BANK: str = "183"
+            """The Merchants & Citizens Bank, Mcrae"""
+
+            THE_PEOPLES_BANK_EATONTON: str = "16152"
+            """The Peoples Bank, Eatonton"""
+
+            THE_PEOPLES_BANK_WILLACOOCHEE: str = "17073"
+            """The Peoples Bank, Willacoochee"""
+
+            THE_PEOPLES_BANK_OF_GEORGIA: str = "170"
+            """The Peoples Bank of Georgia, Talbotton"""
+
+            THE_SECURITY_STATE_BANK: str = "19680"
+            """The Security State Bank, Mcrae"""
+
+            THE_TRUST_BANK: str = "13832"
+            """The Trust Bank, Lenox"""
+
+            THOMASVILLE_NATIONAL_BANK: str = "34068"
+            """Thomasville National Bank, Thomasville"""
+
+            TOUCHMARK_NATIONAL_BANK: str = "58687"
+            """Touchmark National Bank, Alpharetta"""
+
+            UNITED_BANK: str = "172"
+            """United Bank, Zebulon"""
+
+            UNITED_NATIONAL_BANK: str = "35427"
+            """United National Bank, Cairo"""
+
+            VALLANT_BANK: str = "14065"
+            """Vallant Bank, Elberton"""
+
+            VIDALIA_FEDERAL_SAVINGS_BANK: str = "29772"
+            """Vidalia Federal Savings Bank, Vidalia"""
+
+            WAYCROSS_BANK_AND_TRUST: str = "27254"
+            """Waycross Bank & Trust, Waycross"""
+
+            WEST_CENTRAL_GEORGIA_BANK: str = "21526"
+            """West Central Georgia Bank, Thomaston"""
+
+        class Guam(System.Object):
+            """Banks headquartered in Guam."""
+
+            BANK_OF_GUAM: str = "20884"
+            """Bank of Guam, Hagatna"""
+
+            BANK_PACIFIC_LTD: str = "30692"
+            """BankPacific, Ltd, Hagatna"""
+
+        class Hawaii(System.Object):
+            """Banks headquartered in Hawaii."""
+
+            AMERICAN_SAVINGS_BANK_NATIONAL_ASSOCIATION: str = "32526"
+            """American Savings Bank, National Association, Honolulu"""
+
+            BANK_OF_HAWAII: str = "18053"
+            """Bank of Hawaii, Honolulu"""
+
+            CENTRAL_PACIFIC_BANK: str = "17308"
+            """Central Pacific Bank, Honolulu"""
+
+            FINANCE_FACTORS_LTD: str = "25158"
+            """Finance Factors, Ltd., Honolulu"""
+
+            FIRST_HAWAIIAN_BANK: str = "17985"
+            """First Hawaiian Bank, Honolulu"""
+
+            HAWAII_NATIONAL_BANK: str = "18296"
+            """Hawaii National Bank, Honolulu"""
+
+        class Idaho(System.Object):
+            """Banks headquartered in Idaho."""
+
+            BANKCDA: str = "57074"
+            """bankcda, Coeur D Alene"""
+
+            DL_EVANS_BANK: str = "11666"
+            """D. L. Evans Bank, Burley"""
+
+            FARMERS_BANK: str = "2850"
+            """Farmers Bank, Buhl"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_TWIN_FALLS: str = "28845"
+            """First Federal Savings Bank of Twin Falls, Twin Falls"""
+
+            IDAHO_FIRST_BANK: str = "58095"
+            """Idaho First Bank, Mccall"""
+
+            IDAHO_TRUST_BANK: str = "35103"
+            """Idaho Trust  Bank, Boise"""
+
+            IRELAND_BANK: str = "1237"
+            """Ireland Bank, Malad City"""
+
+            NORTHWEST_BANK: str = "58752"
+            """Northwest Bank, Boise"""
+
+            THE_BANK_OF_COMMERCE: str = "18059"
+            """The Bank of Commerce, Ammon"""
+
+            TWIN_RIVER_BANK: str = "22993"
+            """Twin River Bank, Lewiston"""
+
+        class Illinois(System.Object):
+            """Banks headquartered in Illinois."""
+
+            _1_NB_BANK: str = "14761"
+            """1NB Bank, Carlyle"""
+
+            _1_ST_COMMUNITY_BANK: str = "11706"
+            """1st Community Bank, Sherrard"""
+
+            _1_ST_EQUITY_BANK: str = "34393"
+            """1st Equity Bank, Skokie"""
+
+            ALBANK_NATIONAL_ASSOCIATION: str = "17230"
+            """Albank National Association, Chicago"""
+
+            ALLIANCE_COMMUNITY_BANK: str = "9631"
+            """Alliance Community Bank, Petersburg"""
+
+            AMALGAMATED_BANK_OF_CHICAGO: str = "903"
+            """Amalgamated Bank of Chicago, Chicago"""
+
+            AMERICAN_COMMERCIAL_BANK_AND_TRUST_NATIONAL_ASSOCIATION: str = "3719"
+            """American Commercial Bank & Trust, National Association, Ottawa"""
+
+            AMERICAN_COMMUNITY_BANK_AND_TRUST: str = "35412"
+            """American Community Bank & Trust, Woodstock"""
+
+            AMERICAN_EAGLE_BANK: str = "57359"
+            """American Eagle Bank, South Elgin"""
+
+            AMERICAN_METRO_BANK: str = "34334"
+            """American Metro Bank, Chicago"""
+
+            ANCHOR_STATE_BANK: str = "11681"
+            """Anchor State Bank, Anchor"""
+
+            ANDERSON_STATE_BANK: str = "10858"
+            """Anderson State Bank, Oneida"""
+
+            ANNA_STATE_BANK: str = "11682"
+            """Anna State Bank, Anna"""
+
+            ANNA_JONESBORO_NATIONAL_BANK: str = "3759"
+            """Anna-Jonesboro National Bank, Anna"""
+
+            APPLE_RIVER_STATE_BANK: str = "17453"
+            """Apple River State Bank, Apple River"""
+
+            BANK_AND_TRUST_COMPANY: str = "1047"
+            """Bank & Trust Company, Litchfield"""
+
+            BANK_OF_BELLEVILLE: str = "58114"
+            """Bank of Belleville, Belleville"""
+
+            BANK_OF_CALHOUN_COUNTY: str = "12549"
+            """Bank of Calhoun County, Hardin"""
+
+            BANK_OF_FARMINGTON: str = "11732"
+            """Bank of Farmington, Farmington"""
+
+            BANK_OF_KAMPSVILLE: str = "11750"
+            """Bank of Kampsville, Kampsville"""
+
+            BANK_OF_O_FALLON: str = "18171"
+            """Bank of O'Fallon, O'Fallon"""
+
+            BANK_OF_PONTIAC: str = "16982"
+            """Bank of Pontiac, Pontiac"""
+
+            BANK_OF_RANTOUL: str = "11711"
+            """Bank of Rantoul, Rantoul"""
+
+            BANK_OF_SPRINGFIELD: str = "19506"
+            """Bank of Springfield, Springfield"""
+
+            BANK_OF_STRONGHURST: str = "16413"
+            """Bank of Stronghurst, Stronghurst"""
+
+            BANK_OF_YATES_CITY: str = "11715"
+            """Bank of Yates City, Yates City"""
+
+            BANK_CHAMPAIGN_NATIONAL_ASSOCIATION: str = "22434"
+            """BankChampaign, National Association, Champaign"""
+
+            BANK_ORION: str = "11739"
+            """BankOrion, Orion"""
+
+            BANTERRA_BANK: str = "17514"
+            """Banterra Bank, Marion"""
+
+            BARRINGTON_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "34395"
+            """Barrington Bank & Trust Company, National Association, Barrington"""
+
+            BEARDSTOWN_SAVINGS_SB: str = "30043"
+            """Beardstown Savings s.b., Beardstown"""
+
+            BELMONT_BANK_AND_TRUST_COMPANY: str = "58165"
+            """Belmont Bank & Trust Company, Chicago"""
+
+            BETTER_BANKS: str = "1808"
+            """Better Banks, Peoria"""
+
+            BEVERLY_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "57701"
+            """Beverly Bank & Trust Company, National Association, Chicago"""
+
+            BLACKHAWK_BANK_AND_TRUST: str = "18402"
+            """Blackhawk Bank & Trust, Milan"""
+
+            BMO_BANK_NATIONAL_ASSOCIATION: str = "16571"
+            """BMO Bank National Association, Chicago"""
+
+            BMO_HARRIS_CENTRAL_NATIONAL_ASSOCIATION: str = "58216"
+            """BMO Harris Central National Association, Roselle"""
+
+            BRICKYARD_BANK: str = "22811"
+            """Brickyard Bank, Lincolnwood"""
+
+            BUCKLEY_STATE_BANK: str = "12121"
+            """Buckley State Bank, Buckley"""
+
+            BUENA_VISTA_NATIONAL_BANK: str = "10844"
+            """Buena Vista National Bank, Chester"""
+
+            BURLING_BANK: str = "27556"
+            """Burling Bank, Chicago"""
+
+            BUSEY_BANK: str = "16450"
+            """Busey Bank, Champaign"""
+
+            BYLINE_BANK: str = "20624"
+            """Byline Bank, Chicago"""
+
+            BYRON_BANK: str = "902"
+            """Byron Bank, Byron"""
+
+            CAMP_GROVE_STATE_BANK: str = "10471"
+            """Camp Grove State Bank, Camp Grove"""
+
+            CAMPUS_STATE_BANK: str = "10840"
+            """Campus State Bank, Campus"""
+
+            CARROLLTON_BANK: str = "12383"
+            """Carrollton Bank, Carrollton"""
+
+            CASEY_STATE_BANK: str = "3614"
+            """Casey State Bank, Casey"""
+
+            CENTRAL_BANK_ILLINOIS: str = "11670"
+            """Central Bank Illinois, Geneseo"""
+
+            CENTRAL_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28425"
+            """Central Federal Savings and Loan Association, Cicero"""
+
+            CENTRAL_SAVINGS_FSB: str = "27910"
+            """Central Savings, f.s.b., Chicago"""
+
+            CENTRAL_STATE_BANK: str = "8487"
+            """Central State Bank, Clayton"""
+
+            CHESTER_NATIONAL_BANK: str = "30220"
+            """Chester National Bank, Chester"""
+
+            CHESTERFIELD_STATE_BANK: str = "10872"
+            """Chesterfield State Bank, Chesterfield"""
+
+            CIBC_BANK_USA: str = "33306"
+            """CIBC Bank USA, Chicago"""
+
+            CIBM_BANK: str = "11729"
+            """CIBM Bank, Champaign"""
+
+            CITIZENS_BANK_OF_CHATSWORTH: str = "10843"
+            """Citizens Bank of Chatsworth, Chatsworth"""
+
+            CITIZENS_BANK_OF_EDINBURG: str = "20454"
+            """Citizens Bank of Edinburg, Edinburg"""
+
+            CITIZENS_COMMUNITY_BANK: str = "33753"
+            """Citizens Community Bank, Mascoutah"""
+
+            CITIZENS_NATIONAL_BANK_OF_ALBION: str = "15760"
+            """Citizens National Bank of Albion, Albion"""
+
+            CITIZENS_STATE_BANK: str = "10474"
+            """Citizens State Bank, Lena"""
+
+            CITIZENS_STATE_BANK_OF_MILFORD: str = "931"
+            """Citizens State Bank of Milford, Milford"""
+
+            CLAY_COUNTY_STATE_BANK: str = "10821"
+            """Clay County State Bank, Louisville"""
+
+            COLLINSVILLE_BUILDING_AND_LOAN_ASSOCIATION: str = "28103"
+            """Collinsville Building and Loan Association, Collinsville"""
+
+            COMMUNITY_BANK: str = "10791"
+            """Community Bank, Winslow"""
+
+            COMMUNITY_BANK_OF_EASTON: str = "18568"
+            """Community Bank of Easton, Easton"""
+
+            COMMUNITY_BANK_OF_ELMHURST: str = "33805"
+            """Community Bank of Elmhurst, Elmhurst"""
+
+            COMMUNITY_FIRST_BANK_OF_THE_HEARTLAND: str = "3846"
+            """Community First Bank of the Heartland, Mount Vernon"""
+
+            COMMUNITY_NATIONAL_BANK_IN_MONMOUTH: str = "19230"
+            """Community National Bank in Monmouth, Monmouth"""
+
+            COMMUNITY_PARTNERS_SAVINGS_BANK: str = "30819"
+            """Community Partners Savings Bank, Salem"""
+
+            COMMUNITY_SAVINGS_BANK: str = "28841"
+            """Community Savings Bank, Chicago"""
+
+            COMMUNITY_STATE_BANK: str = "23257"
+            """Community State Bank, Galva"""
+
+            COMMUNITY_STATE_BANK_OF_ROCK_FALLS: str = "21988"
+            """Community State Bank of Rock Falls, Rock Falls"""
+
+            CONSTITUTION_BANK_NATIONAL_ASSOCIATION: str = "16276"
+            """Constitution Bank, National Association, Hillsboro"""
+
+            CORNERSTONE_NATIONAL_BANK_AND_TRUST_COMPANY: str = "57061"
+            """Cornerstone National Bank & Trust Company, Palatine"""
+
+            COUNTRY_TRUST_BANK: str = "35602"
+            """Country Trust Bank, Bloomington"""
+
+            CROSSROADS_BANK: str = "21486"
+            """Crossroads Bank, Effingham"""
+
+            CRYSTAL_LAKE_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "34681"
+            """Crystal Lake Bank and Trust Company, National Association, Crystal Lake"""
+
+            DEVON_BANK: str = "16249"
+            """Devon Bank, Chicago"""
+
+            DEWEY_BANK: str = "10803"
+            """Dewey Bank, Dewey"""
+
+            DE_WITT_SAVINGS_BANK: str = "29535"
+            """DeWitt Savings Bank, Clinton"""
+
+            DIETERICH_BANK: str = "3787"
+            """Dieterich Bank, Effingham"""
+
+            DU_QUOIN_STATE_BANK: str = "10804"
+            """Du Quoin State Bank, Du Quoin"""
+
+            EAGLE_VALLEY_BANK: str = "10883"
+            """Eagle Valley Bank, Griggsville"""
+
+            EUREKA_SAVINGS_BANK: str = "28401"
+            """Eureka Savings Bank, La Salle"""
+
+            EXCHANGE_STATE_BANK: str = "12402"
+            """Exchange State Bank, Lanark"""
+
+            FAIRVIEW_STATE_BANKING_COMPANY: str = "11731"
+            """Fairview State Banking Company, Fairview"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_HUTSONVILLE: str = "10469"
+            """Farmers & Merchants Bank of Hutsonville, Hutsonville"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_BUSHNELL: str = "11324"
+            """Farmers and Merchants State Bank of Bushnell, Bushnell"""
+
+            FARMERS_NATIONAL_BANK: str = "3732"
+            """Farmers National Bank, Prophetstown"""
+
+            FARMERS_STATE_BANK_ELMWOOD: str = "12107"
+            """Farmers State Bank, Elmwood"""
+
+            FARMERS_STATE_BANK_PITTSFIELD: str = "11307"
+            """Farmers State Bank, Pittsfield"""
+
+            FARMERS_STATE_BANK_AND_TRUST_CO: str = "10458"
+            """Farmers State Bank & Trust Co., Mount Sterling"""
+
+            FARMERS_STATE_BANK_OF_ALTO_PASS_ILL: str = "11299"
+            """Farmers State Bank of Alto Pass, Ill., Alto Pass"""
+
+            FARMERS_STATE_BANK_OF_EMDEN: str = "10077"
+            """Farmers State Bank of Emden, Emden"""
+
+            FARMERS_STATE_BANK_OF_HOFFMAN: str = "9259"
+            """Farmers State Bank of Hoffman, Hoffman"""
+
+            FARMERS_STATE_BANK_OF_MEDORA: str = "13902"
+            """Farmers State Bank of Medora, Medora"""
+
+            FARMERS_STATE_BANK_OF_WESTERN_ILLINOIS: str = "11680"
+            """Farmers State Bank of Western Illinois, Alpha"""
+
+            FCB_BANKS: str = "33005"
+            """FCB Banks, Collinsville"""
+
+            FEDERATED_BANK: str = "10464"
+            """Federated Bank, Onarga"""
+
+            FIDELITY_BANK: str = "5753"
+            """Fidelity Bank, Savanna"""
+
+            FIRST_AMERICAN_BANK: str = "3657"
+            """First American Bank, Elk Grove Village"""
+
+            FIRST_BANK_AND_TRUST_COMPANY_OF_ILLINOIS: str = "18641"
+            """First Bank and Trust Company of Illinois, Palatine"""
+
+            FIRST_BANK_CHICAGO: str = "17470"
+            """First Bank Chicago, Highland Park"""
+
+            FIRST_BANK_OF_MANHATTAN: str = "3702"
+            """First Bank of Manhattan, Manhattan"""
+
+            FIRST_BANKERS_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "16501"
+            """First Bankers Trust Company, National Association, Quincy"""
+
+            FIRST_COMMUNITY_BANK_AND_TRUST: str = "15913"
+            """First Community Bank and Trust, Beecher"""
+
+            FIRST_COMMUNITY_BANK_OF_HILLSBORO: str = "34752"
+            """First Community Bank of Hillsboro, Hillsboro"""
+
+            FIRST_COMMUNITY_BANK_OF_MOULTRIE_COUNTY: str = "3745"
+            """First Community Bank of Moultrie County, Sullivan"""
+
+            FIRST_COMMUNITY_BANK_XENIA_FLORA: str = "3850"
+            """First Community Bank, Xenia-Flora, Xenia"""
+
+            FIRST_EAGLE_BANK: str = "25883"
+            """First Eagle  Bank, Chicago"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_CENTRAL_ILLINOIS_SB: str = "29645"
+            """First Federal Savings and Loan Association of Central Illinois, S.B., Shelbyville"""
+
+            FIRST_FEDERAL_SAVINGS_BANK: str = "28924"
+            """First Federal Savings Bank, Ottawa"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_CHAMPAIGN_URBANA: str = "28445"
+            """First Federal Savings Bank of Champaign Urbana, Champaign"""
+
+            FIRST_FSB_OF_MASCOUTAH: str = "30969"
+            """First FSB of Mascoutah, Mascoutah"""
+
+            FIRST_MID_BANK_AND_TRUST_NATIONAL_ASSOCIATION: str = "3705"
+            """First Mid Bank & Trust, National Association, Mattoon"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_COMPANY: str = "3639"
+            """First National Bank & Trust Company, Clinton"""
+
+            FIRST_NATIONAL_BANK_IN_OLNEY: str = "14567"
+            """First National Bank in Olney, Olney"""
+
+            FIRST_NATIONAL_BANK_IN_PINCKNEYVILLE: str = "13813"
+            """First National Bank in Pinckneyville, Pinckneyville"""
+
+            FIRST_NATIONAL_BANK_IN_TAYLORVILLE: str = "17572"
+            """First National Bank in Taylorville, Taylorville"""
+
+            FIRST_NATIONAL_BANK_OF_BROOKFIELD: str = "18564"
+            """First National Bank of Brookfield, Brookfield"""
+
+            FIRST_NATIONAL_BANK_OF_NOKOMIS: str = "15763"
+            """FIRST NATIONAL BANK OF NOKOMIS, Nokomis"""
+
+            FIRST_NATIONAL_BANK_OF_PANA: str = "3720"
+            """First National Bank of Pana, Pana"""
+
+            FIRST_NATIONAL_BANK_OF_STEELEVILLE: str = "1049"
+            """First National Bank of Steeleville, Steeleville"""
+
+            FIRST_NATIONAL_BANK_OF_WATERLOO: str = "3842"
+            """First National Bank of Waterloo, Waterloo"""
+
+            FIRST_NATIONS_BANK: str = "22282"
+            """First Nations Bank, Chicago"""
+
+            FIRST_NEIGHBOR_BANK_NATIONAL_ASSOCIATION: str = "3747"
+            """First Neighbor Bank, National Association, Toledo"""
+
+            FIRST_ROBINSON_SAVINGS_BANK_NATIONAL_ASSOCIATION: str = "28105"
+            """First Robinson Savings Bank, National Association, Robinson"""
+
+            FIRST_SAVINGS_BANK_OF_HEGEWISCH: str = "29809"
+            """First Savings Bank of Hegewisch, Chicago"""
+
+            FIRST_SECURE_BANK_AND_TRUST_CO: str = "22536"
+            """First Secure Bank and Trust Co., Palos Hills"""
+
+            FIRST_SECURE_COMMUNITY_BANK: str = "35223"
+            """First Secure Community Bank, Sugar Grove"""
+
+            FIRST_SECURE_STATE_BANK: str = "22971"
+            """First Secure State Bank, Wonder Lake"""
+
+            FIRST_SECURITY_BANK: str = "3698"
+            """First Security Bank, Mackinaw"""
+
+            FIRST_SOUTHERN_BANK: str = "15565"
+            """First Southern Bank, Marion"""
+
+            FIRST_STATE_BANK: str = "15752"
+            """First State Bank, Mendota"""
+
+            FIRST_STATE_BANK_AND_TRUST: str = "16332"
+            """First State Bank and Trust, Monticello"""
+
+            FIRST_STATE_BANK_OF_BEECHER_CITY: str = "10871"
+            """First State Bank of Beecher City, Beecher City"""
+
+            FIRST_STATE_BANK_OF_CAMPBELL_HILL: str = "10799"
+            """First State Bank of Campbell Hill, Campbell Hill"""
+
+            FIRST_STATE_BANK_OF_FORREST: str = "11669"
+            """First State Bank of Forrest, Forrest"""
+
+            FIRST_STATE_BANK_OF_OLMSTED: str = "10437"
+            """First State Bank of Olmsted, Olmsted"""
+
+            FIRST_STATE_BANK_OF_ST_PETER: str = "11302"
+            """First State Bank of St. Peter, Saint Peter"""
+
+            FIRST_STATE_BANK_OF_VAN_ORIN: str = "10809"
+            """First State Bank of Van Orin, Van Orin"""
+
+            FIRST_STATE_BANK_SHANNON_POLO: str = "1781"
+            """First State Bank Shannon-Polo, Shannon"""
+
+            FIRST_TRUST_BANK_OF_ILLINOIS: str = "34778"
+            """First Trust Bank of Illinois, Kankakee"""
+
+            FLANAGAN_STATE_BANK: str = "11734"
+            """Flanagan State Bank, Flanagan"""
+
+            FLORA_BANK_AND_TRUST: str = "22598"
+            """Flora Bank & Trust, Flora"""
+
+            FNBC_BANK_AND_TRUST: str = "11306"
+            """FNBC Bank & Trust, La Grange"""
+
+            FORESIGHT_BANK: str = "5749"
+            """Foresight Bank, Winnebago"""
+
+            FOREST_PARK_NATIONAL_BANK_AND_TRUST_COMPANY: str = "15945"
+            """Forest Park National Bank and Trust Company, Forest Park"""
+
+            FORTRESS_BANK: str = "9632"
+            """Fortress Bank, Peoria"""
+
+            FREDERICK_COMMUNITY_BANK_THE: str = "10446"
+            """Frederick Community Bank, The, Paxton"""
+
+            FW_BANK: str = "59195"
+            """FWBank, Chicago"""
+
+            GERMANTOWN_TRUST_AND_SAVINGS_BANK: str = "12113"
+            """Germantown Trust & Savings Bank, Breese"""
+
+            GN_BANK: str = "29399"
+            """GN Bank, Chicago"""
+
+            GOLD_COAST_BANK: str = "58556"
+            """Gold Coast Bank, Chicago"""
+
+            GOODFIELD_STATE_BANK: str = "11699"
+            """Goodfield State Bank, Goodfield"""
+
+            GRAND_RIDGE_NATIONAL_BANK: str = "3674"
+            """Grand Ridge National Bank, Wheaton"""
+
+            GRAND_RIVERS_COMMUNITY_BANK: str = "10816"
+            """Grand Rivers Community Bank, Grand Chain"""
+
+            GREAT_RIVERS_BANK: str = "3762"
+            """Great Rivers Bank, Barry"""
+
+            GRUNDY_BANK: str = "3713"
+            """Grundy Bank, Morris"""
+
+            HARTSBURG_STATE_BANK: str = "11716"
+            """Hartsburg State Bank, Hartsburg"""
+
+            HEARTLAND_BANK_AND_TRUST_COMPANY: str = "20369"
+            """Heartland Bank and Trust Company, Bloomington"""
+
+            HERITAGE_BANK_OF_SCHAUMBURG: str = "21721"
+            """Heritage Bank of Schaumburg, Schaumburg"""
+
+            HICKORY_POINT_BANK_AND_TRUST: str = "22874"
+            """Hickory Point Bank and Trust, Decatur"""
+
+            HINSDALE_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "33849"
+            """Hinsdale Bank & Trust Company, National Association, Hinsdale"""
+
+            HOLCOMB_BANK: str = "9080"
+            """Holcomb Bank, Rochelle"""
+
+            HOME_STATE_BANK_NATIONAL_ASSOCIATION: str = "12815"
+            """Home State Bank, National Association, Crystal Lake"""
+
+            HOMETOWN_NATIONAL_BANK: str = "3691"
+            """Hometown National Bank, La Salle"""
+
+            HOYNE_SAVINGS_BANK: str = "28747"
+            """Hoyne Savings Bank, Chicago"""
+
+            ILLINI_STATE_BANK: str = "10788"
+            """Illini State Bank, Oglesby"""
+
+            INB_NATIONAL_ASSOCIATION: str = "3664"
+            """INB, National Association, Springfield"""
+
+            INTERNATIONAL_BANK_OF_CHICAGO: str = "33708"
+            """International Bank of Chicago, Chicago"""
+
+            IPAVA_STATE_BANK: str = "10473"
+            """Ipava State Bank, Lewistown"""
+
+            IROQUOIS_FARMERS_STATE_BANK: str = "11746"
+            """Iroquois Farmers State Bank, Iroquois"""
+
+            ITASCA_BANK_AND_TRUST_CO: str = "16666"
+            """Itasca Bank & Trust Co., Itasca"""
+
+            JERSEY_STATE_BANK: str = "12384"
+            """Jersey State Bank, Jerseyville"""
+
+            KINMUNDY_BANK: str = "3805"
+            """Kinmundy Bank, Kinmundy"""
+
+            LA_SALLE_STATE_BANK: str = "12410"
+            """La Salle State Bank, La Salle"""
+
+            LAKE_FOREST_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "27589"
+            """Lake Forest Bank & Trust Company, National Association, Lake Forest"""
+
+            LAKESIDE_BANK: str = "19573"
+            """Lakeside Bank, Chicago"""
+
+            LEGENCE_BANK: str = "10886"
+            """Legence Bank, Eldorado"""
+
+            LIBERTY_BANK: str = "11719"
+            """Liberty Bank, Liberty"""
+
+            LIBERTY_BANK_FOR_SAVINGS: str = "29009"
+            """Liberty Bank for Savings, Chicago"""
+
+            LIBERTYVILLE_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "34073"
+            """Libertyville Bank & Trust Company, National Association, Libertyville"""
+
+            LISLE_SAVINGS_BANK: str = "29800"
+            """Lisle Savings Bank, Lisle"""
+
+            LONGVIEW_BANK: str = "1786"
+            """Longview Bank, Ogden"""
+
+            LONGVIEW_COMMUNITY_BANK: str = "11319"
+            """Longview Community Bank, Mount Pulaski"""
+
+            MARQUETTE_BANK: str = "16250"
+            """Marquette Bank, Chicago"""
+
+            MARSEILLES_BANK: str = "16318"
+            """Marseilles Bank, Marseilles"""
+
+            MASON_CITY_NATIONAL_BANK: str = "16198"
+            """Mason City National Bank, Mason City"""
+
+            MID_AMERICA_NATIONAL_BANK: str = "3612"
+            """MidAmerica National Bank, Canton"""
+
+            MIDLAND_COMMUNITY_BANK: str = "19796"
+            """Midland Community Bank, Kincaid"""
+
+            MIDLAND_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29980"
+            """Midland Federal Savings and Loan Association, Bridgeview"""
+
+            MIDLAND_STATES_BANK: str = "1040"
+            """Midland States Bank, Effingham"""
+
+            MIDWEST_BANK: str = "3711"
+            """Midwest Bank, Monmouth"""
+
+            MIDWEST_NATIONAL_BANK: str = "3834"
+            """Midwest National Bank, Sandoval"""
+
+            MILFORD_BUILDING_AND_LOAN_ASSOCIATION: str = "30152"
+            """Milford Building and Loan Association, Milford"""
+
+            MILLEDGEVILLE_STATE_BANK: str = "15873"
+            """Milledgeville State Bank, Milledgeville"""
+
+            MILLENNIUM_BANK: str = "58348"
+            """Millennium Bank, Des Plaines"""
+
+            MORTON_COMMUNITY_BANK: str = "18429"
+            """Morton Community Bank, Morton"""
+
+            MUNICIPAL_TRUST_AND_SAVINGS_BANK: str = "23546"
+            """Municipal Trust and Savings Bank, Bourbonnais"""
+
+            MURPHY_WALL_STATE_BANK_AND_TRUST_COMPANY: str = "10860"
+            """Murphy-Wall State Bank and Trust Company, Pinckneyville"""
+
+            MUTUAL_FEDERAL_BANK: str = "28302"
+            """Mutual Federal Bank, Chicago"""
+
+            NASHVILLE_SAVINGS_BANK: str = "29677"
+            """Nashville Savings Bank, Nashville"""
+
+            NATIONAL_BANK_OF_ST_ANNE: str = "16752"
+            """National Bank of St. Anne, St. Anne"""
+
+            NORTH_CENTRAL_BANK: str = "17241"
+            """North Central Bank, Hennepin"""
+
+            NORTH_COUNTY_SAVINGS_BANK: str = "30656"
+            """North County Savings Bank, Red Bud"""
+
+            NORTH_SHORE_TRUST_AND_SAVINGS: str = "27683"
+            """North Shore Trust and Savings, Waukegan"""
+
+            NORTH_SIDE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_CHICAGO: str = "29449"
+            """North Side Federal Savings and Loan Association of Chicago, Chicago"""
+
+            NORTHBROOK_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "57082"
+            """Northbrook Bank and Trust Company, National Association, Northbrook"""
+
+            OLD_PLANK_TRAIL_COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "58314"
+            """Old Plank Trail Community Bank, National Association, New Lenox"""
+
+            OLD_SECOND_NATIONAL_BANK: str = "3603"
+            """Old Second National Bank, Aurora"""
+
+            OSB_COMMUNITY_BANK: str = "27989"
+            """OSB Community Bank, Ottawa"""
+
+            PAN_AMERICAN_BANK_AND_TRUST: str = "34108"
+            """Pan American Bank & Trust, Melrose Park"""
+
+            PARKWAY_BANK_AND_TRUST_COMPANY: str = "19008"
+            """Parkway Bank and Trust Company, Harwood Heights"""
+
+            PEOPLE_FIRST_BANK: str = "58597"
+            """PeopleFirst Bank, Joliet"""
+
+            PEOPLES_BANK_AND_TRUST: str = "17320"
+            """Peoples Bank & Trust, Pana"""
+
+            PEOPLES_BANK_OF_KANKAKEE_COUNTY: str = "18566"
+            """Peoples Bank of Kankakee County, Bourbonnais"""
+
+            PEOPLES_BANK_OF_MACON: str = "19105"
+            """Peoples Bank of Macon, Macon"""
+
+            PEOPLES_NATIONAL_BANK_NA: str = "3809"
+            """Peoples National Bank , N.A., Mount Vernon"""
+
+            PEOPLES_NATIONAL_BANK_OF_KEWANEE: str = "926"
+            """Peoples National Bank of Kewanee, Kewanee"""
+
+            PEOPLES_STATE_BANK_OF_COLFAX: str = "10075"
+            """Peoples State Bank of Colfax, Colfax"""
+
+            PERU_FEDERAL_SAVINGS_BANK: str = "29384"
+            """Peru Federal Savings Bank, Peru"""
+
+            PETEFISH_SKILES_AND_CO: str = "10829"
+            """Petefish, Skiles & Co., Virginia"""
+
+            PHILO_EXCHANGE_BANK: str = "5722"
+            """Philo Exchange Bank, Philo"""
+
+            PRAIRIE_COMMUNITY_BANK: str = "34526"
+            """Prairie Community Bank, Marengo"""
+
+            PRAIRIE_STATE_BANK_AND_TRUST: str = "27362"
+            """Prairie State Bank and Trust, Springfield"""
+
+            PRINCEVILLE_STATE_BANK: str = "16900"
+            """Princeville State Bank, Princeville"""
+
+            PROSPECT_BANK: str = "3722"
+            """Prospect Bank, Paris"""
+
+            PROVIDENCE_BANK_AND_TRUST: str = "57754"
+            """Providence Bank & Trust, South Holland"""
+
+            RARITAN_STATE_BANK: str = "10438"
+            """Raritan State Bank, Raritan"""
+
+            REPUBLIC_BANK_OF_CHICAGO: str = "19333"
+            """Republic Bank of Chicago, Oak Brook"""
+
+            RESOURCE_BANK_NATIONAL_ASSOCIATION: str = "3701"
+            """Resource Bank, National Association, Dekalb"""
+
+            RUSHVILLE_STATE_BANK: str = "9265"
+            """Rushville State Bank, Rushville"""
+
+            SAINTE_MARIE_STATE_BANK: str = "12086"
+            """Sainte Marie State Bank, Sainte Marie"""
+
+            SAUK_VALLEY_BANK_AND_TRUST_COMPANY: str = "35131"
+            """Sauk Valley Bank & Trust Company, Sterling"""
+
+            SCHAUMBURG_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "57103"
+            """Schaumburg Bank & Trust Company, National Association, Schaumburg"""
+
+            SCOTT_STATE_BANK: str = "8491"
+            """Scott State Bank, Bethany"""
+
+            SECURITY_BANK_SB: str = "27723"
+            """Security Bank, s.b., Springfield"""
+
+            SECURITY_SAVINGS_BANK: str = "28925"
+            """Security Savings Bank, Monmouth"""
+
+            SERVBANK_NATIONAL_ASSOCIATION: str = "55130"
+            """Servbank, National Association, Oswego"""
+
+            SHELBY_COUNTY_STATE_BANK: str = "11702"
+            """Shelby County State Bank, Shelbyville"""
+
+            SMART_BIZ_BANK_NATIONAL_ASSOCIATION: str = "58158"
+            """SmartBiz Bank, National Association, Northbrook"""
+
+            SOLUTIONS_BANK: str = "11741"
+            """Solutions Bank, Forreston"""
+
+            SOUTHERN_ILLINOIS_BANK: str = "35229"
+            """Southern Illinois Bank, Johnston City"""
+
+            SOUTHERN_TRUST_BANK: str = "57897"
+            """SouthernTrust Bank, Marion"""
+
+            SPRING_VALLEY_CITY_BANK: str = "12087"
+            """Spring Valley City Bank, Spring Valley"""
+
+            ST_CHARLES_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "27052"
+            """St. Charles Bank & Trust Company, National Association, Saint Charles"""
+
+            STATE_BANK: str = "12706"
+            """State Bank, Waterloo"""
+
+            STATE_BANK_OF_BEMENT: str = "10855"
+            """State Bank of Bement, Bement"""
+
+            STATE_BANK_OF_CHERRY: str = "11686"
+            """State Bank of Cherry, Cherry"""
+
+            STATE_BANK_OF_GRAYMONT: str = "10434"
+            """State Bank of Graymont, Graymont"""
+
+            STATE_BANK_OF_INDIA: str = "33664"
+            """State Bank of India, Chicago"""
+
+            STATE_BANK_OF_INDUSTRY: str = "10820"
+            """State Bank of Industry, Industry"""
+
+            STATE_BANK_OF_NAUVOO: str = "13582"
+            """State Bank of Nauvoo, Nauvoo"""
+
+            STATE_BANK_OF_THE_LAKES_NATIONAL_ASSOCIATION: str = "5744"
+            """State Bank of the Lakes, National Association, Antioch"""
+
+            STATE_BANK_OF_TOULON: str = "12386"
+            """State Bank of Toulon, Toulon"""
+
+            STATE_BANK_OF_WHITTINGTON: str = "19689"
+            """State Bank of Whittington, Benton"""
+
+            STATE_STREET_BANK_AND_TRUST_COMPANY: str = "14857"
+            """State Street Bank and Trust Company, Quincy"""
+
+            STERLING_FEDERAL_BANK_FSB: str = "27664"
+            """Sterling Federal Bank, F.S.B., Sterling"""
+
+            STILLMAN_BANC_CORP_NA: str = "9263"
+            """Stillman BancCorp N.A., Stillman Valley"""
+
+            STREATOR_HOME_SAVINGS_BANK: str = "30357"
+            """Streator Home Savings Bank, Streator"""
+
+            TABLE_GROVE_STATE_BANK: str = "16394"
+            """Table Grove State Bank, Table Grove"""
+
+            TEUTOPOLIS_STATE_BANK: str = "11708"
+            """Teutopolis State Bank, Teutopolis"""
+
+            THE_ATLANTA_NATIONAL_BANK: str = "3601"
+            """The Atlanta National Bank, Atlanta"""
+
+            THE_BANK_OF_BOURBONNAIS: str = "21635"
+            """The Bank of Bourbonnais, Bourbonnais"""
+
+            THE_BANK_OF_HERRIN: str = "11310"
+            """The Bank of Herrin, Herrin"""
+
+            THE_BRADFORD_NATIONAL_BANK_OF_GREENVILLE: str = "3799"
+            """The Bradford National Bank of Greenville, Greenville"""
+
+            THE_CITY_NATIONAL_BANK_OF_METROPOLIS: str = "3814"
+            """The City National Bank of Metropolis, Metropolis"""
+
+            THE_CLAY_CITY_BANKING_CO: str = "10845"
+            """The Clay City Banking Co., Clay City"""
+
+            THE_FAIRFIELD_NATIONAL_BANK: str = "3792"
+            """The Fairfield National Bank, Fairfield"""
+
+            THE_FARMERS_AND_MERCHANTS_NATIONAL_BANK_OF_NASHVILLE: str = "3821"
+            """The Farmers and Merchants National Bank of Nashville, Nashville"""
+
+            THE_FARMERS_STATE_BANK_AND_TRUST_COMPANY: str = "11747"
+            """The Farmers State Bank and Trust Company, Jacksonville"""
+
+            THE_FEDERAL_SAVINGS_BANK: str = "35518"
+            """The Federal Savings Bank, Chicago"""
+
+            THE_FIRST_BANK_AND_TRUST_COMPANY_OF_MURPHYSBORO: str = "3818"
+            """The First Bank and Trust Company of Murphysboro, Murphysboro"""
+
+            THE_FIRST_NATIONAL_BANK_IN_AMBOY: str = "14674"
+            """The First National Bank in Amboy, Amboy"""
+
+            THE_FIRST_NATIONAL_BANK_IN_TREMONT: str = "3749"
+            """The First National Bank in Tremont, Tremont"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ALLENDALE: str = "12365"
+            """The First National Bank of Allendale, Allendale"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ARENZVILLE: str = "3599"
+            """The First National Bank of Arenzville, Arenzville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ASSUMPTION: str = "3600"
+            """The First National Bank of Assumption, Assumption"""
+
+            THE_FIRST_NATIONAL_BANK_OF_AVA: str = "3761"
+            """The First National Bank of Ava, Ava"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BROWNSTOWN: str = "3770"
+            """The First National Bank of Brownstown, Brownstown"""
+
+            THE_FIRST_NATIONAL_BANK_OF_CARMI: str = "3777"
+            """The First National Bank of Carmi, Carmi"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LACON: str = "3688"
+            """The First National Bank of Lacon, Lacon"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LITCHFIELD: str = "3807"
+            """The First National Bank of Litchfield, Litchfield"""
+
+            THE_FIRST_NATIONAL_BANK_OF_OKAWVILLE: str = "3826"
+            """The First National Bank of Okawville, Okawville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_RAYMOND: str = "3830"
+            """The First National Bank of Raymond, Raymond"""
+
+            THE_FIRST_NATIONAL_BANK_OF_SPARTA: str = "3837"
+            """The First National Bank of Sparta, Sparta"""
+
+            THE_FIRST_STATE_BANK_OF_DONGOLA: str = "12098"
+            """The First State Bank of Dongola, Dongola"""
+
+            THE_FIRST_TRUST_AND_SAVINGS_BANK_OF_WATSEKA_ILLINOIS: str = "10831"
+            """The First Trust and Savings Bank of Watseka, Illinois, Watseka"""
+
+            THE_FISHER_NATIONAL_BANK: str = "17513"
+            """The Fisher National Bank, Fisher"""
+
+            THE_FNB_COMMUNITY_BANK: str = "3840"
+            """The FNB Community Bank, Vandalia"""
+
+            THE_GERBER_STATE_BANK: str = "899"
+            """The Gerber State Bank, Argenta"""
+
+            THE_GRANVILLE_NATIONAL_BANK: str = "13983"
+            """The Granville National Bank, Granville"""
+
+            THE_HARVARD_STATE_BANK: str = "9079"
+            """The Harvard State Bank, Harvard"""
+
+            THE_HAVANA_NATIONAL_BANK: str = "3677"
+            """The Havana National Bank, Havana"""
+
+            THE_IUKA_STATE_BANK: str = "11317"
+            """The Iuka State Bank, Salem"""
+
+            THE_LITCHFIELD_NATIONAL_BANK: str = "3808"
+            """The Litchfield National Bank, Litchfield"""
+
+            THE_NORTHERN_TRUST_COMPANY: str = "913"
+            """The Northern Trust Company, Chicago"""
+
+            THE_OLD_EXCHANGE_NATIONAL_BANK_OF_OKAWVILLE: str = "3827"
+            """The Old Exchange National Bank of Okawville, Okawville"""
+
+            THE_PEOPLES_STATE_BANK_OF_NEWTON_ILLINOIS: str = "11722"
+            """The Peoples State Bank of Newton, Illinois, Newton"""
+
+            THE_STATE_BANK_OF_GENEVA: str = "925"
+            """The State Bank of Geneva, Geneva"""
+
+            THE_STATE_BANK_OF_PEARL_CITY: str = "16344"
+            """The State Bank of Pearl City, Pearl City"""
+
+            TIME_BANK: str = "34038"
+            """Time Bank, Park Ridge"""
+
+            TOMPKINS_STATE_BANK: str = "10849"
+            """Tompkins State Bank, Avon"""
+
+            TOWN_AND_COUNTRY_BANK_MIDWEST: str = "10460"
+            """Town & Country Bank Midwest, Quincy"""
+
+            TOWN_CENTER_BANK: str = "58214"
+            """Town Center Bank, Frankfort"""
+
+            TRUST_BANK: str = "14662"
+            """TrustBank, Olney"""
+
+            UNION_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "27767"
+            """Union Federal Savings and Loan Association, Kewanee"""
+
+            UNION_NATIONAL_BANK_AND_TRUST_COMPANY_OF_ELGIN: str = "3661"
+            """Union National Bank and Trust Company of Elgin, Elgin"""
+
+            UNION_SAVINGS_BANK: str = "29121"
+            """Union Savings Bank, Freeport"""
+
+            UNITED_COMMUNITY_BANK: str = "19459"
+            """United Community Bank, Chatham"""
+
+            UNITED_TRUST_BANK: str = "35393"
+            """United Trust Bank, Palos Heights"""
+
+            VERMILION_VALLEY_BANK: str = "11667"
+            """Vermilion Valley Bank, Piper City"""
+
+            VERMONT_STATE_BANK: str = "16585"
+            """Vermont State Bank, Vermont"""
+
+            VILLA_GROVE_STATE_BANK: str = "9273"
+            """Villa Grove State Bank, Villa Grove"""
+
+            VILLAGE_BANK_AND_TRUST_NATIONAL_ASSOCIATION: str = "34011"
+            """Village Bank and Trust, National Association, Arlington Heights"""
+
+            WARREN_BOYNTON_STATE_BANK: str = "11674"
+            """Warren-Boynton State Bank, New Berlin"""
+
+            WASHINGTON_SAVINGS_BANK: str = "29227"
+            """Washington Savings Bank, Effingham"""
+
+            WASHINGTON_STATE_BANK: str = "16667"
+            """Washington State Bank, Washington"""
+
+            WATERMAN_BANK: str = "10878"
+            """Waterman Bank, Waterman"""
+
+            WEST_CENTRAL_BANK: str = "10853"
+            """West Central Bank, Ashland"""
+
+            WHEATON_BANK_AND_TRUST_NATIONAL_ASSOCIATION: str = "33803"
+            """Wheaton Bank & Trust, National Association, Wheaton"""
+
+            WILLIAMSVILLE_STATE_BANK_AND_TRUST: str = "12388"
+            """Williamsville State Bank & Trust, Williamsville"""
+
+            WINTRUST_BANK_NATIONAL_ASSOCIATION: str = "33935"
+            """Wintrust Bank, National Association, Chicago"""
+
+        class Indiana(System.Object):
+            """Banks headquartered in Indiana."""
+
+            _1_ST_SOURCE_BANK: str = "9087"
+            """1st Source Bank, South Bend"""
+
+            ALLIANCE_BANK: str = "197"
+            """Alliance Bank, Francesville"""
+
+            AMERICAN_COMMUNITY_BANK_OF_INDIANA: str = "29878"
+            """American Community Bank of Indiana, Saint John"""
+
+            BANK_OF_WOLCOTT: str = "16201"
+            """Bank of Wolcott, Wolcott"""
+
+            BATH_STATE_BANK: str = "8035"
+            """Bath State Bank, Bath"""
+
+            BEDFORD_FEDERAL_SAVINGS_BANK: str = "29024"
+            """Bedford Federal Savings Bank, Bedford"""
+
+            BOONVILLE_FEDERAL_SAVINGS_BANK: str = "30128"
+            """Boonville Federal Savings Bank, Boonville"""
+
+            CENTIER_BANK: str = "12854"
+            """Centier Bank, Whiting"""
+
+            CENTRE_BANK: str = "15532"
+            """CentreBank, Veedersburg"""
+
+            CITIZENS_BANK: str = "9647"
+            """Citizens Bank, Mooresville"""
+
+            CITIZENS_STATE_BANK_OF_NEW_CASTLE_INDIANA: str = "13107"
+            """Citizens State Bank of New Castle, Indiana, New Castle"""
+
+            COMMUNITY_FIRST_BANK_OF_INDIANA: str = "57511"
+            """Community First Bank of Indiana, Kokomo"""
+
+            COMMUNITY_STATE_BANK_AVILLA: str = "14883"
+            """Community State Bank, Avilla"""
+
+            COMMUNITY_STATE_BANK_BROOK: str = "8067"
+            """Community State Bank, Brook"""
+
+            COMMUNITY_STATE_BANK_ROYAL_CENTER: str = "1839"
+            """Community State Bank, Royal Center"""
+
+            CROSSROADS_BANK: str = "29839"
+            """Crossroads Bank, Wabash"""
+
+            DE_MOTTE_STATE_BANK: str = "15883"
+            """DeMotte State Bank, Demotte"""
+
+            EVERENCE_TRUST_COMPANY: str = "57109"
+            """Everence Trust Company, Goshen"""
+
+            FARMERS_AND_MECHANICS_FEDERAL_SAVINGS_BANK: str = "28478"
+            """Farmers and Mechanics Federal Savings Bank, Bloomfield"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "13801"
+            """Farmers and Merchants Bank, Laotto"""
+
+            FARMERS_STATE_BANK: str = "14578"
+            """Farmers State Bank, Lagrange"""
+
+            FCN_BANK_NATIONAL_ASSOCIATION: str = "4319"
+            """FCN Bank, National Association, Brookville"""
+
+            FIRST_BANK_MIDWEST: str = "28533"
+            """First Bank Midwest, Frankfort"""
+
+            FIRST_BANK_OF_BERNE: str = "9288"
+            """First Bank of Berne, Berne"""
+
+            FIRST_FARMERS_BANK_AND_TRUST_CO: str = "12839"
+            """First Farmers Bank & Trust Co., Converse"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_GREENSBURG: str = "30058"
+            """First Federal Savings and Loan Association of Greensburg, Greensburg"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_EVANSVILLE: str = "29056"
+            """First Federal Savings Bank, Evansville"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_HUNTINGTON: str = "29690"
+            """First Federal Savings Bank, Huntington"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_ROCHESTER: str = "31516"
+            """First Federal Savings Bank, Rochester"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_ANGOLA: str = "28769"
+            """First Federal Savings Bank of Angola, Angola"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_WASHINGTON: str = "29710"
+            """First Federal Savings Bank of Washington, Washington"""
+
+            FIRST_FINANCIAL_BANK_NATIONAL_ASSOCIATION: str = "4382"
+            """First Financial Bank, National Association, Terre Haute"""
+
+            FIRST_HARRISON_BANK: str = "31223"
+            """First Harrison Bank, Corydon"""
+
+            FIRST_INTERNET_BANK_OF_INDIANA: str = "34607"
+            """First Internet Bank of Indiana, Fishers"""
+
+            FIRST_MERCHANTS_BANK: str = "4365"
+            """First Merchants Bank, Muncie"""
+
+            FIRST_NATIONAL_BANK: str = "4324"
+            """First National Bank, Cloverdale"""
+
+            FIRST_STATE_BANK_OF_MIDDLEBURY: str = "8745"
+            """First State Bank of Middlebury, Middlebury"""
+
+            FIRST_STATE_BANK_OF_PORTER: str = "12836"
+            """First State Bank of Porter, Porter"""
+
+            FOWLER_STATE_BANK: str = "1821"
+            """Fowler State Bank, Fowler"""
+
+            FREEDOM_BANK: str = "35221"
+            """Freedom Bank, Huntingburg"""
+
+            GENERATIONS_COMMUNITY_BANK: str = "59365"
+            """Generations Community Bank, Indianapolis"""
+
+            GERMAN_AMERICAN_BANK: str = "17393"
+            """German American Bank, Jasper"""
+
+            GRANT_COUNTY_STATE_BANK: str = "15687"
+            """Grant County State Bank, Swayzee"""
+
+            GREENFIELD_BANKING_COMPANY: str = "15632"
+            """Greenfield Banking Company, Greenfield"""
+
+            HENDRICKS_COUNTY_BANK_AND_TRUST_COMPANY: str = "13111"
+            """Hendricks County Bank and Trust Company, Brownsburg"""
+
+            HOME_BANK_SB: str = "29881"
+            """Home Bank SB, Martinsville"""
+
+            HOOSIER_HEARTLAND_STATE_BANK: str = "15566"
+            """Hoosier Heartland State Bank, Crawfordsville"""
+
+            HORIZON_BANK: str = "4360"
+            """Horizon Bank, Michigan City"""
+
+            JACKSON_COUNTY_BANK: str = "13109"
+            """Jackson County Bank, Seymour"""
+
+            KENTLAND_BANK: str = "13843"
+            """Kentland Bank, Kentland"""
+
+            LAKE_CITY_BANK: str = "13102"
+            """Lake City Bank, Warsaw"""
+
+            LNB_COMMUNITY_BANK: str = "4398"
+            """LNB Community Bank, Lynnville"""
+
+            LOGANSPORT_SAVINGS_BANK: str = "29907"
+            """Logansport Savings Bank, Logansport"""
+
+            MERCHANTS_BANK_OF_INDIANA: str = "8056"
+            """Merchants Bank of Indiana, Carmel"""
+
+            MUTUAL_SAVINGS_BANK: str = "27742"
+            """Mutual Savings Bank, Franklin"""
+
+            OLD_NATIONAL_BANK: str = "3832"
+            """Old National Bank, Evansville"""
+
+            OWEN_COUNTY_STATE_BANK: str = "13112"
+            """Owen County State Bank, Spencer"""
+
+            PEOPLES_BANK: str = "29523"
+            """Peoples Bank, Munster"""
+
+            PEOPLES_COMMUNITY_BANK_SB_OF_MONTICELLO_INDIANA: str = "30065"
+            """Peoples Community Bank SB of Monticello, Indiana, Monticello"""
+
+            PEOPLES_TRUST_AND_SAVINGS_BANK: str = "13113"
+            """Peoples Trust and Savings Bank, Boonville"""
+
+            SCOTTSBURG_BUILDING_AND_LOAN_ASSOCIATION: str = "29910"
+            """Scottsburg Building and Loan Association, Scottsburg"""
+
+            SECURITY_FEDERAL_SAVINGS_BANK: str = "28894"
+            """Security Federal Savings Bank, Logansport"""
+
+            SPENCER_COUNTY_BANK: str = "5786"
+            """Spencer County Bank, Santa Claus"""
+
+            SPRINGS_VALLEY_BANK_AND_TRUST_COMPANY: str = "4419"
+            """Springs Valley Bank & Trust Company, French Lick"""
+
+            STAR_FINANCIAL_BANK: str = "27235"
+            """STAR Financial Bank, Fort Wayne"""
+
+            STATE_BANK: str = "1833"
+            """State Bank, Brownsburg"""
+
+            THE_BIPPUS_STATE_BANK: str = "1847"
+            """The Bippus State Bank, Huntington"""
+
+            THE_CAMPBELL_AND_FETTER_BANK: str = "16757"
+            """The Campbell & Fetter Bank, Kendallville"""
+
+            THE_FAIRMOUNT_STATE_BANK: str = "1829"
+            """The Fairmount State Bank, Fairmount"""
+
+            THE_FARMERS_AND_MERCHANTS_BANK: str = "1843"
+            """The Farmers and Merchants Bank, Boswell"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MONTEREY: str = "4364"
+            """The First National Bank of Monterey, Monterey"""
+
+            THE_FOUNTAIN_TRUST_COMPANY: str = "5768"
+            """The Fountain Trust Company, Covington"""
+
+            THE_FRIENDSHIP_STATE_BANK: str = "13130"
+            """The Friendship State Bank, Friendship"""
+
+            THE_GARRETT_STATE_BANK: str = "8074"
+            """The Garrett State Bank, Garrett"""
+
+            THE_HOME_NATIONAL_BANK_OF_THORNTOWN: str = "14225"
+            """The Home National Bank of Thorntown, Thorntown"""
+
+            THE_HOMETOWN_SAVINGS_BANK: str = "17736"
+            """The Hometown Savings Bank, Terre Haute"""
+
+            THE_NAPOLEON_STATE_BANK: str = "10101"
+            """The Napoleon State Bank, Napoleon"""
+
+            THE_NATIONAL_BANK_OF_INDIANAPOLIS: str = "33860"
+            """The National Bank of Indianapolis, Indianapolis"""
+
+            THE_NEW_WASHINGTON_STATE_BANK: str = "13305"
+            """The New Washington State Bank, New Washington"""
+
+            THE_NORTH_SALEM_STATE_BANK: str = "8063"
+            """The North Salem State Bank, North Salem"""
+
+            THE_PEOPLES_BANK: str = "5779"
+            """The Peoples Bank, Brownstown"""
+
+            THE_PEOPLES_STATE_BANK: str = "14113"
+            """The Peoples State Bank, Ellettsville"""
+
+            THE_RIDDELL_NATIONAL_BANK: str = "4318"
+            """The Riddell National Bank, Brazil"""
+
+            TRI_COUNTY_BANK_AND_TRUST_COMPANY: str = "210"
+            """Tri-County Bank & Trust Company, Roachdale"""
+
+            UNION_SAVINGS_AND_LOAN_ASSOCIATION: str = "29933"
+            """Union Savings and Loan Association, Connersville"""
+
+            UNITED_FIDELITY_BANK_FSB: str = "29566"
+            """United Fidelity Bank, fsb, Evansville"""
+
+            WAYNE_BANK_AND_TRUST_CO: str = "1849"
+            """Wayne Bank and Trust Co., Richmond"""
+
+        class Iowa(System.Object):
+            """Banks headquartered in Iowa."""
+
+            AMERICAN_BANK_AND_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "34955"
+            """American Bank and Trust Company, National Association, Davenport"""
+
+            AMERICAN_BANK_NATIONAL_ASSOCIATION: str = "5800"
+            """American Bank, National Association, Le Mars"""
+
+            AMERICAN_STATE_BANK_OSCEOLA: str = "26944"
+            """American State Bank, Osceola"""
+
+            AMERICAN_STATE_BANK_SIOUX_CENTER: str = "228"
+            """American State Bank, Sioux Center"""
+
+            AMERICAN_TRUST_AND_SAVINGS_BANK: str = "10120"
+            """American Trust and Savings Bank, Lowden"""
+
+            ASHTON_STATE_BANK: str = "11343"
+            """Ashton State Bank, Ashton"""
+
+            ATKINS_SAVINGS_BANK_AND_TRUST: str = "9096"
+            """Atkins Savings Bank & Trust, Atkins"""
+
+            AUDUBON_STATE_BANK: str = "5814"
+            """Audubon State Bank, Audubon"""
+
+            AVAILA_BANK: str = "11771"
+            """Availa Bank, Carroll"""
+
+            BANK: str = "14291"
+            """BANK, Wapello"""
+
+            BANK_1_ST: str = "13816"
+            """Bank 1st, West Union"""
+
+            BANK_IOWA_WEST_DES_MOINES: str = "14521"
+            """Bank Iowa, West Des Moines"""
+
+            BANK_MIDWEST: str = "5170"
+            """Bank Midwest, Spirit Lake"""
+
+            BANK_PLUS: str = "16547"
+            """Bank Plus, Estherville"""
+
+            BANKERS_TRUST_COMPANY: str = "953"
+            """Bankers Trust Company, Des Moines"""
+
+            BANK_IOWA_CEDAR_RAPIDS: str = "17282"
+            """BankIowa, Cedar Rapids"""
+
+            BELLEVUE_STATE_BANK: str = "14415"
+            """Bellevue State Bank, Bellevue"""
+
+            BENTON_COUNTY_STATE_BANK: str = "13774"
+            """Benton County State Bank, Blairstown"""
+
+            BLUE_GRASS_SAVINGS_BANK: str = "13753"
+            """Blue Grass Savings Bank, Blue Grass"""
+
+            BOONE_BANK_AND_TRUST_CO: str = "33552"
+            """Boone Bank & Trust Co., Boone"""
+
+            BREDA_SAVINGS_BANK: str = "5792"
+            """Breda Savings Bank, Breda"""
+
+            BRIDGE_COMMUNITY_BANK: str = "12717"
+            """Bridge Community Bank, Mount Vernon"""
+
+            CAPRA_BANK: str = "16363"
+            """Capra Bank, Dubuque"""
+
+            CBI_BANK_AND_TRUST: str = "1552"
+            """CBI Bank & Trust, Muscatine"""
+
+            CEDAR_RAPIDS_BANK_AND_TRUST_COMPANY: str = "57244"
+            """Cedar Rapids Bank and Trust Company, Cedar Rapids"""
+
+            CEDAR_VALLEY_BANK_AND_TRUST: str = "14694"
+            """Cedar Valley Bank & Trust, La Porte City"""
+
+            CENTRAL_BANK: str = "15555"
+            """Central Bank, Storm Lake"""
+
+            CENTRAL_STATE_BANK_CORALVILLE: str = "1550"
+            """Central State Bank, Coralville"""
+
+            CENTRAL_STATE_BANK_STATE_CENTER: str = "10903"
+            """Central State Bank, State Center"""
+
+            CHARTER_BANK: str = "34686"
+            """Charter Bank, Johnston"""
+
+            CHELSEA_SAVINGS_BANK: str = "15427"
+            """Chelsea Savings Bank, Belle Plaine"""
+
+            CHEROKEE_STATE_BANK: str = "951"
+            """Cherokee State Bank, Cherokee"""
+
+            CITIZENS_FIRST_BANK: str = "35477"
+            """Citizens First Bank, Clinton"""
+
+            CITIZENS_SAVINGS_BANK_ANAMOSA: str = "10125"
+            """Citizens Savings Bank, Anamosa"""
+
+            CITIZENS_SAVINGS_BANK_MARSHALLTOWN: str = "14785"
+            """Citizens Savings Bank, Marshalltown"""
+
+            CITIZENS_SAVINGS_BANK_SPILLVILLE: str = "12128"
+            """Citizens Savings Bank, Spillville"""
+
+            CITIZENS_STATE_BANK_MONTICELLO: str = "9047"
+            """Citizens State Bank, Monticello"""
+
+            CITIZENS_STATE_BANK_SHELDON: str = "18356"
+            """Citizens State Bank, Sheldon"""
+
+            CITIZENS_STATE_BANK_WYOMING: str = "11759"
+            """Citizens State Bank, Wyoming"""
+
+            CITY_STATE_BANK: str = "14410"
+            """City State Bank, Norwalk"""
+
+            CLEAR_LAKE_BANK_AND_TRUST_COMPANY: str = "15690"
+            """Clear Lake Bank and Trust Company, Clear Lake"""
+
+            COMMERCIAL_SAVINGS_BANK: str = "231"
+            """Commercial Savings Bank, Carroll"""
+
+            COMMUNITY_BANK: str = "14649"
+            """Community Bank, Dunlap"""
+
+            COMMUNITY_BANK_AND_TRUST_COMPANY: str = "23189"
+            """Community Bank and Trust Company, Muscatine"""
+
+            COMMUNITY_BANK_OF_OELWEIN: str = "34857"
+            """Community Bank of Oelwein, Oelwein"""
+
+            COMMUNITY_SAVINGS_BANK: str = "14633"
+            """Community Savings Bank, Edgewood"""
+
+            COMMUNITY_STATE_BANK_ANKENY: str = "18272"
+            """Community State Bank, Ankeny"""
+
+            COMMUNITY_STATE_BANK_PATON: str = "17551"
+            """Community State Bank, Paton"""
+
+            COMMUNITY_STATE_BANK_SPENCER: str = "230"
+            """Community State Bank, Spencer"""
+
+            CONNECTION_BANK: str = "955"
+            """Connection Bank, Fort Madison"""
+
+            CORNERSTONE_BANK: str = "30067"
+            """Cornerstone Bank, Clarinda"""
+
+            CORYDON_STATE_BANK: str = "13616"
+            """Corydon State Bank, Corydon"""
+
+            CRAWFORD_COUNTY_TRUST_AND_SAVINGS_BANK: str = "8511"
+            """Crawford County Trust and Savings Bank, Denison"""
+
+            CUSB_BANK: str = "18443"
+            """CUSB Bank, Cresco"""
+
+            DANVILLE_STATE_SAVINGS_BANK: str = "14772"
+            """Danville State Savings Bank, New London"""
+
+            DECORAH_BANK_AND_TRUST_COMPANY: str = "15200"
+            """Decorah Bank & Trust Company, Decorah"""
+
+            DEFIANCE_STATE_BANK: str = "17450"
+            """Defiance State Bank, Defiance"""
+
+            DENVER_SAVINGS_BANK: str = "12857"
+            """Denver Savings Bank, Denver"""
+
+            DE_WITT_BANK_AND_TRUST_CO: str = "14705"
+            """DeWitt Bank & Trust Co., Dewitt"""
+
+            DYSART_STATE_BANK: str = "17441"
+            """Dysart State Bank, Dysart"""
+
+            EARLHAM_SAVINGS_BANK: str = "5796"
+            """Earlham Savings Bank, West Des Moines"""
+
+            EXCHANGE_STATE_BANK: str = "10132"
+            """Exchange State Bank, Ames"""
+
+            FAIRFAX_STATE_SAVINGS_BANK: str = "8083"
+            """Fairfax State Savings Bank, Fairfax"""
+
+            FARMERS_AND_MERCHANTS_BANK_AND_TRUST: str = "13737"
+            """Farmers & Merchants Bank & Trust, Burlington"""
+
+            FARMERS_AND_MERCHANTS_SAVINGS_BANK_MANCHESTER: str = "9298"
+            """Farmers & Merchants Savings Bank, Manchester"""
+
+            FARMERS_AND_MERCHANTS_SAVINGS_BANK_IOWA_CITY: str = "10492"
+            """Farmers and Merchants Savings Bank, Iowa City"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK: str = "15610"
+            """Farmers and Merchants State Bank, Winterset"""
+
+            FARMERS_SAVINGS_BANK_COLESBURG: str = "14807"
+            """Farmers Savings Bank, Colesburg"""
+
+            FARMERS_SAVINGS_BANK_FOSTORIA: str = "18284"
+            """Farmers Savings Bank, Fostoria"""
+
+            FARMERS_SAVINGS_BANK_MARSHALLTOWN: str = "18394"
+            """Farmers Savings Bank, Marshalltown"""
+
+            FARMERS_SAVINGS_BANK_WEVER: str = "10500"
+            """Farmers Savings Bank, Wever"""
+
+            FARMERS_SAVINGS_BANK_AND_TRUST: str = "10122"
+            """Farmers Savings Bank & Trust, Traer"""
+
+            FARMERS_STATE_BANK_ALGONA: str = "8760"
+            """Farmers State Bank, Algona"""
+
+            FARMERS_STATE_BANK_LAKE_VIEW: str = "9295"
+            """Farmers State Bank, Lake View"""
+
+            FARMERS_STATE_BANK_MARION: str = "14209"
+            """Farmers State Bank, Marion"""
+
+            FARMERS_STATE_BANK_NORTHWOOD: str = "5797"
+            """Farmers State Bank, Northwood"""
+
+            FARMERS_STATE_BANK_WATERLOO: str = "12855"
+            """Farmers State Bank, Waterloo"""
+
+            FARMERS_STATE_BANK_YALE: str = "9106"
+            """Farmers State Bank, Yale"""
+
+            FARMERS_TRUST_AND_SAVINGS_BANK_EARLING: str = "8510"
+            """Farmers Trust & Savings Bank, Earling"""
+
+            FARMERS_TRUST_AND_SAVINGS_BANK_WILLIAMSBURG: str = "14392"
+            """Farmers Trust & Savings Bank, Williamsburg"""
+
+            FARMERS_TRUST_AND_SAVINGS_BANK_BUFFALO_CENTER: str = "14195"
+            """Farmers Trust and Savings Bank, Buffalo Center"""
+
+            FARMERS_TRUST_AND_SAVINGS_BANK_SPENCER: str = "12858"
+            """Farmers Trust and Savings Bank, Spencer"""
+
+            FEDERATION_BANK: str = "14352"
+            """Federation Bank, Washington"""
+
+            FIDELITY_BANK_AND_TRUST: str = "14382"
+            """Fidelity Bank & Trust, Dubuque"""
+
+            FIRST_BANK: str = "4519"
+            """First Bank, Waverly"""
+
+            FIRST_BANK_HAMPTON: str = "4464"
+            """First Bank Hampton, Hampton"""
+
+            FIRST_CENTRAL_STATE_BANK: str = "19716"
+            """First Central State Bank, Dewitt"""
+
+            FIRST_CITIZENS_BANK: str = "4433"
+            """First Citizens Bank, Mason City"""
+
+            FIRST_COMMUNITY_BANK: str = "14904"
+            """First Community Bank, Newell"""
+
+            FIRST_HERITAGE_BANK: str = "4457"
+            """First Heritage Bank, Shenandoah"""
+
+            FIRST_IOWA_STATE_BANK: str = "14930"
+            """First Iowa State Bank, Albia"""
+
+            FIRST_NATIONAL_BANK_AMES_IOWA: str = "1545"
+            """First National Bank, Ames, Iowa, Ames"""
+
+            FIRST_SECURITY_BANK: str = "251"
+            """First Security Bank, Mapleton"""
+
+            FIRST_SECURITY_BANK_AND_TRUST_COMPANY: str = "1852"
+            """First Security Bank and Trust Company, Charles City"""
+
+            FIRST_SECURITY_STATE_BANK: str = "18508"
+            """First Security State Bank, Evansdale"""
+
+            FIRST_STATE_BANK_BELMOND: str = "5791"
+            """First State Bank, Belmond"""
+
+            FIRST_STATE_BANK_BRITT: str = "8522"
+            """First State Bank, Britt"""
+
+            FIRST_STATE_BANK_LYNNVILLE: str = "5821"
+            """First State Bank, Lynnville"""
+
+            FIRST_STATE_BANK_NASHUA: str = "57910"
+            """First State Bank, Nashua"""
+
+            FIRST_STATE_BANK_STUART: str = "16177"
+            """First State Bank, Stuart"""
+
+            FIRST_STATE_BANK_WEBSTER_CITY: str = "15321"
+            """First State Bank, Webster City"""
+
+            FIRST_TRUST_AND_SAVINGS_BANK: str = "8752"
+            """First Trust and Savings Bank, Wheatland"""
+
+            FIRST_WHITNEY_BANK_AND_TRUST: str = "254"
+            """First Whitney Bank and Trust, Atlantic"""
+
+            FNB_BANK: str = "954"
+            """FNB Bank, Fontanelle"""
+
+            FNNB_BANK: str = "4482"
+            """FNNB Bank, Newton"""
+
+            FREEDOM_FINANCIAL_BANK: str = "35031"
+            """Freedom Financial Bank, West Des Moines"""
+
+            FREEDOM_BANK: str = "11767"
+            """FreedomBank, Elkader"""
+
+            GLENWOOD_STATE_BANK: str = "956"
+            """Glenwood State Bank, Glenwood"""
+
+            GNB_BANK: str = "14079"
+            """GNB Bank, Grundy Center"""
+
+            GREAT_AMERICA_BANK_NATIONAL_ASSOCIATION: str = "18463"
+            """GreatAmerica Bank National Association, Cedar Rapids"""
+
+            GREEN_BELT_BANK_AND_TRUST: str = "26760"
+            """Green Belt Bank & Trust, Iowa Falls"""
+
+            GRINNELL_STATE_BANK: str = "11347"
+            """Grinnell State Bank, Grinnell"""
+
+            GUTHRIE_COUNTY_STATE_BANK: str = "226"
+            """Guthrie County State Bank, Panora"""
+
+            HARDIN_COUNTY_SAVINGS_BANK: str = "5817"
+            """Hardin County Savings Bank, Eldora"""
+
+            HEARTLAND_BANK: str = "14809"
+            """Heartland Bank, Somers"""
+
+            HIAWATHA_BANK_AND_TRUST_COMPANY: str = "34488"
+            """Hiawatha Bank and Trust Company, Hiawatha"""
+
+            HILLS_BANK_AND_TRUST_COMPANY: str = "14650"
+            """Hills Bank and Trust Company, Hills"""
+
+            HOME_STATE_BANK: str = "14867"
+            """Home State Bank, Jefferson"""
+
+            HOUGHTON_STATE_BANK: str = "15405"
+            """Houghton State Bank, Red Oak"""
+
+            IOWA_FALLS_STATE_BANK: str = "15311"
+            """Iowa Falls State Bank, Iowa Falls"""
+
+            IOWA_STATE_BANK_ALGONA: str = "950"
+            """Iowa State Bank, Algona"""
+
+            IOWA_STATE_BANK_CLARKSVILLE: str = "15947"
+            """Iowa State Bank, Clarksville"""
+
+            IOWA_STATE_BANK_DES_MOINES: str = "15808"
+            """Iowa State Bank, Des Moines"""
+
+            IOWA_STATE_BANK_HULL: str = "13953"
+            """Iowa State Bank, Hull"""
+
+            IOWA_STATE_BANK_SAC_CITY: str = "10497"
+            """Iowa State Bank, Sac City"""
+
+            IOWA_STATE_BANK_AND_TRUST_COMPANY_OF_FAIRFIELD_IOWA: str = "14413"
+            """Iowa State Bank and Trust Company of Fairfield, Iowa, Fairfield"""
+
+            IOWA_STATE_SAVINGS_BANK: str = "8751"
+            """Iowa State Savings Bank, Creston"""
+
+            IOWA_TRUST_AND_SAVINGS_BANK_EMMETSBURG: str = "18400"
+            """Iowa Trust & Savings Bank, Emmetsburg"""
+
+            IOWA_TRUST_AND_SAVINGS_BANK_CENTERVILLE: str = "1547"
+            """Iowa Trust and Savings Bank, Centerville"""
+
+            ITS_BANK: str = "34619"
+            """ITS Bank, Johnston"""
+
+            KERNDT_BROTHERS_SAVINGS_BANK: str = "8761"
+            """Kerndt Brothers Savings Bank, Lansing"""
+
+            KEYSTONE_SAVINGS_BANK: str = "17993"
+            """Keystone Savings Bank, Marengo"""
+
+            LEIGHTON_STATE_BANK: str = "10118"
+            """Leighton State Bank, Pella"""
+
+            LIBERTY_NATIONAL_BANK: str = "57505"
+            """Liberty National Bank, Sioux City"""
+
+            LIBERTY_TRUST_AND_SAVINGS_BANK: str = "10121"
+            """Liberty Trust & Savings Bank, Durant"""
+
+            LINCOLN_SAVINGS_BANK: str = "14207"
+            """Lincoln Savings Bank, Reinbeck"""
+
+            LOGAN_STATE_BANK: str = "4476"
+            """Logan State Bank, Logan"""
+
+            LUANA_SAVINGS_BANK: str = "253"
+            """Luana Savings Bank, Luana"""
+
+            MALVERN_BANK: str = "14230"
+            """Malvern Bank, Malvern"""
+
+            MANUFACTURERS_BANK_AND_TRUST_COMPANY: str = "16307"
+            """Manufacturers Bank & Trust Company, Forest City"""
+
+            MAQUOKETA_STATE_BANK: str = "17903"
+            """Maquoketa State Bank, Maquoketa"""
+
+            MARION_COUNTY_STATE_BANK: str = "15272"
+            """Marion County State Bank, Pella"""
+
+            MAXWELL_STATE_BANK: str = "15930"
+            """Maxwell State Bank, Maxwell"""
+
+            MAYNARD_SAVINGS_BANK: str = "13736"
+            """Maynard Savings Bank, Maynard"""
+
+            MEDIAPOLIS_SAVINGS_BANK: str = "15772"
+            """Mediapolis Savings Bank, Mediapolis"""
+
+            MIDSTATES_BANK_NATIONAL_ASSOCIATION: str = "4465"
+            """Midstates Bank, National Association, Council Bluffs"""
+
+            MIDWEST_HERITAGE_BANK_FSB: str = "4432"
+            """Midwest Heritage Bank, FSB, West Des Moines"""
+
+            MONTEZUMA_STATE_BANK: str = "1860"
+            """Montezuma State Bank, Montezuma"""
+
+            MOUNT_VERNON_BANK_AND_TRUST_COMPANY: str = "10494"
+            """Mount Vernon Bank and Trust Company, Mount Vernon"""
+
+            NEW_ALBIN_SAVINGS_BANK: str = "8506"
+            """New Albin Savings Bank, New Albin"""
+
+            NORTHEAST_SECURITY_BANK: str = "18384"
+            """Northeast Security Bank, Sumner"""
+
+            NORTH_STAR_BANK: str = "34407"
+            """NorthStar Bank, Estherville"""
+
+            NORTHWEST_BANK: str = "32647"
+            """Northwest Bank, Spencer"""
+
+            NSB_BANK: str = "8094"
+            """NSB Bank, Mason City"""
+
+            OHNWARD_BANK_AND_TRUST: str = "10111"
+            """Ohnward Bank & Trust, Cascade"""
+
+            PALO_SAVINGS_BANK: str = "13990"
+            """Palo Savings Bank, Palo"""
+
+            PCSB_BANK: str = "14522"
+            """PCSB Bank, Clarinda"""
+
+            PEOPLES_BANK_CLIVE: str = "14692"
+            """Peoples Bank, Clive"""
+
+            PEOPLES_BANK_ROCK_VALLEY: str = "16265"
+            """Peoples Bank, Rock Valley"""
+
+            PEOPLES_SAVINGS_BANK_INDIANOLA: str = "34973"
+            """Peoples Savings Bank, Indianola"""
+
+            PEOPLES_SAVINGS_BANK_WELLSBURG: str = "14868"
+            """Peoples Savings Bank, Wellsburg"""
+
+            PILOT_GROVE_SAVINGS_BANK: str = "9100"
+            """Pilot Grove Savings Bank, Pilot Grove"""
+
+            PINNACLE_BANK: str = "252"
+            """Pinnacle Bank, Marshalltown"""
+
+            PIONEER_BANK: str = "19540"
+            """Pioneer Bank, Sergeant Bluff"""
+
+            POCAHONTAS_STATE_BANK: str = "234"
+            """Pocahontas State Bank, Pocahontas"""
+
+            PREMIER_BANK_DUBUQUE: str = "34849"
+            """Premier Bank, Dubuque"""
+
+            PREMIER_BANK_ROCK_VALLEY: str = "34384"
+            """Premier Bank, Rock Valley"""
+
+            PRIMEBANK: str = "8101"
+            """Primebank, Le Mars"""
+
+            PRINCIPAL_BANK: str = "34507"
+            """Principal Bank, Des Moines"""
+
+            QUAD_CITY_BANK_AND_TRUST_COMPANY: str = "33867"
+            """Quad City Bank and Trust Company, Bettendorf"""
+
+            RACCOON_VALLEY_BANK: str = "245"
+            """Raccoon Valley Bank, Perry"""
+
+            READLYN_SAVINGS_BANK: str = "9300"
+            """Readlyn Savings Bank, Readlyn"""
+
+            RELIANCE_STATE_BANK: str = "9299"
+            """Reliance State Bank, Story City"""
+
+            ROLLING_HILLS_BANK_AND_TRUST: str = "15334"
+            """Rolling Hills Bank & Trust, Atlantic"""
+
+            SANBORN_SAVINGS_BANK: str = "11352"
+            """Sanborn Savings Bank, Sanborn"""
+
+            SAVINGS_BANK: str = "13735"
+            """Savings Bank, Primghar"""
+
+            SECURITY_SAVINGS_BANK: str = "14208"
+            """Security Savings Bank, Gowrie"""
+
+            SECURITY_STATE_BANK_ALGONA: str = "15839"
+            """Security State Bank, Algona"""
+
+            SECURITY_STATE_BANK_RADCLIFFE: str = "18448"
+            """Security State Bank, Radcliffe"""
+
+            SECURITY_STATE_BANK_SUTHERLAND: str = "235"
+            """Security State Bank, Sutherland"""
+
+            SECURITY_TRUST_AND_SAVINGS_BANK: str = "968"
+            """Security Trust & Savings Bank, Storm Lake"""
+
+            SIBLEY_STATE_BANK: str = "11764"
+            """Sibley State Bank, Sibley"""
+
+            SLOAN_STATE_BANK: str = "8507"
+            """Sloan State Bank, Sloan"""
+
+            SOLON_STATE_BANK: str = "232"
+            """Solon State Bank, Solon"""
+
+            SOUTH_OTTUMWA_SAVINGS_BANK: str = "9099"
+            """South Ottumwa Savings Bank, Ottumwa"""
+
+            SOUTH_STORY_BANK_AND_TRUST: str = "17348"
+            """South Story Bank & Trust, Slater"""
+
+            ST_ANSGAR_STATE_BANK: str = "17259"
+            """St. Ansgar State Bank, Saint Ansgar"""
+
+            STATE_BANK: str = "16151"
+            """State Bank, Spencer"""
+
+            STATE_BANK_AND_TRUST_CO: str = "15651"
+            """State Bank & Trust Co., Nevada"""
+
+            STATE_BANK_OF_SCHALLER: str = "13931"
+            """State Bank of Schaller, Schaller"""
+
+            STATE_CENTRAL_BANK: str = "5820"
+            """State Central Bank, Bonaparte"""
+
+            STATE_SAVINGS_BANK_BEDFORD: str = "14773"
+            """State Savings Bank, Bedford"""
+
+            STATE_SAVINGS_BANK_WEST_DES_MOINES: str = "248"
+            """State Savings Bank, West Des Moines"""
+
+            SUCCESS_BANK: str = "10127"
+            """Success Bank, Bloomfield"""
+
+            TEMPLETON_SAVINGS_BANK: str = "969"
+            """Templeton Savings Bank, Templeton"""
+
+            THE_CITIZENS_FIRST_NATIONAL_BANK_OF_STORM_LAKE: str = "4511"
+            """The Citizens First National Bank of Storm Lake, Storm Lake"""
+
+            THE_CLINTON_NATIONAL_BANK: str = "4439"
+            """The Clinton National Bank, Clinton"""
+
+            THE_EXCHANGE_STATE_BANK: str = "16094"
+            """The Exchange State Bank, Springville"""
+
+            THE_FARMERS_STATE_BANK: str = "8503"
+            """The Farmers State Bank, Marcus"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MANNING: str = "4477"
+            """The First National Bank of Manning, Manning"""
+
+            THE_FIRST_NATIONAL_BANK_OF_PRIMGHAR: str = "4494"
+            """The First National Bank of Primghar, Primghar"""
+
+            THE_HOME_TRUST_AND_SAVINGS_BANK: str = "963"
+            """The Home Trust & Savings Bank, Osage"""
+
+            THE_LIBERTYVILLE_SAVINGS_BANK: str = "13712"
+            """The Libertyville Savings Bank, Fairfield"""
+
+            THE_SECURITY_NATIONAL_BANK_OF_SIOUX_CITY_IOWA: str = "4506"
+            """The Security National Bank of Sioux City, Iowa, Sioux City"""
+
+            THE_SHELBY_COUNTY_STATE_BANK: str = "1553"
+            """The Shelby County State Bank, Harlan"""
+
+            THE_STATE_BANK: str = "13715"
+            """The State Bank, Spirit Lake"""
+
+            THE_STATE_BANK_OF_TOLEDO: str = "4514"
+            """The State Bank of Toledo, Toledo"""
+
+            THE_WATKINS_SAVINGS_BANK: str = "18071"
+            """The Watkins Savings Bank, Watkins"""
+
+            TRI_VALLEY_BANK: str = "12417"
+            """Tri-Valley Bank, Randolph"""
+
+            TRU_BANK: str = "25267"
+            """TruBank, Indianola"""
+
+            TS_BANK: str = "14812"
+            """TS Bank, Treynor"""
+
+            TWIN_CEDARS_BANK: str = "1556"
+            """Twin Cedars Bank, Bussey"""
+
+            UNION_STATE_BANK_GREENFIELD: str = "8499"
+            """Union State Bank, Greenfield"""
+
+            UNION_STATE_BANK_WINTERSET: str = "14982"
+            """Union State Bank, Winterset"""
+
+            UNITED_BANK_AND_TRUST_CO: str = "57391"
+            """United Bank & Trust Co., Marshalltown"""
+
+            UNITED_BANK_AND_TRUST_COMPANY: str = "14247"
+            """United Bank and Trust Company, Hampton"""
+
+            UNITED_BANK_OF_IOWA: str = "958"
+            """United Bank of Iowa, Ida Grove"""
+
+            UNITED_COMMUNITY_BANK: str = "13656"
+            """United Community Bank, Milford"""
+
+            VISIONBANK_OF_IOWA: str = "11763"
+            """VISIONBANK OF IOWA, Ames"""
+
+            WASHINGTON_STATE_BANK: str = "214"
+            """Washington State Bank, Washington"""
+
+            WAUKON_STATE_BANK: str = "1857"
+            """Waukon State Bank, Waukon"""
+
+            WCF_FINANCIAL_BANK: str = "28989"
+            """WCF Financial Bank, Webster City"""
+
+            WEST_BANK: str = "15614"
+            """West Bank, West Des Moines"""
+
+            WEST_IOWA_BANK: str = "9105"
+            """West Iowa Bank, West Bend"""
+
+            WESTSIDE_STATE_BANK: str = "18518"
+            """Westside State Bank, Westside"""
+
+            WHITE_STATE_BANK: str = "8519"
+            """White State Bank, South English"""
+
+        class Kansas(System.Object):
+            """Banks headquartered in Kansas."""
+
+            AMERICAN_BANK_OF_BAXTER_SPRINGS: str = "4624"
+            """American Bank of Baxter Springs, Baxter Springs"""
+
+            ANDOVER_STATE_BANK: str = "16410"
+            """Andover State Bank, Andover"""
+
+            ARGENTINE_FEDERAL_SAVINGS: str = "28507"
+            """Argentine Federal Savings, Kansas City"""
+
+            ARMED_FORCES_BANK_NATIONAL_ASSOCIATION: str = "4666"
+            """Armed Forces Bank, National Association, Fort Leavenworth"""
+
+            ASTRA_BANK: str = "17636"
+            """Astra Bank, Scandia"""
+
+            BANK_OF_COMMERCE: str = "26217"
+            """Bank of Commerce, Chanute"""
+
+            BANK_OF_COMMERCE_AND_TRUST_COMPANY: str = "4796"
+            """Bank of Commerce and Trust Company, Wellington"""
+
+            BANK_OF_GREELEY: str = "17995"
+            """Bank of Greeley, Greeley"""
+
+            BANK_OF_HAYS: str = "17769"
+            """Bank of Hays, Hays"""
+
+            BANK_OF_HOLYROOD: str = "9661"
+            """Bank of Holyrood, Holyrood"""
+
+            BANK_OF_LABOR: str = "1874"
+            """Bank of Labor, Overland Park"""
+
+            BANK_OF_PRAIRIE_VILLAGE: str = "17671"
+            """Bank of Prairie Village, Prairie Village"""
+
+            BANK_OF_THE_FLINT_HILLS: str = "4791"
+            """Bank of the Flint Hills, Wamego"""
+
+            BANK_OF_THE_PLAINS: str = "18118"
+            """Bank of the Plains, Plains"""
+
+            BANKERS_BANK_OF_KANSAS: str = "27351"
+            """Bankers' Bank of Kansas, Wichita"""
+
+            BISON_STATE_BANK: str = "14083"
+            """Bison State Bank, Bison"""
+
+            CAPITOL_FEDERAL_SAVINGS_BANK: str = "27981"
+            """Capitol Federal Savings Bank, Topeka"""
+
+            CARSON_BANK: str = "17369"
+            """Carson Bank, Mulvane"""
+
+            CBW_BANK: str = "13959"
+            """CBW Bank, Weir"""
+
+            CENTERA_BANK: str = "16436"
+            """Centera Bank, Sublette"""
+
+            CENTRAL_NATIONAL_BANK: str = "4702"
+            """Central National Bank, Junction City"""
+
+            CITIZENS_BANK_OF_KANSAS: str = "4707"
+            """Citizens Bank of Kansas, Kingman"""
+
+            CITIZENS_FEDERAL_SAVINGS_BANK: str = "30150"
+            """Citizens Federal Savings Bank, Leavenworth"""
+
+            CITIZENS_STATE_BANK_AND_TRUST_CO_ELLSWORTH_KANSAS: str = "11778"
+            """Citizens State Bank and Trust Co., Ellsworth, Kansas, Ellsworth"""
+
+            CITIZENS_STATE_BANK_AND_TRUST_COMPANY: str = "5830"
+            """Citizens State Bank and Trust Company, Hiawatha"""
+
+            COMMERCIAL_BANK: str = "11777"
+            """Commercial Bank, Parsons"""
+
+            COMMUNITY_BANK: str = "34020"
+            """Community Bank, Topeka"""
+
+            COMMUNITY_BANK_OF_WICHITA_INC: str = "35118"
+            """Community Bank of Wichita, Inc., Wichita"""
+
+            COMMUNITY_FIRST_NATIONAL_BANK: str = "35585"
+            """Community First National Bank, Manhattan"""
+
+            COMMUNITY_NATIONAL_BANK: str = "25665"
+            """Community National Bank, Seneca"""
+
+            COMMUNITY_NATIONAL_BANK_AND_TRUST: str = "27046"
+            """Community National Bank & Trust, Chanute"""
+
+            CORE_FIRST_BANK_AND_TRUST: str = "18100"
+            """CoreFirst Bank & Trust, Topeka"""
+
+            CORNERSTONE_BANK: str = "57250"
+            """Cornerstone Bank, Overland Park"""
+
+            COTTONWOOD_VALLEY_BANK: str = "17160"
+            """Cottonwood Valley Bank, Cedar Point"""
+
+            DREAM_FIRST_BANK_NATIONAL_ASSOCIATION: str = "4779"
+            """Dream First Bank, National Association, Syracuse"""
+
+            ELEVATE_BANK_NATIONAL_ASSOCIATION: str = "4770"
+            """Elevate Bank, National Association, Sedan"""
+
+            ELK_STATE_BANK: str = "15259"
+            """Elk State Bank, Clyde"""
+
+            EMPRISE_BANK: str = "4789"
+            """Emprise Bank, Wichita"""
+
+            EQUITY_BANK: str = "25858"
+            """Equity Bank, Andover"""
+
+            ESB_FINANCIAL: str = "16629"
+            """ESB Financial, Emporia"""
+
+            EXCHANGE_BANK_AND_TRUST: str = "4619"
+            """Exchange Bank & Trust, Atchison"""
+
+            EXCHANGE_STATE_BANK: str = "14556"
+            """Exchange State Bank, Saint Paul"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_COLBY: str = "34719"
+            """Farmers & Merchants Bank of Colby, Colby"""
+
+            FARMERS_AND_DROVERS_BANK: str = "12602"
+            """Farmers and Drovers Bank, Council Grove"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_MOUND_CITY_KANSAS: str = "14024"
+            """Farmers and Merchants Bank of Mound City, Kansas, Mound City"""
+
+            FARMERS_BANK_AND_TRUST_ATWOOD: str = "4621"
+            """Farmers Bank & Trust, Atwood"""
+
+            FARMERS_BANK_AND_TRUST_GREAT_BEND: str = "17614"
+            """Farmers Bank & Trust, Great Bend"""
+
+            FARMERS_NATIONAL_BANK: str = "4611"
+            """Farmers National Bank, Phillipsburg"""
+
+            FARMERS_STATE_BANK: str = "14344"
+            """Farmers State Bank, Phillipsburg"""
+
+            FIDELITY_BANK_NATIONAL_ASSOCIATION: str = "30895"
+            """Fidelity Bank, National Association, Wichita"""
+
+            FIRST_BANK: str = "16473"
+            """First Bank, Sterling"""
+
+            FIRST_BANK_KANSAS: str = "18431"
+            """First Bank Kansas, Salina"""
+
+            FIRST_COMMERCE_BANK: str = "57273"
+            """First Commerce Bank, Marysville"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_BANK: str = "28635"
+            """First Federal Savings and Loan Bank, Olathe"""
+
+            FIRST_HERITAGE_BANK: str = "4636"
+            """First Heritage Bank, Centralia"""
+
+            FIRST_KANSAS_BANK: str = "18474"
+            """First Kansas Bank, Hoisington"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST: str = "4756"
+            """First National Bank and Trust, Phillipsburg"""
+
+            FIRST_NATIONAL_BANK_IN_FRANKFORT: str = "4668"
+            """First National Bank in Frankfort, Frankfort"""
+
+            FIRST_NATIONAL_BANK_IN_FREDONIA: str = "13798"
+            """First National Bank in Fredonia, Fredonia"""
+
+            FIRST_NATIONAL_BANK_OF_KANSAS: str = "4794"
+            """First National Bank of Kansas, Burlington"""
+
+            FIRST_OPTION_BANK: str = "4746"
+            """First Option Bank, Osawatomie"""
+
+            FIRST_STATE_BANK_AND_TRUST: str = "14974"
+            """First State Bank and Trust, Tonganoxie"""
+
+            FIRST_OAK_BANK: str = "4660"
+            """FirstOak Bank, Independence"""
+
+            FNB_BANK: str = "14420"
+            """FNB Bank, Goodland"""
+
+            FNB_WASHINGTON: str = "4792"
+            """FNB Washington, Washington"""
+
+            FORD_COUNTY_STATE_BANK: str = "12139"
+            """Ford County State Bank, Spearville"""
+
+            FUSION_BANK: str = "15899"
+            """Fusion Bank, Larned"""
+
+            GARDEN_PLAIN_STATE_BANK: str = "19687"
+            """Garden Plain State Bank, Wichita"""
+
+            GN_BANK_NATIONAL_ASSOCIATION: str = "4673"
+            """GNBank, National Association, Girard"""
+
+            GOLDEN_BELT_BANK_FSA: str = "28735"
+            """Golden Belt Bank, FSA, Hays"""
+
+            GOPPERT_STATE_SERVICE_BANK: str = "17317"
+            """Goppert State Service Bank, Garnett"""
+
+            GRANT_COUNTY_BANK: str = "10918"
+            """Grant County Bank, Ulysses"""
+
+            GREAT_AMERICAN_BANK: str = "35292"
+            """Great American Bank, Lawrence"""
+
+            GUARANTY_STATE_BANK_AND_TRUST_COMPANY: str = "10907"
+            """Guaranty State Bank and Trust Company, Beloit"""
+
+            HALSTEAD_BANK: str = "17451"
+            """Halstead Bank, Halstead"""
+
+            HERITAGE_BANK: str = "57548"
+            """Heritage Bank, Topeka"""
+
+            HOME_BANK_AND_TRUST_COMPANY: str = "4664"
+            """Home Bank and Trust Company, Eureka"""
+
+            HOME_SAVINGS_BANK: str = "28246"
+            """Home Savings Bank, Chanute"""
+
+            IMPACT_BANK: str = "17399"
+            """Impact Bank, Wellington"""
+
+            INTEGRITY_BANK: str = "13450"
+            """Integrity Bank, Fowler"""
+
+            INTRUST_BANK_NATIONAL_ASSOCIATION: str = "4799"
+            """Intrust Bank, National Association, Wichita"""
+
+            JOHNSON_STATE_BANK: str = "15237"
+            """Johnson State Bank, Johnson"""
+
+            KAW_VALLEY_BANK: str = "9665"
+            """Kaw Valley Bank, Topeka"""
+
+            KAW_VALLEY_STATE_BANK_AND_TRUST_COMPANY: str = "17832"
+            """Kaw Valley State Bank and Trust Company, Wamego"""
+
+            KCB_BANK: str = "15194"
+            """KCB Bank, Lakin"""
+
+            KENDALL_BANK: str = "8110"
+            """Kendall Bank, Overland Park"""
+
+            KS_STATE_BANK: str = "19899"
+            """KS StateBank, Manhattan"""
+
+            LABETTE_BANK: str = "17068"
+            """Labette Bank, Altamont"""
+
+            LANDMARK_NATIONAL_BANK: str = "5826"
+            """Landmark National Bank, Manhattan"""
+
+            LEGACY_BANK: str = "17676"
+            """Legacy Bank, Colwich"""
+
+            LYONS_FEDERAL_BANK: str = "27727"
+            """Lyons Federal Bank, Lyons"""
+
+            MARQUETTE_FARMERS_STATE_BANK_OF_MARQUETTE: str = "18094"
+            """Marquette Farmers State Bank of Marquette, Marquette"""
+
+            MID_AMERICA_BANK: str = "17374"
+            """Mid-America Bank, Baldwin City"""
+
+            MUTUAL_SAVINGS_ASSOCIATION: str = "29988"
+            """Mutual Savings Association, Leavenworth"""
+
+            NATIONAL_ADVISORS_TRUST_COMPANY: str = "57160"
+            """National Advisors Trust Company, Leawood"""
+
+            NBKC_BANK: str = "35014"
+            """nbkc bank, Leawood"""
+
+            NEW_CENTURY_BANK: str = "8108"
+            """New Century Bank, Belleville"""
+
+            NINNESCAH_VALLEY_BANK: str = "4652"
+            """NINNESCAH VALLEY BANK, Cunningham"""
+
+            OUTDOOR_BANK: str = "17685"
+            """Outdoor Bank, Manhattan"""
+
+            PATRIOTS_BANK: str = "18019"
+            """Patriots Bank, Garnett"""
+
+            PEOPLES_BANK_AND_TRUST_COMPANY: str = "1365"
+            """Peoples Bank and Trust Company, Mcpherson"""
+
+            SECURITY_BANK_OF_KANSAS_CITY: str = "4705"
+            """Security Bank of Kansas City, Kansas City"""
+
+            SECURITY_STATE_BANK: str = "18374"
+            """Security State Bank, Scott City"""
+
+            SILVER_LAKE_BANK: str = "15323"
+            """Silver Lake Bank, Topeka"""
+
+            SJN_BANK_OF_KANSAS: str = "4766"
+            """SJN Bank of Kansas, Saint John"""
+
+            SOLUTIONS_NORTH_BANK: str = "16971"
+            """SOLUTIONS NORTH BANK, Stockton"""
+
+            SOUTHWEST_NATIONAL_BANK: str = "4801"
+            """Southwest National Bank, Wichita"""
+
+            SOUTHWIND_BANK: str = "4735"
+            """Southwind Bank, Natoma"""
+
+            STATE_BANK_OF_BURRTON: str = "16583"
+            """State Bank of Burrton, Burrton"""
+
+            STRYV_BANK: str = "21955"
+            """Stryv Bank, Wichita"""
+
+            SWEDISH_AMERICAN_STATE_BANK: str = "12865"
+            """Swedish-American State Bank, Courtland"""
+
+            THE_BALDWIN_STATE_BANK: str = "10906"
+            """The Baldwin State Bank, Baldwin City"""
+
+            THE_BANK: str = "26522"
+            """The Bank, Oberlin"""
+
+            THE_BANK_OF_PROTECTION: str = "23099"
+            """The Bank of Protection, Protection"""
+
+            THE_BANK_OF_TESCOTT: str = "1868"
+            """The Bank of Tescott, Tescott"""
+
+            THE_BAXTER_STATE_BANK: str = "12432"
+            """The Baxter State Bank, Baxter Springs"""
+
+            THE_BENDENA_STATE_BANK: str = "17410"
+            """The Bendena State Bank, Bendena"""
+
+            THE_BENNINGTON_STATE_BANK: str = "16402"
+            """The Bennington State Bank, Salina"""
+
+            THE_CITIZENS_NATIONAL_BANK: str = "4678"
+            """The Citizens National Bank, Greenleaf"""
+
+            THE_CITIZENS_STATE_BANK_GRIDLEY: str = "15111"
+            """The Citizens State Bank, Gridley"""
+
+            THE_CITIZENS_STATE_BANK_HUGOTON: str = "15261"
+            """The Citizens State Bank, Hugoton"""
+
+            THE_CITIZENS_STATE_BANK_MARYSVILLE: str = "14269"
+            """The Citizens State Bank, Marysville"""
+
+            THE_CITIZENS_STATE_BANK_MOUNDRIDGE: str = "17672"
+            """The Citizens State Bank, Moundridge"""
+
+            THE_CITIZENS_STATE_BANK_AND_TRUST_COMPANY: str = "15254"
+            """The Citizens State Bank and Trust Company, Council Grove"""
+
+            THE_CITIZENS_STATE_BANK_OF_CHENEY_KANSAS: str = "9658"
+            """The Citizens State Bank of Cheney, Kansas, Cheney"""
+
+            THE_CITY_STATE_BANK: str = "17607"
+            """The City State Bank, Fort Scott"""
+
+            THE_COMMUNITY_BANK: str = "34666"
+            """The Community Bank, Liberal"""
+
+            THE_DENISON_STATE_BANK: str = "15305"
+            """The Denison State Bank, Holton"""
+
+            THE_DICKINSON_COUNTY_BANK: str = "12425"
+            """The Dickinson County Bank, Enterprise"""
+
+            THE_FARMERS_STATE_BANK_DWIGHT: str = "17632"
+            """The Farmers State Bank, Dwight"""
+
+            THE_FARMERS_STATE_BANK_FAIRVIEW: str = "15853"
+            """The Farmers State Bank, Fairview"""
+
+            THE_FARMERS_STATE_BANK_HOLTON: str = "15258"
+            """The Farmers State Bank, Holton"""
+
+            THE_FARMERS_STATE_BANK_MCPHERSON: str = "13883"
+            """The Farmers State Bank, Mcpherson"""
+
+            THE_FARMERS_STATE_BANK_WATHENA: str = "16941"
+            """The Farmers State Bank, Wathena"""
+
+            THE_FARMERS_STATE_BANK_OF_ALICEVILLE_KANSAS: str = "18120"
+            """The Farmers State Bank of Aliceville, Kansas, Westphalia"""
+
+            THE_FARMERS_STATE_BANK_OF_BLUE_MOUND: str = "17629"
+            """The Farmers State Bank of Blue Mound, Blue Mound"""
+
+            THE_FARMERS_STATE_BANK_OF_BUCKLIN_KANSAS: str = "18101"
+            """The Farmers State Bank of Bucklin, Kansas, Bucklin"""
+
+            THE_FARMERS_STATE_BANK_OF_OAKLEY_KANSAS: str = "1867"
+            """The Farmers State Bank of Oakley, Kansas, Oakley"""
+
+            THE_FARMERS_STATE_BANK_OF_WESTMORELAND: str = "15164"
+            """The Farmers State Bank of Westmoreland, Westmoreland"""
+
+            THE_FIDELITY_STATE_BANK_AND_TRUST_COMPANY: str = "10920"
+            """The Fidelity State Bank and Trust Company, Dodge City"""
+
+            THE_FIRST_NATIONAL_BANK_IN_CIMARRON: str = "4638"
+            """The First National Bank in Cimarron, Cimarron"""
+
+            THE_FIRST_NATIONAL_BANK_OF_DIGHTON: str = "4654"
+            """The First National Bank of Dighton, Dighton"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HOPE: str = "4690"
+            """The First National Bank of Hope, Hope"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HUTCHINSON: str = "4697"
+            """The First National Bank of Hutchinson, Hutchinson"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LOUISBURG: str = "4722"
+            """The First National Bank of Louisburg, Louisburg"""
+
+            THE_FIRST_NATIONAL_BANK_OF_SCOTT_CITY: str = "4769"
+            """The First National Bank of Scott City, Scott City"""
+
+            THE_FIRST_NATIONAL_BANK_OF_SPEARVILLE: str = "4774"
+            """The First National Bank of Spearville, Spearville"""
+
+            THE_FIRST_SECURITY_BANK: str = "4752"
+            """The First Security Bank, Overbrook"""
+
+            THE_FIRST_STATE_BANK_NESS_CITY: str = "10503"
+            """The First State Bank, Ness City"""
+
+            THE_FIRST_STATE_BANK_NORTON: str = "5835"
+            """The First State Bank, Norton"""
+
+            THE_FIRST_STATE_BANK_OF_HEALY: str = "17661"
+            """The First State Bank of Healy, Healy"""
+
+            THE_FIRST_STATE_BANK_OF_RANSOM: str = "15469"
+            """The First State Bank of Ransom, Ransom"""
+
+            THE_HOWARD_STATE_BANK_HOWARD_KANSAS: str = "4693"
+            """The Howard State Bank, Howard, Kansas, Howard"""
+
+            THE_KANSAS_STATE_BANK: str = "10505"
+            """The Kansas State Bank, Ottawa"""
+
+            THE_KANSAS_STATE_BANK_OVERBROOK_KANSAS: str = "1865"
+            """The Kansas State Bank Overbrook Kansas, Overbrook"""
+
+            THE_LIBERTY_SAVINGS_ASSOCIATION_FSA: str = "29857"
+            """The Liberty Savings Association, FSA, Fort Scott"""
+
+            THE_LYNDON_STATE_BANK: str = "12135"
+            """The Lyndon State Bank, Lyndon"""
+
+            THE_LYON_COUNTY_STATE_BANK: str = "14952"
+            """The Lyon County State Bank, Emporia"""
+
+            THE_MARION_NATIONAL_BANK: str = "4728"
+            """The Marion National Bank, Marion"""
+
+            THE_PEOPLES_BANK: str = "1147"
+            """The Peoples Bank, Pratt"""
+
+            THE_PEOPLES_STATE_BANK: str = "16744"
+            """The Peoples State Bank, Cherryvale"""
+
+            THE_RILEY_STATE_BANK_OF_RILEY_KANSAS: str = "16120"
+            """The Riley State Bank of Riley, Kansas, Riley"""
+
+            THE_SECURITY_STATE_BANK: str = "12422"
+            """The Security State Bank, Wellington"""
+
+            THE_SOLOMON_STATE_BANK: str = "4773"
+            """The Solomon State Bank, Solomon"""
+
+            THE_STATE_BANK_OF_BERN: str = "10919"
+            """The State Bank of Bern, Bern"""
+
+            THE_STATE_BANK_OF_CANTON_CANTON_KANSAS: str = "13926"
+            """The State Bank of Canton, Canton, Kansas, Canton"""
+
+            THE_STATE_EXCHANGE_BANK: str = "17375"
+            """The State Exchange Bank, Mankato"""
+
+            THE_STOCK_EXCHANGE_BANK_CALDWELL_KANSAS: str = "15784"
+            """The Stock Exchange Bank, Caldwell, Kansas, Caldwell"""
+
+            THE_STOCKGROWERS_STATE_BANK: str = "18165"
+            """The Stockgrowers State Bank, Maple Hill"""
+
+            THE_STOCKGROWERS_STATE_BANK_OF_ASHLAND_KANSAS: str = "17650"
+            """The Stockgrowers State Bank of Ashland, Kansas, Ashland"""
+
+            THE_UNION_STATE_BANK_OF_EVEREST: str = "18610"
+            """The Union State Bank of Everest, Everest"""
+
+            THE_VALLEY_STATE_BANK: str = "15038"
+            """The Valley State Bank, Belle Plaine"""
+
+            THE_WALTON_STATE_BANK: str = "17982"
+            """The Walton State Bank, Walton"""
+
+            THE_WESTERN_STATE_BANK: str = "21121"
+            """The Western State Bank, Garden City"""
+
+            THE_WILSON_STATE_BANK: str = "12136"
+            """The Wilson State Bank, Wilson"""
+
+            TRI_CENTURY_BANK: str = "18109"
+            """TriCentury Bank, De Soto"""
+
+            UNION_STATE_BANK_ARKANSAS_CITY: str = "1869"
+            """Union State Bank, Arkansas City"""
+
+            UNION_STATE_BANK_CLAY_CENTER: str = "15908"
+            """Union State Bank, Clay Center"""
+
+            UNION_STATE_BANK_OLSBURG: str = "15098"
+            """Union State Bank, Olsburg"""
+
+            UNION_STATE_BANK_UNIONTOWN: str = "16788"
+            """Union State Bank, Uniontown"""
+
+            UNITED_BANK_AND_TRUST: str = "17477"
+            """United Bank & Trust, Marysville"""
+
+            VENTURA_NATIONAL_BANK_AND_TRUST: str = "4683"
+            """Ventura National Bank & Trust, Harveyville"""
+
+            VINTAGE_BANK_KANSAS: str = "17927"
+            """Vintage Bank Kansas, Leon"""
+
+        class Kentucky(System.Object):
+            """Banks headquartered in Kentucky."""
+
+            _1_ST_TRUST_BANK_INC: str = "57869"
+            """1st Trust Bank, Inc., Hazard"""
+
+            AMERICAN_BANK_AND_TRUST_COMPANY_INC: str = "35568"
+            """American Bank & Trust Company, Inc., Bowling Green"""
+
+            AUBURN_BANKING_COMPANY: str = "284"
+            """Auburn Banking Company, Auburn"""
+
+            BANK_OF_BUFFALO: str = "2733"
+            """Bank of Buffalo, Buffalo"""
+
+            BANK_OF_CADIZ_AND_TRUST_COMPANY: str = "20239"
+            """Bank of Cadiz and Trust Company, Cadiz"""
+
+            BANK_OF_CLARKSON: str = "13167"
+            """Bank of Clarkson, Clarkson"""
+
+            BANK_OF_COLUMBIA: str = "8775"
+            """Bank of Columbia, Columbia"""
+
+            BANK_OF_EDMONSON_COUNTY: str = "296"
+            """Bank of Edmonson County, Brownsville"""
+
+            BANK_OF_HINDMAN: str = "289"
+            """Bank of Hindman, Hindman"""
+
+            BANK_OF_JAMESTOWN: str = "8118"
+            """Bank of Jamestown, Jamestown"""
+
+            BANK_OF_LEXINGTON_INC: str = "58164"
+            """Bank of Lexington, Inc., Lexington"""
+
+            BANK_OF_MAYSVILLE: str = "9315"
+            """Bank of Maysville, Maysville"""
+
+            BANK_OF_THE_BLUEGRASS_AND_TRUST_COMPANY: str = "21161"
+            """Bank of the Bluegrass and Trust Company, Lexington"""
+
+            BANK_OF_THE_MOUNTAINS_INC: str = "21219"
+            """Bank of the Mountains, Inc., West Liberty"""
+
+            BEDFORD_LOAN_AND_DEPOSIT_BANK: str = "11355"
+            """Bedford Loan & Deposit Bank, Bedford"""
+
+            BLUE_GRASS_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "31090"
+            """Blue Grass Federal Savings and Loan Association, Paris"""
+
+            CARROLLTON_FEDERAL_BANK: str = "29774"
+            """Carrollton Federal Bank, Carrollton"""
+
+            CENTRAL_BANK_AND_TRUST_CO: str = "15815"
+            """Central Bank & Trust Co., Lexington"""
+
+            CENTURY_BANK_OF_KENTUCKY_INC: str = "35450"
+            """Century Bank of Kentucky, Inc., Lawrenceburg"""
+
+            CITIZENS_BANK: str = "262"
+            """Citizens Bank, Mount Vernon"""
+
+            CITIZENS_BANK_AND_TRUST_CO_OF_JACKSON: str = "18620"
+            """Citizens Bank & Trust Co. of Jackson, Jackson"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY: str = "15675"
+            """Citizens Bank & Trust Company, Campbellsville"""
+
+            CITIZENS_BANK_AND_TRUST_OF_LEBANON_INC: str = "2753"
+            """Citizens Bank and Trust of Lebanon, Inc., Lebanon"""
+
+            CITIZENS_BANK_OF_CUMBERLAND_COUNTY_INC: str = "35442"
+            """Citizens Bank of Cumberland County, Inc., Burkesville"""
+
+            CITIZENS_BANK_OF_KENTUCKY_INC: str = "2718"
+            """Citizens Bank of Kentucky, Inc., Paintsville"""
+
+            CITIZENS_DEPOSIT_BANK_OF_ARLINGTON_INC: str = "16852"
+            """Citizens Deposit Bank of Arlington, Inc., Arlington"""
+
+            CITIZENS_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "27841"
+            """Citizens Federal Savings and Loan Association, Covington"""
+
+            CITIZENS_GUARANTY_BANK: str = "20872"
+            """Citizens Guaranty Bank, Richmond"""
+
+            CLINTON_BANK: str = "304"
+            """Clinton Bank, Clinton"""
+
+            COMMERCIAL_BANK: str = "9310"
+            """Commercial Bank, West Liberty"""
+
+            COMMONWEALTH_COMMUNITY_BANK_INC: str = "8126"
+            """Commonwealth Community Bank, Inc., Hartford"""
+
+            COMMUNITY_FINANCIAL_SERVICES_BANK: str = "287"
+            """Community Financial Services Bank, Benton"""
+
+            COMMUNITY_TRUST_BANK_INC: str = "2720"
+            """Community Trust Bank, Inc., Pikeville"""
+
+            CORNERSTONE_COMMUNITY_BANK: str = "59379"
+            """Cornerstone Community Bank, Owensboro"""
+
+            CUMBERLAND_SECURITY_BANK_INC: str = "11358"
+            """Cumberland Security Bank, Inc., Somerset"""
+
+            CUMBERLAND_VALLEY_NATIONAL_BANK_AND_TRUST_COMPANY: str = "2691"
+            """Cumberland Valley National Bank & Trust Company, London"""
+
+            ECLIPSE_BANK_INC: str = "58049"
+            """Eclipse Bank, Inc., Louisville"""
+
+            EDMONTON_STATE_BANK: str = "9678"
+            """Edmonton State Bank, Glasgow"""
+
+            ELKTON_BANK_AND_TRUST_COMPANY: str = "12162"
+            """Elkton Bank & Trust Company, Elkton"""
+
+            FARMERS_AND_TRADERS_BANK_OF_CAMPTON: str = "288"
+            """Farmers & Traders Bank of Campton, Campton"""
+
+            FARMERS_BANK_AND_TRUST_COMPANY_MARION: str = "12869"
+            """Farmers Bank and Trust Company, Marion"""
+
+            FARMERS_BANK_AND_TRUST_COMPANY_PRINCETON: str = "2765"
+            """Farmers Bank and Trust Company, Princeton"""
+
+            FARMERS_STATE_BANK: str = "5838"
+            """Farmers State Bank, Booneville"""
+
+            FIRST_AND_FARMERS_NATIONAL_BANK_INC: str = "2738"
+            """First & Farmers National Bank, Inc., Somerset"""
+
+            FIRST_AND_PEOPLES_BANK_AND_TRUST_COMPANY: str = "8122"
+            """First & Peoples Bank and Trust Company, Russell"""
+
+            FIRST_COMMUNITY_BANK_OF_THE_HEARTLAND_INC: str = "14735"
+            """First Community Bank of the Heartland, Inc., Clinton"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_HAZARD: str = "31197"
+            """First Federal Savings and Loan Association, Hazard"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_MOREHEAD: str = "31409"
+            """First Federal Savings and Loan Association, Morehead"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_KENTUCKY: str = "29937"
+            """First Federal Savings Bank of Kentucky, Frankfort"""
+
+            FIRST_KENTUCKY_BANK_INC: str = "21247"
+            """First Kentucky Bank, Inc., Mayfield"""
+
+            FIRST_NATIONAL_BANK_OF_KENTUCKY: str = "2735"
+            """FIRST NATIONAL BANK OF KENTUCKY, Carrollton"""
+
+            FIRST_SOUTHERN_NATIONAL_BANK: str = "2700"
+            """First Southern National Bank, Lancaster"""
+
+            FIRST_STATE_BANK: str = "12149"
+            """First State Bank, Irvington"""
+
+            FIRST_UNITED_BANK_AND_TRUST_COMPANY: str = "34150"
+            """First United Bank and Trust Company, Madisonville"""
+
+            FNB_BANK_INC: str = "2759"
+            """FNB Bank, Inc., Mayfield"""
+
+            FORCHT_BANK_NATIONAL_ASSOCIATION: str = "57415"
+            """Forcht Bank, National Association, Lexington"""
+
+            FRANKLIN_BANK_AND_TRUST_COMPANY: str = "17937"
+            """Franklin Bank & Trust Company, Franklin"""
+
+            FREDONIA_VALLEY_BANK: str = "9669"
+            """Fredonia Valley Bank, Fredonia"""
+
+            HART_COUNTY_BANK_AND_TRUST_COMPANY: str = "10145"
+            """Hart County Bank and Trust Company, Munfordville"""
+
+            HEARTHSIDE_BANK_CORPORATION: str = "31236"
+            """Hearthside Bank Corporation, Middlesboro"""
+
+            HERITAGE_BANK_INC: str = "33119"
+            """Heritage Bank, Inc., Burlington"""
+
+            HOME_SAVINGS_BANK_FSB: str = "31723"
+            """Home Savings Bank, FSB, Ludlow"""
+
+            HOMETOWN_BANK_OF_CORBIN_INC: str = "35455"
+            """Hometown Bank of Corbin, Inc., Corbin"""
+
+            HYDEN_CITIZENS_BANK: str = "281"
+            """Hyden Citizens Bank, Hyden"""
+
+            INDEPENDENCE_BANK_OF_KENTUCKY: str = "8136"
+            """Independence Bank of Kentucky, Owensboro"""
+
+            INDEPENDENT_CORRESPONDENT_BANKERS_BANK_INC: str = "27219"
+            """Independent Correspondent Bankers' Bank, Inc., Frankfort"""
+
+            JACKSON_COUNTY_BANK: str = "291"
+            """Jackson County Bank, Mc Kee"""
+
+            KENTUCKY_FARMERS_BANK_CORPORATION: str = "267"
+            """Kentucky Farmers Bank Corporation, Catlettsburg"""
+
+            LEWISBURG_BANKING_COMPANY: str = "297"
+            """Lewisburg Banking Company, Lewisburg"""
+
+            MAGNOLIA_BANK_INCORPORATED: str = "8120"
+            """Magnolia Bank, Incorporated, Elizabethtown"""
+
+            MEADE_COUNTY_BANK: str = "25173"
+            """Meade County Bank, Brandenburg"""
+
+            MORGANTOWN_BANK_AND_TRUST_COMPANY_INCORPORATED: str = "275"
+            """Morgantown Bank & Trust Company, Incorporated, Morgantown"""
+
+            OWINGSVILLE_BANKING_COMPANY: str = "9672"
+            """Owingsville Banking Company, Owingsville"""
+
+            PBK_BANK_INC: str = "9313"
+            """PBK BANK, INC., Stanford"""
+
+            PBT_BANCORP: str = "8117"
+            """Pbt Bancorp, Hazard"""
+
+            PEOPLES_BANK: str = "1562"
+            """Peoples Bank, Lebanon"""
+
+            PEOPLES_BANK_OF_KENTUCKY_INC: str = "16970"
+            """Peoples Bank of  Kentucky, Inc., Flemingsburg"""
+
+            PEOPLES_BANK_MT_WASHINGTON: str = "5847"
+            """Peoples Bank, Mt. Washington, Mount Washington"""
+
+            PEOPLES_EXCHANGE_BANK: str = "8785"
+            """Peoples Exchange Bank, Winchester"""
+
+            PINNACLE_BANK_INC: str = "22355"
+            """Pinnacle Bank, Inc., Pikeville"""
+
+            PLANTERS_BANK_INC: str = "34254"
+            """Planters Bank, Inc., Hopkinsville"""
+
+            REPUBLIC_BANK_AND_TRUST_COMPANY: str = "23627"
+            """Republic Bank & Trust Company, Louisville"""
+
+            RIVER_CITY_BANK_INC: str = "26703"
+            """River City Bank, Inc., Louisville"""
+
+            SECURITY_BANK_AND_TRUST_CO: str = "8121"
+            """Security Bank and Trust Co., Maysville"""
+
+            SOUTH_CENTRAL_BANK_INC: str = "5854"
+            """South Central Bank,  Inc., Glasgow"""
+
+            SPRINGFIELD_STATE_BANK: str = "8772"
+            """Springfield State Bank, Springfield"""
+
+            STOCK_YARDS_BANK_AND_TRUST_COMPANY: str = "258"
+            """Stock Yards Bank & Trust Company, Louisville"""
+
+            TAYLOR_COUNTY_BANK: str = "15590"
+            """Taylor County Bank, Campbellsville"""
+
+            THE_CASEY_COUNTY_BANK_INC: str = "15708"
+            """The Casey County Bank, Inc., Liberty"""
+
+            THE_CECILIAN_BANK: str = "8774"
+            """The Cecilian Bank, Cecilia"""
+
+            THE_CITIZENS_BANK_HICKMAN: str = "9306"
+            """The Citizens Bank, Hickman"""
+
+            THE_CITIZENS_BANK_MOREHEAD: str = "10520"
+            """The Citizens Bank, Morehead"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_SOMERSET: str = "2725"
+            """The Citizens National Bank of Somerset, Somerset"""
+
+            THE_COMMERCIAL_BANK_OF_GRAYSON: str = "10137"
+            """The Commercial Bank of Grayson, Grayson"""
+
+            THE_FARMERS_BANK: str = "14894"
+            """The Farmers Bank, Nicholasville"""
+
+            THE_FARMERS_BANK_OF_MILTON: str = "12163"
+            """The Farmers Bank of Milton, Milton"""
+
+            THE_FARMERS_NATIONAL_BANK_OF_DANVILLE: str = "2740"
+            """The Farmers National Bank of Danville, Danville"""
+
+            THE_FARMERS_NATIONAL_BANK_OF_LEBANON: str = "2754"
+            """The Farmers National Bank of Lebanon, Lebanon"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BROOKSVILLE: str = "2682"
+            """The First National Bank of Brooksville, Brooksville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GRAYSON: str = "2695"
+            """The First National Bank of Grayson, Grayson"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MANCHESTER: str = "2708"
+            """The First National Bank of Manchester, Manchester"""
+
+            THE_FIRST_NATIONAL_BANK_OF_RUSSELL_SPRINGS: str = "2767"
+            """The First National Bank of Russell Springs, Russell Springs"""
+
+            THE_LINCOLN_NATIONAL_BANK_OF_HODGENVILLE: str = "2750"
+            """The Lincoln National Bank of Hodgenville, Hodgenville"""
+
+            THE_MONTICELLO_BANKING_COMPANY: str = "292"
+            """The Monticello Banking Company, Monticello"""
+
+            THE_MURRAY_BANK: str = "35161"
+            """The Murray Bank, Murray"""
+
+            THE_PADUCAH_BANK_AND_TRUST_COMPANY: str = "16664"
+            """The Paducah Bank and Trust Company, Paducah"""
+
+            THE_PEOPLES_BANK_MARION: str = "16603"
+            """The Peoples Bank, Marion"""
+
+            THE_PEOPLES_BANK_TAYLORSVILLE: str = "1566"
+            """The Peoples Bank, Taylorsville"""
+
+            THE_SACRAMENTO_DEPOSIT_BANK: str = "8762"
+            """The Sacramento Deposit Bank, Sacramento"""
+
+            THE_SALYERSVILLE_NATIONAL_BANK: str = "2723"
+            """The Salyersville National Bank, Salyersville"""
+
+            TOWN_AND_COUNTRY_BANK_AND_TRUST_COMPANY: str = "15703"
+            """Town & Country Bank and Trust Company, Bardstown"""
+
+            TRADITIONAL_BANK_INC: str = "2711"
+            """Traditional Bank, Inc., Mount Sterling"""
+
+            UNITED_CITIZENS_BANK_AND_TRUST_COMPANY: str = "15249"
+            """United Citizens Bank & Trust Company, Campbellsburg"""
+
+            UNITED_CITIZENS_BANK_OF_SOUTHERN_KENTUCKY: str = "57867"
+            """United Citizens Bank of Southern Kentucky, Columbia"""
+
+            UNITED_COMMUNITY_BANK_OF_WEST_KENTUCKY_INC: str = "57301"
+            """United Community Bank of West Kentucky, Inc., Morganfield"""
+
+            UNITED_CUMBERLAND_BANK: str = "303"
+            """United Cumberland Bank, Whitley City"""
+
+            UNITED_SOUTHERN_BANK: str = "9309"
+            """United Southern Bank, Hopkinsville"""
+
+            WEST_POINT_BANK: str = "12166"
+            """West Point Bank, Radcliff"""
+
+            WHITAKER_BANK: str = "32912"
+            """Whitaker Bank, Lexington"""
+
+            WILSON_AND_MUIR_BANK_AND_TRUST_COMPANY: str = "17040"
+            """Wilson & Muir Bank & Trust Company, Bardstown"""
+
+        class Louisiana(System.Object):
+            """Banks headquartered in Louisiana."""
+
+            ABBEVILLE_BUILDING_AND_LOAN_A_STATE_CHARTERED_SAVINGS_BANK: str = "30332"
+            """Abbeville Building & Loan (A State-Chartered Savings Bank), Abbeville"""
+
+            AMERICAN_BANK: str = "19234"
+            """American Bank, Covington"""
+
+            AMERICAN_BANK_AND_TRUST_COMPANY: str = "17906"
+            """American Bank & Trust Company, Opelousas"""
+
+            ANTHEM_BANK_AND_TRUST: str = "29679"
+            """Anthem Bank & Trust, Plaquemine"""
+
+            B_1_BANK: str = "58228"
+            """b1BANK, Baton Rouge"""
+
+            BANK_OF_ABBEVILLE_AND_TRUST_COMPANY: str = "11782"
+            """Bank of Abbeville & Trust Company, Abbeville"""
+
+            BANK_OF_COMMERCE_AND_TRUST_CO: str = "10523"
+            """Bank of Commerce & Trust Co., Crowley"""
+
+            BANK_OF_COUSHATTA: str = "8531"
+            """Bank of Coushatta, Coushatta"""
+
+            BANK_OF_ERATH: str = "8532"
+            """Bank of Erath, Erath"""
+
+            BANK_OF_GUEYDAN: str = "8144"
+            """Bank of Gueydan, Gueydan"""
+
+            BANK_OF_LOUISIANA: str = "17878"
+            """Bank of Louisiana, New Orleans"""
+
+            BANK_OF_OAK_RIDGE: str = "21529"
+            """Bank of Oak Ridge, Oak Ridge"""
+
+            BANK_OF_ST_FRANCISVILLE: str = "22739"
+            """Bank of St. Francisville, Saint Francisville"""
+
+            BANK_OF_SUNSET_AND_TRUST_COMPANY: str = "11788"
+            """Bank of Sunset and Trust Company, Sunset"""
+
+            BANK_OF_WINNFIELD_AND_TRUST_COMPANY: str = "9323"
+            """Bank of Winnfield & Trust Company, Winnfield"""
+
+            BANK_OF_ZACHARY: str = "306"
+            """Bank of Zachary, Zachary"""
+
+            BASILE_STATE_BANK: str = "17621"
+            """Basile State Bank, Basile"""
+
+            BEAUREGARD_FEDERAL_SAVINGS_BANK: str = "30339"
+            """Beauregard Federal Savings Bank, Deridder"""
+
+            BOM_BANK: str = "1373"
+            """BOM Bank, Natchitoches"""
+
+            BONVENU_BANK_NATIONAL_ASSOCIATION: str = "26381"
+            """Bonvenu Bank, National Association, Bossier City"""
+
+            CALDWELL_BANK_AND_TRUST_COMPANY: str = "11785"
+            """Caldwell Bank & Trust Company, Columbia"""
+
+            CATALYST_BANK: str = "29804"
+            """Catalyst Bank, Opelousas"""
+
+            CENTURY_NEXT_BANK: str = "29700"
+            """Century Next Bank, Ruston"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY_COVINGTON: str = "16417"
+            """Citizens Bank & Trust Company, Covington"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY_PLAQUEMINE: str = "1376"
+            """Citizens Bank & Trust Company, Plaquemine"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY_OF_VIVIAN_LOUISIANA: str = "19744"
+            """Citizens Bank & Trust Company of Vivian, Louisiana, Vivian"""
+
+            CITIZENS_PROGRESSIVE_BANK: str = "10531"
+            """Citizens Progressive Bank, Winnsboro"""
+
+            CITIZENS_SAVINGS_BANK: str = "30270"
+            """Citizens Savings Bank, Bogalusa"""
+
+            CITY_BANK_AND_TRUST_CO: str = "12608"
+            """City Bank & Trust Co., Natchitoches"""
+
+            CLB_THE_COMMUNITY_BANK: str = "10532"
+            """CLB The Community Bank, Jonesville"""
+
+            COLFAX_BANKING_COMPANY: str = "8140"
+            """Colfax Banking Company, Colfax"""
+
+            COMMERCIAL_CAPITAL_BANK: str = "34784"
+            """Commercial Capital Bank, Delhi"""
+
+            COMMUNITY_BANK_OF_LOUISIANA: str = "13951"
+            """Community Bank of Louisiana, Mansfield"""
+
+            COMMUNITY_FIRST_BANK: str = "35020"
+            """Community First Bank, New Iberia"""
+
+            CONCORDIA_BANK_AND_TRUST_COMPANY: str = "8527"
+            """Concordia Bank & Trust Company, Vidalia"""
+
+            COTTONPORT_BANK: str = "8798"
+            """Cottonport Bank, Cottonport"""
+
+            CRESCENT_BANK: str = "33492"
+            """Crescent Bank, Metairie"""
+
+            CURRENCY_BANK: str = "35019"
+            """Currency Bank, Baton Rouge"""
+
+            DELTA_BANK: str = "26564"
+            """Delta Bank, Vidalia"""
+
+            EUREKA_HOMESTEAD: str = "29268"
+            """Eureka Homestead, Metairie"""
+
+            EXCHANGE_BANK_AND_TRUST_COMPANY_NATCHITOCHES_LOUISIANA: str = "10528"
+            """Exchange Bank and Trust Company, Natchitoches, Louisiana, Natchitoches"""
+
+            FARMERS_STATE_BANK_AND_TRUST_CO: str = "16114"
+            """Farmers State Bank & Trust Co., Church Point"""
+
+            FELICIANA_BANK_AND_TRUST_COMPANY: str = "1380"
+            """Feliciana Bank & Trust Company, Clinton"""
+
+            FIDELITY_BANK: str = "28316"
+            """FIDELITY BANK, New Orleans"""
+
+            FIFTH_DISTRICT_SAVINGS_BANK: str = "27697"
+            """Fifth District Savings Bank, New Orleans"""
+
+            FIRST_AMERICAN_BANK_AND_TRUST: str = "8149"
+            """First American Bank and Trust, Vacherie"""
+
+            FIRST_FEDERAL_BANK_OF_LOUISIANA: str = "30441"
+            """First Federal Bank of Louisiana, Lake Charles"""
+
+            FIRST_GUARANTY_BANK: str = "14028"
+            """First Guaranty Bank, Hammond"""
+
+            FIRST_NATIONAL_BANK_IN_DE_RIDDER: str = "14427"
+            """First National Bank in DeRidder, Deridder"""
+
+            FIRST_NATIONAL_BANK_OF_LOUISIANA: str = "4288"
+            """First National Bank of Louisiana, Crowley"""
+
+            FIRST_NATIONAL_BANK_USA: str = "22046"
+            """First National Bank USA, Boutte"""
+
+            FIRST_NATIONAL_BANKER_S_BANK: str = "25247"
+            """First National Banker's Bank, Baton Rouge"""
+
+            FRANKLIN_STATE_BANK_AND_TRUST_COMPANY: str = "11792"
+            """Franklin State Bank & Trust Company, Winnsboro"""
+
+            GIBSLAND_BANK_AND_TRUST_COMPANY: str = "16689"
+            """Gibsland Bank & Trust Company, Gibsland"""
+
+            GUARANTY_BANK_AND_TRUST_COMPANY_OF_DELHI_LOUISIANA: str = "19638"
+            """Guaranty Bank & Trust Company of Delhi, Louisiana, Delhi"""
+
+            GUARANTY_BANK_AND_TRUST_COMPANY: str = "17767"
+            """Guaranty Bank and Trust Company, New Roads"""
+
+            GULF_COAST_BANK: str = "20353"
+            """Gulf Coast Bank, Abbeville"""
+
+            GULF_COAST_BANK_AND_TRUST_COMPANY: str = "32974"
+            """Gulf Coast Bank and Trust Company, New Orleans"""
+
+            HERITAGE_BANK_OF_ST_TAMMANY: str = "29577"
+            """Heritage Bank of St Tammany, Covington"""
+
+            HIBERNIA_BANK: str = "27752"
+            """Hibernia Bank, New Orleans"""
+
+            HODGE_BANK_AND_TRUST_COMPANY: str = "19354"
+            """Hodge Bank & Trust Company, Hodge"""
+
+            HOME_BANK_NATIONAL_ASSOCIATION: str = "28094"
+            """Home Bank, National Association, Lafayette"""
+
+            HOME_FEDERAL_BANK: str = "27654"
+            """Home Federal Bank, Shreveport"""
+
+            HOMELAND_FEDERAL_SAVINGS_BANK: str = "32459"
+            """Homeland Federal Savings Bank, Columbia"""
+
+            INVESTAR_BANK_NATIONAL_ASSOCIATION: str = "58316"
+            """Investar Bank, National Association, Baton Rouge"""
+
+            JACKSON_PARISH_BANK: str = "8799"
+            """Jackson Parish Bank, Jonesboro"""
+
+            JD_BANK: str = "16546"
+            """JD Bank, Jennings"""
+
+            JONESBORO_STATE_BANK: str = "9325"
+            """Jonesboro State Bank, Jonesboro"""
+
+            LANDMARK_BANK: str = "307"
+            """Landmark Bank, Clinton"""
+
+            LIBERTY_BANK_AND_TRUST_COMPANY: str = "20856"
+            """Liberty Bank and Trust Company, New Orleans"""
+
+            LOUISIANA_NATIONAL_BANK: str = "15059"
+            """Louisiana National Bank, Ruston"""
+
+            MC_BANK_AND_TRUST_COMPANY: str = "17388"
+            """M C Bank & Trust Company, Morgan City"""
+
+            MARION_STATE_BANK: str = "9320"
+            """Marion State Bank, Marion"""
+
+            MERCHANTS_AND_FARMERS_BANK_AND_TRUST_COMPANY: str = "9319"
+            """Merchants & Farmers Bank & Trust Company, Leesville"""
+
+            METAIRIE_BANK_AND_TRUST_COMPANY: str = "16539"
+            """Metairie Bank & Trust Company, Metairie"""
+
+            MUTUAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "27716"
+            """Mutual Savings and Loan Association, Metairie"""
+
+            NOLA_BANK: str = "59364"
+            """Nola Bank, New Orleans"""
+
+            ORIGIN_BANK: str = "12614"
+            """Origin Bank, Choudrant"""
+
+            PATTERSON_STATE_BANK: str = "12609"
+            """Patterson State Bank, Patterson"""
+
+            PEOPLES_BANK: str = "9328"
+            """Peoples Bank, Chatham"""
+
+            PLAQUEMINE_BANK_AND_TRUST_COMPANY: str = "19800"
+            """Plaquemine Bank & Trust Company, Plaquemine"""
+
+            PROGRESSIVE_NATIONAL_BANK: str = "24443"
+            """Progressive National Bank, Mansfield"""
+
+            RAYNE_BUILDING_AND_LOAN_ASSOCIATION: str = "30447"
+            """Rayne Building and Loan Association, Rayne"""
+
+            RAYNE_STATE_BANK_AND_TRUST_COMPANY: str = "16075"
+            """Rayne State Bank & Trust Company, Rayne"""
+
+            RED_RIVER_BANK: str = "34980"
+            """Red River Bank, Alexandria"""
+
+            RESOURCE_BANK: str = "34803"
+            """Resource Bank, Covington"""
+
+            SABINE_STATE_BANK_AND_TRUST_COMPANY: str = "8141"
+            """Sabine State Bank and Trust Company, Many"""
+
+            SICILY_ISLAND_STATE_BANK: str = "12722"
+            """Sicily Island State Bank, Sicily Island"""
+
+            SIMMESPORT_STATE_BANK: str = "17587"
+            """Simmesport State Bank, Simmesport"""
+
+            SOUTH_LAFOURCHE_BANK_AND_TRUST_COMPANY: str = "19755"
+            """South Lafourche Bank & Trust Company, Larose"""
+
+            SOUTH_LOUISIANA_BANK: str = "23144"
+            """South Louisiana Bank, Houma"""
+
+            SOUTHERN_HERITAGE_BANK: str = "20698"
+            """Southern Heritage Bank, Jonesville"""
+
+            ST_LANDRY_BANK_AND_TRUST_COMPANY: str = "8534"
+            """St. Landry Bank and Trust Company, Opelousas"""
+
+            STATE_BANK_AND_TRUST_COMPANY: str = "17169"
+            """State Bank & Trust Company, Golden Meadow"""
+
+            SYNERGY_BANK: str = "34978"
+            """Synergy Bank, Houma"""
+
+            TENSAS_STATE_BANK: str = "8533"
+            """Tensas State Bank, Newellton"""
+
+            THE_BANK: str = "34409"
+            """The Bank, Jennings"""
+
+            THE_BANK_OF_COMMERCE: str = "1374"
+            """The Bank of Commerce, White Castle"""
+
+            THE_EVANGELINE_BANK_AND_TRUST_COMPANY: str = "12611"
+            """The Evangeline Bank and Trust Company, Ville Platte"""
+
+            THE_FIRST_NATIONAL_BANK_OF_JEANERETTE: str = "4290"
+            """The First National Bank of Jeanerette, Jeanerette"""
+
+            THE_MER_ROUGE_STATE_BANK: str = "314"
+            """The Mer Rouge State Bank, Mer Rouge"""
+
+            UNITED_COMMUNITY_BANK: str = "19143"
+            """United Community Bank, Raceland"""
+
+            VERMILION_BANK_AND_TRUST_COMPANY: str = "17841"
+            """Vermilion Bank & Trust Company, Kaplan"""
+
+            WASHINGTON_STATE_BANK: str = "9326"
+            """Washington State Bank, Washington"""
+
+            WINNSBORO_STATE_BANK_AND_TRUST_COMPANY: str = "10533"
+            """Winnsboro State Bank & Trust Company, Winnsboro"""
+
+        class Maine(System.Object):
+            """Banks headquartered in Maine."""
+
+            ANDROSCOGGIN_SAVINGS_BANK: str = "17751"
+            """Androscoggin Savings Bank, Lewiston"""
+
+            AROOSTOOK_COUNTY_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29743"
+            """Aroostook County Federal Savings and Loan Association, Caribou"""
+
+            AUBURN_SAVINGS_BANK_FSB: str = "28288"
+            """Auburn Savings Bank, FSB, Auburn"""
+
+            BANGOR_SAVINGS_BANK: str = "18408"
+            """Bangor Savings Bank, Bangor"""
+
+            BAR_HARBOR_BANK_AND_TRUST: str = "11971"
+            """Bar Harbor Bank & Trust, Bar Harbor"""
+
+            BAR_HARBOR_SAVINGS_AND_LOAN_ASSOCIATION: str = "30878"
+            """Bar Harbor Savings and Loan Association, Bar Harbor"""
+
+            BATH_SAVINGS_INSTITUTION: str = "17749"
+            """Bath Savings Institution, Bath"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_BATH: str = "29636"
+            """First Federal Savings and Loan Association of Bath, Bath"""
+
+            FIRST_NATIONAL_BANK: str = "4256"
+            """First National Bank, Damariscotta"""
+
+            FRANKLIN_SAVINGS_BANK: str = "19836"
+            """Franklin Savings Bank, Farmington"""
+
+            KATAHDIN_TRUST_COMPANY: str = "12874"
+            """Katahdin Trust Company, Patten"""
+
+            KENNEBEC_SAVINGS_BANK: str = "17897"
+            """Kennebec Savings Bank, Augusta"""
+
+            KENNEBUNK_SAVINGS_BANK: str = "13063"
+            """Kennebunk Savings Bank, Kennebunk"""
+
+            MACHIAS_SAVINGS_BANK: str = "19531"
+            """Machias Savings Bank, Machias"""
+
+            MAINE_COMMUNITY_BANK: str = "17741"
+            """Maine Community Bank, Portland"""
+
+            NORTHEAST_BANK: str = "19690"
+            """Northeast Bank, Portland"""
+
+            NORWAY_SAVINGS_BANK: str = "17658"
+            """Norway Savings Bank, Norway"""
+
+            PARTNERS_BANK_OF_NEW_ENGLAND: str = "17115"
+            """Partners Bank of New England, Sanford"""
+
+            ROCKLAND_SAVINGS_BANK_FSB: str = "28369"
+            """Rockland Savings Bank, FSB, Rockland"""
+
+            SACO_AND_BIDDEFORD_SAVINGS_INSTITUTION: str = "17743"
+            """Saco & Biddeford Savings Institution, Saco"""
+
+            SKOWHEGAN_SAVINGS_BANK: str = "19532"
+            """Skowhegan Savings Bank, Skowhegan"""
+
+            THE_CAMDEN_NATIONAL_BANK: str = "4255"
+            """The Camden National Bank, Camden"""
+
+        class Maryland(System.Object):
+            """Banks headquartered in Maryland."""
+
+            ARUNDEL_BANK: str = "28780"
+            """Arundel Bank, Glen Burnie"""
+
+            BANK_OF_OCEAN_CITY: str = "5867"
+            """Bank of Ocean City, Ocean City"""
+
+            BAY_VANGUARD_BANK: str = "32527"
+            """BayVanguard Bank, Baltimore"""
+
+            CALVIN_B_TAYLOR_BANKING_COMPANY_OF_BERLIN_MARYLAND: str = "5874"
+            """Calvin B. Taylor Banking Company of Berlin, Maryland, Berlin"""
+
+            CAPITAL_BANK_NATIONAL_ASSOCIATION: str = "35278"
+            """Capital Bank, National Association, Rockville"""
+
+            CFG_BANK: str = "34294"
+            """CFG Bank, Lutherville"""
+
+            EAGLE_BANK: str = "34742"
+            """EagleBank, Bethesda"""
+
+            EASTERN_SAVINGS_BANK_FSB: str = "32360"
+            """Eastern Savings Bank, FSB, Hunt Valley"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "1895"
+            """Farmers and Merchants Bank, Upperco"""
+
+            FIRST_SHORE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30680"
+            """First Shore Federal Savings and Loan Association, Salisbury"""
+
+            FIRST_UNITED_BANK_AND_TRUST: str = "4857"
+            """First United Bank & Trust, Oakland"""
+
+            FORBRIGHT_BANK: str = "57614"
+            """Forbright Bank, Potomac"""
+
+            HARFORD_BANK: str = "19101"
+            """Harford Bank, Aberdeen"""
+
+            HEBRON_SAVINGS_BANK: str = "8811"
+            """Hebron Savings Bank, Hebron"""
+
+            HOMEWOOD_FEDERAL_SAVINGS_BANK: str = "31267"
+            """Homewood Federal Savings Bank, Baltimore"""
+
+            JARRETTSVILLE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "31083"
+            """Jarrettsville Federal Savings and Loan Association, Jarrettsville"""
+
+            MIDDLETOWN_VALLEY_BANK: str = "14017"
+            """Middletown Valley Bank, Middletown"""
+
+            PRESIDENTIAL_BANK_FSB: str = "32363"
+            """Presidential Bank, FSB, Bethesda"""
+
+            ROSEDALE_BANK: str = "29613"
+            """Rosedale Bank, Nottingham"""
+
+            SHORE_UNITED_BANK_NATIONAL_ASSOCIATION: str = "4832"
+            """Shore United Bank, National Association, Easton"""
+
+            THE_BANK_OF_GLEN_BURNIE: str = "16820"
+            """The Bank of Glen Burnie, Glen Burnie"""
+
+            THE_CHESAPEAKE_BANK_AND_TRUST_CO: str = "26847"
+            """The Chesapeake Bank & Trust Co., Chestertown"""
+
+            THE_FARMERS_BANK_OF_WILLARDS: str = "5885"
+            """The Farmers Bank of Willards, Willards"""
+
+            THE_GLEN_BURNIE_MUTUAL_SAVINGS_BANK: str = "27567"
+            """The Glen Burnie Mutual Savings Bank, Glen Burnie"""
+
+            THE_HARBOR_BANK_OF_MARYLAND: str = "24015"
+            """The Harbor Bank of Maryland, Baltimore"""
+
+            THE_QUEENSTOWN_BANK_OF_MARYLAND: str = "8816"
+            """The Queenstown Bank of Maryland, Queenstown"""
+
+            WOODSBORO_BANK: str = "5873"
+            """Woodsboro Bank, Woodsboro"""
+
+        class Massachusetts(System.Object):
+            """Banks headquartered in Massachusetts."""
+
+            _42_NORTH_PRIVATE_BANK: str = "27015"
+            """42 North Private Bank, Canton"""
+
+            ADAMS_COMMUNITY_BANK: str = "90140"
+            """Adams Community Bank, Adams"""
+
+            AVIDIA_BANK: str = "90215"
+            """Avidia Bank, Hudson"""
+
+            BANK_OF_EASTON: str = "26554"
+            """Bank of Easton, North Easton"""
+
+            BANK_GLOUCESTER: str = "26536"
+            """BankGloucester, Gloucester"""
+
+            BAY_STATE_SAVINGS_BANK: str = "90311"
+            """Bay State Savings Bank, Worcester"""
+
+            BAY_COAST_BANK: str = "90196"
+            """BayCoast Bank, Swansea"""
+
+            BEACON_BANK_AND_TRUST: str = "17798"
+            """Beacon Bank and Trust, Boston"""
+
+            BLUESTONE_BANK: str = "90169"
+            """Bluestone Bank, Raynham"""
+
+            BRISTOL_COUNTY_SAVINGS_BANK: str = "23622"
+            """Bristol County Savings Bank, Taunton"""
+
+            CAMBRIDGE_SAVINGS_BANK: str = "17870"
+            """Cambridge Savings Bank, Cambridge"""
+
+            CANTON_CO_OPERATIVE_BANK: str = "26450"
+            """Canton Co-operative Bank, Canton"""
+
+            CAPE_AND_COAST_BANK: str = "26517"
+            """Cape & Coast Bank, Yarmouth Port"""
+
+            CAPE_ANN_SAVINGS_BANK: str = "90203"
+            """Cape Ann Savings Bank, Gloucester"""
+
+            CHARLES_RIVER_BANK: str = "26602"
+            """Charles River Bank, Medway"""
+
+            CLINTON_SAVINGS_BANK: str = "90181"
+            """Clinton Savings Bank, Clinton"""
+
+            COASTAL_HERITAGE_BANK: str = "26591"
+            """Coastal Heritage Bank, Weymouth"""
+
+            COMMONWEALTH_CO_OPERATIVE_BANK: str = "29842"
+            """Commonwealth Co-operative Bank, Hyde Park"""
+
+            CORNERSTONE_BANK: str = "90282"
+            """Cornerstone Bank, Spencer"""
+
+            COUNTRY_BANK_FOR_SAVINGS: str = "23992"
+            """Country Bank for Savings, Ware"""
+
+            DEAN_CO_OPERATIVE_BANK: str = "27269"
+            """Dean Co-operative Bank, Franklin"""
+
+            DEDHAM_INSTITUTION_FOR_SAVINGS: str = "23620"
+            """Dedham Institution for Savings, Dedham"""
+
+            EAGLE_BANK: str = "90191"
+            """Eagle Bank, Everett"""
+
+            EAST_CAMBRIDGE_SAVINGS_BANK: str = "90173"
+            """East Cambridge Savings Bank, Cambridge"""
+
+            EASTERN_BANK: str = "32773"
+            """Eastern Bank, Boston"""
+
+            EVERETT_CO_OPERATIVE_BANK: str = "26444"
+            """Everett Co-operative Bank, Everett"""
+
+            FALL_RIVER_FIVE_CENTS_SAVINGS_BANK: str = "23286"
+            """Fall River Five Cents Savings Bank, Fall River"""
+
+            FIDELITY_CO_OPERATIVE_BANK: str = "26451"
+            """Fidelity Co-operative Bank, Leominster"""
+
+            FLORENCE_BANK: str = "23293"
+            """Florence Bank, Florence"""
+
+            GREENFIELD_CO_OPERATIVE_BANK: str = "26397"
+            """Greenfield Co-operative Bank, Greenfield"""
+
+            GREENFIELD_SAVINGS_BANK: str = "90206"
+            """Greenfield Savings Bank, Greenfield"""
+
+            HAVERHILL_BANK: str = "26411"
+            """Haverhill Bank, Haverhill"""
+
+            HINGHAM_INSTITUTION_FOR_SAVINGS: str = "90211"
+            """Hingham Institution for Savings, Hingham"""
+
+            INSTITUTION_FOR_SAVINGS_IN_NEWBURYPORT_AND_ITS_VICINITY: str = "90250"
+            """Institution for Savings in Newburyport and Its Vicinity, Newburyport"""
+
+            LEADER_BANK_NATIONAL_ASSOCIATION: str = "57134"
+            """Leader Bank, National Association, Arlington"""
+
+            LEE_BANK: str = "33645"
+            """Lee Bank, Lee"""
+
+            MAIN_STREET_BANK: str = "90235"
+            """Main Street Bank, Marlborough"""
+
+            MARBLEHEAD_BANK: str = "90234"
+            """Marblehead Bank, Marblehead"""
+
+            MARTHA_S_VINEYARD_BANK: str = "90190"
+            """Martha's Vineyard Bank, Edgartown"""
+
+            MASS_MUTUAL_PRIVATE_WEALTH_AND_TRUST_FSB: str = "35394"
+            """MassMutual Private Wealth & Trust, FSB, Springfield"""
+
+            MECHANICS_COOPERATIVE_BANK: str = "26634"
+            """Mechanics Cooperative Bank, Taunton"""
+
+            METHUEN_CO_OPERATIVE_BANK: str = "26512"
+            """Methuen Co-operative Bank, Methuen"""
+
+            MIDDLESEX_FEDERAL_SAVINGS_FA: str = "28368"
+            """Middlesex Federal Savings, F.A., Somerville"""
+
+            MIDDLESEX_SAVINGS_BANK: str = "90183"
+            """Middlesex Savings Bank, Natick"""
+
+            MILFORD_FEDERAL_BANK: str = "29835"
+            """Milford Federal Bank, Milford"""
+
+            MILLBURY_NATIONAL_BANK: str = "2616"
+            """Millbury National Bank, Millbury"""
+
+            MONSON_SAVINGS_BANK: str = "90245"
+            """Monson Savings Bank, Monson"""
+
+            MOUNTAIN_ONE_BANK: str = "90253"
+            """MountainOne Bank, North Adams"""
+
+            MUTUAL_ONE_BANK: str = "26395"
+            """MutualOne Bank, Framingham"""
+
+            NEEDHAM_BANK: str = "26483"
+            """Needham Bank, Needham"""
+
+            NEW_VALLEY_BANK_AND_TRUST: str = "59143"
+            """New Valley Bank & Trust, Springfield"""
+
+            NEWBURYPORT_FIVE_CENTS_SAVINGS_BANK: str = "90251"
+            """Newburyport Five Cents Savings Bank, Newburyport"""
+
+            NORTH_BROOKFIELD_SAVINGS_BANK: str = "90258"
+            """North Brookfield Savings Bank, North Brookfield"""
+
+            NORTH_CAMBRIDGE_CO_OPERATIVE_BANK: str = "26567"
+            """North Cambridge Co-operative Bank, Cambridge"""
+
+            NORTH_EASTON_SAVINGS_BANK: str = "90259"
+            """North Easton Savings Bank, South Easton"""
+
+            NORTHERN_BANK_AND_TRUST_COMPANY: str = "18266"
+            """Northern Bank & Trust Company, Woburn"""
+
+            ONE_LOCAL_BANK: str = "26555"
+            """OneLocal Bank, Norwood"""
+
+            ONE_UNITED_BANK: str = "23966"
+            """OneUnited Bank, Boston"""
+
+            PENTUCKET_BANK: str = "90208"
+            """Pentucket  Bank, Haverhill"""
+
+            PEOPLES_BANK: str = "90213"
+            """PeoplesBank, Holyoke"""
+
+            READING_CO_OPERATIVE_BANK: str = "26620"
+            """Reading Co-operative Bank, Reading"""
+
+            ROCKLAND_TRUST_COMPANY: str = "9712"
+            """Rockland Trust Company, Rockland"""
+
+            ROLLSTONE_BANK_AND_TRUST: str = "17797"
+            """Rollstone Bank & Trust, Fitchburg"""
+
+            SALEM_FIVE_CENTS_SAVINGS_BANK: str = "23296"
+            """Salem Five Cents Savings Bank, Salem"""
+
+            SAVERS_CO_OPERATIVE_BANK: str = "26455"
+            """Savers Co-operative Bank, Southbridge"""
+
+            SEAMEN_S_BANK: str = "90268"
+            """Seamen's Bank, Provincetown"""
+
+            SOUTH_SHORE_BANK: str = "90303"
+            """South Shore Bank, South Weymouth"""
+
+            STATE_STREET_BANK_AND_TRUST_COMPANY: str = "14"
+            """State Street Bank and Trust Company, Boston"""
+
+            STONEHAM_BANK_A_CO_OPERATIVE_BANK: str = "26559"
+            """StonehamBank,  A Co-operative Bank, Stoneham"""
+
+            STOUGHTON_CO_OPERATIVE_BANK: str = "26513"
+            """Stoughton Co-operative Bank, Stoughton"""
+
+            THE_BANK_OF_CANTON: str = "90175"
+            """The Bank of Canton, Canton"""
+
+            THE_CAPE_COD_FIVE_CENTS_SAVINGS_BANK: str = "23287"
+            """The Cape Cod Five Cents Savings Bank, Hyannis"""
+
+            THE_COOPERATIVE_BANK: str = "26922"
+            """The Cooperative Bank, Roslindale"""
+
+            THE_LOWELL_FIVE_CENT_SAVINGS_BANK: str = "90227"
+            """The Lowell Five Cent Savings Bank, Tewksbury"""
+
+            THE_NATIONAL_GRAND_BANK_OF_MARBLEHEAD: str = "2608"
+            """The National Grand Bank of Marblehead, Marblehead"""
+
+            THE_PITTSFIELD_CO_OPERATIVE_BANK: str = "26393"
+            """The Pittsfield Co-operative Bank, Pittsfield"""
+
+            THE_SAVINGS_BANK: str = "90291"
+            """The Savings Bank, Wakefield"""
+
+            THE_VILLAGE_BANK: str = "26336"
+            """The Village Bank, Newton"""
+
+            TRU_NORTH_BANK: str = "90188"
+            """TruNorth Bank, Easthampton"""
+
+            UNI_BANK_FOR_SAVINGS: str = "90290"
+            """UniBank for Savings, Whitinsville"""
+
+            WALPOLE_CO_OPERATIVE_BANK: str = "26487"
+            """Walpole Co-operative Bank, Walpole"""
+
+            WASHINGTON_SAVINGS_BANK: str = "90229"
+            """Washington Savings Bank, Lowell"""
+
+            WATERTOWN_SAVINGS_BANK: str = "23298"
+            """Watertown Savings Bank, Watertown"""
+
+            WEBSTER_FIVE_CENTS_SAVINGS_BANK: str = "90297"
+            """Webster Five Cents Savings Bank, Webster"""
+
+            WESTFIELD_BANK: str = "90300"
+            """Westfield Bank, Westfield"""
+
+            WINCHESTER_CO_OPERATIVE_BANK: str = "27238"
+            """Winchester Co-operative Bank, Winchester"""
+
+            WINCHESTER_SAVINGS_BANK: str = "90308"
+            """Winchester Savings Bank, Winchester"""
+
+            WINTER_HILL_BANK_FSB: str = "28213"
+            """Winter Hill Bank, FSB, Somerville"""
+
+            WRENTHAM_CO_OPERATIVE_BANK: str = "26576"
+            """Wrentham Co-operative Bank, Wrentham"""
+
+        class Michigan(System.Object):
+            """Banks headquartered in Michigan."""
+
+            _1_ST_STATE_BANK: str = "57626"
+            """1st State Bank, Saginaw"""
+
+            ALDEN_STATE_BANK: str = "17622"
+            """Alden State Bank, Alden"""
+
+            BANK_MICHIGAN: str = "1008"
+            """Bank Michigan, Brooklyn"""
+
+            BANK_OF_ANN_ARBOR: str = "34120"
+            """Bank of Ann Arbor, Ann Arbor"""
+
+            BAY_PORT_STATE_BANK: str = "15585"
+            """Bay Port State Bank, Bay Port"""
+
+            BAYBANK: str = "1092"
+            """Baybank, Gladstone"""
+
+            BLISSFIELD_STATE_BANK: str = "976"
+            """Blissfield State Bank, Blissfield"""
+
+            CAPITOL_NATIONAL_BANK: str = "24199"
+            """Capitol National Bank, Lansing"""
+
+            CENTRAL_SAVINGS_BANK: str = "1095"
+            """Central Savings Bank, Sault Sainte Marie"""
+
+            CENTURY_BANK_AND_TRUST: str = "5015"
+            """Century Bank and Trust, Coldwater"""
+
+            CHARLEVOIX_STATE_BANK: str = "33926"
+            """Charlevoix State Bank, Charlevoix"""
+
+            CHELSEA_STATE_BANK: str = "14009"
+            """Chelsea State Bank, Chelsea"""
+
+            CHOICE_ONE_BANK: str = "1014"
+            """ChoiceOne Bank, Sparta"""
+
+            CITIZENS_NATIONAL_BANK_OF_CHEBOYGAN: str = "5018"
+            """Citizens National Bank of Cheboygan, Cheboygan"""
+
+            CITIZENS_STATE_BANK: str = "8183"
+            """Citizens State Bank, Royal Oak"""
+
+            COMMERCIAL_BANK: str = "18584"
+            """Commercial Bank, Ithaca"""
+
+            COMMUNITY_UNITY_BANK: str = "59305"
+            """Community Unity Bank, Birmingham"""
+
+            COUNTY_NATIONAL_BANK: str = "14073"
+            """County National Bank, Hillsdale"""
+
+            DEARBORN_FEDERAL_SAVINGS_BANK: str = "29874"
+            """Dearborn Federal Savings Bank, Dearborn"""
+
+            EASTERN_MICHIGAN_BANK: str = "982"
+            """Eastern Michigan Bank, Croswell"""
+
+            EATON_COMMUNITY_BANK: str = "29846"
+            """Eaton Community Bank, Charlotte"""
+
+            FIRST_BANK_UPPER_MICHIGAN: str = "14276"
+            """First Bank, Upper Michigan, Gladstone"""
+
+            FIRST_COMMUNITY_BANK: str = "13179"
+            """First Community Bank, Harbor Springs"""
+
+            FIRST_INDEPENDENCE_BANK: str = "20179"
+            """First Independence Bank, Detroit"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_CO: str = "5062"
+            """First National Bank & Trust Co., Iron Mountain"""
+
+            FIRST_NATIONAL_BANK_OF_AMERICA: str = "17438"
+            """First National Bank of America, East Lansing"""
+
+            FIRST_NATIONAL_BANK_OF_MICHIGAN: str = "58259"
+            """First National Bank of Michigan, Kalamazoo"""
+
+            FIRST_STATE_BANK: str = "15032"
+            """First State Bank, Eastpointe"""
+
+            FIRST_STATE_BANK_OF_MICHIGAN: str = "12893"
+            """First State Bank of Michigan, Decatur"""
+
+            GW_JONES_EXCHANGE_BANK: str = "999"
+            """G. W. Jones Exchange Bank, Marcellus"""
+
+            GRAND_RIVER_BANK: str = "58789"
+            """Grand River Bank, Grandville"""
+
+            HIGHPOINT_COMMUNITY_BANK: str = "11407"
+            """Highpoint Community Bank, Hastings"""
+
+            HOMESTEAD_SAVINGS_BANK: str = "28667"
+            """Homestead Savings Bank, Albion"""
+
+            HONOR_BANK: str = "8165"
+            """Honor  Bank, Honor"""
+
+            HURON_COMMUNITY_BANK: str = "11810"
+            """Huron Community Bank, East Tawas"""
+
+            HURON_STATE_BANK: str = "23126"
+            """Huron State Bank, Rogers City"""
+
+            HURON_VALLEY_STATE_BANK: str = "57990"
+            """Huron Valley State Bank, Milford"""
+
+            INDEPENDENT_BANK: str = "27811"
+            """Independent Bank, Grand Rapids"""
+
+            ISABELLA_BANK: str = "1005"
+            """Isabella Bank, Mount Pleasant"""
+
+            JP_MORGAN_CHASE_BANK_DEARBORN: str = "21761"
+            """JPMorgan Chase Bank, Dearborn, Dearborn"""
+
+            KALAMAZOO_COUNTY_STATE_BANK: str = "5892"
+            """Kalamazoo County State Bank, Schoolcraft"""
+
+            LAKE_OSCEOLA_STATE_BANK: str = "8172"
+            """Lake-Osceola State Bank, Baldwin"""
+
+            MACATAWA_BANK_NATIONAL_ASSOCIATION: str = "34618"
+            """Macatawa Bank, National Association, Holland"""
+
+            MAYVILLE_STATE_BANK: str = "12899"
+            """Mayville State Bank, Mayville"""
+
+            MERCANTILE_BANK: str = "34598"
+            """Mercantile Bank, Grand Rapids"""
+
+            MI_BANK: str = "59138"
+            """Mi Bank, Bloomfield Township"""
+
+            NORTHERN_INTERSTATE_BANK_NA: str = "13784"
+            """Northern Interstate Bank, N. A., Norway"""
+
+            NORTHPOINTE_BANK: str = "34953"
+            """Northpointe Bank, Grand Rapids"""
+
+            NORTHSTAR_BANK: str = "57097"
+            """Northstar Bank, Bad Axe"""
+
+            OXFORD_BANK: str = "9719"
+            """Oxford Bank, Oxford"""
+
+            PEOPLES_STATE_BANK_OF_MUNISING: str = "15165"
+            """Peoples State Bank of Munising, Munising"""
+
+            RANGE_BANK: str = "5072"
+            """Range Bank, Marquette"""
+
+            SIDNEY_STATE_BANK: str = "17232"
+            """Sidney State Bank, Sidney"""
+
+            SOUTHERN_MICHIGAN_BANK_AND_TRUST: str = "5019"
+            """Southern Michigan Bank & Trust, Coldwater"""
+
+            STATE_SAVINGS_BANK: str = "8162"
+            """State Savings Bank, Frankfort"""
+
+            STURGIS_BANK_AND_TRUST_COMPANY: str = "28593"
+            """Sturgis Bank & Trust Company, Sturgis"""
+
+            SUPERIOR_NATIONAL_BANK: str = "5058"
+            """Superior National Bank, Hancock"""
+
+            THE_DART_BANK: str = "5033"
+            """The Dart Bank, Mason"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ST_IGNACE: str = "5074"
+            """The First National Bank of St. Ignace, St. Ignace"""
+
+            THE_FIRST_NATIONAL_BANK_OF_WAKEFIELD: str = "5076"
+            """The First National Bank of Wakefield, Wakefield"""
+
+            THE_MINERS_STATE_BANK: str = "10928"
+            """The Miners State Bank, Iron River"""
+
+            THE_PORT_AUSTIN_STATE_BANK: str = "14999"
+            """The Port Austin State Bank, Port Austin"""
+
+            THE_SHELBY_STATE_BANK: str = "10157"
+            """The Shelby State Bank, Shelby"""
+
+            THE_STATE_SAVINGS_BANK_OF_MANISTIQUE: str = "13249"
+            """The State Savings Bank of Manistique, Manistique"""
+
+            THUMB_BANK_AND_TRUST: str = "14513"
+            """Thumb Bank and Trust, Pigeon"""
+
+            TRI_COUNTY_BANK: str = "977"
+            """Tri-County Bank, Brown City"""
+
+            UNION_BANK: str = "14722"
+            """Union Bank, Grand Rapids"""
+
+            UNITED_BANK_OF_MICHIGAN: str = "11807"
+            """United Bank of Michigan, Grand Rapids"""
+
+            UNIVERSITY_BANK: str = "14587"
+            """University Bank, Ann Arbor"""
+
+            UPPER_PENINSULA_STATE_BANK: str = "1090"
+            """Upper Peninsula State Bank, Escanaba"""
+
+            WEST_MICHIGAN_COMMUNITY_BANK: str = "22308"
+            """West Michigan Community Bank, Hudsonville"""
+
+            WEST_SHORE_BANK: str = "14929"
+            """West Shore Bank, Ludington"""
+
+        class Minnesota(System.Object):
+            """Banks headquartered in Minnesota."""
+
+            _21_ST_CENTURY_BANK: str = "9751"
+            """21st Century Bank, Loretto"""
+
+            ALLIANCE_BANK: str = "10973"
+            """Alliance Bank, Lake City"""
+
+            AMERICAN_HERITAGE_NATIONAL_BANK: str = "8843"
+            """American Heritage National Bank, Long Prairie"""
+
+            AMERICAN_NATIONAL_BANK_OF_MINNESOTA: str = "26499"
+            """American National Bank of Minnesota, Baxter"""
+
+            AMERICAN_STATE_BANK_OF_GRYGLA: str = "22263"
+            """American State Bank of Grygla, Grygla"""
+
+            AMERICANA_COMMUNITY_BANK: str = "8205"
+            """Americana Community Bank, Sleepy Eye"""
+
+            AMERIPRISE_BANK_FSB: str = "58303"
+            """Ameriprise Bank, FSB, Minneapolis"""
+
+            ARCADIAN_BANK: str = "10561"
+            """Arcadian Bank, Hartland"""
+
+            ARLINGTON_STATE_BANK: str = "1391"
+            """Arlington State Bank, Arlington"""
+
+            BANK_OF_MAPLE_PLAIN: str = "9332"
+            """Bank of Maple Plain, Maple Plain"""
+
+            BANK_CHEROKEE: str = "8537"
+            """BankCherokee, Saint Paul"""
+
+            BANK_VISTA: str = "35406"
+            """BankVista, Sartell"""
+
+            BANKWEST: str = "16704"
+            """BANKWEST, Rockford"""
+
+            BATTLE_BANK_NATIONAL_ASSOCIATION: str = "9336"
+            """Battle Bank, National Association, Upsala"""
+
+            BONANZA_VALLEY_STATE_BANK: str = "10993"
+            """Bonanza Valley State Bank, Brooten"""
+
+            BRIDGEWATER_BANK: str = "58210"
+            """Bridgewater Bank, Saint Louis Park"""
+
+            CASTLE_ROCK_BANK: str = "1913"
+            """Castle Rock Bank, Castle Rock"""
+
+            CENTER_NATIONAL_BANK: str = "10976"
+            """Center National Bank, Litchfield"""
+
+            CITIZENS_ALLIANCE_BANK: str = "1402"
+            """Citizens Alliance Bank, Clara City"""
+
+            CITIZENS_BANK_AND_TRUST_CO: str = "10218"
+            """Citizens Bank & Trust Co., Hutchinson"""
+
+            CITIZENS_BANK_MINNESOTA: str = "8200"
+            """Citizens Bank Minnesota, New Ulm"""
+
+            CITIZENS_INDEPENDENT_BANK: str = "16863"
+            """Citizens Independent Bank, Saint Louis Park"""
+
+            CITIZENS_STATE_BANK_NORWOOD_YOUNG_AMERICA: str = "1933"
+            """Citizens State Bank Norwood Young America, Norwood Young America"""
+
+            CITIZENS_STATE_BANK_OF_ROSEAU: str = "10167"
+            """Citizens State Bank of Roseau, Roseau"""
+
+            COMMERCE_BANK: str = "10212"
+            """Commerce Bank, Geneva"""
+
+            COMMUNITY_BANK_MANKATO: str = "9760"
+            """Community Bank Mankato, Vernon Center"""
+
+            COMMUNITY_BANK_OWATONNA: str = "57468"
+            """Community Bank Owatonna, Owatonna"""
+
+            COMMUNITY_FIRST_BANK: str = "5197"
+            """COMMUNITY FIRST BANK, Menahga"""
+
+            COMMUNITY_RESOURCE_BANK: str = "5219"
+            """Community Resource Bank, Northfield"""
+
+            CONCORDE_BANK: str = "9727"
+            """Concorde Bank, Blomkest"""
+
+            CORNERSTONE_STATE_BANK: str = "21525"
+            """Cornerstone State Bank, Montgomery"""
+
+            CROWN_BANK: str = "35480"
+            """Crown Bank, Edina"""
+
+            CURRIE_STATE_BANK: str = "8833"
+            """Currie State Bank, Currie"""
+
+            DEERWOOD_BANK: str = "5123"
+            """Deerwood Bank, Waite Park"""
+
+            DRAKE_BANK: str = "57336"
+            """Drake Bank, Saint Paul"""
+
+            EAGLE_BANK: str = "8824"
+            """Eagle Bank, Glenwood"""
+
+            EAGLE_ROCK_BANK: str = "34171"
+            """Eagle Rock Bank, Rochester"""
+
+            ELYSIAN_BANK: str = "10185"
+            """Elysian Bank, Elysian"""
+
+            ENTRE_BANK: str = "59287"
+            """EntreBank, Bloomington"""
+
+            ESB_BANK: str = "10980"
+            """ESB Bank, Caledonia"""
+
+            F_AND_M_COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "10967"
+            """F & M Community Bank, National Association, Preston"""
+
+            FALCON_NATIONAL_BANK: str = "57603"
+            """Falcon National Bank, Foley"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_NEW_YORK_MILLS_INCORPORATED: str = "9340"
+            """Farmers & Merchants State Bank of New York Mills, Incorporated, New York Mills"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_ALPHA: str = "10571"
+            """Farmers and Merchants State Bank of Alpha, Alpha"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_APPLETON: str = "8845"
+            """Farmers and Merchants State Bank of Appleton, Appleton"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_PIERZ: str = "10165"
+            """Farmers and Merchants State Bank of Pierz, Pierz"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_OF_SPRINGFIELD: str = "13382"
+            """Farmers and Merchants State Bank of Springfield, Springfield"""
+
+            FARMERS_STATE_BANK_OF_HAMEL: str = "8214"
+            """Farmers State Bank of Hamel, Hamel"""
+
+            FARMERS_STATE_BANK_OF_HOFFMAN: str = "9354"
+            """Farmers State Bank of Hoffman, Hoffman"""
+
+            FARMERS_STATE_BANK_OF_TRIMONT: str = "1929"
+            """Farmers State Bank of Trimont, Trimont"""
+
+            FARMERS_STATE_BANK_OF_UNDERWOOD: str = "10174"
+            """Farmers State Bank of Underwood, Underwood"""
+
+            FIRST_BANK_BLUE_EARTH: str = "5097"
+            """First Bank Blue Earth, Blue Earth"""
+
+            FIRST_BANK_ELK_RIVER: str = "5136"
+            """First Bank Elk River, Elk River"""
+
+            FIRST_FARMERS_AND_MERCHANTS_BANK: str = "10168"
+            """First Farmers & Merchants Bank, Cannon Falls"""
+
+            FIRST_FARMERS_AND_MERCHANTS_NATIONAL_BANK_FAIRMONT: str = "33131"
+            """First Farmers & Merchants National Bank, Fairmont"""
+
+            FIRST_FARMERS_AND_MERCHANTS_NATIONAL_BANK_LUVERNE: str = "5186"
+            """First Farmers & Merchants National Bank, Luverne"""
+
+            FIRST_FARMERS_AND_MERCHANTS_STATE_BANK: str = "1600"
+            """First Farmers & Merchants State Bank, Brownsdale"""
+
+            FIRST_FARMERS_AND_MERCHANTS_STATE_BANK_OF_GRAND_MEADOW: str = "15621"
+            """First Farmers & Merchants State Bank of Grand Meadow, Grand Meadow"""
+
+            FIRST_FINANCIAL_BANK_IN_WINNEBAGO: str = "5278"
+            """First Financial Bank in Winnebago, Winnebago"""
+
+            FIRST_INDEPENDENT_BANK: str = "1900"
+            """First Independent Bank, Russell"""
+
+            FIRST_NATIONAL_BANK_MINNESOTA: str = "5247"
+            """First National Bank Minnesota, Saint Peter"""
+
+            FIRST_NATIONAL_BANK_NORTH: str = "5269"
+            """First National Bank North, Walker"""
+
+            FIRST_RESOURCE_BANK: str = "58039"
+            """First Resource Bank, Lino Lakes"""
+
+            FIRST_SECURITY_BANK: str = "9728"
+            """First Security Bank, Byron"""
+
+            FIRST_SECURITY_BANK_CANBY: str = "5107"
+            """First Security Bank - Canby, Canby"""
+
+            FIRST_SECURITY_BANK_SLEEPY_EYE: str = "5252"
+            """First Security Bank - Sleepy Eye, Sleepy Eye"""
+
+            FIRST_SOUTHEAST_BANK: str = "10576"
+            """First Southeast Bank, Harmony"""
+
+            FIRST_STATE_BANK_AND_TRUST: str = "10159"
+            """First State Bank and Trust, Bayport"""
+
+            FIRST_STATE_BANK_MINNESOTA: str = "10162"
+            """First State Bank Minnesota, Le Roy"""
+
+            FIRST_STATE_BANK_OF_BIGFORK: str = "10991"
+            """First State Bank of Bigfork, Bigfork"""
+
+            FIRST_STATE_BANK_OF_LE_CENTER: str = "9330"
+            """First State Bank of Le Center, Le Center"""
+
+            FIRST_STATE_BANK_OF_SWANVILLE: str = "8218"
+            """First State Bank of Swanville, Swanville"""
+
+            FIRST_STATE_BANK_SOUTHWEST: str = "9770"
+            """First State Bank Southwest, Pipestone"""
+
+            FM_BANK: str = "10998"
+            """FM Bank, Waseca"""
+
+            FORESIGHT_BANK: str = "5229"
+            """Foresight Bank, Plainview"""
+
+            FRANDSEN_BANK_AND_TRUST: str = "1399"
+            """Frandsen Bank & Trust, Lonsdale"""
+
+            FREEPORT_STATE_BANK: str = "8210"
+            """Freeport State Bank, Freeport"""
+
+            GATEWAY_BANK: str = "57644"
+            """Gateway Bank, Mendota Heights"""
+
+            GLENWOOD_STATE_BANK_INCORPORATED: str = "8853"
+            """Glenwood State Bank (Incorporated), Glenwood"""
+
+            GLOBAL_INNOVATIONS_BANK: str = "5175"
+            """Global Innovations Bank, Kiester"""
+
+            GRAND_MARAIS_STATE_BANK: str = "8842"
+            """Grand Marais State Bank, Grand Marais"""
+
+            GRAND_RAPIDS_STATE_BANK: str = "10962"
+            """Grand Rapids State Bank, Grand Rapids"""
+
+            GRAND_TIMBER_BANK: str = "18719"
+            """Grand Timber Bank, Mcgregor"""
+
+            GRANITE_BANK: str = "5116"
+            """Granite Bank, Cold Spring"""
+
+            GROVE_BANK: str = "8857"
+            """Grove Bank, Grove City"""
+
+            HARVEST_BANK: str = "11415"
+            """Harvest Bank, Kimball"""
+
+            HERITAGE_BANK_MINNESOTA: str = "8865"
+            """Heritage Bank Minnesota, West Concord"""
+
+            HERITAGE_BANK_NATIONAL_ASSOCIATION: str = "19254"
+            """Heritage Bank National Association, Spicer"""
+
+            HIGHLAND_BANK: str = "16111"
+            """Highland Bank, Saint Paul"""
+
+            HOME_STATE_BANK: str = "9745"
+            """Home State Bank, Litchfield"""
+
+            HOME_TOWN_BANK: str = "31028"
+            """HomeTown  Bank, Carver"""
+
+            HOMETOWN_COMMUNITY_BANK: str = "10197"
+            """Hometown Community Bank, Cyrus"""
+
+            INTEGRITY_BANK_PLUS: str = "15578"
+            """Integrity Bank Plus, Wabasso"""
+
+            JANESVILLE_STATE_BANK: str = "10960"
+            """Janesville State Bank, Janesville"""
+
+            KEEN_BANK_NATIONAL_ASSOCIATION: str = "5270"
+            """Keen Bank, National Association, Waseca"""
+
+            KENSINGTON_BANK: str = "1409"
+            """Kensington Bank, Kensington"""
+
+            KEY_COMMUNITY_BANK: str = "34644"
+            """Key Community Bank, Inver Grove Heights"""
+
+            LAKE_CENTRAL_BANK: str = "10989"
+            """Lake Central Bank, Annandale"""
+
+            LAKE_COUNTRY_COMMUNITY_BANK: str = "17122"
+            """Lake Country Community Bank, Morristown"""
+
+            LAKE_ELMO_BANK: str = "15443"
+            """Lake Elmo Bank, Lake Elmo"""
+
+            LAKE_REGION_BANK: str = "10965"
+            """Lake Region Bank, New London"""
+
+            LAKEVIEW_BANK: str = "57785"
+            """Lakeview Bank, Lakeville"""
+
+            LIBERTY_BANK_MINNESOTA: str = "26891"
+            """Liberty Bank Minnesota, Saint Cloud"""
+
+            LOWRY_STATE_BANK: str = "10202"
+            """Lowry State Bank, Lowry"""
+
+            LUMINATE_BANK: str = "16635"
+            """Luminate Bank, Minneapolis"""
+
+            MARSHALL_COUNTY_STATE_BANK: str = "9752"
+            """Marshall County State Bank, Newfolden"""
+
+            MERCHANTS_BANK_NATIONAL_ASSOCIATION: str = "8866"
+            """Merchants Bank, National Association, Winona"""
+
+            MID_CENTRAL_NATIONAL_BANK: str = "30943"
+            """Mid-Central National Bank, Wadena"""
+
+            MID_COUNTRY_BANK: str = "28865"
+            """MidCountry Bank, Minneapolis"""
+
+            MIDWEST_BANK: str = "9737"
+            """Midwest Bank, Detroit Lakes"""
+
+            MINNESOTA_FIRST_CREDIT_AND_SAVINGS_INCORPORATED: str = "26755"
+            """Minnesota First Credit and Savings, Incorporated, Rochester"""
+
+            MINNESOTA_LAKES_BANK: str = "23986"
+            """MINNESOTA LAKES BANK, Delano"""
+
+            MINNESOTA_NATIONAL_BANK: str = "5249"
+            """Minnesota National Bank, Sauk Centre"""
+
+            MINNSTAR_BANK_NATIONAL_ASSOCIATION: str = "13809"
+            """Minnstar Bank National Association, Lake Crystal"""
+
+            MINNWEST_BANK: str = "16958"
+            """Minnwest Bank, Redwood Falls"""
+
+            MY_KIND_OF_BANK_NATIONAL_ASSOCIATION: str = "5162"
+            """My Kind of Bank, National Association, Ottertail"""
+
+            NEIGHBORHOOD_NATIONAL_BANK: str = "18885"
+            """Neighborhood National Bank, Mora"""
+
+            NEW_MARKET_BANK: str = "1931"
+            """New Market Bank, Elko New Market"""
+
+            NORTH_AMERICAN_BANKING_COMPANY: str = "34836"
+            """North American Banking Company, Roseville"""
+
+            NORTH_SHORE_BANK_OF_COMMERCE: str = "8850"
+            """North Shore Bank of Commerce, Duluth"""
+
+            NORTH_STAR_BANK: str = "16733"
+            """North Star Bank, Roseville"""
+
+            NORTHEAST_BANK: str = "16659"
+            """Northeast Bank, Minneapolis"""
+
+            NORTHERN_STATE_BANK_OF_THIEF_RIVER_FALLS: str = "15286"
+            """Northern State Bank of Thief River Falls, Thief River Falls"""
+
+            NORTHERN_STATE_BANK_OF_VIRGINIA: str = "19589"
+            """Northern State Bank of Virginia, Virginia"""
+
+            NORTHVIEW_BANK: str = "10956"
+            """Northview Bank, Sandstone"""
+
+            NORTHWESTERN_BANK_NATIONAL_ASSOCIATION: str = "9746"
+            """Northwestern Bank, National Association, Dilworth"""
+
+            NORTHWOODS_BANK_OF_MINNESOTA: str = "1415"
+            """Northwoods Bank of Minnesota, Park Rapids"""
+
+            ODIN_STATE_BANK: str = "14574"
+            """Odin State Bank, Odin"""
+
+            PARK_STATE_BANK: str = "8851"
+            """Park State Bank, Duluth"""
+
+            PEOPLES_STATE_BANK_OF_PLAINVIEW: str = "1100"
+            """Peoples State Bank of Plainview, Plainview"""
+
+            PERENNIAL_BANK: str = "1413"
+            """Perennial Bank, Darwin"""
+
+            PINE_COUNTRY_BANK: str = "13652"
+            """Pine Country Bank, Little Falls"""
+
+            PINE_RIVER_STATE_BANK: str = "10194"
+            """Pine River State Bank, Pine River"""
+
+            PIONEER_BANK: str = "5193"
+            """Pioneer Bank, Mapleton"""
+
+            PLATINUM_BANK: str = "58511"
+            """Platinum Bank, Oakdale"""
+
+            PRAIRIE_SUN_BANK: str = "8207"
+            """Prairie Sun Bank, Milan"""
+
+            PREMIER_BANK: str = "21714"
+            """Premier Bank, Maplewood"""
+
+            PREMIER_BANK_MINNESOTA: str = "33204"
+            """Premier Bank Minnesota, Hastings"""
+
+            PRIME_SECURITY_BANK: str = "10971"
+            """Prime Security Bank, Karlstad"""
+
+            PRINS_BANK: str = "10191"
+            """PrinsBank, Prinsburg"""
+
+            PRODUCE_STATE_BANK: str = "10178"
+            """Produce State Bank, Hollandale"""
+
+            PROFINIUM_INC: str = "1905"
+            """Profinium, Inc., Truman"""
+
+            PRO_GROWTH_BANK: str = "8536"
+            """ProGrowth Bank, Nicollet"""
+
+            RANDALL_STATE_BANK: str = "10969"
+            """Randall State Bank, Randall"""
+
+            RED_RIVER_STATE_BANK: str = "15820"
+            """Red River State Bank, Halstad"""
+
+            RELIANCE_BANK: str = "58602"
+            """Reliance Bank, Faribault"""
+
+            RUSHFORD_STATE_BANK_INCORPORATED: str = "11411"
+            """Rushford State Bank (Incorporated), Rushford"""
+
+            SCALE_BANK: str = "20268"
+            """Scale Bank, Edina"""
+
+            SECURITY_BANK_AND_TRUST_COMPANY: str = "15324"
+            """Security Bank & Trust Company, Glencoe"""
+
+            SECURITY_BANK_MINNESOTA: str = "10984"
+            """Security Bank Minnesota, Albert Lea"""
+
+            SECURITY_BANK_USA: str = "1604"
+            """Security Bank USA, Bemidji"""
+
+            SECURITY_STATE_BANK_OF_AITKIN: str = "16656"
+            """Security State Bank of Aitkin, Aitkin"""
+
+            SECURITY_STATE_BANK_OF_HIBBING: str = "10175"
+            """Security State Bank of Hibbing, Hibbing"""
+
+            SECURITY_STATE_BANK_OF_KENYON: str = "15597"
+            """Security State Bank of Kenyon, Kenyon"""
+
+            SECURITY_STATE_BANK_OF_MARINE: str = "10163"
+            """Security State Bank of Marine, Marine On St. Croix"""
+
+            SECURITY_STATE_BANK_OF_OKLEE: str = "10982"
+            """Security State Bank of Oklee, Oklee"""
+
+            SECURITY_STATE_BANK_OF_WANAMINGO: str = "18378"
+            """Security State Bank of Wanamingo, Wanamingo"""
+
+            SECURITY_STATE_BANK_OF_WARROAD: str = "9773"
+            """Security State Bank of Warroad, Warroad"""
+
+            SENTRY_BANK: str = "8546"
+            """Sentry Bank, Saint Joseph"""
+
+            SHERBURNE_STATE_BANK: str = "10169"
+            """Sherburne State Bank, Becker"""
+
+            ST_CLAIR_STATE_BANK_INCORPORATED: str = "1903"
+            """St. Clair State Bank (Incorporated), Saint Clair"""
+
+            ST_MARTIN_NATIONAL_BANK: str = "18937"
+            """St. Martin National Bank, Saint Martin"""
+
+            STAR_BANK: str = "5095"
+            """Star Bank, Maple Lake"""
+
+            STATE_BANK_OF_BELLINGHAM: str = "17062"
+            """State Bank of Bellingham, Bellingham"""
+
+            STATE_BANK_OF_CHANDLER: str = "8858"
+            """State Bank of Chandler, Chandler"""
+
+            STATE_BANK_OF_COLD_SPRING: str = "12444"
+            """State Bank of Cold Spring, Cold Spring"""
+
+            STATE_BANK_OF_EASTON: str = "16561"
+            """State Bank of Easton, Easton"""
+
+            STATE_BANK_OF_FAIRMONT: str = "8541"
+            """State Bank of Fairmont, Fairmont"""
+
+            STATE_BANK_OF_JEFFERS: str = "10200"
+            """State Bank of Jeffers, Jeffers"""
+
+            STATE_BANK_OF_LAKE_PARK: str = "9351"
+            """State Bank of Lake Park, Lake Park"""
+
+            STATE_BANK_OF_NEW_RICHLAND: str = "9735"
+            """State Bank of New Richland, New Richland"""
+
+            STATE_BANK_OF_TAUNTON: str = "16906"
+            """State Bank of Taunton, Taunton"""
+
+            STEARNS_BANK_NATIONAL_ASSOCIATION: str = "10988"
+            """Stearns Bank National Association, Saint Cloud"""
+
+            STERLING_STATE_BANK: str = "17863"
+            """Sterling State Bank, Austin"""
+
+            THE_BANK_OF_ELK_RIVER: str = "1607"
+            """The Bank of Elk River, Elk River"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_PARK_RAPIDS: str = "5223"
+            """The Citizens National Bank of Park Rapids, Park Rapids"""
+
+            THE_FIRST_NATIONAL_BANK_AT_ST_JAMES: str = "14853"
+            """The First National Bank at St. James, Saint James"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BAGLEY: str = "5087"
+            """The First National Bank of Bagley, Bagley"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BEMIDJI: str = "5093"
+            """The First National Bank of Bemidji, Bemidji"""
+
+            THE_FIRST_NATIONAL_BANK_OF_COKATO: str = "5115"
+            """The First National Bank of Cokato, Cokato"""
+
+            THE_FIRST_NATIONAL_BANK_OF_COLERAINE: str = "5117"
+            """The First National Bank of Coleraine, Coleraine"""
+
+            THE_FIRST_NATIONAL_BANK_OF_FAIRFAX: str = "5142"
+            """The First National Bank of Fairfax, Fairfax"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GILBERT: str = "5150"
+            """The First National Bank of Gilbert, Gilbert"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LE_CENTER: str = "5180"
+            """The First National Bank of Le Center, Lonsdale"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MC_INTOSH: str = "5196"
+            """The First National Bank of McIntosh, Mcintosh"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MILACA: str = "5198"
+            """The First National Bank of Milaca, Milaca"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MOOSE_LAKE: str = "5214"
+            """The First National Bank of Moose Lake, Moose Lake"""
+
+            THE_FIRST_NATIONAL_BANK_OF_OSAKIS: str = "5221"
+            """The First National Bank of Osakis, Osakis"""
+
+            THE_FIRST_NATIONAL_BANK_OF_PROCTOR: str = "5232"
+            """The First National Bank of Proctor, Proctor"""
+
+            THE_FIRST_STATE_BANK_OF_RED_WING: str = "8191"
+            """The First State Bank of Red Wing, Red Wing"""
+
+            THE_FIRST_STATE_BANK_OF_ROSEMOUNT: str = "9769"
+            """The First State Bank of Rosemount, Rosemount"""
+
+            THE_MINERS_NATIONAL_BANK_OF_EVELETH: str = "5141"
+            """The Miners National Bank of Eveleth, Eveleth"""
+
+            THE_NORTHERN_STATE_BANK_OF_GONVICK: str = "10187"
+            """The Northern State Bank of Gonvick, Gonvick"""
+
+            THE_STATE_BANK_OF_FARIBAULT: str = "1610"
+            """The State Bank of Faribault, Faribault"""
+
+            THE_WANDA_STATE_BANK: str = "1908"
+            """The Wanda State Bank, Wanda"""
+
+            THINK_MUTUAL_BANK: str = "58536"
+            """Think Mutual Bank, Rochester"""
+
+            TRADITION_CAPITAL_BANK: str = "58057"
+            """Tradition Capital Bank, Wayzata"""
+
+            TRIUMPH_STATE_BANK: str = "1906"
+            """Triumph State Bank, Trimont"""
+
+            ULTIMA_BANK_MINNESOTA: str = "8867"
+            """Ultima Bank Minnesota, Winger"""
+
+            UNION_BANK_AND_TRUST_COMPANY: str = "22242"
+            """Union Bank and Trust Company, Minneapolis"""
+
+            UNITED_BANKERS_BANK: str = "22180"
+            """United Bankers' Bank, Richfield"""
+
+            UNITED_COMMUNITY_BANK: str = "8544"
+            """United Community Bank, Perham"""
+
+            UNITED_FARMERS_STATE_BANK: str = "8821"
+            """United Farmers State Bank, Adams"""
+
+            UNITED_MINNESOTA_BANK: str = "10567"
+            """United Minnesota Bank, New London"""
+
+            UNITED_PRAIRIE_BANK: str = "10958"
+            """United Prairie Bank, Mountain Lake"""
+
+            VALLEY_PREMIER_BANK: str = "11409"
+            """Valley Premier Bank, Hawley"""
+
+            VANTAGE_BANK: str = "9733"
+            """Vantage Bank, Kent"""
+
+            VERGAS_STATE_BANK: str = "9747"
+            """Vergas State Bank, Vergas"""
+
+            VERMILLION_STATE_BANK: str = "10214"
+            """Vermillion State Bank, Vermillion"""
+
+            VERSA_BANK_USA_NATIONAL_ASSOCIATION: str = "10160"
+            """VersaBank USA National Association, Holdingford"""
+
+            VIKING_BANK_NATIONAL_ASSOCIATION: str = "32082"
+            """VIKING BANK, NATIONAL ASSOCIATION, Alexandria"""
+
+            VILLAGE_BANK: str = "33761"
+            """Village Bank, Saint Francis"""
+
+            VISION_BANK: str = "58063"
+            """VisionBank, Saint Louis Park"""
+
+            WADENA_STATE_BANK: str = "13430"
+            """Wadena State Bank, Wadena"""
+
+            WELCOME_STATE_BANK: str = "11417"
+            """Welcome State Bank, Welcome"""
+
+            WESTERN_NATIONAL_BANK_CASS_LAKE: str = "5110"
+            """Western National Bank, Cass Lake"""
+
+            WESTERN_NATIONAL_BANK_DULUTH: str = "5131"
+            """Western National Bank, Duluth"""
+
+            WNB_FINANCIAL_NA: str = "5280"
+            """WNB FINANCIAL, N.A., Winona"""
+
+            WOODLAND_BANK: str = "8863"
+            """Woodland Bank, Deer River"""
+
+            WOODLANDS_NATIONAL_BANK: str = "1417"
+            """Woodlands National Bank, Hinckley"""
+
+            WORTHINGTON_FEDERAL_SAVINGS_BANK_FSB: str = "29426"
+            """Worthington Federal Savings Bank, FSB, Worthington"""
+
+        class Mississippi(System.Object):
+            """Banks headquartered in Mississippi."""
+
+            AMORY_FIRST_SAVINGS_AND_LOAN_BANK_SSB: str = "28949"
+            """Amory First Savings And Loan Bank, Ssb, Amory"""
+
+            BANK_OF_ANGUILLA: str = "8243"
+            """Bank of Anguilla, Anguilla"""
+
+            BANK_OF_BROOKHAVEN: str = "35439"
+            """Bank of Brookhaven, Brookhaven"""
+
+            BANK_OF_COMMERCE: str = "9359"
+            """Bank of Commerce, Greenwood"""
+
+            BANK_OF_FRANKLIN: str = "10594"
+            """Bank of Franklin, Meadville"""
+
+            BANK_OF_HOLLY_SPRINGS: str = "8232"
+            """Bank of Holly Springs, Holly Springs"""
+
+            BANK_OF_KILMICHAEL: str = "9775"
+            """Bank of Kilmichael, Kilmichael"""
+
+            BANK_OF_WIGGINS: str = "8250"
+            """Bank of Wiggins, Wiggins"""
+
+            BANK_OF_WINONA: str = "12207"
+            """Bank of Winona, Winona"""
+
+            BANK_OF_YAZOO_CITY: str = "11431"
+            """Bank of Yazoo City, Yazoo City"""
+
+            BANK_FIRST_FINANCIAL_SERVICES: str = "8870"
+            """BankFirst Financial Services, Columbus"""
+
+            BANK_OKOLONA: str = "5902"
+            """BankOkolona, Okolona"""
+
+            BANK_PLUS: str = "5903"
+            """BankPlus, Belzoni"""
+
+            BNA_BANK: str = "19448"
+            """BNA Bank, New Albany"""
+
+            CENTURY_BANK: str = "11448"
+            """Century Bank, Lucedale"""
+
+            CITIZENS_BANK: str = "324"
+            """Citizens Bank, Columbia"""
+
+            CITIZENS_BANK_AND_TRUST_CO: str = "9777"
+            """Citizens Bank & Trust Co., Marks"""
+
+            COMMERCE_BANK: str = "34938"
+            """Commerce Bank, Corinth"""
+
+            COMMUNITY_BANK_OF_MISSISSIPPI: str = "8879"
+            """Community Bank of Mississippi, Flowood"""
+
+            COPIAH_BANK: str = "8231"
+            """Copiah Bank, Hazlehurst"""
+
+            COVINGTON_COUNTY_BANK: str = "21998"
+            """Covington County Bank, Collins"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "15801"
+            """Farmers and Merchants Bank, Baldwyn"""
+
+            FIRST_BANK: str = "5907"
+            """First Bank, Mccomb"""
+
+            FIRST_CHOICE_BANK: str = "5006"
+            """First Choice Bank, Pontotoc"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30812"
+            """First Federal Savings and Loan Association, Pascagoula"""
+
+            FIRST_NATIONAL_BANK_OF_CLARKSDALE: str = "19070"
+            """First National Bank of Clarksdale, Clarksdale"""
+
+            FIRST_SECURITY_BANK: str = "17120"
+            """First Security Bank, Batesville"""
+
+            FIRST_SOUTHERN_BANK: str = "31158"
+            """First Southern Bank, Columbia"""
+
+            FIRST_STATE_BANK: str = "15663"
+            """First State Bank, Waynesboro"""
+
+            FNB_OXFORD_BANK: str = "5005"
+            """FNB Oxford Bank, Oxford"""
+
+            FNB_PICAYUNE_BANK: str = "16612"
+            """FNB Picayune Bank, Picayune"""
+
+            GENESIS_BANK: str = "15817"
+            """Genesis Bank, Benoit"""
+
+            GRAND_BANK_FOR_SAVINGS_FSB: str = "31864"
+            """Grand Bank for Savings, FSB, Hattiesburg"""
+
+            GREAT_SOUTHERN_BANK: str = "8552"
+            """Great Southern Bank, Meridian"""
+
+            GUARANTY_BANK_AND_TRUST_COMPANY: str = "15953"
+            """Guaranty Bank and Trust Company, Belzoni"""
+
+            HANCOCK_WHITNEY_BANK: str = "12441"
+            """Hancock Whitney Bank, Gulfport"""
+
+            MERCHANTS_AND_MARINE_BANK: str = "12203"
+            """Merchants & Marine Bank, Pascagoula"""
+
+            MERCHANTS_AND_PLANTERS_BANK: str = "327"
+            """Merchants and Planters Bank, Raymond"""
+
+            PEOPLES_BANK: str = "9366"
+            """Peoples Bank, Mendenhall"""
+
+            PIKE_NATIONAL_BANK: str = "26379"
+            """Pike National Bank, Mccomb"""
+
+            PLANTERS_BANK_AND_TRUST_COMPANY: str = "8235"
+            """Planters Bank & Trust Company, Indianola"""
+
+            PRIORITY_ONE_BANK: str = "21906"
+            """PriorityOne Bank, Magee"""
+
+            RENASANT_BANK: str = "12437"
+            """Renasant Bank, Tupelo"""
+
+            RICHTON_BANK_AND_TRUST_COMPANY: str = "11817"
+            """Richton Bank & Trust Company, Richton"""
+
+            RIVER_HILLS_BANK: str = "8234"
+            """RiverHills Bank, Vicksburg"""
+
+            STORY_BANK_DBA_STORY_FINANCIAL_PARTNERS: str = "57069"
+            """Story Bank DBA Story Financial Partners, Jackson"""
+
+            THE_BANK_OF_FOREST: str = "898"
+            """The Bank of Forest, Forest"""
+
+            THE_CITIZENS_BANK_OF_PHILADELPHIA_MISSISSIPPI: str = "12204"
+            """The Citizens Bank of Philadelphia, Mississippi, Philadelphia"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_MERIDIAN: str = "4993"
+            """The Citizens National Bank of Meridian, Meridian"""
+
+            THE_CLEVELAND_STATE_BANK: str = "12201"
+            """The Cleveland State Bank, Cleveland"""
+
+            THE_COMMERCIAL_BANK: str = "9356"
+            """The Commercial Bank, De Kalb"""
+
+            THE_JEFFERSON_BANK: str = "11445"
+            """The Jefferson Bank, Greenville"""
+
+            THE_PEOPLES_BANK: str = "15871"
+            """The Peoples Bank, Ripley"""
+
+            THE_PEOPLES_BANK_BILOXI_MISSISSIPPI: str = "340"
+            """The Peoples Bank, Biloxi, Mississippi, Biloxi"""
+
+            TRUSTMARK_BANK: str = "4988"
+            """Trustmark Bank, Jackson"""
+
+            UNITED_MISSISSIPPI_BANK: str = "21083"
+            """United Mississippi Bank, Natchez"""
+
+            UNITY_BANK_OF_MISSISSIPPI: str = "11446"
+            """Unity Bank of Mississippi, Holly Springs"""
+
+        class Missouri(System.Object):
+            """Banks headquartered in Missouri."""
+
+            _1_ST_ADVANTAGE_BANK: str = "57899"
+            """1st Advantage Bank, Saint Peters"""
+
+            ACADEMY_BANK_NATIONAL_ASSOCIATION: str = "19600"
+            """Academy Bank, National Association, Kansas City"""
+
+            ADRIAN_BANK: str = "8251"
+            """Adrian Bank, Adrian"""
+
+            ALLIANCE_BANK: str = "34566"
+            """Alliance Bank, Cape Girardeau"""
+
+            ALLIANT_BANK: str = "1946"
+            """Alliant Bank, Madison"""
+
+            ALTON_BANK: str = "8276"
+            """Alton Bank, Alton"""
+
+            AMERICA_S_COMMUNITY_BANK: str = "8893"
+            """America's Community Bank, Blue Springs"""
+
+            AMERICAN_BANK_OF_FREEDOM: str = "15423"
+            """American Bank of Freedom, Wellsville"""
+
+            ARLO_BANK: str = "29143"
+            """Arlo Bank, Springfield"""
+
+            BANK_21: str = "8560"
+            """Bank 21, Carrollton"""
+
+            BANK_NORTHWEST: str = "16601"
+            """Bank Northwest, Hamilton"""
+
+            BANK_OF_BILLINGS: str = "16959"
+            """Bank of Billings, Billings"""
+
+            BANK_OF_BROOKFIELD_PURDIN_NATIONAL_ASSOCIATION: str = "9385"
+            """Bank of Brookfield - Purdin, National Association, Brookfield"""
+
+            BANK_OF_CROCKER: str = "1937"
+            """Bank of Crocker, Waynesville"""
+
+            BANK_OF_FRANKLIN_COUNTY: str = "35543"
+            """Bank of Franklin County, Washington"""
+
+            BANK_OF_GRANDIN: str = "9392"
+            """Bank of Grandin, Grandin"""
+
+            BANK_OF_IBERIA: str = "8584"
+            """Bank of Iberia, Iberia"""
+
+            BANK_OF_MONTICELLO: str = "12232"
+            """Bank of Monticello, Monticello"""
+
+            BANK_OF_NEW_MADRID: str = "14701"
+            """Bank of New Madrid, New Madrid"""
+
+            BANK_OF_ODESSA: str = "9803"
+            """Bank of Odessa, Odessa"""
+
+            BANK_OF_SALEM: str = "14349"
+            """Bank of Salem, Salem"""
+
+            BANK_OF_WASHINGTON: str = "12627"
+            """Bank of Washington, Washington"""
+
+            BANK_OF_WESTON: str = "1418"
+            """Bank of Weston, Weston"""
+
+            BELGRADE_STATE_BANK: str = "12208"
+            """Belgrade State Bank, Belgrade"""
+
+            BLOOMSDALE_BANK: str = "9788"
+            """Bloomsdale Bank, Bloomsdale"""
+
+            BLUE_RIDGE_BANK_AND_TRUST_CO: str = "17933"
+            """Blue Ridge Bank and Trust Co., Independence"""
+
+            BRANSON_BANK: str = "35420"
+            """Branson Bank, Branson"""
+
+            BTC_BANK: str = "10618"
+            """BTC Bank, Bethany"""
+
+            CARROLL_COUNTY_TRUST_COMPANY_OF_CARROLLTON_MISSOURI: str = "1611"
+            """Carroll County Trust Company of Carrollton, Missouri, Carrollton"""
+
+            CASS_COMMERCIAL_BANK: str = "1068"
+            """Cass Commercial Bank, Des Peres"""
+
+            CENTRAL_BANK_OF_KANSAS_CITY: str = "17009"
+            """Central Bank of Kansas City, Kansas City"""
+
+            CENTURY_BANK_OF_THE_OZARKS: str = "8296"
+            """Century Bank of the Ozarks, Gainesville"""
+
+            CHILLICOTHE_STATE_BANK: str = "15546"
+            """Chillicothe State Bank, Chillicothe"""
+
+            CITIZENS_BANK_BUTLER: str = "22601"
+            """Citizens Bank, Butler"""
+
+            CITIZENS_BANK_NEW_HAVEN: str = "14488"
+            """Citizens Bank, New Haven"""
+
+            CITIZENS_BANK_AND_TRUST: str = "14293"
+            """Citizens Bank & Trust, Rock Port"""
+
+            CITIZENS_BANK_OF_ELDON: str = "1956"
+            """Citizens Bank of Eldon, Eldon"""
+
+            CITIZENS_BANK_OF_ROGERSVILLE: str = "8572"
+            """Citizens Bank of Rogersville, Rogersville"""
+
+            CITIZENS_BANK_OF_THE_MIDWEST: str = "16126"
+            """Citizens Bank of the Midwest, Rolla"""
+
+            CITIZENS_COMMUNITY_BANK: str = "12694"
+            """Citizens Community Bank, Pilot Grove"""
+
+            CITIZENS_BANK_OF_CHARLESTON: str = "17830"
+            """Citizens' Bank of Charleston, Charleston"""
+
+            CNB_ST_LOUIS_BANK: str = "4549"
+            """CNB St Louis Bank, Maplewood"""
+
+            COMMERCE_BANK: str = "24998"
+            """Commerce Bank, Kansas City"""
+
+            COMMERCIAL_BANK: str = "27409"
+            """Commercial Bank, Saint Louis"""
+
+            COMMERCIAL_TRUST_COMPANY_OF_FAYETTE: str = "9791"
+            """Commercial Trust Company of Fayette, Fayette"""
+
+            COMMUNITY_BANK_AND_TRUST: str = "13068"
+            """Community Bank and Trust, Neosho"""
+
+            COMMUNITY_BANK_OF_EL_DORADO_SPRINGS: str = "23551"
+            """Community Bank of El Dorado Springs, El Dorado Springs"""
+
+            COMMUNITY_BANK_OF_MARSHALL: str = "22636"
+            """Community Bank of Marshall, Marshall"""
+
+            COMMUNITY_BANK_OF_MEMPHIS: str = "35094"
+            """Community Bank of Memphis, Memphis"""
+
+            COMMUNITY_BANK_OF_MISSOURI: str = "57141"
+            """Community Bank of Missouri, Richmond"""
+
+            COMMUNITY_BANK_OF_PLEASANT_HILL: str = "58423"
+            """Community Bank of Pleasant Hill, Pleasant Hill"""
+
+            COMMUNITY_BANK_OF_RAYMORE: str = "22867"
+            """Community Bank of Raymore, Raymore"""
+
+            COMMUNITY_FIRST_BANK: str = "10595"
+            """Community First Bank, Butler"""
+
+            COMMUNITY_FIRST_BANKING_COMPANY: str = "34610"
+            """Community First Banking Company, West Plains"""
+
+            COMMUNITY_POINT_BANK: str = "14604"
+            """Community Point Bank, Russellville"""
+
+            COMMUNITY_STATE_BANK: str = "22567"
+            """Community State Bank, Shelbina"""
+
+            COMMUNITY_STATE_BANK_OF_MISSOURI: str = "1936"
+            """Community State Bank of Missouri, Bowling Green"""
+
+            CONCORDIA_BANK_OF_CONCORDIA_MISSOURI: str = "13788"
+            """Concordia Bank of Concordia, Missouri, Concordia"""
+
+            CONNECTIONS_BANK: str = "14025"
+            """Connections Bank, Platte City"""
+
+            COUNTY_BANK: str = "12220"
+            """County Bank, Brunswick"""
+
+            EDWARD_JONES_TRUST_COMPANY: str = "28390"
+            """Edward Jones Trust Company, Saint Louis"""
+
+            ENTERPRISE_BANK_AND_TRUST: str = "27237"
+            """Enterprise Bank & Trust, Clayton"""
+
+            EXCHANGE_BANK_CO: str = "8274"
+            """Exchange Bank Co., Kahoka"""
+
+            EXCHANGE_BANK_OF_MISSOURI: str = "1616"
+            """Exchange Bank of Missouri, Fayette"""
+
+            F_AND_C_BANK: str = "9378"
+            """F & C Bank, Holden"""
+
+            F_AND_M_BANK_AND_TRUST_COMPANY: str = "30595"
+            """F&M Bank and Trust Company, Hannibal"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_ST_CLAIR: str = "14056"
+            """Farmers and Merchants Bank of St. Clair, Saint Clair"""
+
+            FARMERS_BANK_OF_LOHMAN_MISSOURI: str = "8268"
+            """Farmers Bank of Lohman, Missouri, Jefferson City"""
+
+            FARMERS_BANK_OF_NORTHERN_MISSOURI: str = "4539"
+            """Farmers Bank of Northern Missouri, Unionville"""
+
+            FARMERS_STATE_BANK: str = "13897"
+            """Farmers State Bank, Cameron"""
+
+            FCNB_BANK: str = "1639"
+            """FCNB Bank, Steelville"""
+
+            FIRST_BANK: str = "12229"
+            """First Bank, St. Louis"""
+
+            FIRST_BANK_OF_THE_LAKE: str = "26960"
+            """First Bank of the Lake, Osage Beach"""
+
+            FIRST_FEDERAL_BANK_OF_KANSAS_CITY: str = "29047"
+            """First Federal Bank of Kansas City, Lees Summit"""
+
+            FIRST_INDEPENDENT_BANK: str = "18380"
+            """First Independent Bank, Aurora"""
+
+            FIRST_MIDWEST_BANK_OF_DEXTER: str = "19001"
+            """First Midwest Bank of Dexter, Dexter"""
+
+            FIRST_MIDWEST_BANK_OF_THE_OZARKS: str = "19212"
+            """First Midwest Bank of the Ozarks, Poplar Bluff"""
+
+            FIRST_SECURITY_BANK: str = "1622"
+            """First Security Bank, Union Star"""
+
+            FIRST_STATE_BANK_AND_TRUST_COMPANY_INC: str = "14185"
+            """First State Bank and Trust Company, Inc., Caruthersville"""
+
+            FIRST_STATE_BANK_OF_ST_CHARLES_MISSOURI: str = "12219"
+            """First State Bank of St. Charles, Missouri, St. Charles"""
+
+            FIRST_STATE_BANK_OF_THE_OZARKS: str = "16162"
+            """First State Bank of the Ozarks, Purdy"""
+
+            FIRST_STATE_COMMUNITY_BANK: str = "17323"
+            """First State Community Bank, Farmington"""
+
+            FLAT_BRANCH_BANK: str = "15751"
+            """Flat Branch Bank, Richmond"""
+
+            FMB_BANK: str = "12225"
+            """FMB Bank, Wright City"""
+
+            FOCUS_BANK: str = "1426"
+            """Focus Bank, Charleston"""
+
+            FOUR_STATES_BANK: str = "59352"
+            """Four States Bank, Carthage"""
+
+            FREEDOM_BANK_OF_SOUTHERN_MISSOURI: str = "35276"
+            """Freedom Bank of Southern Missouri, Cassville"""
+
+            GOPPERT_FINANCIAL_BANK: str = "8569"
+            """Goppert Financial Bank, Lathrop"""
+
+            GRAND_MISSOURI_BANK: str = "11003"
+            """Grand Missouri Bank, Bolivar"""
+
+            GREAT_SOUTHERN_BANK: str = "29546"
+            """Great Southern Bank, Reeds Spring"""
+
+            GUARANTY_BANK: str = "58892"
+            """Guaranty Bank, Springfield"""
+
+            HAWTHORN_BANK: str = "10619"
+            """Hawthorn Bank, Jefferson City"""
+
+            HERITAGE_BANK_OF_THE_OZARKS: str = "57576"
+            """Heritage Bank of the Ozarks, Lebanon"""
+
+            HERITAGE_COMMUNITY_BANK: str = "15282"
+            """Heritage Community Bank, Union"""
+
+            HNB_NATIONAL_BANK: str = "4540"
+            """HNB National Bank, Hannibal"""
+
+            HOME_SAVINGS_AND_LOAN_ASSOCIATION_OF_CARROLL_COUNTY_FA: str = "27898"
+            """Home Savings and Loan Association of Carroll County, F.A., Norborne"""
+
+            HOME_BANK: str = "14492"
+            """HomeBank, Palmyra"""
+
+            HOME_PRIDE_BANK: str = "11466"
+            """HomePride Bank, Mansfield"""
+
+            INDEPENDENT_FARMERS_BANK: str = "11462"
+            """Independent Farmers Bank, Maysville"""
+
+            INVESTORS_COMMUNITY_BANK: str = "29093"
+            """Investors Community Bank, Chillicothe"""
+
+            JONESBURG_STATE_BANK: str = "8896"
+            """Jonesburg State Bank, Jonesburg"""
+
+            KENNETT_TRUST_BANK: str = "18879"
+            """Kennett Trust Bank, Kennett"""
+
+            LAMAR_BANK_AND_TRUST_COMPANY: str = "1964"
+            """Lamar Bank and Trust Company, Lamar"""
+
+            LEAD_BANK: str = "8283"
+            """Lead Bank, Kansas City"""
+
+            LEGACY_BANK_AND_TRUST_COMPANY: str = "22319"
+            """Legacy Bank & Trust Company, Mountain Grove"""
+
+            LEGENDS_BANK: str = "12616"
+            """Legends Bank, Linn"""
+
+            LINDELL_BANK_AND_TRUST_COMPANY: str = "1073"
+            """Lindell Bank & Trust Company, St. Louis"""
+
+            MA_BANK: str = "14695"
+            """MA Bank, Macon"""
+
+            METZ_BANKING_COMPANY: str = "1945"
+            """Metz Banking Company, Nevada"""
+
+            MID_AMERICA_BANK: str = "11459"
+            """Mid America Bank, Jefferson City"""
+
+            MID_MISSOURI_BANK: str = "15584"
+            """Mid-Missouri Bank, Springfield"""
+
+            MIDWEST_BANK_CENTRE: str = "1058"
+            """Midwest BankCentre, Lemay"""
+
+            MIDWEST_INDEPENDENT_BANKERS_BANK: str = "25849"
+            """Midwest Independent BankersBank, Jefferson City"""
+
+            MIDWEST_REGIONAL_BANK: str = "8889"
+            """Midwest Regional Bank, Clayton"""
+
+            MONTGOMERY_BANK: str = "8255"
+            """Montgomery Bank, Sikeston"""
+
+            MONTROSE_SAVINGS_BANK: str = "8594"
+            """Montrose Savings Bank, Montrose"""
+
+            MRV_BANKS: str = "58619"
+            """MRV Banks, Sainte Genevieve"""
+
+            NEIGHBORS_BANK: str = "16247"
+            """Neighbors Bank, Clarence"""
+
+            NEW_ERA_BANK: str = "14546"
+            """New Era Bank, Fredericktown"""
+
+            NEW_FRONTIER_BANK: str = "35597"
+            """NEW FRONTIER BANK, Saint Charles"""
+
+            NORTH_AMERICAN_SAVINGS_BANK_FSB: str = "29708"
+            """North American Savings Bank, F.S.B., Grandview"""
+
+            NORTHEAST_MISSOURI_STATE_BANK: str = "13381"
+            """Northeast Missouri State Bank, Kirksville"""
+
+            O_BANNON_BANKING_COMPANY: str = "8295"
+            """O'Bannon Banking Company, Buffalo"""
+
+            OAKSTAR_BANK: str = "58115"
+            """Oakstar Bank, Springfield"""
+
+            OMB_BANK: str = "8252"
+            """Omb Bank, Springfield"""
+
+            OZARK_BANK: str = "1654"
+            """Ozark Bank, Ozark"""
+
+            OZARKS_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28277"
+            """Ozarks Federal Savings and Loan Association, Farmington"""
+
+            PARAMOUNT_BANK: str = "57884"
+            """Paramount Bank, Hazelwood"""
+
+            PARKSIDE_FINANCIAL_BANK_AND_TRUST: str = "58796"
+            """Parkside Financial Bank & Trust, Clayton"""
+
+            PEOPLE_S_BANK_OF_SENECA: str = "34146"
+            """People's Bank of Seneca, Seneca"""
+
+            PEOPLES_BANK: str = "12230"
+            """Peoples Bank, Cuba"""
+
+            PEOPLES_BANK_AND_TRUST_CO: str = "8903"
+            """Peoples Bank & Trust Co., Troy"""
+
+            PEOPLES_BANK_CO: str = "12226"
+            """Peoples Bank Co., Altenburg"""
+
+            PEOPLES_BANK_OF_MONITEAU_COUNTY: str = "15792"
+            """Peoples Bank of Moniteau County, Jamestown"""
+
+            PEOPLES_BANK_OF_WYACONDA_MISSOURI: str = "15415"
+            """Peoples Bank of Wyaconda, Missouri, Kahoka"""
+
+            PEOPLES_COMMUNITY_BANK: str = "22394"
+            """Peoples Community Bank, Greenville"""
+
+            PHELPS_COUNTY_BANK: str = "18841"
+            """Phelps County Bank, Rolla"""
+
+            PONY_EXPRESS_BANK: str = "4526"
+            """Pony Express Bank, Braymer"""
+
+            PREFERRED_BANK: str = "10628"
+            """Preferred Bank, Rothville"""
+
+            PROGRESSIVE_OZARK_BANK: str = "31488"
+            """Progressive Ozark Bank, Salem"""
+
+            PSB_BANK: str = "15264"
+            """PSB Bank, Rhineland"""
+
+            PUTNAM_COUNTY_STATE_BANK: str = "22895"
+            """Putnam County State Bank, Unionville"""
+
+            REGIONAL_MISSOURI_BANK: str = "18385"
+            """Regional Missouri Bank, Marceline"""
+
+            ROYAL_BANKS_OF_MISSOURI: str = "19512"
+            """Royal Banks of Missouri, Saint Louis"""
+
+            SECURITY_BANK_OF_PULASKI_COUNTY: str = "15347"
+            """Security Bank of Pulaski County, Saint Robert"""
+
+            SECURITY_BANK_OF_SOUTHWEST_MISSOURI: str = "26520"
+            """Security Bank of Southwest Missouri, Cassville"""
+
+            SECURITY_BANK_OF_THE_OZARKS: str = "18033"
+            """Security Bank of the Ozarks, Eminence"""
+
+            SHERWOOD_COMMUNITY_BANK: str = "1612"
+            """Sherwood Community Bank, Creighton"""
+
+            SILEX_BANKING_COMPANY: str = "14178"
+            """Silex Banking Company, Silex"""
+
+            SOUTHERN_BANK: str = "28332"
+            """Southern Bank, Poplar Bluff"""
+
+            SOUTHWEST_MISSOURI_BANK: str = "22876"
+            """Southwest Missouri Bank, Carthage"""
+
+            ST_CLAIR_COUNTY_STATE_BANK: str = "11002"
+            """St. Clair County State Bank, Osceola"""
+
+            ST_JOHNS_BANK_AND_TRUST_COMPANY: str = "8898"
+            """St. Johns Bank and Trust Company, Saint Louis"""
+
+            ST_LOUIS_BANK: str = "58018"
+            """St. Louis Bank, Saint Louis"""
+
+            STATE_BANK_OF_MISSOURI: str = "10623"
+            """State Bank of Missouri, Concordia"""
+
+            STATE_BANK_OF_SOUTHWEST_MISSOURI: str = "26358"
+            """State Bank of Southwest Missouri, Springfield"""
+
+            STERLING_BANK: str = "57813"
+            """Sterling Bank, Poplar Bluff"""
+
+            STIFEL_BANK: str = "57358"
+            """Stifel Bank, Saint Louis"""
+
+            STIFEL_BANK_AND_TRUST: str = "57311"
+            """Stifel Bank and Trust, Saint Louis"""
+
+            STIFEL_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "33785"
+            """Stifel Trust Company, National Association, Saint Louis"""
+
+            SULLIVAN_BANK: str = "8892"
+            """SULLIVAN BANK, Sullivan"""
+
+            TABLE_ROCK_COMMUNITY_BANK: str = "58300"
+            """Table Rock Community Bank, Kimberling City"""
+
+            TBO_BANK: str = "10597"
+            """TBO Bank, Orrick"""
+
+            THE_BANK_OF_ADVANCE: str = "9369"
+            """The Bank of Advance, Advance"""
+
+            THE_BANK_OF_GRAIN_VALLEY: str = "8564"
+            """The Bank of Grain Valley, Grain Valley"""
+
+            THE_BANK_OF_HOUSTON: str = "13960"
+            """The Bank of Houston, Houston"""
+
+            THE_BANK_OF_MISSOURI: str = "1617"
+            """The Bank of Missouri, Perryville"""
+
+            THE_BANK_OF_OLD_MONROE: str = "1655"
+            """The Bank of Old Monroe, Old Monroe"""
+
+            THE_BANK_OF_VERSAILLES: str = "1086"
+            """The Bank of Versailles, Versailles"""
+
+            THE_CALLAWAY_BANK: str = "12223"
+            """The Callaway Bank, Fulton"""
+
+            THE_CENTRAL_TRUST_BANK: str = "12633"
+            """The Central Trust Bank, Jefferson City"""
+
+            THE_CITIZENS_BANK_OF_EDINA: str = "12457"
+            """The Citizens Bank of Edina, Edina"""
+
+            THE_CITIZENS_FARMERS_BANK_OF_COLE_CAMP: str = "11463"
+            """The Citizens-Farmers Bank of Cole Camp, Cole Camp"""
+
+            THE_CORNER_STONE_BANK: str = "9388"
+            """The Corner Stone Bank, South West City"""
+
+            THE_FIRST_NATIONAL_BANK_OF_NEVADA_MISSOURI: str = "4598"
+            """The First National Bank of Nevada, Missouri, Nevada"""
+
+            THE_HAMILTON_BANK: str = "15606"
+            """The Hamilton Bank, Hamilton"""
+
+            THE_MARIES_COUNTY_BANK: str = "8576"
+            """The Maries County Bank, Vienna"""
+
+            THE_MISSOURI_BANK: str = "14036"
+            """The Missouri Bank, Warrenton"""
+
+            THE_NODAWAY_VALLEY_BANK: str = "8904"
+            """The Nodaway Valley Bank, Maryville"""
+
+            THE_SEYMOUR_BANK: str = "15701"
+            """The Seymour Bank, Seymour"""
+
+            TOWN_AND_COUNTRY_BANK: str = "13071"
+            """Town & Country Bank, Salem"""
+
+            TPNB_BANK: str = "4556"
+            """TPNB Bank, Paris"""
+
+            TRIAD_BANK: str = "58121"
+            """Triad Bank, Frontenac"""
+
+            UMB_BANK_NATIONAL_ASSOCIATION: str = "8273"
+            """UMB Bank, National Association, Kansas City"""
+
+            UNICO_BANK: str = "10608"
+            """UNICO Bank, Mineral Point"""
+
+            UNITED_BANK_OF_UNION: str = "14334"
+            """United Bank of Union, Union"""
+
+            UNITED_SECURITY_BANK: str = "1427"
+            """United Security Bank, Fulton"""
+
+            UNITED_STATE_BANK: str = "12214"
+            """United State Bank, Lewistown"""
+
+            VERIMORE_BANK: str = "28930"
+            """Verimore Bank, Brookfield"""
+
+            WEST_PLAINS_BANK_AND_TRUST_COMPANY: str = "15489"
+            """West Plains Bank and Trust Company, West Plains"""
+
+            WEST_PLAINS_SAVINGS_AND_LOAN_ASSOCIATION: str = "31329"
+            """West Plains Savings and Loan Association, West Plains"""
+
+            WOOD_AND_HUSTON_BANK: str = "1060"
+            """Wood & Huston Bank, Marshall"""
+
+        class Montana(System.Object):
+            """Banks headquartered in Montana."""
+
+            AMERICAN_BANK: str = "20311"
+            """American Bank, Bozeman"""
+
+            ASCENT_BANK: str = "20162"
+            """Ascent Bank, Helena"""
+
+            BANK_OF_BOZEMAN: str = "57952"
+            """Bank of Bozeman, Bozeman"""
+
+            BANK_OF_BRIDGER_NATIONAL_ASSOCIATION: str = "2224"
+            """Bank of Bridger, National Association, Bridger"""
+
+            BANK_OF_MONTANA: str = "58482"
+            """Bank of Montana, Missoula"""
+
+            BANK_OF_THE_ROCKIES: str = "2205"
+            """Bank of The Rockies, Helena"""
+
+            BELT_VALLEY_BANK: str = "15362"
+            """Belt Valley Bank, Belt"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY: str = "1972"
+            """Citizens Bank & Trust Company, Big Timber"""
+
+            DAVIDSON_TRUST_CO: str = "35510"
+            """Davidson Trust Co., Great Falls"""
+
+            EAGLE_BANK: str = "58282"
+            """Eagle Bank, Polson"""
+
+            FARMERS_STATE_BANK: str = "342"
+            """Farmers State Bank, Victor"""
+
+            FIRST_INTERSTATE_BANK: str = "1105"
+            """First Interstate Bank, Billings"""
+
+            FIRST_MONTANA_BANK_INC: str = "363"
+            """First Montana Bank, Inc., Missoula"""
+
+            FIRST_SECURITY_BANK_OF_DEER_LODGE: str = "20657"
+            """First Security Bank of Deer Lodge, Deer Lodge"""
+
+            FIRST_SECURITY_BANK_OF_ROUNDUP: str = "20479"
+            """First Security Bank of Roundup, Roundup"""
+
+            FIRST_STATE_BANK_OF_FORSYTH: str = "8317"
+            """First State Bank of Forsyth, Forsyth"""
+
+            FREEDOM_BANK: str = "58010"
+            """Freedom Bank, Columbia Falls"""
+
+            GARFIELD_COUNTY_BANK: str = "18164"
+            """Garfield County Bank, Jordan"""
+
+            GLACIER_BANK: str = "30788"
+            """Glacier Bank, Kalispell"""
+
+            INDEPENDENCE_BANK: str = "20989"
+            """Independence Bank, Havre"""
+
+            LITTLE_HORN_STATE_BANK: str = "11821"
+            """Little Horn State Bank, Hardin"""
+
+            MADISON_VALLEY_BANK: str = "19544"
+            """Madison Valley Bank, Ennis"""
+
+            MANHATTAN_BANK: str = "11823"
+            """Manhattan Bank, Manhattan"""
+
+            OPPORTUNITY_BANK_OF_MONTANA: str = "30182"
+            """Opportunity Bank of Montana, Helena"""
+
+            PEOPLES_BANK_OF_DEER_LODGE: str = "26941"
+            """Peoples Bank of Deer Lodge, Deer Lodge"""
+
+            PIONEER_STATE_BANK: str = "29517"
+            """Pioneer State Bank, Deer Lodge"""
+
+            STOCKMAN_BANK_OF_MONTANA: str = "16191"
+            """Stockman Bank of Montana, Miles City"""
+
+            THE_BANK_OF_BAKER: str = "352"
+            """The Bank of Baker, Baker"""
+
+            THE_FIRST_STATE_BANK_OF_MALTA: str = "1982"
+            """The First State Bank of Malta, Malta"""
+
+            THE_FIRST_STATE_BANK_OF_SHELBY: str = "11013"
+            """The First State Bank of Shelby, Shelby"""
+
+            THE_YELLOWSTONE_BANK: str = "1978"
+            """The Yellowstone Bank, Laurel"""
+
+            THREE_RIVERS_BANK_OF_MONTANA: str = "21557"
+            """Three Rivers Bank of Montana, Kalispell"""
+
+            TRAIL_WEST_BANK: str = "23806"
+            """TrailWest Bank, Lolo"""
+
+            VALLEY_BANK_OF_KALISPELL: str = "1980"
+            """Valley Bank of Kalispell, Kalispell"""
+
+            VALLEY_BANK_OF_RONAN: str = "24966"
+            """Valley Bank of Ronan, Ronan"""
+
+        class Nebraska(System.Object):
+            """Banks headquartered in Nebraska."""
+
+            ACCESS_BANK: str = "58727"
+            """Access Bank, Omaha"""
+
+            ADAMS_BANK_AND_TRUST: str = "18489"
+            """Adams Bank & Trust, Ogallala"""
+
+            ADAMS_COUNTY_BANK: str = "14311"
+            """Adams County Bank, Kenesaw"""
+
+            ADAMS_STATE_BANK: str = "9812"
+            """Adams State Bank, Adams"""
+
+            AMERICAN_EXCHANGE_BANK: str = "10647"
+            """American Exchange Bank, Elmwood"""
+
+            AMERICAN_INTERSTATE_BANK: str = "1439"
+            """American Interstate Bank, Elkhorn"""
+
+            ARBOR_BANK: str = "33450"
+            """Arbor Bank, Nebraska City"""
+
+            AUBURN_STATE_BANK: str = "11477"
+            """Auburn State Bank, Auburn"""
+
+            BANK_OF_CLARKS: str = "16953"
+            """Bank of Clarks, Clarks"""
+
+            BANK_OF_DIXON_COUNTY: str = "14912"
+            """Bank of Dixon County, Ponca"""
+
+            BANK_OF_ELGIN: str = "16154"
+            """Bank of Elgin, Elgin"""
+
+            BANK_OF_HARTINGTON: str = "13962"
+            """Bank of Hartington, Hartington"""
+
+            BANK_OF_LINDSAY: str = "19087"
+            """Bank of Lindsay, Lindsay"""
+
+            BANK_OF_MEAD: str = "13611"
+            """Bank of Mead, Mead"""
+
+            BANK_OF_PRAGUE: str = "12745"
+            """Bank of Prague, Prague"""
+
+            BANK_OF_THE_VALLEY: str = "25291"
+            """Bank of the Valley, Bellwood"""
+
+            BANK_FIRST: str = "20130"
+            """BankFirst, Norfolk"""
+
+            BANNER_CAPITAL_BANK: str = "19274"
+            """Banner Capital Bank, Harrisburg"""
+
+            BATTLE_CREEK_STATE_BANK: str = "16330"
+            """Battle Creek State Bank, Battle Creek"""
+
+            BOELUS_STATE_BANK: str = "17825"
+            """Boelus State Bank, Boelus"""
+
+            BRUNING_BANK: str = "18748"
+            """Bruning Bank, Bruning"""
+
+            BRUNSWICK_STATE_BANK: str = "13692"
+            """Brunswick State Bank, Brunswick"""
+
+            CATTLE_BANK_AND_TRUST: str = "5472"
+            """Cattle Bank and Trust, Seward"""
+
+            CEDAR_RAPIDS_STATE_BANK: str = "18820"
+            """Cedar Rapids State Bank, Cedar Rapids"""
+
+            CEDAR_SECURITY_BANK: str = "25591"
+            """Cedar Security Bank, Fordyce"""
+
+            CERESCO_BANK: str = "1993"
+            """CerescoBank, Ceresco"""
+
+            CHAMBERS_STATE_BANK: str = "13251"
+            """Chambers State Bank, Chambers"""
+
+            CHARTER_WEST_BANK: str = "26185"
+            """CHARTER WEST BANK, West Point"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY: str = "5469"
+            """Citizens Bank & Trust Company, Saint Paul"""
+
+            CITIZENS_STATE_BANK_CARLETON: str = "18724"
+            """Citizens State Bank, Carleton"""
+
+            CITIZENS_STATE_BANK_WISNER: str = "5495"
+            """Citizens State Bank, Wisner"""
+
+            CITY_BANK_AND_TRUST_CO: str = "5396"
+            """City Bank & Trust Co., Lincoln"""
+
+            CLARKSON_BANK: str = "14581"
+            """Clarkson Bank, Clarkson"""
+
+            COLUMBUS_BANK_AND_TRUST_COMPANY: str = "15010"
+            """Columbus Bank and Trust Company, Columbus"""
+
+            COMMERCIAL_BANK: str = "12246"
+            """Commercial Bank, Nelson"""
+
+            COMMERCIAL_STATE_BANK_REPUBLICAN_CITY: str = "1986"
+            """Commercial State Bank, Republican City"""
+
+            COMMERCIAL_STATE_BANK_WAUSA: str = "13819"
+            """Commercial State Bank, Wausa"""
+
+            CORE_BANK: str = "34363"
+            """Core Bank, Omaha"""
+
+            CORN_GROWERS_STATE_BANK: str = "16868"
+            """Corn Growers State Bank, Murdock"""
+
+            CORNERSTONE_BANK: str = "5496"
+            """Cornerstone Bank, York"""
+
+            CORNHUSKER_BANK: str = "14264"
+            """Cornhusker Bank, Lincoln"""
+
+            COUNTRYSIDE_BANK: str = "1438"
+            """Countryside Bank, Unadilla"""
+
+            CUSTER_FEDERAL_STATE_BANK: str = "28543"
+            """Custer Federal State Bank, Broken Bow"""
+
+            DAYSPRING_BANK: str = "13622"
+            """Dayspring Bank, Gothenburg"""
+
+            DUNDEE_BANK: str = "10643"
+            """Dundee Bank, Omaha"""
+
+            ELKHORN_VALLEY_BANK_AND_TRUST: str = "16553"
+            """Elkhorn Valley Bank & Trust, Norfolk"""
+
+            ENTERPRISE_BANK: str = "33380"
+            """Enterprise Bank, Omaha"""
+
+            EQUITABLE_BANK: str = "31485"
+            """Equitable Bank, Grand Island"""
+
+            EXCHANGE_BANK: str = "1435"
+            """Exchange Bank, Kearney"""
+
+            F_AND_M_BANK_FALLS_CITY: str = "5401"
+            """F&M Bank, Falls City"""
+
+            F_AND_M_BANK_WEST_POINT: str = "14922"
+            """F&M Bank, West Point"""
+
+            FARMERS_AND_MERCHANTS_BANK_MILFORD: str = "16810"
+            """Farmers and Merchants Bank, Milford"""
+
+            FARMERS_AND_MERCHANTS_BANK_MILLIGAN: str = "14275"
+            """Farmers and Merchants Bank, Milligan"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_ASHLAND: str = "5377"
+            """Farmers and Merchants Bank of Ashland, Ashland"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK_BLOOMFIELD_NEBRASKA: str = "13662"
+            """Farmers and Merchants State Bank, Bloomfield, Nebraska, Bloomfield"""
+
+            FIRST_BANK_AND_TRUST_COMPANY: str = "5438"
+            """First Bank and Trust Company, Minden"""
+
+            FIRST_BANK_AND_TRUST_OF_FULLERTON: str = "5405"
+            """First Bank and Trust of Fullerton, Fullerton"""
+
+            FIRST_BANK_OF_UTICA: str = "14281"
+            """First Bank of Utica, Utica"""
+
+            FIRST_CENTRAL_BANK: str = "10637"
+            """First Central Bank, Cambridge"""
+
+            FIRST_CENTRAL_BANK_MC_COOK: str = "34995"
+            """First Central Bank McCook, Mccook"""
+
+            FIRST_COMMUNITY_BANK: str = "5384"
+            """First Community Bank, Beemer"""
+
+            FIRST_NATIONAL_BANK_IN_ORD: str = "5460"
+            """First National Bank in Ord, Ord"""
+
+            FIRST_NATIONAL_BANK_OF_OMAHA: str = "5452"
+            """First National Bank of Omaha, Omaha"""
+
+            FIRST_NEBRASKA_BANK: str = "12248"
+            """First Nebraska Bank, Valley"""
+
+            FIRST_NORTHEAST_BANK_OF_NEBRASKA: str = "5432"
+            """First Northeast Bank of Nebraska, Lyons"""
+
+            FIRST_STATE_BANK_FARNAM: str = "12244"
+            """First State Bank, Farnam"""
+
+            FIRST_STATE_BANK_HORDVILLE: str = "8604"
+            """First State Bank, Hordville"""
+
+            FIRST_STATE_BANK_LOOMIS: str = "16333"
+            """First State Bank, Loomis"""
+
+            FIRST_STATE_BANK_NEBRASKA: str = "13868"
+            """First State Bank Nebraska, Lincoln"""
+
+            FIRST_TRI_COUNTY_BANK: str = "8333"
+            """First Tri County Bank, Swanton"""
+
+            FIRST_WESTROADS_BANK_INC: str = "19742"
+            """First Westroads Bank, Inc., Omaha"""
+
+            FIRST_BANK_OF_NEBRASKA: str = "5486"
+            """FirstBank of Nebraska, Wahoo"""
+
+            FIRS_TIER_BANK: str = "17478"
+            """FirsTier Bank, Kimball"""
+
+            FIVE_POINTS_BANK: str = "20488"
+            """Five Points Bank, Grand Island"""
+
+            FIVE_POINTS_BANK_OF_HASTINGS: str = "14312"
+            """Five Points Bank of Hastings, Hastings"""
+
+            FLATWATER_BANK: str = "10639"
+            """Flatwater Bank, Gothenburg"""
+
+            FOUNDATION_ONE_BANK: str = "18761"
+            """Foundation One Bank, Waterloo"""
+
+            GENERATIONS_BANK: str = "14096"
+            """Generations Bank, Exeter"""
+
+            GENOA_COMMUNITY_BANK: str = "5408"
+            """Genoa Community Bank, Genoa"""
+
+            GREAT_PLAINS_STATE_BANK: str = "14058"
+            """Great Plains State Bank, Petersburg"""
+
+            HEARTLAND_BANK: str = "18740"
+            """Heartland Bank, Geneva"""
+
+            HENDERSON_STATE_BANK: str = "17229"
+            """Henderson State Bank, Henderson"""
+
+            HERITAGE_BANK: str = "17145"
+            """Heritage Bank, Wood River"""
+
+            HERSHEY_BANK: str = "19809"
+            """Hershey Bank, Hershey"""
+
+            HOME_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_GRAND_ISLAND: str = "29476"
+            """Home Federal Savings and Loan Association of Grand Island, Grand Island"""
+
+            HOMESTEAD_BANK: str = "11482"
+            """Homestead Bank, Cozad"""
+
+            HORIZON_BANK: str = "14327"
+            """Horizon Bank, Waverly"""
+
+            I_3_BANK: str = "8595"
+            """I3 Bank, Bennington"""
+
+            JONES_BANK: str = "5473"
+            """JONES BANK, Seward"""
+
+            LEGENDS_WEST_BANK: str = "5425"
+            """Legends West Bank, Lewellen"""
+
+            LINCOLN_FSB_OF_NEBRASKA: str = "29692"
+            """Lincoln FSB of Nebraska, Lincoln"""
+
+            MADISON_COUNTY_BANK: str = "31999"
+            """Madison County Bank, Madison"""
+
+            MIDWEST_BANK: str = "13255"
+            """Midwest Bank, Pierce"""
+
+            MINDEN_EXCHANGE_BANK_AND_TRUST_COMPANY: str = "5439"
+            """Minden Exchange Bank & Trust Company, Minden"""
+
+            MNB_BANK: str = "5434"
+            """MNB BANK, Mccook"""
+
+            NEBRASKA_BANK: str = "16116"
+            """Nebraska Bank, Dodge"""
+
+            NEBRASKA_BANK_OF_COMMERCE: str = "58724"
+            """Nebraska Bank of Commerce, Lincoln"""
+
+            NEBRASKA_STATE_BANK_BRISTOW: str = "13696"
+            """Nebraska State Bank, Bristow"""
+
+            NEBRASKA_STATE_BANK_LYNCH: str = "16516"
+            """Nebraska State Bank, Lynch"""
+
+            NEBRASKA_STATE_BANK_OSHKOSH: str = "9819"
+            """Nebraska State Bank, Oshkosh"""
+
+            NEBRASKA_STATE_BANK_AND_TRUST_COMPANY: str = "8322"
+            """Nebraska State Bank and Trust Company, Broken Bow"""
+
+            NEBRASKALAND_BANK: str = "34811"
+            """Nebraskaland Bank, North Platte"""
+
+            PATHWAY_BANK: str = "1992"
+            """Pathway Bank, Cairo"""
+
+            PINNACLE_BANK: str = "10634"
+            """Pinnacle Bank, Lincoln"""
+
+            PLATTE_VALLEY_BANK_NORTH_BEND: str = "9818"
+            """Platte Valley Bank, North Bend"""
+
+            PLATTE_VALLEY_BANK_SCOTTSBLUFF: str = "34211"
+            """Platte Valley Bank, Scottsbluff"""
+
+            PREMIER_BANK_NATIONAL_ASSOCIATION: str = "12493"
+            """Premier Bank National Association, Omaha"""
+
+            RIVERSTONE_BANK: str = "10641"
+            """Riverstone Bank, Eagle"""
+
+            RVR_BANK: str = "17639"
+            """RVR Bank, Fremont"""
+
+            SANDHILLS_STATE_BANK: str = "13892"
+            """Sandhills State Bank, North Platte"""
+
+            SCRIBNER_BANK: str = "14026"
+            """Scribner Bank, Scribner"""
+
+            SECURITY_BANK: str = "5424"
+            """Security Bank, Laurel"""
+
+            SECURITY_FIRST_BANK: str = "5415"
+            """Security First Bank, Lincoln"""
+
+            SECURITY_NATIONAL_BANK_OF_OMAHA: str = "19213"
+            """Security National Bank of Omaha, Omaha"""
+
+            SIDNEY_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29379"
+            """Sidney Federal Savings and Loan Association, Sidney"""
+
+            SIOUXLAND_BANK: str = "23270"
+            """Siouxland Bank, South Sioux City"""
+
+            SOUTH_CENTRAL_STATE_BANK: str = "16707"
+            """South Central State Bank, Campbell"""
+
+            STANTON_STATE_BANK: str = "5478"
+            """Stanton State Bank, Stanton"""
+
+            STATE_BANK_OF_SCOTIA: str = "14069"
+            """State Bank of Scotia, Scotia"""
+
+            STATE_BANK_OF_TABLE_ROCK: str = "9822"
+            """State Bank of Table Rock, Table Rock"""
+
+            STATE_NEBRASKA_BANK_AND_TRUST: str = "5490"
+            """State Nebraska Bank & Trust, Wayne"""
+
+            TECUMSEH_FEDERAL_BANK: str = "30395"
+            """Tecumseh Federal Bank, Tecumseh"""
+
+            THAYER_COUNTY_BANK: str = "11475"
+            """Thayer County Bank, Hebron"""
+
+            THE_BANK_OF_STEINAUER: str = "10635"
+            """The Bank of Steinauer, Steinauer"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GORDON: str = "5410"
+            """The First National Bank of Gordon, Gordon"""
+
+            THE_FIRST_NATIONAL_BANK_OF_JOHNSON: str = "5422"
+            """The First National Bank of Johnson, Johnson"""
+
+            THE_TRI_COUNTY_BANK: str = "16339"
+            """The Tri-County Bank, Stuart"""
+
+            TOWN_AND_COUNTRY_BANK: str = "1434"
+            """Town & Country Bank, Ravenna"""
+
+            UNION_BANK_AND_TRUST_COMPANY: str = "13421"
+            """Union Bank and Trust Company, Lincoln"""
+
+            UNITED_REPUBLIC_BANK: str = "58359"
+            """United Republic Bank, Elkhorn"""
+
+            WAHOO_STATE_BANK: str = "1163"
+            """Wahoo State Bank, Wahoo"""
+
+            WASHINGTON_COUNTY_BANK: str = "12241"
+            """Washington County Bank, Blair"""
+
+            WAYPOINT_BANK: str = "5394"
+            """Waypoint Bank, Cozad"""
+
+            WEST_GATE_BANK: str = "19850"
+            """West Gate Bank, Lincoln"""
+
+            WEST_PLAINS_BANK: str = "5369"
+            """West Plains Bank, Ainsworth"""
+
+            WESTERN_NATIONAL_BANK: str = "4778"
+            """Western National Bank, Chester"""
+
+            WESTERN_NEBRASKA_BANK: str = "1983"
+            """Western Nebraska Bank, Curtis"""
+
+            YORK_STATE_BANK: str = "16079"
+            """York State Bank, York"""
+
+        class Nevada(System.Object):
+            """Banks headquartered in Nevada."""
+
+            BEAL_BANK_USA: str = "57833"
+            """Beal Bank USA, Las Vegas"""
+
+            CREDIT_ONE_BANK_NATIONAL_ASSOCIATION: str = "25620"
+            """Credit One Bank, National Association, Las Vegas"""
+
+            EAGLEMARK_SAVINGS_BANK: str = "34313"
+            """Eaglemark Savings Bank, Reno"""
+
+            FARM_BUREAU_BANK_FSB: str = "35157"
+            """Farm Bureau Bank FSB, Reno"""
+
+            FIRST_SECURITY_BANK_OF_NEVADA: str = "58443"
+            """First Security Bank of Nevada, Las Vegas"""
+
+            G_BANK: str = "58626"
+            """GBank, Las Vegas"""
+
+            GENU_BANK: str = "58806"
+            """GenuBank, Las Vegas"""
+
+            LEXICON_BANK: str = "59117"
+            """Lexicon Bank, Las Vegas"""
+
+            MEADOWS_BANK: str = "58722"
+            """Meadows Bank, Las Vegas"""
+
+            NEVADA_BANK_AND_TRUST_COMPANY: str = "22669"
+            """Nevada Bank and Trust Company, Caliente"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ELY: str = "2273"
+            """The First National Bank of Ely, Ely"""
+
+            TOWN_AND_COUNTRY_BANK: str = "57312"
+            """Town & Country Bank, Las Vegas"""
+
+            TOYOTA_FINANCIAL_SAVINGS_BANK: str = "57542"
+            """Toyota Financial Savings Bank, Henderson"""
+
+            VALLEY_BANK_OF_NEVADA: str = "57933"
+            """Valley Bank of Nevada, North Las Vegas"""
+
+            WELLS_FARGO_NATIONAL_BANK_WEST: str = "27389"
+            """Wells Fargo National Bank West, Las Vegas"""
+
+        class NewHampshire(System.Object):
+            """Banks headquartered in New Hampshire."""
+
+            BANK_OF_NEW_ENGLAND: str = "24540"
+            """Bank of New England, Salem"""
+
+            BANK_OF_NEW_HAMPSHIRE: str = "18012"
+            """Bank of New Hampshire, Laconia"""
+
+            CLAREMONT_SAVINGS_BANK: str = "18038"
+            """Claremont Savings Bank, Claremont"""
+
+            FIDELITY_PERSONAL_TRUST_COMPANY_FSB: str = "35206"
+            """Fidelity Personal Trust Company, FSB, Merrimack"""
+
+            FIRST_SEACOAST_BANK: str = "29744"
+            """First Seacoast Bank, Dover"""
+
+            FRANKLIN_SAVINGS_BANK: str = "17951"
+            """Franklin Savings Bank, Franklin"""
+
+            MASCOMA_BANK: str = "18013"
+            """Mascoma Bank, Lebanon"""
+
+            MEREDITH_VILLAGE_SAVINGS_BANK: str = "17180"
+            """Meredith Village Savings Bank, Meredith"""
+
+            MERRIMACK_COUNTY_SAVINGS_BANK: str = "17960"
+            """Merrimack County Savings Bank, Concord"""
+
+            PISCATAQUA_SAVINGS_BANK: str = "17443"
+            """Piscataqua Savings Bank, Portsmouth"""
+
+            PRIMARY_BANK: str = "59086"
+            """Primary Bank, Bedford"""
+
+            PROFILE_BANK: str = "28155"
+            """Profile Bank, Rochester"""
+
+            SALEM_CO_OPERATIVE_BANK: str = "27824"
+            """Salem Co-operative Bank, Salem"""
+
+            SAVINGS_BANK_OF_WALPOLE: str = "18030"
+            """Savings Bank of Walpole, Walpole"""
+
+            SUGAR_RIVER_BANK: str = "18028"
+            """Sugar River Bank, Newport"""
+
+            THE_MILLYARD_BANK: str = "59176"
+            """The Millyard Bank, Nashua"""
+
+            WALDEN_MUTUAL_BANK: str = "59289"
+            """Walden Mutual Bank, Concord"""
+
+        class NewJersey(System.Object):
+            """Banks headquartered in New Jersey."""
+
+            _1_ST_BANK_OF_SEA_ISLE_CITY: str = "30367"
+            """1st Bank of Sea Isle City, Sea Isle City"""
+
+            AMBOY_BANK: str = "6423"
+            """Amboy Bank, Old Bridge"""
+
+            ASCENDIA_BANK: str = "28729"
+            """Ascendia Bank, Glen Rock"""
+
+            BCB_COMMUNITY_BANK: str = "35541"
+            """BCB Community Bank, Bayonne"""
+
+            BESSEMER_TRUST_COMPANY: str = "20015"
+            """Bessemer Trust Company, Woodbridge"""
+
+            BOGOTA_SAVINGS_BANK: str = "29941"
+            """Bogota Savings Bank, Teaneck"""
+
+            CENLAR_FSB: str = "30996"
+            """Cenlar FSB, Ewing"""
+
+            CENTURY_SAVINGS_BANK: str = "30428"
+            """Century Savings Bank, Vineland"""
+
+            COLUMBIA_BANK: str = "28834"
+            """Columbia Bank, Fair Lawn"""
+
+            CONNECT_ONE_BANK: str = "57919"
+            """ConnectOne Bank, Englewood Cliffs"""
+
+            CREST_SAVINGS_BANK: str = "28818"
+            """Crest Savings Bank, Wildwood"""
+
+            CROSS_RIVER_BANK: str = "58410"
+            """Cross River Bank, Fort Lee"""
+
+            CROWN_BANK: str = "34259"
+            """Crown Bank, Elizabeth"""
+
+            FIRST_BANK: str = "58481"
+            """First Bank, Hamilton"""
+
+            FIRST_COMMERCE_BANK: str = "58054"
+            """First Commerce Bank, Lakewood"""
+
+            FIRST_HOPE_BANK_A_NATIONAL_BANKING_ASSOCIATION: str = "6354"
+            """First Hope Bank, A National Banking Association, Hope"""
+
+            FIVE_RIVERS_BANK: str = "59345"
+            """Five Rivers Bank, Paramus"""
+
+            FRANKLIN_BANK: str = "30402"
+            """Franklin Bank, Pilesgrove"""
+
+            FREEDOM_BANK: str = "58712"
+            """Freedom Bank, Maywood"""
+
+            GSL_SAVINGS_BANK: str = "28708"
+            """GSL Savings Bank, Guttenberg"""
+
+            HADDON_SAVINGS_BANK: str = "28222"
+            """Haddon Savings Bank, Haddon Heights"""
+
+            HANA_BANK_USA_NATIONAL_ASSOCIATION: str = "26790"
+            """Hana Bank USA, National Association, Fort Lee"""
+
+            HAVEN_SAVINGS_BANK: str = "30039"
+            """Haven Savings Bank, Hoboken"""
+
+            KEARNY_BANK: str = "28765"
+            """Kearny Bank, Kearny"""
+
+            LIBERTY_BANK_OF_NEW_JERSEY: str = "59369"
+            """Liberty Bank of New Jersey, Verona"""
+
+            LUSITANIA_SAVINGS_BANK: str = "34058"
+            """Lusitania Savings Bank, Newark"""
+
+            MAGYAR_BANK: str = "30704"
+            """Magyar Bank, New Brunswick"""
+
+            MANASQUAN_BANK: str = "30470"
+            """Manasquan Bank, Manasquan"""
+
+            MILLVILLE_SAVINGS_BANK: str = "30183"
+            """Millville Savings Bank, Millville"""
+
+            MONROE_SAVINGS_BANK: str = "30103"
+            """Monroe Savings Bank, Williamstown"""
+
+            NEW_MILLENNIUM_BANK: str = "35151"
+            """New Millennium Bank, Fort Lee"""
+
+            NEWFIELD_NATIONAL_BANK: str = "14646"
+            """Newfield National Bank, Newfield"""
+
+            OCEAN_FIRST_BANK_NATIONAL_ASSOCIATION: str = "28359"
+            """OceanFirst Bank, National Association, Toms River"""
+
+            PARKE_BANK: str = "34888"
+            """Parke Bank, Sewell"""
+
+            PEAPACK_PRIVATE_BANK_AND_TRUST: str = "11035"
+            """Peapack Private Bank & Trust, Bedminster"""
+
+            PROVIDENT_BANK: str = "12010"
+            """Provident Bank, Jersey City"""
+
+            SCHUYLER_SAVINGS_BANK: str = "30072"
+            """Schuyler Savings Bank, Kearny"""
+
+            SOMERSET_REGAL_BANK: str = "28778"
+            """Somerset Regal Bank, Bound Brook"""
+
+            SPENCER_SAVINGS_BANK_SLA: str = "30076"
+            """Spencer Savings Bank, SLA, Elmwood Park"""
+
+            STURDY_SAVINGS_BANK: str = "28788"
+            """Sturdy Savings Bank, Stone Harbor"""
+
+            SUMITOMO_MITSUI_TRUST_BANK_USA_LIMITED: str = "27054"
+            """Sumitomo Mitsui Trust Bank (U.S.A.) Limited, Hoboken"""
+
+            THE_BANK_OF_PRINCETON: str = "58513"
+            """The Bank of Princeton, Princeton"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ABSECON: str = "6442"
+            """The First National Bank of Absecon, Absecon"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ELMER: str = "6464"
+            """The First National Bank of Elmer, Elmer"""
+
+            THE_PENNSVILLE_NATIONAL_BANK: str = "19978"
+            """The Pennsville National Bank, Pennsville"""
+
+            UNION_COUNTY_SAVINGS_BANK: str = "12013"
+            """Union County Savings Bank, Elizabeth"""
+
+            UNITED_ROOSEVELT_SAVINGS_BANK: str = "29170"
+            """United Roosevelt Savings Bank, Carteret"""
+
+            UNITY_BANK: str = "33503"
+            """Unity Bank, Clinton"""
+
+            VALLEY_NATIONAL_BANK: str = "9396"
+            """Valley National Bank, Passaic"""
+
+        class NewMexico(System.Object):
+            """Banks headquartered in New Mexico."""
+
+            AMERICAN_HERITAGE_BANK: str = "57025"
+            """American Heritage Bank, Clovis"""
+
+            BANK_OF_THE_SOUTHWEST: str = "2247"
+            """Bank of the Southwest, Roswell"""
+
+            CENTINEL_BANK_OF_TAOS: str = "19904"
+            """Centinel Bank of Taos, Taos"""
+
+            CENTURY_BANK: str = "28362"
+            """Century Bank, Santa Fe"""
+
+            CITIZENS_BANK_OF_LAS_CRUCES: str = "20161"
+            """Citizens Bank of Las Cruces, Las Cruces"""
+
+            CNB_BANK: str = "2241"
+            """CNB Bank, Carlsbad"""
+
+            COMMUNITY_1_ST_BANK_LAS_VEGAS: str = "16854"
+            """Community 1st Bank Las Vegas, Las Vegas"""
+
+            DSRM_NATIONAL_BANK: str = "34331"
+            """DSRM National Bank, Albuquerque"""
+
+            FIRST_AMERICAN_BANK: str = "2240"
+            """First American Bank, Artesia"""
+
+            FIRST_NATIONAL_BANK: str = "17643"
+            """First National Bank, Alamogordo"""
+
+            FIRST_NEW_MEXICO_BANK: str = "18514"
+            """First New Mexico Bank, Deming"""
+
+            FIRST_NEW_MEXICO_BANK_OF_SILVER_CITY: str = "24865"
+            """First New Mexico Bank of Silver City, Silver City"""
+
+            FIRST_NEW_MEXICO_BANK_LAS_CRUCES: str = "58745"
+            """First New Mexico Bank, Las Cruces, Las Cruces"""
+
+            FIRST_STATE_BANK: str = "16600"
+            """First State Bank, Socorro"""
+
+            FOUR_CORNERS_COMMUNITY_BANK: str = "35441"
+            """Four Corners Community Bank, Farmington"""
+
+            IN_BANK: str = "11492"
+            """InBank, Raton"""
+
+            LEA_COUNTY_STATE_BANK: str = "12259"
+            """Lea County State Bank, Hobbs"""
+
+            MAIN_BANK: str = "22086"
+            """Main Bank, Albuquerque"""
+
+            PIONEER_BANK: str = "27872"
+            """Pioneer Bank, Roswell"""
+
+            SOUTHWEST_CAPITAL_BANK: str = "12258"
+            """Southwest Capital Bank, Albuquerque"""
+
+            THE_BANK_OF_CLOVIS: str = "57022"
+            """The Bank of Clovis, Clovis"""
+
+            THE_CITIZENS_BANK: str = "1164"
+            """The Citizens Bank, Farmington"""
+
+            THE_CITIZENS_BANK_OF_CLOVIS: str = "11491"
+            """The Citizens Bank of Clovis, Clovis"""
+
+            THE_JAMES_POLK_STONE_COMMUNITY_BANK: str = "2244"
+            """The James Polk Stone Community Bank, Portales"""
+
+            TUCUMCARI_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29059"
+            """Tucumcari Federal Savings and Loan Association, Tucumcari"""
+
+            VALLEY_BANK_OF_COMMERCE: str = "22600"
+            """Valley Bank of Commerce, Roswell"""
+
+            WESTERN_BANK_ARTESIA: str = "16720"
+            """Western Bank, Artesia"""
+
+            WESTERN_BANK_LORDSBURG: str = "2249"
+            """Western Bank, Lordsburg"""
+
+            WESTERN_COMMERCE_BANK: str = "18389"
+            """Western Commerce Bank, Carlsbad"""
+
+        class NewYork(System.Object):
+            """Banks headquartered in New York."""
+
+            ABACUS_FEDERAL_SAVINGS_BANK: str = "32257"
+            """Abacus Federal Savings Bank, New York"""
+
+            ALDEN_STATE_BANK: str = "9831"
+            """Alden State Bank, Alden"""
+
+            ALMA_BANK: str = "58424"
+            """Alma Bank, Astoria"""
+
+            ALPINE_CAPITAL_BANK: str = "35377"
+            """Alpine Capital Bank, New York"""
+
+            AMALGAMATED_BANK: str = "622"
+            """Amalgamated Bank, New York"""
+
+            AMERASIA_BANK: str = "27267"
+            """Amerasia Bank, Flushing"""
+
+            AMERICAN_COMMUNITY_BANK: str = "35033"
+            """American Community Bank, Glen Cove"""
+
+            APPLE_BANK: str = "16068"
+            """Apple Bank, New York"""
+
+            ARROW_BANK_NATIONAL_ASSOCIATION: str = "7074"
+            """Arrow Bank National Association, Glens Falls"""
+
+            BALLSTON_SPA_NATIONAL_BANK: str = "6959"
+            """Ballston Spa National Bank, Ballston Spa"""
+
+            BANK_HAPOALIM_BM: str = "33686"
+            """Bank Hapoalim B.M., New York"""
+
+            BANK_OF_BARODA: str = "33681"
+            """Bank of Baroda, New York"""
+
+            BANK_OF_CATTARAUGUS: str = "9406"
+            """Bank of Cattaraugus, Cattaraugus"""
+
+            BANK_OF_CHINA_FLUSHING: str = "33652"
+            """Bank of China, Flushing"""
+
+            BANK_OF_CHINA_NEW_YORK: str = "33653"
+            """Bank of China, New York"""
+
+            BANK_OF_HOLLAND: str = "1464"
+            """Bank of Holland, Holland"""
+
+            BANK_OF_INDIA: str = "33648"
+            """Bank of India, New York"""
+
+            BANK_OF_MILLBROOK: str = "618"
+            """Bank of Millbrook, Millbrook"""
+
+            BANK_OF_RICHMONDVILLE: str = "12956"
+            """Bank of Richmondville, Cobleskill"""
+
+            BANK_OF_UTICA: str = "13397"
+            """Bank of Utica, Utica"""
+
+            BESSEMER_TRUST_COMPANY_NATIONAL_ASSOCIATION: str = "21868"
+            """Bessemer Trust Company, National Association, New York"""
+
+            BTG_PACTUAL_BANK_NATIONAL_ASSOCIATION: str = "35154"
+            """BTG Pactual Bank, National Association, New York"""
+
+            CARTHAGE_SAVINGS_AND_LOAN_NATIONAL_ASSOCIATION: str = "28942"
+            """Carthage Savings and Loan, National Association, Carthage"""
+
+            CARVER_FEDERAL_SAVINGS_BANK: str = "30394"
+            """Carver Federal Savings Bank, New York"""
+
+            CATTARAUGUS_COUNTY_BANK: str = "12959"
+            """Cattaraugus County Bank, Little Valley"""
+
+            CAYUGA_LAKE_NATIONAL_BANK: str = "6954"
+            """Cayuga Lake National Bank, Union Springs"""
+
+            CHAMPLAIN_NATIONAL_BANK: str = "7356"
+            """Champlain National Bank, Elizabethtown"""
+
+            CHEMUNG_CANAL_TRUST_COMPANY: str = "597"
+            """Chemung Canal Trust Company, Elmira"""
+
+            COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "6989"
+            """Community Bank, National Association, Canton"""
+
+            COMMUNITY_FEDERAL_SAVINGS_BANK: str = "57129"
+            """Community Federal Savings Bank, Woodhaven"""
+
+            CROSS_COUNTY_SAVINGS_BANK: str = "30260"
+            """Cross County Savings Bank, Middle Village"""
+
+            DEUTSCHE_BANK_TRUST_COMPANY_AMERICAS: str = "623"
+            """Deutsche Bank Trust Company Americas, New York"""
+
+            DIME_COMMERCIAL_BANK: str = "6976"
+            """Dime Commercial Bank, Hauppauge"""
+
+            EASTBANK_NATIONAL_ASSOCIATION: str = "25749"
+            """Eastbank, National Association, New York"""
+
+            EMIGRANT_MERCANTILE_BANK: str = "57834"
+            """Emigrant Mercantile Bank, New York"""
+
+            EMPIRE_STATE_BANK: str = "57672"
+            """Empire State Bank, Staten Island"""
+
+            ESQUIRE_BANK_NATIONAL_ASSOCIATION: str = "58140"
+            """Esquire Bank, National Association, Jericho"""
+
+            FIRST_CENTRAL_SAVINGS_BANK: str = "34969"
+            """First Central Savings Bank, Glen Cove"""
+
+            FIRST_FEDERAL_SAVINGS_OF_MIDDLETOWN: str = "28712"
+            """First Federal Savings of Middletown, Middletown"""
+
+            FIRST_NATIONAL_BANK_OF_SCOTIA: str = "11501"
+            """First National Bank of Scotia, Scotia"""
+
+            FIVE_STAR_BANK: str = "659"
+            """Five Star Bank, Rochester"""
+
+            FLAGSTAR_BANK_NATIONAL_ASSOCIATION: str = "32541"
+            """Flagstar Bank, National Association, Hicksville"""
+
+            FRENCH_AMERICAN_BANKING_CORPORATION_NYIC: str = "90846"
+            """French-American Banking Corporation (NYIC), New York City"""
+
+            FULTON_SAVINGS_BANK: str = "15966"
+            """Fulton Savings Bank, Fulton"""
+
+            GEDDES_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30397"
+            """Geddes Federal Savings and Loan Association, Syracuse"""
+
+            GENESEE_REGIONAL_BANK: str = "26333"
+            """Genesee Regional Bank, Rochester"""
+
+            GLOBAL_BANK: str = "58263"
+            """Global Bank, New York"""
+
+            GOLDMAN_SACHS_BANK_USA: str = "33124"
+            """Goldman Sachs Bank USA, New York"""
+
+            GOUVERNEUR_SAVINGS_AND_LOAN_ASSOCIATION: str = "30976"
+            """Gouverneur Savings and Loan Association, Gouverneur"""
+
+            GRASSHOPPER_BANK_NA: str = "59113"
+            """Grasshopper Bank, N.A., New York"""
+
+            GREENE_COUNTY_COMMERCIAL_BANK: str = "57710"
+            """Greene County Commercial Bank, Catskill"""
+
+            GS_AND_L_MUNICIPAL_BANK: str = "59312"
+            """GS&L Municipal Bank, Gouverneur"""
+
+            HABIB_AMERICAN_BANK: str = "25093"
+            """Habib American Bank, New York"""
+
+            HANOVER_COMMUNITY_BANK: str = "58675"
+            """Hanover Community Bank, Garden City Park"""
+
+            INDUSTRIAL_AND_COMMERCIAL_BANK_OF_CHINA_USA_NATIONAL_ASSOCIATION: str = "24387"
+            """Industrial and Commercial Bank of China USA, National Association, New York"""
+
+            INTERAUDI_BANK: str = "24516"
+            """Interaudi Bank, New York"""
+
+            ISRAEL_DISCOUNT_BANK_OF_NEW_YORK: str = "19977"
+            """Israel Discount Bank of New York, New York"""
+
+            JEFF_BANK_NATIONAL_ASSOCIATION: str = "7123"
+            """Jeff Bank, National Association, Jeffersonville"""
+
+            LAKE_SHORE_BANK: str = "30530"
+            """Lake Shore Bank, Dunkirk"""
+
+            MANUFACTURERS_AND_TRADERS_TRUST_COMPANY: str = "588"
+            """Manufacturers and Traders Trust Company, Buffalo"""
+
+            MAPLE_CITY_SAVINGS_BANK_FSB: str = "28585"
+            """Maple City Savings Bank, FSB, Hornell"""
+
+            MASPETH_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30303"
+            """Maspeth Federal Savings and Loan Association, Maspeth"""
+
+            MASSENA_SAVINGS_AND_LOAN: str = "30429"
+            """Massena Savings and Loan, Massena"""
+
+            METROPOLITAN_BANK_AND_TRUST_COMPANY: str = "33656"
+            """Metropolitan Bank and Trust Company, New York"""
+
+            METROPOLITAN_COMMERCIAL_BANK: str = "34699"
+            """Metropolitan Commercial Bank, New York"""
+
+            MIZUHO_BANK_USA: str = "21843"
+            """Mizuho Bank (USA), New York"""
+
+            MODERN_BANK_NATIONAL_ASSOCIATION: str = "22398"
+            """Modern Bank, National Association, New York"""
+
+            MORGAN_STANLEY_PRIVATE_BANK_NATIONAL_ASSOCIATION: str = "34221"
+            """Morgan Stanley Private Bank, National Association, Purchase"""
+
+            NBT_BANK_NATIONAL_ASSOCIATION: str = "7230"
+            """NBT Bank, National Association, Norwich"""
+
+            NEW_BANK: str = "58203"
+            """NewBank, Flushing"""
+
+            NORTH_EAST_COMMUNITY_BANK: str = "29147"
+            """NorthEast Community Bank, White Plains"""
+
+            ORANGE_BANK_AND_TRUST_COMPANY: str = "12944"
+            """Orange Bank & Trust Company, Middletown"""
+
+            PATHFINDER_BANK: str = "57497"
+            """Pathfinder Bank, Oswego"""
+
+            PIERMONT_BANK: str = "59154"
+            """Piermont Bank, New York"""
+
+            PIONEER_BANK_NATIONAL_ASSOCIATION: str = "20741"
+            """Pioneer Bank, National Association, Albany"""
+
+            PONCE_BANK_NATIONAL_ASSOCIATION: str = "31189"
+            """Ponce Bank, National Association, Bronx"""
+
+            POPULAR_BANK: str = "34967"
+            """Popular Bank, New York"""
+
+            QUONTIC_BANK: str = "57807"
+            """Quontic Bank, Astoria"""
+
+            RHINEBECK_BANK: str = "16032"
+            """Rhinebeck Bank, Rhinebeck"""
+
+            RIDGEWOOD_SAVINGS_BANK: str = "16026"
+            """Ridgewood Savings Bank, Ridgewood"""
+
+            RONDOUT_SAVINGS_BANK: str = "15969"
+            """Rondout Savings Bank, Kingston"""
+
+            SAFRA_NATIONAL_BANK_OF_NEW_YORK: str = "26876"
+            """Safra National Bank of New York, New York"""
+
+            SAVANNAH_BANK_NATIONAL_ASSOCIATION: str = "14619"
+            """Savannah Bank National Association, Savannah"""
+
+            SAWYER_SAVINGS_BANK: str = "16039"
+            """Sawyer Savings Bank, Saugerties"""
+
+            SENECA_SAVINGS_BANK_NATIONAL_ASSOCIATION: str = "29496"
+            """Seneca Savings Bank, National Association, Baldwinsville"""
+
+            SHINHAN_BANK_AMERICA: str = "33188"
+            """Shinhan Bank America, New York"""
+
+            SOLVAY_BANK: str = "13297"
+            """Solvay Bank, Solvay"""
+
+            SPRING_BANK: str = "58668"
+            """Spring Bank, Bronx"""
+
+            STATE_BANK_OF_INDIA: str = "33682"
+            """State Bank of India, New York"""
+
+            SUNNYSIDE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_IRVINGTON: str = "28805"
+            """Sunnyside Federal Savings and Loan Association of Irvington, Irvington"""
+
+            THE_ADIRONDACK_TRUST_COMPANY: str = "660"
+            """The Adirondack Trust Company, Saratoga Springs"""
+
+            THE_BANK_OF_EAST_ASIA_LTD_NEW_YORK: str = "26028"
+            """The Bank of East Asia Ltd., New York"""
+
+            THE_BANK_OF_EAST_ASIA_LTD_NEW_YORK_33646: str = "33646"
+            """The Bank of East Asia Ltd., New York"""
+
+            THE_BANK_OF_GREENE: str = "21591"
+            """The Bank of Greene, Catskill"""
+
+            THE_BANK_OF_NEW_YORK_MELLON: str = "639"
+            """The Bank of New York Mellon, New York"""
+
+            THE_BERKSHIRE_BANK: str = "27503"
+            """The Berkshire Bank, New York"""
+
+            THE_CANANDAIGUA_NATIONAL_BANK_AND_TRUST_COMPANY: str = "6985"
+            """The Canandaigua National Bank and Trust Company, Canandaigua"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_HAMMOND: str = "14820"
+            """The Citizens National Bank of Hammond, Hammond"""
+
+            THE_DELAWARE_NATIONAL_BANK_OF_DELHI: str = "7025"
+            """The Delaware National Bank of Delhi, Delhi"""
+
+            THE_FIRST_NATIONAL_BANK_OF_DRYDEN: str = "7031"
+            """The First National Bank of Dryden, Dryden"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GROTON: str = "7085"
+            """The First National Bank of Groton, Groton"""
+
+            THE_LYONS_NATIONAL_BANK: str = "7151"
+            """The Lyons National Bank, Lyons"""
+
+            THE_NORTH_COUNTRY_SAVINGS_BANK: str = "16030"
+            """The North Country Savings Bank, Canton"""
+
+            THE_PUTNAM_COUNTY_NATIONAL_BANK_OF_CARMEL: str = "6990"
+            """The Putnam County National Bank of Carmel, Carmel"""
+
+            THE_UPSTATE_NATIONAL_BANK: str = "13748"
+            """The Upstate National Bank, Ogdensburg"""
+
+            TIOGA_STATE_BANK_NATIONAL_ASSOCIATION: str = "9410"
+            """Tioga State Bank National Association, Spencer"""
+
+            TOMPKINS_BANK_AND_TRUST: str = "609"
+            """Tompkins Bank & Trust, Ithaca"""
+
+            TRUST_CO_BANK: str = "31945"
+            """TrustCo Bank, Glenville"""
+
+            ULSTER_SAVINGS_BANK: str = "15970"
+            """Ulster Savings Bank, Kingston"""
+
+            UNITED_ORIENT_BANK: str = "23373"
+            """United Orient Bank, New York"""
+
+            WALDEN_SAVINGS_BANK: str = "15987"
+            """Walden Savings Bank, Montgomery"""
+
+            WALLKILL_VALLEY_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28870"
+            """Wallkill Valley Federal Savings and Loan Association, Wallkill"""
+
+            WATERTOWN_SAVINGS_BANK: str = "15990"
+            """Watertown Savings Bank, Watertown"""
+
+            WOORI_AMERICA_BANK: str = "24920"
+            """Woori America Bank, New York"""
+
+            WSB_MUNICIPAL_BANK: str = "7274"
+            """WSB Municipal Bank, Watertown"""
+
+        class NorthCarolina(System.Object):
+            """Banks headquartered in North Carolina."""
+
+            AMERICAN_BANK_OF_THE_CAROLINAS: str = "59157"
+            """American Bank of the Carolinas, Monroe"""
+
+            BANK_OF_AMERICA_NATIONAL_ASSOCIATION: str = "3510"
+            """Bank of America, National Association, Charlotte"""
+
+            BANK_OF_OAK_RIDGE: str = "35365"
+            """Bank of Oak Ridge, Oak Ridge"""
+
+            BELMONT_SAVINGS_BANK_SSB: str = "28035"
+            """Belmont Savings Bank, SSB, Belmont"""
+
+            BLACK_MOUNTAIN_SAVINGS_BANK_SSB: str = "27897"
+            """Black Mountain Savings Bank, SSB, Black Mountain"""
+
+            BLUE_HARBOR_BANK: str = "58691"
+            """BlueHarbor Bank, Mooresville"""
+
+            CEDAR_HILL_NATIONAL_BANK: str = "34478"
+            """Cedar Hill National Bank, Charlotte"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "2036"
+            """Farmers & Merchants Bank, Granite Quarry"""
+
+            FIRST_BANK: str = "15019"
+            """First Bank, Southern Pines"""
+
+            FIRST_CAROLINA_BANK: str = "35530"
+            """First Carolina Bank, Rocky Mount"""
+
+            FIRST_FEDERAL_BANK: str = "31077"
+            """First Federal Bank, Dunn"""
+
+            FIRST_FEDERAL_SAVINGS_BANK_OF_LINCOLNTON: str = "30315"
+            """First Federal Savings Bank of Lincolnton, Lincolnton"""
+
+            FIRST_SAVINGS_AND_LOAN_ASSOCIATION: str = "30358"
+            """First Savings and Loan Association, Mebane"""
+
+            FIRST_CITIZENS_BANK_AND_TRUST_COMPANY: str = "11063"
+            """First-Citizens Bank & Trust Company, Raleigh"""
+
+            HERTFORD_SAVINGS_BANK_SSB: str = "31345"
+            """Hertford Savings Bank, SSB, Hertford"""
+
+            HOME_TRUST_BANK: str = "27677"
+            """HomeTrust Bank, Asheville"""
+
+            JACKSON_SAVINGS_BANK_SSB: str = "31266"
+            """Jackson Savings Bank, SSB, Sylva"""
+
+            KS_BANK_INC: str = "29771"
+            """KS Bank, Inc., Smithfield"""
+
+            LIFE_STORE_BANK: str = "31217"
+            """LifeStore Bank, West Jefferson"""
+
+            LIVE_OAK_BANKING_COMPANY: str = "58665"
+            """Live Oak Banking Company, Wilmington"""
+
+            LUMBEE_GUARANTY_BANK: str = "20568"
+            """Lumbee Guaranty Bank, Pembroke"""
+
+            MECHANICS_AND_FARMERS_BANK: str = "12266"
+            """Mechanics & Farmers Bank, Durham"""
+
+            MORGANTON_SAVINGS_BANK_SSB: str = "30434"
+            """Morganton Savings Bank, S.S.B., Morganton"""
+
+            NANTAHALA_BANK_AND_TRUST_COMPANY: str = "57784"
+            """Nantahala Bank & Trust Company, Franklin"""
+
+            NEW_REPUBLIC_BANK: str = "34860"
+            """New Republic Bank, Roanoke Rapids"""
+
+            NORTH_STATE_BANK: str = "35519"
+            """North State Bank, Raleigh"""
+
+            PEOPLES_BANK: str = "5956"
+            """Peoples Bank, Newton"""
+
+            PIEDMONT_FEDERAL_SAVINGS_BANK: str = "27619"
+            """Piedmont Federal Savings Bank, Winston Salem"""
+
+            PROVIDENCE_BANK: str = "58239"
+            """Providence Bank, Rocky Mount"""
+
+            RIVERSIDE_SAVINGS_BANK_SSB: str = "28314"
+            """Riverside Savings Bank, SSB, Roanoke Rapids"""
+
+            ROXBORO_SAVINGS_BANK_SSB: str = "28471"
+            """Roxboro Savings Bank, SSB, Roxboro"""
+
+            SOUTHERN_BANK_AND_TRUST_COMPANY: str = "15359"
+            """Southern Bank and Trust Company, Mount Olive"""
+
+            TARBORO_SAVINGS_BANK_SSB: str = "29061"
+            """Tarboro Savings Bank, SSB, Tarboro"""
+
+            TAYLORSVILLE_SAVINGS_BANK_SSB: str = "32348"
+            """Taylorsville Savings Bank, SSB, Taylorsville"""
+
+            THE_FIDELITY_BANK: str = "11507"
+            """The Fidelity Bank, Fuquay Varina"""
+
+            TRIAD_BUSINESS_BANK: str = "59188"
+            """Triad Business Bank, Greensboro"""
+
+            TRUIST_BANK: str = "9846"
+            """Truist Bank, Charlotte"""
+
+            UWHARRIE_BANK: str = "24919"
+            """Uwharrie Bank, Albemarle"""
+
+        class NorthDakota(System.Object):
+            """Banks headquartered in North Dakota."""
+
+            ALERUS_FINANCIAL_NATIONAL_ASSOCIATION: str = "3931"
+            """Alerus Financial, National Association, Grand Forks"""
+
+            AMERICAN_FEDERAL_BANK: str = "29140"
+            """American Federal Bank, Fargo"""
+
+            AMERICAN_STATE_BANK_AND_TRUST_COMPANY_OF_WILLISTON: str = "15444"
+            """American State Bank & Trust Company of Williston, Williston"""
+
+            ASPIRE_BANK: str = "3934"
+            """Aspire Bank, Fargo"""
+
+            BANK_FORWARD: str = "8941"
+            """Bank Forward, Fargo"""
+
+            BANK_OF_HAZELTON: str = "17813"
+            """Bank of Hazelton, Hazelton"""
+
+            BANK_NORTH: str = "8387"
+            """BankNorth, Arthur"""
+
+            BELL_BANK: str = "19581"
+            """Bell Bank, Fargo"""
+
+            BORDER_BANK: str = "20776"
+            """Border Bank, Fargo"""
+
+            BRAVERA_BANK: str = "22559"
+            """Bravera Bank, Dickinson"""
+
+            CHOICE_FINANCIAL_GROUP: str = "9423"
+            """Choice Financial Group, Fargo"""
+
+            CITIZENS_STATE_BANK_OF_LANKIN: str = "9422"
+            """Citizens State Bank of Lankin, Lankin"""
+
+            COMMERCIAL_BANK_OF_MOTT: str = "15741"
+            """Commercial Bank of Mott, Mott"""
+
+            CORNERSTONE_BANK: str = "13198"
+            """Cornerstone Bank, Fargo"""
+
+            DAKOTA_COMMUNITY_BANK_AND_TRUST_NATIONAL_ASSOCIATION: str = "15728"
+            """Dakota Community Bank & Trust, National Association, Hebron"""
+
+            DAKOTA_HERITAGE_BANK: str = "16231"
+            """Dakota Heritage Bank, Hunter"""
+
+            DAKOTA_WESTERN_BANK: str = "8637"
+            """Dakota Western Bank, Bowman"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_NORTH_DAKOTA: str = "8640"
+            """Farmers & Merchants Bank of North Dakota, Tolna"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK: str = "21728"
+            """Farmers and Merchants State Bank, Langdon"""
+
+            FIRST_INTERNATIONAL_BANK_AND_TRUST: str = "10248"
+            """First International Bank & Trust, Watford City"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_CO_OF_BOTTINEAU: str = "3902"
+            """First National Bank and Trust Co. of Bottineau, Bottineau"""
+
+            FIRST_SECURITY_BANK_WEST: str = "10253"
+            """First Security Bank - West, Beulah"""
+
+            FIRST_STATE_BANK: str = "15539"
+            """First State Bank, Buxton"""
+
+            FIRST_STATE_BANK_AND_TRUST: str = "14801"
+            """First State Bank & Trust, Williston"""
+
+            FIRST_STATE_BANK_OF_GOLVA: str = "10243"
+            """First State Bank of Golva, Golva"""
+
+            FIRST_STATE_BANK_OF_HARVEY: str = "8383"
+            """First State Bank of Harvey, Harvey"""
+
+            FIRST_UNITED_BANK: str = "15472"
+            """First United Bank, Park River"""
+
+            FIRST_WESTERN_BANK_AND_TRUST: str = "19123"
+            """First Western Bank & Trust, Minot"""
+
+            GATE_CITY_BANK: str = "27774"
+            """Gate City Bank, Fargo"""
+
+            GRANT_COUNTY_STATE_BANK: str = "9417"
+            """Grant County State Bank, Carson"""
+
+            HEARTLAND_STATE_BANK: str = "3919"
+            """Heartland State Bank, Edgeley"""
+
+            HORIZON_FINANCIAL_BANK: str = "15598"
+            """Horizon Financial Bank, Munich"""
+
+            KINDRED_STATE_BANK: str = "8946"
+            """Kindred State Bank, Kindred"""
+
+            KIRKWOOD_BANK_AND_TRUST_CO: str = "21928"
+            """Kirkwood Bank & Trust Co., Bismarck"""
+
+            KODA_BANK: str = "8386"
+            """KodaBank, Drayton"""
+
+            LIBERTY_STATE_BANK: str = "17096"
+            """Liberty State Bank, Powers Lake"""
+
+            LINCOLN_STATE_BANK: str = "8390"
+            """Lincoln State Bank, Hankinson"""
+
+            MC_INTOSH_COUNTY_BANK: str = "13794"
+            """McIntosh County Bank, Ashley"""
+
+            MERCHANTS_BANK: str = "8943"
+            """Merchants Bank, Rugby"""
+
+            PEOPLES_STATE_BANK: str = "13196"
+            """Peoples State Bank, Westhope"""
+
+            PEOPLES_STATE_BANK_OF_VELVA: str = "10250"
+            """Peoples State Bank of Velva, Velva"""
+
+            PEOPLES_STATE_BANK_FAIRMOUNT_ND: str = "17174"
+            """Peoples State Bank, Fairmount, N. D., Fairmount"""
+
+            ROLETTE_STATE_BANK: str = "9120"
+            """Rolette State Bank, Rolette"""
+
+            SECURITY_FIRST_BANK_OF_NORTH_DAKOTA: str = "11519"
+            """Security First Bank of North Dakota, New Salem"""
+
+            STARION_BANK: str = "33758"
+            """Starion Bank, Bismarck"""
+
+            STATE_BANK_AND_TRUST_OF_KENMARE: str = "2057"
+            """State Bank & Trust of Kenmare, Kenmare"""
+
+            STATE_BANK_OF_BOTTINEAU: str = "9121"
+            """State Bank of Bottineau, Bottineau"""
+
+            STATE_BANK_OF_LAKOTA: str = "16477"
+            """State Bank of Lakota, Lakota"""
+
+            STOCK_GROWERS_BANK: str = "8942"
+            """Stock Growers Bank, Forman"""
+
+            STRASBURG_STATE_BANK: str = "17922"
+            """Strasburg State Bank, Strasburg"""
+
+            THE_BANK_OF_TIOGA: str = "17280"
+            """The Bank of Tioga, Tioga"""
+
+            THE_CITIZENS_STATE_BANK_AT_MOHALL: str = "8632"
+            """The Citizens State Bank at Mohall, Mohall"""
+
+            THE_GOOSE_RIVER_BANK: str = "10236"
+            """The Goose River Bank, Mayville"""
+
+            THE_UNION_BANK: str = "9420"
+            """The Union Bank, Beulah"""
+
+            TRU_COMMUNITY_BANK: str = "15306"
+            """TruCommunity Bank, Garrison"""
+
+            TURTLE_MOUNTAIN_STATE_BANK: str = "58586"
+            """Turtle Mountain State Bank, Belcourt"""
+
+            UNION_STATE_BANK_OF_HAZEN: str = "13195"
+            """Union State Bank of Hazen, Hazen"""
+
+            UNISON_BANK: str = "19396"
+            """Unison Bank, Jamestown"""
+
+            UNITED_VALLEY_BANK: str = "15478"
+            """United Valley Bank, Cavalier"""
+
+            WESTERN_STATE_BANK: str = "9123"
+            """Western State Bank, Devils Lake"""
+
+        class Ohio(System.Object):
+            """Banks headquartered in Ohio."""
+
+            _1_ST_NATIONAL_BANK: str = "6646"
+            """1st National Bank, Lebanon"""
+
+            ADELPHI_BANK: str = "59292"
+            """Adelphi Bank, Columbus"""
+
+            BANK_419: str = "16167"
+            """Bank419, Metamora"""
+
+            BELMONT_SAVINGS_BANK: str = "28348"
+            """Belmont Savings Bank, Bellaire"""
+
+            BUCKEYE_COMMUNITY_BANK: str = "35101"
+            """Buckeye Community Bank, Elyria"""
+
+            BUCKEYE_STATE_BANK: str = "2286"
+            """Buckeye State Bank, Powell"""
+
+            CF_BANK_NATIONAL_ASSOCIATION: str = "28263"
+            """CFBank, National Association, Columbus"""
+
+            CITIZENS_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28060"
+            """Citizens Federal Savings and Loan Association, Bellefontaine"""
+
+            CIVISTA_BANK: str = "12982"
+            """Civista Bank, Sandusky"""
+
+            COMMUNITY_FIRST_BANK_NATIONAL_ASSOCIATION: str = "6584"
+            """Community First Bank, National Association, Forest"""
+
+            COMMUNITY_SAVINGS: str = "27969"
+            """Community Savings, Caldwell"""
+
+            COMMUNITY_SAVINGS_BANK: str = "32286"
+            """Community Savings Bank, Bethel"""
+
+            CONNEAUT_SAVINGS_BANK: str = "28677"
+            """Conneaut Savings Bank, Conneaut"""
+
+            CONSUMERS_NATIONAL_BANK: str = "19482"
+            """Consumers National Bank, Minerva"""
+
+            CREDIT_FIRST_NATIONAL_ASSOCIATION: str = "33855"
+            """Credit First National Association, Brook Park"""
+
+            EREBOR_BANK_NA: str = "59378"
+            """Erebor Bank, N.A., Columbus"""
+
+            FAIRFIELD_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_LANCASTER: str = "27806"
+            """Fairfield Federal Savings and Loan Association of Lancaster, Lancaster"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "9462"
+            """Farmers & Merchants Bank, Miamisburg"""
+
+            FARMERS_STATE_BANK: str = "8647"
+            """Farmers State Bank, West Salem"""
+
+            FIDELITY_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_DELAWARE: str = "29521"
+            """Fidelity Federal Savings and Loan Association of Delaware, Delaware"""
+
+            FIFTH_THIRD_BANK_NATIONAL_ASSOCIATION: str = "6672"
+            """Fifth Third Bank, National Association, Cincinnati"""
+
+            FIRST_BANK_OF_CENTRAL_OHIO: str = "59249"
+            """First Bank of Central Ohio, Worthington"""
+
+            FIRST_BANK_OF_OHIO: str = "9450"
+            """First Bank of Ohio, Tiffin"""
+
+            FIRST_FEDERAL_BANK_OF_OHIO: str = "27643"
+            """First Federal Bank of Ohio, Galion"""
+
+            FIRST_FEDERAL_COMMUNITY_BANK_OF_BUCYRUS: str = "29705"
+            """First Federal Community Bank of Bucyrus, Bucyrus"""
+
+            FIRST_FEDERAL_COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "29787"
+            """First Federal Community Bank, National Association, Dover"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_DELTA: str = "29345"
+            """First Federal Savings and Loan Association, Delta"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_NEWARK: str = "29090"
+            """First Federal Savings and Loan Association, Newark"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_LAKEWOOD: str = "29488"
+            """First Federal Savings and Loan Association of Lakewood, Lakewood"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_LORAIN: str = "29838"
+            """First Federal Savings and Loan Association of Lorain, Lorain"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_VAN_WERT: str = "29135"
+            """First Federal Savings and Loan Association of Van Wert, Van Wert"""
+
+            FIRST_FINANCIAL_BANK: str = "6600"
+            """First Financial Bank, Cincinnati"""
+
+            FIRST_MUTUAL_BANK_FSB: str = "29617"
+            """First Mutual Bank, FSB, Belpre"""
+
+            FIRST_NATIONAL_BANK_IN_NEW_BREMEN: str = "14836"
+            """First National Bank in New Bremen, New Bremen"""
+
+            FIRST_STATE_BANK: str = "9437"
+            """First State Bank, Winchester"""
+
+            FORTUNA_BANK: str = "59330"
+            """Fortuna Bank, Grandview Heights"""
+
+            GALION_BUILDING_AND_LOAN_BANK: str = "32307"
+            """Galion Building and Loan Bank, Galion"""
+
+            GREENVILLE_FEDERAL: str = "27965"
+            """Greenville Federal, Greenville"""
+
+            GREENVILLE_NATIONAL_BANK: str = "13703"
+            """Greenville National Bank, Greenville"""
+
+            GREEN_WAY_BANK: str = "29495"
+            """GreenWay Bank, Van Wert"""
+
+            GUARDIAN_SAVINGS_BANK: str = "27998"
+            """Guardian Savings Bank, West Chester"""
+
+            HOME_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_NILES: str = "28349"
+            """Home Federal Savings and Loan Association of Niles, Niles"""
+
+            HOME_NATIONAL_BANK: str = "6680"
+            """Home National Bank, Racine"""
+
+            HOME_SAVINGS_BANK_OF_WAPAKONETA: str = "30176"
+            """Home Savings Bank of Wapakoneta, Wapakoneta"""
+
+            HOMETOWN_BANK: str = "30219"
+            """Hometown Bank, Kent"""
+
+            INDEPENDENCE_BANK: str = "22925"
+            """Independence Bank, Independence"""
+
+            JP_MORGAN_CHASE_BANK_NATIONAL_ASSOCIATION: str = "628"
+            """JPMorgan Chase Bank, National Association, Columbus"""
+
+            KEY_BANK_NATIONAL_ASSOCIATION: str = "17534"
+            """KeyBank National Association, Cleveland"""
+
+            KINGSTON_NATIONAL_BANK: str = "6616"
+            """Kingston National Bank, Kingston"""
+
+            LCNB_NATIONAL_BANK: str = "6623"
+            """LCNB National Bank, Lebanon"""
+
+            LIBERTY_BANK: str = "28463"
+            """Liberty Bank, Ironton"""
+
+            LIBERTY_SAVINGS_BANK_FSB: str = "32242"
+            """Liberty Savings Bank, F.S.B., Wilmington"""
+
+            MAIN_STREET_BANK_CORP: str = "29847"
+            """Main Street Bank Corp., Wooster"""
+
+            MECHANICS_BANK: str = "29011"
+            """Mechanics Bank, Mansfield"""
+
+            MERCER_SAVINGS_BANK: str = "30084"
+            """Mercer Savings Bank, Celina"""
+
+            MIAMI_SAVINGS_BANK: str = "32293"
+            """Miami Savings Bank, Miamitown"""
+
+            MINSTER_BANK: str = "763"
+            """Minster Bank, Minster"""
+
+            MONROE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29578"
+            """Monroe Federal Savings and Loan Association, Tipp City"""
+
+            NATIONAL_COOPERATIVE_BANK_NA: str = "32612"
+            """NATIONAL COOPERATIVE BANK, N.A., Hillsboro"""
+
+            NATIONWIDE_TRUST_COMPANY_FSB: str = "34710"
+            """Nationwide Trust Company, FSB, Columbus"""
+
+            NEW_CARLISLE_FEDERAL_SAVINGS_BANK: str = "29173"
+            """New Carlisle Federal Savings Bank, New Carlisle"""
+
+            NORTH_VALLEY_BANK: str = "2284"
+            """North Valley Bank, Zanesville"""
+
+            OHIO_STATE_BANK: str = "59144"
+            """Ohio State Bank, Bexley"""
+
+            OSGOOD_BANK: str = "9137"
+            """Osgood Bank, Osgood"""
+
+            PEOPLES_BANK: str = "6544"
+            """Peoples Bank, Marietta"""
+
+            PEOPLES_FIRST_SAVINGS_BANK: str = "30688"
+            """Peoples First Savings Bank, Mason"""
+
+            PEOPLES_SAVINGS_AND_LOAN_COMPANY: str = "29813"
+            """Peoples Savings and Loan Company, Bucyrus"""
+
+            PEOPLES_STATE_BANK: str = "6659"
+            """Peoples State Bank, New Lexington"""
+
+            PORTAGE_COMMUNITY_BANK: str = "34760"
+            """Portage Community Bank, Ravenna"""
+
+            RIVER_HILLS_BANK: str = "6662"
+            """RiverHills Bank, Milford"""
+
+            RIVERSIDE_BANK_OF_DUBLIN: str = "59199"
+            """Riverside Bank of Dublin, Dublin"""
+
+            SIGNATURE_BANK_NATIONAL_ASSOCIATION: str = "57269"
+            """Signature Bank, National Association, Toledo"""
+
+            SOMERVILLE_BANK: str = "6700"
+            """Somerville Bank, Eaton"""
+
+            SOUTHERN_HILLS_COMMUNITY_BANK: str = "29749"
+            """Southern Hills Community Bank, Leesburg"""
+
+            SPRING_VALLEY_BANK: str = "34386"
+            """Spring Valley Bank, Wyoming"""
+
+            SSB_COMMUNITY_BANK: str = "29858"
+            """SSB Community Bank, Strasburg"""
+
+            SUTTON_BANK: str = "5962"
+            """Sutton Bank, Attica"""
+
+            THE_ANDOVER_BANK: str = "10663"
+            """The Andover Bank, Andover"""
+
+            THE_ANTWERP_EXCHANGE_BANK_COMPANY: str = "14523"
+            """The Antwerp Exchange Bank Company, Antwerp"""
+
+            THE_APPLE_CREEK_BANKING_COMPANY: str = "737"
+            """The Apple Creek Banking Company, Apple Creek"""
+
+            THE_BALTIC_STATE_BANK: str = "17759"
+            """The Baltic State Bank, Baltic"""
+
+            THE_BANK_OF_MAGNOLIA_COMPANY: str = "2300"
+            """The Bank of Magnolia Company, Magnolia"""
+
+            THE_BROOKVILLE_BUILDING_AND_SAVINGS_ASSOCIATION: str = "28663"
+            """The Brookville Building and Savings Association, Brookville"""
+
+            THE_CINCINNATUS_SAVINGS_AND_LOAN_CO: str = "28157"
+            """The Cincinnatus Savings & Loan Co., Cincinnati"""
+
+            THE_CITIZENS_BANK_COMPANY: str = "10266"
+            """The Citizens Bank Company, Beverly"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_BLUFFTON: str = "6531"
+            """The Citizens National Bank of Bluffton, Bluffton"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_MC_CONNELSVILLE: str = "6638"
+            """The Citizens National Bank of McConnelsville, Mcconnelsville"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_WOODSFIELD: str = "6732"
+            """The Citizens National Bank of Woodsfield, Woodsfield"""
+
+            THE_COMMERCIAL_AND_SAVINGS_BANK_OF_MILLERSBURG_OHIO: str = "9139"
+            """The Commercial and Savings Bank of Millersburg, Ohio, Millersburg"""
+
+            THE_COMMUNITY_BANK: str = "5981"
+            """The Community Bank, Zanesville"""
+
+            THE_CORN_CITY_STATE_BANK: str = "12980"
+            """The Corn City State Bank, Deshler"""
+
+            THE_COVINGTON_SAVINGS_AND_LOAN_ASSOCIATION: str = "28063"
+            """The Covington Savings and Loan Association, Covington"""
+
+            THE_CROGHAN_COLONIAL_BANK: str = "13341"
+            """The Croghan Colonial Bank, Fremont"""
+
+            THE_EQUITABLE_SAVINGS_AND_LOAN_COMPANY: str = "29966"
+            """The Equitable Savings and Loan Company, Cadiz"""
+
+            THE_FAHEY_BANKING_COMPANY: str = "2068"
+            """The Fahey Banking Company, Marion"""
+
+            THE_FARMERS_AND_MERCHANTS_STATE_BANK: str = "5969"
+            """The Farmers & Merchants State Bank, Archbold"""
+
+            THE_FARMERS_AND_MERCHANTS_BANK: str = "10280"
+            """The Farmers and Merchants Bank, Caldwell"""
+
+            THE_FARMERS_BANK_AND_SAVINGS_COMPANY: str = "769"
+            """The Farmers Bank and Savings Company, Pomeroy"""
+
+            THE_FARMERS_NATIONAL_BANK_OF_CANFIELD: str = "6540"
+            """The Farmers National Bank of Canfield, Canfield"""
+
+            THE_FARMERS_STATE_BANK: str = "14991"
+            """The Farmers State Bank, New Madison"""
+
+            THE_FIRST_CENTRAL_NATIONAL_BANK_OF_ST_PARIS: str = "15214"
+            """The First Central National Bank of St. Paris, St. Paris"""
+
+            THE_FIRST_CITIZENS_NATIONAL_BANK_OF_UPPER_SANDUSKY: str = "14355"
+            """The First Citizens National Bank of Upper Sandusky, Upper Sandusky"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BELLEVUE: str = "6528"
+            """The First National Bank of Bellevue, Bellevue"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BLANCHESTER: str = "6530"
+            """The First National Bank of Blanchester, Blanchester"""
+
+            THE_FIRST_NATIONAL_BANK_OF_DENNISON: str = "6574"
+            """The First National Bank of Dennison, Dennison"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GERMANTOWN: str = "6592"
+            """The First National Bank of Germantown, Germantown"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MC_CONNELSVILLE: str = "6637"
+            """The First National Bank of McConnelsville, Mcconnelsville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_PANDORA: str = "6671"
+            """The First National Bank of Pandora, Pandora"""
+
+            THE_FIRST_NATIONAL_BANK_OF_SYCAMORE: str = "6706"
+            """The First National Bank of Sycamore, Sycamore"""
+
+            THE_FIRST_NATIONAL_BANK_OF_WAVERLY: str = "6725"
+            """The First National Bank of Waverly, Waverly"""
+
+            THE_FORT_JENNINGS_STATE_BANK: str = "13209"
+            """The Fort Jennings State Bank, Fort Jennings"""
+
+            THE_GENOA_BANKING_COMPANY: str = "2285"
+            """The Genoa Banking Company, Genoa"""
+
+            THE_HAMLER_STATE_BANK: str = "14920"
+            """The Hamler State Bank, Hamler"""
+
+            THE_HARRISON_BUILDING_AND_LOAN_ASSOCIATION: str = "28080"
+            """The Harrison Building and Loan Association, Harrison"""
+
+            THE_HICKSVILLE_BANK: str = "16370"
+            """The Hicksville Bank, Hicksville"""
+
+            THE_HOCKING_VALLEY_BANK: str = "18858"
+            """The Hocking Valley Bank, Athens"""
+
+            THE_HOME_LOAN_SAVINGS_BANK: str = "29695"
+            """THE HOME LOAN SAVINGS BANK, Coshocton"""
+
+            THE_HOME_SAVINGS_AND_LOAN_COMPANY_OF_KENTON_OHIO_DBA_HSLC: str = "29571"
+            """The Home Savings and Loan Company of Kenton, Ohio, DBA HSLC, Kenton"""
+
+            THE_HUNTINGTON_NATIONAL_BANK: str = "6560"
+            """The Huntington National Bank, Columbus"""
+
+            THE_KILLBUCK_SAVINGS_BANK_COMPANY: str = "11860"
+            """The Killbuck Savings Bank Company, Killbuck"""
+
+            THE_MERCHANTS_NATIONAL_BANK: str = "6605"
+            """The Merchants National Bank, Hillsboro"""
+
+            THE_MT_VICTORY_STATE_BANK: str = "9438"
+            """The Mt. Victory State Bank, Mount Victory"""
+
+            THE_NATIONAL_BANK_OF_ADAMS_COUNTY_OF_WEST_UNION: str = "6728"
+            """The National Bank of Adams County of West Union, West Union"""
+
+            THE_NORTH_SIDE_BANK_AND_TRUST_COMPANY: str = "9457"
+            """The North Side Bank and Trust Company, Cincinnati"""
+
+            THE_OHIO_VALLEY_BANK_COMPANY: str = "384"
+            """The Ohio Valley Bank Company, Gallipolis"""
+
+            THE_OLD_FORT_BANKING_COMPANY: str = "10255"
+            """The Old Fort Banking Company, Old Fort"""
+
+            THE_OTTOVILLE_BANK_COMPANY: str = "8403"
+            """The Ottoville Bank Company, Ottoville"""
+
+            THE_PARK_NATIONAL_BANK: str = "6653"
+            """The Park National Bank, Newark"""
+
+            THE_PEOPLES_BANK: str = "389"
+            """The Peoples Bank, Gambier"""
+
+            THE_PEOPLES_BANK_CO: str = "13220"
+            """The Peoples Bank Co., Coldwater"""
+
+            THE_PEOPLES_SAVINGS_AND_LOAN_COMPANY: str = "30889"
+            """The Peoples Savings and Loan Company, West Liberty"""
+
+            THE_PEOPLES_SAVINGS_BANK_NEW_MATAMORAS: str = "9439"
+            """The Peoples Savings Bank, New Matamoras"""
+
+            THE_PEOPLES_SAVINGS_BANK_URBANA: str = "29975"
+            """The Peoples Savings Bank, Urbana"""
+
+            THE_PIONEER_SAVINGS_BANK: str = "27847"
+            """The Pioneer Savings Bank, Cleveland"""
+
+            THE_RICHWOOD_BANKING_COMPANY: str = "12978"
+            """The Richwood Banking Company, Richwood"""
+
+            THE_SAVINGS_BANK: str = "13216"
+            """The Savings Bank, Circleville"""
+
+            THE_SETTLERS_BANK: str = "35060"
+            """The Settlers Bank, Marietta"""
+
+            THE_SHERWOOD_STATE_BANK: str = "16222"
+            """The Sherwood State Bank, Sherwood"""
+
+            THE_ST_HENRY_BANK: str = "9871"
+            """The St. Henry Bank, St. Henry"""
+
+            THE_STATE_BANK_AND_TRUST_COMPANY: str = "13339"
+            """The State Bank and Trust Company, Defiance"""
+
+            THE_TWIN_VALLEY_BANK: str = "13802"
+            """The Twin Valley Bank, West Alexandria"""
+
+            THE_UNION_BANK_COMPANY: str = "12969"
+            """The Union Bank Company, Columbus Grove"""
+
+            THE_UNION_BANKING_COMPANY: str = "15326"
+            """The Union Banking Company, West Mansfield"""
+
+            THE_VINTON_COUNTY_NATIONAL_BANK: str = "6636"
+            """THE VINTON COUNTY NATIONAL BANK, Mcarthur"""
+
+            THE_WATERFORD_COMMERCIAL_AND_SAVINGS_BANK: str = "8397"
+            """The Waterford Commercial and Savings Bank, Waterford"""
+
+            THE_WILMINGTON_SAVINGS_BANK: str = "31539"
+            """The Wilmington Savings Bank, Wilmington"""
+
+            THIRD_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_CLEVELAND: str = "30012"
+            """Third Federal Savings and Loan Association of Cleveland, Cleveland"""
+
+            US_BANK_NATIONAL_ASSOCIATION: str = "6548"
+            """U.S. Bank National Association, Cincinnati"""
+
+            UNIFIED_BANK: str = "9463"
+            """Unified Bank, Martins Ferry"""
+
+            UNION_SAVINGS_BANK: str = "32296"
+            """Union Savings Bank, Cincinnati"""
+
+            UNITED_MIDWEST_SAVINGS_BANK_NATIONAL_ASSOCIATION: str = "32441"
+            """United Midwest Savings Bank, National Association, Degraff"""
+
+            VALLEY_CENTRAL_BANK: str = "28555"
+            """Valley Central Bank, Liberty Township"""
+
+            VERSAILLES_SAVINGS_AND_LOAN_COMPANY: str = "28703"
+            """Versailles Savings and Loan Company, Versailles"""
+
+            WARSAW_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28217"
+            """Warsaw Federal Savings and Loan Association, Cincinnati"""
+
+            WATERFORD_BANK_NA: str = "58433"
+            """Waterford Bank, N.A., Toledo"""
+
+            WOODSFIELD_SAVINGS_BANK: str = "32292"
+            """Woodsfield Savings Bank, Woodsfield"""
+
+        class Oklahoma(System.Object):
+            """Banks headquartered in Oklahoma."""
+
+            _1_ST_BANK_IN_HOMINY: str = "4122"
+            """1st Bank in Hominy, Hominy"""
+
+            ACB_BANK: str = "4061"
+            """ACB Bank, Cherokee"""
+
+            ALL_AMERICA_BANK: str = "20093"
+            """All America Bank, Oklahoma City"""
+
+            ALL_CAPITAL_BANK: str = "16795"
+            """All Capital Bank, Locust Grove"""
+
+            ALL_NATIONS_BANK: str = "4051"
+            """AllNations Bank, Calumet"""
+
+            AMERICAN_BANK_AND_TRUST_COMPANY: str = "20537"
+            """American Bank and Trust Company, Tulsa"""
+
+            AMERICAN_EXCHANGE_BANK: str = "428"
+            """American Exchange Bank, Henryetta"""
+
+            AMERICAN_EXCHANGE_BANK_LINDSAY_OKLAHOMA: str = "2328"
+            """American Exchange Bank, Lindsay, Oklahoma, Lindsay"""
+
+            AMERICAN_HERITAGE_BANK: str = "4190"
+            """American Heritage Bank, Sapulpa"""
+
+            AMERICAN_NATION_BANK: str = "24472"
+            """American Nation Bank, Ardmore"""
+
+            AMERISTATE_BANK: str = "15510"
+            """Ameristate Bank, Atoka"""
+
+            ANCHOR_D_BANK: str = "4208"
+            """Anchor D Bank, Texhoma"""
+
+            ARMSTRONG_BANK: str = "2315"
+            """Armstrong Bank, Muskogee"""
+
+            AVB_BANK: str = "2326"
+            """AVB Bank, Broken Arrow"""
+
+            BANC_FIRST: str = "27476"
+            """BancFirst, Oklahoma City"""
+
+            BANK_7: str = "4147"
+            """Bank 7, Oklahoma City"""
+
+            BANK_OF_COMMERCE_CHELSEA: str = "13274"
+            """Bank of Commerce, Chelsea"""
+
+            BANK_OF_COMMERCE_DUNCAN: str = "57491"
+            """Bank of Commerce, Duncan"""
+
+            BANK_OF_EUFAULA: str = "4094"
+            """Bank of Eufaula, Eufaula"""
+
+            BANK_OF_GRAND_LAKE: str = "57915"
+            """Bank of Grand Lake, Grove"""
+
+            BANK_OF_HYDRO: str = "10674"
+            """Bank of Hydro, Hydro"""
+
+            BANK_OF_VICI: str = "420"
+            """Bank of Vici, Vici"""
+
+            BANK_OF_WESTERN_OKLAHOMA: str = "4087"
+            """Bank of Western Oklahoma, Elk City"""
+
+            BANK_360: str = "9875"
+            """BANK360, Cordell"""
+
+            BLUE_SKY_BANK: str = "14899"
+            """Blue Sky Bank, Pawhuska"""
+
+            BOKF_NATIONAL_ASSOCIATION: str = "4214"
+            """BOKF, National Association, Tulsa"""
+
+            BROOKS_BANK_NATIONAL_ASSOCIATION: str = "4062"
+            """Brooks Bank, National Association, Chickasha"""
+
+            CARSON_COMMUNITY_BANK: str = "2320"
+            """Carson Community Bank, Stilwell"""
+
+            CATTLEMENS_BANK: str = "12285"
+            """Cattlemens Bank, Altus"""
+
+            CHICKASAW_COMMUNITY_BANK: str = "11521"
+            """Chickasaw Community Bank, Oklahoma City"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY_OF_ARDMORE: str = "22717"
+            """Citizens Bank and Trust Company of Ardmore, Ardmore"""
+
+            CITIZENS_BANK_OF_ADA: str = "19679"
+            """Citizens Bank of Ada, Ada"""
+
+            CLEO_STATE_BANK: str = "406"
+            """Cleo State Bank, Cleo Springs"""
+
+            COMMUNITY_BANK: str = "8975"
+            """Community Bank, Bristow"""
+
+            COMMUNITY_BANK_OF_OKLAHOMA: str = "4217"
+            """COMMUNITY BANK OF OKLAHOMA, Verden"""
+
+            COMMUNITY_STATE_BANK: str = "27201"
+            """Community State Bank, Hennessey"""
+
+            COMMUNITY_STATE_BANK_OF_CANTON: str = "26416"
+            """Community State Bank of Canton, Canton"""
+
+            COREBANK: str = "18063"
+            """COREBANK, Waynoka"""
+
+            COWBOY_BANK: str = "11526"
+            """Cowboy Bank, Kremlin"""
+
+            EXCHANGE_BANK_AND_TRUST_COMPANY: str = "13366"
+            """Exchange Bank and Trust Company, Perry"""
+
+            F_AND_M_BANK: str = "12761"
+            """F&M Bank, Edmond"""
+
+            FAIRVIEW_SAVINGS_AND_LOAN_ASSOCIATION: str = "28652"
+            """Fairview Savings and Loan Association, Fairview"""
+
+            FARMERS_AND_MERCHANTS_BANK_DUKE: str = "12284"
+            """Farmers & Merchants Bank, Duke"""
+
+            FARMERS_AND_MERCHANTS_BANK_ARNETT: str = "13415"
+            """Farmers and Merchants Bank, Arnett"""
+
+            FARMERS_AND_MERCHANTS_BANK_MAYSVILLE: str = "4144"
+            """Farmers and Merchants Bank, Maysville"""
+
+            FARMERS_STATE_BANK_ALLEN_OKLAHOMA: str = "12758"
+            """Farmers State Bank, Allen, Oklahoma, Allen"""
+
+            FIRST_BANK_OF_THOMAS: str = "4209"
+            """First  Bank of Thomas, Thomas"""
+
+            FIRST_AMERICAN_BANK: str = "15762"
+            """First American Bank, Stonewall"""
+
+            FIRST_BANK_ERICK: str = "4092"
+            """First Bank, Erick"""
+
+            FIRST_BANK_AND_TRUST_CO: str = "27394"
+            """First Bank & Trust Co., Duncan"""
+
+            FIRST_BANK_AND_TRUST_COMPANY_PERRY: str = "13946"
+            """First Bank & Trust Company, Perry"""
+
+            FIRST_BANK_AND_TRUST_COMPANY_CLINTON: str = "15348"
+            """First Bank and Trust Company, Clinton"""
+
+            FIRST_BANK_OF_OWASSO: str = "18592"
+            """First Bank of Owasso, Owasso"""
+
+            FIRST_BETHANY_BANK_AND_TRUST: str = "4228"
+            """First Bethany Bank & Trust, Bethany"""
+
+            FIRST_ENTERPRISE_BANK: str = "4049"
+            """First Enterprise Bank, Oklahoma City"""
+
+            FIRST_FIDELITY_BANK: str = "23473"
+            """First Fidelity Bank, Oklahoma City"""
+
+            FIRST_LIBERTY_BANK: str = "14029"
+            """First Liberty Bank, Oklahoma City"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_MC_ALESTER: str = "4145"
+            """First National Bank & Trust Company of McAlester, Mcalester"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_ARDMORE: str = "4037"
+            """First National Bank and Trust Company of Ardmore, Ardmore"""
+
+            FIRST_NATIONAL_BANK_OF_OKLAHOMA: str = "4211"
+            """First National Bank of Oklahoma, Oklahoma City"""
+
+            FIRST_OKLAHOMA_BANK: str = "12484"
+            """First Oklahoma Bank, Jenks"""
+
+            FIRST_PRYORITY_BANK: str = "4185"
+            """First Pryority Bank, Pryor"""
+
+            FIRST_SECURITY_BANK_AND_TRUST_COMPANY: str = "17001"
+            """First Security Bank and Trust Company, Oklahoma City"""
+
+            FIRST_STATE_BANK_ANADARKO: str = "12283"
+            """First State Bank, Anadarko"""
+
+            FIRST_STATE_BANK_NOBLE: str = "9879"
+            """First State Bank, Noble"""
+
+            FIRST_STATE_BANK_TAHLEQUAH: str = "22448"
+            """First State Bank, Tahlequah"""
+
+            FIRST_STATE_BANK_VALLIANT: str = "12757"
+            """First State Bank, Valliant"""
+
+            FIRST_STATE_BANK_WATONGA: str = "21752"
+            """First State Bank, Watonga"""
+
+            FIRST_STATE_BANK_IN_TEMPLE: str = "5999"
+            """First State Bank in Temple, Temple"""
+
+            FIRST_SUMMIT_BANK: str = "399"
+            """First Summit Bank, Ryan"""
+
+            FIRST_TEXOMA_NATIONAL_BANK: str = "13905"
+            """First Texoma National Bank, Durant"""
+
+            FIRST_UNITED_BANK_AND_TRUST_COMPANY: str = "4239"
+            """First United Bank and Trust Company, Durant"""
+
+            FIRSTAR_BANK: str = "19288"
+            """Firstar Bank, Sallisaw"""
+
+            FIRST_BANK_ANTLERS: str = "14331"
+            """FirstBank, Antlers"""
+
+            FNB_COMMUNITY_BANK: str = "16127"
+            """FNB Community Bank, Midwest City"""
+
+            FNB_COWETA: str = "4071"
+            """FNB Coweta, Coweta"""
+
+            FRAZER_BANK: str = "4031"
+            """Frazer Bank, Altus"""
+
+            FRONTIER_STATE_BANK: str = "21978"
+            """Frontier State Bank, Oklahoma City"""
+
+            FSNB_NATIONAL_ASSOCIATION: str = "16416"
+            """FSNB, National Association, Lawton"""
+
+            GATEWAY_FIRST_BANK: str = "15118"
+            """Gateway First Bank, Jenks"""
+
+            GRAND_BANK: str = "22065"
+            """Grand Bank, Tulsa"""
+
+            GRAND_SAVINGS_BANK: str = "32084"
+            """Grand Savings Bank, Grove"""
+
+            GRANT_COUNTY_BANK: str = "15778"
+            """Grant County Bank, Medford"""
+
+            GREAT_NATIONS_BANK: str = "58680"
+            """Great Nations Bank, Norman"""
+
+            GREAT_PLAINS_NATIONAL_BANK: str = "34207"
+            """Great Plains National Bank, Elk City"""
+
+            HIGH_PLAINS_BANK: str = "418"
+            """High Plains Bank, Okeene"""
+
+            INTER_BANK: str = "27210"
+            """InterBank, Oklahoma City"""
+
+            INTERNATIONAL_BANK_OF_COMMERCE: str = "59093"
+            """International Bank of Commerce, Oklahoma City"""
+
+            KIRKPATRICK_BANK: str = "20156"
+            """Kirkpatrick Bank, Edmond"""
+
+            LAKESIDE_BANK_OF_SALINA: str = "21255"
+            """Lakeside Bank of Salina, Salina"""
+
+            LATIMER_STATE_BANK: str = "22839"
+            """Latimer State Bank, Wilburton"""
+
+            LEGACY_BANK: str = "4042"
+            """Legacy Bank, Hinton"""
+
+            LIBERTY_NATIONAL_BANK: str = "11522"
+            """Liberty National Bank, Lawton"""
+
+            LOCAL_BANK: str = "2327"
+            """Local Bank, Hulbert"""
+
+            MABREY_BANK: str = "10667"
+            """Mabrey Bank, Bixby"""
+
+            MAPLE_MARK_BANK: str = "3182"
+            """MapleMark Bank, Tulsa"""
+
+            MC_CLAIN_BANK: str = "4187"
+            """McClain Bank, Purcell"""
+
+            MC_CURTAIN_COUNTY_NATIONAL_BANK: str = "23798"
+            """McCurtain County National Bank, Broken Bow"""
+
+            METHOD_BANK: str = "2317"
+            """Method Bank, Wyandotte"""
+
+            MID_FIRST_BANK: str = "4063"
+            """MidFirst Bank, Oklahoma City"""
+
+            MONUMENT_BANK: str = "4111"
+            """Monument Bank, Poteau"""
+
+            OKLAHOMA_BANK_AND_TRUST_COMPANY: str = "4067"
+            """Oklahoma Bank and Trust Company, Clinton"""
+
+            OKLAHOMA_CAPITAL_BANK: str = "18856"
+            """Oklahoma Capital Bank, Tulsa"""
+
+            OKLAHOMA_STATE_BANK: str = "13416"
+            """Oklahoma State Bank, Buffalo"""
+
+            OLD_GLORY_BANK: str = "18924"
+            """Old Glory Bank, Elmore City"""
+
+            PANHANDLE_FIRST_BANK: str = "22340"
+            """Panhandle First Bank, Guymon"""
+
+            PATRONS_BANK_NATIONAL_ASSOCIATION: str = "4170"
+            """Patrons Bank, National Association, Okmulgee"""
+
+            PEOPLES_BANK_AND_TRUST_COMPANY: str = "2331"
+            """Peoples Bank and Trust Company, Ryan"""
+
+            PEOPLES_STATE_BANK: str = "17138"
+            """Peoples State Bank, Blair"""
+
+            PRISM_BANK: str = "5994"
+            """Prism Bank, Guthrie"""
+
+            QUAIL_CREEK_BANK: str = "21848"
+            """Quail Creek Bank, Oklahoma City"""
+
+            RCB_BANK: str = "15399"
+            """RCB Bank, Claremore"""
+
+            REGENT_BANK: str = "4160"
+            """Regent Bank, Tulsa"""
+
+            SECURITY_BANK: str = "4178"
+            """Security Bank, Tulsa"""
+
+            SECURITY_BANK_AND_TRUST_COMPANY: str = "9881"
+            """Security Bank and Trust Company, Miami"""
+
+            SECURITY_FIRST_NATIONAL_BANK_OF_HUGO: str = "432"
+            """Security First National Bank of Hugo, Hugo"""
+
+            SECURITY_STATE_BANK: str = "421"
+            """Security State Bank, Cheyenne"""
+
+            SECURITY_STATE_BANK_OF_OKLAHOMA: str = "8980"
+            """Security State Bank of Oklahoma, Wewoka"""
+
+            SHAMROCK_BANK_NA: str = "4236"
+            """Shamrock Bank, N.A., Coalgate"""
+
+            SNB_BANK_NATIONAL_ASSOCIATION: str = "4196"
+            """SNB Bank, National Association, Shattuck"""
+
+            SOONER_STATE_BANK: str = "402"
+            """Sooner State Bank, Tuttle"""
+
+            SOUTHWEST_BANK_OF_WEATHERFORD: str = "4076"
+            """Southwest Bank of Weatherford, Weatherford"""
+
+            SOVEREIGN_BANK: str = "25738"
+            """Sovereign Bank, Shawnee"""
+
+            SPIRIT_BANK: str = "4048"
+            """SpiritBank, Tulsa"""
+
+            SSB_BANK: str = "16908"
+            """SSB Bank, Spiro"""
+
+            STRIDE_BANK_NATIONAL_ASSOCIATION: str = "4091"
+            """Stride Bank, National Association, Enid"""
+
+            THE_BANK_OF_BEAVER_CITY: str = "11862"
+            """The Bank of Beaver City, Beaver"""
+
+            THE_BANK_OF_THE_WEST: str = "25703"
+            """The Bank of the West, Thomas"""
+
+            THE_BANK_NATIONAL_ASSOCIATION: str = "4146"
+            """The Bank, National Association, Mcalester"""
+
+            THE_BANKERS_BANK: str = "26677"
+            """The Bankers Bank, Oklahoma City"""
+
+            THE_CITIZENS_BANK_OF_EDMOND: str = "4084"
+            """The Citizens Bank of Edmond, Edmond"""
+
+            THE_CITY_NATIONAL_BANK_AND_TRUST_COMPANY_OF_LAWTON_OKLAHOMA: str = "4132"
+            """The City National Bank and Trust Company of Lawton, Oklahoma, Lawton"""
+
+            THE_COMMUNITY_STATE_BANK: str = "20279"
+            """The Community State Bank, Poteau"""
+
+            THE_EXCHANGE_BANK: str = "10672"
+            """The Exchange Bank, Skiatook"""
+
+            THE_FARMERS_AND_MERCHANTS_NATIONAL_BANK_OF_FAIRVIEW: str = "4097"
+            """The Farmers and Merchants National Bank of Fairview, Fairview"""
+
+            THE_FARMERS_BANK: str = "4054"
+            """The Farmers Bank, Carnegie"""
+
+            THE_FARMERS_STATE_BANK: str = "404"
+            """The Farmers State Bank, Quinton"""
+
+            THE_FIRST_BANK_OF_OKARCHE: str = "1165"
+            """The First Bank of Okarche, Okarche"""
+
+            THE_FIRST_FARMERS_NATIONAL_BANK_OF_WAURIKA: str = "4222"
+            """The First Farmers National Bank of Waurika, Waurika"""
+
+            THE_FIRST_NATIONAL_BANK_AND_TRUST: str = "4086"
+            """The First National Bank & Trust, Elk City"""
+
+            THE_FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_BROKEN_ARROW: str = "4050"
+            """The First National Bank and Trust Company of Broken Arrow, Broken Arrow"""
+
+            THE_FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_MIAMI: str = "4148"
+            """The First National Bank and Trust Company of Miami, Miami"""
+
+            THE_FIRST_NATIONAL_BANK_IN_MARLOW: str = "26260"
+            """The First National Bank in Marlow, Marlow"""
+
+            THE_FIRST_NATIONAL_BANK_OF_FLETCHER: str = "4098"
+            """The First National Bank of Fletcher, Fletcher"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HOOKER: str = "4123"
+            """The First National Bank of Hooker, Hooker"""
+
+            THE_FIRST_SECURITY_BANK: str = "4041"
+            """The First Security Bank, Beaver"""
+
+            THE_FIRST_STATE_BANK: str = "2301"
+            """The First State Bank, Boise City"""
+
+            THE_FIRST_STATE_BANK_OF_POND_CREEK_OKLAHOMA: str = "11527"
+            """The First State Bank of Pond Creek, Oklahoma, Pond Creek"""
+
+            THE_HOPETON_STATE_BANK: str = "12585"
+            """The Hopeton State Bank, Hopeton"""
+
+            THE_IDABEL_NATIONAL_BANK: str = "4241"
+            """The Idabel National Bank, Idabel"""
+
+            THE_PAULS_VALLEY_NATIONAL_BANK: str = "4173"
+            """The Pauls Valley National Bank, Pauls Valley"""
+
+            THE_PAYNE_COUNTY_BANK: str = "12485"
+            """The Payne County Bank, Perkins"""
+
+            THE_PEOPLES_NATIONAL_BANK_OF_CHECOTAH: str = "4059"
+            """The Peoples National Bank of Checotah, Checotah"""
+
+            THE_SECURITY_NATIONAL_BANK_OF_ENID: str = "14966"
+            """The Security National Bank of Enid, Enid"""
+
+            THE_SEILING_STATE_BANK: str = "4193"
+            """THE SEILING STATE BANK, Seiling"""
+
+            THE_STATE_BANK_OF_WYNNEWOOD: str = "4232"
+            """The State Bank of Wynnewood, Wynnewood"""
+
+            THE_STATE_EXCHANGE_BANK: str = "13551"
+            """The State Exchange Bank, Lamont"""
+
+            TRIAD_BANK_NATIONAL_ASSOCIATION: str = "24677"
+            """Triad Bank, National Association, Tulsa"""
+
+            VALLIANCE_BANK: str = "57841"
+            """Valliance Bank, Oklahoma City"""
+
+            VALOR_BANK: str = "9467"
+            """VALOR BANK, Edmond"""
+
+            VAST_BANK_NATIONAL_ASSOCIATION: str = "23737"
+            """Vast Bank, National Association, Tulsa"""
+
+            VISION_BANK: str = "4029"
+            """Vision Bank, Ada"""
+
+            WALTERS_BANK_AND_TRUST_COMPANY: str = "14260"
+            """Walters Bank and Trust Company, Walters"""
+
+            WASHITA_STATE_BANK: str = "22430"
+            """Washita State Bank, Burns Flat"""
+
+            WASHITA_VALLEY_BANK: str = "2308"
+            """Washita Valley Bank, Fort Cobb"""
+
+            WATERMARK_BANK: str = "59148"
+            """Watermark Bank, Oklahoma City"""
+
+            WELCH_STATE_BANK_OF_WELCH_OKLA: str = "9472"
+            """Welch State Bank of Welch, Okla., Welch"""
+
+            WISDOM_HERITAGE_BANK: str = "9465"
+            """Wisdom Heritage Bank, Alva"""
+
+            YNB: str = "4235"
+            """YNB, Yukon"""
+
+        class Oregon(System.Object):
+            """Banks headquartered in Oregon."""
+
+            BANK_OF_EASTERN_OREGON: str = "16243"
+            """Bank of Eastern Oregon, Heppner"""
+
+            CITIZENS_BANK: str = "17809"
+            """Citizens Bank, Corvallis"""
+
+            CLACKAMAS_COUNTY_BANK: str = "9486"
+            """Clackamas County Bank, Sandy"""
+
+            COLUMBIA_BANK: str = "17266"
+            """Columbia Bank, Roseburg"""
+
+            EVERGREEN_FEDERAL_BANK: str = "28914"
+            """Evergreen Federal Bank, Grants Pass"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_MC_MINNVILLE: str = "29624"
+            """First Federal Savings and Loan Association of McMinnville, Mcminnville"""
+
+            OREGON_COAST_BANK: str = "57373"
+            """Oregon Coast Bank, Newport"""
+
+            OREGON_PACIFIC_BANKING_COMPANY_DBA_OREGON_PACIFIC_BANK: str = "23007"
+            """Oregon Pacific Banking Company dba Oregon Pacific Bank, Florence"""
+
+            PEOPLE_S_BANK_OF_COMMERCE: str = "34685"
+            """People's Bank of Commerce, Medford"""
+
+            PIONEER_TRUST_BANK_NATIONAL_ASSOCIATION: str = "19827"
+            """Pioneer Trust Bank, National Association, Salem"""
+
+            SUMMIT_BANK: str = "57706"
+            """Summit Bank, Eugene"""
+
+            WILLAMETTE_VALLEY_BANK: str = "57033"
+            """Willamette Valley Bank, Salem"""
+
+        class Pennsylvania(System.Object):
+            """Banks headquartered in Pennsylvania."""
+
+            _1_ST_SUMMIT_BANK: str = "8426"
+            """1st Summit Bank, Johnstown"""
+
+            ACNB_BANK: str = "7506"
+            """ACNB Bank, Gettysburg"""
+
+            ALTOONA_FIRST_SAVINGS_BANK: str = "27711"
+            """Altoona First Savings Bank, Altoona"""
+
+            AMBLER_SAVINGS_BANK: str = "28701"
+            """Ambler Savings Bank, Ambler"""
+
+            AMERICAN_BANK: str = "34422"
+            """American Bank, Allentown"""
+
+            AMERISERV_FINANCIAL_BANK: str = "7542"
+            """Ameriserv Financial Bank, Johnstown"""
+
+            APOLLO_TRUST_COMPANY: str = "6051"
+            """Apollo Trust Company, Apollo"""
+
+            ARMSTRONG_COUNTY_BUILDING_AND_LOAN_ASSOCIATION: str = "29471"
+            """Armstrong County Building and Loan Association, Ford City"""
+
+            ASIAN_BANK: str = "34759"
+            """Asian Bank, Philadelphia"""
+
+            ATLANTIC_COMMUNITY_BANKERS_BANK: str = "24829"
+            """Atlantic Community Bankers Bank, Camp Hill"""
+
+            BANK_OF_BIRD_IN_HAND: str = "59074"
+            """Bank of Bird-in-Hand, Bird In Hand"""
+
+            BNY_MELLON_NATIONAL_ASSOCIATION: str = "7946"
+            """BNY Mellon, National Association, Pittsburgh"""
+
+            BRENTWOOD_BANK: str = "27943"
+            """Brentwood Bank, Bethel Park"""
+
+            CENTRAL_PENN_BANK_AND_TRUST: str = "10685"
+            """Central Penn Bank & Trust, Mifflinburg"""
+
+            CFSBANK: str = "29672"
+            """CFSBANK, Charleroi"""
+
+            CITIZENS_AND_NORTHERN_BANK: str = "7799"
+            """Citizens & Northern Bank, Wellsboro"""
+
+            CITIZENS_SAVINGS_BANK: str = "31184"
+            """Citizens Savings Bank, Clarks Summit"""
+
+            CLARION_COUNTY_COMMUNITY_BANK: str = "57624"
+            """Clarion County Community Bank, Clarion"""
+
+            CNB_BANK: str = "13876"
+            """CNB Bank, Clearfield"""
+
+            COMMERCIAL_BANK_AND_TRUST_OF_PA: str = "14333"
+            """Commercial Bank and Trust of PA, Latrobe"""
+
+            COMMUNITY_BANK: str = "7848"
+            """Community Bank, Carmichaels"""
+
+            COMMUNITY_STATE_BANK_OF_ORBISONIA: str = "16976"
+            """Community State Bank of Orbisonia, Orbisonia"""
+
+            COMPASS_SAVINGS_BANK: str = "29430"
+            """Compass Savings Bank, Wilmerding"""
+
+            COUNTY_SAVINGS_BANK: str = "29231"
+            """County Savings Bank, Essington"""
+
+            CUSTOMERS_BANK: str = "34444"
+            """Customers Bank, Malvern"""
+
+            DOLLAR_BANK_FEDERAL_SAVINGS_BANK: str = "32245"
+            """Dollar Bank, Federal Savings Bank, Pittsburgh"""
+
+            ELDERTON_STATE_BANK: str = "12985"
+            """Elderton State Bank, Elderton"""
+
+            EMBASSY_BANK_FOR_THE_LEHIGH_VALLEY: str = "57228"
+            """Embassy Bank for the Lehigh Valley, Bethlehem"""
+
+            ENTERPRISE_BANK: str = "34786"
+            """Enterprise Bank, Allison Park"""
+
+            FARMERS_AND_MERCHANTS_TRUST_COMPANY_OF_CHAMBERSBURG: str = "8405"
+            """Farmers and Merchants Trust Company of Chambersburg, Chambersburg"""
+
+            FARMERS_BUILDING_AND_SAVINGS_BANK: str = "34711"
+            """Farmers Building and Savings Bank, Rochester"""
+
+            FIRST_CITIZENS_COMMUNITY_BANK: str = "7593"
+            """First Citizens Community Bank, Mansfield"""
+
+            FIRST_COMMONWEALTH_BANK: str = "7468"
+            """First Commonwealth Bank, Indiana"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_GREENE_CO: str = "28706"
+            """First Federal Savings and Loan Association of Greene Co, Waynesburg"""
+
+            FIRST_KEYSTONE_COMMUNITY_BANK: str = "7404"
+            """First Keystone Community Bank, Berwick"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_NEWTOWN: str = "7658"
+            """First National Bank and Trust Company of Newtown, Newtown"""
+
+            FIRST_NATIONAL_BANK_OF_PENNSYLVANIA: str = "7888"
+            """First National Bank of Pennsylvania, Greenville"""
+
+            FIRST_NORTHERN_BANK_AND_TRUST_COMPANY: str = "7675"
+            """First Northern Bank and Trust Company, Palmerton"""
+
+            FIRST_RESOURCE_BANK: str = "57967"
+            """First Resource Bank, Exton"""
+
+            FIRST_UNITED_NATIONAL_BANK: str = "7886"
+            """First United National Bank, Fryburg"""
+
+            FIRSTRUST_SAVINGS_BANK: str = "26647"
+            """Firstrust Savings Bank, Conshohocken"""
+
+            FLEETWOOD_BANK: str = "13561"
+            """Fleetwood Bank, Fleetwood"""
+
+            FULTON_BANK_NATIONAL_ASSOCIATION: str = "7551"
+            """Fulton Bank, National Association, Lancaster"""
+
+            GREENVILLE_SAVINGS_BANK: str = "30637"
+            """Greenville Savings Bank, Greenville"""
+
+            HAMLIN_BANK_AND_TRUST_COMPANY: str = "11113"
+            """Hamlin Bank and Trust Company, Smethport"""
+
+            HARLEYSVILLE_BANK: str = "31461"
+            """Harleysville Bank, Harleysville"""
+
+            HATBORO_FEDERAL_SAVINGS_FA: str = "30155"
+            """Hatboro Federal Savings, FA, Hatboro"""
+
+            HOMETOWN_BANK_OF_PENNSYLVANIA: str = "58470"
+            """Hometown Bank of Pennsylvania, Bedford"""
+
+            HUNTINGDON_SAVINGS_BANK: str = "30031"
+            """Huntingdon Savings Bank, Huntingdon"""
+
+            HYPERION_BANK: str = "58371"
+            """Hyperion Bank, Philadelphia"""
+
+            IN_FIRST_BANK: str = "27763"
+            """InFirst Bank, Indiana"""
+
+            INVESTMENT_SAVINGS_BANK: str = "30121"
+            """Investment Savings Bank, Altoona"""
+
+            IRON_WORKERS_SAVINGS_BANK: str = "28908"
+            """Iron Workers Savings Bank, Aston"""
+
+            JIM_THORPE_NEIGHBORHOOD_BANK: str = "7599"
+            """Jim Thorpe Neighborhood Bank, Jim Thorpe"""
+
+            JONESTOWN_BANK_AND_TRUST_COMPANY_OF_JONESTOWN_PENNSYLVANIA: str = "10677"
+            """Jonestown Bank and Trust Company, of Jonestown, Pennsylvania, Jonestown"""
+
+            JOURNEY_BANK: str = "686"
+            """Journey Bank, Bloomsburg"""
+
+            KISH_BANK: str = "14969"
+            """Kish Bank, Belleville"""
+
+            MARION_CENTER_BANK: str = "7909"
+            """Marion Center Bank, Indiana"""
+
+            MARQUETTE_SAVINGS_BANK: str = "30544"
+            """Marquette Savings Bank, Erie"""
+
+            MAUCH_CHUNK_TRUST_COMPANY: str = "2359"
+            """Mauch Chunk Trust Company, Jim Thorpe"""
+
+            MCS_BANK: str = "28186"
+            """MCS Bank, Milroy"""
+
+            MERCER_COUNTY_STATE_BANK: str = "445"
+            """Mercer County State Bank, Sandy Lake"""
+
+            MERIDIAN_BANK: str = "57777"
+            """Meridian Bank, Wayne"""
+
+            MID_PENN_BANK: str = "9889"
+            """Mid Penn Bank, Millersburg"""
+
+            MILTON_SAVINGS_BANK: str = "28637"
+            """Milton Savings Bank, Milton"""
+
+            NEW_TRIPOLI_BANK: str = "7659"
+            """New Tripoli Bank, New Tripoli"""
+
+            NEXTIER_BANK_NATIONAL_ASSOCIATION: str = "7900"
+            """NEXTIER BANK, NATIONAL ASSOCIATION, Kittanning"""
+
+            NORTHWEST_BANK: str = "28178"
+            """Northwest Bank, Warren"""
+
+            ORRSTOWN_BANK: str = "713"
+            """Orrstown Bank, Harrisburg"""
+
+            PENN_COMMUNITY_BANK: str = "30401"
+            """Penn Community Bank, Doylestown"""
+
+            PENN_CREST_BANK: str = "30119"
+            """PennCrest Bank, Altoona"""
+
+            PENNIAN_BANK: str = "7613"
+            """Pennian Bank, Mifflintown"""
+
+            PEOPLES_SECURITY_BANK_AND_TRUST_COMPANY: str = "7514"
+            """Peoples Security Bank and Trust Company, Dunmore"""
+
+            PHOENIXVILLE_FEDERAL_BANK_AND_TRUST: str = "29995"
+            """Phoenixville Federal Bank and Trust, Phoenixville"""
+
+            PORT_RICHMOND_SAVINGS: str = "27385"
+            """Port Richmond Savings, Philadelphia"""
+
+            PS_BANK: str = "444"
+            """PS Bank, Wyalusing"""
+
+            QNB_BANK: str = "7714"
+            """QNB Bank, Quakertown"""
+
+            QUAINT_OAK_BANK: str = "35497"
+            """Quaint Oak Bank, Southampton"""
+
+            RELIANCE_SAVINGS_BANK: str = "30117"
+            """Reliance Savings Bank, Altoona"""
+
+            S_AND_T_BANK: str = "11124"
+            """S&T Bank, Indiana"""
+
+            SECOND_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_PHILADELPHIA: str = "29627"
+            """Second Federal Savings and Loan Association of Philadelphia, Philadelphia"""
+
+            SEI_PRIVATE_TRUST_COMPANY: str = "35388"
+            """SEI Private Trust Company, Oaks"""
+
+            SEWICKLEY_SAVINGS_BANK: str = "30154"
+            """Sewickley Savings Bank, Sewickley"""
+
+            SHARON_BANK: str = "28793"
+            """Sharon Bank, Springfield"""
+
+            SLOVENIAN_SAVINGS_AND_LOAN_ASSOCIATION_OF_CANONSBURG: str = "27686"
+            """Slovenian Savings and Loan Association of Canonsburg, Strabane"""
+
+            SLOVENIAN_SAVINGS_AND_LOAN_ASSOCIATION_OF_FRANKLIN_CONEMAUGH: str = "31994"
+            """Slovenian Savings and Loan Association of Franklin-Conemaugh, Conemaugh"""
+
+            SOMERSET_TRUST_COMPANY: str = "11112"
+            """Somerset Trust Company, Somerset"""
+
+            SSB_BANK: str = "30431"
+            """SSB Bank, Pittsburgh"""
+
+            THE_BANK_OF_LANDISBURG: str = "90384"
+            """The Bank of Landisburg, Landisburg"""
+
+            THE_DIME_BANK: str = "9888"
+            """The Dime Bank, Honesdale"""
+
+            THE_EPHRATA_NATIONAL_BANK: str = "7493"
+            """The Ephrata National Bank, Ephrata"""
+
+            THE_FIDELITY_DEPOSIT_AND_DISCOUNT_BANK: str = "11868"
+            """The Fidelity Deposit and Discount Bank, Dunmore"""
+
+            THE_HAVERFORD_TRUST_COMPANY: str = "26189"
+            """The Haverford Trust Company, Radnor"""
+
+            THE_HONESDALE_NATIONAL_BANK: str = "7526"
+            """The Honesdale National Bank, Honesdale"""
+
+            THE_JUNIATA_VALLEY_BANK: str = "7614"
+            """The Juniata Valley Bank, Mifflintown"""
+
+            THE_NATIONAL_BANK_OF_MALVERN: str = "7590"
+            """The National Bank of Malvern, Malvern"""
+
+            THE_NEFFS_NATIONAL_BANK: str = "7646"
+            """The Neffs National Bank, Neffs"""
+
+            THE_PHILADELPHIA_TRUST_COMPANY: str = "35075"
+            """The Philadelphia Trust Company, Philadelphia"""
+
+            THE_TURBOTVILLE_NATIONAL_BANK: str = "7789"
+            """The Turbotville National Bank, Turbotville"""
+
+            TRI_STATE_CAPITAL_BANK: str = "58457"
+            """TriState Capital Bank, Pittsburgh"""
+
+            UNB_BANK: str = "7631"
+            """UNB Bank, Mount Carmel"""
+
+            UNITED_BANK_OF_PHILADELPHIA: str = "33568"
+            """United Bank of Philadelphia, Philadelphia"""
+
+            UNITED_SAVINGS_BANK: str = "28836"
+            """United Savings Bank, Philadelphia"""
+
+            UNIVEST_BANK_AND_TRUST_CO: str = "7759"
+            """Univest  Bank and Trust Co., Souderton"""
+
+            WASHINGTON_FINANCIAL_BANK: str = "29520"
+            """Washington Financial Bank, Washington"""
+
+            WAYNE_BANK: str = "698"
+            """Wayne Bank, Honesdale"""
+
+            WEST_VIEW_SAVINGS_BANK: str = "27760"
+            """West View Savings Bank, Pittsburgh"""
+
+            WESTMORELAND_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30551"
+            """Westmoreland Federal Savings and Loan Association, Latrobe"""
+
+            WOODLANDS_BANK: str = "33136"
+            """Woodlands Bank, Williamsport"""
+
+        class PuertoRico(System.Object):
+            """Banks headquartered in Puerto Rico."""
+
+            BANCO_COOPERATIVO_DE_PUERTO_RICO: str = "90709"
+            """Banco Cooperativo de Puerto Rico, San Juan"""
+
+            BANCO_POPULAR_DE_PUERTO_RICO: str = "34968"
+            """Banco Popular de Puerto Rico, San Juan"""
+
+            FIRST_BANK_PUERTO_RICO: str = "30387"
+            """FirstBank Puerto Rico, Santurce"""
+
+            NAVE_BANK: str = "59324"
+            """Nave Bank, San Juan"""
+
+            ORIENTAL_BANK: str = "31469"
+            """Oriental Bank, San Juan"""
+
+        class RhodeIsland(System.Object):
+            """Banks headquartered in Rhode Island."""
+
+            BANK_NEWPORT: str = "18129"
+            """BankNewport, Middletown"""
+
+            CENTREVILLE_BANK: str = "17764"
+            """Centreville Bank, West Warwick"""
+
+            CITIZENS_BANK_NATIONAL_ASSOCIATION: str = "57957"
+            """Citizens Bank, National Association, Providence"""
+
+            SHOREHAM_BANK: str = "27417"
+            """Shoreham Bank, Warwick"""
+
+            THE_WASHINGTON_TRUST_COMPANY_OF_WESTERLY: str = "23623"
+            """The Washington Trust Company, of Westerly, Westerly"""
+
+        class SouthCarolina(System.Object):
+            """Banks headquartered in South Carolina."""
+
+            _1_ST_FEDERAL_SAVINGS_BANK_OF_SC_INC: str = "31410"
+            """1st Federal Savings Bank of SC, Inc., Walterboro"""
+
+            ABBEVILLE_FIRST_BANK_SSB: str = "30619"
+            """Abbeville First Bank, SSB, Abbeville"""
+
+            ANDERSON_BROTHERS_BANK: str = "9923"
+            """Anderson Brothers Bank, Mullins"""
+
+            ARTHUR_STATE_BANK: str = "15085"
+            """Arthur State Bank, Union"""
+
+            BANK_OF_GREELEYVILLE: str = "15113"
+            """Bank of Greeleyville, Greeleyville"""
+
+            BANK_OF_THE_LOWCOUNTRY: str = "27496"
+            """Bank of the Lowcountry, Walterboro"""
+
+            BANK_OF_TRAVELERS_REST: str = "16389"
+            """Bank of Travelers Rest, Travelers Rest"""
+
+            BANK_OF_YORK: str = "15104"
+            """Bank of York, York"""
+
+            BEACON_COMMUNITY_BANK: str = "59106"
+            """Beacon Community Bank, Mount Pleasant"""
+
+            BLUE_RIDGE_BANK: str = "17773"
+            """Blue Ridge Bank, Walhalla"""
+
+            CAROLINA_BANK_AND_TRUST_CO: str = "16723"
+            """Carolina Bank & Trust Co., Lamar"""
+
+            CBL_STATE_SAVINGS_BANK: str = "31900"
+            """CBL State Savings Bank, Greer"""
+
+            COASTAL_CAROLINA_NATIONAL_BANK: str = "58864"
+            """Coastal Carolina National Bank, Myrtle Beach"""
+
+            COASTAL_STATES_BANK: str = "57756"
+            """Coastal States Bank, Hilton Head Island"""
+
+            COUNTYBANK: str = "9155"
+            """Countybank, Greenwood"""
+
+            DEDICATED_COMMUNITY_BANK: str = "26588"
+            """Dedicated Community Bank, Darlington"""
+
+            ENTERPRISE_BANK_OF_SOUTH_CAROLINA: str = "11539"
+            """Enterprise Bank of South Carolina, Ehrhardt"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_SOUTH_CAROLINA: str = "1660"
+            """Farmers and Merchants Bank of South Carolina, Holly Hill"""
+
+            FIRST_CAPITAL_BANK: str = "34966"
+            """First Capital Bank, Charleston"""
+
+            FIRST_COMMUNITY_BANK: str = "34047"
+            """First Community Bank, Lexington"""
+
+            FIRST_NATIONAL_BANK_OF_SOUTH_CAROLINA: str = "2107"
+            """First National Bank of South Carolina, Holly Hill"""
+
+            FIRST_PALMETTO_BANK: str = "28396"
+            """First Palmetto Bank, Camden"""
+
+            FIRST_PIEDMONT_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_GAFFNEY: str = "28859"
+            """First Piedmont Federal Savings and Loan Association of Gaffney, Gaffney"""
+
+            FIRST_RELIANCE_BANK: str = "35214"
+            """First Reliance Bank, Florence"""
+
+            HOME_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "31774"
+            """Home Federal Savings and Loan Association, Bamberg"""
+
+            KINGSTREE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29486"
+            """Kingstree Federal Savings and Loan Association, Kingstree"""
+
+            OCONEE_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "30111"
+            """Oconee Federal Savings and Loan Association, Seneca"""
+
+            OPTUS_BANK: str = "35241"
+            """OPTUS Bank, Columbia"""
+
+            PALMETTO_STATE_BANK: str = "17563"
+            """Palmetto State Bank, Hampton"""
+
+            PEE_DEE_FEDERAL_SAVINGS_BANK: str = "29582"
+            """Pee Dee Federal Savings Bank, Marion"""
+
+            PICKENS_SAVINGS_AND_LOAN_ASSOCIATION_FA: str = "31089"
+            """Pickens Savings and Loan Association, FA, Pickens"""
+
+            SECURITY_FEDERAL_BANK: str = "31100"
+            """Security Federal Bank, Aiken"""
+
+            SOUTH_ATLANTIC_BANK: str = "58689"
+            """South Atlantic Bank, Myrtle Beach"""
+
+            SOUTHERN_BANK: str = "16288"
+            """Southern Bank, Spartanburg"""
+
+            SOUTHERN_FIRST_BANK: str = "35295"
+            """Southern First Bank, Greenville"""
+
+            SPRATT_SAVINGS_BANK: str = "30987"
+            """Spratt Savings Bank, Chester"""
+
+            THE_BANK_OF_CLARENDON: str = "15671"
+            """The Bank of Clarendon, Manning"""
+
+            THE_BANK_OF_SOUTH_CAROLINA: str = "26912"
+            """The Bank of South Carolina, Charleston"""
+
+            THE_CITIZENS_BANK: str = "15932"
+            """The Citizens Bank, Olanta"""
+
+            THE_COMMERCIAL_BANK: str = "14642"
+            """The Commercial Bank, Honea Path"""
+
+            THE_CONWAY_NATIONAL_BANK: str = "2102"
+            """The Conway National Bank, Conway"""
+
+            THE_PEOPLES_BANK: str = "16968"
+            """The Peoples Bank, Iva"""
+
+            UNITED_COMMUNITY_BANK: str = "16889"
+            """United Community Bank, Greenville"""
+
+            WOODRUFF_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "29238"
+            """Woodruff Federal Savings and Loan Association, Woodruff"""
+
+        class SouthDakota(System.Object):
+            """Banks headquartered in South Dakota."""
+
+            _1_ST_FINANCIAL_BANK_USA: str = "1673"
+            """1st Financial Bank USA, Dakota Dunes"""
+
+            AMERICAN_BANK_AND_TRUST: str = "1117"
+            """American Bank & Trust, Sioux Falls"""
+
+            ANDES_STATE_BANK: str = "18483"
+            """Andes State Bank, Lake Andes"""
+
+            BANK_STAR_FINANCIAL: str = "496"
+            """BankStar Financial, Elkton"""
+
+            BANK_WEST_INC: str = "4009"
+            """BankWest, Inc., Pierre"""
+
+            BLACK_HILLS_COMMUNITY_BANK_NA: str = "58723"
+            """Black Hills Community Bank, N.A., Rapid City"""
+
+            BRYANT_STATE_BANK: str = "6064"
+            """Bryant State Bank, Bryant"""
+
+            CAMPBELL_COUNTY_BANK_INC: str = "16161"
+            """Campbell County Bank, Inc., Herreid"""
+
+            CITIBANK_NATIONAL_ASSOCIATION: str = "7213"
+            """Citibank, National Association, Sioux Falls"""
+
+            CITIZENS_STATE_BANK_OF_ARLINGTON: str = "1118"
+            """Citizens State Bank, of Arlington, Arlington"""
+
+            COMMERCIAL_STATE_BANK_OF_WAGNER: str = "9932"
+            """Commercial State Bank, of Wagner, Wagner"""
+
+            COMMUNITY_BANK: str = "1687"
+            """Community Bank, Avon"""
+
+            COR_TRUST_BANK_NATIONAL_ASSOCIATION: str = "6063"
+            """CorTrust Bank National Association, Mitchell"""
+
+            DACOTAH_BANK: str = "17437"
+            """Dacotah Bank, Aberdeen"""
+
+            DNB_NATIONAL_BANK: str = "3977"
+            """DNB NATIONAL BANK, Clear Lake"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK: str = "501"
+            """Farmers and Merchants State Bank, Plankinton"""
+
+            FARMERS_STATE_BANK: str = "1686"
+            """Farmers State Bank, Parkston"""
+
+            FARMERS_STATE_BANK_OF_CANTON: str = "11133"
+            """Farmers State Bank of Canton, Canton"""
+
+            FIRST_BANK_AND_TRUST: str = "3973"
+            """First Bank & Trust, Brookings"""
+
+            FIRST_DAKOTA_NATIONAL_BANK: str = "4028"
+            """First Dakota National Bank, Yankton"""
+
+            FIRST_FIDELITY_BANK: str = "1122"
+            """First Fidelity Bank, Burke"""
+
+            FIRST_NATIONAL_BANK_FORT_PIERRE: str = "14712"
+            """First National Bank, Fort Pierre"""
+
+            FIRST_NATIONAL_BANK_OLDHAM: str = "25894"
+            """First National Bank, Oldham"""
+
+            FIRST_NATIONAL_BANK_IN_PHILIP: str = "3999"
+            """First National Bank in Philip, Philip"""
+
+            FIRST_PREMIER_BANK: str = "6085"
+            """First PREMIER Bank, Sioux Falls"""
+
+            FIRST_SAVINGS_BANK: str = "32629"
+            """First Savings Bank, Beresford"""
+
+            FIRST_STATE_BANK_OF_ROSCOE: str = "9005"
+            """First State Bank of Roscoe, Roscoe"""
+
+            FIRST_WESTERN_FEDERAL_SAVINGS_BANK: str = "31972"
+            """First Western Federal Savings Bank, Rapid City"""
+
+            FRONTIER_BANK: str = "33922"
+            """Frontier Bank, Sioux Falls"""
+
+            GREAT_PLAINS_BANK: str = "505"
+            """Great Plains Bank, Eureka"""
+
+            HEARTLAND_STATE_BANK: str = "9007"
+            """Heartland State Bank, Redfield"""
+
+            IPSWICH_STATE_BANK: str = "15593"
+            """Ipswich State Bank, Ipswich"""
+
+            MERCHANTS_STATE_BANK: str = "1125"
+            """Merchants State Bank, Freeman"""
+
+            ONE_AMERICAN_BANK: str = "6078"
+            """One American Bank, Centerville"""
+
+            PATHWARD_NATIONAL_ASSOCIATION: str = "30776"
+            """Pathward, National Association, Sioux Falls"""
+
+            PIONEER_BANK_AND_TRUST: str = "15562"
+            """Pioneer Bank & Trust, Belle Fourche"""
+
+            PLAINS_COMMERCE_BANK: str = "1678"
+            """Plains Commerce Bank, Sioux Falls"""
+
+            QUOIN_FINANCIAL_BANK: str = "15629"
+            """Quoin Financial Bank, Miller"""
+
+            RELIABANK_DAKOTA: str = "16221"
+            """Reliabank Dakota, Estelline"""
+
+            RICHLAND_STATE_BANK: str = "1675"
+            """Richland State Bank, Bruce"""
+
+            RIVERS_EDGE_BANK: str = "9935"
+            """Rivers Edge Bank, Marion"""
+
+            SECURITY_BANK_MIDWEST: str = "485"
+            """Security Bank Midwest, Tyndall"""
+
+            SECURITY_NATIONAL_BANK_OF_SOUTH_DAKOTA: str = "34394"
+            """Security National Bank of South Dakota, Dakota Dunes"""
+
+            SECURITY_SAVINGS_BANK: str = "15734"
+            """Security Savings Bank, Canton"""
+
+            SECURITY_STATE_BANK: str = "16448"
+            """Security State Bank, Alexandria"""
+
+            STATE_BANK_OF_EAGLE_BUTTE: str = "18145"
+            """State Bank of Eagle Butte, Eagle Butte"""
+
+            SUNRISE_BANK_DAKOTA: str = "15847"
+            """Sunrise Bank Dakota, Onida"""
+
+            SUNRISE_BANKS_NATIONAL_ASSOCIATION: str = "18561"
+            """Sunrise Banks, National Association, Sioux Falls"""
+
+            THE_BANCORP_BANK_NATIONAL_ASSOCIATION: str = "35444"
+            """The Bancorp Bank, National Association, Sioux Falls"""
+
+            THE_FARMERS_AND_MERCHANTS_STATE_BANK: str = "13999"
+            """The Farmers and Merchants State Bank, Scotland"""
+
+            THE_FARMERS_STATE_BANK_OF_TURTON: str = "6084"
+            """The Farmers State Bank of Turton, Turton"""
+
+            THE_FIRST_NATIONAL_BANK_IN_SIOUX_FALLS: str = "4016"
+            """The First National Bank in Sioux Falls, Sioux Falls"""
+
+            THE_FIRST_NATIONAL_BANK_OF_FREDERICK: str = "3985"
+            """The First National Bank of Frederick, Frederick"""
+
+            THE_SECURITY_STATE_BANK: str = "15749"
+            """The Security State Bank, Emery"""
+
+            WELLS_FARGO_BANK_NATIONAL_ASSOCIATION: str = "3511"
+            """Wells Fargo Bank, National Association, Sioux Falls"""
+
+            WESTERN_DAKOTA_BANK: str = "492"
+            """Western Dakota Bank, Timber Lake"""
+
+        class Tennessee(System.Object):
+            """Banks headquartered in Tennessee."""
+
+            ANDREW_JOHNSON_BANK: str = "22015"
+            """Andrew Johnson Bank, Greeneville"""
+
+            APEX_BANK: str = "9176"
+            """Apex Bank, Camden"""
+
+            BANK_OF_BARTLETT: str = "23123"
+            """Bank of Bartlett, Bartlett"""
+
+            BANK_OF_CROCKETT: str = "1468"
+            """Bank of Crockett, Bells"""
+
+            BANK_OF_DICKSON: str = "17327"
+            """Bank of Dickson, Dickson"""
+
+            BANK_OF_FRANKEWING: str = "1484"
+            """Bank of Frankewing, Frankewing"""
+
+            BANK_OF_GLEASON: str = "2379"
+            """Bank of Gleason, Gleason"""
+
+            BANK_OF_HALLS: str = "10315"
+            """Bank of Halls, Halls"""
+
+            BANK_OF_LINCOLN_COUNTY: str = "57396"
+            """Bank of Lincoln County, Fayetteville"""
+
+            BANK_OF_PERRY_COUNTY: str = "1713"
+            """Bank of Perry County, Lobelville"""
+
+            BANK_OF_TENNESSEE: str = "21573"
+            """Bank of Tennessee, Kingsport"""
+
+            BANK_3: str = "15205"
+            """Bank3, Memphis"""
+
+            BANK_TENNESSEE: str = "29177"
+            """BankTennessee, Collierville"""
+
+            BRIGHTON_BANK: str = "9189"
+            """Brighton Bank, Brighton"""
+
+            BUILTWELL_BANK: str = "10307"
+            """Builtwell Bank, Chattanooga"""
+
+            CARROLL_BANK_AND_TRUST: str = "2380"
+            """Carroll Bank and Trust, Huntingdon"""
+
+            CBBC_BANK: str = "21227"
+            """CBBC Bank, Maryville"""
+
+            CENTENNIAL_BANK: str = "8439"
+            """Centennial Bank, Trezevant"""
+
+            CENTRAL_BANK: str = "31545"
+            """Central Bank, Savannah"""
+
+            CITIZENS_BANK_CARTHAGE: str = "893"
+            """Citizens Bank, Carthage"""
+
+            CITIZENS_BANK_ELIZABETHTON: str = "14851"
+            """Citizens Bank, Elizabethton"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY_OF_GRAINGER_COUNTY: str = "10317"
+            """Citizens Bank and Trust Company of Grainger County, Rutledge"""
+
+            CITIZENS_COMMUNITY_BANK: str = "33739"
+            """Citizens Community Bank, Winchester"""
+
+            CITIZENS_NATIONAL_BANK: str = "20954"
+            """Citizens National Bank, Sevierville"""
+
+            CITIZENS_SAVINGS_BANK_AND_TRUST_COMPANY: str = "10319"
+            """Citizens Savings Bank and Trust Company, Nashville"""
+
+            CITIZENS_TRI_COUNTY_BANK: str = "20818"
+            """Citizens Tri-County Bank, Dunlap"""
+
+            COFFEE_COUNTY_BANK: str = "22090"
+            """Coffee County Bank, Manchester"""
+
+            COMMERCIAL_BANK: str = "22354"
+            """Commercial Bank, Harrogate"""
+
+            COMMERCIAL_BANK_AND_TRUST_CO: str = "8660"
+            """Commercial Bank & Trust Co., Paris"""
+
+            COMMUNITY_BANK: str = "31272"
+            """Community Bank, Lexington"""
+
+            DECATUR_COUNTY_BANK: str = "6101"
+            """Decatur County Bank, Decaturville"""
+
+            ELIZABETHTON_FEDERAL_SAVINGS_BANK: str = "29904"
+            """Elizabethton Federal Savings Bank, Elizabethton"""
+
+            FARMERS_BANK: str = "8661"
+            """Farmers Bank, Parsons"""
+
+            FARMERS_STATE_BANK: str = "13775"
+            """Farmers State Bank, Mountain City"""
+
+            FINANCIAL_FEDERAL_BANK: str = "31840"
+            """Financial Federal Bank, Memphis"""
+
+            FIRST_CENTURY_BANK: str = "1700"
+            """First Century Bank, Tazewell"""
+
+            FIRST_COMMERCE_BANK: str = "57465"
+            """First Commerce Bank, Lewisburg"""
+
+            FIRST_COMMUNITY_BANK_OF_TENNESSEE: str = "27211"
+            """First Community Bank of Tennessee, Shelbyville"""
+
+            FIRST_FARMERS_AND_COMMERCIAL_BANK: str = "4960"
+            """First Farmers & Commercial Bank, Pikeville"""
+
+            FIRST_FARMERS_AND_MERCHANTS_BANK: str = "1487"
+            """First Farmers and Merchants Bank, Columbia"""
+
+            FIRST_FEDERAL_BANK: str = "29782"
+            """First Federal Bank, Dickson"""
+
+            FIRST_FREEDOM_BANK: str = "58208"
+            """First Freedom Bank, Lebanon"""
+
+            FIRST_HORIZON_BANK: str = "4977"
+            """First Horizon Bank, Memphis"""
+
+            FIRST_NATIONAL_BANK_OF_PULASKI: str = "15572"
+            """First National Bank of Pulaski, Pulaski"""
+
+            FIRST_NATIONAL_BANK_OF_TENNESSEE: str = "19502"
+            """First National Bank of Tennessee, Livingston"""
+
+            FIRST_PEOPLES_BANK_OF_TENNESSEE: str = "21874"
+            """First Peoples Bank of Tennessee, Jefferson City"""
+
+            FIRST_VISION_BANK_OF_TENNESSEE: str = "58201"
+            """First Vision Bank of Tennessee, Tullahoma"""
+
+            FIRST_BANK: str = "8663"
+            """FirstBank, Nashville"""
+
+            FOUNDATION_BANK: str = "13955"
+            """Foundation Bank, Mc Kenzie"""
+
+            GREENEVILLE_FEDERAL_BANK_FSB: str = "31198"
+            """Greeneville Federal Bank, FSB, Greeneville"""
+
+            GREENFIELD_BANKING_COMPANY: str = "15255"
+            """Greenfield Banking Company, Greenfield"""
+
+            HERITAGE_BANK_AND_TRUST: str = "58220"
+            """Heritage Bank & Trust, Columbia"""
+
+            HERITAGE_COMMUNITY_BANK: str = "57656"
+            """Heritage Community Bank, Greeneville"""
+
+            HIGHLAND_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "31232"
+            """Highland Federal Savings and Loan Association, Crossville"""
+
+            HOME_BANKING_COMPANY: str = "9196"
+            """Home Banking Company, Selmer"""
+
+            HOME_FEDERAL_BANK_OF_TENNESSEE: str = "29683"
+            """Home Federal Bank of Tennessee, Knoxville"""
+
+            HOMELAND_COMMUNITY_BANK: str = "57632"
+            """Homeland Community Bank, Mcminnville"""
+
+            INDEPENDENT_BANK: str = "34728"
+            """Independent Bank, Memphis"""
+
+            INS_BANK: str = "35521"
+            """InsBank, Nashville"""
+
+            INSOUTH_BANK: str = "22020"
+            """INSOUTH Bank, Brownsville"""
+
+            LAWRENCE_BANK: str = "22451"
+            """Lawrence Bank, Nashville"""
+
+            LAWRENCEBURG_FEDERAL_BANK: str = "29186"
+            """Lawrenceburg Federal Bank, Lawrenceburg"""
+
+            LEGENDS_BANK: str = "34936"
+            """Legends Bank, Clarksville"""
+
+            LINEAGE_BANK: str = "6100"
+            """Lineage Bank, Franklin"""
+
+            MACON_BANK_AND_TRUST_COMPANY: str = "6091"
+            """Macon Bank and Trust Company, Lafayette"""
+
+            MILLENNIUM_BANK: str = "35138"
+            """Millennium Bank, Chattanooga"""
+
+            MOUNTAIN_VALLEY_BANK: str = "1705"
+            """Mountain Valley Bank, Dunlap"""
+
+            NEWPORT_FEDERAL_BANK: str = "29089"
+            """Newport Federal Bank, Newport"""
+
+            ONE_BANK_OF_TENNESSEE: str = "8432"
+            """One Bank of Tennessee, Cookeville"""
+
+            PARAGON_BANK: str = "57874"
+            """Paragon Bank, Memphis"""
+
+            PATRIOT_BANK: str = "57416"
+            """Patriot Bank, Millington"""
+
+            PEOPLE_S_BANK_AND_TRUST_COMPANY_OF_PICKETT_COUNTY: str = "22756"
+            """People's Bank and Trust Company of Pickett County, Byrdstown"""
+
+            PEOPLES_BANK: str = "9489"
+            """Peoples Bank, Clifton"""
+
+            PEOPLES_BANK_AND_TRUST_COMPANY: str = "1475"
+            """Peoples Bank & Trust Company, Manchester"""
+
+            PEOPLES_BANK_OF_EAST_TENNESSEE: str = "34517"
+            """Peoples Bank of East Tennessee, Madisonville"""
+
+            PEOPLES_BANK_OF_THE_SOUTH: str = "4945"
+            """Peoples Bank of the South, La Follette"""
+
+            PINNACLE_BANK: str = "35583"
+            """Pinnacle Bank, Nashville"""
+
+            PUTNAM_1_ST_MERCANTILE_BANK: str = "58079"
+            """Putnam 1st Mercantile Bank, Cookeville"""
+
+            ROCK_POINT_BANK_NATIONAL_ASSOCIATION: str = "59206"
+            """RockPointBank, National Association, Chattanooga"""
+
+            SECURITY_BANK: str = "2391"
+            """Security Bank, Newbern"""
+
+            SECURITY_BANK_AND_TRUST_COMPANY: str = "9172"
+            """Security Bank and Trust Company, Paris"""
+
+            SECURITY_FEDERAL_SAVINGS_BANK_OF_MC_MINNVILLE: str = "31146"
+            """Security Federal Savings Bank of McMinnville, Mcminnville"""
+
+            SMART_BANK: str = "58463"
+            """SmartBank, Pigeon Forge"""
+
+            SONATA_BANK: str = "21342"
+            """Sonata Bank, Brentwood"""
+
+            SOUTH_EAST_BANK: str = "57348"
+            """SouthEast Bank, Farragut"""
+
+            SOUTHERN_BANK_OF_TENNESSEE: str = "34847"
+            """Southern Bank of Tennessee, Mount Juliet"""
+
+            STUDIO_BANK: str = "59112"
+            """Studio Bank, Nashville"""
+
+            TENNESSEE_STATE_BANK: str = "20720"
+            """Tennessee State Bank, Pigeon Forge"""
+
+            THE_BANK_OF_FAYETTE_COUNTY: str = "10308"
+            """The Bank of Fayette County, Piperton"""
+
+            THE_BANK_OF_MILAN: str = "33851"
+            """The Bank of Milan, Milan"""
+
+            THE_FARMERS_BANK: str = "1696"
+            """The Farmers Bank, Portland"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MIDDLE_TENNESSEE: str = "4952"
+            """The First National Bank of Middle Tennessee, Mcminnville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ONEIDA: str = "4958"
+            """The First National Bank of Oneida, Oneida"""
+
+            THE_HARDIN_COUNTY_BANK: str = "20993"
+            """The Hardin County Bank, Savannah"""
+
+            THE_LAUDERDALE_COUNTY_BANK: str = "22835"
+            """The Lauderdale County Bank, Halls"""
+
+            THE_PEOPLES_BANK: str = "6110"
+            """The Peoples Bank, Sardis"""
+
+            THREAD_BANK: str = "9499"
+            """Thread Bank, Rogersville"""
+
+            TNBANK: str = "34023"
+            """TNBANK, Oak Ridge"""
+
+            TOWER_COMMUNITY_BANK: str = "20100"
+            """Tower Community Bank, Jasper"""
+
+            TRADITIONS_FIRST_BANK: str = "57092"
+            """Traditions First Bank, Erin"""
+
+            TRI_STAR_BANK: str = "35417"
+            """TriStar Bank, Dickson"""
+
+            TRUXTON_TRUST_COMPANY: str = "57825"
+            """Truxton Trust Company, Nashville"""
+
+            U_BANK: str = "1693"
+            """UBank, Knoxville"""
+
+            UNION_BANK: str = "6088"
+            """Union Bank, Jamestown"""
+
+            UNION_BANK_AND_TRUST_COMPANY: str = "9179"
+            """Union Bank & Trust Company, Livingston"""
+
+            VOLUNTEER_FEDERAL_SAVINGS_BANK: str = "31694"
+            """Volunteer Federal Savings Bank, Madisonville"""
+
+            WAYNE_COUNTY_BANK: str = "9168"
+            """Wayne County Bank, Waynesboro"""
+
+            WELLWORTH_BANK: str = "1711"
+            """Wellworth Bank, Lafayette"""
+
+            WILSON_BANK_AND_TRUST: str = "26962"
+            """Wilson Bank and Trust, Lebanon"""
+
+        class Texas(System.Object):
+            """Banks headquartered in Texas."""
+
+            AGILITY_BANK_NATIONAL_ASSOCIATION: str = "59239"
+            """Agility Bank, National Association, Houston"""
+
+            ALLIANCE_BANK: str = "11569"
+            """Alliance Bank, Sulphur Springs"""
+
+            ALLIANCE_BANK_CENTRAL_TEXAS: str = "15657"
+            """Alliance Bank Central Texas, Woodway"""
+
+            AMARILLO_NATIONAL_BANK: str = "14531"
+            """Amarillo National Bank, Amarillo"""
+
+            AMERICAN_BANK_OF_COMMERCE: str = "18609"
+            """American Bank of Commerce, Wolfforth"""
+
+            AMERICAN_BANK_NATIONAL_ASSOCIATION_DALLAS: str = "21567"
+            """American Bank, National Association, Dallas"""
+
+            AMERICAN_BANK_NATIONAL_ASSOCIATION_WACO: str = "23886"
+            """American Bank, National Association, Waco"""
+
+            AMERICAN_FIRST_NATIONAL_BANK: str = "34656"
+            """American First National Bank, Houston"""
+
+            AMERICAN_MOMENTUM_BANK: str = "58309"
+            """American Momentum Bank, College Station"""
+
+            AMERICAN_NATIONAL_BANK_AND_TRUST: str = "22373"
+            """American National Bank & Trust, Wichita Falls"""
+
+            AMERICAN_STATE_BANK: str = "9967"
+            """American State Bank, Arp"""
+
+            AMISTAD_BANK: str = "26658"
+            """Amistad Bank, Del Rio"""
+
+            ANAHUAC_NATIONAL_BANK: str = "22381"
+            """Anahuac National Bank, Anahuac"""
+
+            ANGELINA_SAVINGS_BANK_SSB: str = "32018"
+            """Angelina Savings Bank, SSB, Lufkin"""
+
+            ARROWHEAD_BANK: str = "1198"
+            """Arrowhead Bank, Llano"""
+
+            ATASCOSA_BANK: str = "24064"
+            """Atascosa Bank, Pleasanton"""
+
+            AUSTIN_BANK_TEXAS_NATIONAL_ASSOCIATION: str = "3276"
+            """Austin Bank, Texas National Association, Jacksonville"""
+
+            AUSTIN_CAPITAL_BANK_SSB: str = "58082"
+            """Austin Capital Bank SSB, Austin"""
+
+            AUSTIN_COUNTY_STATE_BANK: str = "58484"
+            """Austin County State Bank, Bellville"""
+
+            AVANA_BANK: str = "10704"
+            """Avana Bank, Abilene"""
+
+            BANDERA_BANK: str = "26653"
+            """Bandera Bank, Bandera"""
+
+            BANK_OF_DE_SOTO_NATIONAL_ASSOCIATION: str = "26542"
+            """Bank of DeSoto, National Association, De Soto"""
+
+            BANK_OF_SOUTH_TEXAS: str = "26727"
+            """Bank of South Texas, Mcallen"""
+
+            BANK_OF_TEXAS: str = "18576"
+            """Bank of Texas, Midland"""
+
+            BANK_OF_THE_WEST: str = "26627"
+            """Bank of the West, Grapevine"""
+
+            BANK_19: str = "3335"
+            """Bank19, Memphis"""
+
+            BENCHMARK_BANK: str = "19215"
+            """Benchmark Bank, Plano"""
+
+            BIG_BEND_BANKS_NA: str = "3320"
+            """Big Bend Banks, N.A., Marfa"""
+
+            BOC_BANK: str = "25328"
+            """BOC Bank, Mclean"""
+
+            BRAZOS_NATIONAL_BANK: str = "24038"
+            """Brazos National Bank, Richwood"""
+
+            BRIDGE_CITY_STATE_BANK: str = "18155"
+            """Bridge City State Bank, Bridge City"""
+
+            BROADSTREET_BANK_SSB: str = "28868"
+            """Broadstreet Bank S S B, Mineola"""
+
+            BROADWAY_NATIONAL_BANK: str = "15797"
+            """Broadway National Bank, San Antonio"""
+
+            CAPITAL_BANK: str = "19401"
+            """Capital Bank, Jacinto City"""
+
+            CARMINE_STATE_BANK: str = "19278"
+            """Carmine State Bank, Carmine"""
+
+            CASTROVILLE_STATE_BANK: str = "17979"
+            """Castroville State Bank, Castroville"""
+
+            CENDERA_BANK: str = "3098"
+            """Cendera Bank, Bells"""
+
+            CENTRAL_BANK: str = "17612"
+            """Central Bank, Houston"""
+
+            CENTRAL_NATIONAL_BANK: str = "22396"
+            """Central National Bank, Waco"""
+
+            CHARLES_SCHWAB_BANK_SSB: str = "57450"
+            """Charles Schwab Bank, SSB, Westlake"""
+
+            CHARLES_SCHWAB_PREMIER_BANK_SSB: str = "33497"
+            """Charles Schwab Premier Bank, SSB, Westlake"""
+
+            CHARLES_SCHWAB_TRUST_BANK: str = "59108"
+            """Charles Schwab Trust Bank, Westlake"""
+
+            CHARTER_BANK: str = "18660"
+            """Charter Bank, Corpus Christi"""
+
+            CIERA_BANK: str = "3226"
+            """Ciera Bank, Graham"""
+
+            CITIZENS_1_ST_BANK: str = "1715"
+            """Citizens 1st Bank, Tyler"""
+
+            CITIZENS_BANK_AMARILLO: str = "3140"
+            """Citizens Bank, Amarillo"""
+
+            CITIZENS_BANK_KILGORE: str = "16817"
+            """Citizens Bank, Kilgore"""
+
+            CITIZENS_NATIONAL_BANK_CAMERON: str = "3127"
+            """Citizens National Bank, Cameron"""
+
+            CITIZENS_NATIONAL_BANK_CROCKETT: str = "24085"
+            """Citizens National Bank, Crockett"""
+
+            CITIZENS_NATIONAL_BANK_AT_BROWNWOOD: str = "14779"
+            """Citizens National Bank at Brownwood, Brownwood"""
+
+            CITIZENS_NATIONAL_BANK_OF_CROSBYTON: str = "3158"
+            """Citizens National Bank of Crosbyton, Crosbyton"""
+
+            CITIZENS_NATIONAL_BANK_OF_TEXAS: str = "5574"
+            """Citizens National Bank of Texas, Waxahachie"""
+
+            CITIZENS_STATE_BANK_ANTON: str = "16581"
+            """Citizens State Bank, Anton"""
+
+            CITIZENS_STATE_BANK_CORRIGAN: str = "11905"
+            """Citizens State Bank, Corrigan"""
+
+            CITIZENS_STATE_BANK_MILES: str = "15519"
+            """Citizens State Bank, Miles"""
+
+            CITIZENS_STATE_BANK_SEALY: str = "17214"
+            """Citizens State Bank, Sealy"""
+
+            CITIZENS_STATE_BANK_SOMERVILLE: str = "16753"
+            """Citizens State Bank, Somerville"""
+
+            CITIZENS_STATE_BANK_WOODVILLE: str = "12303"
+            """Citizens State Bank, Woodville"""
+
+            CITIZENS_STATE_BANK_OF_LULING: str = "10327"
+            """Citizens State Bank of Luling, Luling"""
+
+            CITY_BANK: str = "25103"
+            """City Bank, Lubbock"""
+
+            CITY_NATIONAL_BANK: str = "24367"
+            """City National Bank, Corsicana"""
+
+            CLASSIC_BANK_NATIONAL_ASSOCIATION: str = "3126"
+            """Classic Bank, National Association, Cameron"""
+
+            CLEAR_FORK_BANK_NATIONAL_ASSOCIATION: str = "3067"
+            """Clear Fork Bank, National Association, Albany"""
+
+            COLEMAN_COUNTY_STATE_BANK: str = "15480"
+            """Coleman County State Bank, Coleman"""
+
+            COLONIAL_SAVINGS_FA: str = "31361"
+            """Colonial Savings, F.A., Fort Worth"""
+
+            COLUMBUS_STATE_BANK: str = "12305"
+            """Columbus State Bank, Columbus"""
+
+            COMMERCE_BANK: str = "23772"
+            """Commerce Bank, Laredo"""
+
+            COMMERCE_BANK_TEXAS: str = "15346"
+            """Commerce Bank Texas, Stockdale"""
+
+            COMMERCIAL_BANK_OF_TEXAS_NATIONAL_ASSOCIATION: str = "1209"
+            """Commercial Bank of Texas, National Association, Nacogdoches"""
+
+            COMMERCIAL_NATIONAL_BANK_OF_TEXARKANA: str = "19024"
+            """Commercial National Bank of Texarkana, Texarkana"""
+
+            COMMERCIAL_STATE_BANK: str = "10330"
+            """Commercial State Bank, Palmer"""
+
+            COMMUNITY_BANK: str = "25752"
+            """Community Bank, Longview"""
+
+            COMMUNITY_BANK_AND_TRUST_WACO_TEXAS: str = "17108"
+            """Community Bank & Trust, Waco, Texas, Waco"""
+
+            COMMUNITY_NATIONAL_BANK: str = "24897"
+            """Community National Bank, Midland"""
+
+            COMMUNITY_NATIONAL_BANK_AND_TRUST_OF_TEXAS: str = "18185"
+            """Community National Bank & Trust of Texas, Corsicana"""
+
+            CORNERSTONE_CAPITAL_BANK_SSB: str = "1213"
+            """Cornerstone Capital Bank, SSB, Houston"""
+
+            CROSSROADS_BANK: str = "10709"
+            """Crossroads Bank, Yoakum"""
+
+            CROWELL_STATE_BANK: str = "10352"
+            """Crowell State Bank, Crowell"""
+
+            CYPRESS_BANK_SSB: str = "31905"
+            """Cypress Bank, SSB, Pittsburg"""
+
+            DALHART_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_SSB: str = "29208"
+            """Dalhart Federal Savings & Loan Association, SSB, Dalhart"""
+
+            DALLAS_CAPITAL_BANK_NATIONAL_ASSOCIATION: str = "20727"
+            """Dallas Capital Bank, National Association, Dallas"""
+
+            DOMINION_BANK: str = "11934"
+            """Dominion Bank, Dallas"""
+
+            EXTRACO_BANKS_NATIONAL_ASSOCIATION: str = "5551"
+            """Extraco Banks, National Association, Temple"""
+
+            FALCON_INTERNATIONAL_BANK: str = "26856"
+            """Falcon International Bank, Laredo"""
+
+            FANNIN_BANK: str = "5589"
+            """Fannin Bank, Bonham"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "3170"
+            """Farmers and Merchants Bank, De Leon"""
+
+            FARMERS_STATE_BANK_CENTER: str = "13407"
+            """Farmers State Bank, Center"""
+
+            FARMERS_STATE_BANK_GROESBECK: str = "15367"
+            """Farmers State Bank, Groesbeck"""
+
+            FAYETTE_SAVINGS_BANK_SSB: str = "31936"
+            """Fayette Savings Bank, SSB, La Grange"""
+
+            FIDELITY_BANK_OF_TEXAS: str = "21455"
+            """Fidelity Bank of Texas, Waco"""
+
+            FIRST_BANK: str = "3121"
+            """First Bank, Burkburnett"""
+
+            FIRST_CAPITAL_BANK: str = "3399"
+            """First Capital Bank, Quanah"""
+
+            FIRST_COMMAND_BANK: str = "34415"
+            """First Command Bank, Fort Worth"""
+
+            FIRST_COMMERCIAL_BANK_NATIONAL_ASSOCIATION: str = "24603"
+            """First Commercial Bank, National Association, Seguin"""
+
+            FIRST_COMMUNITY_BANK_CORPUS_CHRISTI: str = "24353"
+            """First Community Bank, Corpus Christi"""
+
+            FIRST_COMMUNITY_BANK_SAN_BENITO: str = "22964"
+            """First Community Bank, San Benito"""
+
+            FIRST_FEDERAL_BANK_LITTLEFIELD_TEXAS: str = "30291"
+            """First Federal Bank Littlefield, Texas, Littlefield"""
+
+            FIRST_FEDERAL_COMMUNITY_BANK_SSB: str = "27678"
+            """First Federal Community Bank, SSB, Paris"""
+
+            FIRST_FINANCIAL_BANK: str = "3066"
+            """First Financial Bank, Abilene"""
+
+            FIRST_LIBERTY_BANK: str = "3301"
+            """First Liberty Bank, Liberty"""
+
+            FIRST_LOCKHART_BANK: str = "13599"
+            """First Lockhart Bank, Lockhart"""
+
+            FIRST_NATIONAL_BANK: str = "34455"
+            """First National Bank, Rotan"""
+
+            FIRST_NATIONAL_BANK_AND_TRUST_COMPANY_OF_WEATHERFORD: str = "5575"
+            """First National Bank and Trust Company of Weatherford, Weatherford"""
+
+            FIRST_NATIONAL_BANK_IN_PORT_LAVACA: str = "17811"
+            """First National Bank in Port Lavaca, Port Lavaca"""
+
+            FIRST_NATIONAL_BANK_OF_BOSQUE_COUNTY: str = "5564"
+            """First National Bank of Bosque County, Valley Mills"""
+
+            FIRST_NATIONAL_BANK_OF_BURLESON: str = "23430"
+            """First National Bank of Burleson, Burleson"""
+
+            FIRST_NATIONAL_BANK_OF_CENTRAL_TEXAS: str = "3325"
+            """First National Bank of Central Texas, Waco"""
+
+            FIRST_NATIONAL_BANK_OF_DUBLIN: str = "26228"
+            """First National Bank of Dublin, Dublin"""
+
+            FIRST_NATIONAL_BANK_OF_FORT_STOCKTON: str = "17913"
+            """First National Bank of Fort Stockton, Fort Stockton"""
+
+            FIRST_NATIONAL_BANK_OF_GIDDINGS: str = "3217"
+            """First National Bank of Giddings, Giddings"""
+
+            FIRST_NATIONAL_BANK_OF_HEREFORD: str = "34918"
+            """First National Bank of Hereford, Hereford"""
+
+            FIRST_NATIONAL_BANK_OF_HUNTSVILLE: str = "3269"
+            """First National Bank of Huntsville, Huntsville"""
+
+            FIRST_NATIONAL_BANK_OF_LAKE_JACKSON: str = "18895"
+            """First National Bank of Lake Jackson, Lake Jackson"""
+
+            FIRST_NATIONAL_BANK_OF_SOUTH_PADRE_ISLAND: str = "24902"
+            """First National Bank of South Padre Island, South Padre Island"""
+
+            FIRST_NATIONAL_BANK_TEXAS: str = "3285"
+            """First National Bank Texas, Killeen"""
+
+            FIRST_SECURITY_STATE_BANK: str = "11932"
+            """First Security State Bank, Cranfills Gap"""
+
+            FIRST_STATE_BANK_ATHENS: str = "15206"
+            """First State Bank, Athens"""
+
+            FIRST_STATE_BANK_CLUTE: str = "17950"
+            """First State Bank, Clute"""
+
+            FIRST_STATE_BANK_GAINESVILLE: str = "15511"
+            """First State Bank, Gainesville"""
+
+            FIRST_STATE_BANK_GRAHAM: str = "24498"
+            """First State Bank, Graham"""
+
+            FIRST_STATE_BANK_JUNCTION: str = "16643"
+            """First State Bank, Junction"""
+
+            FIRST_STATE_BANK_PAINT_ROCK: str = "17775"
+            """First State Bank, Paint Rock"""
+
+            FIRST_STATE_BANK_SHALLOWATER: str = "18301"
+            """First State Bank, Shallowater"""
+
+            FIRST_STATE_BANK_SPEARMAN: str = "1218"
+            """First State Bank, Spearman"""
+
+            FIRST_STATE_BANK_STRATFORD: str = "16695"
+            """First State Bank, Stratford"""
+
+            FIRST_STATE_BANK_AND_TRUST_COMPANY: str = "11559"
+            """First State Bank and Trust Company, Carthage"""
+
+            FIRST_STATE_BANK_OF_BEDIAS: str = "16895"
+            """First State Bank of Bedias, Bedias"""
+
+            FIRST_STATE_BANK_OF_BEN_WHEELER_TEXAS: str = "11904"
+            """First State Bank of Ben Wheeler, Texas, Ben Wheeler"""
+
+            FIRST_STATE_BANK_OF_BROWNSBORO: str = "11181"
+            """First State Bank of Brownsboro, Brownsboro"""
+
+            FIRST_STATE_BANK_OF_BURNET: str = "11557"
+            """First State Bank of Burnet, Burnet"""
+
+            FIRST_STATE_BANK_OF_LIVINGSTON: str = "15898"
+            """First State Bank of Livingston, Livingston"""
+
+            FIRST_STATE_BANK_OF_ODEM: str = "16334"
+            """First State Bank of Odem, Odem"""
+
+            FIRST_STATE_BANK_OF_SAN_DIEGO: str = "17350"
+            """First State Bank of San Diego, San Diego"""
+
+            FIRST_STATE_BANK_OF_TEXAS: str = "11922"
+            """First State Bank of Texas, Orange"""
+
+            FIRST_STATE_BANK_OF_UVALDE: str = "9978"
+            """First State Bank of Uvalde, Uvalde"""
+
+            FIRST_TEXAS_BANK_GEORGETOWN: str = "11935"
+            """First Texas Bank, Georgetown"""
+
+            FIRST_TEXAS_BANK_LAMPASAS: str = "3293"
+            """First Texas Bank, Lampasas"""
+
+            FIRST_TEXAS_NATIONAL_BANK: str = "3197"
+            """First Texas National Bank, Floydada"""
+
+            FIRST_UNITED_BANK: str = "12769"
+            """First United Bank, Dimmitt"""
+
+            FIRST_BANK_SOUTHWEST: str = "3387"
+            """FirstBank Southwest, Amarillo"""
+
+            FREEDOM_BANK: str = "17881"
+            """Freedom Bank, Alamo"""
+
+            FRONTIER_BANK_OF_TEXAS: str = "58509"
+            """Frontier Bank of Texas, Elgin"""
+
+            FROST_BANK: str = "5510"
+            """Frost  Bank, San Antonio"""
+
+            GILMER_NATIONAL_BANK_GILMER_TEXAS: str = "3219"
+            """Gilmer National Bank, Gilmer, Texas, Gilmer"""
+
+            GLOBAL_ONE_BANK: str = "11570"
+            """Global One Bank, Houston"""
+
+            GOLDEN_BANK_NATIONAL_ASSOCIATION: str = "26223"
+            """Golden Bank, National Association, Houston"""
+
+            GRAHAM_SAVINGS_AND_LOAN_SSB: str = "29206"
+            """Graham Savings and Loan, SSB, Graham"""
+
+            GRANDVIEW_BANK: str = "3230"
+            """Grandview Bank, Grandview"""
+
+            GREATER_STATE_BANK: str = "31762"
+            """Greater State Bank, Mcallen"""
+
+            GUADALUPE_BANK: str = "58768"
+            """Guadalupe Bank, Kerrville"""
+
+            GULF_CAPITAL_BANK: str = "59185"
+            """Gulf Capital Bank, Houston"""
+
+            HARMONY_BANK: str = "57922"
+            """Harmony Bank, Dallas"""
+
+            HASKELL_NATIONAL_BANK: str = "14399"
+            """Haskell National Bank, Haskell"""
+
+            HENDERSON_FEDERAL_SAVINGS_BANK: str = "29241"
+            """Henderson Federal Savings Bank, Henderson"""
+
+            HERRING_BANK: str = "5568"
+            """Herring Bank, Amarillo"""
+
+            HOME_BANK_TEXAS: str = "17094"
+            """HomeBank Texas, Seagoville"""
+
+            HOME_TOWN_BANK_NATIONAL_ASSOCIATION: str = "19603"
+            """HomeTown Bank, National Association, Galveston"""
+
+            HORIZON_BANK_SSB: str = "3256"
+            """Horizon Bank, SSB, Austin"""
+
+            HOUSTON_BANK_AND_TRUST: str = "59360"
+            """Houston Bank & Trust, Houston"""
+
+            INCOMMONS_BANK_NA: str = "3342"
+            """Incommons Bank, N.A., Mexia"""
+
+            INTEGRITY_BANK_SSB: str = "59342"
+            """Integrity Bank SSB, Houston"""
+
+            INTERNATIONAL_BANK_OF_COMMERCE_BROWNSVILLE: str = "25679"
+            """International Bank of Commerce, Brownsville"""
+
+            INTERNATIONAL_BANK_OF_COMMERCE_LAREDO: str = "19629"
+            """International Bank of Commerce, Laredo"""
+
+            INTERNATIONAL_BANK_OF_COMMERCE_ZAPATA: str = "24961"
+            """International Bank of Commerce, Zapata"""
+
+            INTERSTATE_BANK: str = "31043"
+            """Interstate Bank, Perryton"""
+
+            INWOOD_NATIONAL_BANK: str = "19080"
+            """Inwood National Bank, Dallas"""
+
+            JEFFERSON_BANK: str = "16470"
+            """Jefferson Bank, San Antonio"""
+
+            JOHNSON_CITY_BANK: str = "16176"
+            """Johnson City Bank, Johnson City"""
+
+            JUNCTION_NATIONAL_BANK: str = "15078"
+            """Junction National Bank, Junction"""
+
+            KLEBERG_BANK_NA: str = "3286"
+            """Kleberg  Bank, N.A., Kingsville"""
+
+            KRESS_NATIONAL_BANK: str = "18892"
+            """Kress National Bank, Kress"""
+
+            LAKESIDE_BANK: str = "21693"
+            """Lakeside Bank, Rockwall"""
+
+            LAMAR_NATIONAL_BANK: str = "23597"
+            """Lamar National Bank, Paris"""
+
+            LEGEND_BANK_NA: str = "3108"
+            """Legend Bank, N.A., Bowie"""
+
+            LIBERTY_CAPITAL_BANK: str = "58852"
+            """Liberty Capital Bank, Addison"""
+
+            LLANO_NATIONAL_BANK: str = "24305"
+            """Llano National Bank, Llano"""
+
+            LONE_OAK_BANK_NATIONAL_ASSOCIATION: str = "3184"
+            """Lone Oak Bank, National Association, Eldorado"""
+
+            LONE_STAR_BANK: str = "58324"
+            """Lone Star Bank, Houston"""
+
+            LONE_STAR_NATIONAL_BANK: str = "24347"
+            """Lone Star National Bank, Pharr"""
+
+            LOVELADY_STATE_BANK: str = "21807"
+            """Lovelady State Bank, Lovelady"""
+
+            MARION_STATE_BANK: str = "15355"
+            """Marion State Bank, Marion"""
+
+            MASON_BANK: str = "3327"
+            """Mason Bank, Mason"""
+
+            MAVERICK_BANK: str = "17446"
+            """Maverick Bank, Fort Davis"""
+
+            MC_BANK: str = "15669"
+            """MCBank, Goldthwaite"""
+
+            MENARD_BANK: str = "3336"
+            """Menard  Bank, Menard"""
+
+            MONET_BANK: str = "32574"
+            """Monet Bank, Plano"""
+
+            MUENSTER_STATE_BANK: str = "15523"
+            """Muenster State Bank, Muenster"""
+
+            NATIONAL_BANK_AND_TRUST: str = "3289"
+            """National Bank & Trust, La Grange"""
+
+            NBT_FINANCIAL_BANK: str = "21329"
+            """NBT Financial Bank, Fort Worth"""
+
+            NEW_FIRST_NATIONAL_BANK: str = "3183"
+            """NewFirst National Bank, El Campo"""
+
+            NEX_BANK: str = "29209"
+            """NexBank, Dallas"""
+
+            NORMANGEE_STATE_BANK: str = "3368"
+            """Normangee State Bank, Normangee"""
+
+            NORTH_DALLAS_BANK_AND_TRUST_CO: str = "18355"
+            """North Dallas Bank & Trust Co., Dallas"""
+
+            ONE_WORLD_BANK: str = "57901"
+            """One World Bank, Dallas"""
+
+            OZONA_BANK: str = "3376"
+            """Ozona Bank, Ozona"""
+
+            PAVILLION_BANK: str = "24303"
+            """Pavillion Bank, Richardson"""
+
+            PEGASUS_BANK: str = "58483"
+            """Pegasus Bank, Dallas"""
+
+            PEOPLES_BANK: str = "27398"
+            """Peoples Bank, Paris"""
+
+            PEOPLES_STATE_BANK_ROCKSPRINGS: str = "15939"
+            """Peoples State Bank, Rocksprings"""
+
+            PEOPLES_STATE_BANK_SHEPHERD: str = "10345"
+            """Peoples State Bank, Shepherd"""
+
+            PEOPLES_STATE_BANK_OF_HALLETTSVILLE: str = "10719"
+            """Peoples State Bank of Hallettsville, Hallettsville"""
+
+            PILGRIM_BANK: str = "16891"
+            """Pilgrim Bank, Pittsburg"""
+
+            PINNACLE_BANK: str = "20231"
+            """Pinnacle Bank, Fort Worth"""
+
+            PLAINS_STATE_BANK: str = "17739"
+            """Plains State Bank, Humble"""
+
+            PLAINS_CAPITAL_BANK: str = "17491"
+            """PlainsCapital Bank, University Park"""
+
+            POINTBANK: str = "3389"
+            """Pointbank, Pilot Point"""
+
+            POINTWEST_BANK: str = "13600"
+            """POINTWEST BANK, West"""
+
+            PRIME_BANK_OF_TEXAS: str = "57495"
+            """PrimeBank of Texas, Austin"""
+
+            PRODUCER_BANK_OF_TEXAS: str = "18302"
+            """Producer Bank of Texas, Powell"""
+
+            PROSPERITY_BANK: str = "16835"
+            """Prosperity Bank, El Campo"""
+
+            R_BANK: str = "58935"
+            """R Bank, Round Rock"""
+
+            RIO_BANK: str = "25886"
+            """Rio Bank, Mcallen"""
+
+            ROBERT_LEE_STATE_BANK: str = "15442"
+            """Robert Lee State Bank, Robert Lee"""
+
+            ROUND_TOP_STATE_BANK: str = "19358"
+            """Round Top State Bank, Round Top"""
+
+            SAGE_CAPITAL_BANK: str = "25621"
+            """Sage Capital Bank,, Gonzales"""
+
+            SANGER_BANK: str = "27043"
+            """Sanger Bank, Sanger"""
+
+            SCHERTZ_BANK_AND_TRUST: str = "10344"
+            """Schertz Bank & Trust, Schertz"""
+
+            SECURITY_BANK_OF_TEXAS: str = "15731"
+            """Security Bank of Texas, Crawford"""
+
+            SECURITY_STATE_BANK_FARWELL: str = "11907"
+            """Security State Bank, Farwell"""
+
+            SECURITY_STATE_BANK_PEARSALL: str = "1497"
+            """Security State Bank, Pearsall"""
+
+            SECURITY_STATE_BANK_AND_TRUST: str = "15809"
+            """Security State Bank & Trust, Fredericksburg"""
+
+            SHELBY_SAVINGS_BANK_SSB: str = "32135"
+            """Shelby Savings Bank, SSB, Center"""
+
+            SOUTHSIDE_BANK: str = "18297"
+            """Southside Bank, Tyler"""
+
+            SOUTH_STAR_BANK_SSB: str = "12299"
+            """SouthStar Bank, S.S.B., Moulton"""
+
+            SOUTH_TRUST_BANK_NA: str = "13919"
+            """SouthTrust Bank, N.A., George West"""
+
+            SOUTHWEST_BANK: str = "16652"
+            """Southwest Bank, Odessa"""
+
+            SOUTHWESTERN_NATIONAL_BANK: str = "34319"
+            """Southwestern National Bank, Houston"""
+
+            SPECTRA_BANK: str = "26708"
+            """Spectra Bank, Fort Worth"""
+
+            SPRING_HILL_STATE_BANK: str = "22526"
+            """Spring Hill State Bank, Longview"""
+
+            SPUR_SECURITY_BANK: str = "15460"
+            """Spur Security Bank, Spur"""
+
+            STATE_BANK_OF_DE_KALB: str = "15463"
+            """State Bank of De Kalb, De Kalb"""
+
+            STATE_BANK_OF_TEXAS: str = "27074"
+            """State Bank of Texas, Irving"""
+
+            STATE_NATIONAL_BANK: str = "3237"
+            """State National Bank, Groom"""
+
+            STOCKMENS_NATIONAL_BANK_IN_COTULLA: str = "14864"
+            """Stockmens National Bank in Cotulla, Cotulla"""
+
+            SUNDOWN_STATE_BANK: str = "18780"
+            """Sundown State Bank, Sundown"""
+
+            SUNFLOWER_BANK_NATIONAL_ASSOCIATION: str = "4767"
+            """Sunflower Bank, National Association, Dallas"""
+
+            SUSSER_BANK: str = "34885"
+            """Susser Bank, Dallas"""
+
+            T_BANK_NATIONAL_ASSOCIATION: str = "57703"
+            """T Bank, National Association, Dallas"""
+
+            TBK_BANK_SSB: str = "23498"
+            """TBK BANK, SSB, Dallas"""
+
+            TEXANA_BANK_NATIONAL_ASSOCIATION: str = "3302"
+            """Texana Bank, National Association, Linden"""
+
+            TEXAS_ADVANTAGE_COMMUNITY_BANK_NATIONAL_ASSOCIATION: str = "58450"
+            """Texas Advantage Community Bank, National Association, Alvin"""
+
+            TEXAS_BANK_HENDERSON: str = "21074"
+            """Texas Bank, Henderson"""
+
+            TEXAS_BANK_AND_TRUST_COMPANY: str = "17842"
+            """Texas Bank and Trust Company, Longview"""
+
+            TEXAS_CAPITAL_BANK: str = "34383"
+            """Texas Capital Bank, Dallas"""
+
+            TEXAS_CHAMPION_BANK: str = "11159"
+            """Texas Champion Bank, Corpus Christi"""
+
+            TEXAS_COMMUNITY_BANK: str = "24563"
+            """Texas Community Bank, Laredo"""
+
+            TEXAS_EXCHANGE_BANK: str = "20099"
+            """Texas Exchange Bank, Crowley"""
+
+            TEXAS_FINANCIAL_BANK: str = "26738"
+            """Texas Financial Bank, Eden"""
+
+            TEXAS_FIRST_BANK: str = "23799"
+            """Texas First Bank, Texas City"""
+
+            TEXAS_GULF_BANK_NATIONAL_ASSOCIATION: str = "3206"
+            """Texas Gulf Bank, National Association, Houston"""
+
+            TEXAS_HERITAGE_NATIONAL_BANK: str = "3161"
+            """Texas Heritage National Bank, Daingerfield"""
+
+            TEXAS_NATIONAL_BANK_MCALLEN: str = "3337"
+            """Texas National Bank, Mcallen"""
+
+            TEXAS_NATIONAL_BANK_SWEETWATER: str = "34014"
+            """Texas National Bank, Sweetwater"""
+
+            TEXAS_NATIONAL_BANK_OF_JACKSONVILLE: str = "26181"
+            """Texas National Bank of Jacksonville, Jacksonville"""
+
+            TEXAS_REGIONAL_BANK: str = "26906"
+            """Texas Regional Bank, Harlingen"""
+
+            TEXAS_REPUBLIC_BANK_NATIONAL_ASSOCIATION: str = "3400"
+            """Texas Republic Bank, National Association, Frisco"""
+
+            TEXAS_SECURITY_BANK: str = "58739"
+            """Texas Security Bank, Dallas"""
+
+            TEXAS_STATE_BANK: str = "18698"
+            """Texas State Bank, San Angelo"""
+
+            TEXAS_TRADITIONS_BANK: str = "59304"
+            """Texas Traditions Bank, Katy"""
+
+            TEXAS_BANK_FORT_WORTH: str = "19559"
+            """TexasBank, Fort Worth"""
+
+            THE_AMERICAN_NATIONAL_BANK_OF_MOUNT_PLEASANT: str = "22942"
+            """The American National Bank of Mount Pleasant, Mount Pleasant"""
+
+            THE_AMERICAN_NATIONAL_BANK_OF_TEXAS: str = "23474"
+            """The American National Bank of Texas, Terrell"""
+
+            THE_BANK_AND_TRUST_SSB: str = "1184"
+            """The Bank and Trust, S.S.B., Del Rio"""
+
+            THE_BANK_OF_SAN_JACINTO_COUNTY_COLDSPRING_TEXAS: str = "18942"
+            """The Bank of San Jacinto County, Coldspring, Texas, Coldspring"""
+
+            THE_BRADY_NATIONAL_BANK: str = "3109"
+            """The Brady National Bank, Brady"""
+
+            THE_BRENHAM_NATIONAL_BANK: str = "3113"
+            """The Brenham National Bank, Brenham"""
+
+            THE_BUCKHOLTS_STATE_BANK: str = "11916"
+            """The Buckholts State Bank, Buckholts"""
+
+            THE_CITIZENS_NATIONAL_BANK_OF_HILLSBORO: str = "3255"
+            """The Citizens National Bank of Hillsboro, Hillsboro"""
+
+            THE_CITY_NATIONAL_BANK_OF_COLORADO_CITY: str = "3144"
+            """The City National Bank of Colorado City, Colorado City"""
+
+            THE_CITY_NATIONAL_BANK_OF_SAN_SABA: str = "5518"
+            """The City National Bank of San Saba, San Saba"""
+
+            THE_CITY_NATIONAL_BANK_OF_SULPHUR_SPRINGS: str = "5544"
+            """The City National Bank of Sulphur Springs, Sulphur Springs"""
+
+            THE_CITY_NATIONAL_BANK_OF_TAYLOR: str = "5548"
+            """The City National Bank of Taylor, Taylor"""
+
+            THE_COMMERCIAL_BANK: str = "19595"
+            """The Commercial Bank, Mason"""
+
+            THE_COMMERCIAL_NATIONAL_BANK_OF_BRADY: str = "3110"
+            """The Commercial National Bank of Brady, Brady"""
+
+            THE_COMMUNITY_BANK: str = "58517"
+            """The Community Bank, Bridgeport"""
+
+            THE_COWBOY_BANK_OF_TEXAS: str = "12298"
+            """The Cowboy Bank of Texas, Maypearl"""
+
+            THE_DONLEY_COUNTY_STATE_BANK: str = "11891"
+            """The Donley County State Bank, Clarendon"""
+
+            THE_FALLS_CITY_NATIONAL_BANK: str = "3193"
+            """The Falls City National Bank, Falls City"""
+
+            THE_FIRST_BANK_OF_CELESTE: str = "3133"
+            """The First Bank of Celeste, Celeste"""
+
+            THE_FIRST_NATIONAL_BANK_IN_COOPER: str = "3149"
+            """The First National Bank in Cooper, Cooper"""
+
+            THE_FIRST_NATIONAL_BANK_IN_FALFURRIAS: str = "14095"
+            """The First National Bank in Falfurrias, Falfurrias"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ANDERSON: str = "3075"
+            """The First National Bank of Anderson, Anderson"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ANSON: str = "3078"
+            """The First National Bank of Anson, Anson"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ASPERMONT: str = "3079"
+            """The First National Bank of Aspermont, Aspermont"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BALLINGER: str = "3087"
+            """The First National Bank of Ballinger, Ballinger"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BASTROP: str = "3091"
+            """The First National Bank of Bastrop, Bastrop"""
+
+            THE_FIRST_NATIONAL_BANK_OF_EAGLE_LAKE: str = "3179"
+            """The First National Bank of Eagle Lake, Eagle Lake"""
+
+            THE_FIRST_NATIONAL_BANK_OF_EAST_TEXAS: str = "3218"
+            """The First National Bank of East Texas, Gilmer"""
+
+            THE_FIRST_NATIONAL_BANK_OF_EVANT: str = "3190"
+            """The First National Bank of Evant, Evant"""
+
+            THE_FIRST_NATIONAL_BANK_OF_GRANBURY: str = "3228"
+            """The First National Bank of Granbury, Granbury"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HEBBRONVILLE: str = "3248"
+            """The First National Bank of Hebbronville, Hebbronville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_HUGHES_SPRINGS: str = "3268"
+            """The First National Bank of Hughes Springs, Hughes Springs"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LIPAN: str = "3303"
+            """The First National Bank of Lipan, Lipan"""
+
+            THE_FIRST_NATIONAL_BANK_OF_LIVINGSTON: str = "3305"
+            """The First National Bank of Livingston, Livingston"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MC_GREGOR: str = "3330"
+            """The First National Bank of McGregor, Mc Gregor"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MERTZON: str = "3339"
+            """The First National Bank of Mertzon, Mertzon"""
+
+            THE_FIRST_NATIONAL_BANK_OF_MOODY: str = "3351"
+            """The First National Bank of Moody, Moody"""
+
+            THE_FIRST_NATIONAL_BANK_OF_QUITAQUE: str = "3401"
+            """The First National Bank of Quitaque, Quitaque"""
+
+            THE_FIRST_NATIONAL_BANK_OF_SONORA: str = "5531"
+            """The First National Bank of Sonora, Sonora"""
+
+            THE_FIRST_NATIONAL_BANK_OF_STANTON: str = "5536"
+            """The First National Bank of Stanton, Stanton"""
+
+            THE_FIRST_NATIONAL_BANK_OF_STERLING_CITY: str = "5538"
+            """The First National Bank of Sterling City, Sterling City"""
+
+            THE_FIRST_NATIONAL_BANK_OF_TOM_BEAN: str = "5557"
+            """The First National Bank of Tom Bean, Tom Bean"""
+
+            THE_FIRST_NATIONAL_BANK_OF_TRINITY: str = "5559"
+            """The First National Bank of Trinity, Trinity"""
+
+            THE_FIRST_NATIONAL_BANK_OF_WINNSBORO: str = "5590"
+            """The First National Bank of Winnsboro, Winnsboro"""
+
+            THE_FIRST_STATE_BANK_ABERNATHY: str = "11175"
+            """The First State Bank, Abernathy"""
+
+            THE_FIRST_STATE_BANK_COLUMBUS: str = "12315"
+            """The First State Bank, Columbus"""
+
+            THE_FIRST_STATE_BANK_LOUISE: str = "17588"
+            """The First State Bank, Louise"""
+
+            THE_GRANGER_NATIONAL_BANK: str = "3232"
+            """The Granger National Bank, Granger"""
+
+            THE_JACKSBORO_NATIONAL_BANK: str = "3275"
+            """The Jacksboro National Bank, Jacksboro"""
+
+            THE_KARNES_COUNTY_NATIONAL_BANK_OF_KARNES_CITY: str = "3279"
+            """The Karnes County National Bank of Karnes City, Karnes City"""
+
+            THE_LAMESA_NATIONAL_BANK: str = "3292"
+            """The Lamesa National Bank, Lamesa"""
+
+            THE_LIBERTY_NATIONAL_BANK_IN_PARIS: str = "3384"
+            """The Liberty National Bank in Paris, Paris"""
+
+            THE_LYTLE_STATE_BANK_OF_LYTLE_TEXAS: str = "15501"
+            """The Lytle State Bank of Lytle, Texas, Lytle"""
+
+            THE_MINT_NATIONAL_BANK: str = "58764"
+            """The MINT National Bank, Kingwood"""
+
+            THE_MOODY_NATIONAL_BANK: str = "3210"
+            """The Moody National Bank, Galveston"""
+
+            THE_NATIONAL_BANK_OF_ANDREWS: str = "17603"
+            """The National Bank of Andrews, Andrews"""
+
+            THE_PECOS_COUNTY_STATE_BANK: str = "13006"
+            """The Pecos County State Bank, Fort Stockton"""
+
+            THE_PERRYTON_NATIONAL_BANK: str = "3388"
+            """The Perryton National Bank, Perryton"""
+
+            THE_STATE_NATIONAL_BANK_OF_BIG_SPRING: str = "3103"
+            """The State National Bank of Big Spring, Big Spring"""
+
+            THE_WAGGONER_NATIONAL_BANK_OF_VERNON: str = "5569"
+            """The Waggoner National Bank of Vernon, Vernon"""
+
+            THIRD_COAST_BANK: str = "58716"
+            """Third Coast Bank, Humble"""
+
+            TIB_NATIONAL_ASSOCIATION: str = "23647"
+            """TIB National Association, Farmers Branch"""
+
+            TITAN_BANK_NA: str = "3225"
+            """Titan Bank, N.A., Mineral Wells"""
+
+            TOLLESON_PRIVATE_BANK: str = "57522"
+            """Tolleson Private Bank, Dallas"""
+
+            TRANSPECOS_BANKS_SSB: str = "11178"
+            """Transpecos Banks, SSB, Pecos"""
+
+            TRINITY_BANK_NA: str = "57543"
+            """Trinity Bank, N.A., Fort Worth"""
+
+            TRINITY_CAPITAL_BANK_OF_TEXAS: str = "13000"
+            """Trinity Capital Bank of Texas, Ennis"""
+
+            TRUST_TEXAS_BANK_SSB: str = "28515"
+            """TrustTexas Bank, SSB, Cuero"""
+
+            TXN_BANK: str = "15345"
+            """TXN Bank, Hondo"""
+
+            U_BANK: str = "18344"
+            """UBank, Huntington"""
+
+            UNITED_TEXAS_BANK_NATIONAL_ASSOCIATION: str = "26626"
+            """United Texas Bank, National Association, Dallas"""
+
+            UNITY_NATIONAL_BANK_OF_HOUSTON: str = "26351"
+            """Unity National Bank of Houston, Houston"""
+
+            VALUE_BANK_TEXAS: str = "19700"
+            """ValueBank Texas, Corpus Christi"""
+
+            VANTAGE_BANK_TEXAS: str = "3405"
+            """Vantage Bank Texas, San Antonio"""
+
+            VERA_BANK_NATIONAL_ASSOCIATION: str = "3250"
+            """VeraBank, National Association, Henderson"""
+
+            VICTORY_BANK: str = "18677"
+            """Victory Bank, Lubbock"""
+
+            WALLIS_BANK: str = "20845"
+            """Wallis Bank, Wallis"""
+
+            WELLINGTON_STATE_BANK: str = "1219"
+            """Wellington State Bank, Wellington"""
+
+            WELLS_FARGO_BANK_SOUTH_CENTRAL_NATIONAL_ASSOCIATION: str = "5146"
+            """Wells Fargo Bank South Central, National Association, Houston"""
+
+            WEST_TEXAS_NATIONAL_BANK: str = "22957"
+            """West Texas National Bank, Midland"""
+
+            WEST_TEXAS_STATE_BANK: str = "16866"
+            """West Texas State Bank, Snyder"""
+
+            WESTERN_BANK: str = "1720"
+            """Western Bank, Lubbock"""
+
+            WEST_STAR_BANK: str = "32941"
+            """WestStar Bank, El Paso"""
+
+            WOODFOREST_NATIONAL_BANK: str = "23220"
+            """Woodforest National Bank, The Woodlands"""
+
+            WORTHINGTON_BANK: str = "57414"
+            """Worthington Bank, Arlington"""
+
+            YOAKUM_BANK: str = "5595"
+            """Yoakum Bank, Yoakum"""
+
+            ZAVALA_COUNTY_BANK: str = "15105"
+            """Zavala County Bank, Crystal City"""
+
+        class USVirginIslands(System.Object):
+            """Banks headquartered in U.S. Virgin Islands."""
+
+            MERCHANTS_COMMERCIAL_BANK: str = "58184"
+            """Merchants Commercial Bank, St Thomas"""
+
+        class Utah(System.Object):
+            """Banks headquartered in Utah."""
+
+            ALLY_BANK: str = "57803"
+            """Ally Bank, Sandy"""
+
+            AMERICAN_EXPRESS_NATIONAL_BANK: str = "27471"
+            """American Express National  Bank, Sandy"""
+
+            B_2_BANK_NATIONAL_ASSOCIATION: str = "5105"
+            """B2 Bank National Association, Holladay"""
+
+            BANK_OF_UTAH: str = "17159"
+            """Bank of Utah, Ogden"""
+
+            BMW_BANK_OF_NORTH_AMERICA: str = "35141"
+            """BMW Bank of North America, Salt Lake City"""
+
+            BRIGHTON_BANK: str = "22578"
+            """Brighton Bank, Salt Lake City"""
+
+            CACHE_VALLEY_BANK: str = "22134"
+            """Cache Valley Bank, Logan"""
+
+            CELTIC_BANK: str = "57056"
+            """Celtic Bank, Salt Lake City"""
+
+            CENTRAL_BANK: str = "9204"
+            """Central Bank, Provo"""
+
+            COLUMN_NATIONAL_ASSOCIATION: str = "58224"
+            """Column National Association, Salt Lake City"""
+
+            COMENITY_CAPITAL_BANK: str = "57570"
+            """Comenity Capital Bank, Draper"""
+
+            CONTINENTAL_BANK: str = "57571"
+            """Continental Bank, Salt Lake City"""
+
+            FIN_WISE_BANK: str = "35323"
+            """FinWise Bank, Murray"""
+
+            FIRST_ELECTRONIC_BANK: str = "35533"
+            """First Electronic Bank, Salt Lake City"""
+
+            FIRST_UTAH_BANK: str = "22738"
+            """First Utah Bank, Salt Lake City"""
+
+            GRAND_VALLEY_BANK: str = "24922"
+            """Grand Valley Bank, Heber City"""
+
+            GREEN_DOT_BANK_DBA_BONNEVILLE_BANK: str = "22653"
+            """Green Dot Bank DBA Bonneville Bank, Provo"""
+
+            HAPPEN_BANK_NATIONAL_ASSOCIATION: str = "32551"
+            """Happen Bank, National Association, Lehi"""
+
+            HOME_SAVINGS_BANK: str = "26798"
+            """Home Savings Bank, Salt Lake City"""
+
+            MEDALLION_BANK: str = "57449"
+            """Medallion Bank, Salt Lake City"""
+
+            MERRICK_BANK: str = "34519"
+            """Merrick Bank, South Jordan"""
+
+            MILESTONE_BANK: str = "58148"
+            """Milestone Bank, Salt Lake City"""
+
+            MORGAN_STANLEY_BANK_NATIONAL_ASSOCIATION: str = "32992"
+            """Morgan Stanley Bank, National Association, Salt Lake City"""
+
+            NELNET_BANK: str = "59205"
+            """Nelnet Bank, Draper"""
+
+            OPTUM_BANK_INC: str = "57408"
+            """Optum Bank, Inc., Draper"""
+
+            PRIME_ALLIANCE_BANK: str = "57920"
+            """Prime Alliance Bank, Woods Cross"""
+
+            QUILL_BANK: str = "33823"
+            """Quill Bank, Provo"""
+
+            REDEMPTION_BANK: str = "21448"
+            """Redemption Bank, Salt Lake City"""
+
+            SALLIE_MAE_BANK: str = "58177"
+            """Sallie Mae Bank, Salt Lake City"""
+
+            SO_FI_BANK_NATIONAL_ASSOCIATION: str = "26881"
+            """SoFi Bank, National Association, Cottonwood Heights"""
+
+            SQUARE_FINANCIAL_SERVICES_INC: str = "59177"
+            """Square Financial Services, Inc., Salt Lake City"""
+
+            STATE_BANK_OF_SOUTHERN_UTAH: str = "17964"
+            """State Bank of Southern Utah, Cedar City"""
+
+            STITCH_BANK_INC: str = "26816"
+            """Stitch Bank, Inc., Salt Lake City"""
+
+            SUNWEST_BANK: str = "20164"
+            """Sunwest Bank, Sandy"""
+
+            SYNCHRONY_BANK: str = "27314"
+            """Synchrony Bank, Draper"""
+
+            THE_PITNEY_BOWES_BANK_INC: str = "34599"
+            """The Pitney Bowes Bank, Inc., Salt Lake City"""
+
+            THRIVENT_BANK: str = "59286"
+            """Thrivent Bank, Salt Lake City"""
+
+            TRANSPORTATION_ALLIANCE_BANK_INC_DBA_TAB_BANK: str = "34781"
+            """Transportation Alliance Bank, Inc. d/b/a TAB Bank, Ogden"""
+
+            UBS_BANK_USA_NATIONAL_ASSOCIATION: str = "57565"
+            """UBS Bank USA, National Association, Salt Lake City"""
+
+            UTAH_INDEPENDENT_BANK: str = "22514"
+            """Utah Independent Bank, Salina"""
+
+            VARO_BANK_NATIONAL_ASSOCIATION: str = "59190"
+            """Varo Bank, National Association, Draper"""
+
+            WEB_BANK: str = "34404"
+            """WebBank, Salt Lake City"""
+
+            WEX_BANK: str = "34697"
+            """WEX Bank, Sandy"""
+
+            ZIONS_BANCORPORATION_NA: str = "2270"
+            """Zions Bancorporation, N.A., Salt Lake City"""
+
+        class Vermont(System.Object):
+            """Banks headquartered in Vermont."""
+
+            BUSINESS_BANK_THE: str = "59298"
+            """Business Bank, The, S Burlington"""
+
+            COMMUNITY_NATIONAL_BANK: str = "6271"
+            """Community National Bank, Derby"""
+
+            LEDYARD_NATIONAL_BANK: str = "33418"
+            """Ledyard National Bank, Norwich"""
+
+            NORTHFIELD_SAVINGS_BANK: str = "14140"
+            """Northfield Savings Bank, Northfield"""
+
+            PASSUMPSIC_SAVINGS_BANK: str = "14134"
+            """Passumpsic Savings Bank, Saint Johnsbury"""
+
+            PEOPLES_TRUST_COMPANY_OF_ST_ALBANS: str = "14168"
+            """Peoples Trust Company of St. Albans, Saint Albans"""
+
+            THE_BANK_OF_BENNINGTON: str = "30350"
+            """The Bank of Bennington, Bennington"""
+
+            THE_BRATTLEBORO_SAVINGS_AND_LOAN_ASSOCIATION: str = "28837"
+            """The Brattleboro Savings and Loan Association, Brattleboro"""
+
+            THE_FIRST_NATIONAL_BANK_OF_ORWELL: str = "6280"
+            """The First National Bank of Orwell, Orwell"""
+
+            THE_NATIONAL_BANK_OF_MIDDLEBURY: str = "6275"
+            """The National Bank of Middlebury, Middlebury"""
+
+            UNION_BANK: str = "14158"
+            """Union Bank, Morrisville"""
+
+            WELLS_RIVER_SAVINGS_BANK: str = "14136"
+            """Wells River Savings Bank, Wells River"""
+
+        class Virginia(System.Object):
+            """Banks headquartered in Virginia."""
+
+            ATLANTIC_UNION_BANK: str = "34589"
+            """Atlantic Union Bank, Richmond City"""
+
+            BANK_OF_BOTETOURT: str = "6137"
+            """Bank of Botetourt, Buchanan"""
+
+            BANK_OF_CLARKE: str = "6123"
+            """Bank Of Clarke, Berryville"""
+
+            BANK_OF_THE_JAMES: str = "35207"
+            """Bank of the James, Lynchburg"""
+
+            BENCHMARK_COMMUNITY_BANK: str = "20484"
+            """Benchmark Community Bank, Kenbridge"""
+
+            BLUE_RIDGE_BANK_NATIONAL_ASSOCIATION: str = "35274"
+            """Blue Ridge Bank,  National Association, Martinsville"""
+
+            BURKE_AND_HERBERT_BANK_AND_TRUST_COMPANY: str = "11578"
+            """Burke & Herbert Bank & Trust Company, Alexandria"""
+
+            CAPITAL_ONE_NATIONAL_ASSOCIATION: str = "4297"
+            """Capital One, National Association, Mclean"""
+
+            CARTER_BANK_AND_TRUST: str = "58596"
+            """Carter Bank & Trust, Martinsville"""
+
+            CHAIN_BRIDGE_BANK_NATIONAL_ASSOCIATION: str = "58595"
+            """Chain Bridge Bank, National Association, Mclean"""
+
+            CHESAPEAKE_BANK: str = "6862"
+            """Chesapeake Bank, Kilmarnock"""
+
+            CITIZENS_AND_FARMERS_BANK: str = "10363"
+            """Citizens and Farmers Bank, West Point"""
+
+            CITIZENS_BANK_AND_TRUST_COMPANY: str = "823"
+            """Citizens Bank and Trust Company, Blackstone"""
+
+            COMMUNITY_BANKERS_BANK: str = "26871"
+            """Community Bankers' Bank, Midlothian"""
+
+            CORNER_STONE_BANK: str = "58859"
+            """CornerStone Bank, Lexington"""
+
+            FARMERS_AND_MERCHANTS_BANK: str = "8668"
+            """Farmers & Merchants Bank, Timberville"""
+
+            FARMERS_AND_MERCHANTS_BANK_OF_CRAIG_COUNTY: str = "9986"
+            """Farmers & Merchants Bank of Craig County, New Castle"""
+
+            FARMERS_AND_MINERS_BANK: str = "22888"
+            """Farmers and Miners Bank, Pennington Gap"""
+
+            FIRST_BANK: str = "6917"
+            """First Bank, Strasburg"""
+
+            FIRST_COMMUNITY_BANK: str = "13012"
+            """First Community Bank, Bluefield"""
+
+            FIRST_NATIONAL_BANK: str = "6811"
+            """First National Bank, Altavista"""
+
+            FIRST_SENTINEL_BANK: str = "31928"
+            """First Sentinel Bank, Richlands"""
+
+            FV_CBANK: str = "58696"
+            """FVCbank, Fairfax"""
+
+            HIGHLANDS_COMMUNITY_BANK: str = "57420"
+            """Highlands Community Bank, Covington"""
+
+            HSBC_BANK_USA_NATIONAL_ASSOCIATION: str = "57890"
+            """HSBC Bank USA, National Association, Tysons"""
+
+            INTEGRITY_BANK_FOR_BUSINESS: str = "59262"
+            """Integrity Bank for Business, Virginia Beach"""
+
+            JOHN_MARSHALL_BANK: str = "58243"
+            """John Marshall Bank, Reston"""
+
+            LEE_BANK_AND_TRUST_COMPANY: str = "11582"
+            """Lee Bank and Trust Company, Pennington Gap"""
+
+            LEGACY_BANK: str = "19011"
+            """Legacy Bank, Grundy"""
+
+            LOCUS_BANK_INC: str = "58658"
+            """Locus Bank, Inc., Richmond"""
+
+            MAIN_STREET_BANK: str = "57742"
+            """MainStreet Bank, Fairfax"""
+
+            MARTINSVILLE_FIRST_SAVINGS_BANK: str = "29685"
+            """Martinsville First Savings Bank, Martinsville"""
+
+            MINERS_EXCHANGE_BANK: str = "23989"
+            """Miners Exchange Bank, Coeburn"""
+
+            MOVEMENT_BANK: str = "9502"
+            """Movement Bank, Danville"""
+
+            NEW_HORIZON_BANK_NATIONAL_ASSOCIATION: str = "58857"
+            """New Horizon Bank, National Association, Powhatan"""
+
+            NEW_PEOPLES_BANK_INC: str = "34890"
+            """New Peoples Bank, Inc., Honaker"""
+
+            OAK_VIEW_NATIONAL_BANK: str = "58827"
+            """Oak View National Bank, Warrenton"""
+
+            OLD_DOMINION_NATIONAL_BANK: str = "58504"
+            """Old Dominion National Bank, Charlottesville"""
+
+            PIONEER_BANK: str = "6913"
+            """Pioneer Bank, Stanley"""
+
+            POWELL_VALLEY_NATIONAL_BANK: str = "6863"
+            """Powell Valley National Bank, Jonesville"""
+
+            PRIMIS_BANK: str = "57968"
+            """Primis Bank, Tappahannock"""
+
+            SELECT_BANK: str = "58563"
+            """Select Bank, Forest"""
+
+            SKYLINE_NATIONAL_BANK: str = "6861"
+            """SKYLINE NATIONAL BANK, Independence"""
+
+            THE_BANK_OF_CHARLOTTE_COUNTY: str = "14491"
+            """The Bank of Charlotte County, Phenix"""
+
+            THE_BANK_OF_MARION: str = "9507"
+            """The Bank of Marion, Marion"""
+
+            THE_BANK_OF_SOUTHSIDE_VIRGINIA: str = "11580"
+            """The Bank of Southside Virginia, Carson"""
+
+            THE_BLUE_GRASS_VALLEY_BANK: str = "8672"
+            """The Blue Grass Valley Bank, Blue Grass"""
+
+            THE_FARMERS_BANK_OF_APPOMATTOX: str = "6813"
+            """The Farmers Bank of Appomattox, Appomattox"""
+
+            THE_FIRST_BANK_AND_TRUST_COMPANY: str = "22918"
+            """The First Bank and Trust Company, Lebanon"""
+
+            THE_FREEDOM_BANK_OF_VIRGINIA: str = "57184"
+            """The Freedom Bank of Virginia, Fairfax"""
+
+            THE_NATIONAL_BANK_OF_BLACKSBURG: str = "6821"
+            """The National Bank of Blacksburg, Blacksburg"""
+
+            TOWNE_BANK: str = "35095"
+            """TowneBank, Portsmouth"""
+
+            TRU_POINT_BANK: str = "21883"
+            """TruPoint Bank, Grundy"""
+
+            TRUSTAR_BANK: str = "59183"
+            """Trustar Bank, Great Falls"""
+
+            UNITED_BANK: str = "22858"
+            """United Bank, Fairfax"""
+
+            VIRGINIA_NATIONAL_BANK: str = "34755"
+            """Virginia National Bank, Charlottesville"""
+
+        class Washington(System.Object):
+            """Banks headquartered in Washington."""
+
+            _1_ST_SECURITY_BANK_OF_WASHINGTON: str = "57633"
+            """1st Security Bank of Washington, Mountlake Terrace"""
+
+            BAKER_BOYER_NATIONAL_BANK: str = "2987"
+            """Baker-Boyer National Bank, Walla Walla"""
+
+            BANNER_BANK: str = "28489"
+            """Banner Bank, Walla Walla"""
+
+            CASHMERE_VALLEY_BANK: str = "1265"
+            """Cashmere Valley Bank, Cashmere"""
+
+            COASTAL_COMMUNITY_BANK: str = "34403"
+            """Coastal Community Bank, Everett"""
+
+            COMMENCEMENT_BANK: str = "58446"
+            """Commencement Bank, Tacoma"""
+
+            CONNECT_COMMUNITY_BANK: str = "28266"
+            """Connect Community Bank, Raymond"""
+
+            FARMERS_STATE_BANK: str = "6156"
+            """Farmers State Bank, Winthrop"""
+
+            FIRST_FED_BANK: str = "28405"
+            """First Fed Bank, Port Angeles"""
+
+            HERITAGE_BANK: str = "29012"
+            """Heritage Bank, Olympia"""
+
+            INCREASE_BANK: str = "35261"
+            """Increase Bank, Longview"""
+
+            LAMONT_BANK_OF_ST_JOHN: str = "8681"
+            """Lamont Bank of St. John, Saint John"""
+
+            LIBERTY_BANK: str = "58778"
+            """Liberty Bank, Poulsbo"""
+
+            MOUNTAIN_PACIFIC_BANK: str = "58341"
+            """Mountain Pacific Bank, Everett"""
+
+            OLYMPIA_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28599"
+            """Olympia Federal Savings and Loan Association, Olympia"""
+
+            PACIFIC_CREST_BANK: str = "34585"
+            """Pacific Crest Bank, Lynnwood"""
+
+            PEOPLES_BANK: str = "6158"
+            """Peoples Bank, Bellingham"""
+
+            PORTAGE_BANK: str = "8197"
+            """Portage Bank, Bellevue"""
+
+            RIVER_BANK: str = "58322"
+            """RiverBank, Spokane"""
+
+            RIVERVIEW_BANK: str = "29922"
+            """Riverview Bank, Vancouver"""
+
+            SEATTLE_BANK: str = "35139"
+            """Seattle Bank, Seattle"""
+
+            SOUND_BANKING_COMPANY: str = "33183"
+            """Sound Banking Company, Lakewood"""
+
+            SOUND_COMMUNITY_BANK: str = "57451"
+            """Sound Community Bank, Seattle"""
+
+            STATE_BANK_NORTHWEST: str = "2945"
+            """State Bank Northwest, Spokane Valley"""
+
+            TIMBERLAND_BANK: str = "28453"
+            """Timberland Bank, Hoquiam"""
+
+            UNI_BANK: str = "58407"
+            """UniBank, Lynnwood"""
+
+            WA_FD_BANK: str = "28088"
+            """WaFd Bank, Seattle"""
+
+            WASHINGTON_TRUST_BANK: str = "1281"
+            """Washington Trust Bank, Spokane"""
+
+            YAKIMA_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28116"
+            """Yakima Federal Savings and Loan Association, Yakima"""
+
+        class WestVirginia(System.Object):
+            """Banks headquartered in West Virginia."""
+
+            CALHOUN_COUNTY_BANK_INC: str = "9024"
+            """Calhoun County Bank, Inc., Grantsville"""
+
+            CAPON_VALLEY_BANK: str = "9998"
+            """Capon Valley Bank, Wardensville"""
+
+            CITIZENS_BANK_OF_MORGANTOWN_INC: str = "22954"
+            """Citizens Bank of Morgantown, Inc., Morgantown"""
+
+            CITIZENS_BANK_OF_WEST_VIRGINIA_INC: str = "6760"
+            """Citizens Bank of West Virginia, Inc., Elkins"""
+
+            CITY_NATIONAL_BANK_OF_WEST_VIRGINIA: str = "17735"
+            """City National Bank of West Virginia, Charleston"""
+
+            CLAY_COUNTY_BANK_INC: str = "2444"
+            """Clay County Bank, Inc., Clay"""
+
+            CLEAR_MOUNTAIN_BANK: str = "2443"
+            """Clear Mountain Bank, Bruceton Mills"""
+
+            CNB_BANK_INC: str = "14507"
+            """CNB Bank, Inc., Berkeley Springs"""
+
+            COMMUNITY_BANK_OF_PARKERSBURG: str = "19681"
+            """Community Bank of Parkersburg, Parkersburg"""
+
+            DAVIS_TRUST_COMPANY: str = "2453"
+            """Davis Trust Company, Elkins"""
+
+            FIRST_EXCHANGE_BANK: str = "13020"
+            """First Exchange Bank, White Hall"""
+
+            FIRST_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION_OF_RAVENSWOOD: str = "29490"
+            """First Federal Savings & Loan Association of Ravenswood, Ravenswood"""
+
+            FIRST_NEIGHBORHOOD_BANK: str = "6800"
+            """First Neighborhood Bank, Spencer"""
+
+            FNB_BANK_INC: str = "6794"
+            """FNB Bank, Inc., Romney"""
+
+            FREEDOM_BANK_INC: str = "15664"
+            """Freedom Bank, Inc., Belington"""
+
+            GUARANTY_BANK_INC: str = "22273"
+            """Guaranty Bank Inc., Williamson"""
+
+            HANCOCK_COUNTY_SAVINGS_BANK_FSB: str = "29035"
+            """Hancock County Savings Bank, F.S.B., Chester"""
+
+            HIGHLANDS_BANK: str = "11953"
+            """Highlands Bank, Petersburg"""
+
+            HUNTINGTON_FEDERAL_SAVINGS_BANK: str = "27884"
+            """Huntington Federal Savings Bank, Huntington"""
+
+            JEFFERSON_SECURITY_BANK: str = "9997"
+            """Jefferson Security Bank, Shepherdstown"""
+
+            LOGAN_BANK_AND_TRUST_COMPANY: str = "19285"
+            """Logan Bank & Trust Company, Logan"""
+
+            MCNB_BANK_AND_TRUST_CO: str = "6803"
+            """MCNB Bank and Trust Co., Welch"""
+
+            MOUNTAIN_VALLEY_BANK_NA: str = "6786"
+            """Mountain Valley Bank, N.A., Elkins"""
+
+            MVB_BANK_INC: str = "34603"
+            """MVB Bank, Inc, Fairmont"""
+
+            PENDLETON_COMMUNITY_BANK_INC: str = "6176"
+            """Pendleton Community Bank, Inc., Franklin"""
+
+            PIONEER_COMMUNITY_BANK_INC: str = "2448"
+            """Pioneer Community Bank, Inc., Iaeger"""
+
+            POTOMAC_BANK: str = "9023"
+            """Potomac Bank, Charles Town"""
+
+            PUTNAM_COUNTY_BANK: str = "15243"
+            """Putnam County Bank, Hurricane"""
+
+            THE_BANK_OF_MONROE: str = "6180"
+            """The Bank of Monroe, Union"""
+
+            THE_BANK_OF_ROMNEY: str = "845"
+            """The Bank of Romney, Romney"""
+
+            THE_CITIZENS_BANK_OF_WESTON: str = "19674"
+            """The Citizens Bank of Weston, Weston"""
+
+            THE_FAYETTE_COUNTY_NATIONAL_BANK_OF_FAYETTEVILLE: str = "6762"
+            """The Fayette County National Bank of Fayetteville, Fayetteville"""
+
+            THE_FIRST_NATIONAL_BANK_OF_PETERSTOWN: str = "6787"
+            """The First National Bank of Peterstown, Peterstown"""
+
+            THE_FIRST_NATIONAL_BANK_OF_WILLIAMSON: str = "6805"
+            """The First National Bank of Williamson, Williamson"""
+
+            THE_HARRISON_COUNTY_BANK: str = "9030"
+            """The Harrison County Bank, Lost Creek"""
+
+            THE_PLEASANTS_COUNTY_BANK: str = "847"
+            """The Pleasants County Bank, Saint Marys"""
+
+            THE_POCA_VALLEY_BANK_INC: str = "11952"
+            """The Poca Valley Bank, Inc., Walton"""
+
+            WES_BANCO_BANK_INC: str = "803"
+            """WesBanco Bank, Inc., Wheeling"""
+
+            WEST_UNION_BANK: str = "2452"
+            """West Union Bank, West Union"""
+
+            WHITESVILLE_STATE_BANK: str = "16453"
+            """Whitesville State Bank, Whitesville"""
+
+            WILLIAMSTOWN_BANK_INC: str = "14744"
+            """Williamstown Bank, Inc., Williamstown"""
+
+        class Wisconsin(System.Object):
+            """Banks headquartered in Wisconsin."""
+
+            ABBY_BANK: str = "19795"
+            """AbbyBank, Abbotsford"""
+
+            ALLIANCE_BANK: str = "12511"
+            """Alliance Bank, Mondovi"""
+
+            AMERICAN_NATIONAL_BANK_FOX_CITIES: str = "33812"
+            """American National Bank - Fox Cities, Appleton"""
+
+            ASSOCIATED_BANK_NATIONAL_ASSOCIATION: str = "5296"
+            """Associated Bank, National Association, Green Bay"""
+
+            BADGER_BANK: str = "2469"
+            """Badger Bank, Fort Atkinson"""
+
+            BANK_CMG: str = "11623"
+            """Bank Cmg, Madison"""
+
+            BANK_FIRST_NA: str = "5304"
+            """Bank First, N.A., Manitowoc"""
+
+            BANK_FIVE_NINE: str = "12517"
+            """Bank Five Nine, Oconomowoc"""
+
+            BANK_OF_ALMA: str = "26689"
+            """Bank of Alma, Alma"""
+
+            BANK_OF_CASHTON: str = "12325"
+            """Bank of Cashton, Cashton"""
+
+            BANK_OF_DEERFIELD: str = "2477"
+            """Bank of Deerfield, Deerfield"""
+
+            BANK_OF_LAKE_MILLS: str = "8695"
+            """Bank of Lake Mills, Lake Mills"""
+
+            BANK_OF_LUXEMBURG: str = "13264"
+            """Bank of Luxemburg, Luxemburg"""
+
+            BANK_OF_MAUSTON: str = "12327"
+            """Bank of Mauston, Mauston"""
+
+            BANK_OF_MILTON: str = "11232"
+            """Bank of Milton, Milton"""
+
+            BANK_OF_ONTARIO: str = "21085"
+            """Bank of Ontario, Ontario"""
+
+            BANK_OF_PRAIRIE_DU_SAC: str = "14660"
+            """Bank of Prairie du Sac, Prairie Du Sac"""
+
+            BANK_OF_SUN_PRAIRIE: str = "13565"
+            """Bank of Sun Prairie, Sun Prairie"""
+
+            BANK_OF_WISCONSIN_DELLS: str = "15136"
+            """Bank of Wisconsin Dells, Wisconsin Dells"""
+
+            BANKERS_BANK: str = "23537"
+            """Bankers' Bank, Madison"""
+
+            BARABOO_STATE_BANK: str = "12788"
+            """Baraboo State Bank, Baraboo"""
+
+            BAY_BANK: str = "34052"
+            """Bay Bank, Green Bay"""
+
+            BLACK_RIVER_COUNTRY_BANK: str = "15152"
+            """Black River Country Bank, Black River Falls"""
+
+            BLC_COMMUNITY_BANK: str = "11608"
+            """BLC Community Bank, Little Chute"""
+
+            BLUFF_VIEW_BANK: str = "8693"
+            """Bluff View Bank, Galesville"""
+
+            BONDUEL_STATE_BANK: str = "11235"
+            """Bonduel State Bank, Bonduel"""
+
+            BRISTOL_MORGAN_BANK: str = "9523"
+            """Bristol Morgan Bank, Oakfield"""
+
+            CAPITOL_BANK: str = "34074"
+            """Capitol Bank, Madison"""
+
+            CCF_BANK_NATIONAL_ASSOCIATION: str = "57265"
+            """CCFBank National Association, Altoona"""
+
+            CHIPPEWA_VALLEY_BANK: str = "12322"
+            """Chippewa Valley Bank, Hayward"""
+
+            CITIZENS_BANK: str = "13055"
+            """Citizens Bank, Mukwonago"""
+
+            CITIZENS_FIRST_BANK: str = "13032"
+            """Citizens First Bank, Viroqua"""
+
+            CITIZENS_STATE_BANK_CADOTT: str = "2467"
+            """Citizens State Bank, Cadott"""
+
+            CITIZENS_STATE_BANK_HUDSON: str = "6194"
+            """Citizens State Bank, Hudson"""
+
+            CITIZENS_STATE_BANK_OF_LA_CROSSE: str = "1513"
+            """Citizens State Bank of La Crosse, La Crosse"""
+
+            CITIZENS_STATE_BANK_OF_LOYAL: str = "6186"
+            """Citizens State Bank of Loyal, Loyal"""
+
+            CLARE_BANK_NATIONAL_ASSOCIATION: str = "1022"
+            """Clare Bank, National Association, Platteville"""
+
+            CLEVELAND_STATE_BANK: str = "9517"
+            """Cleveland State Bank, Cleveland"""
+
+            COLLINS_STATE_BANK: str = "14914"
+            """Collins State Bank, Collins"""
+
+            COLUMBIA_SAVINGS_AND_LOAN_ASSOCIATION: str = "28480"
+            """Columbia Savings and Loan Association, Milwaukee"""
+
+            COMMUNITY_BANK_OF_CAMERON: str = "12349"
+            """Community Bank of Cameron, Cameron"""
+
+            COMMUNITY_FIRST_BANK_BOSCOBEL: str = "11595"
+            """Community First Bank, Boscobel"""
+
+            COMMUNITY_FIRST_BANK_ROSHOLT: str = "12512"
+            """Community First Bank, Rosholt"""
+
+            COMMUNITY_STATE_BANK: str = "9536"
+            """Community State Bank, Union Grove"""
+
+            CONSERVATION_FIRST_BANK: str = "14316"
+            """Conservation First Bank, Benton"""
+
+            COULEE_BANK: str = "18361"
+            """Coulee Bank, La Crosse"""
+
+            CROSSBRIDGE_COMMUNITY_BANK: str = "30516"
+            """Crossbridge Community Bank, Tomahawk"""
+
+            CUMBERLAND_FEDERAL_BANK_FSB: str = "29293"
+            """Cumberland Federal Bank, FSB, Cumberland"""
+
+            DAIRY_STATE_BANK: str = "17162"
+            """Dairy State Bank, Rice Lake"""
+
+            DMB_COMMUNITY_BANK: str = "14769"
+            """DMB Community Bank, Madison"""
+
+            EAST_WISCONSIN_SAVINGS_BANK: str = "30313"
+            """East Wisconsin Savings Bank, Kaukauna"""
+
+            ERGO_BANK: str = "10004"
+            """Ergo Bank, Markesan"""
+
+            FARMERS_AND_MERCHANTS_BANK_AND_TRUST: str = "10382"
+            """Farmers & Merchants Bank & Trust, Marinette"""
+
+            FARMERS_AND_MERCHANTS_STATE_BANK: str = "13242"
+            """Farmers & Merchants State Bank, Waterloo"""
+
+            FARMERS_AND_MERCHANTS_UNION_BANK: str = "14445"
+            """Farmers and Merchants Union Bank, Columbus"""
+
+            FARMERS_SAVINGS_BANK: str = "13025"
+            """Farmers Savings Bank, Mineral Point"""
+
+            FIRST_BUSINESS_BANK: str = "15229"
+            """First Business Bank, Madison"""
+
+            FIRST_CITIZENS_STATE_BANK: str = "11228"
+            """First Citizens State Bank, Whitewater"""
+
+            FIRST_COMMUNITY_BANK: str = "11225"
+            """First Community Bank, Milton"""
+
+            FIRST_FEDERAL_BANK_OF_WISCONSIN: str = "30422"
+            """First Federal Bank of Wisconsin, Waukesha"""
+
+            FIRST_NATIONAL_BANK_IN_TIGERTON: str = "14400"
+            """First National Bank in Tigerton, Tigerton"""
+
+            FIRST_NATIONAL_COMMUNITY_BANK: str = "5357"
+            """First National Community Bank, New Richmond"""
+
+            FIRST_STATE_BANK: str = "15271"
+            """First State Bank, New London"""
+
+            FORTE_BANK: str = "5297"
+            """FORTE BANK, Hartford"""
+
+            FORTIFI_BANK: str = "5286"
+            """Fortifi Bank, Berlin"""
+
+            FORWARD_BANK: str = "28530"
+            """Forward Bank, Marshfield"""
+
+            FOX_VALLEY_SAVINGS_BANK: str = "29188"
+            """Fox Valley Savings Bank, Fond Du Lac"""
+
+            GREAT_MIDWEST_BANK_SSB: str = "29657"
+            """Great Midwest Bank, S.S.B., Brookfield"""
+
+            GREAT_NORTH_BANK: str = "15146"
+            """Great North Bank, Florence"""
+
+            GREEN_LEAF_BANK: str = "12661"
+            """GreenLeaf Bank, Greenleaf"""
+
+            HEADWATERS_STATE_BANK: str = "9035"
+            """Headwaters State Bank, Land O' Lakes"""
+
+            HIAWATHA_NATIONAL_BANK: str = "13058"
+            """Hiawatha National Bank, Hager City"""
+
+            HIGHLAND_STATE_BANK: str = "6198"
+            """Highland State Bank, Highland"""
+
+            HORICON_BANK: str = "11236"
+            """Horicon Bank, Horicon"""
+
+            HUSTISFORD_STATE_BANK: str = "12354"
+            """Hustisford State Bank, Hustisford"""
+
+            INCREDIBLE_BANK: str = "19772"
+            """IncredibleBank, Wausau"""
+
+            INDEPENDENCE_STATE_BANK: str = "10741"
+            """Independence State Bank, Independence"""
+
+            IXONIA_BANK: str = "12514"
+            """Ixonia Bank, Ixonia"""
+
+            JOHN_DEERE_FINANCIAL_FSB: str = "35237"
+            """John Deere Financial, f.s.b., Middleton"""
+
+            JOHNSON_BANK: str = "20296"
+            """Johnson Bank, Racine"""
+
+            KEY_SAVINGS_BANK: str = "29691"
+            """KeySavings Bank, Wisconsin Rapids"""
+
+            LADYSMITH_FEDERAL_SAVINGS_AND_LOAN_ASSOCIATION: str = "28983"
+            """Ladysmith Federal Savings and Loan Association, Ladysmith"""
+
+            LAKE_RIDGE_BANK: str = "15091"
+            """Lake Ridge Bank, Middleton"""
+
+            LAONA_STATE_BANK: str = "11601"
+            """Laona State Bank, Laona"""
+
+            MARATHON_BANK: str = "29745"
+            """Marathon Bank, Wausau"""
+
+            MAYVILLE_SAVINGS_BANK: str = "30585"
+            """Mayville Savings Bank, Mayville"""
+
+            MOUND_CITY_BANK: str = "9037"
+            """Mound City Bank, Platteville"""
+
+            NATIONAL_BANK_OF_COMMERCE: str = "14266"
+            """National Bank of Commerce, Superior"""
+
+            NATIONAL_EXCHANGE_BANK_AND_TRUST: str = "10044"
+            """National Exchange Bank and Trust, Fond Du Lac"""
+
+            NEKOOSA_PORT_EDWARDS_STATE_BANK: str = "2482"
+            """Nekoosa Port Edwards State Bank, Nekoosa"""
+
+            NICOLET_NATIONAL_BANK: str = "57038"
+            """Nicolet National Bank, Green Bay"""
+
+            NORTH_SHORE_BANK: str = "28679"
+            """North Shore Bank, Brookfield"""
+
+            NORTHERN_STATE_BANK: str = "15242"
+            """Northern State Bank, Ashland"""
+
+            NORTHWESTERN_BANK: str = "2468"
+            """Northwestern Bank, Chippewa Falls"""
+
+            NORTHWESTERN_MUTUAL_WEALTH_MANAGEMENT: str = "57093"
+            """Northwestern Mutual Wealth Management, Milwaukee"""
+
+            OAK_BANK: str = "35333"
+            """Oak Bank, Fitchburg"""
+
+            OAKWOOD_BANK: str = "13030"
+            """Oakwood Bank, Pigeon Falls"""
+
+            ONE_COMMUNITY_BANK: str = "22334"
+            """One Community Bank, Oregon"""
+
+            OOSTBURG_STATE_BANK: str = "10380"
+            """Oostburg State Bank, Oostburg"""
+
+            PAPER_CITY_SAVINGS_BANK_SA: str = "29676"
+            """Paper City Savings Bank, S.A., Wisconsin Rapids"""
+
+            PARK_BANK_NATIONAL_ASSOCIATION: str = "13054"
+            """Park Bank, National Association, Holmen"""
+
+            PARTNERS_BANK_OF_WISCONSIN: str = "12513"
+            """Partners Bank of Wisconsin, Marshfield"""
+
+            PEOPLES_STATE_BANK_PRAIRIE_DU_CHIEN: str = "12814"
+            """Peoples State Bank, Prairie Du Chien"""
+
+            PEOPLES_STATE_BANK_WAUSAU: str = "18569"
+            """Peoples State Bank, Wausau"""
+
+            PILLAR_BANK: str = "5336"
+            """Pillar Bank, Baldwin"""
+
+            PREMIER_COMMUNITY_BANK: str = "15799"
+            """Premier Community Bank, Marion"""
+
+            PREMIER_BANK: str = "5295"
+            """PremierBank, Fort Atkinson"""
+
+            PREVAIL_BANK: str = "29294"
+            """Prevail Bank, Medford"""
+
+            PYRA_MAX_BANK_FSB: str = "29120"
+            """PyraMax Bank, FSB, Greenfield"""
+
+            RICHLAND_COUNTY_BANK: str = "15092"
+            """Richland County Bank, Richland Center"""
+
+            RIVER_BANK: str = "14995"
+            """River Bank, Stoddard"""
+
+            RIVER_FALLS_STATE_BANK: str = "16840"
+            """River Falls State Bank, River Falls"""
+
+            ROYAL_BANK: str = "13454"
+            """Royal Bank, Elroy"""
+
+            SECURITY_BANK: str = "10015"
+            """Security Bank, New Auburn"""
+
+            SECURITY_FINANCIAL_BANK: str = "14222"
+            """Security Financial Bank, Durand"""
+
+            SECURITY_STATE_BANK: str = "9036"
+            """Security State Bank, Iron River"""
+
+            SHELL_LAKE_STATE_BANK: str = "14911"
+            """Shell Lake State Bank, Shell Lake"""
+
+            SPRING_BANK: str = "58780"
+            """Spring Bank, Brookfield"""
+
+            STATE_BANK_FINANCIAL: str = "10383"
+            """State Bank Financial, La Crosse"""
+
+            STATE_BANK_OF_CHILTON: str = "12331"
+            """State Bank of Chilton, Chilton"""
+
+            STATE_BANK_OF_NEWBURG: str = "9529"
+            """State Bank of Newburg, Newburg"""
+
+            STATE_BANK_OF_REESEVILLE: str = "14960"
+            """State Bank of Reeseville, Reeseville"""
+
+            STERLING_BANK: str = "6195"
+            """Sterling Bank, Barron"""
+
+            SUPERIOR_SAVINGS_BANK: str = "28790"
+            """Superior Savings Bank, Superior"""
+
+            THE_BANK_OF_BRODHEAD: str = "2455"
+            """The Bank of Brodhead, Brodhead"""
+
+            THE_BANK_OF_KAUKAUNA: str = "15228"
+            """The Bank of Kaukauna, Kaukauna"""
+
+            THE_BANK_OF_NEW_GLARUS: str = "10378"
+            """The Bank of New Glarus, New Glarus"""
+
+            THE_EQUITABLE_BANK_SSB: str = "28614"
+            """The Equitable Bank, S.S.B., Wauwatosa"""
+
+            THE_FARMERS_AND_MERCHANTS_BANK: str = "15779"
+            """The Farmers & Merchants Bank, Berlin"""
+
+            THE_FARMERS_STATE_BANK_OF_WAUPACA: str = "13033"
+            """The Farmers State Bank of Waupaca, Waupaca"""
+
+            THE_FIRST_NATIONAL_BANK_OF_BANGOR: str = "5337"
+            """The First National Bank of Bangor, Bangor"""
+
+            THE_FIRST_NATIONAL_BANK_OF_RIVER_FALLS: str = "5364"
+            """The First National Bank of River Falls, River Falls"""
+
+            THE_INTERNATIONAL_BANK_OF_AMHERST: str = "14907"
+            """The International Bank of Amherst, Amherst"""
+
+            THE_PARK_BANK: str = "19608"
+            """The Park Bank, Madison"""
+
+            THE_PEOPLES_COMMUNITY_BANK: str = "15046"
+            """The Peoples Community Bank, Mazomanie"""
+
+            THE_PESHTIGO_NATIONAL_BANK: str = "5317"
+            """The Peshtigo National Bank, Peshtigo"""
+
+            THE_PINERIES_BANK: str = "9526"
+            """The Pineries Bank, Stevens Point"""
+
+            THE_PORT_WASHINGTON_STATE_BANK: str = "8698"
+            """The Port Washington State Bank, Port Washington"""
+
+            THE_PORTAGE_COUNTY_BANK: str = "10012"
+            """The Portage County Bank, Almond"""
+
+            THE_STEPHENSON_NATIONAL_BANK_AND_TRUST: str = "5306"
+            """The Stephenson National Bank and Trust, Marinette"""
+
+            THRIVENT_TRUST_COMPANY: str = "34799"
+            """Thrivent Trust Company, Appleton"""
+
+            TOWN_BANK_NATIONAL_ASSOCIATION: str = "34717"
+            """Town Bank, National Association, Hartland"""
+
+            TRI_CITY_NATIONAL_BANK: str = "18922"
+            """Tri City National Bank, Oak Creek"""
+
+            UNION_STATE_BANK: str = "14560"
+            """Union State Bank, West Salem"""
+
+            UNITY_BANK: str = "8714"
+            """Unity Bank, Augusta"""
+
+            WALDO_STATE_BANK: str = "8700"
+            """Waldo State Bank, Waldo"""
+
+            WATER_STONE_BANK_SSB: str = "28513"
+            """WaterStone Bank, SSB, Wauwatosa"""
+
+            WAUKESHA_STATE_BANK: str = "16160"
+            """Waukesha State Bank, Waukesha"""
+
+            WAUMANDEE_STATE_BANK: str = "10384"
+            """Waumandee State Bank, Waumandee"""
+
+            WEST_POINTE_BANK: str = "34162"
+            """West Pointe Bank, Oshkosh"""
+
+            WESTBURY_BANK: str = "28400"
+            """Westbury Bank, Waukesha"""
+
+            WOLF_RIVER_COMMUNITY_BANK: str = "34240"
+            """Wolf River Community Bank, Hortonville"""
+
+            WOODFORD_STATE_BANK: str = "10011"
+            """Woodford State Bank, Monroe"""
+
+            WOODTRUST_BANK: str = "5335"
+            """WOODTRUST BANK, Wisconsin Rapids"""
+
+        class Wyoming(System.Object):
+            """Banks headquartered in Wyoming."""
+
+            _2_UNIFI_BANK: str = "23826"
+            """2unifi Bank, Jackson"""
+
+            BANK_OF_COMMERCE: str = "22639"
+            """Bank of Commerce, Rawlins"""
+
+            BANK_OF_STAR_VALLEY: str = "34148"
+            """Bank of Star Valley, Afton"""
+
+            BIG_HORN_FEDERAL_SAVINGS_BANK: str = "29637"
+            """Big Horn Federal Savings Bank, Greybull"""
+
+            BUFFALO_FEDERAL_BANK: str = "29696"
+            """Buffalo Federal Bank, Buffalo"""
+
+            CENTRAL_BANK_AND_TRUST: str = "529"
+            """Central Bank and Trust, Lander"""
+
+            COWBOY_STATE_BANK: str = "8725"
+            """Cowboy State Bank, Ranchester"""
+
+            FARMERS_STATE_BANK: str = "526"
+            """Farmers State Bank, Pine Bluffs"""
+
+            FIRST_FEDERAL_BANK_AND_TRUST: str = "29537"
+            """First Federal Bank & Trust, Sheridan"""
+
+            FIRST_NATIONAL_BANK_OF_GILLETTE: str = "18880"
+            """First National Bank of Gillette, Gillette"""
+
+            FIRST_NORTHERN_BANK_OF_WYOMING: str = "2208"
+            """First Northern Bank of Wyoming, Buffalo"""
+
+            HILLTOP_NATIONAL_BANK: str = "19184"
+            """Hilltop National Bank, Casper"""
+
+            JONAH_BANK_OF_WYOMING: str = "58396"
+            """Jonah Bank of Wyoming, Casper"""
+
+            PINNACLE_BANK_WYOMING: str = "2232"
+            """Pinnacle Bank - Wyoming, Cody"""
+
+            PLATTE_VALLEY_BANK: str = "5442"
+            """Platte Valley Bank, Torrington"""
+
+            RNB_STATE_BANK: str = "2228"
+            """RNB STATE BANK, Rawlins"""
+
+            RSNB_BANK: str = "2229"
+            """RSNB Bank, Rock Springs"""
+
+            SECURITY_STATE_BANK: str = "12592"
+            """Security State Bank, Basin"""
+
+            STATE_BANK: str = "34441"
+            """State Bank, Green River"""
+
+            SUMMIT_NATIONAL_BANK: str = "25054"
+            """Summit National Bank, Hulett"""
+
+            SUNDANCE_STATE_BANK: str = "1169"
+            """Sundance State Bank, Sundance"""
+
+            TANAGER_BANK: str = "1167"
+            """Tanager Bank, Jackson"""
+
+            THE_CONVERSE_COUNTY_BANK: str = "12591"
+            """The Converse County Bank, Douglas"""
+
+            WYOMING_COMMUNITY_BANK: str = "35220"
+            """Wyoming Community Bank, Riverton"""
+
+        ALL: str = "ALL"
+        """Every insured bank, for use with FDICBankReports."""
+
+    FAILURES: str = "FAILURES"
+    """Every bank failure since 1934, for use with FDICBankFailures."""
+
+
+class FDICBankReports(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    The FDIC call reports published on one day, for every insured bank whether or not a listed
+    company owns it: one FDICBankFinancial per bank and quarter published or amended that day.
+    
+    Subscribe with FDIC.Banks.ALL to receive every bank, or with a constant of
+    FDIC.Banks to receive one. The records are not tied to a security; for the
+    banks of a listed company, FDICBankFinancials files them under its ticker.
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file per day, carrying every bank published that day."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: there is a file only on the days the FDIC publishes call reports."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads one line of the file into one call report, and skips it when the subscription is
+        for another bank. The engine folds the lines into the collection, so one day gives one point.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Not linked to a security: a bank is addressed by its FDIC certificate number."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDICBankFinancials(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Every FDIC call report a listed holding company carries for one day: one FDICBankFinancial
+    per insured bank it owned, for each quarter published or amended that day. A holding
+    company with one bank receives one record per quarter, one with several receives several.
+    
+    The collection carries no totals of its own. A holding company's deposits across its banks
+    are a sum over the records that no call report states, so they are left to the algorithm.
+    """
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: one file per listed holding company."""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse data: a holding company only has records on the days the FDIC publishes them."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads one line of the file into one call report. The engine folds the lines into the
+        collection, grouping them by their end time, so one day gives one point.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Linked to Equities, so renames and delistings are applied through map files."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDICBankFinancialsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """
+    Universe selection data for FDIC bank call reports: every call report published or amended
+    on a day, one record per insured bank, each carrying the symbol of the listed holding
+    company that owned it. A holding company with several banks appears once per bank.
+    """
+
+    @property
+    def report_date(self) -> datetime.datetime:
+        """The last day of the quarter the figures describe."""
+        ...
+
+    @report_date.setter
+    def report_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def certificate(self) -> int:
+        """FDIC certificate number of the bank, its permanent identifier with the FDIC."""
+        ...
+
+    @certificate.setter
+    def certificate(self, value: int) -> None:
+        ...
+
+    @property
+    def institution_name(self) -> str:
+        """Name of the bank as the FDIC records it today."""
+        ...
+
+    @institution_name.setter
+    def institution_name(self, value: str) -> None:
+        ...
+
+    @property
+    def state(self) -> str:
+        """Two-letter code of the state where the bank had its headquarters in that quarter."""
+        ...
+
+    @state.setter
+    def state(self, value: str) -> None:
+        ...
+
+    @property
+    def city(self) -> str:
+        """City where the bank had its headquarters in that quarter."""
+        ...
+
+    @city.setter
+    def city(self, value: str) -> None:
+        ...
+
+    @property
+    def holding_company_id(self) -> typing.Optional[int]:
+        """Federal Reserve identifier (RSSD ID) of the holding company that owned the bank in that quarter."""
+        ...
+
+    @holding_company_id.setter
+    def holding_company_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def total_assets(self) -> typing.Optional[float]:
+        """Total assets, in thousands of dollars. This is also the data point's Value."""
+        ...
+
+    @total_assets.setter
+    def total_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_liabilities(self) -> typing.Optional[float]:
+        """Total liabilities, in thousands of dollars."""
+        ...
+
+    @total_liabilities.setter
+    def total_liabilities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_equity_capital(self) -> typing.Optional[float]:
+        """Total equity capital, in thousands of dollars."""
+        ...
+
+    @total_equity_capital.setter
+    def total_equity_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def risk_weighted_assets(self) -> typing.Optional[float]:
+        """Risk-weighted assets as used for the tier 1 and common equity tier 1 ratios, in thousands of dollars."""
+        ...
+
+    @risk_weighted_assets.setter
+    def risk_weighted_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def tier_1_capital(self) -> typing.Optional[float]:
+        """Tier 1 risk-based capital, in thousands of dollars."""
+        ...
+
+    @tier_1_capital.setter
+    def tier_1_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def common_equity_tier_1_capital(self) -> typing.Optional[float]:
+        """Common equity tier 1 capital, in thousands of dollars."""
+        ...
+
+    @common_equity_tier_1_capital.setter
+    def common_equity_tier_1_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_risk_based_capital(self) -> typing.Optional[float]:
+        """Total risk-based capital, tier 1 plus tier 2, in thousands of dollars."""
+        ...
+
+    @total_risk_based_capital.setter
+    def total_risk_based_capital(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_deposits(self) -> typing.Optional[float]:
+        """Total deposits, domestic and foreign offices, in thousands of dollars."""
+        ...
+
+    @total_deposits.setter
+    def total_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def domestic_deposits(self) -> typing.Optional[float]:
+        """Deposits held in domestic offices, in thousands of dollars."""
+        ...
+
+    @domestic_deposits.setter
+    def domestic_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def estimated_insured_deposits(self) -> typing.Optional[float]:
+        """Deposits estimated to be covered by FDIC insurance, in thousands of dollars."""
+        ...
+
+    @estimated_insured_deposits.setter
+    def estimated_insured_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def estimated_uninsured_deposits(self) -> typing.Optional[float]:
+        """Deposits in domestic offices estimated to exceed the insurance limit, in thousands of dollars."""
+        ...
+
+    @estimated_uninsured_deposits.setter
+    def estimated_uninsured_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def core_deposits(self) -> typing.Optional[float]:
+        """Core deposits as the FDIC defines them, in thousands of dollars."""
+        ...
+
+    @core_deposits.setter
+    def core_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def brokered_deposits(self) -> typing.Optional[float]:
+        """Deposits placed through brokers, in thousands of dollars."""
+        ...
+
+    @brokered_deposits.setter
+    def brokered_deposits(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_loans_and_leases(self) -> typing.Optional[float]:
+        """Total loans and leases before the allowance for credit losses, in thousands of dollars."""
+        ...
+
+    @total_loans_and_leases.setter
+    def total_loans_and_leases(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_loans_and_leases(self) -> typing.Optional[float]:
+        """Total loans and leases net of unearned income and of the allowance for credit losses, in thousands of dollars."""
+        ...
+
+    @net_loans_and_leases.setter
+    def net_loans_and_leases(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def real_estate_loans(self) -> typing.Optional[float]:
+        """Loans secured by real estate, in thousands of dollars."""
+        ...
+
+    @real_estate_loans.setter
+    def real_estate_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def construction_and_land_development_loans(self) -> typing.Optional[float]:
+        """Construction and land development loans, in thousands of dollars."""
+        ...
+
+    @construction_and_land_development_loans.setter
+    def construction_and_land_development_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def nonfarm_nonresidential_loans(self) -> typing.Optional[float]:
+        """Loans secured by nonfarm nonresidential properties, in thousands of dollars."""
+        ...
+
+    @nonfarm_nonresidential_loans.setter
+    def nonfarm_nonresidential_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def multifamily_loans(self) -> typing.Optional[float]:
+        """Loans secured by multifamily residential properties, in thousands of dollars."""
+        ...
+
+    @multifamily_loans.setter
+    def multifamily_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def residential_mortgage_loans(self) -> typing.Optional[float]:
+        """Loans secured by one to four family residential properties, in thousands of dollars."""
+        ...
+
+    @residential_mortgage_loans.setter
+    def residential_mortgage_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def commercial_and_industrial_loans(self) -> typing.Optional[float]:
+        """Commercial and industrial loans, in thousands of dollars."""
+        ...
+
+    @commercial_and_industrial_loans.setter
+    def commercial_and_industrial_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consumer_loans(self) -> typing.Optional[float]:
+        """Loans to individuals for household, family and other personal expenditures, in thousands of dollars."""
+        ...
+
+    @consumer_loans.setter
+    def consumer_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def credit_card_loans(self) -> typing.Optional[float]:
+        """Consumer credit card loans, in thousands of dollars."""
+        ...
+
+    @credit_card_loans.setter
+    def credit_card_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def auto_loans(self) -> typing.Optional[float]:
+        """Consumer automobile loans, in thousands of dollars."""
+        ...
+
+    @auto_loans.setter
+    def auto_loans(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_securities(self) -> typing.Optional[float]:
+        """Total securities, in thousands of dollars."""
+        ...
+
+    @total_securities.setter
+    def total_securities(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def held_to_maturity_securities_amortized_cost(self) -> typing.Optional[float]:
+        """Held-to-maturity securities at amortized cost, the value they carry on the balance sheet, in thousands of dollars."""
+        ...
+
+    @held_to_maturity_securities_amortized_cost.setter
+    def held_to_maturity_securities_amortized_cost(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def held_to_maturity_securities_fair_value(self) -> typing.Optional[float]:
+        """Held-to-maturity securities at fair value, in thousands of dollars. The gap to the amortized cost is the unrealized gain or loss the balance sheet does not show."""
+        ...
+
+    @held_to_maturity_securities_fair_value.setter
+    def held_to_maturity_securities_fair_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def available_for_sale_securities_amortized_cost(self) -> typing.Optional[float]:
+        """Available-for-sale securities at amortized cost, in thousands of dollars."""
+        ...
+
+    @available_for_sale_securities_amortized_cost.setter
+    def available_for_sale_securities_amortized_cost(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def available_for_sale_securities_fair_value(self) -> typing.Optional[float]:
+        """Available-for-sale securities at fair value, the value they carry on the balance sheet, in thousands of dollars."""
+        ...
+
+    @available_for_sale_securities_fair_value.setter
+    def available_for_sale_securities_fair_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def cash_and_due_from_banks(self) -> typing.Optional[float]:
+        """Cash and balances due from depository institutions, in thousands of dollars."""
+        ...
+
+    @cash_and_due_from_banks.setter
+    def cash_and_due_from_banks(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trading_assets(self) -> typing.Optional[float]:
+        """Trading account assets, in thousands of dollars."""
+        ...
+
+    @trading_assets.setter
+    def trading_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def intangible_assets(self) -> typing.Optional[float]:
+        """Intangible assets, including goodwill, in thousands of dollars."""
+        ...
+
+    @intangible_assets.setter
+    def intangible_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interest_income_year_to_date(self) -> typing.Optional[float]:
+        """Total interest income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @interest_income_year_to_date.setter
+    def interest_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interest_expense_year_to_date(self) -> typing.Optional[float]:
+        """Total interest expense, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @interest_expense_year_to_date.setter
+    def interest_expense_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def noninterest_income_year_to_date(self) -> typing.Optional[float]:
+        """Total noninterest income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @noninterest_income_year_to_date.setter
+    def noninterest_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def noninterest_expense_year_to_date(self) -> typing.Optional[float]:
+        """Total noninterest expense, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @noninterest_expense_year_to_date.setter
+    def noninterest_expense_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def provision_for_credit_losses_year_to_date(self) -> typing.Optional[float]:
+        """Provision for credit losses, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @provision_for_credit_losses_year_to_date.setter
+    def provision_for_credit_losses_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def income_taxes_year_to_date(self) -> typing.Optional[float]:
+        """Applicable income taxes, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @income_taxes_year_to_date.setter
+    def income_taxes_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_income_year_to_date(self) -> typing.Optional[float]:
+        """Net income, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @net_income_year_to_date.setter
+    def net_income_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def net_charge_offs_year_to_date(self) -> typing.Optional[float]:
+        """Loan and lease charge-offs net of recoveries, in thousands of dollars, year to date: the call report states income from January 1 through the report date, so the second quarter carries six months."""
+        ...
+
+    @net_charge_offs_year_to_date.setter
+    def net_charge_offs_year_to_date(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def past_due_30_to_89_days(self) -> typing.Optional[float]:
+        """Assets 30 to 89 days past due and still accruing, in thousands of dollars."""
+        ...
+
+    @past_due_30_to_89_days.setter
+    def past_due_30_to_89_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def past_due_90_days_or_more(self) -> typing.Optional[float]:
+        """Assets 90 days or more past due and still accruing, in thousands of dollars."""
+        ...
+
+    @past_due_90_days_or_more.setter
+    def past_due_90_days_or_more(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def nonaccrual_assets(self) -> typing.Optional[float]:
+        """Assets in nonaccrual status, in thousands of dollars."""
+        ...
+
+    @nonaccrual_assets.setter
+    def nonaccrual_assets(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def full_time_equivalent_employees(self) -> typing.Optional[float]:
+        """Number of full-time equivalent employees."""
+        ...
+
+    @full_time_equivalent_employees.setter
+    def full_time_equivalent_employees(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def domestic_offices(self) -> typing.Optional[float]:
+        """Number of domestic offices, headquarters included."""
+        ...
+
+    @domestic_offices.setter
+    def domestic_offices(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The record ends at midnight of the day it became available."""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the universe file: alternative/fdic/financials/universe/{yyyyMMdd}.csv"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Sparse: there is a universe file only on the days call reports are published."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses one universe line: the security identifier, the ticker, then a call report line."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
+class FDICInstitutionNameProvider(System.Object):
+    """
+    The names of FDIC-insured banks, by certificate number, read from the institutions.csv
+    published beside the dataset. A name is the one the FDIC records today, so an old call
+    report shows the name the bank carries now.
+    """
+
+    @staticmethod
+    def get_name(certificate: int) -> str:
+        """The bank's name, or null for a certificate number the file does not carry."""
+        ...
 
 
 class CFTCFinancialFutures(QuantConnect.Data.BaseData):

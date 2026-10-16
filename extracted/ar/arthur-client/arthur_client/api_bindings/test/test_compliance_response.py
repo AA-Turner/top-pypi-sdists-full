@@ -42,7 +42,8 @@ class TestComplianceResponse(unittest.TestCase):
                         rule = arthur_client.api_bindings.models.compliance_rule_summary.ComplianceRuleSummary(
                             id = '', 
                             materialized_rule_id = '', 
-                            name = '', ), 
+                            name = '', 
+                            is_deleted = True, ), 
                         model = arthur_client.api_bindings.models.compliance_model_summary.ComplianceModelSummary(
                             id = '', 
                             name = '', ), 
@@ -90,7 +91,8 @@ class TestComplianceResponse(unittest.TestCase):
                         rule = arthur_client.api_bindings.models.compliance_rule_summary.ComplianceRuleSummary(
                             id = '', 
                             materialized_rule_id = '', 
-                            name = '', ), 
+                            name = '', 
+                            is_deleted = True, ), 
                         model = arthur_client.api_bindings.models.compliance_model_summary.ComplianceModelSummary(
                             id = '', 
                             name = '', ), 

@@ -23,6 +23,10 @@ pub struct DatabaseSource {
     /// Additional source-specific options. DO NOT STORE CREDENTIALS IN HERE.
     #[prost(map="string, message", tag="3")]
     pub options: ::std::collections::HashMap<::prost::alloc::string::String, ::prost_types::Value>,
+    /// Permission tags associated with datasource access for datasource RBAC (akin to Feature Tags). These permission tags are
+    /// NOT THE SAME as Routing Tags (SQLSourceGroupTags and Resolver Tags).
+    #[prost(string, repeated, tag="4")]
+    pub permission_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

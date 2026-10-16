@@ -261,9 +261,9 @@ Child.shared
     "#,
 );
 
+// This demonstrates why allowing method assignment is unsound when method types are covariant.
 testcase!(
-    bug = "Example of how making methods read-write but not invariant is unsound",
-    test_method_assign,
+    test_method_assign_disabled_by_default,
     r#"
 from typing import Protocol
 class X(Protocol):
@@ -277,6 +277,86 @@ def func(x: X):
 y: Y = Y()
 func(y)
 y.foo()  # result is "hi"
+    "#,
+);
+
+testcase!(
+    test_method_assign,
+    TestEnv::new().enable_method_assign_error(),
+    r#"
+from collections.abc import Callable
+from typing import ClassVar
+
+class A:
+    def method(self) -> None: ...
+
+    @staticmethod
+    def static_method() -> None: ...
+
+    @classmethod
+    def class_method(cls) -> None: ...
+
+    callback: Callable[[], None] = lambda: None
+    class_var_method: ClassVar[Callable[["A"], None]] = lambda self: None
+
+class B(A):
+    pass
+
+def replacement(self: A) -> None: ...
+
+a = A()
+A.method = replacement  # E: Cannot assign to method `method`
+a.method = lambda: None  # E: Cannot assign to method `method`
+A.static_method = lambda: None  # E: Cannot assign to method `static_method`
+a.static_method = lambda: None  # E: Cannot assign to method `static_method`
+A.class_method = lambda: None  # E: Cannot assign to method `class_method`
+a.class_method = lambda: None  # E: Cannot assign to method `class_method`
+B.method = replacement  # E: Cannot assign to method `method`
+B().method = lambda: None  # E: Cannot assign to method `method`
+A.callback = lambda: None
+a.callback = lambda: None
+a.class_var_method = lambda: None  # E: Cannot set field `class_var_method`
+    "#,
+);
+
+testcase!(
+    test_method_assign_lookup_precedence,
+    TestEnv::new().enable_method_assign_error(),
+    r#"
+from collections.abc import Callable
+from typing import TypedDict
+
+class Meta(type):
+    def f(cls) -> None: ...
+
+class C(metaclass=Meta):
+    pass
+
+C.f = C.f  # E: Cannot assign to method `f`
+
+class D(TypedDict):
+    items: int
+
+d: D = {"items": 1}
+d.items = d.items  # E: Cannot assign to method `items`
+
+class Base:
+    def f(self) -> None: ...
+
+class Child(Base):
+    f: Callable[[], None] = lambda: None
+
+    def test(self) -> None:
+        super().f = lambda: None  # E: Cannot set field `f`
+
+class Parent:
+    f: Callable[[], None] = lambda: None
+
+class Derived(Parent):
+    def f(self) -> None: ...
+
+    def test(self) -> None:
+        super().f = lambda: None  # E: Cannot set field `f`
     "#,
 );
 
@@ -581,6 +661,48 @@ assert_type(C().f(None, 1), int)
 # This is why the behavior is ambiguous - at runtime, the default `C.f` is a
 # method but the instance-level shadow is not.
 C().f = lambda _, x: x
+"#,
+);
+
+// https://github.com/facebook/pyrefly/issues/3465
+testcase!(
+    test_callable_with_containing_class_first_param_is_method,
+    r#"
+from typing import assert_type, Callable
+def _unary_op(name: str) -> Callable[["Column"], "Column"]: ...
+def _bin_op(name: str) -> Callable[["Column", "Column | int"], "Column"]: ...
+def _callback(name: str) -> Callable[[int], int]: ...
+class Column:
+    isNull = _unary_op("isNull")
+    eqNullSafe = _bin_op("eqNullSafe")
+    callback = _callback("callback")
+c = Column()
+assert_type(c.isNull(), Column)
+assert_type(c.eqNullSafe(c), Column)
+assert_type(c.eqNullSafe(1), Column)
+assert_type(Column.isNull(c), Column)
+assert_type(c.callback(1), int)
+c.isNull(c)  # E: Expected 0 positional arguments
+# An instance-level shadow is not bound at runtime, so it must accept the bound signature.
+c.isNull = lambda: c
+c.isNull = _unary_op("isNull")  # E: not assignable to attribute `isNull`
+"#,
+);
+
+// An explicitly annotated Callable is an instance attribute, so it is not bound even when its
+// first parameter is the containing class. This pattern appears in aiohttp's `ClientResponse`.
+testcase!(
+    test_annotated_callable_with_containing_class_first_param_is_not_method,
+    r#"
+from typing import assert_type, Callable
+class Response:
+    resolve: Callable[["Response", bytes], str] = lambda *_: "utf-8"
+    def __init__(self, resolve: Callable[["Response", bytes], str]) -> None:
+        self.resolve = resolve
+    def encoding(self) -> str:
+        return self.resolve(self, b"")
+r = Response(lambda _, b: "utf-8")
+assert_type(r.resolve(r, b""), str)
 "#,
 );
 
@@ -1044,6 +1166,39 @@ assert_type(y, int)
     "#,
 );
 
+testcase!(
+    test_conditional_import_dynamic_unknown_is_preserved,
+    {
+        let mut env = TestEnv::new();
+        env.add_with_path(
+            "modern",
+            "modern.pyi",
+            "class Meta(type):\n    value: int\n    def method(self) -> str: ...",
+        );
+        env.add_with_path(
+            "dynamic_fallback",
+            "dynamic_fallback.pyi",
+            "from typing import Any\ndef __getattr__(name: str) -> Any: ...",
+        );
+        env
+    },
+    r#"
+try:
+    from modern import Meta
+except ImportError:
+    from dynamic_fallback import Meta
+class C(Meta):
+    pass
+from typing import Any, assert_type
+assert_type(C.value, int)
+assert_type(C.method(C), str)
+assert_type(C.dynamic_attribute, Any)
+
+def accepts_meta(value: Meta) -> None: ...
+accepts_meta(C)
+    "#,
+);
+
 fn test_env_with_incomplete_module() -> TestEnv {
     TestEnv::one_with_path(
         "foo",
@@ -1289,10 +1444,10 @@ class Outer[T]:
         x: T | None = None  # E: not in scope
 assert_type(Outer[int].Inner, type[Outer.Inner])
 assert_type(Outer.Inner, type[Outer.Inner])
-assert_type(Outer[int].Inner.x, Any)
-assert_type(Outer.Inner.x, Any)
-assert_type(Outer[int].Inner().x, Any)
-assert_type(Outer.Inner().x, Any)
+assert_type(Outer[int].Inner.x, Any | None)
+assert_type(Outer.Inner.x, Any | None)
+assert_type(Outer[int].Inner().x, Any | None)
+assert_type(Outer.Inner().x, Any | None)
    "#,
 );
 
@@ -3136,6 +3291,79 @@ class C:
 "#,
 );
 
+// Class attributes bound by unpacking, a `for` loop or `with` are reported the same way as a
+// plain class-body assignment. A comprehension has its own scope, so its target is a variable.
+testcase!(
+    test_unknown_attribute_type_class_body_other_targets,
+    TestEnv::new()
+        .enable_unknown_variable_type_error()
+        .enable_unknown_attribute_type_error(),
+    r#"
+def untyped(x):
+    return x
+
+class C:
+    a, b = untyped(1)  # E: implicitly inferred to be `Any`  # E: implicitly inferred to be `Any`
+    for loop_var in untyped(1):  # E: implicitly inferred to be `Any`
+        pass
+    with untyped(1) as ctx:  # E: implicitly inferred to be `Any`
+        pass
+    comp = [h for h in untyped(1)]  # E: The type of `h` is unknown
+    rebound = 1
+    for rebound in untyped(1):  # E: implicitly inferred to be `Any`
+        pass
+"#,
+);
+
+// Imports, walrus targets and match captures in a class body are not reported, as at other scopes.
+testcase!(
+    test_unknown_attribute_type_class_body_other_bindings_no_error,
+    TestEnv::one(
+        "m",
+        "def untyped(x):\n    return x\nvalue = untyped(1)  # E: The type of `value` is unknown\n",
+    )
+    .enable_unknown_variable_type_error()
+    .enable_unknown_attribute_type_error(),
+    r#"
+from m import untyped
+
+class C:
+    from m import value
+    (walrus := untyped(1))
+    match untyped(1):
+        case captured:
+            pass
+"#,
+);
+
+// In a function, each of these bindings is reported as `unknown-variable-type`. A class attribute
+// is only checked through its final value, which merges these bindings, so none are reported.
+testcase!(
+    bug = "class attributes merged from several bindings are not reported",
+    test_unknown_attribute_type_class_body_merged_bindings,
+    TestEnv::new()
+        .enable_unknown_variable_type_error()
+        .enable_unknown_attribute_type_error(),
+    r#"
+def untyped(x):
+    return x
+
+class C:
+    try:
+        merged = untyped(1)
+    except Exception:
+        merged = untyped(2)
+    augmented = untyped(1)
+    augmented += 1
+    if untyped(1):
+        c, d = untyped(1)
+    else:
+        c, d = untyped(2)
+    for o in untyped(1):
+        o = untyped(3)
+"#,
+);
+
 testcase!(
     test_bound_method_no_arbitrary_attr_set,
     r#"
@@ -3296,5 +3524,40 @@ class C:
 
 def use(c: C) -> None:
     reveal_type(c.f)  # E: revealed type: Unknown
+"#,
+);
+
+testcase!(
+    test_unknown_attribute_access,
+    TestEnv::new().enable_unknown_attribute_access_error(),
+    r#"
+class C:
+    def __init__(self, v) -> None:
+        self.known: int = 1
+        self.unknown = v
+
+def use(obj, c: C) -> None:
+    obj.attr  # E: The type of attribute `attr` is unknown
+    obj.method(1)  # E: The type of attribute `method` is unknown
+    obj.attr.deeper  # E: The type of attribute `attr` is unknown  # E: The type of attribute `deeper` is unknown
+    c.unknown  # E: The type of attribute `unknown` is unknown
+    c.known
+"#,
+);
+
+testcase!(
+    test_unknown_attribute_access_no_error,
+    TestEnv::new().enable_unknown_attribute_access_error(),
+    r#"
+from typing import Any
+
+class C:
+    x: int = 1
+
+def use(obj, a: Any, c: C) -> None:
+    a.attr  # An explicit `Any` is intentional.
+    c.missing  # E: Object of class `C` has no attribute `missing`
+    obj.attr = 1  # Assignment targets are not accesses.
+    c.x
 "#,
 );

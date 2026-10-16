@@ -6,7 +6,8 @@ import hmac
 import json
 import base64
 import hashlib
-from typing import Any, Union, cast
+import typing_extensions
+from typing import Any, Dict, Union, Optional, cast
 from datetime import datetime, timezone, timedelta
 from typing_extensions import Literal
 
@@ -27,6 +28,7 @@ from ...types import (
     card_search_by_pan_params,
     card_web_provision_params,
     card_convert_physical_params,
+    card_reassign_account_params,
 )
 from ..._types import NOT_GIVEN, Body, Omit, Query, Headers, NotGiven, Base64FileInput, omit, not_given
 from ..._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
@@ -131,6 +133,7 @@ class Cards(SyncAPIResource):
         spend_limit: int | Omit = omit,
         spend_limit_duration: SpendLimitDuration | Omit = omit,
         state: Literal["OPEN", "PAUSED"] | Omit = omit,
+        tags: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -288,6 +291,10 @@ class Cards(SyncAPIResource):
               - `PAUSED` - Card will decline authorizations, but can be resumed at a later
                 time.
 
+          tags: Key-value pairs to tag the card with. A replacement card does not inherit tags
+              from the card it replaces. A card can have at most 50 tags, with keys up to 40
+              characters and values up to 500 characters
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -320,6 +327,7 @@ class Cards(SyncAPIResource):
                     "spend_limit": spend_limit,
                     "spend_limit_duration": spend_limit_duration,
                     "state": state,
+                    "tags": tags,
                 },
                 card_create_params.CardCreateParams,
             ),
@@ -389,6 +397,7 @@ class Cards(SyncAPIResource):
             "OTHER",
         ]
         | Omit = omit,
+        tags: Dict[str, Optional[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -483,6 +492,11 @@ class Cards(SyncAPIResource):
               - `OTHER` - The reason for the status does not fall into any of the above
                 categories. A comment should be provided to specify the reason.
 
+          tags: Key-value pairs to merge into the card's tags. Supplied keys are added or
+              overwritten, a key with a `null` value is removed, and omitted keys remain
+              unchanged. A card can have at most 50 tags, with keys up to 40 characters and
+              values up to 500 characters
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -507,6 +521,7 @@ class Cards(SyncAPIResource):
                     "spend_limit_duration": spend_limit_duration,
                     "state": state,
                     "substatus": substatus,
+                    "tags": tags,
                 },
                 card_update_params.CardUpdateParams,
             ),
@@ -675,6 +690,7 @@ class Cards(SyncAPIResource):
             cast_to=Card,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def embed(
         self,
         *,
@@ -688,6 +704,9 @@ class Cards(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
+        **Deprecated.** Use the modern embedded card flow instead: create a session with
+        `POST /v1/cards/{card_token}/embed` and render it via `GET /v1/embed`.
+
         Handling full card PANs and CVV codes requires that you comply with the Payment
         Card Industry Data Security Standards (PCI DSS). Some clients choose to reduce
         their compliance obligations by leveraging our embedded card UI solution
@@ -890,13 +909,15 @@ class Cards(SyncAPIResource):
               encoded in PEM format with headers `(-----BEGIN CERTIFICATE-----)` and trailers
               omitted. Provided by the device's wallet.
 
-          client_device_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY` and the
-              card is on the Visa network. Stable device identification set by the wallet
-              provider.
+          client_device_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY`. Stable
+              device identification set by the wallet provider. Required for both wallets
+              regardless of network, though the value is only used for cards on the Visa
+              network and is ignored on Amex and Mastercard.
 
-          client_wallet_account_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY` and the
-              card is on the Visa network. Consumer ID that identifies the wallet account
-              holder entity.
+          client_wallet_account_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY`. Consumer
+              ID that identifies the wallet account holder entity. Required for both wallets
+              regardless of network, though the value is only used for cards on the Visa
+              network and is ignored on Amex and Mastercard.
 
           digital_wallet: Name of digital wallet provider.
 
@@ -937,6 +958,49 @@ class Cards(SyncAPIResource):
             cast_to=CardProvisionResponse,
         )
 
+    def reassign_account(
+        self,
+        card_token: str,
+        *,
+        new_account_token: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Card:
+        """Reassigns a card to another account.
+
+        The card must be in an `OPEN` or `PAUSED`
+        state, and the destination account must be in an `ACTIVE` state.
+
+        Clients must contact their Lithic account manager for access to this endpoint.
+
+        Args:
+          new_account_token: Globally unique identifier for the account to associate with the card
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not card_token:
+            raise ValueError(f"Expected a non-empty value for `card_token` but received {card_token!r}")
+        return self._post(
+            path_template("/v1/cards/{card_token}/reassign_account", card_token=card_token),
+            body=maybe_transform(
+                {"new_account_token": new_account_token}, card_reassign_account_params.CardReassignAccountParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Card,
+        )
+
     def reissue(
         self,
         card_token: str,
@@ -961,7 +1025,8 @@ class Cards(SyncAPIResource):
         physically damaged). The PAN, expiry, and CVC2 will remain the same and the
         original card can continue to be used until the new card is activated. Only
         applies to cards of type `PHYSICAL`. A card can be reissued or renewed a total
-        of 8 times.
+        of 8 times. Returns `409` if the card is still ongoing manufacturing when using
+        Thales as a manufacturer.
 
         Args:
           carrier: If omitted, the previous carrier will be used.
@@ -1046,7 +1111,8 @@ class Cards(SyncAPIResource):
         `PHYSICAL` card can be reissued or renewed a total of 8 times. For `VIRTUAL`,
         the card will retain the same card token and PAN and receive an updated expiry
         and CVC2 code. `product_id`, `shipping_method`, `shipping_address`, `carrier`
-        are only relevant for renewing `PHYSICAL` cards.
+        are only relevant for renewing `PHYSICAL` cards. Returns `409` if the card is
+        still ongoing manufacturing when using Thales as a manufacturer.
 
         Args:
           shipping_address: The shipping address this card will be sent to.
@@ -1200,8 +1266,8 @@ class Cards(SyncAPIResource):
 
         Customers must be PCI
         compliant to use this endpoint. Please contact
-        [support@lithic.com](mailto:support@lithic.com) for questions. _Note: this is a
-        `POST` endpoint because it is more secure to send sensitive data in a request
+        [support.lithic.com](https://support.lithic.com/) for questions. _Note: this is
+        a `POST` endpoint because it is more secure to send sensitive data in a request
         body than in a URL._
 
         Args:
@@ -1359,6 +1425,7 @@ class AsyncCards(AsyncAPIResource):
         spend_limit: int | Omit = omit,
         spend_limit_duration: SpendLimitDuration | Omit = omit,
         state: Literal["OPEN", "PAUSED"] | Omit = omit,
+        tags: Dict[str, str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1516,6 +1583,10 @@ class AsyncCards(AsyncAPIResource):
               - `PAUSED` - Card will decline authorizations, but can be resumed at a later
                 time.
 
+          tags: Key-value pairs to tag the card with. A replacement card does not inherit tags
+              from the card it replaces. A card can have at most 50 tags, with keys up to 40
+              characters and values up to 500 characters
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1548,6 +1619,7 @@ class AsyncCards(AsyncAPIResource):
                     "spend_limit": spend_limit,
                     "spend_limit_duration": spend_limit_duration,
                     "state": state,
+                    "tags": tags,
                 },
                 card_create_params.CardCreateParams,
             ),
@@ -1617,6 +1689,7 @@ class AsyncCards(AsyncAPIResource):
             "OTHER",
         ]
         | Omit = omit,
+        tags: Dict[str, Optional[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -1711,6 +1784,11 @@ class AsyncCards(AsyncAPIResource):
               - `OTHER` - The reason for the status does not fall into any of the above
                 categories. A comment should be provided to specify the reason.
 
+          tags: Key-value pairs to merge into the card's tags. Supplied keys are added or
+              overwritten, a key with a `null` value is removed, and omitted keys remain
+              unchanged. A card can have at most 50 tags, with keys up to 40 characters and
+              values up to 500 characters
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -1735,6 +1813,7 @@ class AsyncCards(AsyncAPIResource):
                     "spend_limit_duration": spend_limit_duration,
                     "state": state,
                     "substatus": substatus,
+                    "tags": tags,
                 },
                 card_update_params.CardUpdateParams,
             ),
@@ -1903,6 +1982,7 @@ class AsyncCards(AsyncAPIResource):
             cast_to=Card,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def embed(
         self,
         *,
@@ -1916,6 +1996,9 @@ class AsyncCards(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
+        **Deprecated.** Use the modern embedded card flow instead: create a session with
+        `POST /v1/cards/{card_token}/embed` and render it via `GET /v1/embed`.
+
         Handling full card PANs and CVV codes requires that you comply with the Payment
         Card Industry Data Security Standards (PCI DSS). Some clients choose to reduce
         their compliance obligations by leveraging our embedded card UI solution
@@ -2118,13 +2201,15 @@ class AsyncCards(AsyncAPIResource):
               encoded in PEM format with headers `(-----BEGIN CERTIFICATE-----)` and trailers
               omitted. Provided by the device's wallet.
 
-          client_device_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY` and the
-              card is on the Visa network. Stable device identification set by the wallet
-              provider.
+          client_device_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY`. Stable
+              device identification set by the wallet provider. Required for both wallets
+              regardless of network, though the value is only used for cards on the Visa
+              network and is ignored on Amex and Mastercard.
 
-          client_wallet_account_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY` and the
-              card is on the Visa network. Consumer ID that identifies the wallet account
-              holder entity.
+          client_wallet_account_id: Only applicable if `digital_wallet` is `GOOGLE_PAY` or `SAMSUNG_PAY`. Consumer
+              ID that identifies the wallet account holder entity. Required for both wallets
+              regardless of network, though the value is only used for cards on the Visa
+              network and is ignored on Amex and Mastercard.
 
           digital_wallet: Name of digital wallet provider.
 
@@ -2165,6 +2250,49 @@ class AsyncCards(AsyncAPIResource):
             cast_to=CardProvisionResponse,
         )
 
+    async def reassign_account(
+        self,
+        card_token: str,
+        *,
+        new_account_token: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Card:
+        """Reassigns a card to another account.
+
+        The card must be in an `OPEN` or `PAUSED`
+        state, and the destination account must be in an `ACTIVE` state.
+
+        Clients must contact their Lithic account manager for access to this endpoint.
+
+        Args:
+          new_account_token: Globally unique identifier for the account to associate with the card
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not card_token:
+            raise ValueError(f"Expected a non-empty value for `card_token` but received {card_token!r}")
+        return await self._post(
+            path_template("/v1/cards/{card_token}/reassign_account", card_token=card_token),
+            body=await async_maybe_transform(
+                {"new_account_token": new_account_token}, card_reassign_account_params.CardReassignAccountParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Card,
+        )
+
     async def reissue(
         self,
         card_token: str,
@@ -2189,7 +2317,8 @@ class AsyncCards(AsyncAPIResource):
         physically damaged). The PAN, expiry, and CVC2 will remain the same and the
         original card can continue to be used until the new card is activated. Only
         applies to cards of type `PHYSICAL`. A card can be reissued or renewed a total
-        of 8 times.
+        of 8 times. Returns `409` if the card is still ongoing manufacturing when using
+        Thales as a manufacturer.
 
         Args:
           carrier: If omitted, the previous carrier will be used.
@@ -2274,7 +2403,8 @@ class AsyncCards(AsyncAPIResource):
         `PHYSICAL` card can be reissued or renewed a total of 8 times. For `VIRTUAL`,
         the card will retain the same card token and PAN and receive an updated expiry
         and CVC2 code. `product_id`, `shipping_method`, `shipping_address`, `carrier`
-        are only relevant for renewing `PHYSICAL` cards.
+        are only relevant for renewing `PHYSICAL` cards. Returns `409` if the card is
+        still ongoing manufacturing when using Thales as a manufacturer.
 
         Args:
           shipping_address: The shipping address this card will be sent to.
@@ -2428,8 +2558,8 @@ class AsyncCards(AsyncAPIResource):
 
         Customers must be PCI
         compliant to use this endpoint. Please contact
-        [support@lithic.com](mailto:support@lithic.com) for questions. _Note: this is a
-        `POST` endpoint because it is more secure to send sensitive data in a request
+        [support.lithic.com](https://support.lithic.com/) for questions. _Note: this is
+        a `POST` endpoint because it is more secure to send sensitive data in a request
         body than in a URL._
 
         Args:
@@ -2539,11 +2669,16 @@ class CardsWithRawResponse:
         self.convert_physical = _legacy_response.to_raw_response_wrapper(
             cards.convert_physical,
         )
-        self.embed = _legacy_response.to_raw_response_wrapper(
-            cards.embed,
+        self.embed = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.to_raw_response_wrapper(
+                cards.embed,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.provision = _legacy_response.to_raw_response_wrapper(
             cards.provision,
+        )
+        self.reassign_account = _legacy_response.to_raw_response_wrapper(
+            cards.reassign_account,
         )
         self.reissue = _legacy_response.to_raw_response_wrapper(
             cards.reissue,
@@ -2592,11 +2727,16 @@ class AsyncCardsWithRawResponse:
         self.convert_physical = _legacy_response.async_to_raw_response_wrapper(
             cards.convert_physical,
         )
-        self.embed = _legacy_response.async_to_raw_response_wrapper(
-            cards.embed,
+        self.embed = (  # pyright: ignore[reportDeprecated]
+            _legacy_response.async_to_raw_response_wrapper(
+                cards.embed,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.provision = _legacy_response.async_to_raw_response_wrapper(
             cards.provision,
+        )
+        self.reassign_account = _legacy_response.async_to_raw_response_wrapper(
+            cards.reassign_account,
         )
         self.reissue = _legacy_response.async_to_raw_response_wrapper(
             cards.reissue,
@@ -2645,11 +2785,16 @@ class CardsWithStreamingResponse:
         self.convert_physical = to_streamed_response_wrapper(
             cards.convert_physical,
         )
-        self.embed = to_streamed_response_wrapper(
-            cards.embed,
+        self.embed = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                cards.embed,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.provision = to_streamed_response_wrapper(
             cards.provision,
+        )
+        self.reassign_account = to_streamed_response_wrapper(
+            cards.reassign_account,
         )
         self.reissue = to_streamed_response_wrapper(
             cards.reissue,
@@ -2698,11 +2843,16 @@ class AsyncCardsWithStreamingResponse:
         self.convert_physical = async_to_streamed_response_wrapper(
             cards.convert_physical,
         )
-        self.embed = async_to_streamed_response_wrapper(
-            cards.embed,
+        self.embed = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                cards.embed,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.provision = async_to_streamed_response_wrapper(
             cards.provision,
+        )
+        self.reassign_account = async_to_streamed_response_wrapper(
+            cards.reassign_account,
         )
         self.reissue = async_to_streamed_response_wrapper(
             cards.reissue,

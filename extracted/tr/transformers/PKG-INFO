@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: transformers
-Version: 5.19.0
+Version: 5.20.0
 Summary: Transformers: the model-definition framework for state-of-the-art machine learning models in text, vision, audio, and multimodal models, for both inference and training.
 Home-page: https://github.com/huggingface/transformers
 Author: The Hugging Face team (past and future) with the help of all our contributors (https://github.com/huggingface/transformers/graphs/contributors)
@@ -32,7 +32,7 @@ Requires-Dist: typer
 Requires-Dist: safetensors>=0.8.0
 Requires-Dist: tqdm>=4.60
 Provides-Extra: torch
-Requires-Dist: torch>=2.5; extra == "torch"
+Requires-Dist: torch>=2.6; extra == "torch"
 Requires-Dist: accelerate>=1.1.0; extra == "torch"
 Provides-Extra: vision
 Requires-Dist: torchvision; extra == "vision"
@@ -60,7 +60,7 @@ Requires-Dist: transformers-mlinter==0.1.5; extra == "quality"
 Provides-Extra: docs
 Requires-Dist: hf-doc-builder; extra == "docs"
 Provides-Extra: kernels
-Requires-Dist: kernels<0.18,>=0.17.0; extra == "kernels"
+Requires-Dist: kernels<0.18,>=0.17.2; extra == "kernels"
 Provides-Extra: sentencepiece
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "sentencepiece"
 Requires-Dist: protobuf; extra == "sentencepiece"
@@ -86,7 +86,7 @@ Requires-Dist: accelerate>=1.1.0; extra == "deepspeed"
 Provides-Extra: optuna
 Requires-Dist: optuna; extra == "optuna"
 Provides-Extra: integrations
-Requires-Dist: kernels<0.18,>=0.17.0; extra == "integrations"
+Requires-Dist: kernels<0.18,>=0.17.2; extra == "integrations"
 Requires-Dist: optuna; extra == "integrations"
 Requires-Dist: codecarbon>=2.8.1; extra == "integrations"
 Requires-Dist: ray[tune]>=2.7.0; extra == "integrations"
@@ -101,7 +101,7 @@ Requires-Dist: uvicorn; extra == "serving"
 Requires-Dist: fastapi; extra == "serving"
 Requires-Dist: starlette; extra == "serving"
 Requires-Dist: rich; extra == "serving"
-Requires-Dist: torch>=2.5; extra == "serving"
+Requires-Dist: torch>=2.6; extra == "serving"
 Requires-Dist: accelerate>=1.1.0; extra == "serving"
 Provides-Extra: num2words
 Requires-Dist: num2words; extra == "num2words"
@@ -128,16 +128,12 @@ Requires-Dist: pytest-env; extra == "testing"
 Requires-Dist: timeout-decorator; extra == "testing"
 Requires-Dist: parameterized>=0.9; extra == "testing"
 Requires-Dist: psutil; extra == "testing"
-Requires-Dist: dill<0.3.5; extra == "testing"
 Requires-Dist: diffusers==0.35.2; extra == "testing"
-Requires-Dist: evaluate>=0.4.6; extra == "testing"
-Requires-Dist: rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1; extra == "testing"
 Requires-Dist: nltk<=3.8.1; extra == "testing"
 Requires-Dist: sacremoses; extra == "testing"
 Requires-Dist: rjieba; extra == "testing"
 Requires-Dist: beautifulsoup4; extra == "testing"
 Requires-Dist: tensorboard; extra == "testing"
-Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "testing"
 Requires-Dist: filelock; extra == "testing"
 Requires-Dist: hf-doc-builder; extra == "testing"
 Requires-Dist: datasets>=2.15.0; extra == "testing"
@@ -159,7 +155,7 @@ Requires-Dist: uvicorn; extra == "testing"
 Requires-Dist: fastapi; extra == "testing"
 Requires-Dist: starlette; extra == "testing"
 Requires-Dist: rich; extra == "testing"
-Requires-Dist: torch>=2.5; extra == "testing"
+Requires-Dist: torch>=2.6; extra == "testing"
 Requires-Dist: accelerate>=1.1.0; extra == "testing"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "testing"
 Provides-Extra: deepspeed-testing
@@ -177,16 +173,12 @@ Requires-Dist: pytest-env; extra == "deepspeed-testing"
 Requires-Dist: timeout-decorator; extra == "deepspeed-testing"
 Requires-Dist: parameterized>=0.9; extra == "deepspeed-testing"
 Requires-Dist: psutil; extra == "deepspeed-testing"
-Requires-Dist: dill<0.3.5; extra == "deepspeed-testing"
 Requires-Dist: diffusers==0.35.2; extra == "deepspeed-testing"
-Requires-Dist: evaluate>=0.4.6; extra == "deepspeed-testing"
-Requires-Dist: rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1; extra == "deepspeed-testing"
 Requires-Dist: nltk<=3.8.1; extra == "deepspeed-testing"
 Requires-Dist: sacremoses; extra == "deepspeed-testing"
 Requires-Dist: rjieba; extra == "deepspeed-testing"
 Requires-Dist: beautifulsoup4; extra == "deepspeed-testing"
 Requires-Dist: tensorboard; extra == "deepspeed-testing"
-Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "deepspeed-testing"
 Requires-Dist: filelock; extra == "deepspeed-testing"
 Requires-Dist: hf-doc-builder; extra == "deepspeed-testing"
 Requires-Dist: datasets>=2.15.0; extra == "deepspeed-testing"
@@ -208,14 +200,14 @@ Requires-Dist: uvicorn; extra == "deepspeed-testing"
 Requires-Dist: fastapi; extra == "deepspeed-testing"
 Requires-Dist: starlette; extra == "deepspeed-testing"
 Requires-Dist: rich; extra == "deepspeed-testing"
-Requires-Dist: torch>=2.5; extra == "deepspeed-testing"
+Requires-Dist: torch>=2.6; extra == "deepspeed-testing"
 Requires-Dist: accelerate>=1.1.0; extra == "deepspeed-testing"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "deepspeed-testing"
 Requires-Dist: optuna; extra == "deepspeed-testing"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "deepspeed-testing"
 Requires-Dist: protobuf; extra == "deepspeed-testing"
 Provides-Extra: all
-Requires-Dist: torch>=2.5; extra == "all"
+Requires-Dist: torch>=2.6; extra == "all"
 Requires-Dist: accelerate>=1.1.0; extra == "all"
 Requires-Dist: torchvision; extra == "all"
 Requires-Dist: Pillow<=15.0,>=10.0.1; extra == "all"
@@ -225,7 +217,7 @@ Requires-Dist: pyctcdecode>=0.4.0; extra == "all"
 Requires-Dist: phonemizer; extra == "all"
 Requires-Dist: kenlm; extra == "all"
 Requires-Dist: av; extra == "all"
-Requires-Dist: kernels<0.18,>=0.17.0; extra == "all"
+Requires-Dist: kernels<0.18,>=0.17.2; extra == "all"
 Requires-Dist: timm>=1.0.23; extra == "all"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "all"
 Requires-Dist: protobuf; extra == "all"
@@ -235,7 +227,7 @@ Requires-Dist: jinja2>=3.1.0; extra == "all"
 Requires-Dist: num2words; extra == "all"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "all"
 Provides-Extra: dev
-Requires-Dist: torch>=2.5; extra == "dev"
+Requires-Dist: torch>=2.6; extra == "dev"
 Requires-Dist: accelerate>=1.1.0; extra == "dev"
 Requires-Dist: torchvision; extra == "dev"
 Requires-Dist: Pillow<=15.0,>=10.0.1; extra == "dev"
@@ -245,7 +237,7 @@ Requires-Dist: pyctcdecode>=0.4.0; extra == "dev"
 Requires-Dist: phonemizer; extra == "dev"
 Requires-Dist: kenlm; extra == "dev"
 Requires-Dist: av; extra == "dev"
-Requires-Dist: kernels<0.18,>=0.17.0; extra == "dev"
+Requires-Dist: kernels<0.18,>=0.17.2; extra == "dev"
 Requires-Dist: timm>=1.0.23; extra == "dev"
 Requires-Dist: sentencepiece!=0.1.92,>=0.1.91; extra == "dev"
 Requires-Dist: protobuf; extra == "dev"
@@ -266,16 +258,12 @@ Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: timeout-decorator; extra == "dev"
 Requires-Dist: parameterized>=0.9; extra == "dev"
 Requires-Dist: psutil; extra == "dev"
-Requires-Dist: dill<0.3.5; extra == "dev"
 Requires-Dist: diffusers==0.35.2; extra == "dev"
-Requires-Dist: evaluate>=0.4.6; extra == "dev"
-Requires-Dist: rouge-score!=0.0.7,!=0.0.8,!=0.1,!=0.1.1; extra == "dev"
 Requires-Dist: nltk<=3.8.1; extra == "dev"
 Requires-Dist: sacremoses; extra == "dev"
 Requires-Dist: rjieba; extra == "dev"
 Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: tensorboard; extra == "dev"
-Requires-Dist: sacrebleu<2.0.0,>=1.4.12; extra == "dev"
 Requires-Dist: filelock; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Requires-Dist: datasets>=2.15.0; extra == "dev"
@@ -297,7 +285,7 @@ Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: starlette; extra == "dev"
 Requires-Dist: rich; extra == "dev"
-Requires-Dist: torch>=2.5; extra == "dev"
+Requires-Dist: torch>=2.6; extra == "dev"
 Requires-Dist: accelerate>=1.1.0; extra == "dev"
 Requires-Dist: mistral-common[image]>=1.11.7; extra == "dev"
 Requires-Dist: fugashi>=1.0; extra == "dev"
@@ -408,7 +396,7 @@ Explore the [Hub](https://huggingface.co/) today to find a model and use Transfo
 
 ## Installation
 
-Transformers works with Python 3.10+, and [PyTorch](https://pytorch.org/get-started/locally/) 2.5+.
+Transformers works with Python 3.10+, and [PyTorch](https://pytorch.org/get-started/locally/) 2.6+.
 
 Create and activate a virtual environment with [venv](https://docs.python.org/3/library/venv.html) or [uv](https://docs.astral.sh/uv/), a fast Rust-based Python package and project manager.
 
@@ -569,7 +557,6 @@ pipeline(
 
 - This library is not a modular toolbox of building blocks for neural nets. The code in the model files is not refactored with additional abstractions on purpose, so that researchers can quickly iterate on each of the models without diving into additional abstractions/files.
 - The training API is optimized to work with PyTorch models provided by Transformers. For generic machine learning loops, you should use another library like [Accelerate](https://huggingface.co/docs/accelerate).
-- The [example scripts](https://github.com/huggingface/transformers/tree/main/examples) are only *examples*. They may not necessarily work out-of-the-box on your specific use case and you'll need to adapt the code for it to work.
 
 ## 100 projects using Transformers
 

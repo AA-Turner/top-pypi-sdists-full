@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 import sys
+from typing import List
 
 DESCRIPTION_TEMPLATE = """
 About {package_name}
@@ -75,6 +76,9 @@ Extra
 - `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
     This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
 - `fs` (requires Python 3.9+): Provides file system implementation to work with the DataRobot file system.
+- `pipelines` (requires Python 3.10+): Adds the runtime needed to author pipelines locally
+    (the `dr.task` / `dr.pipeline` decorators and `dr.CloudExecutor`). The pipelines REST surface
+    (`dr.Pipelines`, `dr.Pipeline`, `dr.PipelineImage`, ...) is in the base install and needs no extra.
 - `query-engine` (requires Python 3.9+): Engine to run SQLAlchemy-compatible queries against DataRobot data stores
     and JDBC connections.
 
@@ -171,7 +175,13 @@ core_require = [
 ]
 
 files_require = [
-    "fsspec>=2025.5.0",
+    # Cap below 2026.9.0 (requires Python >=3.10): it removes the no-op
+    # rm_file([]) call in FSMap for non-file keys, which the fs mapper tests
+    # assert on every supported interpreter. Pinning to the last py3.9-era
+    # release keeps one consistent behavior across the matrix and keeps
+    # `.[lint]` installable in the python:3.9 lint container (ALIFE-285).
+    # Drop the cap when the lint container or the repo floor moves to >=3.10.
+    "fsspec>=2025.5.0,<2026.9",
 ]
 
 query_engine_require = [
@@ -242,7 +252,13 @@ tests_require = (
         # be used unconditionally - this repo still tests 3.7/3.8.
         "pytest-asyncio==0.21.1; python_version < '3.14'",
         "pytest-asyncio==1.0.0; python_version >= '3.14'",
-        "pyarrow",
+        # pyarrow 26.0.0 (released 2026-10-09) enforces numpy>=2 at import time,
+        # which conflicts with databricks-connect's pip-level numpy<2 cap: pip
+        # installs numpy 1.x and test collection crashes with
+        # "ImportError: pyarrow requires NumPy 2.0 or newer". pyarrow 25 still
+        # works with numpy 1.26.4 (verified py3.11; ALIFE-285). Drop the cap
+        # when databricks-connect lifts numpy<2.
+        "pyarrow<26",
         "pymarkdownlnt",
     ]
     + images_require
@@ -284,24 +300,50 @@ example_require = [
 
 release_require = ["zest.releaser[recommended]==6.22.0"]
 
-pipelines_require = [
-    # covalent SDK-only runtime deps (source is vendored, but these are needed at runtime)
-    "aiofiles>=0.8.0",
-    "aiohttp>=3.8.1",
-    "cloudpickle>=2.0.0,<3",
-    "filelock>=3.12.2",
-    "furl>=2.1.3",
-    "networkx>=2.8.6",
-    "toml>=0.10.2",
-    "watchdog>=2.0.3",
-    "psutil>=5.9.0",
-    # covalent-cloud runtime deps (source is vendored). Lower bounds mirror
-    # what upstream covalent-cloud-sdk/requirements.txt was tested against.
-    "arrow>=1.2.2",
-    "ipywidgets>=8.1.3",
-    "packaging",
-    "pydantic-settings>=2.0.0",
-    "rich>=12.0.0",
+# Pipelines authoring runtime. The covalent / covalent-cloud *source* is vendored
+# under datarobot/_vendor/ and ships in the base wheel, but these are its own
+# runtime requirements and have to be resolved by pip. They live behind the
+# `[pipelines]` extra so a bare `pip install datarobot` does not pull the whole
+# covalent dependency tree (aiohttp, ipywidgets, pydantic-settings, rich, ...)
+# onto every install -- only users who author pipelines opt in via
+# `pip install datarobot[pipelines]`. The pipelines REST surface has no covalent
+# dependency and stays in the base install.
+#
+# All marked `python_version >= "3.10"`: covalent-cloud declares Requires-Python
+# >=3.10 and its source uses 3.10+ syntax, while the rest of this package still
+# supports 3.7. On an older interpreter the markers resolve to nothing and
+# `datarobot.pipelines.__getattr__` raises an AttributeError naming the
+# requirement.
+pipelines_require: List[str] = [
+    # covalent SDK-only runtime deps
+    "aiofiles>=0.8.0 ; python_version >= '3.10'",
+    "aiohttp>=3.8.1 ; python_version >= '3.10'",
+    "cloudpickle>=2.0.0,<3 ; python_version >= '3.10'",
+    "filelock>=3.12.2 ; python_version >= '3.10'",
+    "furl>=2.1.3 ; python_version >= '3.10'",
+    "networkx>=2.8.6 ; python_version >= '3.10'",
+    "toml>=0.10.2 ; python_version >= '3.10'",
+    "watchdog>=2.0.3 ; python_version >= '3.10'",
+    # No longer declared by covalent 0.242.0 but historically a covalent
+    # transitive dep; keep it explicit.
+    "psutil>=5.9.0 ; python_version >= '3.10'",
+    # Declared by covalent itself. Pinned explicitly rather than left to
+    # pydantic-settings, whose own floor (>=2.0.1) is *below* covalent's, so the
+    # transitive path can legally resolve too low.
+    "pydantic>=2.1.1 ; python_version >= '3.10'",
+    # covalent-cloud runtime deps. Lower bounds mirror what upstream
+    # covalent-cloud-sdk/requirements.txt was tested against.
+    "arrow>=1.2.2 ; python_version >= '3.10'",
+    "ipywidgets>=8.1.3 ; python_version >= '3.10'",
+    "packaging ; python_version >= '3.10'",
+    "pydantic-settings>=2.0.0 ; python_version >= '3.10'",
+    "rich>=12.0.0 ; python_version >= '3.10'",
+    # covalent-cloud needs PyYAML>=6.0.2. The unmarked `pyyaml>=3.11` floor in
+    # install_requires must stay: PyYAML 6.0.2 declares Requires-Python >=3.8, so
+    # raising it unconditionally would break resolution on 3.7. pip intersects
+    # same-name requirements, so with `[pipelines]` installed the effective floor
+    # is 6.0.2 on 3.10+ and the base floor below that.
+    "pyyaml>=6.0.2 ; python_version >= '3.10'",
 ]
 
 

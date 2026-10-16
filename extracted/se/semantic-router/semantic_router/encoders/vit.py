@@ -30,8 +30,6 @@ class VitEncoder(DenseEncoder):
         :param **data: Additional keyword arguments for the encoder.
         :type **data: dict
         """
-        if data.get("score_threshold") is None:
-            data["score_threshold"] = 0.5
         super().__init__(**data)
         self._processor, self._model = self._initialize_hf_model()
 
@@ -41,21 +39,23 @@ class VitEncoder(DenseEncoder):
         :return: The processor and model.
         :rtype: tuple
         """
-        try:
-            from transformers import ViTImageProcessor, ViTModel
-        except ImportError:
-            raise ImportError(
-                "Please install transformers to use VitEncoder. "
-                "You can install it with: "
-                "`pip install semantic-router[vision]`"
-            )
-
+        # torch first: transformers >= 5 imports torch itself, so checking it
+        # second would report a missing torch as a missing transformers
         try:
             import torch
             import torchvision.transforms as T
         except ImportError:
             raise ImportError(
                 "Please install Pytorch to use VitEncoder. "
+                "You can install it with: "
+                "`pip install semantic-router[vision]`"
+            )
+
+        try:
+            from transformers import ViTImageProcessor, ViTModel
+        except ImportError:
+            raise ImportError(
+                "Please install transformers to use VitEncoder. "
                 "You can install it with: "
                 "`pip install semantic-router[vision]`"
             )

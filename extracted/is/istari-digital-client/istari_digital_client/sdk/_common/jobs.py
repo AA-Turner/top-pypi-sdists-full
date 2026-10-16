@@ -206,7 +206,9 @@ class Jobs(_SupportsAccess):
         """List jobs and return an auto-paging sequence of Job objects.
 
         Iterate the returned Page directly — subsequent offset pages are fetched
-        automatically.
+        automatically. Pages are requested without the server-side total, which
+        lets the registry serve them without resolving every job the caller can
+        see; reading ``.total`` makes one extra counted request on first access.
 
         All filters are optional (enum-valued filters are accepted case-insensitively):
         - ``resource_id`` narrows to jobs for one resource.
@@ -230,7 +232,7 @@ class Jobs(_SupportsAccess):
             ArchiveStatus, archive_status, param="archive_status"
         )
 
-        def fetch(page_num: int) -> Any:
+        def request(page_num: int, page_size: int | None, include_total: bool) -> Any:
             return self._call(
                 self._engine.v2_api.list_jobs,
                 # v2 filter param is still ``model_id`` (deprecated); value is a resource id.
@@ -240,13 +242,17 @@ class Jobs(_SupportsAccess):
                 assigned_agent_pool_id=assigned_agent_pool_id,
                 name=name,
                 page=page_num,
-                size=size,
+                size=page_size,
                 archive_status=archive_status_enum,
                 sort=sort,
+                include_total=include_total,
             )
 
         return self._paginate_offset(
-            fetch, lambda d: Job._bind(d, mgr=self), start_page=page or 1
+            lambda page_num: request(page_num, size, include_total=False),
+            lambda d: Job._bind(d, mgr=self),
+            start_page=page or 1,
+            count=lambda: request(1, 1, include_total=True).total,
         )
 
     def archive(self, job_id: str) -> None:

@@ -68,6 +68,9 @@ class CbacBannerClient:
     ) -> admin_models.CbacBanner:
         """
         Returns a classification banner string and colors for the given set of marking IDs.
+
+        Required scopes: [api:admin-read]
+
         :param display_type: The display type of the banner. Defaults to PORTION_MARKING. BANNER_LINE is the long classification string used in the header of a document; PORTION_MARKING is a short classification string used for individual paragraphs
         :type display_type: Optional[ClassificationBannerDisplayType]
         :param marking_ids: The marking IDs for which to generate a banner. Duplicate entries are ignored.
@@ -125,6 +128,9 @@ class CbacBannerClient:
     ) -> admin_models.CbacBanner:
         """
         Returns a combined CBAC banner for the requested resources.
+
+        Required scopes: [api:admin-read]
+
         :param resource_rids: Resource RIDs to include. The caller must have access to every resource.
         :type resource_rids: List[RID]
         :param display_type: The display type of the banner. Defaults to PORTION_MARKING. BANNER_LINE is the long classification string used in the header of a document; PORTION_MARKING is a short classification string used for individual paragraphs
@@ -232,6 +238,9 @@ class AsyncCbacBannerClient:
     ) -> typing.Awaitable[admin_models.CbacBanner]:
         """
         Returns a classification banner string and colors for the given set of marking IDs.
+
+        Required scopes: [api:admin-read]
+
         :param display_type: The display type of the banner. Defaults to PORTION_MARKING. BANNER_LINE is the long classification string used in the header of a document; PORTION_MARKING is a short classification string used for individual paragraphs
         :type display_type: Optional[ClassificationBannerDisplayType]
         :param marking_ids: The marking IDs for which to generate a banner. Duplicate entries are ignored.
@@ -289,6 +298,9 @@ class AsyncCbacBannerClient:
     ) -> typing.Awaitable[admin_models.CbacBanner]:
         """
         Returns a combined CBAC banner for the requested resources.
+
+        Required scopes: [api:admin-read]
+
         :param resource_rids: Resource RIDs to include. The caller must have access to every resource.
         :type resource_rids: List[RID]
         :param display_type: The display type of the banner. Defaults to PORTION_MARKING. BANNER_LINE is the long classification string used in the header of a document; PORTION_MARKING is a short classification string used for individual paragraphs

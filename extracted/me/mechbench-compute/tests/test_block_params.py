@@ -41,7 +41,7 @@ SITES: dict[str, list[tuple[str, str | None]]] = {
     "records/plot": [
         ("ops/records/plot.py", "run"),
         ("ops/records/plot.py", "_read_layer_axis"),
-        ("ops/records/plot.py", "_check_layer_axis"),
+        ("charts/check_axes.py", "check_axes"),
         ("ops/records/plot.py", "_check_annotations"),
         ("ops/records/plot.py", "_check_references"),
         ("ops/records/plot.py", "build_chart")],
@@ -220,6 +220,10 @@ SITES: dict[str, list[tuple[str, str | None]]] = {
         ("ops/dictionary/encode.py", "encode_records")],
     "dictionary/load": [
         ("ops/dictionary/load.py", "load_dictionary")],
+    "dictionary/train": [
+        ("ops/dictionary/train.py", "run"),
+        ("dictionaries/train_settings.py", "read_settings"),
+        ("dictionaries/train_dictionary.py", "train_dictionary")],
     "geometry/align": [
         ("ops/geometry/align.py", "run")],
     "geometry/compare": [

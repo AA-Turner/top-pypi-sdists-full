@@ -68,6 +68,9 @@ class ResourceTagClient:
     ) -> None:
         """
         Apply tags to a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param tag_rids:
@@ -129,6 +132,9 @@ class ResourceTagClient:
         """
         List the tags applied to a resource.
 
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param preview: Enables the use of preview functionality.
@@ -178,6 +184,9 @@ class ResourceTagClient:
     ) -> None:
         """
         Remove tags from a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param tag_rids:
@@ -287,6 +296,9 @@ class AsyncResourceTagClient:
     ) -> typing.Awaitable[None]:
         """
         Apply tags to a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param tag_rids:
@@ -348,6 +360,9 @@ class AsyncResourceTagClient:
         """
         List the tags applied to a resource.
 
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param preview: Enables the use of preview functionality.
@@ -397,6 +412,9 @@ class AsyncResourceTagClient:
     ) -> typing.Awaitable[None]:
         """
         Remove tags from a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param tag_rids:

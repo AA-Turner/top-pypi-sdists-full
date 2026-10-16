@@ -1384,6 +1384,203 @@ class TestAsyncUnpromptedBasicAuth:
         assert client.auth_type is None
 
 
+class TestAsyncAuthorizationErrorPreconditions:
+    """Async twin of TestAuthorizationErrorPreconditions in test_caldav_unit.py
+    (https://github.com/python-caldav/caldav/issues/738).
+    """
+
+    VALID_SYNC_TOKEN_BODY = (
+        b'<?xml version="1.0" encoding="utf-8"?>\n'
+        b'<D:error xmlns:D="DAV:"><D:valid-sync-token/></D:error>'
+    )
+
+    def _make_response(self, status_code, body=b"", content_type="application/xml"):
+        resp = MagicMock()
+        resp.status_code = status_code
+        resp.headers = {"Content-Type": content_type} if body else {}
+        resp.reason = "Forbidden"
+        resp.reason_phrase = resp.reason
+        resp.content = body
+        resp.text = body.decode() if body else ""
+        return resp
+
+    @pytest.mark.asyncio
+    async def test_403_precondition_is_kept(self):
+        from caldav.elements import dav
+
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            return_value=self._make_response(403, self.VALID_SYNC_TOKEN_BODY)
+        )
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            await client.request("/")
+        assert exc_info.value.preconditions == [dav.ValidSyncToken.tag]
+        assert exc_info.value.body == self.VALID_SYNC_TOKEN_BODY
+        assert exc_info.value.reason == "Forbidden"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "body,content_type",
+        [
+            (b"", "application/xml"),
+            (b"<html><body>Forbidden</body></html>", "text/html"),
+            (b"not xml at all <", "text/plain"),
+            (b"<html>forbidden", "application/xml"),
+            (b"<?xml version='1.0'?><foo><bar/></foo>", "application/xml"),
+        ],
+    )
+    async def test_403_without_precondition(self, body, content_type):
+        client = AsyncDAVClient(url="https://cal.example.com/", username="user", password="pass")
+        client.session.request = AsyncMock(
+            return_value=self._make_response(403, body, content_type)
+        )
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            await client.request("/")
+        assert exc_info.value.preconditions == []
+
+    def test_httpx_response_reason_phrase(self):
+        """httpx names the reason ``reason_phrase``; a real httpx.Response,
+        not a mock carrying both attributes."""
+        httpx = pytest.importorskip("httpx")
+        from caldav.elements import dav
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        r = httpx.Response(
+            403,
+            content=self.VALID_SYNC_TOKEN_BODY,
+            headers={"Content-Type": "application/xml"},
+        )
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            client._raise_authorization_error("https://cal.example.com/", r)
+        assert exc_info.value.reason == "Forbidden"
+        assert exc_info.value.body == self.VALID_SYNC_TOKEN_BODY
+        assert exc_info.value.preconditions == [dav.ValidSyncToken.tag]
+
+    def _calendar(self, report_error, sync_token_support=None):
+        from caldav.collection import Calendar
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        if sync_token_support:
+            client.features.set_feature("sync-token", sync_token_support)
+        calendar = Calendar(client=client, url="https://cal.example.com/cal/")
+        report = patch.object(
+            Calendar,
+            "_request_report_build_resultlist",
+            new_callable=AsyncMock,
+            side_effect=report_error,
+        )
+        search = patch.object(Calendar, "search", new_callable=AsyncMock, return_value=[])
+        return calendar, report, search
+
+    @pytest.mark.asyncio
+    async def test_sync_token_expired_falls_back(self):
+        from caldav.elements import dav
+
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=[dav.ValidSyncToken.tag]
+        )
+        calendar, report, search = self._calendar(e)
+        with report, search as mocked_search:
+            result = await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_awaited_once()
+        assert result.sync_token.startswith("fake-")
+
+    @pytest.mark.asyncio
+    async def test_bare_403_propagates_when_sync_token_is_known_to_work(self):
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support="full")
+        with report, search as mocked_search:
+            with pytest.raises(error.AuthorizationError):
+                await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("support", [None, "fragile"])
+    async def test_bare_403_falls_back_unless_sync_token_is_known_to_work(self, support):
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            result = await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_awaited_once()
+        assert result.sync_token.startswith("fake-")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("support", [None, "full"])
+    async def test_403_unsupported_report_falls_back(self, support):
+        """Zimbra answers the sync REPORT with 403 and DAV:supported-report:
+        the report is not supported, which is no permission problem."""
+        from caldav.elements import dav
+
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=[dav.SupportedReport.tag]
+        )
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            result = await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_awaited_once()
+        assert result.sync_token.startswith("fake-")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("support", [None, "full"])
+    async def test_403_with_other_precondition_propagates(self, support):
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=["{DAV:}need-privileges"]
+        )
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            with pytest.raises(error.AuthorizationError):
+                await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_collection_sync_propagates_genuine_403(self):
+        """SynchronizableCalendarObjectCollection.sync() must not hide what
+        get_objects_by_sync_token() raises."""
+        from caldav.collection import SynchronizableCalendarObjectCollection
+
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support="full")
+        collection = SynchronizableCalendarObjectCollection(
+            calendar, [], "http://example.com/sync/1"
+        )
+        with report, search:
+            with pytest.raises(error.AuthorizationError):
+                await collection.sync()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("support,raises", [("full", True), (None, False)])
+    async def test_collection_sync_load_403(self, support, raises):
+        from caldav.calendarobjectresource import Event
+        from caldav.collection import Calendar, SynchronizableCalendarObjectCollection
+
+        e = error.AuthorizationError(url="/cal/x.ics", reason="Forbidden")
+        calendar, _, search = self._calendar(e, sync_token_support=support)
+        obj = Event(calendar.client, url="https://cal.example.com/cal/x.ics", parent=calendar)
+        page = SynchronizableCalendarObjectCollection(calendar, [obj], "tok-2")
+        collection = SynchronizableCalendarObjectCollection(calendar, [], "tok-1")
+        with (
+            search as mocked_search,
+            patch.object(
+                Calendar, "get_objects_by_sync_token", new_callable=AsyncMock, return_value=page
+            ),
+            patch.object(Event, "load", new_callable=AsyncMock, side_effect=e),
+        ):
+            if raises:
+                with pytest.raises(error.AuthorizationError):
+                    await collection.sync()
+                mocked_search.assert_not_awaited()
+            else:
+                await collection.sync()
+                mocked_search.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_sync_report_error_still_falls_back(self):
+        calendar, report, search = self._calendar(error.ReportError("nope"))
+        with report, search as mocked_search:
+            await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_awaited_once()
+
+
 class TestAsyncPrincipalCalendar:
     """``principal.calendar()`` must work with async clients.
 
@@ -1491,6 +1688,90 @@ class TestAsyncPrincipalCalendar:
         ):
             with pytest.raises(error.NotFoundError):
                 await principal.calendar(name="Wanted")
+
+
+class TestAsyncGetCalendarsWithoutHomeSet:
+    """Async twin of the sync no-calendar-home-set discovery tests."""
+
+    @staticmethod
+    def _client(principal_depth1_xml):
+        from .public_share_fixtures import PUBLIC_SHARE_URL, public_share_propfind_xml
+
+        client = AsyncDAVClient(url=PUBLIC_SHARE_URL)
+        client.requests = []
+
+        async def fake_request(url, method="GET", body="", headers=None):
+            depth = headers["Depth"]
+            client.requests.append((str(url), depth))
+            xml = public_share_propfind_xml(url, depth, principal_depth1_xml)
+            return DAVResponse(create_mock_response(xml.encode(), status_code=207))
+
+        client.request = fake_request
+        return client
+
+    @pytest.mark.asyncio
+    async def test_client_url_is_calendar(self) -> None:
+        from caldav.collection import Principal
+
+        from .public_share_fixtures import (
+            PUBLIC_SHARE_PRINCIPAL_DEPTH1_XML,
+            PUBLIC_SHARE_PRINCIPAL_URL,
+            PUBLIC_SHARE_URL,
+        )
+
+        client = self._client(PUBLIC_SHARE_PRINCIPAL_DEPTH1_XML)
+        principal = Principal(client=client, url=PUBLIC_SHARE_PRINCIPAL_URL)
+        calendars = await client.get_calendars(principal)
+        assert [str(c.url) for c in calendars] == [PUBLIC_SHARE_URL + "/"]
+
+    @pytest.mark.asyncio
+    async def test_prefers_principal(self) -> None:
+        from caldav.collection import Principal
+
+        from .public_share_fixtures import (
+            GMX_LIKE_PRINCIPAL_DEPTH1_XML,
+            PUBLIC_SHARE_PRINCIPAL_URL,
+            PUBLIC_SHARE_URL,
+        )
+
+        client = self._client(GMX_LIKE_PRINCIPAL_DEPTH1_XML)
+        principal = Principal(client=client, url=PUBLIC_SHARE_PRINCIPAL_URL)
+        calendars = await client.get_calendars(principal)
+        assert [str(c.url) for c in calendars] == [PUBLIC_SHARE_PRINCIPAL_URL + "work/"]
+        assert all(PUBLIC_SHARE_URL not in url for url, _ in client.requests)
+
+    @pytest.mark.asyncio
+    async def test_missing_home_set_uses_principal_without_discovery_for_lookup_and_creation(
+        self,
+    ) -> None:
+        from caldav.collection import Calendar, Principal
+
+        client = AsyncDAVClient(url="https://cal.example.com/dav/")
+        principal = Principal(client=client, url="https://cal.example.com/dav/principals/user/")
+        original_client_url = str(client.url)
+
+        with (
+            patch.object(
+                principal, "get_property", new=AsyncMock(return_value=None)
+            ) as get_property,
+            patch.object(
+                principal,
+                "get_calendars",
+                new=AsyncMock(
+                    side_effect=AssertionError("missing-home access must not discover calendars")
+                ),
+            ) as get_calendars,
+            patch.object(Calendar, "_async_create", new=AsyncMock()),
+        ):
+            looked_up = await principal.calendar(cal_id="work")
+            created = await principal.make_calendar(cal_id="new")
+
+        assert str(looked_up.url) == str(principal.url) + "work/"
+        assert str(created.parent.url) == str(principal.url)
+        assert principal._calendar_home_set is not None
+        get_property.assert_awaited_once()
+        get_calendars.assert_not_awaited()
+        assert str(client.url) == original_client_url
 
 
 class TestAsyncHttpLibrarySelection:
@@ -1602,3 +1883,531 @@ class TestAsyncMkcalendarMultistatus:
     async def test_failing_propstat_still_raises(self) -> None:
         with pytest.raises(error.MkcalendarError):
             await self._save_calendar(207, self._multistatus("HTTP/1.1 403 Forbidden"))
+
+
+class TestAsyncMultigetTags:
+    """Async twin of ``testMultigetCachesEtag`` and
+    ``testMultigetCachesScheduleTag`` in test_caldav_unit.py: the ETag and
+    Schedule-Tag of a calendar-multiget reply are cached on the objects."""
+
+    REPORT = (
+        b'<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+        b"<D:response><D:href>/calendar/robur/found.ics</D:href><D:propstat><D:prop>"
+        b'<D:getetag>"tag-1"</D:getetag><C:schedule-tag>"stag-1"</C:schedule-tag>'
+        b"<C:calendar-data>BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\n"
+        b"UID:found@example.com\nDTSTAMP:20260826T120000Z\n"
+        b"DTSTART:20260827T120000Z\nSUMMARY:found\nEND:VEVENT\nEND:VCALENDAR\n"
+        b"</C:calendar-data></D:prop><D:status>HTTP/1.1 200 OK</D:status>"
+        b"</D:propstat></D:response></D:multistatus>"
+    )
+
+    def _calendar(self):
+        from caldav import Calendar
+
+        client = AsyncDAVClient(url="https://caldav.example.com/")
+        client.session.request = AsyncMock(
+            return_value=create_mock_response(
+                content=self.REPORT,
+                status_code=207,
+                reason="Multi-Status",
+                headers={"Content-Type": "text/xml"},
+            )
+        )
+        return Calendar(client, url="https://caldav.example.com/calendar/robur/")
+
+    def _assert_tags(self, event) -> None:
+        assert event.etag == '"tag-1"'
+        assert event.schedule_tag == '"stag-1"'
+
+    @pytest.mark.asyncio
+    async def test_multiget(self) -> None:
+        from caldav.lib.url import URL
+
+        calendar = self._calendar()
+        (event,) = await calendar.multiget([URL("/calendar/robur/found.ics")])
+        self._assert_tags(event)
+
+    @pytest.mark.asyncio
+    async def test_load_by_multiget(self) -> None:
+        from caldav import Event
+
+        calendar = self._calendar()
+        event = Event(calendar.client, url=calendar.url.join("found.ics"), parent=calendar)
+        await event.load_by_multiget()
+        self._assert_tags(event)
+
+    @pytest.mark.asyncio
+    async def test_batch_load(self) -> None:
+        from caldav import Event
+
+        calendar = self._calendar()
+        event = Event(calendar.client, url=calendar.url.join("found.ics"), parent=calendar)
+        await calendar._async_batch_load_objects([event])
+        self._assert_tags(event)
+
+
+class TestAsyncCalendarDelete:
+    """Async ``Calendar.delete()``: its wipe logic lives in
+    ``_async_delete_calendar()``, and the plain DELETE in the inherited
+    ``DAVObject._async_delete()``."""
+
+    URL = "https://caldav.example.com/dav/user/mycal/"
+
+    def _calendar(self):
+        from caldav import Calendar
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        client.delete = AsyncMock(
+            return_value=DAVResponse(create_mock_response(status_code=204, reason="No Content"))
+        )
+        return client, Calendar(client, url=self.URL)
+
+    @pytest.mark.asyncio
+    async def test_delete_sends_one_delete(self) -> None:
+        client, calendar = self._calendar()
+        result = await calendar.delete(wipe=False)
+        assert result is None
+        client.delete.assert_awaited_once_with(self.URL)
+
+    @pytest.mark.asyncio
+    async def test_wipe_deletes_the_objects_not_the_calendar(self) -> None:
+        client, calendar = self._calendar()
+        objects = [MagicMock(delete=AsyncMock()), MagicMock(delete=AsyncMock())]
+        calendar.search = AsyncMock(return_value=objects)
+        await calendar.delete(wipe=True)
+        client.delete.assert_not_awaited()
+        for obj in objects:
+            obj.delete.assert_awaited_once_with()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_delete_falls_back_to_wipe(self) -> None:
+        client, calendar = self._calendar()
+        client.features.set_feature("delete-calendar", {"support": "unsupported"})
+        obj = MagicMock(delete=AsyncMock())
+        calendar.search = AsyncMock(return_value=[obj])
+        await calendar.delete()
+        client.delete.assert_not_awaited()
+        obj.delete.assert_awaited_once_with()
+
+    @pytest.mark.asyncio
+    async def test_fragile_delete_retries_until_gone(self) -> None:
+        """The retry loop re-issues the plain DELETE, not the wipe."""
+        client, calendar = self._calendar()
+        client.features.set_feature("delete-calendar", {"support": "fragile"})
+        calendar.search = AsyncMock(side_effect=[[MagicMock()], error.NotFoundError("gone")])
+        with patch("asyncio.sleep", new=AsyncMock()):
+            await calendar.delete()
+        ## two rounds of the loop, then the final DELETE once it is known gone
+        assert client.delete.await_count == 3
+        assert all(c.args == (self.URL,) for c in client.delete.await_args_list)
+        assert all(c.kwargs == {"event": True} for c in calendar.search.await_args_list)
+
+
+class TestAsyncGetCalendarsPropfindErrors:
+    """Async twin of ``TestGetCalendarsPropfindErrors``: a failing PROPFIND
+    in ``get_calendars()`` must raise, not return ``[]``, ref
+    https://github.com/python-caldav/caldav/issues/741
+    """
+
+    HOME_SET_XML = b"""<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/principals/user/</d:href>
+    <d:propstat>
+      <d:prop><c:calendar-home-set><d:href>/calendars/user/</d:href></c:calendar-home-set></d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>
+"""
+
+    @staticmethod
+    def _response(status: int, content: bytes = b"") -> DAVResponse:
+        return DAVResponse(create_mock_response(content=content, status_code=status))
+
+    async def _get_calendars(self, *responses):
+        from caldav.collection import Principal
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        with patch.object(client, "propfind", new=AsyncMock(side_effect=list(responses))):
+            return await client.get_calendars(principal)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("status", "exc"),
+        [
+            (503, error.PropfindError),
+            (500, error.PropfindError),
+            (405, error.PropfindError),
+            (404, error.NotFoundError),
+        ],
+    )
+    async def test_home_set_propfind_failure_raises(self, status, exc) -> None:
+        with pytest.raises(exc):
+            await self._get_calendars(
+                self._response(status), self._response(207, b"<multistatus/>")
+            )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("status", "exc"),
+        [
+            (503, error.PropfindError),
+            (500, error.PropfindError),
+            (405, error.PropfindError),
+            (404, error.NotFoundError),
+        ],
+    )
+    async def test_calendar_list_propfind_failure_raises(self, status, exc) -> None:
+        with pytest.raises(exc):
+            await self._get_calendars(
+                self._response(207, self.HOME_SET_XML), self._response(status)
+            )
+
+    NO_HOME_SET_XML = b"<d:multistatus xmlns:d='DAV:'/>"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status", [403, 404, 405, 500])
+    async def test_client_url_fallback_failure_returns_empty(self, status) -> None:
+        calendars = await self._get_calendars(
+            self._response(207, self.NO_HOME_SET_XML),
+            self._response(207, self.NO_HOME_SET_XML),
+            self._response(status),
+        )
+        assert calendars == []
+
+    @pytest.mark.asyncio
+    async def test_principal_propfind_failure_without_home_set_raises(self) -> None:
+        with pytest.raises(error.PropfindError):
+            await self._get_calendars(
+                self._response(207, self.NO_HOME_SET_XML),
+                self._response(503),
+                self._response(207, self.NO_HOME_SET_XML),
+            )
+
+    @pytest.mark.asyncio
+    async def test_client_url_fallback_refused_by_auth_returns_empty(self) -> None:
+        refused = error.AuthorizationError(url="https://cal.example.com/", reason="Forbidden")
+        calendars = await self._get_calendars(
+            self._response(207, self.NO_HOME_SET_XML),
+            self._response(207, self.NO_HOME_SET_XML),
+            refused,
+        )
+        assert calendars == []
+
+    @pytest.mark.asyncio
+    async def test_principal_refused_by_auth_without_home_set_raises(self) -> None:
+        refused = error.AuthorizationError(url="https://cal.example.com/", reason="Forbidden")
+        with pytest.raises(error.AuthorizationError):
+            await self._get_calendars(self._response(207, self.NO_HOME_SET_XML), refused)
+
+    @pytest.mark.asyncio
+    async def test_client_url_fallback_refusal_keeps_unprompted_basic_auth(self) -> None:
+        from caldav.collection import Principal
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        client._unprompted_basic_tried = True
+        client.auth_type = "basic"
+        client.auth = auth = object()
+        responses = iter([self._response(207, self.NO_HOME_SET_XML)] * 2)
+
+        async def propfind(*largs, **kwargs):
+            try:
+                return next(responses)
+            except StopIteration:
+                ## what _raise_authorization_error() does on a 401
+                client._unwind_unprompted_basic()
+                raise error.AuthorizationError(
+                    url="https://cal.example.com/", reason="no"
+                ) from None
+
+        with patch.object(client, "propfind", new=propfind):
+            assert await client.get_calendars(principal) == []
+        assert (client.auth, client.auth_type) == (auth, "basic")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "client_url",
+        [
+            "https://cal.example.com/principals/user/",
+            "https://cal.example.com/principals/user",
+            "https://cal.example.com:443/principals/user/",
+            "https://user:pw@cal.example.com/principals/user/",
+        ],
+    )
+    async def test_client_url_equal_to_principal_is_not_queried_twice(self, client_url) -> None:
+        from caldav.collection import Principal
+
+        client = AsyncDAVClient(url=client_url)
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        responses = [self._response(207, self.NO_HOME_SET_XML)] * 2
+        propfind = AsyncMock(side_effect=responses)
+        with patch.object(client, "propfind", new=propfind):
+            assert await client.get_calendars(principal) == []
+        assert propfind.call_count == 2
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("status", "exc"), [(503, error.PropfindError), (404, error.NotFoundError)]
+    )
+    async def test_calendar_set_propfind_failure_raises(self, status, exc) -> None:
+        from caldav.collection import CalendarSet
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        calendar_set = CalendarSet(client, url="https://cal.example.com/calendars/user/")
+        with patch.object(client, "propfind", new=AsyncMock(return_value=self._response(status))):
+            with pytest.raises(exc):
+                await calendar_set.get_calendars()
+
+
+class TestAsyncSyncReportsRemovals:
+    """Async twin of TestSyncReportsRemovals in test_caldav_unit.py."""
+
+    def _calendar(self, response):
+        from caldav.collection import Calendar
+
+        client = AsyncDAVClient(url="https://cal.example.com/")
+        client.report = AsyncMock(return_value=response)
+        return Calendar(client=client, url="https://cal.example.com/cal/")
+
+    @pytest.mark.asyncio
+    async def test_sync_ignores_removal_of_unknown_member(self) -> None:
+        from caldav.calendarobjectresource import CalendarObjectResource
+        from caldav.collection import SynchronizableCalendarObjectCollection
+
+        from .test_caldav_unit import SYNC_REPLY_WITH_REMOVAL, _dav_response
+
+        calendar = self._calendar(_dav_response(207, SYNC_REPLY_WITH_REMOVAL))
+        collection = SynchronizableCalendarObjectCollection(
+            calendar=calendar, objects=[], sync_token="http://example.com/sync/1"
+        )
+        with patch.object(CalendarObjectResource, "load", new=AsyncMock()) as mocked_load:
+            (updated, deleted) = await collection.sync()
+        ## removed.ics was never in the collection, so there is nothing to drop
+        assert deleted == []
+        assert len(updated) == 2
+        assert mocked_load.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_ignores_unknown_member_gone_on_load(self) -> None:
+        from caldav.calendarobjectresource import CalendarObjectResource
+        from caldav.collection import SynchronizableCalendarObjectCollection
+
+        from .test_caldav_unit import SYNC_REPLY_WITH_REMOVAL, _dav_response
+
+        calendar = self._calendar(_dav_response(207, SYNC_REPLY_WITH_REMOVAL))
+        collection = SynchronizableCalendarObjectCollection(
+            calendar=calendar, objects=[], sync_token="http://example.com/sync/1"
+        )
+        ## listed as changed, but gone by the time it is fetched
+        load = AsyncMock(side_effect=error.NotFoundError("404"))
+        with patch.object(CalendarObjectResource, "load", new=load):
+            (updated, deleted) = await collection.sync()
+        assert updated == []
+        assert deleted == []
+
+    @pytest.mark.asyncio
+    async def test_deleted_urls(self) -> None:
+        from .test_caldav_unit import SYNC_REPLY_WITH_REMOVAL, _dav_response
+
+        calendar = self._calendar(_dav_response(207, SYNC_REPLY_WITH_REMOVAL))
+        result = await calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        assert {str(u) for u in result.deleted_urls} == {
+            "https://cal.example.com:443/cal/removed.ics"
+        }
+
+    @pytest.mark.asyncio
+    async def test_sync_drops_a_removed_member_from_the_cache(self) -> None:
+        from caldav.calendarobjectresource import CalendarObjectResource
+        from caldav.collection import SynchronizableCalendarObjectCollection
+        from caldav.elements import dav
+
+        from .test_caldav_unit import SYNC_REPLY_WITH_REMOVAL, _dav_response
+
+        calendar = self._calendar(_dav_response(207, SYNC_REPLY_WITH_REMOVAL))
+        cached = CalendarObjectResource(
+            calendar.client,
+            url="https://cal.example.com:443/cal/removed.ics",
+            parent=calendar,
+            props={dav.GetEtag.tag: '"1"'},
+        )
+        collection = SynchronizableCalendarObjectCollection(
+            calendar=calendar,
+            objects=[cached],
+            sync_token="http://example.com/sync/1",
+            deleted_urls=["https://cal.example.com:443/cal/stale.ics"],
+        )
+        with patch.object(CalendarObjectResource, "load", new=AsyncMock()):
+            (updated, deleted) = await collection.sync()
+        assert [str(o.url) for o in deleted] == ["https://cal.example.com:443/cal/removed.ics"]
+        assert "https://cal.example.com:443/cal/removed.ics" not in {
+            str(o.url) for o in collection.objects
+        }
+        assert collection.deleted_urls == set()
+
+
+class TestAsyncSyncCollectionTruncated:
+    """A truncated sync-collection reply (RFC 6578 section 3.6), async.
+
+    Mirrors TestSyncCollectionTruncated in test_caldav_unit.py;
+    https://github.com/python-caldav/caldav/issues/737
+    """
+
+    def _calendar(self, *pages: bytes, path: str = "/dav/cal/"):
+        from caldav.collection import Calendar
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/")
+        client.report = AsyncMock(side_effect=[DAVResponse.from_bytes(p) for p in pages])
+        calendar = Calendar(client=client, url="https://caldav.example.com" + path)
+        calendar.search = AsyncMock(side_effect=AssertionError("fell back to a full fetch"))
+        return client, calendar
+
+    @pytest.mark.asyncio
+    async def test_follows_the_token_until_complete(self) -> None:
+        from caldav.elements import dav
+        from caldav.lib.python_utilities import to_normal_str
+
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"', "b.ics": '"b1"'}, "tok-2", truncated=True),
+            sync_page({"c.ics": '"c1"', "a.ics": None}, "tok-3", truncated=False),
+        )
+        result = await calendar.get_objects_by_sync_token("tok-1")
+
+        assert client.report.await_count == 2
+        bodies = [to_normal_str(c.args[1]) for c in client.report.call_args_list]
+        assert "tok-1" in bodies[0]
+        assert "tok-2" in bodies[1]
+        assert result.sync_token == "tok-3"
+        assert result.truncated is False
+        assert sorted(str(o.url.path) for o in result) == [
+            "/dav/cal/a.ics",
+            "/dav/cal/b.ics",
+            "/dav/cal/c.ics",
+        ]
+        by_name = {str(o.url.path).rsplit("/", 1)[1]: o for o in result}
+        assert by_name["a.ics"].props.get(dav.GetEtag.tag) is None
+        assert [u.path for u in result.deleted_urls] == ["/dav/cal/a.ics"]
+
+    @pytest.mark.asyncio
+    async def test_a_member_removed_then_recreated_is_not_deleted(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": None}, "tok-2", truncated=True),
+            sync_page({"a.ics": '"a2"'}, "tok-3", truncated=False),
+        )
+        result = await calendar.get_objects_by_sync_token("tok-1")
+        assert result.deleted_urls == set()
+
+    @pytest.mark.asyncio
+    async def test_iteration_cap(self) -> None:
+        from caldav.collection import Calendar
+
+        from .test_caldav_unit import sync_page
+
+        pages = [
+            sync_page({f"{i}.ics": f'"e{i}"'}, f"tok-{i + 2}", truncated=True)
+            for i in range(Calendar.sync_max_pages + 5)
+        ]
+        client, calendar = self._calendar(*pages)
+        result = await calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.await_count == Calendar.sync_max_pages
+        assert result.truncated is True
+        assert len(result) == Calendar.sync_max_pages
+
+    @pytest.mark.asyncio
+    async def test_stops_when_the_token_does_not_move(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(sync_page({"a.ics": '"a1"'}, "tok-1", truncated=True))
+        result = await calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.await_count == 1
+        assert result.truncated is True
+        assert result.sync_token == "tok-1"
+
+    @pytest.mark.asyncio
+    async def test_507_for_another_href_is_not_a_truncation(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        page = sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True).replace(
+            b"<D:href>/dav/cal/</D:href>", b"<D:href>/dav/othercal/</D:href>"
+        )
+        _, calendar = self._calendar(page)
+        with pytest.raises(error.DAVError):
+            await calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+
+    @pytest.mark.asyncio
+    async def test_at_sign_in_calendar_path(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        base = "/dav/u@example.com/cal/"
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True, base=base),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False, base=base),
+            path=base,
+        )
+        result = await calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+        assert client.report.await_count == 2
+        assert result.sync_token == "tok-3"
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_max_pages_below_one_still_makes_one_request(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True))
+        calendar.sync_max_pages = 0
+        result = await calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.await_count == 1
+        assert result.truncated is True
+
+    @pytest.mark.asyncio
+    async def test_truncated_initial_sync_on_stalwart_stops_short(self) -> None:
+        from caldav.compatibility_hints import FeatureSet
+
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-9", truncated=True),
+            sync_page({}, "tok-9", truncated=False),
+        )
+        client.features = FeatureSet({"sync-token.limit.initial-sync": {"support": "broken"}})
+        client.propfind = AsyncMock(side_effect=AssertionError("listed by PROPFIND"))
+        result = await calendar.get_objects_by_sync_token(disable_fallback=True)
+        assert client.report.await_count == 1
+        assert [str(o.url.path) for o in result] == ["/dav/cal/a.ics"]
+        assert result.truncated is True
+        assert result.sync_token is None
+
+    @pytest.mark.asyncio
+    async def test_truncated_initial_sync_elsewhere_follows_the_checkpoint(self) -> None:
+        from .test_caldav_unit import sync_page
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False),
+        )
+        result = await calendar.get_objects_by_sync_token(disable_fallback=True)
+        assert client.report.await_count == 2
+        assert result.sync_token == "tok-3"
+        assert result.truncated is False
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_sync_collection_reports_truncation(self) -> None:
+        """AsyncDAVClient.sync_collection() keeps the members of a truncated page."""
+        from .test_caldav_unit import sync_page
+
+        client = AsyncDAVClient(url="https://caldav.example.com/dav/cal/")
+        client.request = AsyncMock(
+            return_value=DAVResponse.from_bytes(
+                sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True)
+            )
+        )
+        response = await client.sync_collection(sync_token="tok-1")
+        assert response.sync_truncated is True
+        assert response.sync_token == "tok-2"
+        assert [r.href for r in response.results] == ["/dav/cal/a.ics"]

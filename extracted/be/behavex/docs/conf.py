@@ -48,11 +48,21 @@ myst_enable_extensions = [
 autoapi_dirs = ['../behavex']
 autoapi_type = 'python'
 autoapi_template_dir = '_autoapi_templates'
-autoapi_generate_api_docs = True
-autoapi_add_toctree_entry = False  # We'll add it manually to control placement
+autoapi_generate_api_docs = False
+autoapi_add_toctree_entry = False
+
+# -- HTML theme options -----------------------------------------------------
+html_theme_options = {
+    'collapse_navigation': False,
+    'sticky_navigation': True,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False,
+}
 
 # -- HTML output options ----------------------------------------------------
-html_static_path = []
+html_static_path = ['_static']
+html_css_files = ['custom.css']
 html_show_sourcelink = True
 html_show_sphinx = True
 html_show_copyright = True

@@ -153,7 +153,7 @@ class EventsApiVersion(StrEnum):
     V2_ONLY = "v2-only"
 
 
-DEFAULT_EVENTS_API_VERSION = EventsApiVersion.V1
+DEFAULT_EVENTS_API_VERSION = EventsApiVersion.V2
 
 
 class CommonConfig(_ConflictDetectionMixin, BaseSettings):
@@ -531,6 +531,9 @@ class GraphConfig(BaseSettings):
 class WorkerConfig(BaseSettings):
     retry_policy_max_attempts: int = 3
     retry_policy_backoff_coefficient: float = 2.0
+    # Wait multiplier for the client-side retry `@activity` applies outside a workflow; `None`
+    # follows the coefficient above. Separate because Temporal rejects a coefficient below 1.
+    local_retry_backoff_coefficient: float | None = None
     # - The workflow fails on any workflow-level error if set to True. Note: Workflow-level errors differ from
     # activity-level errors and typically result from bugs in the workflow code. By default, workflows do not fail
     #  on errors, enabling you to push code fixes without re-running workflows.
@@ -737,10 +740,7 @@ class AppConfig(BaseSettings):
 
     @model_validator(mode="after")
     def inject_defaults(self) -> Self:
-        has_temporal_key = self.temporal.api_key and self.temporal.api_key.get_secret_value()
         has_mistral_key = self.common.mistral_api_key and self.common.mistral_api_key.get_secret_value()
-        if not has_temporal_key and has_mistral_key:
-            self.temporal.api_key = self.common.mistral_api_key
         if not self.worker.agent.mistral_client_api_key and has_mistral_key:
             self.worker.agent.mistral_client_api_key = self.common.mistral_api_key
         return self

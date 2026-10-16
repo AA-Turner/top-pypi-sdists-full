@@ -1,4 +1,4 @@
-"""Version 1.7.4
+"""Version 1.7.5
 -------------
 
 # Introduction
@@ -1050,7 +1050,7 @@ are collective.  There are a couple of important limitations of parallel IO:
    to write to it.
  - You cannot use variable-length (VLEN) data types.
 
-***Import warning regarding threads:***  The underlying netcdf-c library is not thread-safe, so netcdf4-python cannot perform parallel
+***Important warning regarding threads:***  The underlying netcdf-c library is not thread-safe, so netcdf4-python cannot perform parallel
 IO in a multi-threaded environment.  Users should expect segfaults if a netcdf file is opened on multiple threads - care should
 be taken to restrict netcdf4-python usage to a single thread, even when using free-threaded python.
 
@@ -1283,11 +1283,12 @@ import sys
 import functools
 from typing import Union
 
-__version__ = "1.7.4"
+__version__ = "1.7.5"
 
 # Initialize numpy
 import posixpath
 from cftime import date2num, num2date, date2index
+from packaging.version import Version
 import numpy
 cimport numpy
 import weakref
@@ -1888,6 +1889,9 @@ be raised in the next release."""
             raise TypeError, 'illegal data type for attribute %r, must be one of %s, got %s' % (attname, _supportedtypes, value_arr.dtype.str[1:])
         elif xtype == -99: # if xtype is not passed in as kwarg.
             xtype = _nptonctype[value_arr.dtype.str[1:]]
+        # netcdf-c expects native-endian buffers for primitive numeric types.
+        if value_arr.dtype.kind in 'iuf' and not value_arr.dtype.isnative:
+            value_arr = value_arr.astype(value_arr.dtype.newbyteorder('='))
         lenarr = PyArray_SIZE(value_arr)
         with nogil:
             ierr = nc_put_att(grpid, varid, attname, xtype, lenarr,
@@ -2410,7 +2414,7 @@ strings.
 
         # flag to indicate that Variables in this Dataset support orthogonal indexing.
         self.__orthogonal_indexing__ = True
-        if diskless and __netcdf4libversion__ < '4.2.1':
+        if diskless and Version(__netcdf4libversion__) < Version('4.2.1'):
             #diskless = False # don't raise error, instead silently ignore
             raise ValueError('diskless mode requires netcdf lib >= 4.2.1, you have %s' % __netcdf4libversion__)
         # convert filename into string (from os.path object for example),
@@ -4439,7 +4443,6 @@ behavior is similar to Fortran or Matlab, but different than numpy.
                 elif fill_value == 'default':
                     if self._isprimitive:
                         fillval = numpy.array(default_fillvals[self.dtype.str[1:]])
-                        if not fillval.dtype.isnative: fillval.byteswap(True)
                         _set_att(self._grp, self._varid, '_FillValue',\
                                  fillval, xtype=xtype)
                     else:
@@ -4455,7 +4458,6 @@ does not do anything."""
                                _tostr(fill_value), xtype=xtype, force_ncstring=True)
                         else:
                             fillval = numpy.array(fill_value, self.dtype)
-                            if not fillval.dtype.isnative: fillval.byteswap(True)
                             _set_att(self._grp, self._varid, '_FillValue',\
                                      fillval, xtype=xtype)
                     else:
@@ -5019,13 +5021,10 @@ details."""
                 #    raise AttributeError(msg)
             elif name in ['valid_min','valid_max','valid_range','missing_value'] and self._isprimitive:
                 # make sure these attributes written in same data type as variable.
-                # also make sure it is written in native byte order
-                # (the same as the data)
                 valuea = numpy.array(value, self.dtype)
                 # check to see if array cast is safe
                 if _safecast(numpy.array(value),valuea):
                     value = valuea
-                    if not value.dtype.isnative: value.byteswap(True)
                 else: # otherwise don't do it, but issue a warning
                     msg="WARNING: %s cannot be safely cast to variable dtype" \
                     % name
@@ -5104,6 +5103,8 @@ rename a `Variable` attribute named `oldname` to `newname`."""
 
         # Fill output array with data chunks.
         for (a,b,c,i) in zip(start, count, stride, put_ind):
+            if 0 in b:
+                continue # retain the empty shape without issuing native I/O
             datout = self._get(a,b,c)
             if not hasattr(datout,'shape') or data.shape == datout.shape:
                 data = datout
@@ -5186,8 +5187,8 @@ rename a `Variable` attribute named `oldname` to `newname`."""
                 if len(data.shape) > 0 and data.shape[-1] == self.shape[-1]:
                     # also make sure slice is along last dimension
                     matchdim = True
-                    for cnt in count:
-                        if cnt[-1] != self.shape[-1]:
+                    for cnt, ind in zip(count, put_ind):
+                        if cnt[-1] != self.shape[-1] or (0 in cnt and ind[-1] != slice(None)):
                             matchdim = False
                             break
                     if matchdim:
@@ -5626,11 +5627,11 @@ cannot be safely cast to variable data type""" % attname
             data = numpy.tile(data,datashape)
         # reshape data array if needed to conform with start,count,stride.
         if data.ndim != len(datashape) or\
-           (data.shape != datashape and data.ndim > 1): # issue #1083
+           (data.shape != datashape and (data.ndim > 1 or 0 in datashape)): # issue #1083
             # create a view so shape in caller is not modified (issue 90)
             try: # if extra singleton dims, just reshape
                 data = data.view()
-                data.shape = tuple(datashape)
+                data = data.reshape(tuple(datashape))
             except ValueError: # otherwise broadcast
                 data = numpy.broadcast_to(data, datashape)
 
@@ -6788,7 +6789,7 @@ returns a rank 1 numpy character array of length NUMCHARS with datatype `'S1'`
     arr[0:len(string)] = tuple(string)
     return arr
 
-def stringtochar(a,encoding='utf-8',n_strlen=None):
+def stringtochar(a,encoding=None,n_strlen=None):
     """
 **`stringtochar(a,encoding='utf-8',n_strlen=None)`**
 
@@ -6799,8 +6800,8 @@ is the number of characters in each string.  Will be converted to
 an array of characters (datatype `'S1'` or `'U1'`) of shape `a.shape + (N,)`.
 
 optional kwarg `encoding` can be used to specify character encoding (default
-`utf-8`). If `encoding` is 'none' or 'bytes', a `numpy.string_` the input array
-is treated a raw byte strings (`numpy.string_`).
+`utf-8` for dtype=`'UN'` or `ascii` for dtype=`'SN'`). If `encoding` is 'none' or 'bytes', 
+a `numpy.string_` the input array is treated a raw byte strings (`numpy.string_`).
 
 optional kwarg `n_strlen` is the number of characters in each string.  Default
 is None, which means `n_strlen` will be set to a.itemsize (the number of bytes
@@ -6809,15 +6810,19 @@ used to represent each string in the input array).
 returns a numpy character array with datatype `'S1'` or `'U1'`
 and shape `a.shape + (N,)`, where N is the length of each string in a."""
     dtype = a.dtype.kind
-    if n_strlen is None:
-        n_strlen = a.dtype.itemsize
     if dtype not in ["S","U"]:
         raise ValueError("type must string or unicode ('S' or 'U')")
+    if encoding is None:
+       if dtype == 'S':
+           encoding = 'ascii'
+       else:
+           encoding = 'utf-8'
+    if n_strlen is None:
+        n_strlen = a.dtype.itemsize
     if encoding in ['none','None','bytes']:
         b = numpy.array(tuple(a.tobytes()),'S1')
     elif encoding == 'ascii':
-        b = numpy.array(tuple(a.tobytes().decode(encoding)),dtype+'1')
-        b.shape = a.shape + (n_strlen,)
+        b = (numpy.array(tuple(a.tobytes().decode(encoding)),dtype+'1')).reshape(a.shape + (n_strlen,))
     else:
         if not a.ndim:
             a = numpy.array([a])
@@ -6827,7 +6832,7 @@ and shape `a.shape + (N,)`, where N is the length of each string in a."""
         b = numpy.array([[bb[i:i+1] for i in range(n_strlen)] for bb in bbytes])
     return b
 
-def chartostring(b,encoding='utf-8'):
+def chartostring(b,encoding=None):
     """
 **`chartostring(b,encoding='utf-8')`**
 
@@ -6838,22 +6843,26 @@ Will be converted to a array of strings, where each string has a fixed
 length of `b.shape[-1]` characters.
 
 optional kwarg `encoding` can be used to specify character encoding (default
-`utf-8`). If `encoding` is 'none' or 'bytes', a `numpy.string_` byte array is
-returned.
+`utf-8` for dtype=`'UN'` or `ascii` for dtype=`'SN'`). If `encoding` is 'none' or 'bytes', 
+a `numpy.string_` byte array is returned.
 
 returns a numpy string array with datatype `'UN'` (or `'SN'`) and shape
 `b.shape[:-1]` where where `N=b.shape[-1]`."""
     dtype = b.dtype.kind
     if dtype not in ["S","U"]:
         raise ValueError("type must be string or unicode ('S' or 'U')")
+    if encoding is None:
+       if dtype == 'S':
+           encoding = 'ascii'
+       else:
+           encoding = 'utf-8'
     bs = b.tobytes()
     slen = int(b.shape[-1])
     if encoding in ['none','None','bytes']:
         a = numpy.array([bs[n1:n1+slen] for n1 in range(0,len(bs),slen)],'S'+repr(slen))
     else:
         a = numpy.array([bs[n1:n1+slen].decode(encoding) for n1 in range(0,len(bs),slen)],'U'+repr(slen))
-    a.shape = b.shape[:-1]
-    return a
+    return a.reshape(b.shape[:-1])
 
 class MFDataset(Dataset):
     """
@@ -7236,8 +7245,8 @@ class _Variable:
         # is a perfect match for the "start", "count" and "stride"
         # arguments to the nc_get_var() function, and is much more easy
         # to use.
-        start, count, stride, put_ind =\
-        _StartCountStride(elem, self.shape)
+        start, count, stride, put_ind, selection =\
+        _StartCountStride(elem, self.shape, return_selection=True)
         datashape = _out_array_shape(count)
         data = ma.empty(datashape, dtype=self.dtype)
 
@@ -7264,6 +7273,51 @@ class _Variable:
             count = [abs(cnt) for cnt in count]
             if (numpy.array(stride) < 0).any():
                 raise IndexError('negative strides not allowed when slicing MFVariable Variable instance')
+            if 0 in count:
+                # An empty underlying read retains automatic unpacking and
+                # unsigned conversion without reading or concatenating records.
+                empty = (slice(0, 0),) + (slice(None),) * (self.ndim - 1)
+                if self.dtype.kind == 'S' and (count[-1] != self.shape[-1] or ind[-1] != slice(None)):
+                    # A partial, scalar or fancy character selection is not
+                    # eligible for automatic conversion of the full width.
+                    empty = empty[:-1] + (slice(0, 0),)
+                records = selection[0]
+                selected = []
+                offset = 0
+                if isinstance(records, slice):
+                    beg, end, inc = records.indices(self.shape[0])
+                    for n, length in enumerate(self._recLen):
+                        # Intersect an arithmetic progression with each file's
+                        # record interval without materializing all records.
+                        lower = max(beg, offset)
+                        first = beg + ((lower - beg + inc - 1) // inc) * inc
+                        if first < min(end, offset + length):
+                            selected.append(n)
+                        offset += length
+                else:
+                    # Non-slice fancy indexing processes one record chunk at a
+                    # time; preserve the final chunk's dtype, as for nonempty
+                    # reads. Scalars select their own file by the same rule.
+                    record = records[-1] if numpy.iterable(records) else records
+                    if record < 0:
+                        record += self.shape[0]
+                    for n, length in enumerate(self._recLen):
+                        if offset <= record < offset + length:
+                            selected.append(n)
+                            break
+                        offset += length
+                # With no selected records there is no contributing file;
+                # retain the first file's empty-decoding convention.
+                if not selected:
+                    selected = [0]
+                decoded = [Variable.__getitem__(self._recVar[n], empty) for n in selected]
+                if any(part.ndim != decoded[0].ndim for part in decoded):
+                    raise ValueError('all the input arrays must have same number of dimensions')
+                data = data.astype(numpy.result_type(*(part.dtype for part in decoded)))
+                if decoded[0].ndim < self.ndim:
+                    data = data.reshape(datashape[:-1])
+                    squeeze = squeeze[:-1]
+                continue
             # Start, stop and step along 1st dimension, eg the unlimited
             # dimension.
             sta = start[0]

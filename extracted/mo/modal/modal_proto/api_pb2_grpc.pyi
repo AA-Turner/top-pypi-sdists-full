@@ -162,6 +162,10 @@ class ModalClientStub:
         modal_proto.api_pb2.ClusterListRequest,
         modal_proto.api_pb2.ClusterListResponse,
     ]
+    ClusterReservationList: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ClusterReservationListRequest,
+        modal_proto.api_pb2.ClusterReservationListResponse,
+    ]
     ContainerCheckpoint: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerCheckpointRequest,
         google.protobuf.empty_pb2.Empty,
@@ -186,10 +190,6 @@ class ModalClientStub:
     ContainerFilesystemExec: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerFilesystemExecRequest,
         modal_proto.api_pb2.ContainerFilesystemExecResponse,
-    ]
-    ContainerFilesystemExecGetOutput: grpc.UnaryStreamMultiCallable[
-        modal_proto.api_pb2.ContainerFilesystemExecGetOutputRequest,
-        modal_proto.api_pb2.FilesystemRuntimeOutputBatch,
     ]
     ContainerHeartbeat: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerHeartbeatRequest,
@@ -390,6 +390,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionCallCancelRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    FunctionCallCount: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionCallCountRequest,
+        modal_proto.api_pb2.FunctionCallCountResponse,
+    ]
     FunctionCallFetch: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionCallFetchRequest,
         modal_proto.api_pb2.FunctionCallFetchResponse,
@@ -456,6 +460,10 @@ class ModalClientStub:
         modal_proto.api_pb2.FunctionGetInputsResponse,
     ]
     """For containers to request next call"""
+    FunctionGetMetrics: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.FunctionGetMetricsRequest,
+        modal_proto.api_pb2.FunctionGetMetricsResponse,
+    ]
     FunctionGetOutputs: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.FunctionGetOutputsRequest,
         modal_proto.api_pb2.FunctionGetOutputsResponse,
@@ -535,6 +543,10 @@ class ModalClientStub:
         modal_proto.api_pb2.ImageListTagsRequest,
         modal_proto.api_pb2.ImageListTagsResponse,
     ]
+    ImageNameDelete: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ImageNameDeleteRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
     ImagePublish: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ImagePublishRequest,
         modal_proto.api_pb2.ImagePublishResponse,
@@ -556,6 +568,11 @@ class ModalClientStub:
         modal_proto.api_pb2.MapStartOrContinueRequest,
         modal_proto.api_pb2.MapStartOrContinueResponse,
     ]
+    MetricsGetInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.MetricsGetInfoRequest,
+        modal_proto.api_pb2.MetricsGetInfoResponse,
+    ]
+    """Metrics discovery"""
     MountBatchedCheckExistence: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.MountBatchedCheckExistenceRequest,
         modal_proto.api_pb2.MountBatchedCheckExistenceResponse,
@@ -574,6 +591,23 @@ class ModalClientStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Notebooks"""
+    PersistentSandboxCreate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.PersistentSandboxCreateRequest,
+        modal_proto.api_pb2.PersistentSandboxCreateResponse,
+    ]
+    """Persistent sandboxes"""
+    PersistentSandboxGet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.PersistentSandboxGetRequest,
+        modal_proto.api_pb2.PersistentSandboxGetResponse,
+    ]
+    PersistentSandboxResume: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.PersistentSandboxResumeRequest,
+        modal_proto.api_pb2.PersistentSandboxResumeResponse,
+    ]
+    PersistentSandboxTerminate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.PersistentSandboxTerminateRequest,
+        modal_proto.api_pb2.PersistentSandboxTerminateResponse,
+    ]
     ProxyAddIp: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ProxyAddIpRequest,
         modal_proto.api_pb2.ProxyAddIpResponse,
@@ -815,20 +849,40 @@ class ModalClientStub:
         modal_proto.api_pb2.SecretUpdateRequest,
         google.protobuf.empty_pb2.Empty,
     ]
+    ServerCountRequests: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServerCountRequestsRequest,
+        modal_proto.api_pb2.ServerCountRequestsResponse,
+    ]
+    """Servers"""
+    ServerGetMetrics: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServerGetMetricsRequest,
+        modal_proto.api_pb2.ServerGetMetricsResponse,
+    ]
     ServerGetTimeRangeStats: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ServerGetTimeRangeStatsRequest,
         modal_proto.api_pb2.ServerGetTimeRangeStatsResponse,
     ]
-    """Servers"""
     ServerRequestFetch: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ServerRequestFetchRequest,
         modal_proto.api_pb2.ServerRequestFetchResponse,
+    ]
+    ServiceUserCreate: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServiceUserCreateRequest,
+        modal_proto.api_pb2.ServiceUserCreateResponse,
+    ]
+    """Service users"""
+    ServiceUserDelete: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServiceUserDeleteRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    ServiceUserInfo: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ServiceUserInfoRequest,
+        modal_proto.api_pb2.ServiceUserInfoResponse,
     ]
     ServiceUserList: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.ServiceUserListResponse,
     ]
-    """Service users"""
     SharedVolumeDelete: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SharedVolumeDeleteRequest,
         google.protobuf.empty_pb2.Empty,
@@ -1290,6 +1344,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ClusterListResponse: ...
     @abc.abstractmethod
+    def ClusterReservationList(
+        self,
+        request: modal_proto.api_pb2.ClusterReservationListRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ClusterReservationListResponse: ...
+    @abc.abstractmethod
     def ContainerCheckpoint(
         self,
         request: modal_proto.api_pb2.ContainerCheckpointRequest,
@@ -1326,12 +1386,6 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.ContainerFilesystemExecRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ContainerFilesystemExecResponse: ...
-    @abc.abstractmethod
-    def ContainerFilesystemExecGetOutput(
-        self,
-        request: modal_proto.api_pb2.ContainerFilesystemExecGetOutputRequest,
-        context: grpc.ServicerContext,
-    ) -> collections.abc.Iterator[modal_proto.api_pb2.FilesystemRuntimeOutputBatch]: ...
     @abc.abstractmethod
     def ContainerHeartbeat(
         self,
@@ -1628,6 +1682,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def FunctionCallCount(
+        self,
+        request: modal_proto.api_pb2.FunctionCallCountRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionCallCountResponse: ...
+    @abc.abstractmethod
     def FunctionCallFetch(
         self,
         request: modal_proto.api_pb2.FunctionCallFetchRequest,
@@ -1725,6 +1785,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.FunctionGetInputsResponse:
         """For containers to request next call"""
+    @abc.abstractmethod
+    def FunctionGetMetrics(
+        self,
+        request: modal_proto.api_pb2.FunctionGetMetricsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.FunctionGetMetricsResponse: ...
     @abc.abstractmethod
     def FunctionGetOutputs(
         self,
@@ -1843,6 +1909,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ImageListTagsResponse: ...
     @abc.abstractmethod
+    def ImageNameDelete(
+        self,
+        request: modal_proto.api_pb2.ImageNameDeleteRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
     def ImagePublish(
         self,
         request: modal_proto.api_pb2.ImagePublishRequest,
@@ -1874,6 +1946,13 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.MapStartOrContinueResponse: ...
     @abc.abstractmethod
+    def MetricsGetInfo(
+        self,
+        request: modal_proto.api_pb2.MetricsGetInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.MetricsGetInfoResponse:
+        """Metrics discovery"""
+    @abc.abstractmethod
     def MountBatchedCheckExistence(
         self,
         request: modal_proto.api_pb2.MountBatchedCheckExistenceRequest,
@@ -1899,6 +1978,31 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty:
         """Notebooks"""
+    @abc.abstractmethod
+    def PersistentSandboxCreate(
+        self,
+        request: modal_proto.api_pb2.PersistentSandboxCreateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.PersistentSandboxCreateResponse:
+        """Persistent sandboxes"""
+    @abc.abstractmethod
+    def PersistentSandboxGet(
+        self,
+        request: modal_proto.api_pb2.PersistentSandboxGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.PersistentSandboxGetResponse: ...
+    @abc.abstractmethod
+    def PersistentSandboxResume(
+        self,
+        request: modal_proto.api_pb2.PersistentSandboxResumeRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.PersistentSandboxResumeResponse: ...
+    @abc.abstractmethod
+    def PersistentSandboxTerminate(
+        self,
+        request: modal_proto.api_pb2.PersistentSandboxTerminateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.PersistentSandboxTerminateResponse: ...
     @abc.abstractmethod
     def ProxyAddIp(
         self,
@@ -2259,12 +2363,24 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
+    def ServerCountRequests(
+        self,
+        request: modal_proto.api_pb2.ServerCountRequestsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServerCountRequestsResponse:
+        """Servers"""
+    @abc.abstractmethod
+    def ServerGetMetrics(
+        self,
+        request: modal_proto.api_pb2.ServerGetMetricsRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServerGetMetricsResponse: ...
+    @abc.abstractmethod
     def ServerGetTimeRangeStats(
         self,
         request: modal_proto.api_pb2.ServerGetTimeRangeStatsRequest,
         context: grpc.ServicerContext,
-    ) -> modal_proto.api_pb2.ServerGetTimeRangeStatsResponse:
-        """Servers"""
+    ) -> modal_proto.api_pb2.ServerGetTimeRangeStatsResponse: ...
     @abc.abstractmethod
     def ServerRequestFetch(
         self,
@@ -2272,12 +2388,30 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ServerRequestFetchResponse: ...
     @abc.abstractmethod
+    def ServiceUserCreate(
+        self,
+        request: modal_proto.api_pb2.ServiceUserCreateRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServiceUserCreateResponse:
+        """Service users"""
+    @abc.abstractmethod
+    def ServiceUserDelete(
+        self,
+        request: modal_proto.api_pb2.ServiceUserDeleteRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def ServiceUserInfo(
+        self,
+        request: modal_proto.api_pb2.ServiceUserInfoRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.ServiceUserInfoResponse: ...
+    @abc.abstractmethod
     def ServiceUserList(
         self,
         request: google.protobuf.empty_pb2.Empty,
         context: grpc.ServicerContext,
-    ) -> modal_proto.api_pb2.ServiceUserListResponse:
-        """Service users"""
+    ) -> modal_proto.api_pb2.ServiceUserListResponse: ...
     @abc.abstractmethod
     def SharedVolumeDelete(
         self,

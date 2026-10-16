@@ -1,7 +1,7 @@
 # Runs one SaaS Sandbox reproduction case: the control image and a target
 # built from an airbytehq/airbyte PR or commit both read the case's seeded
-# sandbox scenario, and the READ verdict says whether they did what `goal`
-# asks (see "Reproduction Cases" in docs/regression-tests.md).
+# sandbox scenario, and the verdict of the case's command (READ, or CHECK for a
+# `command: check` case) says whether they did what `goal` asks (see "Reproduction Cases" in docs/regression-tests.md).
 #
 # Separate from connector-regression-test.yml on purpose: no live provider
 # accounts, Cloud connections, GSM secrets or HTTP replay are involved, and the
@@ -304,20 +304,27 @@ jobs:
           CASE_DIR: ${{ steps.case.outputs.dir }}
         run: uv run airbyte-ops cloud connector regression-case-setup "$CASE_DIR"
 
-      - name: Run READ
+      # `read` keeps its id (and the READ_* names below) for the CHECK cases too.
+      - name: Run the case command
         id: read
         timeout-minutes: 25
         env:
+          CASE_COMMAND: ${{ steps.setup.outputs.command }}
           CASE_DIR: ${{ steps.setup.outputs.case_dir }}
           CONFIG_PATH: ${{ steps.setup.outputs.config_path }}
           SCENARIO_ID: ${{ steps.setup.outputs.scenario_id }}
           REGRESSION_TEST_ARTIFACT_NAME: ${{ inputs.result_artifact_name }}
         run: |
+          # The case's expectations choose the command; anything else stops here.
+          case "$CASE_COMMAND" in
+            read|check) ;;
+            *) echo "::error::regression-case-setup reported no valid case command"; exit 1 ;;
+          esac
           # The verdict, not the exit code, decides the run; see the last step.
           echo "started=true" >> "$GITHUB_OUTPUT"
           set +e
           sandbox exec "$SCENARIO_ID" -- uv run airbyte-ops cloud connector regression-test \
-            --command read \
+            --command "$CASE_COMMAND" \
             --connector-name "$CONNECTOR_NAME" \
             --repo-root "$GITHUB_WORKSPACE/connector-repo" \
             --control-image "$CONTROL_IMAGE" \

@@ -20,7 +20,7 @@ from xknx.typing import DPTParsable
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -30,25 +30,31 @@ class NumericValue(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        value_type: DPTParsable | type[DPTNumeric],
+        name: str | None = None,
         group_address: GroupAddressesType = None,
         group_address_state: GroupAddressesType = None,
         respond_to_read: bool = False,
         sync_state: bool | int | float | str = True,
-        value_type: DPTParsable | type[DPTNumeric] | None = None,
         always_callback: bool = False,
         device_updated_cb: DeviceCallbackType[NumericValue] | None = None,
     ) -> None:
         """Initialize Sensor class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
+        if name is None:
+            type_name = (
+                value_type.__name__ if isinstance(value_type, type) else value_type
+            )
+            self._name = f"{type(self).__name__} {type_name}"
         self.always_callback = always_callback
         self.respond_to_read = respond_to_read
         self.sensor_value = RemoteValueNumeric(
             xknx,
+            value_type=value_type,
             group_address=group_address,
             group_address_state=group_address_state,
             sync_state=sync_state,
-            value_type=value_type,
             device_name=self.name,
             after_update_cb=self.after_update,
         )
@@ -58,15 +64,15 @@ class NumericValue(Device):
         yield self.sensor_value
 
     @property
-    def last_telegram(self) -> Telegram | None:
+    def last_telegram(self) -> GroupValueTelegram | None:
         """Return the last telegram received from the RemoteValue."""
         return self.sensor_value.telegram
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.sensor_value.process(telegram, always_callback=self.always_callback)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GroupValueResponse telegrams."""
         if (
             self.respond_to_read
@@ -81,10 +87,6 @@ class NumericValue(Device):
     def unit_of_measurement(self) -> str | None:
         """Return the unit of measurement."""
         return self.sensor_value.unit_of_measurement
-
-    def ha_device_class(self) -> str | None:
-        """Return the home assistant device class as string."""
-        return self.sensor_value.ha_device_class
 
     def resolve_state(self) -> float | int | None:
         """Return the current state of the sensor as a human readable string."""

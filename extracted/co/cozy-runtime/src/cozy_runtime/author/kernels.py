@@ -9,9 +9,11 @@ each key once, niced, out of process. `Model.execution_plan` receives a `Plan` w
 waits for that build and returns the launcher. A request never compiles, and a launch maps any
 weight operand the plane has not mapped (`readable`).
 
-Also public here: the operand an `fp8-rowwise` encoded leaf takes already quantized
-(`PreQuantized`), and the Runtime's compiled CUDA kernels (`rms_rope_split_half`), which ride
-its linux x86 cp312-abi3 wheel.
+Also public here: the operand an encoded leaf takes already quantized (`PreQuantized`), a scope
+in which the leaves that read one activation quantize it once (`quantize_once`), a producer's
+norm, modulation and activation folded into that quantization (`int8_rows`), and the
+Runtime's compiled CUDA kernels (`rms_rope_split_half`), which ride its linux x86 cp312-abi3
+wheel.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ import hashlib
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from importlib.util import find_spec
 from typing import Any, cast
@@ -27,7 +30,8 @@ from typing import Any, cast
 from cozy_runtime import _kernels
 
 ROWWISE_FP8 = "cozy.fp8-rowwise.native-leaf/1"
-"""The `provider` of an encoded leaf whose forward takes a `PreQuantized` operand."""
+INT8_CONVROT = "cozy.int8-convrot256.native-leaf/1"
+"""The `provider`s of the encoded leaves whose forward takes a `PreQuantized` operand."""
 
 _NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
@@ -73,17 +77,25 @@ class TritonKernels:
 
     Declare it at module scope (`GLUE = TritonKernels("my-package-glue", [...])`); the kernels
     must be module-level functions, which the out-of-process build imports by name. The name
-    keys the build in the machine's kernel store.
+    keys the build in the machine's kernel store. `origin`: a module whose import declares
+    the set, when that is not the kernels' own (a set Runtime builds from a declaration).
     """
 
-    def __init__(self, name: str, entries: Iterable[TritonEntry]) -> None:
+    def __init__(self, name: str, entries: Iterable[TritonEntry], *, origin: str = "") -> None:
         if _NAME.fullmatch(name) is None:
             raise ValueError(f"kernel set name {name!r} must match {_NAME.pattern}")
         self.name = name
+        self.origin = origin
         self.entries = tuple(entries)
         if len({entry.key for entry in self.entries}) != len(self.entries):
             raise ValueError(f"{name} declares one entry twice")
         _SETS[name] = self
+
+    @property
+    def modules(self) -> frozenset[str]:
+        """What a process imports to hold this set: its kernels' modules and its origin."""
+        found = {entry.kernel.fn.__module__ for entry in self.entries}
+        return frozenset(found | {self.origin} if self.origin else found)
 
     @property
     def identity(self) -> str:
@@ -106,11 +118,17 @@ class Plan:
     load: Callable[[TritonKernels], Launch]
     """Wait for this machine's build of the set for `device` (started when the executor did)
     and return its launcher. Raises `KernelsUnavailable`."""
+    when_ready: Callable[[TritonKernels, Callable[[Launch], None]], bool] | None = None
+    """`install(launch)` now when the build is done (True), else at the start of the first
+    request after it is (False): a construction serves while its kernels compile, and a run
+    never waits for one. A group installs now. Raises `KernelsUnavailable` as `load` does;
+    a deferred install that fails leaves the construction as it was. None: `load`, then
+    install."""
 
 
 @dataclass(frozen=True, slots=True)
 class PreQuantized:
-    """An activation already in the `fp8-rowwise` leaf's operand geometry (h3a-015).
+    """An activation already in an encoded leaf's operand geometry (h3a-015): `provider`'s.
 
     A fused kernel that holds a row in registers quantizes it there instead of writing bf16
     for the leaf to read back; the leaf then feeds the payload and per-row scale straight to
@@ -120,6 +138,71 @@ class PreQuantized:
     payload: Any
     scale: Any
     shape: tuple[int, ...]
+    provider: str = ROWWISE_FP8
+
+
+class _Shared:
+    __slots__ = ("operands", "tensor")
+
+    def __init__(self, tensor: Any) -> None:
+        self.tensor = tensor
+        self.operands: dict[str, PreQuantized | None] = {}
+
+
+_SHARED: ContextVar[tuple[_Shared, ...]] = ContextVar("cozy_quantize_once", default=())
+
+
+@contextmanager
+def quantize_once(*tensors: Any) -> Iterator[None]:
+    """Inside, the encoded leaves that take one of `tensors` (that object) as input quantize it
+    once between them, as a fused qkv GEMM would: q, k and v of one normed input, or an MLP's
+    gate and up. None is skipped. A tensor must not change in place inside the scope."""
+    shared = tuple(_Shared(t) for t in tensors if t is not None)
+    token = _SHARED.set(_SHARED.get() + shared)
+    try:
+        yield
+    finally:
+        _SHARED.reset(token)
+
+
+def shared_operand(
+    x: Any, provider: str, make: Callable[[], PreQuantized | None]
+) -> PreQuantized | None:
+    """`provider`'s operand for `x` inside a `quantize_once` scope that holds it, `make()` by the
+    first leaf to ask; None outside one, or when `make` declines (the leaf's own op then serves
+    it)."""
+    for shared in _SHARED.get():
+        if shared.tensor is x:
+            if provider not in shared.operands:
+                shared.operands[provider] = make()
+            return shared.operands[provider]
+    return None
+
+
+def int8_rows(
+    x: Any,
+    consumers: tuple[Any, ...],
+    *,
+    norm: str | None = None,
+    eps: float = 0.0,
+    scale: Any = None,
+    shift: Any = None,
+    activation: str | None = None,
+) -> PreQuantized | None:
+    """The rows a producer would hand `consumers`, `activation(norm(x) * (1 + scale) + shift)`,
+    rotated and quantized for int8 in one pass of the Runtime's op: pass the result to each
+    consumer in place of its input. Each part is optional: `norm` "layer" or "rms" (no affine),
+    `activation` "gelu" or "gelu_tanh"; `scale` and `shift` are `[..., width]` tables, and x's
+    row r reads table row `r // (x rows / table rows)`.
+
+    None unless every consumer is an un-hooked int8 encoded leaf of x's width and the op serves
+    this card: the caller then runs its own ops."""
+    if not consumers or getattr(consumers[0], "provider", None) != INT8_CONVROT:
+        return None
+    rows: PreQuantized | None = consumers[0].int8_prologue(
+        x, consumers, norm, eps, scale, shift, activation
+    )
+    return rows
 
 
 def native() -> str:
@@ -162,6 +245,7 @@ def rms_rope_split_half(
 
 
 __all__ = [
+    "INT8_CONVROT",
     "ROWWISE_FP8",
     "KernelsUnavailable",
     "Launch",
@@ -169,7 +253,10 @@ __all__ = [
     "PreQuantized",
     "TritonEntry",
     "TritonKernels",
+    "int8_rows",
     "native",
+    "quantize_once",
     "readable",
     "rms_rope_split_half",
+    "shared_operand",
 ]

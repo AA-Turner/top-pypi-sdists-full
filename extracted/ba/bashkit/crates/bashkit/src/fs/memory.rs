@@ -54,6 +54,10 @@ use super::vfs_join;
 #[cfg(feature = "failpoints")]
 use fail::fail_point;
 
+/// Bytes returned by one read of `/dev/zero` (TM-DOS-003: never unbounded).
+pub(crate) const DEV_ZERO_READ_BYTES: usize = 1 << 20;
+pub(crate) const DEV_RANDOM_READ_BYTES: usize = 8192;
+
 /// In-memory filesystem implementation.
 ///
 /// `InMemoryFs` is the default filesystem used by [`Bash::new()`](crate::Bash::new).
@@ -351,6 +355,28 @@ impl Default for InMemoryFs {
 }
 
 impl InMemoryFs {
+    /// Whether an ancestor of `path` is a regular file or FIFO.
+    fn ancestor_is_file(entries: &HashMap<PathBuf, FsEntry>, path: &Path) -> bool {
+        path.ancestors().skip(1).any(|a| {
+            matches!(
+                entries.get(a),
+                Some(FsEntry::File { .. } | FsEntry::LazyFile { .. } | FsEntry::Fifo { .. })
+            )
+        })
+    }
+
+    /// Error for a path whose parent is missing: `ENOTDIR` when some
+    /// ancestor is a regular file or FIFO (`f/x` under file `f`), otherwise
+    /// "parent directory not found". Symlink ancestors stay `NotFound` so the
+    /// symlink-following layer resolves them.
+    fn missing_parent_error(entries: &HashMap<PathBuf, FsEntry>, path: &Path) -> crate::Error {
+        if Self::ancestor_is_file(entries, path) {
+            IoError::new(ErrorKind::NotADirectory, "not a directory").into()
+        } else {
+            IoError::new(ErrorKind::NotFound, "parent directory not found").into()
+        }
+    }
+
     // File-count quotas cover every non-directory entry. Use negation so new
     // FsEntry variants are automatically counted without an explicit update here.
     fn entry_counts_toward_file_count(entry: &FsEntry) -> bool {
@@ -443,7 +469,8 @@ impl InMemoryFs {
                     metadata: Metadata {
                         file_type: FileType::Directory,
                         size: 0,
-                        mode: 0o755,
+                        // `/tmp` is world-writable and sticky, as on Linux.
+                        mode: if *dir == "/tmp" { 0o1777 } else { 0o755 },
                         modified: SystemTime::now(),
                         created: SystemTime::now(),
                     },
@@ -508,8 +535,7 @@ impl InMemoryFs {
     /// Returns exactly 8192 bytes to prevent unbounded reads while
     /// supporting common patterns like `od -N8 -tx1 /dev/urandom`.
     fn generate_random_bytes() -> Result<Vec<u8>> {
-        const SIZE: usize = 8192;
-        let mut buf = vec![0; SIZE];
+        let mut buf = vec![0; DEV_RANDOM_READ_BYTES];
         // Important decision: use the OS CSPRNG backing getrandom, not
         // non-CSPRNG hasher seeds, because scripts commonly use these paths
         // for tokens, salts, nonces, and keys.
@@ -939,6 +965,28 @@ impl InMemoryFs {
         );
     }
 
+    /// Add a symlink whose parent already exists (synchronous, for the
+    /// read-only system layer). The target is stored, never followed.
+    pub(crate) fn add_symlink(&self, target: impl AsRef<Path>, link: impl AsRef<Path>) {
+        let link = Self::normalize_path(link.as_ref());
+        let target = target.as_ref().to_path_buf();
+        let mut entries = self.entries.write().unwrap_or_else(|e| e.into_inner());
+        let size = target.as_os_str().len() as u64;
+        entries.insert(
+            link,
+            FsEntry::Symlink {
+                target,
+                metadata: Metadata {
+                    file_type: FileType::Symlink,
+                    size,
+                    mode: 0o777,
+                    modified: SystemTime::now(),
+                    created: SystemTime::now(),
+                },
+            },
+        );
+    }
+
     /// Add a directory, creating parent directories as needed (synchronous,
     /// for initial setup).
     ///
@@ -1120,6 +1168,11 @@ impl FileSystem for InMemoryFs {
             return Self::generate_random_bytes();
         }
 
+        // THREAT[TM-DOS-003]: /dev/zero reads are bounded too (1 MiB of zeros).
+        if path == Path::new("/dev/zero") {
+            return Ok(vec![0; DEV_ZERO_READ_BYTES]);
+        }
+
         // First try with a read lock for the common (non-lazy) case
         {
             let entries = self.entries.read().unwrap();
@@ -1137,6 +1190,11 @@ impl FileSystem for InMemoryFs {
                     // Need write lock to materialize — fall through
                 }
                 None => {
+                    if Self::ancestor_is_file(&entries, &path) {
+                        return Err(
+                            IoError::new(ErrorKind::NotADirectory, "not a directory").into()
+                        );
+                    }
                     return Err(IoError::new(ErrorKind::NotFound, "file not found").into());
                 }
             }
@@ -1210,7 +1268,7 @@ impl FileSystem for InMemoryFs {
         let path = Self::normalize_path(path);
 
         // Special handling for /dev/null - discard all writes
-        if path == Path::new("/dev/null") {
+        if path == Path::new("/dev/null") || path == Path::new("/dev/zero") {
             return Ok(());
         }
 
@@ -1218,10 +1276,13 @@ impl FileSystem for InMemoryFs {
 
         // Ensure parent directory exists
         if let Some(parent) = path.parent()
-            && !entries.contains_key(parent)
             && parent != Path::new("/")
+            && !matches!(
+                entries.get(parent),
+                Some(FsEntry::Directory { .. } | FsEntry::Symlink { .. })
+            )
         {
-            return Err(IoError::new(ErrorKind::NotFound, "parent directory not found").into());
+            return Err(Self::missing_parent_error(&entries, &path));
         }
 
         // Cannot write to a directory
@@ -1276,7 +1337,7 @@ impl FileSystem for InMemoryFs {
         let path = Self::normalize_path(path);
 
         // Special handling for /dev/null - discard all writes
-        if path == Path::new("/dev/null") {
+        if path == Path::new("/dev/null") || path == Path::new("/dev/zero") {
             return Ok(());
         }
 
@@ -1296,12 +1357,13 @@ impl FileSystem for InMemoryFs {
                 // (inline instead of calling write_file to avoid deadlock on entries lock)
                 self.check_write_limits(&entries, &path, content.len())?;
                 if let Some(parent) = path.parent()
-                    && !entries.contains_key(parent)
                     && parent != Path::new("/")
+                    && !matches!(
+                        entries.get(parent),
+                        Some(FsEntry::Directory { .. } | FsEntry::Symlink { .. })
+                    )
                 {
-                    return Err(
-                        IoError::new(ErrorKind::NotFound, "parent directory not found").into(),
-                    );
+                    return Err(Self::missing_parent_error(&entries, &path));
                 }
                 entries.insert(
                     path,
@@ -1462,12 +1524,14 @@ impl FileSystem for InMemoryFs {
                 }
             }
         } else {
-            // Check parent exists
+            // Parent must be a directory. A symlink parent is refused too, so
+            // the symlink-following layer resolves it and the entry lands in
+            // the link's target instead of under a literal `link/` key.
             if let Some(parent) = path.parent()
-                && !entries.contains_key(parent)
                 && parent != Path::new("/")
+                && !matches!(entries.get(parent), Some(FsEntry::Directory { .. }))
             {
-                return Err(IoError::new(ErrorKind::NotFound, "parent directory not found").into());
+                return Err(Self::missing_parent_error(&entries, &path));
             }
 
             if entries.contains_key(&path) {
@@ -1562,6 +1626,9 @@ impl FileSystem for InMemoryFs {
             | Some(FsEntry::Directory { metadata })
             | Some(FsEntry::Symlink { metadata, .. })
             | Some(FsEntry::Fifo { metadata, .. }) => Ok(metadata.clone()),
+            None if Self::ancestor_is_file(&entries, &path) => {
+                Err(IoError::new(ErrorKind::NotADirectory, "not a directory").into())
+            }
             None => Err(IoError::new(ErrorKind::NotFound, "not found").into()),
         }
     }
@@ -1634,7 +1701,7 @@ impl FileSystem for InMemoryFs {
         if let Some(parent) = to.parent()
             && !matches!(entries.get(parent), Some(FsEntry::Directory { .. }))
         {
-            return Err(IoError::new(ErrorKind::NotFound, "parent directory not found").into());
+            return Err(Self::missing_parent_error(&entries, &to));
         }
 
         let entry = entries
@@ -1725,7 +1792,7 @@ impl FileSystem for InMemoryFs {
         if let Some(parent) = to.parent()
             && !matches!(entries.get(parent), Some(FsEntry::Directory { .. }))
         {
-            return Err(IoError::new(ErrorKind::NotFound, "parent directory not found").into());
+            return Err(Self::missing_parent_error(&entries, &to));
         }
 
         // THREAT[TM-DOS-047]: Always check write limits, even on overwrite.
@@ -1750,6 +1817,15 @@ impl FileSystem for InMemoryFs {
         let link = Self::normalize_path(link);
         let target_size = target.as_os_str().as_encoded_bytes().len();
         let mut entries = self.entries.write().unwrap();
+
+        // Parent must be a directory (see `mkdir`): a symlink parent is left to
+        // the following layer to resolve.
+        if let Some(parent) = link.parent()
+            && parent != Path::new("/")
+            && !matches!(entries.get(parent), Some(FsEntry::Directory { .. }))
+        {
+            return Err(IoError::new(ErrorKind::NotFound, "parent directory not found").into());
+        }
 
         // THREAT[TM-DOS-045]: Symlinks count toward file count.
         // THREAT[TM-DOS-013]: Symlink target bytes count toward filesystem usage.
@@ -1933,6 +2009,44 @@ mod tests {
         let entries = fs.read_dir(Path::new("/dst/nested")).await.unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "main.rs");
+    }
+
+    // A regular file in the path is ENOTDIR (bash: `f/x: Not a directory`),
+    // not a place to create entries.
+    #[tokio::test]
+    async fn path_under_regular_file_is_not_a_directory() {
+        let fs = InMemoryFs::new();
+        fs.write_file(Path::new("/tmp/f"), b"").await.unwrap();
+        let kind = |r: Result<()>| match r {
+            Err(crate::Error::Io(io)) => io.kind(),
+            other => panic!("expected io error, got ok={}", other.is_ok()),
+        };
+        assert_eq!(
+            kind(fs.write_file(Path::new("/tmp/f/x"), b"hi").await),
+            ErrorKind::NotADirectory
+        );
+        assert_eq!(
+            kind(fs.append_file(Path::new("/tmp/f/x"), b"hi").await),
+            ErrorKind::NotADirectory
+        );
+        assert_eq!(
+            kind(fs.mkdir(Path::new("/tmp/f/d"), false).await),
+            ErrorKind::NotADirectory
+        );
+        assert_eq!(
+            kind(fs.read_file(Path::new("/tmp/f/x")).await.map(|_| ())),
+            ErrorKind::NotADirectory
+        );
+        assert_eq!(
+            kind(fs.stat(Path::new("/tmp/f/x")).await.map(|_| ())),
+            ErrorKind::NotADirectory
+        );
+        assert!(!fs.exists(Path::new("/tmp/f/x")).await.unwrap());
+        // A missing parent stays "not found".
+        assert_eq!(
+            kind(fs.write_file(Path::new("/tmp/nope/x"), b"hi").await),
+            ErrorKind::NotFound
+        );
     }
 
     #[tokio::test]

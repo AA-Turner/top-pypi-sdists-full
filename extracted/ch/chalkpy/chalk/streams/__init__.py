@@ -67,14 +67,12 @@ def stream(
         Continuous windows, unlike tumbling window, are overlapping and exact.
         When you request the value of a continuous window feature, Chalk looks
         at all the messages received in the window and computes the value on-demand.
-
-        See more at https://docs.chalk.ai/docs/windowed-streaming#window-modes
     parse
         A callable that will interpret an input prior to the invocation of the resolver.
         Parse functions can serve many functions, including pre-parsing bytes,
         skipping unrelated messages, or supporting rekeying.
 
-        See more at https://docs.chalk.ai/docs/streams#parsing
+        See more at https://docs.chalk.ai/docs/streams#custom-parse-functions
     keys
         A mapping from input `BaseModel` attribute to Chalk feature attribute to support continuous streaming re-keying.
         This parameter is required for continuous resolvers.

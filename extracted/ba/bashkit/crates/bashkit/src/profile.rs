@@ -141,7 +141,7 @@ impl ExecutionProfile {
             max_commands: 2_500,
             max_loop_iterations: 2_500,
             max_total_loop_iterations: 100_000,
-            max_function_depth: 64,
+            max_function_depth: 16,
             timeout: Duration::from_secs(10),
             parser_timeout: Duration::from_secs(2),
             max_input_bytes: 1_000_000,
@@ -157,6 +157,7 @@ impl ExecutionProfile {
             max_history_output_bytes: 262_144,
             max_word_split_fields: 10_000,
             max_word_split_bytes: 1_000_000,
+            max_background_jobs: 16,
             capture_final_env: false,
         };
         let session = SessionLimits::new()

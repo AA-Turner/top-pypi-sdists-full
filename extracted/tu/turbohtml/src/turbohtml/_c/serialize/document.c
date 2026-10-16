@@ -209,6 +209,34 @@ Py_UCS4 *th_tree_serialize(th_tree *tree, Py_ssize_t *out_len) {
 #define SER_NOINLINE
 #endif
 
+SER_NOINLINE int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t name_len) {
+    Py_ssize_t index = 0;
+    while (index < name_len) {
+        int first = index == 0;
+        unsigned char lead = (unsigned char)name[index];
+        Py_UCS4 character;
+        if (lead < 0x80) {
+            character = lead;
+            index++;
+        } else if (lead < 0xE0) {
+            character = (Py_UCS4)(lead & 0x1F) << 6 | ((unsigned char)name[index + 1] & 0x3F);
+            index += 2;
+        } else if (lead < 0xF0) {
+            character = (Py_UCS4)(lead & 0x0F) << 12 | ((unsigned char)(name[index + 1] & 0x3F)) << 6 |
+                        ((unsigned char)name[index + 2] & 0x3F);
+            index += 3;
+        } else {
+            character = (Py_UCS4)(lead & 0x07) << 18 | ((unsigned char)(name[index + 1] & 0x3F)) << 12 |
+                        ((unsigned char)(name[index + 2] & 0x3F)) << 6 | ((unsigned char)name[index + 3] & 0x3F);
+            index += 4;
+        }
+        if (!(first ? is_name_start(character) : is_name_char(character))) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 /* A raw-text element's text children go out literally; the first markup child hands the rest to the markup walk. */
 SER_NOINLINE static void ser_put_rawtext(sbuf *out, th_tree *tree, th_node *element, const th_serialize_opts *opts) {
     for (th_node *child = element->first_child; child != NULL; child = child->next_sibling) {
@@ -220,19 +248,41 @@ SER_NOINLINE static void ser_put_rawtext(sbuf *out, th_tree *tree, th_node *elem
     }
 }
 
-/* Write a doctype external identifier in XML quotes, choosing the delimiter the id does
-   not contain (a SystemLiteral or PubidLiteral holds any character but its own quote). */
+/* HTML doctypes can contain characters XML forbids, so discard them in XML output. */
 static void ser_put_doctype_id(sbuf *out, const Py_UCS4 *id, Py_ssize_t len) {
     Py_UCS4 quote = '"';
+    int has_invalid = 0;
     for (Py_ssize_t index = 0; index < len; index++) {
         if (id[index] == '"') {
             quote = '\'';
-            break;
         }
+        has_invalid |= xml_char_invalid(id[index]);
     }
     sbuf_putc(out, quote);
-    sbuf_put_ucs4(out, id, len);
+    if (has_invalid) {
+        Py_ssize_t start = 0;
+        for (Py_ssize_t index = 0; index < len; index++) {
+            if (xml_char_invalid(id[index])) {
+                sbuf_put_ucs4(out, id + start, index - start);
+                start = index + 1;
+            }
+        }
+        sbuf_put_ucs4(out, id + start, len - start);
+    } else {
+        sbuf_put_ucs4(out, id, len);
+    }
     sbuf_putc(out, quote);
+}
+
+static int xml_pubid_valid(const Py_UCS4 *id, Py_ssize_t len) {
+    static const char pubid[] =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \r\n-'()+,./:=?;!*#@$_%";
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (id[index] >= 128 || memchr(pubid, (int)id[index], sizeof(pubid) - 1) == NULL) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 /* XML serialization of a DocumentType node (DOM-Parsing), with its public and system
@@ -251,13 +301,15 @@ static void ser_put_xml_doctype(sbuf *out, th_node *node) {
     Py_ssize_t public_len;
     Py_ssize_t system_len;
     if (th_node_doctype_ids(node, &public_id, &public_len, &system_id, &system_len)) {
-        if (public_len > 0) {
+        if (public_len > 0 && xml_pubid_valid(public_id, public_len)) {
             /* XML requires a system literal after a public one, so both are always written */
             sbuf_puts(out, " PUBLIC ");
-            ser_put_doctype_id(out, public_id, public_len);
+            sbuf_putc(out, '"');
+            sbuf_put_ucs4(out, public_id, public_len);
+            sbuf_putc(out, '"');
             sbuf_putc(out, ' ');
             ser_put_doctype_id(out, system_id, system_len);
-        } else {
+        } else if (public_len == 0 || (node->tag_flags & TH_DOCTYPE_HAS_SYSTEM)) {
             sbuf_puts(out, " SYSTEM ");
             ser_put_doctype_id(out, system_id, system_len);
         }
@@ -374,6 +426,9 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
     case TH_NODE_PI:
         /* XML closes a PI with "?>"; the HTML serialization has no PI syntax and ends the bogus-comment form at ">". */
         if (opts->xml) {
+            if (node->tag_flags & TH_PI_XML_INVALID) {
+                break;
+            }
             sbuf_puts(out, "<?");
             sbuf_put_xml_pi_data(out, node->text, node->text_len);
             sbuf_puts(out, "?>");
@@ -919,7 +974,7 @@ void th_node_collect_text(th_tree *tree, th_node *node, Py_UCS4 *buf) {
 
 /* The WHATWG-conformant defaults the html/inner_html accessors serialize under:
    minimal escaping, source attribute order, no charset injection. */
-static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0};
+static const th_serialize_opts ser_default_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 0, 0, NULL};
 
 Py_UCS4 *th_node_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
@@ -945,12 +1000,14 @@ Py_UCS4 *th_node_inner_html(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
 }
 
 /* The inner_html defaults with XML/XHTML syntax on, the same rules Node.serialize(Html(xml=True)) emits under. */
-static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 1, 0};
+static const th_serialize_opts ser_xml_opts = {TH_FMT_WHATWG, 0, 0, NULL, 0, 1, 0, NULL};
 
 Py_UCS4 *th_node_inner_xml(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
+    th_serialize_opts opts = ser_xml_opts;
+    opts.xml_boundary = th_tree_is_xml(tree) ? node : NULL;
     for (th_node *child = node->first_child; child != NULL; child = child->next_sibling) {
-        serialize_compact(&out, tree, child, &ser_xml_opts);
+        serialize_compact(&out, tree, child, &opts);
     }
     return sbuf_finish(&out, out_len);
 }
@@ -964,6 +1021,9 @@ static int inner_preserves_text(th_tree *tree, th_node *root, const th_serialize
 Py_UCS4 *th_node_serialize(th_tree *tree, th_node *node, const th_serialize_opts *opts, const Py_UCS4 *indent,
                            Py_ssize_t indent_len, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
+    th_serialize_opts context = *opts;
+    context.xml_boundary = opts->xml && th_tree_is_xml(tree) ? (opts->inner ? node : node->parent) : NULL;
+    opts = &context;
     sbuf_presize_for_root(&out, tree, node);
     if (indent == NULL || inner_preserves_text(tree, node, opts)) {
         serialize_compact(&out, tree, node, opts);
@@ -983,6 +1043,9 @@ Py_UCS4 *th_node_serialize(th_tree *tree, th_node *node, const th_serialize_opts
 Py_UCS4 *th_node_serialize_chunk(th_tree *tree, th_node *root, const th_serialize_opts *opts, const Py_UCS4 *indent,
                                  Py_ssize_t indent_len, th_ser_cursor *cursor, Py_ssize_t *out_len) {
     sbuf out = {NULL, 0, 0, 0};
+    th_serialize_opts context = *opts;
+    context.xml_boundary = opts->xml && th_tree_is_xml(tree) ? (opts->inner ? root : root->parent) : NULL;
+    opts = &context;
     /* one chunk grows to about TH_SERIALIZE_CHUNK before it is handed off, so size the
        buffer to that up front rather than let the doubling reserve walk 256 -> 8192 on
        every chunk (a node straddling the limit still forces at most one more grow) */

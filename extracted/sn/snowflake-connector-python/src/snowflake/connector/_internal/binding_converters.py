@@ -1,0 +1,741 @@
+"""
+Parameter binding serialization for Snowflake universal core.
+
+This module handles serialization of Python parameter bindings to JSON format
+for transmission to the Rust core, following the design specified in bindingsdesign.md.
+
+It also provides client-side binding support for pyformat/format paramstyles,
+implementing escape(), quote(), and to_snowflake() functions that mirror
+the reference snowflake-connector-python's SnowflakeConverter.
+
+Conversion logic mirrors the reference snowflake-connector-python's
+SnowflakeConverter.to_snowflake_bindings and Connection._process_params_qmarks.
+"""
+
+from __future__ import annotations
+
+import binascii
+import json
+import math
+import time as time_module
+
+from collections.abc import Mapping, Sequence
+from datetime import UTC, date, datetime, time, timedelta
+from decimal import Decimal
+from enum import StrEnum
+from typing import Any
+
+from .._common.extras import MissingOptionalDependency
+from .._common.extras import numpy as np
+from ..errors import ProgrammingError
+from .errorcode import ER_NOT_SUPPORT_DATA_TYPE
+from .type_codes import PYTHON_TO_SNOWFLAKE_TYPE
+
+
+class ParamStyle(StrEnum):
+    """PEP 249 parameter binding style enumeration.
+
+    ``StrEnum`` members behave as their string value — this gives Snowpark's
+    ``connection.paramstyle.lower()`` for free. Supports parsing from string
+    and determining client- vs server-side binding.
+    """
+
+    QMARK = "qmark"  # Server-side: ? placeholders
+    NUMERIC = "numeric"  # Server-side: :1, :2 placeholders
+    FORMAT = "format"  # Client-side: %s interpolation
+    PYFORMAT = "pyformat"  # Client-side: %(name)s interpolation
+
+    @classmethod
+    def from_string(cls, value: str) -> ParamStyle:
+        """Parse ParamStyle from string value, with normalization.
+
+        Args:
+            value: Paramstyle string (case-insensitive, whitespace-trimmed)
+
+        Returns:
+            Matching ParamStyle enum value
+
+        Raises:
+            ProgrammingError: If value is not a valid paramstyle
+        """
+        normalized = value.strip().lower()
+        for style in cls:
+            if style.value == normalized:
+                return style
+        available = [s.value for s in cls]
+        raise ProgrammingError(f"Invalid paramstyle: {value!r}. Supported: {', '.join(sorted(available))}")
+
+    def is_client_side(self) -> bool:
+        """Check if this style uses client-side SQL interpolation."""
+        return self in (ParamStyle.FORMAT, ParamStyle.PYFORMAT)
+
+    def is_server_side(self) -> bool:
+        """Check if this style uses server-side binding."""
+        return self in (ParamStyle.QMARK, ParamStyle.NUMERIC)
+
+    def placeholders(self, n: int) -> str:
+        """Build a comma-separated placeholder string for *n* parameters.
+
+        Examples:
+            >>> ParamStyle.QMARK.placeholders(3)
+            '?, ?, ?'
+            >>> ParamStyle.NUMERIC.placeholders(3)
+            ':1, :2, :3'
+            >>> ParamStyle.FORMAT.placeholders(2)
+            '%s, %s'
+        """
+        if self.is_client_side():
+            return ", ".join("%s" for _ in range(n))
+        if self is ParamStyle.NUMERIC:
+            return ", ".join(f":{i}" for i in range(1, n + 1))
+        return ", ".join("?" for _ in range(n))
+
+
+# Numeric types for IS_NUMERIC check (mirrors reference connector's compat.py)
+_NUM_DATA_TYPES: tuple[type, ...] = (int, float, Decimal)
+_NUMPY_BOOL_TYPES: tuple[type, ...] = ()
+_NUMPY_DATETIME_TYPES: tuple[type, ...] = ()
+_NUMPY_FLOAT_TYPES: tuple[type, ...] = ()
+
+if not isinstance(np, MissingOptionalDependency):
+    _NUM_DATA_TYPES = _NUM_DATA_TYPES + (
+        np.int8,
+        np.int16,
+        np.int32,
+        np.int64,
+        np.float16,
+        np.float32,
+        np.float64,
+        np.uint8,
+        np.uint16,
+        np.uint32,
+        np.uint64,
+        np.bool_,
+    )
+    _NUMPY_BOOL_TYPES = (np.bool_,)
+    _NUMPY_DATETIME_TYPES = (np.datetime64,)
+    _NUMPY_FLOAT_TYPES = (np.float16, np.float32, np.float64)
+
+_FLOAT_TYPES: tuple[type, ...] = (float,) + _NUMPY_FLOAT_TYPES
+
+
+def _is_numeric(value: Any) -> bool:
+    """Check if value is a numeric type."""
+    return isinstance(value, _NUM_DATA_TYPES)
+
+
+def _format_float(value: Any) -> str:
+    """Format a float-like value for Snowflake REAL/DOUBLE binding.
+
+    The server's bind-value parser requires the capitalized literals
+    "NaN"/"Infinity"/"-Infinity"; str() on a float produces the lowercase
+    short forms "nan"/"inf"/"-inf", which the parser rejects.
+    """
+    if math.isnan(value):
+        return "NaN"
+    if math.isinf(value):
+        return "Infinity" if value > 0 else "-Infinity"
+    return str(value)
+
+
+def _is_binary(value: Any) -> bool:
+    """Check if value is a binary type."""
+    return isinstance(value, (bytes, bytearray))
+
+
+# Epoch constants (timezone-independent)
+_ZERO_EPOCH_DATE = date(1970, 1, 1)
+_ZERO_EPOCH = datetime.fromtimestamp(0, UTC).replace(tzinfo=None)
+
+
+DEFAULT_STAGE_ARRAY_BINDING_THRESHOLD = 65280
+Params = Sequence[Any]
+
+# Bulk (CSV/stage) date insertion overflows server-side once the epoch-millisecond
+# value reaches this bound (dates after ~year 2969), so such dates are encoded as
+# epoch nanoseconds instead. Mirrors the reference connector's threshold in
+# Converter._date_to_snowflake_bindings_in_bulk_insertion.
+_DATE_BULK_INSERTION_MS_OVERFLOW = 31_536_000_000_000
+
+
+def parse_stage_binding_threshold(raw: Any) -> int:
+    """Parse CLIENT_STAGE_ARRAY_BINDING_THRESHOLD; default 65280 when unset/invalid."""
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_STAGE_ARRAY_BINDING_THRESHOLD
+
+
+class BindingConverterBase:
+    """Shared Python-to-Snowflake value conversion for JSON and CSV bindings."""
+
+    @staticmethod
+    def _convert_datetime_to_epoch_nanoseconds(dt: datetime) -> str:
+        """Convert datetime to epoch nanoseconds string.
+
+        Uses timedelta arithmetic from a fixed epoch (timezone-independent),
+        matching the reference connector's convert_datetime_to_epoch approach.
+        """
+        if dt.tzinfo is not None:
+            # Convert tz-aware datetime to UTC, then strip tzinfo
+            dt = dt.astimezone(UTC).replace(tzinfo=None)
+        epoch_seconds = (dt - _ZERO_EPOCH).total_seconds()
+        # Format with full precision, remove dot, append "000" for nanoseconds
+        return f"{epoch_seconds:f}".replace(".", "") + "000"
+
+    @staticmethod
+    def _convert_date_to_epoch_milliseconds(d: date) -> str:
+        """Convert date to epoch milliseconds string.
+
+        Uses timezone-independent timedelta arithmetic from epoch date. This is
+        the representation used by inline JSON (non-bulk) date binding, matching
+        the reference connector's ``_date_to_snowflake_bindings``. The CSV/stage
+        (bulk) path uses ``_convert_date_for_bulk_insertion`` instead, which
+        guards against a server-side overflow for far-future dates.
+        """
+        return f"{(d - _ZERO_EPOCH_DATE).total_seconds():.3f}".replace(".", "")
+
+    @staticmethod
+    def _convert_date_to_epoch_nanoseconds(d: date) -> str:
+        """Convert date to epoch nanoseconds string (bulk-insertion overflow path)."""
+        return f"{(d - _ZERO_EPOCH_DATE).total_seconds():.9f}".replace(".", "")
+
+    @classmethod
+    def _convert_date_for_bulk_insertion(cls, d: date) -> str:
+        """Convert date for CSV/stage (bulk) insertion.
+
+        Returns epoch milliseconds, switching to epoch nanoseconds once the
+        millisecond value reaches the server's overflow bound (dates after
+        ~year 2969). Mirrors the reference connector's
+        ``_date_to_snowflake_bindings_in_bulk_insertion``: without this guard a
+        far-future date staged as CSV overflows server-side and round-trips to a
+        wrong value, diverging from the inline-JSON path for the same input.
+        """
+        milliseconds = cls._convert_date_to_epoch_milliseconds(d)
+        if int(milliseconds) < _DATE_BULK_INSERTION_MS_OVERFLOW:
+            return milliseconds
+        return cls._convert_date_to_epoch_nanoseconds(d)
+
+    @staticmethod
+    def _convert_time_to_nanoseconds(t: time) -> str:
+        """Convert time to nanoseconds since midnight string.
+
+        Uses string concatenation approach matching the reference connector's
+        _convert_time_to_epoch_nanoseconds.
+        """
+        total_seconds = t.hour * 3600 + t.minute * 60 + t.second
+        return str(total_seconds) + f"{t.microsecond:06d}" + "000"
+
+    @staticmethod
+    def _convert_timedelta_to_nanoseconds(td: timedelta) -> str:
+        """Convert timedelta to nanoseconds string for TIME binding.
+
+        Matches the reference connector's _timedelta_to_snowflake_bindings.
+        """
+        hours, remainder = divmod(td.seconds, 3600)
+        mins, secs = divmod(remainder, 60)
+        hours += td.days * 24
+        return str(hours * 3600 + mins * 60 + secs) + f"{td.microseconds:06d}" + "000"
+
+    @classmethod
+    def _get_type_and_binding(cls, value: Any) -> tuple[str, Any]:
+        """Resolve the Snowflake type and serialized value for a parameter.
+
+        Supports explicit type-hint tuples ``("SNOWFLAKE_TYPE", value)`` as used
+        by the reference connector (e.g. ``("DECFLOAT", Decimal("1.23"))``).
+        When *value* is a 2-tuple whose first element is a string, the tuple is
+        unpacked and the explicit type is used; otherwise, the type is inferred
+        via ``_convert_value``.
+        """
+        if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], str):
+            snowflake_type, raw_value = value
+            _, converted = cls._convert_value(raw_value)
+            return snowflake_type, converted
+        return cls._convert_value(value)
+
+    @classmethod
+    def _convert_value(cls, value: Any) -> tuple[str, Any]:
+        """
+        Convert a Python value to Snowflake binding format.
+
+        Returns:
+            Tuple of (Snowflake type string, converted value)
+        """
+        if value is None:
+            return "ANY", None
+
+        type_name = value.__class__.__name__.lower()
+        snowflake_type = PYTHON_TO_SNOWFLAKE_TYPE.get(type_name)
+        if snowflake_type is None:
+            if isinstance(value, _NUMPY_BOOL_TYPES):
+                snowflake_type = "BOOLEAN"
+            elif isinstance(value, _NUMPY_FLOAT_TYPES):
+                snowflake_type = "REAL"
+            elif _is_numeric(value):
+                snowflake_type = "FIXED"
+            elif _is_binary(value):
+                snowflake_type = "BINARY"
+            else:
+                snowflake_type = "TEXT"
+
+        # Convert value to string representation for JSON.
+        # Order matters: bool/numpy.bool_ before _is_numeric (bool is subclass
+        # of int and numpy.bool_ is in _NUM_DATA_TYPES),
+        # datetime before date (datetime is subclass of date).
+        if isinstance(value, bool) or isinstance(value, _NUMPY_BOOL_TYPES):
+            converted = str(value).lower()
+        elif isinstance(value, datetime):
+            converted = cls._convert_datetime_to_epoch_nanoseconds(value)
+        elif isinstance(value, date):
+            converted = cls._convert_date_to_epoch_milliseconds(value)
+        elif isinstance(value, time):
+            converted = cls._convert_time_to_nanoseconds(value)
+        elif isinstance(value, timedelta):
+            converted = cls._convert_timedelta_to_nanoseconds(value)
+        elif isinstance(value, time_module.struct_time):
+            dt = datetime.fromtimestamp(time_module.mktime(value))
+            converted = cls._convert_datetime_to_epoch_nanoseconds(dt)
+        elif isinstance(value, _FLOAT_TYPES):
+            converted = _format_float(value)
+        elif _is_numeric(value):
+            converted = str(value)
+        elif isinstance(value, str):
+            converted = value
+        elif _is_binary(value):
+            converted = binascii.hexlify(value).decode("utf-8")
+        else:
+            raise ProgrammingError(
+                msg=(
+                    f"Binding data in type ({type_name}) is not supported. "
+                    "Convert the value to a supported Python type (str, int, float, bool, "
+                    "bytes, date/datetime/time/timedelta) before binding it."
+                ),
+                errno=ER_NOT_SUPPORT_DATA_TYPE,
+            )
+
+        return snowflake_type, converted
+
+    @classmethod
+    def _convert_array(cls, values: list[Any]) -> tuple[str, list[Any]]:
+        """
+        Convert an array of Python values to Snowflake binding format.
+
+        Supports explicit type-hint tuples via ``_get_type_and_binding``.
+
+        Returns:
+            Tuple of (Snowflake type string, list of converted values)
+        """
+        if not values:
+            return "TEXT", []
+
+        # Convert all values and determine type
+        converted_values = []
+        types = set()
+
+        for value in values:
+            snowflake_type, converted = cls._get_type_and_binding(value)
+            converted_values.append(converted)
+            if value is not None:
+                types.add(snowflake_type)
+
+        # If all non-null values have the same type, use that type
+        # Otherwise, default to TEXT
+        if len(types) == 1:
+            snowflake_type = types.pop()
+        elif len(types) == 0:
+            snowflake_type = "TEXT"
+        else:
+            # Mixed types - use TEXT as fallback
+            snowflake_type = "TEXT"
+
+        return snowflake_type, converted_values
+
+    @classmethod
+    def _array_binding_row_count(cls, params: Params) -> int:
+        row_count = 1
+        for value in params:
+            if isinstance(value, list):
+                if row_count == 1:
+                    row_count = len(value)
+                elif len(value) != row_count:
+                    # Width validation happens in _build_array_binding_params; keep this pure.
+                    row_count = len(value)
+        return row_count
+
+    @classmethod
+    def effective_binding_cells(cls, params: Params) -> int:
+        """Return row_count × param_count for array-binding threshold checks."""
+        if not params:
+            return 0
+        return cls._array_binding_row_count(params) * len(params)
+
+
+class JsonBindingConverter(BindingConverterBase):
+    """Converts Python parameters to Snowflake binding JSON for server-side binding."""
+
+    @classmethod
+    def serialize_parameters(cls, params: Sequence[Any] | None) -> tuple[str | None, int]:
+        """
+        Serialize parameters to JSON format for binding.
+
+        Args:
+            params: Parameters to serialize (sequence for positional)
+
+        Returns:
+            Tuple of (JSON string or None, length in bytes)
+        """
+        if params is None or len(params) == 0:
+            return None, 0
+
+        bindings = cls._process_params(params)
+        if not bindings:
+            return None, 0
+
+        json_str = json.dumps(bindings)
+        return json_str, len(json_str.encode("utf-8"))
+
+    @classmethod
+    def _process_params(cls, params: Sequence[Any]) -> dict[str, dict[str, Any]]:
+        """
+        Process parameters into Snowflake binding format.
+
+        The format is:
+        {
+            "1": {"type": "FIXED", "value": "123"},
+            "2": {"type": "TEXT", "value": "hello"}
+        }
+
+        For arrays (multi-row):
+        {
+            "1": {"type": "FIXED", "value": ["1", "2", "3"]},
+            "2": {"type": "TEXT", "value": ["hello", "world", "foo"]}
+        }
+
+        Supports explicit type-hint tuples: ("SNOWFLAKE_TYPE", value).
+        This mirrors the reference connector's _get_snowflake_type_and_binding.
+        """
+        bindings = {}
+
+        # Positional parameters (e.g., ? or :1 style)
+        for idx, value in enumerate(params):
+            if isinstance(value, list):
+                # Array binding for bulk operations
+                snowflake_type, values = cls._convert_array(value)
+                bindings[str(idx + 1)] = {"type": snowflake_type, "value": values}
+            else:
+                snowflake_type, snowflake_value = cls._get_type_and_binding(value)
+                bindings[str(idx + 1)] = {"type": snowflake_type, "value": snowflake_value}
+
+        return bindings
+
+
+class CsvBindingConverter(BindingConverterBase):
+    """Converts Python parameters to Snowflake binding CSV for stage upload."""
+
+    @classmethod
+    def _param_value_at(cls, params: Params, row_idx: int, col_idx: int) -> Any:
+        value = params[col_idx]
+        if isinstance(value, list):
+            return value[row_idx]
+        return value
+
+    @staticmethod
+    def _append_escaped_csv_cell(out: list[str], text: str) -> None:
+        """RFC-4180 cell quoting matching ODBC ``append_escaped_csv_cell``.
+
+        Every non-None cell is unconditionally quoted.  The legacy connector
+        quoted only when the value contained ``"``, newline, comma, or backslash;
+        both approaches are functionally equivalent under
+        ``field_optionally_enclosed_by='"'``: the critical NULL-vs-empty-string
+        distinction (empty string → ``""``; NULL → unquoted empty) is preserved
+        either way.  Unconditional quoting produces slightly larger upload
+        payloads but avoids a conditional branch and matches the ODBC driver.
+        """
+        out.append('"')
+        out.append(text.replace('"', '""'))
+        out.append('"')
+
+    @staticmethod
+    def _stage_csv_clock_value(value: Any) -> Any:
+        """Clock-string payload for stage CSV TIME / TIMESTAMP_TZ cells.
+
+        Inline JSON TIME is nanoseconds since midnight. Stage CSV is loaded
+        with ``COPY`` into a TIME column, which does not accept that integer.
+        The reference connector's ``to_csv_bindings`` therefore routes TIME
+        and TIMESTAMP_TZ through ``to_snowflake`` (``HH:MM:SS[.ffffff]``,
+        timestamps as wall-clock text). A naive datetime bound as
+        TIMESTAMP_TZ is treated as UTC, matching that converter.
+        """
+        if isinstance(value, datetime) and value.tzinfo is None:
+            value = value.replace(tzinfo=UTC)
+        return ClientSideBindingConverter.to_snowflake(value)
+
+    @classmethod
+    def _format_csv_cell(cls, value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], str):
+            snowflake_type, raw = value
+            if snowflake_type.upper() in ("TIME", "TIMESTAMP_TZ"):
+                converted: Any = cls._stage_csv_clock_value(raw)
+            else:
+                _, converted = cls._get_type_and_binding(value)
+        elif isinstance(value, (time, timedelta)):
+            converted = cls._stage_csv_clock_value(value)
+        elif isinstance(value, date) and not isinstance(value, datetime):
+            converted = cls._convert_date_for_bulk_insertion(value)
+        else:
+            _, converted = cls._get_type_and_binding(value)
+        if converted is None:
+            return ""
+        parts: list[str] = []
+        cls._append_escaped_csv_cell(parts, str(converted))
+        return "".join(parts)
+
+    @classmethod
+    def serialize_parameters_to_csv(cls, params: Params) -> bytes | None:
+        """Serialize column-major array bindings to CSV bytes for stage upload."""
+        if not params:
+            return None
+
+        expected_rows: int | None = None
+        for col_idx, col in enumerate(params):
+            if isinstance(col, list):
+                if expected_rows is None:
+                    expected_rows = len(col)
+                elif len(col) != expected_rows:
+                    raise ProgrammingError(
+                        msg=f"Array binding column widths must all match: "
+                        f"expected {expected_rows} rows but column {col_idx} has {len(col)} rows.",
+                    )
+
+        row_count = expected_rows if expected_rows is not None else 1
+        if row_count == 0:
+            return None
+
+        lines: list[str] = []
+        for row_idx in range(row_count):
+            cells = [
+                cls._format_csv_cell(cls._param_value_at(params, row_idx, col_idx)) for col_idx in range(len(params))
+            ]
+            lines.append(",".join(cells))
+
+        return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+class ClientSideBindingConverter:
+    """Converts Python values for client-side SQL interpolation (pyformat/format styles).
+
+    This class mirrors the reference snowflake-connector-python's SnowflakeConverter
+    for client-side binding, implementing escape(), quote(), and to_snowflake() methods.
+    """
+
+    @staticmethod
+    def escape(value: Any) -> Any:
+        """Escape special characters in string values for SQL interpolation.
+
+        Mirrors reference connector's SnowflakeConverter.escape() method.
+        """
+        if isinstance(value, list):
+            return value
+        if value is None or _is_numeric(value) or _is_binary(value):
+            return value
+        res = value
+        res = res.replace("\\", "\\\\")
+        res = res.replace("\n", "\\n")
+        res = res.replace("\r", "\\r")
+        res = res.replace("\047", "\134\047")  # single quotes: ' -> \'
+        return res
+
+    @classmethod
+    def quote(cls, value: Any) -> str:
+        """Quote a value for SQL interpolation.
+
+        Mirrors reference connector's SnowflakeConverter.quote() method.
+        """
+        if isinstance(value, list):
+            # Quote each item in the list and join with commas
+            # Apply escape() to each item since to_snowflake() already converted them
+            return ",".join(cls.quote(cls.escape(item)) for item in value)
+        if value is None:
+            return "NULL"
+        elif isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, _FLOAT_TYPES):
+            return _format_float(value)
+        elif _is_numeric(value):
+            return str(value)
+        elif _is_binary(value):
+            # Binary literal syntax: X'hex_value'
+            return "X'{}'".format(binascii.hexlify(value).decode("ascii"))
+        return f"'{value}'"
+
+    @classmethod
+    def to_snowflake(cls, value: Any) -> Any:
+        """Convert Python value to Snowflake-compatible format for client-side binding.
+
+        Mirrors reference connector's SnowflakeConverter.to_snowflake() method.
+        """
+        if value is None:
+            return None
+        elif isinstance(value, bool):
+            return value
+        elif _is_numeric(value):
+            return value
+        elif isinstance(value, str):
+            return value
+        elif _is_binary(value):
+            return value
+        elif isinstance(value, datetime):
+            return cls._datetime_to_snowflake(value)
+        elif isinstance(value, date):
+            return cls._date_to_snowflake(value)
+        elif isinstance(value, time):
+            return cls._time_to_snowflake(value)
+        elif isinstance(value, timedelta):
+            return cls._timedelta_to_snowflake(value)
+        elif isinstance(value, time_module.struct_time):
+            return cls._struct_time_to_snowflake(value)
+        elif isinstance(value, _NUMPY_DATETIME_TYPES):
+            return str(value) + "+00:00"
+        elif isinstance(value, list):
+            # List for IN clause - convert each element
+            return [cls.to_snowflake(v) for v in value]
+        else:
+            raise ProgrammingError(
+                msg=(
+                    f"Binding data in type ({value.__class__.__name__.lower()}) is not supported. "
+                    "Convert the value to a supported Python type (str, int, float, bool, "
+                    "bytes, date/datetime/time/timedelta) before binding it."
+                ),
+                errno=ER_NOT_SUPPORT_DATA_TYPE,
+            )
+
+    @staticmethod
+    def _datetime_to_snowflake(value: datetime) -> str:
+        """Convert datetime to Snowflake string format."""
+        tzinfo_value = value.tzinfo
+        if tzinfo_value:
+            # Get UTC offset
+            td = tzinfo_value.utcoffset(value)
+            if td is None:
+                td = timedelta(0)
+            sign = "+" if td >= timedelta(0) else "-"
+            td_secs = int(td.total_seconds())
+            h, m = divmod(abs(td_secs // 60), 60)
+            if value.microsecond:
+                return (
+                    f"{value.year:d}-{value.month:02d}-{value.day:02d} "
+                    f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}."
+                    f"{value.microsecond:06d}{sign}{h:02d}:{m:02d}"
+                )
+            return (
+                f"{value.year:d}-{value.month:02d}-{value.day:02d} "
+                f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}"
+                f"{sign}{h:02d}:{m:02d}"
+            )
+        else:
+            if value.microsecond:
+                return (
+                    f"{value.year:d}-{value.month:02d}-{value.day:02d} "
+                    f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}."
+                    f"{value.microsecond:06d}"
+                )
+            return (
+                f"{value.year:d}-{value.month:02d}-{value.day:02d} "
+                f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}"
+            )
+
+    @staticmethod
+    def _date_to_snowflake(value: date) -> str:
+        """Convert date to Snowflake string format."""
+        return f"{value.year:d}-{value.month:02d}-{value.day:02d}"
+
+    @staticmethod
+    def _time_to_snowflake(value: time) -> str:
+        """Convert time to Snowflake string format."""
+        if value.microsecond:
+            return f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}.{value.microsecond:06d}"
+        return f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}"
+
+    @staticmethod
+    def _timedelta_to_snowflake(value: timedelta) -> str:
+        """Convert timedelta to Snowflake string format."""
+        hours, remainder = divmod(value.seconds, 3600)
+        mins, secs = divmod(remainder, 60)
+        hours += value.days * 24
+        if value.microseconds:
+            return f"{hours:02d}:{mins:02d}:{secs:02d}.{value.microseconds:06d}"
+        return f"{hours:02d}:{mins:02d}:{secs:02d}"
+
+    @staticmethod
+    def _struct_time_to_snowflake(value: time_module.struct_time) -> str:
+        """Convert struct_time to Snowflake string format."""
+        return (
+            f"{value.tm_year:d}-{value.tm_mon:02d}-{value.tm_mday:02d} "
+            f"{value.tm_hour:02d}:{value.tm_min:02d}:{value.tm_sec:02d}"
+        )
+
+    @classmethod
+    def process_single_param(cls, param: Any) -> Any:
+        """Process a single parameter for client-side binding.
+
+        Applies to_snowflake -> escape -> quote transformation.
+        """
+        return cls.quote(cls.escape(cls.to_snowflake(param)))
+
+    @classmethod
+    def process_params_pyformat(
+        cls, params: Sequence[Any] | Mapping[str, Any] | None
+    ) -> dict[str, Any] | tuple[Any, ...]:
+        """Process parameters for pyformat/format style binding.
+
+        Args:
+            params: Parameters as sequence (for %s) or mapping (for %(name)s)
+
+        Returns:
+            Processed parameters ready for % string interpolation
+        """
+        if params is None:
+            return ()
+
+        if isinstance(params, Mapping):
+            # Named parameters: %(name)s
+            return {key: cls.process_single_param(value) for key, value in params.items()}
+        else:
+            # Positional parameters: %s
+            return tuple(cls.process_single_param(param) for param in params)
+
+    @classmethod
+    def interpolate_query(
+        cls,
+        query: str,
+        params: Sequence[Any] | Mapping[str, Any] | None,
+        *,
+        interpolate_empty_sequences: bool = False,
+    ) -> str:
+        """Interpolate parameters into query using Python % formatting.
+
+        This is the main entry point for client-side binding, mirroring
+        the reference connector's _preprocess_pyformat_query method.
+
+        Args:
+            query: SQL query with %s or %(name)s placeholders
+            params: Parameters to interpolate
+            interpolate_empty_sequences: When True, perform ``query % params``
+                even when *params* is empty.  This unescapes ``%%`` → ``%``
+                which is required when SQLAlchemy doubles percent signs during
+                compilation (pyformat paramstyle).  Matches the old connector's
+                ``connection._interpolate_empty_sequences`` flag.
+
+        Returns:
+            Query string with parameters interpolated
+        """
+        if params is None:
+            return query
+
+        processed_params = cls.process_params_pyformat(params)
+
+        if interpolate_empty_sequences or len(processed_params) > 0:
+            return query % processed_params
+        return query

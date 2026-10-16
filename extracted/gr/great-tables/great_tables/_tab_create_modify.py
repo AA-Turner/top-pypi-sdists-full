@@ -79,13 +79,13 @@ def tab_style(
 
     Let's use `exibble` once again to create a simple, two-column output table (keeping only the
     `num` and `currency` columns). With the `tab_style()` method (called thrice), we'll add style to
-    the values already formatted by `fmt_number()` and `fmt_currency()`. In the `style` argument of
-    the first two `tab_style()` call, we can define multiple types of styling with the
-    `style.fill()` and `style.text()` classes (enclosing these in a list). The cells to be targeted
-    for styling require the use of `loc.body()`, which is used here with different columns being
-    targeted. For the final `tab_style()` call, we demonstrate the use of `style.borders()` class
-    as the `style` argument, which is employed in conjunction with `loc.body()` to locate the row to
-    be styled.
+    the values already formatted by [`fmt_number()`](`great_tables.GT.fmt_number`) and
+    [`fmt_currency()`](`great_tables.GT.fmt_currency`). In the `style` argument of the first two
+    `tab_style()` call, we can define multiple types of styling with the `style.fill()` and
+    `style.text()` classes (enclosing these in a list). The cells to be targeted for styling require
+    the use of `loc.body()`, which is used here with different columns being targeted. For the final
+    `tab_style()` call, we demonstrate the use of `style.borders()` class as the `style` argument,
+    which is employed in conjunction with `loc.body()` to locate the row to be styled.
 
     ```{python}
     from great_tables import GT, style, loc, exibble
@@ -293,6 +293,7 @@ def tab_style_body(
     )
     ```
     """
+    from ._gt_data import ColInfoTypeEnum
     from ._locations import LocBody, LocStub, resolve_cols_i, resolve_rows_i
     from ._tbl_data import _get_cell
 
@@ -308,7 +309,7 @@ def tab_style_body(
 
     data = self._tbl_data
 
-    cols = resolve_cols_i(data=self, expr=columns)
+    cols = resolve_cols_i(data=self, expr=columns, excl_stub=False)
     resolved_rows = resolve_rows_i(data=self, expr=rows)
 
     # Determine the matching function (precedence: fn > pattern > values)
@@ -383,16 +384,20 @@ def tab_style_body(
     new_self = self
 
     if "body" in extents and final_cells:
-        # Group by column for efficient loc.body() calls
+        # Group by column for efficient loc.body() calls; stub columns can hold matches but aren't
+        # part of the body (they're styled through the `"stub"` extent), as in R gt
+        stub_vars = self._boxhead.vars_from_type(ColInfoTypeEnum.stub)
         col_to_rows: dict[str, list[int]] = {}
         for col_name, row_idx in final_cells:
-            col_to_rows.setdefault(col_name, []).append(row_idx)
+            if col_name not in stub_vars:
+                col_to_rows.setdefault(col_name, []).append(row_idx)
 
         locations: list[Loc] = [
             LocBody(columns=col_name, rows=sorted(row_indices))
             for col_name, row_indices in col_to_rows.items()
         ]
-        new_self = tab_style(new_self, style=style, locations=locations)
+        if locations:
+            new_self = tab_style(new_self, style=style, locations=locations)
 
     if "stub" in extents:
         # Project to stub for matched rows

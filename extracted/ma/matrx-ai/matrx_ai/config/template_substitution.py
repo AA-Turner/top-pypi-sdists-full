@@ -11,7 +11,9 @@ THIS IS HOW WE DO IT:
    Nothing else.
 7. Sections (Mustache), authored text only, same pass, evaluated before the slots are filled:
    ``{{#name}}...{{/name}}`` stays only when declared ``name`` has a value that is not empty or
-   whitespace-only; ``{{^name}}...{{/name}}`` stays only when it is empty. Only declared names form
+   whitespace-only; ``{{^name}}...{{/name}}`` stays only when it is empty. Empty is decided once,
+   here (``is_filled``): None, blank text, ``False``, an empty list/dict, or a toggle's off label
+   (``OffValue``). Any other value, including the text "false" or "No", is filled. Only declared names form
    sections; any other ``{{#x}}`` is left as written. A section tag alone on its line removes that
    whole line. An unclosed or unmatched tag is left as written. ``{{!#name}}`` is the escape.
 8. Prompt blocks: ``{{<name>}}`` for each DECLARED block becomes ``<name>\n{text}\n</name>`` (the
@@ -29,14 +31,30 @@ from typing import Any
 ESCAPE_OPEN = "{{!"
 
 
+class OffValue(str):
+    """A toggle's off label (``toggleValues[0]``, default "No"): fills its slot with its text, but a
+    ``{{#name}}`` section treats it as empty. Composition (``agents.variables``) marks it."""
+
+
+def is_empty_value(value: Any) -> bool:
+    """A value that means "nothing was given" for the run's precedence ladder: None, blank text, or
+    an empty list/dict. ``False`` and ``0`` are given values here (they only empty a section)."""
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    return isinstance(value, (list, tuple, set, frozenset, dict)) and not value
+
+
 def authored_names(template: str, variables: Mapping[str, Any]) -> list[str]:
     """Variable names whose exact ``{{name}}`` appears in ``template``."""
     return [name for name in variables if f"{{{{{name}}}}}" in template]
 
 
 def is_filled(value: Any, render: Callable[[Any], str]) -> bool:
-    """A value fills a section when it is not None, not an empty container and not blank text."""
-    if value is None:
+    """A value fills a section unless it is None, ``False``, an empty container, blank text or a
+    toggle's off label (``OffValue``)."""
+    if value is None or value is False or isinstance(value, OffValue):
         return False
     if isinstance(value, (list, tuple, set, frozenset, dict)) and not value:
         return False
@@ -188,3 +206,34 @@ def substitute_authored(
         return "{{"
 
     return pattern.sub(replace, text)
+
+
+_SYSTEM_ROLES = frozenset({"system", "developer"})
+
+
+def authored_template_messages(
+    wire_messages: Any,  # api-any-ok: wire messages are dicts (local) or models (server)
+    template_message_count: int | None,
+    config_messages: Any,  # api-any-ok: the config's message list, sliced by identity
+) -> list[Any]:
+    """The config messages that are the AUTHORED template — the only ones filled.
+
+    ONE implementation for every host that takes a client-carried ``messages[]`` (aidream
+    ``/ai/manual`` + ``/ai/chat``, matrx-local's engine). The client says how many leading wire
+    messages are authored; nothing is inferred from text. ``build_unified_config`` lifts
+    system/developer messages into the system instruction and keeps every other message in
+    order, so the authored ones are the first K config messages, K = the non-system messages
+    among the first N wire messages. Capture the result by identity right after the config is
+    built and pass it as ``replace_variables(..., template_messages=...)``. ``None``/0 (an older
+    client) = nothing is filled: typed text and history are never filled.
+    """
+    count = template_message_count or 0
+    if count <= 0:
+        return []
+
+    def _role(m: Any) -> str:
+        role = m.get("role") if isinstance(m, Mapping) else getattr(m, "role", None)
+        return str(getattr(role, "value", role))
+
+    authored = sum(1 for m in list(wire_messages)[:count] if _role(m) not in _SYSTEM_ROLES)
+    return list(config_messages)[:authored]

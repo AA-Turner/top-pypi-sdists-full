@@ -68,6 +68,9 @@ class OntologyValueTypeClient:
         """
         Gets a specific value type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param value_type: The API name of the value type. To find the API name, use the **List value types** endpoint or check the **Ontology Manager**.
@@ -115,6 +118,9 @@ class OntologyValueTypeClient:
     ) -> ontologies_models.ListOntologyValueTypesResponse:
         """
         Lists the latest versions of the value types for the given Ontology.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -210,6 +216,9 @@ class AsyncOntologyValueTypeClient:
         """
         Gets a specific value type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param value_type: The API name of the value type. To find the API name, use the **List value types** endpoint or check the **Ontology Manager**.
@@ -257,6 +266,9 @@ class AsyncOntologyValueTypeClient:
     ) -> typing.Awaitable[ontologies_models.ListOntologyValueTypesResponse]:
         """
         Lists the latest versions of the value types for the given Ontology.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

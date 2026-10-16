@@ -33,7 +33,7 @@ class ConfirmExecutionRequest(BaseSerDeModel):
 
 @proto_dataclass(execution_service_pb2.ConfirmExecutionResponse)
 class ConfirmExecutionResponse(BaseSerDeModel):
-    request_id: str
+    execution_id: str
     success: bool
 
 
@@ -145,3 +145,14 @@ class ResolveDeferredRelationsRequest(BaseSerDeModel):
 @proto_dataclass(execution_service_pb2.ResolveDeferredRelationsResponse)
 class ResolveDeferredRelationsResponse(BaseSerDeModel):
     fqn_by_unique_id: t.Dict[str, str] = field(default_factory=dict)
+
+
+@proto_dataclass(execution_service_pb2.UpdateExecutionMetadataRequest)
+class UpdateExecutionMetadataRequest(BaseSerDeModel):
+    execution_id: str
+    last_modified_epoch: t.Optional[int] = None
+
+
+@proto_dataclass(execution_service_pb2.UpdateExecutionMetadataResponse)
+class UpdateExecutionMetadataResponse(BaseSerDeModel):
+    pass

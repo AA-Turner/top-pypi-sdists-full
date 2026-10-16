@@ -8,20 +8,24 @@
 
 from __future__ import annotations
 
+__lazy_modules__ = ["packaging.specifiers", "packaging.utils", "pathlib", "pipx.util", "re", "tomllib", "urllib.parse"]
+
 import logging
 import re
+import tomllib
 import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import TYPE_CHECKING, Final
 
-from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import SpecifierSet
-from packaging.utils import canonicalize_name
-from packaging.version import InvalidVersion
+from packaging.utils import InvalidName, canonicalize_name
 
 from pipx.emojis import hazard
-from pipx.util import PipxError, pipx_wrap
+from pipx.util import PipxError, pipx_wrap, redact_url_credentials
+
+if TYPE_CHECKING:
+    from packaging.requirements import Requirement
 
 logger = logging.getLogger(__name__)
 
@@ -76,22 +80,13 @@ def _check_package_path(package_path: str) -> tuple[Path, bool]:
 def _parse_specifier(package_spec: str) -> ParsedPackage:
     """Parse package_spec as would be given to pipx"""
     # Match pip's PyPI precedence by checking local paths only for names that PyPI rejects.
-    valid_pep508 = None
+    valid_pep508 = _requirement(package_spec)
     valid_url = None
     valid_local_path = None
 
-    try:
-        package_req = Requirement(package_spec)
-    except InvalidRequirement:
-        # not a valid PEP508 package specification
-        pass
-    else:
-        # valid PEP508 package specification
-        valid_pep508 = package_req
-
-    if valid_pep508 and package_req.name.endswith(ARCHIVE_EXTENSIONS):
+    if valid_pep508 and valid_pep508.name.endswith(ARCHIVE_EXTENSIONS):
         # It might be a local archive
-        (package_path, package_path_exists) = _check_package_path(package_req.name)
+        (package_path, package_path_exists) = _check_package_path(valid_pep508.name)
 
         if package_path_exists:
             valid_local_path = str(package_path.resolve())
@@ -114,7 +109,7 @@ def _parse_specifier(package_spec: str) -> ParsedPackage:
             valid_local_path = str(package_path.resolve()) + package_extras_str
 
     if not valid_pep508 and not valid_url and not valid_local_path:
-        msg = f"Unable to parse package spec: {package_spec}"
+        msg = f"Unable to parse package spec: {redact_url_credentials(package_spec)}"
         raise PipxError(msg)
 
     if valid_pep508 and valid_local_path:
@@ -127,6 +122,18 @@ def _parse_specifier(package_spec: str) -> ParsedPackage:
         valid_url=valid_url,
         valid_local_path=valid_local_path,
     )
+
+
+def _requirement(package_spec: str) -> Requirement | None:
+    from packaging.requirements import (  # ruff:ignore[import-outside-top-level]  # parser slows startup
+        InvalidRequirement,
+        Requirement,
+    )
+
+    try:
+        return Requirement(package_spec)
+    except InvalidRequirement:
+        return None
 
 
 def package_or_url_from_pep508(requirement: Requirement, *, remove_version_specifiers: bool = False) -> str:
@@ -160,7 +167,7 @@ def _parsed_package_to_package_or_url(parsed_package: ParsedPackage, *, remove_v
     elif parsed_package.valid_local_path is not None:
         package_or_url = parsed_package.valid_local_path
 
-    logger.info("cleaned package spec: %s", package_or_url)
+    logger.info("cleaned package spec: %s", redact_url_credentials(package_or_url))
     return package_or_url
 
 
@@ -244,6 +251,8 @@ def get_extras(package_spec: str) -> set[str]:
     if parsed_package.valid_pep508 and parsed_package.valid_pep508.extras is not None:
         return parsed_package.valid_pep508.extras
     if parsed_package.valid_local_path:
+        from packaging.requirements import Requirement  # ruff:ignore[import-outside-top-level]  # parser slows startup
+
         (_, package_extras_str) = _split_path_extras(parsed_package.valid_local_path)
         return Requirement("notapackage" + package_extras_str).extras
 
@@ -251,10 +260,7 @@ def get_extras(package_spec: str) -> set[str]:
 
 
 def valid_pypi_name(package_spec: str) -> str | None:
-    try:
-        package_req = Requirement(package_spec)
-    except InvalidRequirement:
-        # not a valid PEP508 package specification
+    if (package_req := _requirement(package_spec)) is None:
         return None
 
     if package_req.url or package_req.name.endswith(ARCHIVE_EXTENSIONS):
@@ -266,6 +272,95 @@ def valid_pypi_name(package_spec: str) -> str | None:
     return canonicalize_name(package_req.name)
 
 
+def static_project_name(package_spec: str) -> str | None:
+    """Return the name a local project directory declares statically in its pyproject.toml, if any."""
+    try:
+        with (Path(_split_path_extras(package_spec)[0]) / "pyproject.toml").open("rb") as file:
+            pyproject = tomllib.load(file)
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    if not (
+        _backend_reads_project_table(pyproject.get("build-system"))
+        and isinstance(project := pyproject.get("project"), dict)
+        and isinstance(name := project.get("name"), str)
+        and isinstance(dynamic := project.get("dynamic", []), list)
+        and "name" not in dynamic
+    ):
+        return None
+    return _valid_name(name)
+
+
+def _backend_reads_project_table(build_system: object) -> bool:
+    # older poetry-core, setuptools and flit-core build from their own tables and ignore [project]
+    minimum_versions: Final[dict[str, tuple[str, str | None]]] = {
+        "flit_core.buildapi": ("flit-core", "3.2"),
+        "hatchling.build": ("hatchling", None),
+        "pdm.backend": ("pdm-backend", None),
+        "poetry.core.masonry.api": ("poetry-core", "2"),
+        "setuptools.build_meta": ("setuptools", "61"),
+        "uv_build": ("uv-build", None),
+    }
+    if not (
+        isinstance(build_system, dict)
+        and "backend-path" not in build_system
+        and isinstance(backend := build_system.get("build-backend"), str)
+        and (known := minimum_versions.get(backend)) is not None
+        and isinstance(requires := build_system.get("requires"), list)
+    ):
+        return False
+    distribution, minimum = known
+    return minimum is None or any(
+        canonicalize_name(requirement.name) == distribution and _newest_allowed_reaches(requirement.specifier, minimum)
+        for requirement in filter(None, (_requirement(entry) for entry in requires if isinstance(entry, str)))
+    )
+
+
+def _newest_allowed_reaches(specifier: SpecifierSet, minimum: str) -> bool:
+    from packaging.version import InvalidVersion, Version  # ruff:ignore[import-outside-top-level]  # slows startup
+
+    # an isolated build installs the newest version the specifier allows, so it reaches the minimum when the minimum is
+    # allowed or a lower bound already sits at or above it
+    if specifier.contains(minimum, prereleases=True):
+        return True
+    for clause in specifier:
+        try:
+            if clause.operator in {">=", ">", "==", "===", "~="} and Version(
+                clause.version.removesuffix(".*")
+            ) >= Version(minimum):
+                return True
+        except InvalidVersion:
+            continue
+    return False
+
+
+def wheel_project_name(package_spec: str) -> str | None:
+    """Return the name a local wheel declares in its metadata, if it has exactly one top-level ``.dist-info``."""
+    if (wheel := Path(_split_path_extras(package_spec)[0])).suffix != ".whl":
+        return None
+    import zipfile  # ruff:ignore[import-outside-top-level]  # slows startup
+    from email.parser import BytesHeaderParser  # ruff:ignore[import-outside-top-level]  # slows startup
+
+    try:
+        with zipfile.ZipFile(wheel) as archive:
+            match [entry for entry in archive.namelist() if re.fullmatch(r"[^/]+\.dist-info/METADATA", entry)]:
+                case [metadata]:
+                    name = BytesHeaderParser().parsebytes(archive.read(metadata))["Name"]
+                case _:
+                    return None
+    except (OSError, zipfile.BadZipFile):
+        return None
+    # a non-ASCII header comes back as an email Header object, never a valid project name
+    return _valid_name(name) if isinstance(name, str) else None
+
+
+def _valid_name(name: str) -> str | None:
+    try:
+        canonicalize_name(name, validate=True)
+    except InvalidName:
+        return None
+    return name
+
+
 def package_spec_satisfied(
     package_spec: str,
     package_name: str,
@@ -273,17 +368,16 @@ def package_spec_satisfied(
     installed_spec: str,
 ) -> bool:
     """Return whether an installed package satisfies a named requirement."""
-    try:
-        requirement = Requirement(package_spec)
-        installed_requirement = Requirement(installed_spec)
-        return (
-            requirement.url is None
-            and canonicalize_name(requirement.name) == canonicalize_name(package_name)
-            and requirement.extras.issubset(installed_requirement.extras)
-            and requirement.specifier.contains(installed_version)
-        )
-    except (InvalidRequirement, InvalidVersion):
+    if (requirement := _requirement(package_spec)) is None or (
+        installed_requirement := _requirement(installed_spec)
+    ) is None:
         return False
+    return (
+        requirement.url is None
+        and canonicalize_name(requirement.name) == canonicalize_name(package_name)
+        and requirement.extras.issubset(installed_requirement.extras)
+        and requirement.specifier.contains(installed_version)
+    )
 
 
 def extract_index_options(pip_args: list[str]) -> list[str]:
@@ -302,10 +396,7 @@ def extract_index_options(pip_args: list[str]) -> list[str]:
 
 
 def fix_package_name(package_or_url: str, package_name: str) -> str:
-    try:
-        package_req = Requirement(package_or_url)
-    except InvalidRequirement:
-        # not a valid PEP508 package specification
+    if (package_req := _requirement(package_or_url)) is None:
         return package_or_url
 
     if package_req.name.endswith(ARCHIVE_EXTENSIONS):
@@ -335,5 +426,7 @@ __all__ = [
     "parse_specifier_for_install",
     "parse_specifier_for_metadata",
     "parse_specifier_for_upgrade",
+    "static_project_name",
     "valid_pypi_name",
+    "wheel_project_name",
 ]

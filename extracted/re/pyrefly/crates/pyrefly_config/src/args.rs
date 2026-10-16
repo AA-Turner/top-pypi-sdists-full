@@ -98,7 +98,7 @@ pub struct EnvironmentArgs {
 
     /// Directories containing third-party package imports, searched
     /// after first checking `search_path` and `typeshed`.
-    #[arg(long)]
+    #[arg(long = "site-packages-path", visible_alias = "site-package-path")]
     pub(crate) site_package_path: Option<Vec<PathBuf>>,
 
     /// Use a specific Conda environment to query Python environment information,
@@ -107,12 +107,12 @@ pub struct EnvironmentArgs {
     pub(crate) conda_environment: Option<String>,
 
     /// The path to a Python executable that will be queried for `python-version`
-    /// `python-platform`, or `site-package-path` if any of the values are missing.
+    /// `python-platform`, or `site-packages-path` if any of the values are missing.
     #[arg(long, value_name = "EXE_PATH", group = "env_source")]
     pub(crate) python_interpreter_path: Option<PathBuf>,
 
     /// The Python executable name available on your PATH that will be queried for your
-    /// `python-version`, `python-platform`, or `site-package-path` if any of the values
+    /// `python-version`, `python-platform`, or `site-packages-path` if any of the values
     /// are missing. We execute `which <COMMAND>` to fill in your `python-interpreter-path`,
     /// which is useful if you don't know where the Python executable will be on a given
     /// machine, but want to use one other than the default.
@@ -172,7 +172,7 @@ impl EnvironmentArgs {
             }
             Ok(())
         }
-        validate_arg("--site-package-path", self.site_package_path.as_deref())?;
+        validate_arg("--site-packages-path", self.site_package_path.as_deref())?;
         validate_arg("--search-path", self.search_path.as_deref())?;
         Ok(())
     }
@@ -380,9 +380,9 @@ pub struct ConfigOverrideArgs {
         num_args = 0..=1
     )]
     strict_callable_subtyping: Option<bool>,
-    /// Whether to strictly check the parameters of a `functools.partial(...)` residual when it is
-    /// assigned to a callable. When false (the default), the residual is treated as gradual (like
-    /// `...`) for subtyping, matching the typeshed `partial` stub. When true, the residual's
+    /// Whether to strictly check the remaining parameters of a `functools.partial(...)` when it is
+    /// assigned to a callable. When false (the default), its parameters are treated as gradual
+    /// (like `...`) for subtyping, matching the typeshed `partial` stub. When true, their
     /// parameter types and arity are checked precisely.
     #[arg(
         long,
@@ -722,6 +722,7 @@ mod tests {
     fn repeated_python_platform_flags_merge() {
         let args = ConfigOverrideArgs::parse_from([
             "pyrefly",
+            "--skip-interpreter-query", // To avoid calling a Python binary in the test
             "--python-platform",
             "linux",
             "--python-platform",
@@ -743,6 +744,7 @@ mod tests {
     fn repeated_python_platform_flags_all_wins() {
         let args = ConfigOverrideArgs::parse_from([
             "pyrefly",
+            "--skip-interpreter-query", // To avoid calling a Python binary in the test
             "--python-platform",
             "all",
             "--python-platform",

@@ -1320,10 +1320,7 @@ class HeatChargeSimulation(AbstractSimulation):
         max_size = np.max(self.size)
         min_dl = val.relative_min_dl * max_size
 
-        if isinstance(val, UniformUnstructuredGrid):
-            desired_min_dl = val.dl
-        if isinstance(val, DistanceUnstructuredGrid):
-            desired_min_dl = min(val.dl_interface, val.dl_bulk)
+        desired_min_dl = val.smallest_requested_dl
 
         if desired_min_dl < min_dl:
             log.warning(

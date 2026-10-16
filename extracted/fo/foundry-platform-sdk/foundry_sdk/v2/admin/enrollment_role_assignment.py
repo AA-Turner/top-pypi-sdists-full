@@ -69,6 +69,9 @@ class EnrollmentRoleAssignmentClient:
         """
         Assign roles to principals for the given Enrollment. At most 100 role assignments can be added in a single request.
 
+
+        Required scopes: [api:admin-write]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param role_assignments:
@@ -128,6 +131,9 @@ class EnrollmentRoleAssignmentClient:
         """
         List all principals who are assigned a role for the given Enrollment.
 
+
+        Required scopes: [api:admin-read]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param preview: Enables the use of preview functionality.
@@ -179,6 +185,9 @@ class EnrollmentRoleAssignmentClient:
     ) -> None:
         """
         Remove roles from principals for the given Enrollment. At most 100 role assignments can be removed in a single request.
+
+
+        Required scopes: [api:admin-write]
 
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
@@ -288,6 +297,9 @@ class AsyncEnrollmentRoleAssignmentClient:
         """
         Assign roles to principals for the given Enrollment. At most 100 role assignments can be added in a single request.
 
+
+        Required scopes: [api:admin-write]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param role_assignments:
@@ -347,6 +359,9 @@ class AsyncEnrollmentRoleAssignmentClient:
         """
         List all principals who are assigned a role for the given Enrollment.
 
+
+        Required scopes: [api:admin-read]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param preview: Enables the use of preview functionality.
@@ -398,6 +413,9 @@ class AsyncEnrollmentRoleAssignmentClient:
     ) -> typing.Awaitable[None]:
         """
         Remove roles from principals for the given Enrollment. At most 100 role assignments can be removed in a single request.
+
+
+        Required scopes: [api:admin-write]
 
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid

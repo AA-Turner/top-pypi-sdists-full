@@ -4,10 +4,19 @@
 //!
 //! # Design Notes
 //!
+//! Substitution parsers share the enclosing AST depth and start time. Keep child
+//! parsers heap-owned and nonrecursive AST assembly out of recursive frames so
+//! the hard depth ceiling is safe on default 2 MiB test-thread stacks (TM-DOS-044).
+//!
 //! Reserved words (like `done`, `fi`, `then`) are only treated as special in command
 //! position - when they would start a command. In argument position, they are regular
 //! words. The termination of compound commands is handled by `parse_compound_list_until`
 //! which checks for terminators BEFORE parsing each command.
+//!
+//! Grammar errors are worded the way bash words them, by the token the parse
+//! stopped at (see `Parser::error`): `syntax error near unexpected token
+//! `fi'`, or `syntax error: unexpected end of file` reported on the line after
+//! the last when the input ran out inside a construct.
 
 // Parser uses chars().next().unwrap() after validating character presence.
 // This is safe because we check bounds before accessing.
@@ -16,19 +25,38 @@
 mod ast;
 pub mod budget;
 mod lexer;
+mod print_cmd;
+mod raw;
 mod span;
+mod subst_scan;
 mod tokens;
 
 pub use ast::*;
 pub use budget::{BudgetError, validate as validate_budget};
 pub use lexer::{Lexer, SpannedToken};
+pub use print_cmd::function_string;
+pub(crate) use print_cmd::word_text;
 pub use span::{Position, Span};
 
 use crate::error::{Error, Result};
 use crate::limits::LimitExceeded;
 use crate::time_compat::Instant;
+use raw::{heredoc_eof_from_raw, single_quote, split_raw_words};
 use std::cell::Cell;
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Shell state that changes how text parses, taken from the interpreter
+/// when a parse starts (bash reads and parses a line at a time, so an
+/// `alias` or `shopt -s extglob` affects the lines after it).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ParseOptions {
+    /// Aliases to expand (`shopt -s expand_aliases` on); `None` when off.
+    pub aliases: Option<Arc<HashMap<String, String>>>,
+    /// `shopt -s extglob`: `!(` starts a pattern group, not `!` + subshell.
+    pub extglob: bool,
+}
 
 /// Default maximum AST depth (matches ExecutionLimits default)
 const DEFAULT_MAX_AST_DEPTH: usize = 100;
@@ -56,6 +84,11 @@ pub struct Parser<'a> {
     current_span: Span,
     /// Lookahead token for function parsing
     peeked_token: Option<SpannedToken>,
+    /// Source text of the current word token (only inside function bodies).
+    current_raw: Option<String>,
+    /// Nesting depth of function definitions being parsed; word source text
+    /// is captured while it is non-zero.
+    function_depth: usize,
     /// Maximum allowed AST nesting depth
     max_depth: usize,
     /// Current nesting depth
@@ -73,8 +106,30 @@ pub struct Parser<'a> {
     /// when a `$(...)` body fails to parse; `parse_script` converts it into a
     /// hard parse error so the script is rejected the way bash rejects it.
     deferred_error: Cell<Option<Error>>,
+    /// The returned error came from (or coexisted with) a deferred `$(...)`
+    /// error, whose position is unreliable; see [`Parser::parse_recovering`].
+    error_was_deferred: bool,
+    /// Line the top-level command being parsed starts on; on failure, only
+    /// commands that ended on earlier lines are runnable.
+    failed_command_line: usize,
     /// Aggregate request budget shared by every child parser.
     execution_budget: Option<crate::limits::ExecutionBudget>,
+    /// Shell options that change parsing (aliases, extglob).
+    options: ParseOptions,
+    /// The current token is a word with no quoting (alias candidate).
+    current_plain: bool,
+    /// The current token follows a blank-ending alias value.
+    current_after_blank: bool,
+    /// End offset of the token consumed last: a token that starts there
+    /// touches it (`x<(true)` is one word, see `join_adjacent_word`).
+    prev_token_end: usize,
+    /// The next `parse_command_list` call reads a top-level command: a
+    /// newline after `;` or `&` ends it, as bash's reader ends a line.
+    top_level_list: bool,
+    /// Byte offset and line where each top-level command starts.
+    top_starts: Vec<(usize, usize)>,
+    /// Offset and line of the top-level command being parsed.
+    failed_command_start: (usize, usize),
 }
 
 impl<'a> Parser<'a> {
@@ -115,12 +170,18 @@ impl<'a> Parser<'a> {
             Some(st) => (Some(st.token), st.span),
             None => (None, Span::new()),
         };
+        // The first token was lexed before any alias table was attached:
+        // it is plain when it reads exactly as its source text.
+        let current_plain = matches!(&current_token, Some(tokens::Token::Word(w))
+            if input.get(current_span.start.offset..current_span.end.offset) == Some(w.as_str()));
         Self {
             input,
             lexer,
             current_token,
             current_span,
             peeked_token: None,
+            current_raw: None,
+            function_depth: 0,
             max_depth: max_depth.min(HARD_MAX_AST_DEPTH),
             current_depth: 0,
             fuel: max_fuel,
@@ -128,7 +189,79 @@ impl<'a> Parser<'a> {
             timeout,
             started_at: Instant::now(),
             deferred_error: Cell::new(None),
+            error_was_deferred: false,
+            failed_command_line: 0,
             execution_budget: None,
+            // Without shell options every extglob group lexes as one.
+            options: ParseOptions {
+                aliases: None,
+                extglob: true,
+            },
+            current_plain,
+            current_after_blank: false,
+            prev_token_end: usize::MAX,
+            top_level_list: false,
+            top_starts: Vec::new(),
+            failed_command_start: (0, 1),
+        }
+    }
+
+    /// Parse with the shell's alias table and `extglob` setting.
+    pub fn with_options(mut self, options: ParseOptions) -> Self {
+        self.set_options(options);
+        self
+    }
+
+    fn set_options(&mut self, options: ParseOptions) {
+        self.lexer.set_track_plain(options.aliases.is_some());
+        self.lexer.set_extglob_bang(options.extglob);
+        self.options = options;
+    }
+
+    /// Count lines from `line` (text taken from later in a larger source).
+    pub(crate) fn starting_at_line(mut self, line: usize) -> Self {
+        let shift = line.saturating_sub(1);
+        if shift > 0 {
+            self.lexer.shift_lines(shift);
+            self.current_span.start.line += shift;
+            self.current_span.end.line += shift;
+        }
+        self
+    }
+
+    /// Expand an alias named by the current word, if it is one: its value
+    /// is read in place of the word (bash `alias_expand_token`).
+    /// THREAT[TM-DOS-030]: each expansion is charged to parser fuel by its
+    /// length, so chains of blank-ending aliases cannot grow without bound.
+    fn try_expand_alias(&mut self) -> bool {
+        let Some(aliases) = self.options.aliases.as_ref() else {
+            return false;
+        };
+        let Some(tokens::Token::Word(w)) = &self.current_token else {
+            return false;
+        };
+        if !self.current_plain || self.peeked_token.is_some() || self.lexer.alias_active(w) {
+            return false;
+        }
+        let Some(text) = aliases.get(w.as_str()) else {
+            return false;
+        };
+        let text = text.clone();
+        let name = w.clone();
+        if let Err(e) = self.tick_units(text.len() + 1) {
+            self.deferred_error.set(Some(e));
+            return false;
+        }
+        self.lexer.push_alias(&name, &text);
+        self.advance_token();
+        true
+    }
+
+    /// Expand aliases in command position (also through values that name
+    /// another alias: `alias FOR2='FOR1 '`).
+    fn expand_command_alias(&mut self) {
+        if self.options.aliases.is_some() {
+            while self.try_expand_alias() {}
         }
     }
 
@@ -157,13 +290,108 @@ impl<'a> Parser<'a> {
         parser.parse_word(input.to_string())
     }
 
-    /// Create a parse error with the current position.
+    /// Indirect reparses share request work/cancellation and enclosing depth.
+    pub(crate) fn parse_indirect_word(
+        input: &str,
+        max_depth: usize,
+        max_fuel: usize,
+        current_depth: usize,
+        budget: crate::limits::ExecutionBudget,
+    ) -> Result<Word> {
+        budget.consume_work(input.len() as u64)?;
+        let mut parser =
+            Parser::with_limits(input, max_depth, max_fuel).with_execution_budget(budget.clone());
+        parser.current_depth = current_depth;
+        let word = parser.parse_word(input.to_string());
+        budget.check()?;
+        if let Some(error) = parser.deferred_error.take() {
+            return Err(error);
+        }
+        Ok(word)
+    }
+
+    /// Parse `input` as an unquoted here-document body: expansions apply,
+    /// `"` is literal, and only `\$`, `` \` `` and `\\` are escapes. Used for
+    /// prompt strings (`${x@P}`, PS1), which bash expands the same way.
+    pub fn parse_heredoc_body_with_limits(input: &str, max_depth: usize, max_fuel: usize) -> Word {
+        let parser = Parser::with_limits(input, max_depth, max_fuel);
+        parser.parse_word(heredoc_body_escapes(input))
+    }
+
+    /// Prompt reparses must charge the same request budget as their caller.
+    pub(crate) fn parse_prompt_body(
+        input: &str,
+        max_depth: usize,
+        max_fuel: usize,
+        budget: crate::limits::ExecutionBudget,
+    ) -> Result<Word> {
+        let parser =
+            Parser::with_limits(input, max_depth, max_fuel).with_execution_budget(budget.clone());
+        let word = parser.parse_word(heredoc_body_escapes(input));
+        // Word parsing can turn child parse errors into literal text. A poisoned
+        // request must still fail closed rather than continue with that fallback.
+        budget.check()?;
+        Ok(word)
+    }
+
+    /// Create a parse error with the current position. A grammar error
+    /// (a construct that cannot continue with the current token) gets bash's
+    /// wording instead of `message`; see [`Self::bash_grammar_error`].
     fn error(&self, message: impl Into<String>) -> Error {
+        let message = message.into();
+        if let Some(err) = self.bash_grammar_error(&message) {
+            return err;
+        }
         Error::parse_at(
             message,
             self.current_span.start.line,
             self.current_span.start.column,
         )
+    }
+
+    /// bash reports a grammar error by the token it stopped at: `syntax error
+    /// near unexpected token `T'` (a line end is `newline`), or, when input
+    /// ran out inside an unfinished construct, `syntax error: unexpected end
+    /// of file` on the line after the last one.
+    fn bash_grammar_error(&self, message: &str) -> Option<Error> {
+        // Constructs that may continue on later lines: running out of input
+        // is an unexpected end of file.
+        // (`f(` must close on its own line: bash stops at `newline`.)
+        let unfinished = message.starts_with("syntax error: empty ")
+            || (message.starts_with("expected '") && !message.ends_with("function definition"))
+            || message.starts_with("expected command after");
+        if !unfinished
+            && !message.starts_with("unexpected token")
+            && !message.starts_with("expected '")
+        {
+            return None;
+        }
+        let line = self.current_span.start.line;
+        let near = |token: &str| {
+            Some(Error::parse_at(
+                // THREAT[TM-DOS-136]: a quoted token may span the whole input.
+                crate::error::bounded_diagnostic(format_args!(
+                    "syntax error near unexpected token `{token}'"
+                )),
+                line,
+                self.current_span.start.column,
+            ))
+        };
+        match &self.current_token {
+            None if unfinished => Some(Error::parse_at(
+                "syntax error: unexpected end of file",
+                self.input.lines().count() + 1,
+                1,
+            )),
+            None | Some(tokens::Token::Newline) => near("newline"),
+            Some(_) => {
+                let span = self.current_span;
+                match self.input.get(span.start.offset..span.end.offset) {
+                    Some(text) if !text.is_empty() => near(text),
+                    _ => None,
+                }
+            }
+        }
     }
 
     fn current_command_end_offset(&self) -> usize {
@@ -174,6 +402,27 @@ impl<'a> Parser<'a> {
             // use that token end so skipped trailing comments are not retained in
             // persistent function source snapshots.
             self.current_span.end.offset
+        }
+    }
+
+    /// Attach the current token's source text to a word built from it.
+    fn with_raw(&self, mut word: Word) -> Word {
+        if word.raw.is_none() {
+            word.raw = self.current_raw.clone();
+        }
+        word
+    }
+
+    /// Start capturing word source text for a function body.
+    fn enter_function_body(&mut self) {
+        self.function_depth += 1;
+        self.lexer.set_capture_raw(true);
+    }
+
+    fn leave_function_body(&mut self) {
+        self.function_depth = self.function_depth.saturating_sub(1);
+        if self.function_depth == 0 {
+            self.lexer.set_capture_raw(false);
         }
     }
 
@@ -248,6 +497,18 @@ impl<'a> Parser<'a> {
     /// Check if current token is an error token and return the error if so
     fn check_error_token(&self) -> Result<()> {
         if let Some(tokens::Token::Error(msg)) = &self.current_token {
+            // bash: `unexpected EOF while looking for matching `"'`.
+            let close = match msg.as_str() {
+                "unterminated double quote" => Some('"'),
+                "unterminated single quote" => Some('\''),
+                "unterminated subscript" => Some(']'),
+                _ => None,
+            };
+            if let Some(close) = close {
+                return Err(self.error(format!(
+                    "unexpected EOF while looking for matching `{close}'"
+                )));
+            }
             return Err(self.error(format!("syntax error: {}", msg)));
         }
         Ok(())
@@ -255,15 +516,92 @@ impl<'a> Parser<'a> {
 
     /// Parse the input and return the AST.
     pub fn parse(mut self) -> Result<Script> {
-        self.parse_script()
+        self.parse_inner()
     }
 
-    fn parse_script(&mut self) -> Result<Script> {
+    // Child parsers remain heap-owned throughout recursion; consuming a
+    // boxed Parser through `parse(self)` would move it back onto the stack.
+    fn parse_inner(&mut self) -> Result<Script> {
+        let mut commands = Vec::new();
+        let start_span = self.current_span;
+        self.parse_script_into(&mut commands)?;
+        let end_span = self.current_span;
+        let (commands, command_end_lines) = commands.into_iter().unzip();
+        let command_starts = std::mem::take(&mut self.top_starts);
+        Ok(Script {
+            commands,
+            span: start_span.merge(end_span),
+            trailing_error: None,
+            command_end_lines,
+            source: Some(Arc::from(self.input)),
+            command_starts,
+        })
+    }
+
+    /// Parse like bash reads a script: on a syntax error, also return the
+    /// complete commands that ended on lines *before* the line where the
+    /// failing command starts, so the caller can run them first (bash executes
+    /// line by line and only then reports the error, exit 2). Commands sharing
+    /// that line are dropped, as bash parses a whole line before running any
+    /// of it.
+    ///
+    /// Errors deferred from a `$(...)` body carry no reliable position, so
+    /// they keep whole-script semantics: no prefix is returned.
+    pub fn parse_recovering(mut self) -> (Script, Option<Error>) {
+        let mut commands = Vec::new();
+        let start_span = self.current_span;
+        let result = self.parse_script_into(&mut commands);
+        let end_span = self.current_span;
+        let (keep, err) = match result {
+            Ok(()) => (commands.len(), None),
+            Err(e) => {
+                if self.deferred_error.take().is_some() {
+                    self.error_was_deferred = true;
+                }
+                let keep = match &e {
+                    Error::Parse { .. } if !self.error_was_deferred => {
+                        let failed_line = self.failed_command_line;
+                        commands
+                            .iter()
+                            .take_while(|(_, end)| *end < failed_line)
+                            .count()
+                    }
+                    _ => 0,
+                };
+                (keep, Some(e))
+            }
+        };
+        commands.truncate(keep);
+        let (commands, command_end_lines) = commands.into_iter().unzip();
+        let mut command_starts = std::mem::take(&mut self.top_starts);
+        if err.is_some() {
+            // Where the unparsed rest starts: the first dropped command, or
+            // the one that failed.
+            let rest = command_starts
+                .get(keep)
+                .copied()
+                .unwrap_or(self.failed_command_start);
+            command_starts.truncate(keep);
+            command_starts.push(rest);
+        }
+        (
+            Script {
+                commands,
+                span: start_span.merge(end_span),
+                trailing_error: None,
+                command_end_lines,
+                source: Some(Arc::from(self.input)),
+                command_starts,
+            },
+            err,
+        )
+    }
+
+    /// Top-level command loop. Each command is stored with the line its
+    /// terminator (newline, `;`, `&` or EOF) sits on.
+    fn parse_script_into(&mut self, commands: &mut Vec<(Command, usize)>) -> Result<()> {
         // Check if the very first token is an error
         self.check_error_token()?;
-
-        let start_span = self.current_span;
-        let mut commands = Vec::new();
 
         while self.current_token.is_some() {
             self.tick()?;
@@ -273,9 +611,17 @@ impl<'a> Parser<'a> {
                 break;
             }
             let start_offset = self.current_span.start.offset;
-            if let Some(cmd) = self.parse_command_list()? {
-                commands.push(cmd);
-            } else if self.current_token.is_some() && self.current_span.start.offset == start_offset
+            let start_line = self.current_span.start.line;
+            self.failed_command_line = start_line;
+            self.failed_command_start = (start_offset, start_line);
+            self.top_level_list = true;
+            let parsed = self.parse_command_list()?.map(|cmd| {
+                self.top_starts.push((start_offset, start_line));
+                commands.push((*cmd, self.current_span.start.line));
+            });
+            if parsed.is_none()
+                && self.current_token.is_some()
+                && self.current_span.start.offset == start_offset
             {
                 return Err(self.error("unexpected token"));
             }
@@ -285,30 +631,40 @@ impl<'a> Parser<'a> {
         // script, exactly as in bash. Surfaced here because `parse_word` cannot
         // return `Result`.
         if let Some(err) = self.deferred_error.take() {
+            self.error_was_deferred = true;
             return Err(err);
         }
-
-        let end_span = self.current_span;
-        Ok(Script {
-            commands,
-            span: start_span.merge(end_span),
-        })
+        Ok(())
     }
 
     fn advance(&mut self) {
-        if let Some(peeked) = self.peeked_token.take() {
-            self.current_token = Some(peeked.token);
-            self.current_span = peeked.span;
-        } else {
-            match self.lexer.next_spanned_token() {
-                Some(st) => {
-                    self.current_token = Some(st.token);
-                    self.current_span = st.span;
-                }
-                None => {
-                    self.current_token = None;
-                    // Keep the last span for error reporting
-                }
+        self.advance_token();
+        // The word after a blank-ending alias value is checked too.
+        while self.current_after_blank && self.try_expand_alias() {}
+    }
+
+    fn advance_token(&mut self) {
+        let next = match self.peeked_token.take() {
+            Some(peeked) => Some(peeked),
+            None => self.lexer.next_spanned_token(),
+        };
+        if self.current_token.is_some() {
+            self.prev_token_end = self.current_span.end.offset;
+        }
+        match next {
+            Some(st) => {
+                self.current_token = Some(st.token);
+                self.current_span = st.span;
+                self.current_raw = st.raw;
+                self.current_plain = st.plain;
+                self.current_after_blank = st.after_blank_alias;
+            }
+            None => {
+                self.current_token = None;
+                self.current_raw = None;
+                self.current_plain = false;
+                self.current_after_blank = false;
+                // Keep the last span for error reporting
             }
         }
     }
@@ -329,9 +685,13 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    // THREAT[TM-DOS-044]: Command enums are large. Heap-owned grammar results
+    // avoid retaining their move temporaries on every recursive parser frame.
+    // Unbox only when inserting into the public AST's command vectors.
     /// Parse a command list (commands connected by && or ||)
-    fn parse_command_list(&mut self) -> Result<Option<Command>> {
+    fn parse_command_list(&mut self) -> Result<Option<Box<Command>>> {
         self.tick()?;
+        let top_level = std::mem::take(&mut self.top_level_list);
         match self.current_token {
             Some(tokens::Token::Pipe) => return Err(self.error("unexpected token: |")),
             Some(tokens::Token::And) => return Err(self.error("unexpected token: &&")),
@@ -339,10 +699,10 @@ impl<'a> Parser<'a> {
             _ => {}
         }
         let start_span = self.current_span;
-        let first = match self.parse_pipeline()? {
-            Some(cmd) => cmd,
-            None => return Ok(None),
-        };
+        let first = self.parse_pipeline()?;
+        if first.is_none() {
+            return Ok(None);
+        }
 
         let mut rest = Vec::new();
 
@@ -358,6 +718,11 @@ impl<'a> Parser<'a> {
                 }
                 Some(tokens::Token::Semicolon) => {
                     self.advance();
+                    // bash's reader ends a top-level command at the end
+                    // of its line: `{ls;` NL `}` runs `{ls` first.
+                    if top_level && matches!(self.current_token, Some(tokens::Token::Newline)) {
+                        break;
+                    }
                     self.skip_newlines()?;
                     // Check if there's more to parse
                     if self.current_token.is_none()
@@ -369,22 +734,17 @@ impl<'a> Parser<'a> {
                 }
                 Some(tokens::Token::Background) => {
                     self.advance();
+                    if top_level && matches!(self.current_token, Some(tokens::Token::Newline)) {
+                        rest.push(empty_background(self.current_span));
+                        break;
+                    }
                     self.skip_newlines()?;
                     // Check if there's more to parse after &
                     if self.current_token.is_none()
                         || matches!(self.current_token, Some(tokens::Token::Newline))
                     {
                         // Just & at end - return as background
-                        rest.push((
-                            ListOperator::Background,
-                            Command::Simple(SimpleCommand {
-                                name: Word::literal(""),
-                                args: vec![],
-                                redirects: vec![],
-                                assignments: vec![],
-                                span: self.current_span,
-                            }),
-                        ));
+                        rest.push(empty_background(self.current_span));
                         break;
                     }
                     ListOperator::Background
@@ -394,28 +754,24 @@ impl<'a> Parser<'a> {
 
             self.skip_newlines()?;
 
-            if let Some(cmd) = self.parse_pipeline()? {
-                rest.push((op, cmd));
-            } else {
+            let parsed = self.parse_pipeline()?.map(|cmd| rest.push((op, *cmd)));
+            if parsed.is_none() {
+                // `{ cmd & }`, `do cmd & done`: the `&` before a closing
+                // keyword still backgrounds `cmd`.
+                if matches!(op, ListOperator::Background) {
+                    rest.push(empty_background(self.current_span));
+                }
                 break;
             }
         }
 
-        if rest.is_empty() {
-            Ok(Some(first))
-        } else {
-            Ok(Some(Command::List(CommandList {
-                first: Box::new(first),
-                rest,
-                span: start_span.merge(self.current_span),
-            })))
-        }
+        finish_command_list(first, rest, start_span.merge(self.current_span))
     }
 
     /// Parse a pipeline (commands connected by |)
     ///
     /// Handles `!` pipeline negation: `! cmd | cmd2` negates the exit code.
-    fn parse_pipeline(&mut self) -> Result<Option<Command>> {
+    fn parse_pipeline(&mut self) -> Result<Option<Box<Command>>> {
         let start_span = self.current_span;
 
         // Check for pipeline negation: `! command`
@@ -427,38 +783,45 @@ impl<'a> Parser<'a> {
             _ => false,
         };
 
-        let first = match self.parse_command()? {
-            Some(cmd) => cmd,
-            None => {
-                if negated {
-                    return Err(self.error("expected command after !"));
-                }
-                return Ok(None);
+        let first = self.parse_command()?;
+        if first.is_none() {
+            if negated {
+                return Err(self.error("expected command after !"));
             }
-        };
+            return Ok(None);
+        }
+        if !negated
+            && !matches!(
+                self.current_token,
+                Some(tokens::Token::Pipe | tokens::Token::PipeBoth)
+            )
+        {
+            return Ok(first);
+        }
+        let mut commands: Vec<Command> = first.into_iter().map(|cmd| *cmd).collect();
 
-        let mut commands = vec![first];
-
-        while matches!(self.current_token, Some(tokens::Token::Pipe)) {
+        while matches!(
+            self.current_token,
+            Some(tokens::Token::Pipe | tokens::Token::PipeBoth)
+        ) {
+            if matches!(self.current_token, Some(tokens::Token::PipeBoth))
+                && let Some(prev) = commands.last_mut()
+            {
+                add_stderr_to_pipe(prev);
+            }
             self.advance();
             self.skip_newlines()?;
 
-            if let Some(cmd) = self.parse_command()? {
-                commands.push(cmd);
-            } else {
+            if self
+                .parse_command()?
+                .map(|cmd| commands.push(*cmd))
+                .is_none()
+            {
                 return Err(self.error("expected command after |"));
             }
         }
 
-        if commands.len() == 1 && !negated {
-            Ok(Some(commands.remove(0)))
-        } else {
-            Ok(Some(Command::Pipeline(Pipeline {
-                negated,
-                commands,
-                span: start_span.merge(self.current_span),
-            })))
-        }
+        finish_pipeline(commands, negated, start_span.merge(self.current_span))
     }
 
     /// Parse redirections that follow a compound command (>, >>, 2>, etc.)
@@ -479,6 +842,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -490,6 +854,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::Append,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -501,6 +866,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::Input,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -512,7 +878,14 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::OutputBoth,
                             target,
+                            heredoc_delim: None,
                         });
+                    }
+                }
+                Some(tokens::Token::RedirectBothAppend) => {
+                    self.advance();
+                    if let Ok(target) = self.expect_word() {
+                        Self::push_append_both(&mut redirects, None, target);
                     }
                 }
                 Some(tokens::Token::DupOutput) => {
@@ -523,6 +896,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::DupOutput,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -535,6 +909,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::Output,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -547,6 +922,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::Append,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -559,6 +935,7 @@ impl<'a> Parser<'a> {
                         fd_var: None,
                         kind: RedirectKind::DupOutput,
                         target: Word::literal(dst_fd.to_string()),
+                        heredoc_delim: None,
                     });
                 }
                 Some(tokens::Token::DupFdCloseOut(fd)) => {
@@ -569,7 +946,21 @@ impl<'a> Parser<'a> {
                         fd_var: None,
                         kind: RedirectKind::DupOutput,
                         target: Word::literal("-"),
+                        heredoc_delim: None,
                     });
+                }
+                Some(tokens::Token::DupFdWord(fd)) => {
+                    let fd = *fd;
+                    self.advance();
+                    if let Ok(target) = self.expect_word() {
+                        redirects.push(Redirect {
+                            fd: Some(fd),
+                            fd_var: None,
+                            kind: RedirectKind::DupOutput,
+                            target,
+                            heredoc_delim: None,
+                        });
+                    }
                 }
                 Some(tokens::Token::DupInput) => {
                     self.advance();
@@ -579,6 +970,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::DupInput,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -591,6 +983,7 @@ impl<'a> Parser<'a> {
                         fd_var: None,
                         kind: RedirectKind::DupInput,
                         target: Word::literal(dst_fd.to_string()),
+                        heredoc_delim: None,
                     });
                 }
                 Some(tokens::Token::DupFdClose(fd)) => {
@@ -601,6 +994,7 @@ impl<'a> Parser<'a> {
                         fd_var: None,
                         kind: RedirectKind::DupInput,
                         target: Word::literal("-"),
+                        heredoc_delim: None,
                     });
                 }
                 Some(tokens::Token::RedirectFdIn(fd)) => {
@@ -612,6 +1006,7 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::Input,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
@@ -623,58 +1018,57 @@ impl<'a> Parser<'a> {
                             fd_var: None,
                             kind: RedirectKind::HereString,
                             target,
+                            heredoc_delim: None,
                         });
                     }
                 }
-                Some(tokens::Token::HereDoc) | Some(tokens::Token::HereDocStrip) => {
-                    let strip_tabs =
-                        matches!(self.current_token, Some(tokens::Token::HereDocStrip));
+                Some(tokens::Token::HereDoc)
+                | Some(tokens::Token::HereDocStrip)
+                | Some(tokens::Token::HereDocFd(..)) => {
+                    // Rest-of-line tokens are re-injected by the lexer: more
+                    // redirects may follow (`done <<A 3<<B`, `} <<A >out`).
+                    self.parse_heredoc_redirect(&mut redirects, None)?;
+                }
+                Some(
+                    tokens::Token::RedirectReadWrite
+                    | tokens::Token::RedirectFdReadWrite(_)
+                    | tokens::Token::HereStringFd(_),
+                ) => {
+                    self.parse_simple_redirect(&mut Vec::new(), &mut redirects)?;
+                }
+                // `} {fd}>file`: a `{name}` word followed by a redirect
+                // operator names the fd variable.
+                Some(tokens::Token::Word(w)) if Self::is_fd_var_word(w) => {
+                    let mut words = vec![Word::literal(w.clone())];
+                    if !matches!(
+                        self.peek_next(),
+                        Some(
+                            tokens::Token::RedirectOut
+                                | tokens::Token::Clobber
+                                | tokens::Token::RedirectAppend
+                                | tokens::Token::RedirectIn
+                                | tokens::Token::HereString
+                                | tokens::Token::DupOutput
+                                | tokens::Token::DupInput
+                                | tokens::Token::RedirectReadWrite
+                                | tokens::Token::RedirectBothAppend
+                                | tokens::Token::HereDoc
+                                | tokens::Token::HereDocStrip
+                        )
+                    ) {
+                        break;
+                    }
                     self.advance();
-                    let (delimiter, quoted) = match &self.current_token {
-                        Some(tokens::Token::Word(w)) => (w.clone(), false),
-                        Some(tokens::Token::LiteralWord(w)) => (w.clone(), true),
-                        Some(tokens::Token::QuotedWord(w))
-                        | Some(tokens::Token::QuotedGlobWord(w)) => (w.clone(), true),
-                        _ => break,
-                    };
-                    let (content, rest_of_line_chars) = self
-                        .lexer
-                        .read_heredoc_with_strip_metered(&delimiter, strip_tabs);
-                    self.tick_units(rest_of_line_chars)?;
-                    let content = if strip_tabs {
-                        let had_trailing_newline = content.ends_with('\n');
-                        let mut stripped: String = content
-                            .lines()
-                            .map(|l| l.trim_start_matches('\t'))
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        if had_trailing_newline {
-                            stripped.push('\n');
+                    match self.current_token {
+                        Some(tokens::Token::HereDoc | tokens::Token::HereDocStrip) => {
+                            let fd_var = Self::pop_fd_var(&mut words);
+                            self.parse_heredoc_redirect(&mut redirects, fd_var)?;
                         }
-                        stripped
-                    } else {
-                        content
-                    };
-                    self.advance();
-                    let target = if quoted {
-                        Word::quoted_literal(content)
-                    } else {
-                        self.parse_word(content)
-                    };
-                    let kind = if strip_tabs {
-                        RedirectKind::HereDocStrip
-                    } else {
-                        RedirectKind::HereDoc
-                    };
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var: None,
-                        kind,
-                        target,
-                    });
-                    // Rest-of-line tokens re-injected by lexer; break so callers
-                    // can see pipes/semicolons.
-                    break;
+                        Some(tokens::Token::RedirectBothAppend) => {
+                            self.parse_append_both(&mut words, &mut redirects)?;
+                        }
+                        _ => self.parse_simple_redirect(&mut words, &mut redirects)?,
+                    }
                 }
                 _ => break,
             }
@@ -686,16 +1080,61 @@ impl<'a> Parser<'a> {
     fn parse_compound_with_redirects(
         &mut self,
         parser: impl FnOnce(&mut Self) -> Result<CompoundCommand>,
-    ) -> Result<Option<Command>> {
+    ) -> Result<Option<Box<Command>>> {
         let compound = parser(self)?;
         let redirects = self.parse_trailing_redirects()?;
-        Ok(Some(Command::Compound(compound, redirects)))
+        Ok(Some(Box::new(Command::Compound(compound, redirects))))
+    }
+
+    /// The subscript of `name[sub]=...` as written in the source.
+    fn raw_subscript(raw: &str, name: &str) -> Option<String> {
+        let rest = raw.strip_prefix(name)?.strip_prefix('[')?;
+        let mut depth = 1usize;
+        let mut quote: Option<char> = None;
+        let mut escaped = false;
+        for (i, c) in rest.char_indices() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match (quote, c) {
+                (Some('\''), '\'') => quote = None,
+                (Some('\''), _) => {}
+                (_, '\\') => escaped = true,
+                (Some('"'), '"') => quote = None,
+                (Some(_), _) => {}
+                (None, '\'' | '"') => quote = Some(c),
+                (None, '[') => depth += 1,
+                (None, ']') => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(rest[..i].to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// `name=...`, `name+=...`, `name[sub]=...` with a valid name: an
+    /// assignment, never a function name (`func-name=x () {...}` is one).
+    fn is_assignment_like(word: &str) -> bool {
+        let Some(eq) = word.find('=') else {
+            return false;
+        };
+        let lhs = word[..eq].strip_suffix('+').unwrap_or(&word[..eq]);
+        let name = lhs.split('[').next().unwrap_or(lhs);
+        !name.is_empty()
+            && !name.starts_with(|c: char| c.is_ascii_digit())
+            && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     }
 
     /// Parse a single command (simple or compound)
-    fn parse_command(&mut self) -> Result<Option<Command>> {
+    fn parse_command(&mut self) -> Result<Option<Box<Command>>> {
         self.skip_newlines()?;
         self.check_error_token()?;
+        self.expand_command_alias();
 
         // Check for compound commands and function keyword
         if let Some(tokens::Token::Word(w)) = &self.current_token {
@@ -709,14 +1148,19 @@ impl<'a> Parser<'a> {
                 "select" => return self.parse_compound_with_redirects(|s| s.parse_select()),
                 "time" => return self.parse_compound_with_redirects(|s| s.parse_time()),
                 "coproc" => return self.parse_compound_with_redirects(|s| s.parse_coproc()),
-                "function" => return self.parse_function_keyword().map(Some),
+                "function" => return self.parse_function_keyword().map(|cmd| Some(Box::new(cmd))),
                 _ => {
                     // Check for POSIX-style function: name() { body }
                     // Don't match if word contains '=' (that's an assignment like arr=(a b c))
-                    if !word.contains('=')
+                    // Reserved words (`then (cmd)`) never name a function.
+                    if !Self::is_assignment_like(&word)
+                        && !matches!(
+                            word.as_str(),
+                            "then" | "else" | "elif" | "fi" | "do" | "done" | "esac" | "in" | "!"
+                        )
                         && matches!(self.peek_next(), Some(tokens::Token::LeftParen))
                     {
-                        return self.parse_function_posix().map(Some);
+                        return self.parse_function_posix().map(|cmd| Some(Box::new(cmd)));
                     }
                 }
             }
@@ -743,10 +1187,8 @@ impl<'a> Parser<'a> {
         }
 
         // Default to simple command
-        match self.parse_simple_command()? {
-            Some(cmd) => Ok(Some(Command::Simple(cmd))),
-            None => Ok(None),
-        }
+        self.parse_simple_command()
+            .map(|cmd| cmd.map(|cmd| Box::new(Command::Simple(cmd))))
     }
 
     /// Parse an if statement
@@ -758,6 +1200,11 @@ impl<'a> Parser<'a> {
 
         // Parse condition
         let condition = self.parse_compound_list("then")?;
+        if condition.is_empty() {
+            // bash: `if then` stops at `then`.
+            self.pop_depth();
+            return Err(self.error("syntax error: empty if condition"));
+        }
 
         // Expect 'then'
         self.expect_keyword("then")?;
@@ -779,6 +1226,10 @@ impl<'a> Parser<'a> {
             self.skip_newlines()?;
 
             let elif_condition = self.parse_compound_list("then")?;
+            if elif_condition.is_empty() {
+                self.pop_depth();
+                return Err(self.error("syntax error: empty elif condition"));
+            }
             self.expect_keyword("then")?;
             self.skip_newlines()?;
 
@@ -851,6 +1302,8 @@ impl<'a> Parser<'a> {
             }
         };
         self.advance();
+        // `for i` NL `in a b`: newlines may come before `in` (not a `;`).
+        self.skip_newlines()?;
 
         // Check for 'in' keyword
         let words = if self.is_keyword("in") {
@@ -879,7 +1332,7 @@ impl<'a> Parser<'a> {
                         if matches!(&self.current_token, Some(tokens::Token::QuotedGlobWord(_))) {
                             word.has_unquoted_glob = true;
                         }
-                        words.push(word);
+                        words.push(self.with_raw(word));
                         self.advance();
                     }
                     Some(tokens::Token::LiteralWord(w)) => {
@@ -888,6 +1341,7 @@ impl<'a> Parser<'a> {
                             quoted: true,
                             has_unquoted_glob: false,
                             part_quoted: Vec::new(),
+                            raw: self.current_raw.clone(),
                         });
                         self.advance();
                     }
@@ -910,21 +1364,13 @@ impl<'a> Parser<'a> {
 
         self.skip_newlines()?;
 
-        // Expect 'do'
-        self.expect_keyword("do")?;
-        self.skip_newlines()?;
-
-        // Parse body
-        let body = self.parse_compound_list("done")?;
-
-        // Bash requires at least one command in loop body
-        if body.is_empty() {
-            self.pop_depth();
-            return Err(self.error("syntax error: empty for loop body"));
-        }
-
-        // Expect 'done'
-        self.expect_keyword("done")?;
+        let body = match self.parse_for_body() {
+            Ok(body) => body,
+            Err(e) => {
+                self.pop_depth();
+                return Err(e);
+            }
+        };
 
         self.pop_depth();
         Ok(CompoundCommand::For(ForCommand {
@@ -933,6 +1379,24 @@ impl<'a> Parser<'a> {
             body,
             span: start_span.merge(self.current_span),
         }))
+    }
+
+    /// A `for` body: `do list; done`, or bash's `{ list; }` form
+    /// (`for ((i=0; i<3; i++)) { echo $i; }`).
+    fn parse_for_body(&mut self) -> Result<Vec<Command>> {
+        if matches!(self.current_token, Some(tokens::Token::LeftBrace)) {
+            let group = self.parse_brace_group()?;
+            return Ok(vec![Command::Compound(group, Vec::new())]);
+        }
+        self.expect_keyword("do")?;
+        self.skip_newlines()?;
+        let body = self.parse_compound_list("done")?;
+        // Bash requires at least one command in loop body
+        if body.is_empty() {
+            return Err(self.error("syntax error: empty for loop body"));
+        }
+        self.expect_keyword("done")?;
+        Ok(body)
     }
 
     /// Parse select loop: select var in list; do body; done
@@ -983,7 +1447,7 @@ impl<'a> Parser<'a> {
                     if matches!(&self.current_token, Some(tokens::Token::QuotedGlobWord(_))) {
                         word.has_unquoted_glob = true;
                     }
-                    words.push(word);
+                    words.push(self.with_raw(word));
                     self.advance();
                 }
                 Some(tokens::Token::LiteralWord(w)) => {
@@ -992,6 +1456,7 @@ impl<'a> Parser<'a> {
                         quoted: true,
                         has_unquoted_glob: false,
                         part_quoted: Vec::new(),
+                        raw: self.current_raw.clone(),
                     });
                     self.advance();
                 }
@@ -1033,14 +1498,31 @@ impl<'a> Parser<'a> {
     /// Parse C-style arithmetic for loop inner: for ((init; cond; step)); do body; done
     /// Note: depth tracking is done by parse_for which calls this
     fn parse_arithmetic_for_inner(&mut self, start_span: Span) -> Result<CompoundCommand> {
-        self.advance(); // consume '(('
-
         // Read the three expressions separated by semicolons
         let mut parts: Vec<String> = Vec::new();
+        let mut raw_parts: Option<Vec<String>> = None;
         let mut current_expr = String::new();
         let mut paren_depth = 0;
 
-        loop {
+        if self.peeked_token.is_none() {
+            // Read `((init; cond; step))` as written (see read_dparen_body).
+            let Some(body) = self.lexer.read_dparen_body() else {
+                return Err(Error::parse(
+                    "unexpected end of input in for loop".to_string(),
+                ));
+            };
+            let raws = split_arith_for_parts(&body);
+            if raws.len() != 3 {
+                return Err(self.error("syntax error: arithmetic expression required"));
+            }
+            parts = raws.iter().map(|p| arith_exec_text(p)).collect();
+            raw_parts = Some(raws);
+            self.advance();
+        } else {
+            self.advance(); // consume '(('
+        }
+
+        while raw_parts.is_none() {
             match &self.current_token {
                 Some(tokens::Token::DoubleRightParen) => {
                     // End of the (( )) section
@@ -1145,25 +1627,13 @@ impl<'a> Parser<'a> {
         }
         self.skip_newlines()?;
 
-        // Expect 'do'
-        self.expect_keyword("do")?;
-        self.skip_newlines()?;
-
-        // Parse body
-        let body = self.parse_compound_list("done")?;
-
-        // Bash requires at least one command in loop body
-        if body.is_empty() {
-            return Err(self.error("syntax error: empty for loop body"));
-        }
-
-        // Expect 'done'
-        self.expect_keyword("done")?;
+        let body = self.parse_for_body()?;
 
         Ok(CompoundCommand::ArithmeticFor(ArithmeticForCommand {
             init,
             condition,
             step,
+            raw: raw_parts,
             body,
             span: start_span.merge(self.current_span),
         }))
@@ -1178,6 +1648,10 @@ impl<'a> Parser<'a> {
 
         // Parse condition
         let condition = self.parse_compound_list("do")?;
+        if condition.is_empty() {
+            self.pop_depth();
+            return Err(self.error("syntax error: empty while condition"));
+        }
 
         // Expect 'do'
         self.expect_keyword("do")?;
@@ -1212,6 +1686,10 @@ impl<'a> Parser<'a> {
 
         // Parse condition
         let condition = self.parse_compound_list("do")?;
+        if condition.is_empty() {
+            self.pop_depth();
+            return Err(self.error("syntax error: empty until condition"));
+        }
 
         // Expect 'do'
         self.expect_keyword("do")?;
@@ -1282,13 +1760,27 @@ impl<'a> Parser<'a> {
                         quoted: true,
                         has_unquoted_glob: false,
                         part_quoted: Vec::new(),
+                        raw: self.current_raw.clone(),
                     },
                     Some(tokens::Token::Word(w))
                     | Some(tokens::Token::QuotedWord(w))
-                    | Some(tokens::Token::QuotedGlobWord(w)) => self.parse_word(w.clone()),
+                    | Some(tokens::Token::QuotedGlobWord(w)) => {
+                        // Keep the quoting flags: quoted pattern text matches
+                        // literally (`"$x")`, `a\*)`).
+                        let mut word = self.parse_word(w.clone());
+                        match &self.current_token {
+                            Some(tokens::Token::QuotedWord(_)) => word.quoted = true,
+                            Some(tokens::Token::QuotedGlobWord(_)) => {
+                                word.quoted = true;
+                                word.has_unquoted_glob = true;
+                            }
+                            _ => {}
+                        }
+                        word
+                    }
                     _ => unreachable!(),
                 };
-                patterns.push(pattern);
+                patterns.push(self.with_raw(pattern));
                 self.advance();
 
                 // Check for | between patterns
@@ -1314,7 +1806,7 @@ impl<'a> Parser<'a> {
                 && self.current_token.is_some()
             {
                 if let Some(cmd) = self.parse_command_list()? {
-                    commands.push(cmd);
+                    commands.push(*cmd);
                 }
                 self.skip_newlines()?;
             }
@@ -1412,7 +1904,7 @@ impl<'a> Parser<'a> {
             append,
             verbose,
             option_error,
-            command: command.map(Box::new),
+            command,
             span: start_span.merge(self.current_span),
         })))
     }
@@ -1463,7 +1955,7 @@ impl<'a> Parser<'a> {
 
             Ok(CompoundCommand::Coproc(ast::CoprocCommand {
                 name,
-                body: Box::new(body),
+                body,
                 span: start_span.merge(self.current_span),
             }))
         })();
@@ -1520,7 +2012,7 @@ impl<'a> Parser<'a> {
                 break;
             }
             if let Some(cmd) = self.parse_command_list()? {
-                commands.push(cmd);
+                commands.push(*cmd);
             }
         }
 
@@ -1529,7 +2021,7 @@ impl<'a> Parser<'a> {
             self.current_token = Some(tokens::Token::RightParen);
         } else if !matches!(self.current_token, Some(tokens::Token::RightParen)) {
             self.pop_depth();
-            return Err(Error::parse("expected ')' to close subshell".to_string()));
+            return Err(self.error("expected ')' to close subshell"));
         } else {
             self.advance(); // consume ')'
         }
@@ -1551,15 +2043,13 @@ impl<'a> Parser<'a> {
                 break;
             }
             if let Some(cmd) = self.parse_command_list()? {
-                commands.push(cmd);
+                commands.push(*cmd);
             }
         }
 
         if !matches!(self.current_token, Some(tokens::Token::RightBrace)) {
             self.pop_depth();
-            return Err(Error::parse(
-                "expected '}' to close brace group".to_string(),
-            ));
+            return Err(self.error("expected '}' to close brace group"));
         }
 
         // Bash requires at least one command in a brace group
@@ -1580,6 +2070,8 @@ impl<'a> Parser<'a> {
         self.advance(); // consume '[['
 
         let mut words = Vec::new();
+        // Token shapes for the grammar check below, one per word.
+        let mut kinds: Vec<CondTok> = Vec::new();
         let mut saw_regex_op = false;
 
         loop {
@@ -1599,6 +2091,11 @@ impl<'a> Parser<'a> {
                     );
                     let is_literal =
                         matches!(self.current_token, Some(tokens::Token::LiteralWord(_)));
+                    // Only a bare unquoted word can be an operator (`'!'` and
+                    // `$op` are operands).
+                    let op_text = (matches!(self.current_token, Some(tokens::Token::Word(_)))
+                        && !w_clone.contains(['$', '`', '\\', '\x00', '\u{1e}', '\u{1f}']))
+                    .then(|| w_clone.clone());
 
                     // After =~, handle regex pattern.
                     // If the pattern contains $ (variable reference), parse it as a
@@ -1608,16 +2105,48 @@ impl<'a> Parser<'a> {
                         if w_clone.contains('$') && !is_quoted && !is_literal {
                             // Variable reference — parse normally for expansion
                             let parsed = self.parse_word(w_clone);
-                            words.push(parsed);
+                            words.push(self.with_raw(parsed));
                             self.advance();
                         } else {
                             let pattern = self.collect_conditional_regex_pattern(&w_clone);
                             words.push(Word::literal(&pattern));
                         }
+                        kinds.push(CondTok::Word(None));
                         saw_regex_op = false;
                         continue;
                     }
 
+                    if w_clone == "=~" && !is_quoted && !is_literal && self.peeked_token.is_none() {
+                        // Read the operand from source: bash lexes it as one
+                        // regex word, where `#`, `|` and spaces in groups are
+                        // pattern text, not comments or operators.
+                        words.push(Word::literal("=~"));
+                        kinds.push(CondTok::Word(Some("=~".to_string())));
+                        let (raw, unclosed) = self.lexer.read_cond_regex_checked();
+                        if unclosed {
+                            // bash reads the group to end of input, then the
+                            // conditional grammar rejects the missing operand
+                            // there: two diagnostics, the second on the line
+                            // after the last.
+                            let eof_line = self.input.lines().count() + 1;
+                            return Err(Error::parse_at(
+                                format!(
+                                    "unexpected EOF while looking for matching `)'\n\
+                                     line {eof_line}: unexpected argument to conditional binary operator"
+                                ),
+                                self.current_span.start.line,
+                                self.current_span.start.column,
+                            ));
+                        }
+                        if let Some(raw) = raw {
+                            let mut word = self.cond_regex_word(raw.clone());
+                            word.raw = Some(raw.trim().to_string());
+                            words.push(word);
+                            kinds.push(CondTok::Word(None));
+                        }
+                        self.advance();
+                        continue;
+                    }
                     if w_clone == "=~" {
                         saw_regex_op = true;
                     }
@@ -1628,6 +2157,7 @@ impl<'a> Parser<'a> {
                             quoted: true,
                             has_unquoted_glob: false,
                             part_quoted: Vec::new(),
+                            raw: self.current_raw.clone(),
                         }
                     } else {
                         let mut parsed = self.parse_word(w_clone);
@@ -1639,16 +2169,29 @@ impl<'a> Parser<'a> {
                         }
                         parsed
                     };
-                    words.push(word);
-                    self.advance();
+                    words.push(self.with_raw(word));
+                    // bash reads the pattern after `==`/`!=`/`=` with extglob
+                    // on: `[[ x == --!(a|b) ]]` needs no `shopt -s extglob`.
+                    let pattern_next = matches!(op_text.as_deref(), Some("==" | "!=" | "="));
+                    kinds.push(CondTok::Word(op_text));
+                    if pattern_next {
+                        let saved = self.lexer.extglob_bang();
+                        self.lexer.set_extglob_bang(true);
+                        self.advance();
+                        self.lexer.set_extglob_bang(saved);
+                    } else {
+                        self.advance();
+                    }
                 }
                 // Operators that the lexer tokenizes separately
                 Some(tokens::Token::And) => {
                     words.push(Word::literal("&&"));
+                    kinds.push(CondTok::Op("&&"));
                     self.advance();
                 }
                 Some(tokens::Token::Or) => {
                     words.push(Word::literal("||"));
+                    kinds.push(CondTok::Op("||"));
                     self.advance();
                 }
                 Some(tokens::Token::LeftParen) => {
@@ -1656,14 +2199,44 @@ impl<'a> Parser<'a> {
                         // Regex pattern starts with '(' — collect it
                         let pattern = self.collect_conditional_regex_pattern("(");
                         words.push(Word::literal(&pattern));
+                        kinds.push(CondTok::Word(None));
                         saw_regex_op = false;
                         continue;
                     }
                     words.push(Word::literal("("));
+                    kinds.push(CondTok::Op("("));
                     self.advance();
                 }
                 Some(tokens::Token::RightParen) => {
                     words.push(Word::literal(")"));
+                    kinds.push(CondTok::Op(")"));
+                    self.advance();
+                }
+                // Inside `[[ ]]` these are string comparison operators, not
+                // redirections (bash's conditional grammar has no redirects).
+                Some(tokens::Token::RedirectIn) => {
+                    words.push(Word::literal("<"));
+                    kinds.push(CondTok::Op("<"));
+                    self.advance();
+                }
+                Some(tokens::Token::RedirectOut) => {
+                    words.push(Word::literal(">"));
+                    kinds.push(CondTok::Op(">"));
+                    self.advance();
+                }
+                // `[[ { =~ "{" ]]`: braces are plain words here.
+                Some(tokens::Token::LeftBrace) | Some(tokens::Token::RightBrace) => {
+                    let text = if matches!(self.current_token, Some(tokens::Token::LeftBrace)) {
+                        "{"
+                    } else {
+                        "}"
+                    };
+                    words.push(Word::literal(text));
+                    kinds.push(CondTok::Word(None));
+                    self.advance();
+                }
+                // `[[ a\n&& b\n]]`: newlines inside are blanks.
+                Some(tokens::Token::Newline) => {
                     self.advance();
                 }
                 None => {
@@ -1672,13 +2245,57 @@ impl<'a> Parser<'a> {
                     ));
                 }
                 _ => {
-                    // Skip unknown tokens
+                    // Any other token (`;`, `3<`, `|`) is outside the
+                    // conditional grammar.
+                    kinds.push(CondTok::Op("token"));
                     self.advance();
                 }
             }
         }
 
+        if let Err(msg) = check_conditional(&kinds) {
+            return Err(Error::parse_at(
+                msg,
+                self.current_span.start.line,
+                self.current_span.start.column,
+            ));
+        }
         Ok(CompoundCommand::Conditional(words))
+    }
+
+    /// Build the `=~` operand from its raw source (see
+    /// [`Lexer::read_cond_regex`]). Plain text stays a literal pattern;
+    /// unquoted `$` parts expand; quoted forms keep the token-by-token
+    /// concatenation used before raw reading.
+    fn cond_regex_word(&self, raw: String) -> Word {
+        if !cond_regex_expands(&raw) {
+            return Word::literal(cond_regex_literal(&raw));
+        }
+        if !raw.contains(['\'', '"']) {
+            return self.parse_word(raw);
+        }
+        // Quotes mixed with expansions: keep the token-by-token
+        // concatenation used before raw reading.
+        let mut lexer = Lexer::new(&raw);
+        let mut pattern = String::new();
+        let mut last_end = None;
+        while let Some(st) = lexer.next_spanned_token() {
+            if last_end.is_some_and(|end| st.span.start.offset > end) {
+                pattern.push(' ');
+            }
+            last_end = Some(st.span.end.offset);
+            match st.token {
+                tokens::Token::Word(w)
+                | tokens::Token::LiteralWord(w)
+                | tokens::Token::QuotedWord(w)
+                | tokens::Token::QuotedGlobWord(w) => pattern.push_str(&w),
+                tokens::Token::LeftParen => pattern.push('('),
+                tokens::Token::RightParen => pattern.push(')'),
+                tokens::Token::Pipe => pattern.push('|'),
+                _ => {}
+            }
+        }
+        Word::literal(&pattern)
     }
 
     /// Collect a regex pattern after =~ in [[ ]], handling parens and special chars.
@@ -1726,6 +2343,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_arithmetic_command(&mut self) -> Result<CompoundCommand> {
+        if self.peeked_token.is_none() {
+            // Read `(( expr ))` as written (see read_dparen_body); the
+            // command keeps that text, so `type` prints it unchanged.
+            let saved = self.lexer.clone();
+            let body = match self.lexer.read_dparen_body_checked() {
+                Ok(body) => body,
+                Err(true) => {
+                    // `((cmd) ...)`: two subshells, as bash reads it. Re-read
+                    // from just after `((`, with the second `(` put back.
+                    self.lexer = saved;
+                    self.lexer.unread_char('(');
+                    self.current_token = Some(tokens::Token::LeftParen);
+                    return self.parse_subshell();
+                }
+                Err(false) => {
+                    return Err(Error::parse(
+                        "unexpected end of input in arithmetic command".to_string(),
+                    ));
+                }
+            };
+            self.advance();
+            return Ok(CompoundCommand::Arithmetic(body));
+        }
         self.advance(); // consume '(('
 
         // Read expression until we find ))
@@ -1763,7 +2403,9 @@ impl<'a> Parser<'a> {
                     if !expr.is_empty() && !expr.ends_with(' ') && !expr.ends_with('(') {
                         expr.push(' ');
                     }
-                    expr.push_str(w);
+                    // Quotes are removed inside `((...))`; drop the lexer's
+                    // quote-boundary markers so `c["x y"]` keys stay clean.
+                    expr.extend(w.chars().filter(|&c| c != '\u{1e}' && c != '\u{1f}'));
                     self.advance();
                 }
                 Some(tokens::Token::Semicolon) => {
@@ -1884,33 +2526,15 @@ impl<'a> Parser<'a> {
             Some(tokens::Token::Word(w)) => w.clone(),
             _ => return Err(self.error("expected function name")),
         };
-        self.advance();
-        self.skip_newlines()?;
-
-        // Optional () after name
-        if matches!(self.current_token, Some(tokens::Token::LeftParen)) {
-            self.advance(); // consume '('
-            if !matches!(self.current_token, Some(tokens::Token::RightParen)) {
-                return Err(Error::parse(
-                    "expected ')' in function definition".to_string(),
-                ));
-            }
-            self.advance(); // consume ')'
-            self.skip_newlines()?;
-        }
-
-        // Expect { for body
-        if !matches!(self.current_token, Some(tokens::Token::LeftBrace)) {
-            return Err(Error::parse("expected '{' for function body".to_string()));
-        }
-
-        // Parse body as brace group
-        let body = self.parse_brace_group()?;
+        self.enter_function_body();
+        let body = self.parse_function_keyword_rest();
+        self.leave_function_body();
+        let body = body?;
         let end_offset = self.current_command_end_offset();
 
         Ok(Command::Function(FunctionDef {
             name,
-            body: Box::new(Command::Compound(body, Vec::new())),
+            body: Box::new(body),
             source: self.source_slice(start_span.start.offset, end_offset),
             span: start_span.merge(self.current_span),
         }))
@@ -1935,24 +2559,69 @@ impl<'a> Parser<'a> {
         if !matches!(self.current_token, Some(tokens::Token::RightParen)) {
             return Err(self.error("expected ')' in function definition"));
         }
-        self.advance(); // consume ')'
-        self.skip_newlines()?;
-
-        // Expect { for body
-        if !matches!(self.current_token, Some(tokens::Token::LeftBrace)) {
-            return Err(self.error("expected '{' for function body"));
-        }
-
-        // Parse body as brace group
-        let body = self.parse_brace_group()?;
+        self.enter_function_body();
+        let body = self.parse_function_posix_rest();
+        self.leave_function_body();
+        let body = body?;
         let end_offset = self.current_command_end_offset();
 
         Ok(Command::Function(FunctionDef {
             name,
-            body: Box::new(Command::Compound(body, Vec::new())),
+            body: Box::new(body),
             source: self.source_slice(start_span.start.offset, end_offset),
             span: start_span.merge(self.current_span),
         }))
+    }
+
+    /// `function name [()] body`, after the name.
+    fn parse_function_keyword_rest(&mut self) -> Result<Command> {
+        self.advance();
+        self.skip_newlines()?;
+
+        // Optional () after name
+        if matches!(self.current_token, Some(tokens::Token::LeftParen)) {
+            self.advance(); // consume '('
+            if !matches!(self.current_token, Some(tokens::Token::RightParen)) {
+                return Err(Error::parse(
+                    "expected ')' in function definition".to_string(),
+                ));
+            }
+            self.advance(); // consume ')'
+            self.skip_newlines()?;
+        }
+        self.parse_function_body()
+    }
+
+    /// `name () body`, from the `)`.
+    fn parse_function_posix_rest(&mut self) -> Result<Command> {
+        self.advance(); // consume ')'
+        self.skip_newlines()?;
+        self.parse_function_body()
+    }
+
+    /// A function body: any compound command with its redirections
+    /// (`f() ( sub )`, `f() if ...; fi`, `f() { ...; } >log`), like bash.
+    fn parse_function_body(&mut self) -> Result<Command> {
+        let compound_start = match &self.current_token {
+            Some(
+                tokens::Token::LeftBrace
+                | tokens::Token::LeftParen
+                | tokens::Token::DoubleLeftParen
+                | tokens::Token::DoubleLeftBracket,
+            ) => true,
+            Some(tokens::Token::Word(w)) => matches!(
+                w.as_str(),
+                "if" | "for" | "while" | "until" | "case" | "select"
+            ),
+            _ => false,
+        };
+        if !compound_start {
+            return Err(self.error("expected '{' for function body"));
+        }
+        match self.parse_command()? {
+            Some(cmd) if matches!(*cmd, Command::Compound(..)) => Ok(*cmd),
+            _ => Err(self.error("expected '{' for function body")),
+        }
     }
 
     /// Parse commands until a terminating keyword
@@ -1979,7 +2648,7 @@ impl<'a> Parser<'a> {
             }
 
             if let Some(cmd) = self.parse_command_list()? {
-                commands.push(cmd);
+                commands.push(*cmd);
             } else {
                 break;
             }
@@ -2191,21 +2860,49 @@ impl<'a> Parser<'a> {
                             quoted: true,
                             has_unquoted_glob: false,
                             part_quoted: Vec::new(),
+                            raw: self.current_raw.clone(),
                         }
                     } else if matches!(
                         &self.current_token,
                         Some(tokens::Token::QuotedWord(_)) | Some(tokens::Token::QuotedGlobWord(_))
                     ) {
+                        let glob_quoted =
+                            matches!(&self.current_token, Some(tokens::Token::QuotedGlobWord(_)));
                         let mut w = self.parse_word(elem_clone);
                         w.quoted = true;
+                        // Mixed words like `"x"{1,2}` or `"a"*` keep their unquoted
+                        // brace/glob text active, as for command arguments.
+                        w.has_unquoted_glob = glob_quoted;
                         w
                     } else {
                         self.parse_word(elem_clone)
                     };
-                    elements.push(word);
+                    elements.push(self.with_raw(word));
                     self.advance();
                 }
                 None => break,
+                // bash: `a=(1 & 2)` is a syntax error at the operator.
+                Some(
+                    tokens::Token::Semicolon
+                    | tokens::Token::DoubleSemicolon
+                    | tokens::Token::SemiAmp
+                    | tokens::Token::DoubleSemiAmp
+                    | tokens::Token::Pipe
+                    | tokens::Token::PipeBoth
+                    | tokens::Token::And
+                    | tokens::Token::Or
+                    | tokens::Token::Background
+                    | tokens::Token::LeftParen
+                    | tokens::Token::DoubleLeftParen
+                    | tokens::Token::RedirectOut
+                    | tokens::Token::RedirectAppend
+                    | tokens::Token::RedirectIn,
+                ) => {
+                    let err = self.error("unexpected token");
+                    let first = self.deferred_error.take();
+                    self.deferred_error.set(first.or(Some(err)));
+                    self.advance();
+                }
                 _ => {
                     self.advance();
                 }
@@ -2217,16 +2914,41 @@ impl<'a> Parser<'a> {
     /// Parse the value side of an assignment (`VAR=value`).
     /// Returns `Some((Assignment, needs_advance))` if the current word is an assignment.
     /// The bool indicates whether the caller must call `self.advance()` afterward.
-    fn try_parse_assignment(&mut self, w: &str) -> Option<(Assignment, bool)> {
+    /// `glob_escaped` marks a `QuotedGlobWord` token: the lexer backslash-
+    /// escaped its quoted glob characters, which an assignment (no globbing)
+    /// must drop again so `x="a*"b*` stores `a*b*`.
+    fn try_parse_assignment(&mut self, w: &str, glob_escaped: bool) -> Option<(Assignment, bool)> {
         let (name, index, value, is_append) = Self::is_assignment(w)?;
+        // Source text of the value (after `=`), for function printing.
+        let value_raw = self.current_raw.as_deref().map(|raw| {
+            let start = match index {
+                Some(_) => raw.find("]=").or_else(|| raw.find("]+=")).map(|i| i + 1),
+                None => raw.find(['=', '+']),
+            }
+            .unwrap_or(0);
+            let rest = &raw[start..];
+            rest.strip_prefix("+=")
+                .or_else(|| rest.strip_prefix('='))
+                .unwrap_or(rest)
+                .to_string()
+        });
         let name = name.to_string();
-        let index = index.map(|s| s.to_string());
+        // A quoted subscript (`a["1"]=x`, `a['2']=x`) keeps its source text:
+        // arithmetic drops double quotes but rejects single ones, as bash.
+        let index = match index {
+            Some(ix) if ix.contains(['\u{1e}', '\u{1f}']) => Some(
+                self.source_slice(self.current_span.start.offset, self.current_span.end.offset)
+                    .and_then(|raw| Self::raw_subscript(&raw, &name))
+                    .unwrap_or_else(|| ix.to_string()),
+            ),
+            ix => ix.map(|s| s.to_string()),
+        };
         let value_str = value.to_string();
 
         // Array literal in the token itself: arr=(a b c)
         if value_str.starts_with('(') && value_str.ends_with(')') {
             let inner = &value_str[1..value_str.len() - 1];
-            let elements: Vec<Word> = Self::split_array_elements(inner)
+            let mut elements: Vec<Word> = Self::split_array_elements(inner)
                 .into_iter()
                 .map(|(s, quoted)| {
                     if quoted {
@@ -2238,6 +2960,18 @@ impl<'a> Parser<'a> {
                     }
                 })
                 .collect();
+            if let Some(raw) = value_raw.as_deref() {
+                let raw_inner = raw
+                    .strip_prefix('(')
+                    .and_then(|r| r.strip_suffix(')'))
+                    .unwrap_or(raw);
+                let raws = split_raw_words(raw_inner);
+                if raws.len() == elements.len() {
+                    for (elem, r) in elements.iter_mut().zip(raws) {
+                        elem.raw = Some(r);
+                    }
+                }
+            }
             return Some((
                 Assignment {
                     name,
@@ -2251,8 +2985,13 @@ impl<'a> Parser<'a> {
 
         // Empty value — check for arr=(...) syntax with separate tokens
         if value_str.is_empty() {
+            let word_end = self.current_span.end.offset;
             self.advance();
-            if matches!(self.current_token, Some(tokens::Token::LeftParen)) {
+            // `a= (1 2)` is not an array literal: the blank ends the
+            // assignment and `(` is then a syntax error (bash).
+            if matches!(self.current_token, Some(tokens::Token::LeftParen))
+                && self.current_span.start.offset == word_end
+            {
                 self.advance(); // consume '('
                 let elements = self.collect_array_elements();
                 return Some((
@@ -2265,12 +3004,19 @@ impl<'a> Parser<'a> {
                     false,
                 ));
             }
+            if matches!(self.current_token, Some(tokens::Token::LeftParen)) {
+                let err = self.error("unexpected token");
+                let first = self.deferred_error.take();
+                self.deferred_error.set(first.or(Some(err)));
+            }
             // Empty assignment: VAR=
+            let mut empty = Word::literal("");
+            empty.raw = value_raw;
             return Some((
                 Assignment {
                     name,
                     index,
-                    value: AssignmentValue::Scalar(Word::literal("")),
+                    value: AssignmentValue::Scalar(empty),
                     append: is_append,
                 },
                 false,
@@ -2278,7 +3024,7 @@ impl<'a> Parser<'a> {
         }
 
         // Quoted or plain scalar value
-        let value_word = if value_str.starts_with('"') && value_str.ends_with('"') {
+        let mut value_word = if value_str.starts_with('"') && value_str.ends_with('"') {
             let inner = Self::strip_quotes(&value_str);
             let mut w = self.parse_word(inner.to_string());
             w.quoted = true;
@@ -2290,10 +3036,20 @@ impl<'a> Parser<'a> {
                 quoted: true,
                 has_unquoted_glob: false,
                 part_quoted: Vec::new(),
+                raw: None,
             }
         } else {
-            self.parse_word(value_str)
+            let mut w = self.parse_word(value_str);
+            if glob_escaped {
+                for part in &mut w.parts {
+                    if let WordPart::Literal(s) = part {
+                        *s = unescape_glob_literal(s);
+                    }
+                }
+            }
+            w
         };
+        value_word.raw = value_raw;
         Some((
             Assignment {
                 name,
@@ -2308,46 +3064,73 @@ impl<'a> Parser<'a> {
     /// Parse a compound array argument in arg position (e.g. `declare -a arr=(x y z)`).
     /// Called when the current word ends with `=` and the next token is `(`.
     /// Returns the compound word if successful, or `None` if not a compound assignment.
-    fn try_parse_compound_array_arg(&mut self, saved_w: String) -> Option<Word> {
+    fn try_parse_compound_array_arg(
+        &mut self,
+        saved_w: String,
+        saved_raw: Option<String>,
+    ) -> Option<Word> {
         if !matches!(self.current_token, Some(tokens::Token::LeftParen)) {
             return None;
         }
-        self.advance(); // consume '('
-        let mut compound = saved_w;
-        compound.push('(');
-        loop {
-            match &self.current_token {
-                Some(tokens::Token::RightParen) => {
-                    compound.push(')');
-                    self.advance();
-                    break;
-                }
-                Some(tokens::Token::Word(elem))
-                | Some(tokens::Token::LiteralWord(elem))
-                | Some(tokens::Token::QuotedWord(elem))
-                | Some(tokens::Token::QuotedGlobWord(elem)) => {
-                    if !compound.ends_with('(') {
-                        compound.push(' ');
-                    }
-                    compound.push_str(elem);
-                    self.advance();
-                }
-                None => break,
-                _ => {
-                    self.advance();
-                }
-            }
+        let lhs = saved_w.strip_suffix('=')?;
+        let (name, append) = match lhs.strip_suffix('+') {
+            Some(name) => (name, true),
+            None => (lhs, false),
+        };
+        let base = name.split('[').next().unwrap_or(name);
+        let valid = base
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && base.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+        if !valid {
+            return None;
         }
-        Some(self.parse_word(compound))
+        let name = name.to_string();
+        self.advance(); // consume '('
+        let elements = self.collect_array_elements();
+        // Source text as written, for `type`/`declare -f`.
+        let raw = saved_raw.map(|r| {
+            let elems: Vec<&str> = elements
+                .iter()
+                .map(|e| e.raw.as_deref().unwrap_or(""))
+                .collect();
+            format!("{r}({})", elems.join(" "))
+        });
+        Some(Word {
+            parts: vec![WordPart::CompoundAssignment {
+                name,
+                append,
+                elements,
+            }],
+            quoted: true,
+            has_unquoted_glob: false,
+            part_quoted: Vec::new(),
+            raw,
+        })
     }
 
     /// Parse a heredoc redirect (`<<` or `<<-`) and any trailing redirects on the same line.
+    // Out of line: its body-reading temporaries must not grow the frame
+    // of the recursive command parser.
+    #[inline(never)]
     fn parse_heredoc_redirect(
         &mut self,
-        strip_tabs: bool,
         redirects: &mut Vec<Redirect>,
+        fd_var: Option<String>,
     ) -> Result<()> {
+        let (fd, strip_tabs) = match self.current_token {
+            Some(tokens::Token::HereDocFd(fd, strip)) => (Some(fd), strip),
+            Some(tokens::Token::HereDocStrip) => (None, true),
+            _ => (None, false),
+        };
+        // Capture the delimiter's source text: bash quote-removes it and
+        // treats the body as literal when any part of it was quoted
+        // (`<<'E'`, `<<\E`, `<<E"OF"`).
+        let was_capturing = self.lexer.capture_raw();
+        self.lexer.set_capture_raw(true);
         self.advance();
+        self.lexer.set_capture_raw(was_capturing);
         // Get the delimiter word and track if it was quoted
         let (delimiter, quoted) = match &self.current_token {
             Some(tokens::Token::Word(w)) => (w.clone(), false),
@@ -2356,6 +3139,25 @@ impl<'a> Parser<'a> {
                 (w.clone(), true)
             }
             _ => return Err(Error::parse("expected delimiter after <<".to_string())),
+        };
+        let (delimiter, quoted, printed) = match self.current_raw.as_deref() {
+            Some(raw) => {
+                let (eof, quoted) = heredoc_eof_from_raw(raw);
+                let printed = if quoted {
+                    single_quote(&eof)
+                } else {
+                    raw.to_string()
+                };
+                (eof, quoted, printed)
+            }
+            None => {
+                let printed = if quoted {
+                    single_quote(&delimiter)
+                } else {
+                    delimiter.clone()
+                };
+                (delimiter, quoted, printed)
+            }
         };
 
         let (content, rest_of_line_chars) = self
@@ -2379,11 +3181,12 @@ impl<'a> Parser<'a> {
             content
         };
 
-        let target = if quoted {
-            Word::quoted_literal(content)
+        let mut target = if quoted {
+            Word::quoted_literal(content.clone())
         } else {
-            self.parse_word(content)
+            self.parse_word(heredoc_body_escapes(&content))
         };
+        target.raw = Some(content);
 
         let kind = if strip_tabs {
             RedirectKind::HereDocStrip
@@ -2392,141 +3195,90 @@ impl<'a> Parser<'a> {
         };
 
         redirects.push(Redirect {
-            fd: None,
-            fd_var: None,
+            fd,
+            fd_var,
             kind,
             target,
+            heredoc_delim: Some(printed),
         });
 
         // Advance so re-injected rest-of-line tokens are picked up
         self.advance();
-
-        // Consume any trailing redirects on the same line (e.g. `cat <<EOF > file`)
-        self.collect_trailing_redirects(redirects);
         Ok(())
     }
 
-    /// Consume redirect tokens that follow a heredoc on the same line.
-    fn collect_trailing_redirects(&mut self, redirects: &mut Vec<Redirect>) {
-        while let Some(tok) = &self.current_token {
-            match tok {
-                tokens::Token::RedirectOut | tokens::Token::Clobber => {
-                    let kind = if matches!(&self.current_token, Some(tokens::Token::Clobber)) {
-                        RedirectKind::Clobber
-                    } else {
-                        RedirectKind::Output
-                    };
-                    self.advance();
-                    if let Ok(target) = self.expect_word() {
-                        redirects.push(Redirect {
-                            fd: None,
-                            fd_var: None,
-                            kind,
-                            target,
-                        });
-                    }
-                }
-                tokens::Token::RedirectAppend => {
-                    self.advance();
-                    if let Ok(target) = self.expect_word() {
-                        redirects.push(Redirect {
-                            fd: None,
-                            fd_var: None,
-                            kind: RedirectKind::Append,
-                            target,
-                        });
-                    }
-                }
-                tokens::Token::RedirectFd(fd) => {
-                    let fd = *fd;
-                    self.advance();
-                    if let Ok(target) = self.expect_word() {
-                        redirects.push(Redirect {
-                            fd: Some(fd),
-                            fd_var: None,
-                            kind: RedirectKind::Output,
-                            target,
-                        });
-                    }
-                }
-                tokens::Token::DupFdCloseOut(fd) => {
-                    let fd = *fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupOutput,
-                        target: Word::literal("-"),
-                    });
-                }
-                tokens::Token::DupInput => {
-                    self.advance();
-                    if let Ok(target) = self.expect_word() {
-                        redirects.push(Redirect {
-                            fd: Some(0),
-                            fd_var: None,
-                            kind: RedirectKind::DupInput,
-                            target,
-                        });
-                    }
-                }
-                tokens::Token::DupFdIn(src_fd, dst_fd) => {
-                    let src_fd = *src_fd;
-                    let dst_fd = *dst_fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(src_fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupInput,
-                        target: Word::literal(dst_fd.to_string()),
-                    });
-                }
-                tokens::Token::DupFdClose(fd) => {
-                    let fd = *fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupInput,
-                        target: Word::literal("-"),
-                    });
-                }
-                tokens::Token::RedirectFdIn(fd) => {
-                    let fd = *fd;
-                    self.advance();
-                    if let Ok(target) = self.expect_word() {
-                        redirects.push(Redirect {
-                            fd: Some(fd),
-                            fd_var: None,
-                            kind: RedirectKind::Input,
-                            target,
-                        });
-                    }
-                }
-                _ => break,
-            }
-        }
+    /// `{fd}&>> file` in a simple command. Out of line, like
+    /// [`Self::push_append_both`], to keep the recursive parser's frame small.
+    #[inline(never)]
+    fn parse_append_both(
+        &mut self,
+        words: &mut Vec<Word>,
+        redirects: &mut Vec<Redirect>,
+    ) -> Result<()> {
+        let fd_var = Self::pop_fd_var(words);
+        self.advance();
+        let target = self.expect_word()?;
+        Self::push_append_both(redirects, fd_var, target);
+        Ok(())
+    }
+
+    /// `&>> file` is `>> file 2>&1` (bash documents it as that). Out of
+    /// line so the two `Redirect` temporaries stay off the stack frame of
+    /// the recursive command parsers.
+    #[inline(never)]
+    fn push_append_both(redirects: &mut Vec<Redirect>, fd_var: Option<String>, target: Word) {
+        redirects.push(Redirect {
+            fd: None,
+            fd_var,
+            kind: RedirectKind::Append,
+            target,
+            heredoc_delim: None,
+        });
+        redirects.push(Redirect {
+            fd: Some(2),
+            fd_var: None,
+            kind: RedirectKind::DupOutput,
+            target: Word::literal("1"),
+            heredoc_delim: None,
+        });
     }
 
     /// Extract fd-variable name from `{varname}` pattern in the last word.
     /// If the last word is a single literal `{identifier}`, pop it and return the name.
     /// Used for `exec {var}>file` / `exec {var}>&-` syntax.
     fn pop_fd_var(words: &mut Vec<Word>) -> Option<String> {
-        if let Some(last) = words.last()
-            && last.parts.len() == 1
-            && let WordPart::Literal(ref s) = last.parts[0]
-            && s.starts_with('{')
-            && s.ends_with('}')
-            && s.len() > 2
-            && s[1..s.len() - 1]
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_')
+        // `{arr[i]}` lexes as several literal parts, because `[` opens a glob
+        // bracket, so the name is read from the parts joined rather than from
+        // a single one.
+        let joined = words.last().and_then(|last| {
+            last.parts
+                .iter()
+                .map(|part| match part {
+                    WordPart::Literal(text) => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Option<String>>()
+        });
+        if let Some(ref s) = joined
+            && Self::is_fd_var_word(s)
         {
             let var_name = s[1..s.len() - 1].to_string();
             words.pop();
             return Some(var_name);
         }
         None
+    }
+
+    /// `{fd}` or `{arr[i]}` (a coproc hands its descriptors out as
+    /// `${NAME[0]}` / `${NAME[1]}`, and `exec {NAME[1]}>&-` closes one).
+    fn is_fd_var_word(s: &str) -> bool {
+        s.starts_with('{')
+            && s.ends_with('}')
+            && s.len() > 2
+            && s[1..s.len() - 1]
+                .chars()
+                .all(|c| c.is_alphanumeric() || matches!(c, '_' | '[' | ']'))
+            && s[1..s.len() - 1].starts_with(|c: char| c.is_alphabetic() || c == '_')
     }
 
     fn parse_simple_command(&mut self) -> Result<Option<SimpleCommand>> {
@@ -2538,269 +3290,103 @@ impl<'a> Parser<'a> {
         let mut assignments = Vec::new();
         let mut words = Vec::new();
         let mut redirects = Vec::new();
+        // End offset of the word or assignment just parsed (usize::MAX:
+        // none); a process substitution touching it joins that word.
+        let mut join_end = usize::MAX;
 
         loop {
+            if words.is_empty() {
+                // `FOO=1 ll`, `>f ll`: the first word after assignments and
+                // redirects is a command name.
+                self.expand_command_alias();
+            }
+            if join_end == self.current_span.start.offset
+                && self.join_adjacent_word(&mut words, &mut assignments)?
+            {
+                join_end = self.prev_token_end;
+                continue;
+            }
+            let counts = (words.len(), assignments.len());
             match &self.current_token {
-                Some(tokens::Token::Word(w))
-                | Some(tokens::Token::LiteralWord(w))
-                | Some(tokens::Token::QuotedWord(w))
-                | Some(tokens::Token::QuotedGlobWord(w)) => {
-                    let is_literal =
-                        matches!(&self.current_token, Some(tokens::Token::LiteralWord(_)));
-                    let is_quoted = matches!(
-                        &self.current_token,
-                        Some(tokens::Token::QuotedWord(_)) | Some(tokens::Token::QuotedGlobWord(_))
-                    );
-                    let is_glob_quoted =
-                        matches!(&self.current_token, Some(tokens::Token::QuotedGlobWord(_)));
-                    // Clone early to release borrow on self.current_token
-                    let w = w.clone();
-
-                    // Stop if this word cannot start a command (like 'then', 'fi', etc.)
-                    if words.is_empty() && Self::is_non_command_word(&w) {
+                Some(
+                    tokens::Token::Word(_)
+                    | tokens::Token::LiteralWord(_)
+                    | tokens::Token::QuotedWord(_)
+                    | tokens::Token::QuotedGlobWord(_),
+                ) => {
+                    if !self.parse_simple_word(&mut words, &mut assignments) {
                         break;
                     }
-
-                    // Check for assignment (only before the command name, not for literal words)
-                    if words.is_empty()
-                        && !is_literal
-                        && let Some((assignment, needs_advance)) = self.try_parse_assignment(&w)
+                }
+                Some(tokens::Token::HereDoc)
+                | Some(tokens::Token::HereDocStrip)
+                | Some(tokens::Token::HereDocFd(..)) => {
+                    // Words and redirects may follow on the same line
+                    // (`cat <<A <<B`, `paste - <<A 3<<B`, `cat <<A file`).
+                    let fd_var = if matches!(self.current_token, Some(tokens::Token::HereDocFd(..)))
                     {
-                        if needs_advance {
-                            self.advance();
-                        }
-                        assignments.push(assignment);
-                        continue;
-                    }
-
-                    // Handle compound array assignment in arg position:
-                    // declare -a arr=(x y z) → arr=(x y z) as single arg
-                    if w.ends_with('=') && !words.is_empty() {
-                        self.advance();
-                        if let Some(word) = self.try_parse_compound_array_arg(w.clone()) {
-                            words.push(word);
-                            continue;
-                        }
-                        // Not a compound assignment — treat as regular word
-                        let word = if is_literal {
-                            Word {
-                                parts: vec![WordPart::Literal(w)],
-                                quoted: true,
-                                has_unquoted_glob: false,
-                                part_quoted: Vec::new(),
-                            }
-                        } else {
-                            let mut word = self.parse_word(w);
-                            if is_quoted {
-                                word.quoted = true;
-                            }
-                            if is_glob_quoted {
-                                word.has_unquoted_glob = true;
-                            }
-                            word
-                        };
-                        words.push(word);
-                        continue;
-                    }
-
-                    let word = if is_literal {
-                        Word {
-                            parts: vec![WordPart::Literal(w)],
-                            quoted: true,
-                            has_unquoted_glob: false,
-                            part_quoted: Vec::new(),
-                        }
+                        None
                     } else {
-                        let mut word = self.parse_word(w);
-                        if is_quoted {
-                            word.quoted = true;
-                        }
-                        if is_glob_quoted {
-                            word.has_unquoted_glob = true;
-                        }
-                        word
+                        Self::pop_fd_var(&mut words)
                     };
-                    words.push(word);
-                    self.advance();
-                }
-                Some(tokens::Token::RedirectOut) | Some(tokens::Token::Clobber) => {
-                    let kind = if matches!(&self.current_token, Some(tokens::Token::Clobber)) {
-                        RedirectKind::Clobber
-                    } else {
-                        RedirectKind::Output
-                    };
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var,
-                        kind,
-                        target,
-                    });
-                }
-                Some(tokens::Token::RedirectAppend) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var,
-                        kind: RedirectKind::Append,
-                        target,
-                    });
-                }
-                Some(tokens::Token::RedirectIn) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var,
-                        kind: RedirectKind::Input,
-                        target,
-                    });
-                }
-                Some(tokens::Token::HereString) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var,
-                        kind: RedirectKind::HereString,
-                        target,
-                    });
-                }
-                Some(tokens::Token::HereDoc) | Some(tokens::Token::HereDocStrip) => {
-                    let strip_tabs =
-                        matches!(self.current_token, Some(tokens::Token::HereDocStrip));
-                    self.parse_heredoc_redirect(strip_tabs, &mut redirects)?;
-                    break;
+                    self.parse_heredoc_redirect(&mut redirects, fd_var)?;
                 }
                 Some(tokens::Token::ProcessSubIn) | Some(tokens::Token::ProcessSubOut) => {
                     let word = self.expect_word()?;
                     words.push(word);
                 }
-                Some(tokens::Token::RedirectBoth) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: None,
-                        fd_var,
-                        kind: RedirectKind::OutputBoth,
-                        target,
-                    });
+                Some(
+                    tokens::Token::RedirectOut
+                    | tokens::Token::Clobber
+                    | tokens::Token::RedirectAppend
+                    | tokens::Token::RedirectIn
+                    | tokens::Token::HereString
+                    | tokens::Token::RedirectBoth
+                    | tokens::Token::DupOutput
+                    | tokens::Token::RedirectFd(_)
+                    | tokens::Token::RedirectFdAppend(_)
+                    | tokens::Token::DupFd(..)
+                    | tokens::Token::DupFdCloseOut(_)
+                    | tokens::Token::DupFdWord(_)
+                    | tokens::Token::DupInput
+                    | tokens::Token::DupFdIn(..)
+                    | tokens::Token::DupFdClose(_)
+                    | tokens::Token::RedirectFdIn(_)
+                    | tokens::Token::RedirectReadWrite
+                    | tokens::Token::RedirectFdReadWrite(_)
+                    | tokens::Token::HereStringFd(_),
+                ) => {
+                    self.parse_simple_redirect(&mut words, &mut redirects)?;
                 }
-                Some(tokens::Token::DupOutput) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: if fd_var.is_some() { None } else { Some(1) },
-                        fd_var,
-                        kind: RedirectKind::DupOutput,
-                        target,
-                    });
+                Some(tokens::Token::RedirectBothAppend) => {
+                    self.parse_append_both(&mut words, &mut redirects)?;
                 }
-                Some(tokens::Token::RedirectFd(fd)) => {
-                    let fd = *fd;
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::Output,
-                        target,
-                    });
-                }
-                Some(tokens::Token::RedirectFdAppend(fd)) => {
-                    let fd = *fd;
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::Append,
-                        target,
-                    });
-                }
-                Some(tokens::Token::DupFd(src_fd, dst_fd)) => {
-                    let src_fd = *src_fd;
-                    let dst_fd = *dst_fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(src_fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupOutput,
-                        target: Word::literal(dst_fd.to_string()),
-                    });
-                }
-                Some(tokens::Token::DupFdCloseOut(fd)) => {
-                    let fd = *fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupOutput,
-                        target: Word::literal("-"),
-                    });
-                }
-                Some(tokens::Token::DupInput) => {
-                    let fd_var = Self::pop_fd_var(&mut words);
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: if fd_var.is_some() { None } else { Some(0) },
-                        fd_var,
-                        kind: RedirectKind::DupInput,
-                        target,
-                    });
-                }
-                Some(tokens::Token::DupFdIn(src_fd, dst_fd)) => {
-                    let src_fd = *src_fd;
-                    let dst_fd = *dst_fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(src_fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupInput,
-                        target: Word::literal(dst_fd.to_string()),
-                    });
-                }
-                Some(tokens::Token::DupFdClose(fd)) => {
-                    let fd = *fd;
-                    self.advance();
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::DupInput,
-                        target: Word::literal("-"),
-                    });
-                }
-                Some(tokens::Token::RedirectFdIn(fd)) => {
-                    let fd = *fd;
-                    self.advance();
-                    let target = self.expect_word()?;
-                    redirects.push(Redirect {
-                        fd: Some(fd),
-                        fd_var: None,
-                        kind: RedirectKind::Input,
-                        target,
-                    });
-                }
-                // { and } as arguments (not in command position) are literal words
-                Some(tokens::Token::LeftBrace) | Some(tokens::Token::RightBrace)
-                    if !words.is_empty() =>
-                {
-                    let sym = if matches!(self.current_token, Some(tokens::Token::LeftBrace)) {
-                        "{"
-                    } else {
-                        "}"
+                // {, } and ]] as arguments (not in command position) are literal words
+                Some(
+                    tokens::Token::LeftBrace
+                    | tokens::Token::RightBrace
+                    | tokens::Token::DoubleRightBracket,
+                ) if !words.is_empty() => {
+                    let sym = match self.current_token {
+                        Some(tokens::Token::LeftBrace) => "{",
+                        Some(tokens::Token::RightBrace) => "}",
+                        _ => "]]",
                     };
                     words.push(Word::literal(sym));
                     self.advance();
+                }
+                // After an assignment `[[` is no longer a reserved word:
+                // `FOO=bar [[ x ]]` runs a command named `[[` (bash: 127).
+                Some(tokens::Token::DoubleLeftBracket)
+                    if !words.is_empty() || !assignments.is_empty() =>
+                {
+                    words.push(Word::literal("[["));
+                    self.advance();
+                }
+                // `echo a(b)`, `foo $x() {`: a `(` after a command word is a
+                // syntax error in bash, not the start of a subshell.
+                Some(tokens::Token::LeftParen) if !words.is_empty() => {
+                    return Err(self.error("unexpected token"));
                 }
                 Some(tokens::Token::Newline)
                 | Some(tokens::Token::Semicolon)
@@ -2810,40 +3396,419 @@ impl<'a> Parser<'a> {
                 | None => break,
                 _ => break,
             }
+            join_end = if words.len() > counts.0 || assignments.len() > counts.1 {
+                self.prev_token_end
+            } else {
+                usize::MAX
+            };
         }
 
-        // Handle assignment-only commands (VAR=value with no command)
-        if words.is_empty() && !assignments.is_empty() {
-            return Ok(Some(SimpleCommand {
-                name: Word::literal(""),
-                args: Vec::new(),
-                redirects,
-                assignments,
-                span: start_span.merge(self.current_span),
-            }));
-        }
-
-        if words.is_empty() {
-            return Ok(None);
-        }
-
-        let name = words.remove(0);
-        let args = words;
-
-        Ok(Some(SimpleCommand {
-            name,
-            args,
-            redirects,
+        finish_simple_command(
+            words,
             assignments,
-            span: start_span.merge(self.current_span),
-        }))
+            redirects,
+            start_span.merge(self.current_span),
+        )
+    }
+
+    /// `x<(true)`, `<(true)x`, `x=<(true)`: a process substitution and the
+    /// word text it touches form one word, as in bash. The current token
+    /// starts where the last word (or, before the command name, the last
+    /// assignment's scalar value) ended. Returns false, consuming nothing,
+    /// when the token does not join it.
+    #[inline(never)]
+    fn join_adjacent_word(
+        &mut self,
+        words: &mut [Word],
+        assignments: &mut [Assignment],
+    ) -> Result<bool> {
+        let procsub = matches!(
+            self.current_token,
+            Some(tokens::Token::ProcessSubIn | tokens::Token::ProcessSubOut)
+        );
+        let word_token = matches!(
+            self.current_token,
+            Some(
+                tokens::Token::Word(_)
+                    | tokens::Token::LiteralWord(_)
+                    | tokens::Token::QuotedWord(_)
+                    | tokens::Token::QuotedGlobWord(_)
+            )
+        );
+        fn target<'w>(
+            words: &'w mut [Word],
+            assignments: &'w mut [Assignment],
+        ) -> Option<&'w mut Word> {
+            if words.is_empty() {
+                match assignments.last_mut() {
+                    Some(Assignment {
+                        value: AssignmentValue::Scalar(w),
+                        ..
+                    }) => Some(w),
+                    _ => None,
+                }
+            } else {
+                words.last_mut()
+            }
+        }
+        let Some(prev) = target(words, assignments) else {
+            return Ok(false);
+        };
+        // Two word tokens only touch across a process substitution's `)`.
+        let after_procsub = matches!(
+            prev.parts.last(),
+            Some(WordPart::ProcessSubstitution { .. })
+        );
+        if !(procsub || (word_token && after_procsub)) {
+            return Ok(false);
+        }
+        let next = self.expect_word()?;
+        if let Some(prev) = target(words, assignments) {
+            prev.append_word(next);
+        }
+        Ok(true)
+    }
+
+    /// One word of a simple command (outlined to keep the recursive
+    /// `parse_simple_command` frame small; `$( )` nesting recurses through it).
+    /// Returns false when the word ends the command.
+    #[inline(never)]
+    fn parse_simple_word(
+        &mut self,
+        words: &mut Vec<Word>,
+        assignments: &mut Vec<Assignment>,
+    ) -> bool {
+        let (w, is_literal, is_quoted, is_glob_quoted) = match &self.current_token {
+            Some(tokens::Token::Word(w)) => (w.clone(), false, false, false),
+            Some(tokens::Token::LiteralWord(w)) => (w.clone(), true, false, false),
+            Some(tokens::Token::QuotedWord(w)) => (w.clone(), false, true, false),
+            Some(tokens::Token::QuotedGlobWord(w)) => (w.clone(), false, true, true),
+            _ => return false,
+        };
+        // Stop if this word cannot start a command (like 'then', 'fi', etc.)
+        if words.is_empty() && Self::is_non_command_word(&w) {
+            return false;
+        }
+
+        // Check for assignment (only before the command name, not for literal words)
+        if words.is_empty()
+            && !is_literal
+            && let Some((assignment, needs_advance)) = self.try_parse_assignment(&w, is_glob_quoted)
+        {
+            if needs_advance {
+                self.advance();
+            }
+            assignments.push(assignment);
+            return true;
+        }
+
+        // Handle compound array assignment in arg position:
+        // declare -a arr=(x y z) → arr=(x y z) as single arg
+        // Only a declaration builtin, `let` or `eval` named directly takes
+        // one: bash rejects `builtin declare a=(x)`, `echo a=(x)` and
+        // `command typeset a=(x)` at `(`.
+        let decl_command = words.first().is_some_and(|w0| {
+            !w0.quoted
+                && matches!(w0.parts.as_slice(), [WordPart::Literal(n)]
+                    if matches!(n.as_str(), "declare" | "typeset" | "local" | "export" | "readonly" | "let" | "eval"))
+        });
+        if w.ends_with('=') && decl_command {
+            return self.parse_declaration_word(words, w, is_literal, is_quoted, is_glob_quoted);
+        }
+
+        let word = if is_literal {
+            Word {
+                parts: vec![WordPart::Literal(w)],
+                quoted: true,
+                has_unquoted_glob: false,
+                part_quoted: Vec::new(),
+                raw: self.current_raw.clone(),
+            }
+        } else {
+            let mut word = self.parse_word(w);
+            if is_quoted {
+                word.quoted = true;
+            }
+            if is_glob_quoted {
+                word.has_unquoted_glob = true;
+            }
+            word
+        };
+        words.push(self.with_raw(word));
+        self.advance();
+        true
+    }
+
+    #[inline(never)]
+    fn parse_declaration_word(
+        &mut self,
+        words: &mut Vec<Word>,
+        w: String,
+        is_literal: bool,
+        is_quoted: bool,
+        is_glob_quoted: bool,
+    ) -> bool {
+        let saved_raw = self.current_raw.clone();
+        self.advance();
+        if let Some(word) = self.try_parse_compound_array_arg(w.clone(), saved_raw.clone()) {
+            words.push(word);
+            return true;
+        }
+        // Not a compound assignment — treat as regular word
+        let word = if is_literal {
+            Word {
+                parts: vec![WordPart::Literal(w)],
+                quoted: true,
+                has_unquoted_glob: false,
+                part_quoted: Vec::new(),
+                raw: saved_raw.clone(),
+            }
+        } else {
+            let mut word = self.parse_word(w);
+            if is_quoted {
+                word.quoted = true;
+            }
+            if is_glob_quoted {
+                word.has_unquoted_glob = true;
+            }
+            word
+        };
+        let mut word = word;
+        word.raw = saved_raw;
+        words.push(word);
+        true
+    }
+
+    /// One redirection of a simple command (outlined, see `parse_simple_word`).
+    #[inline(never)]
+    fn parse_simple_redirect(
+        &mut self,
+        words: &mut Vec<Word>,
+        redirects: &mut Vec<Redirect>,
+    ) -> Result<()> {
+        match &self.current_token {
+            Some(tokens::Token::RedirectOut) | Some(tokens::Token::Clobber) => {
+                let kind = if matches!(&self.current_token, Some(tokens::Token::Clobber)) {
+                    RedirectKind::Clobber
+                } else {
+                    RedirectKind::Output
+                };
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectAppend) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind: RedirectKind::Append,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectIn) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind: RedirectKind::Input,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::HereString) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind: RedirectKind::HereString,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectBoth) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind: RedirectKind::OutputBoth,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupOutput) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: if fd_var.is_some() { None } else { Some(1) },
+                    fd_var,
+                    kind: RedirectKind::DupOutput,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectFd(fd)) => {
+                let fd = *fd;
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::Output,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectFdAppend(fd)) => {
+                let fd = *fd;
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::Append,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupFd(src_fd, dst_fd)) => {
+                let src_fd = *src_fd;
+                let dst_fd = *dst_fd;
+                self.advance();
+                redirects.push(Redirect {
+                    fd: Some(src_fd),
+                    fd_var: None,
+                    kind: RedirectKind::DupOutput,
+                    target: Word::literal(dst_fd.to_string()),
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupFdCloseOut(fd)) => {
+                let fd = *fd;
+                self.advance();
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::DupOutput,
+                    target: Word::literal("-"),
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupFdWord(fd)) => {
+                let fd = *fd;
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::DupOutput,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupInput) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: if fd_var.is_some() { None } else { Some(0) },
+                    fd_var,
+                    kind: RedirectKind::DupInput,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupFdIn(src_fd, dst_fd)) => {
+                let src_fd = *src_fd;
+                let dst_fd = *dst_fd;
+                self.advance();
+                redirects.push(Redirect {
+                    fd: Some(src_fd),
+                    fd_var: None,
+                    kind: RedirectKind::DupInput,
+                    target: Word::literal(dst_fd.to_string()),
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::DupFdClose(fd)) => {
+                let fd = *fd;
+                self.advance();
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::DupInput,
+                    target: Word::literal("-"),
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectFdIn(fd)) => {
+                let fd = *fd;
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind: RedirectKind::Input,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectReadWrite) => {
+                let fd_var = Self::pop_fd_var(words);
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: None,
+                    fd_var,
+                    kind: RedirectKind::ReadWrite,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            Some(tokens::Token::RedirectFdReadWrite(fd) | tokens::Token::HereStringFd(fd)) => {
+                let fd = *fd;
+                let kind = if matches!(self.current_token, Some(tokens::Token::HereStringFd(_))) {
+                    RedirectKind::HereString
+                } else {
+                    RedirectKind::ReadWrite
+                };
+                self.advance();
+                let target = self.expect_word()?;
+                redirects.push(Redirect {
+                    fd: Some(fd),
+                    fd_var: None,
+                    kind,
+                    target,
+                    heredoc_delim: None,
+                });
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     /// Expect a word token and return it as a Word
     fn expect_word(&mut self) -> Result<Word> {
         match &self.current_token {
             Some(tokens::Token::Word(w)) => {
-                let word = self.parse_word(w.clone());
+                let word = self.with_raw(self.parse_word(w.clone()));
                 self.advance();
                 Ok(word)
             }
@@ -2854,13 +3819,20 @@ impl<'a> Parser<'a> {
                     quoted: true,
                     has_unquoted_glob: false,
                     part_quoted: Vec::new(),
+                    raw: self.current_raw.clone(),
                 };
                 self.advance();
                 Ok(word)
             }
             Some(tokens::Token::QuotedWord(w)) | Some(tokens::Token::QuotedGlobWord(w)) => {
-                // Double-quoted: parse for variable expansion
-                let word = self.parse_word(w.clone());
+                // Double-quoted: parse for variable expansion. Marked quoted
+                // as command words are, so a redirect target such as
+                // `> one-\*` or `> "$f"` is neither split nor globbed.
+                let glob = matches!(&self.current_token, Some(tokens::Token::QuotedGlobWord(_)));
+                let mut word = self.parse_word(w.clone());
+                word.quoted = true;
+                word.has_unquoted_glob |= glob;
+                let word = self.with_raw(word);
                 self.advance();
                 Ok(word)
             }
@@ -2875,11 +3847,24 @@ impl<'a> Parser<'a> {
                 let is_input = matches!(self.current_token, Some(tokens::Token::ProcessSubIn));
                 // Span end of the `<(` / `>(` token is exactly the start of the body.
                 let body_start_offset = self.current_span.end.offset;
-                self.advance();
-
                 let mut depth = 1;
-                let body_end_offset;
-                loop {
+                let mut body_end_offset = 0;
+                // Find the end the way `$(...)` does (quote/case/heredoc
+                // aware, see subst_scan), so `<(case a in a) ...;; esac)`
+                // does not stop at the pattern's `)`.
+                let scanned = self.peeked_token.is_none() && self.lexer.skip_subst_body();
+                if scanned {
+                    // The closing `)` is one byte, just consumed.
+                    body_end_offset = self.lexer.position().offset.saturating_sub(1);
+                    depth = 0;
+                }
+                self.advance();
+                if scanned {
+                    // The last consumed text is the `)`, not the `<(` token.
+                    self.prev_token_end = body_end_offset + 1;
+                }
+
+                while depth > 0 {
                     match &self.current_token {
                         Some(tokens::Token::LeftParen) => {
                             depth += 1;
@@ -2948,13 +3933,18 @@ impl<'a> Parser<'a> {
                     inner_parser.execution_budget = self.execution_budget.clone();
                     inner_parser.current_depth = self.current_depth + 1;
                     inner_parser.started_at = self.started_at;
-                    let result = inner_parser.parse_script();
-                    (result, inner_parser.fuel)
+                    let mut commands = Vec::new();
+                    let result = inner_parser
+                        .parse_script_into(&mut commands)
+                        .map(|()| commands.into_iter().map(|(cmd, _)| cmd).collect::<Vec<_>>());
+                    let raw = (self.function_depth > 0)
+                        .then(|| format!("{}({cmd_src})", if is_input { '<' } else { '>' }));
+                    (result, inner_parser.fuel, raw)
                 };
-                let (parse_result, remaining_fuel) = inner_result;
+                let (parse_result, remaining_fuel, raw) = inner_result;
                 self.fuel = remaining_fuel;
                 let commands = match parse_result {
-                    Ok(script) => script.commands,
+                    Ok(commands) => commands,
                     Err(err) if Self::is_parser_budget_error(&err) => return Err(err),
                     Err(_) => Vec::new(),
                 };
@@ -2964,6 +3954,7 @@ impl<'a> Parser<'a> {
                     quoted: false,
                     has_unquoted_glob: false,
                     part_quoted: Vec::new(),
+                    raw,
                 })
             }
             _ => Err(self.error("expected word")),
@@ -2994,6 +3985,7 @@ impl<'a> Parser<'a> {
                 quoted: true,
                 has_unquoted_glob: false,
                 part_quoted: Vec::new(),
+                raw: None,
             }),
             _ => None,
         }
@@ -3023,13 +4015,713 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a word string into a Word with proper parts (variables, literals)
+    /// Parser for a `$(...)` body, on the heap: one lives per nesting level
+    /// while the inner script parses, so keeping it out of `parse_word`'s
+    /// frame leaves room for deep nesting (TM-DOS-044).
+    // THREAT[TM-DOS-021]: Propagate parent parser limits to child parser
+    // to prevent depth limit bypass via nested command substitution.
+    #[inline(never)]
+    fn nested_parser<'b>(&self, src: &'b str) -> Result<Box<Parser<'b>>> {
+        if self.current_depth >= self.max_depth {
+            return Err(Error::parse(format!(
+                "AST nesting too deep ({} levels, max {})",
+                self.current_depth + 1,
+                self.max_depth
+            )));
+        }
+        let mut parser = Box::new(Parser::with_limits_and_timeout(
+            src,
+            self.max_depth,
+            self.fuel,
+            self.timeout,
+        ));
+        parser.current_depth = self.current_depth + 1;
+        parser.started_at = self.started_at;
+        parser.execution_budget = self.execution_budget.clone();
+        parser.set_options(self.options.clone());
+        // `$( )` spans count from the outer word's line, so `$LINENO` and
+        // error line numbers inside it match bash.
+        let shift = self.current_span.start.line.saturating_sub(1);
+        if shift > 0 {
+            parser.lexer.shift_lines(shift);
+            parser.current_span.start.line += shift;
+            parser.current_span.end.line += shift;
+        }
+        Ok(parser)
+    }
+
+    // THREAT[TM-DOS-044]: This nonrecursive branch has many WordPart
+    // temporaries. Keep its frame out of every nested substitution parse.
+    #[inline(never)]
+    fn parse_braced_parameter(
+        &self,
+        chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+        parts: &mut Vec<WordPart>,
+        part_quoted: &mut Vec<bool>,
+        in_quoted_segment: bool,
+    ) {
+        macro_rules! push_part {
+            ($part:expr) => {{
+                parts.push($part);
+                part_quoted.push(in_quoted_segment);
+            }};
+        }
+        // ${VAR} format with possible parameter expansion
+        chars.next(); // consume '{'
+
+        if let Some(inner) = bad_brace_parameter(chars) {
+            // Bash accepts the word and fails when expanding it.
+            for _ in 0..=inner.chars().count() {
+                chars.next();
+            }
+            push_part!(WordPart::BadSubstitution(bad_substitution_text(&inner)));
+        } else if chars.peek() == Some(&'#') && !hash_param_with_op(chars) {
+            // ${#var} or ${#arr[@]} - length expansion
+            chars.next(); // consume '#'
+            let mut var_name = String::new();
+            while let Some(&c) = chars.peek() {
+                if c == '}' || c == '[' {
+                    break;
+                }
+                var_name.push(chars.next().unwrap());
+            }
+            // Check for array length ${#arr[@]} or ${#arr[*]}
+            if chars.peek() == Some(&'[') {
+                chars.next(); // consume '['
+                let mut index = String::new();
+                while let Some(&c) = chars.peek() {
+                    if c == ']' {
+                        chars.next();
+                        break;
+                    }
+                    index.push(chars.next().unwrap());
+                }
+                // Consume closing }
+                if chars.peek() == Some(&'}') {
+                    chars.next();
+                }
+                if index == "@" || index == "*" {
+                    push_part!(WordPart::ArrayLength(var_name));
+                } else {
+                    // ${#arr[n]} - length of element (same as ${#arr[n]})
+                    push_part!(WordPart::Length(format!("{}[{}]", var_name, index)));
+                }
+            } else {
+                // Consume closing }
+                if chars.peek() == Some(&'}') {
+                    chars.next();
+                }
+                if var_name.is_empty() {
+                    // `${#}` is `$#`, not a length.
+                    push_part!(WordPart::Variable("#".to_string()));
+                } else {
+                    push_part!(WordPart::Length(var_name));
+                }
+            }
+        } else if chars.peek() == Some(&'!') {
+            // Check for ${!arr[@]} or ${!arr[*]} - array indices
+            // or ${!var} - indirect expansion
+            chars.next(); // consume '!'
+            let mut var_name = String::new();
+            while let Some(&c) = chars.peek() {
+                if c == '}'
+                    || c == '['
+                    || c == '*'
+                    || c == '@'
+                    || c == ':'
+                    || c == '-'
+                    || c == '='
+                    || c == '+'
+                    || c == '?'
+                {
+                    break;
+                }
+                // `${!x#y}`, `${!x/a/b}`: an operator ends the name
+                // (`${!#}` is still the indirect `$#`).
+                if !var_name.is_empty() && matches!(c, '#' | '%' | '/' | '^' | ',' | '~') {
+                    break;
+                }
+                var_name.push(chars.next().unwrap());
+            }
+            // Check for array indices ${!arr[@]} or ${!arr[*]}
+            if chars.peek() == Some(&'[') {
+                chars.next(); // consume '['
+                let mut index = String::new();
+                while let Some(&c) = chars.peek() {
+                    if c == ']' {
+                        chars.next();
+                        break;
+                    }
+                    index.push(chars.next().unwrap());
+                }
+                if chars.peek() == Some(&'}') {
+                    chars.next();
+                    if index == "@" || index == "*" {
+                        push_part!(WordPart::ArrayIndices {
+                            name: var_name,
+                            star: index == "*",
+                        });
+                    } else {
+                        // `${!a[1]}`: the element names the variable.
+                        push_part!(WordPart::IndirectSuffix {
+                            name: format!("{var_name}[{index}]"),
+                            suffix: String::new(),
+                        });
+                    }
+                } else {
+                    // `${!ref[@]:2}`, `${!a[0]#x}`: the elements'
+                    // value names the variable the operator applies to.
+                    let suffix = self.read_brace_operand(chars);
+                    push_part!(WordPart::IndirectSuffix {
+                        name: format!("{var_name}[{index}]"),
+                        suffix,
+                    });
+                }
+            } else if chars.peek() == Some(&'}') {
+                // ${!var} - indirect expansion (no operator)
+                chars.next(); // consume '}'
+                push_part!(WordPart::IndirectExpansion {
+                    name: var_name,
+                    operator: None,
+                    operand: String::new(),
+                    colon_variant: false,
+                });
+            } else if chars.peek() == Some(&':') {
+                // ${!var:op} - indirect expansion with colon operator
+                let mut lookahead = chars.clone();
+                lookahead.next(); // skip ':'
+                if matches!(
+                    lookahead.peek(),
+                    Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
+                ) {
+                    chars.next(); // consume ':'
+                    let op_char = chars.next().unwrap();
+                    let operand = self.read_brace_operand(chars);
+                    let operator = match op_char {
+                        '-' => ParameterOp::UseDefault,
+                        '=' => ParameterOp::AssignDefault,
+                        '+' => ParameterOp::UseReplacement,
+                        '?' => ParameterOp::Error,
+                        _ => unreachable!(),
+                    };
+                    push_part!(WordPart::IndirectExpansion {
+                        name: var_name,
+                        operator: Some(operator),
+                        operand,
+                        colon_variant: true,
+                    });
+                } else {
+                    // `${!x:1:2}`: substring of the named variable.
+                    let suffix = self.read_brace_operand(chars);
+                    push_part!(WordPart::IndirectSuffix {
+                        name: var_name,
+                        suffix,
+                    });
+                }
+            } else if matches!(
+                chars.peek(),
+                Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
+            ) {
+                // ${!var-op} - indirect expansion with non-colon operator
+                let op_char = chars.next().unwrap();
+                let operand = self.read_brace_operand(chars);
+                let operator = match op_char {
+                    '-' => ParameterOp::UseDefault,
+                    '=' => ParameterOp::AssignDefault,
+                    '+' => ParameterOp::UseReplacement,
+                    '?' => ParameterOp::Error,
+                    _ => unreachable!(),
+                };
+                push_part!(WordPart::IndirectExpansion {
+                    name: var_name,
+                    operator: Some(operator),
+                    operand,
+                    colon_variant: false,
+                });
+            } else {
+                // ${!prefix*} or ${!prefix@} - prefix matching
+                let suffix = self.read_brace_operand(chars);
+                // `${!ref@a}`: transform the variable `ref` names.
+                if push_indirect_transformation(
+                    parts,
+                    part_quoted,
+                    in_quoted_segment,
+                    &var_name,
+                    &suffix,
+                ) {
+                } else if suffix.ends_with('*') || suffix.ends_with('@') {
+                    let full_prefix = format!("{}{}", var_name, &suffix[..suffix.len() - 1]);
+                    push_part!(WordPart::PrefixMatch {
+                        prefix: full_prefix,
+                        star: suffix.ends_with('*'),
+                    });
+                } else {
+                    push_part!(WordPart::IndirectSuffix {
+                        name: var_name,
+                        suffix,
+                    });
+                }
+            }
+        } else {
+            // Read variable name
+            let mut var_name = String::new();
+            while let Some(&c) = chars.peek() {
+                if c.is_ascii_alphanumeric() || c == '_' {
+                    var_name.push(chars.next().unwrap());
+                } else {
+                    break;
+                }
+            }
+
+            // Handle special parameters: ${@...}, ${*...}, ${-...},
+            // ${?...}, ${$...}
+            if var_name.is_empty()
+                && let Some(&c) = chars.peek()
+                && matches!(c, '@' | '*' | '-' | '?' | '$' | '#')
+            {
+                var_name.push(chars.next().unwrap());
+            }
+
+            // Check for array access ${arr[index]} or ${arr[@]:offset:length}
+            // `${arr[i]OP...}` with a pattern/case/transform OP reuses the
+            // scalar operator parsing below on the name `arr[i]`.
+            let mut subscript_op = false;
+            let had_subscript = chars.peek() == Some(&'[');
+            if chars.peek() == Some(&'[') {
+                chars.next(); // consume '['
+                let mut index = String::new();
+                scan_parameter_subscript(chars, |c| index.push(c));
+                // Strip surrounding quotes from index (e.g. "foo" -> foo)
+                if index.len() >= 2
+                    && ((index.starts_with('"') && index.ends_with('"'))
+                        || (index.starts_with('\'') && index.ends_with('\'')))
+                {
+                    index = index[1..index.len() - 1].to_string();
+                }
+                // After ], check for operators on array subscripts
+                if let Some(&next_c) = chars.peek() {
+                    if next_c == ':' {
+                        // Peek ahead to distinguish param ops (:- := :+ :?) from slice (:N)
+                        let mut lookahead = chars.clone();
+                        lookahead.next(); // skip ':'
+                        let is_param_op = matches!(
+                            lookahead.peek(),
+                            Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
+                        );
+                        if is_param_op {
+                            chars.next(); // consume ':'
+                            let arr_name = format!("{}[{}]", var_name, index);
+                            let op_char = chars.next().unwrap();
+                            let operand = self.read_brace_operand(chars);
+                            let operator = match op_char {
+                                '-' => ParameterOp::UseDefault,
+                                '=' => ParameterOp::AssignDefault,
+                                '+' => ParameterOp::UseReplacement,
+                                '?' => ParameterOp::Error,
+                                _ => unreachable!(),
+                            };
+                            push_part!(WordPart::ParameterExpansion {
+                                name: arr_name,
+                                operator,
+                                operand,
+                                colon_variant: true,
+                            });
+                        } else {
+                            // Array slice ${arr[@]:offset:length}
+                            chars.next(); // consume ':'
+                            let offset = read_slice_field(chars, true);
+                            let length = if chars.peek() == Some(&':') {
+                                chars.next();
+                                Some(read_slice_field(chars, false))
+                            } else {
+                                None
+                            };
+                            if chars.peek() == Some(&'}') {
+                                chars.next();
+                            }
+                            // `${a[@]:}`: an empty offset is a
+                            // bad substitution (bash).
+                            if offset.is_empty() && length.is_none() {
+                                push_part!(WordPart::BadSubstitution(format!(
+                                    "${{{}[{index}]:}}",
+                                    std::mem::take(&mut var_name)
+                                )));
+                            } else {
+                                // `${a[@]:o:l}` slices the elements,
+                                // `${a[1]:o:l}` the element's text.
+                                push_part!(WordPart::Substring {
+                                    name: format!("{}[{}]", std::mem::take(&mut var_name), index),
+                                    offset,
+                                    length,
+                                });
+                            }
+                        }
+                    } else if matches!(next_c, '-' | '+' | '=' | '?') {
+                        // Non-colon operators on array: ${arr[@]-default}
+                        let arr_name = format!("{}[{}]", var_name, index);
+                        let op_char = chars.next().unwrap();
+                        let operand = self.read_brace_operand(chars);
+                        let operator = match op_char {
+                            '-' => ParameterOp::UseDefault,
+                            '=' => ParameterOp::AssignDefault,
+                            '+' => ParameterOp::UseReplacement,
+                            '?' => ParameterOp::Error,
+                            _ => unreachable!(),
+                        };
+                        push_part!(WordPart::ParameterExpansion {
+                            name: arr_name,
+                            operator,
+                            operand,
+                            colon_variant: false,
+                        });
+                    } else if matches!(next_c, '#' | '%' | '/' | '^' | ',' | '~' | '@') {
+                        var_name = format!("{}[{}]", var_name, index);
+                        subscript_op = true;
+                    } else {
+                        // Plain array access ${arr[index]}
+                        if chars.peek() == Some(&'}') {
+                            chars.next();
+                        }
+                        push_part!(WordPart::ArrayAccess {
+                            name: std::mem::take(&mut var_name),
+                            index,
+                        });
+                    }
+                } else {
+                    push_part!(WordPart::ArrayAccess {
+                        name: std::mem::take(&mut var_name),
+                        index,
+                    });
+                }
+            }
+            if (!had_subscript || subscript_op)
+                && let Some(&c) = chars.peek()
+            {
+                // Check for operator
+                match c {
+                    ':' => {
+                        chars.next(); // consume ':'
+                        match chars.peek() {
+                            Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?') => {
+                                let op_char = chars.next().unwrap();
+                                let operand = self.read_brace_operand(chars);
+                                let operator = match op_char {
+                                    '-' => ParameterOp::UseDefault,
+                                    '=' => ParameterOp::AssignDefault,
+                                    '+' => ParameterOp::UseReplacement,
+                                    '?' => ParameterOp::Error,
+                                    _ => unreachable!(),
+                                };
+                                push_part!(WordPart::ParameterExpansion {
+                                    name: var_name,
+                                    operator,
+                                    operand,
+                                    colon_variant: true,
+                                });
+                            }
+                            _ => {
+                                // Substring extraction ${var:offset} or ${var:offset:length}
+                                let offset = read_slice_field(chars, true);
+                                let length = if chars.peek() == Some(&':') {
+                                    chars.next(); // consume ':'
+                                    Some(read_slice_field(chars, false))
+                                } else {
+                                    None
+                                };
+                                if chars.peek() == Some(&'}') {
+                                    chars.next();
+                                }
+                                if offset.is_empty() && length.is_none() {
+                                    push_part!(WordPart::BadSubstitution(format!(
+                                        "${{{var_name}:}}"
+                                    )));
+                                } else {
+                                    push_part!(WordPart::Substring {
+                                        name: var_name,
+                                        offset,
+                                        length,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    // Non-colon test operators: ${var-default}, ${var+alt}, ${var=assign}, ${var?err}
+                    '-' | '=' | '+' | '?' => {
+                        let op_char = chars.next().unwrap();
+                        let operand = self.read_brace_operand(chars);
+                        let operator = match op_char {
+                            '-' => ParameterOp::UseDefault,
+                            '=' => ParameterOp::AssignDefault,
+                            '+' => ParameterOp::UseReplacement,
+                            '?' => ParameterOp::Error,
+                            _ => unreachable!(),
+                        };
+                        push_part!(WordPart::ParameterExpansion {
+                            name: var_name,
+                            operator,
+                            operand,
+                            colon_variant: false,
+                        });
+                    }
+                    '#' => {
+                        chars.next();
+                        if chars.peek() == Some(&'#') {
+                            chars.next();
+                            let op = self.read_brace_operand(chars);
+                            push_part!(WordPart::ParameterExpansion {
+                                name: var_name,
+                                operator: ParameterOp::RemovePrefixLong,
+                                operand: op,
+                                colon_variant: false,
+                            });
+                        } else {
+                            let op = self.read_brace_operand(chars);
+                            push_part!(WordPart::ParameterExpansion {
+                                name: var_name,
+                                operator: ParameterOp::RemovePrefixShort,
+                                operand: op,
+                                colon_variant: false,
+                            });
+                        }
+                    }
+                    '%' => {
+                        chars.next();
+                        if chars.peek() == Some(&'%') {
+                            chars.next();
+                            let op = self.read_brace_operand(chars);
+                            push_part!(WordPart::ParameterExpansion {
+                                name: var_name,
+                                operator: ParameterOp::RemoveSuffixLong,
+                                operand: op,
+                                colon_variant: false,
+                            });
+                        } else {
+                            let op = self.read_brace_operand(chars);
+                            push_part!(WordPart::ParameterExpansion {
+                                name: var_name,
+                                operator: ParameterOp::RemoveSuffixShort,
+                                operand: op,
+                                colon_variant: false,
+                            });
+                        }
+                    }
+                    '/' => {
+                        chars.next();
+                        let replace_all = if chars.peek() == Some(&'/') {
+                            chars.next();
+                            true
+                        } else {
+                            false
+                        };
+                        let mut pattern = String::new();
+                        // `${x///}`, `${x////c}`: the pattern
+                        // cannot be empty, so a `/` right after
+                        // `//` is the pattern itself.
+                        if replace_all && chars.peek() == Some(&'/') {
+                            chars.next();
+                            pattern.push('/');
+                        }
+                        let mut in_dq = false;
+                        while let Some(&ch) = chars.peek() {
+                            if ch == '\x00' {
+                                pattern.push(chars.next().unwrap());
+                                if let Some(n) = chars.next() {
+                                    pattern.push(n);
+                                }
+                                continue;
+                            }
+                            if ch == '"' {
+                                in_dq = !in_dq;
+                            } else if !in_dq && (ch == '/' || ch == '}') {
+                                break;
+                            }
+                            if ch == '\\' {
+                                chars.next();
+                                if let Some(&next) = chars.peek()
+                                    && next == '/'
+                                {
+                                    pattern.push(chars.next().unwrap());
+                                    continue;
+                                }
+                                pattern.push('\\');
+                                if let Some(n) = chars.next() {
+                                    pattern.push(n);
+                                }
+                                continue;
+                            }
+                            pattern.push(chars.next().unwrap());
+                        }
+                        let replacement = if chars.peek() == Some(&'/') {
+                            chars.next();
+                            let mut repl = String::new();
+                            let mut in_dq = false;
+                            while let Some(&ch) = chars.peek() {
+                                if ch == '\x00' {
+                                    repl.push(chars.next().unwrap());
+                                    if let Some(n) = chars.next() {
+                                        repl.push(n);
+                                    }
+                                    continue;
+                                }
+                                if ch == '"' {
+                                    in_dq = !in_dq;
+                                } else if ch == '\'' && !in_dq {
+                                    // `"${y/b/'}'}"`: a single-quoted span
+                                    // hides `}`; the expansion quote-removes it.
+                                    repl.push(chars.next().unwrap());
+                                    for q in chars.by_ref() {
+                                        repl.push(q);
+                                        if q == '\'' {
+                                            break;
+                                        }
+                                    }
+                                    continue;
+                                } else if ch == '\\' {
+                                    repl.push(chars.next().unwrap());
+                                    if let Some(n) = chars.next() {
+                                        // `\/` is a literal slash, as in the
+                                        // pattern (bash removes the backslash).
+                                        if n == '/' {
+                                            repl.pop();
+                                        }
+                                        repl.push(n);
+                                    }
+                                    continue;
+                                } else if !in_dq && ch == '}' {
+                                    break;
+                                }
+                                repl.push(chars.next().unwrap());
+                            }
+                            repl
+                        } else {
+                            String::new()
+                        };
+                        if chars.peek() == Some(&'}') {
+                            chars.next();
+                        }
+                        let op = if replace_all {
+                            ParameterOp::ReplaceAll {
+                                pattern,
+                                replacement,
+                            }
+                        } else {
+                            ParameterOp::ReplaceFirst {
+                                pattern,
+                                replacement,
+                            }
+                        };
+                        push_part!(WordPart::ParameterExpansion {
+                            name: var_name,
+                            operator: op,
+                            operand: String::new(),
+                            colon_variant: false,
+                        });
+                    }
+                    '^' => {
+                        chars.next();
+                        let op = if chars.peek() == Some(&'^') {
+                            chars.next();
+                            ParameterOp::UpperAll
+                        } else {
+                            ParameterOp::UpperFirst
+                        };
+                        // `${v^^pat}`: only characters matching `pat`.
+                        let operand = self.read_brace_operand(chars);
+                        push_part!(WordPart::ParameterExpansion {
+                            name: var_name,
+                            operator: op,
+                            operand,
+                            colon_variant: false,
+                        });
+                    }
+                    '~' => {
+                        // `${v~}` / `${v~~}`: toggle case (undocumented
+                        // in the bash manual, supported by bash 4+).
+                        chars.next();
+                        let op = if chars.peek() == Some(&'~') {
+                            chars.next();
+                            ParameterOp::ToggleAll
+                        } else {
+                            ParameterOp::ToggleFirst
+                        };
+                        let operand = self.read_brace_operand(chars);
+                        push_part!(WordPart::ParameterExpansion {
+                            name: var_name,
+                            operator: op,
+                            operand,
+                            colon_variant: false,
+                        });
+                    }
+                    ',' => {
+                        chars.next();
+                        let op = if chars.peek() == Some(&',') {
+                            chars.next();
+                            ParameterOp::LowerAll
+                        } else {
+                            ParameterOp::LowerFirst
+                        };
+                        // `${v^^pat}`: only characters matching `pat`.
+                        let operand = self.read_brace_operand(chars);
+                        push_part!(WordPart::ParameterExpansion {
+                            name: var_name,
+                            operator: op,
+                            operand,
+                            colon_variant: false,
+                        });
+                    }
+                    '@' => {
+                        chars.next();
+                        if let Some(&op) = chars.peek() {
+                            chars.next();
+                            if chars.peek() == Some(&'}') {
+                                chars.next();
+                            }
+                            push_part!(WordPart::Transformation {
+                                name: var_name,
+                                operator: op,
+                            });
+                        } else {
+                            if chars.peek() == Some(&'}') {
+                                chars.next();
+                            }
+                            push_part!(WordPart::Variable(var_name));
+                        }
+                    }
+                    '}' => {
+                        chars.next();
+                        if !var_name.is_empty() {
+                            push_part!(WordPart::Variable(var_name));
+                        }
+                    }
+                    _ => {
+                        while let Some(&ch) = chars.peek() {
+                            if ch == '}' {
+                                chars.next();
+                                break;
+                            }
+                            chars.next();
+                        }
+                        if !var_name.is_empty() {
+                            push_part!(WordPart::Variable(var_name));
+                        }
+                    }
+                }
+            } else if !had_subscript && !var_name.is_empty() {
+                push_part!(WordPart::Variable(var_name));
+            }
+        }
+    }
+
     fn parse_word(&self, s: String) -> Word {
         let mut parts = Vec::new();
         let mut part_quoted = Vec::new();
         let mut chars = s.chars().peekable();
         let mut current = String::new();
         let mut in_quoted_segment = false;
+        // Parts count when the current quoted segment opened, to spot `""`.
+        let mut segment_start = 0usize;
+        let mut has_empty_quoted = false;
+        let mut saw_quote_marker = false;
         macro_rules! push_part {
             ($part:expr) => {{
                 parts.push($part);
@@ -3041,12 +4733,39 @@ impl<'a> Parser<'a> {
             if ch == '\x00' {
                 // NUL sentinel from lexer: next char is a literal (escaped in source).
                 if let Some(literal_ch) = chars.next() {
-                    current.push(literal_ch);
+                    if literal_ch == '~'
+                        && !in_quoted_segment
+                        && (current.is_empty() || current.ends_with([':', '=']))
+                    {
+                        // `\~` where a tilde prefix could start: a quoted
+                        // part, so it never tilde-expands.
+                        if !current.is_empty() {
+                            push_part!(WordPart::Literal(std::mem::take(&mut current)));
+                        }
+                        parts.push(WordPart::Literal("~".to_string()));
+                        part_quoted.push(true);
+                    } else {
+                        current.push(literal_ch);
+                    }
                 }
-            } else if ch == '\u{1e}' {
-                in_quoted_segment = true;
-            } else if ch == '\u{1f}' {
-                in_quoted_segment = false;
+            } else if ch == '\u{1e}' || ch == '\u{1f}' {
+                // A quote boundary ends the literal run, so `part_quoted`
+                // records which literal text was quoted (brace expansion
+                // only sees unquoted literals).
+                let quoted = ch == '\u{1e}';
+                saw_quote_marker = true;
+                if quoted != in_quoted_segment && !current.is_empty() {
+                    push_part!(WordPart::Literal(std::mem::take(&mut current)));
+                } else if !quoted && in_quoted_segment && parts.len() == segment_start {
+                    // An empty quoted segment (`$x""`): keep it as an empty
+                    // quoted part so field splitting can still make a field.
+                    push_part!(WordPart::Literal(String::new()));
+                    has_empty_quoted = true;
+                }
+                if quoted && !in_quoted_segment {
+                    segment_start = parts.len();
+                }
+                in_quoted_segment = quoted;
             } else if ch == '$' {
                 // Flush current literal
                 if !current.is_empty() {
@@ -3112,29 +4831,15 @@ impl<'a> Parser<'a> {
                         }
                         push_part!(WordPart::ArithmeticExpansion(expr));
                     } else {
-                        // Command substitution $(...)
+                        // Command substitution $(...): quote/heredoc-aware end.
                         let mut cmd_str = String::new();
-                        let mut depth = 1;
+                        let mut scanner = subst_scan::SubstScanner::new();
                         for c in chars.by_ref() {
-                            if c == '(' {
-                                depth += 1;
-                                cmd_str.push(c);
-                            } else if c == ')' {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break;
-                                }
-                                cmd_str.push(c);
-                            } else {
-                                cmd_str.push(c);
+                            if scanner.feed(c) == subst_scan::Step::Close {
+                                break;
                             }
+                            cmd_str.push(c);
                         }
-                        // THREAT[TM-DOS-021]: Propagate parent parser limits to child parser
-                        // to prevent depth limit bypass via nested command substitution.
-                        let remaining_depth = self.max_depth.saturating_sub(self.current_depth);
-                        let mut inner_parser =
-                            Parser::with_limits(&cmd_str, remaining_depth, self.fuel);
-                        inner_parser.execution_budget = self.execution_budget.clone();
                         // A failed inner parse must never make the part vanish:
                         // dropping it splices the literals on either side into a
                         // word that appears nowhere in the source (`a$(|)b` ->
@@ -3142,7 +4847,10 @@ impl<'a> Parser<'a> {
                         // permission gate as a real command name. Keep the part
                         // so the word stays non-literal, and remember the error so
                         // `parse_script` can reject the script like bash does.
-                        match inner_parser.parse() {
+                        match self
+                            .nested_parser(&cmd_str)
+                            .and_then(|mut parser| parser.parse_inner())
+                        {
                             Ok(script) => {
                                 push_part!(WordPart::CommandSubstitution(script.commands));
                             }
@@ -3155,578 +4863,12 @@ impl<'a> Parser<'a> {
                         }
                     }
                 } else if chars.peek() == Some(&'{') {
-                    // ${VAR} format with possible parameter expansion
-                    chars.next(); // consume '{'
-
-                    // Check for ${#var} or ${#arr[@]} - length expansion
-                    if chars.peek() == Some(&'#') {
-                        chars.next(); // consume '#'
-                        let mut var_name = String::new();
-                        while let Some(&c) = chars.peek() {
-                            if c == '}' || c == '[' {
-                                break;
-                            }
-                            var_name.push(chars.next().unwrap());
-                        }
-                        // Check for array length ${#arr[@]} or ${#arr[*]}
-                        if chars.peek() == Some(&'[') {
-                            chars.next(); // consume '['
-                            let mut index = String::new();
-                            while let Some(&c) = chars.peek() {
-                                if c == ']' {
-                                    chars.next();
-                                    break;
-                                }
-                                index.push(chars.next().unwrap());
-                            }
-                            // Consume closing }
-                            if chars.peek() == Some(&'}') {
-                                chars.next();
-                            }
-                            if index == "@" || index == "*" {
-                                push_part!(WordPart::ArrayLength(var_name));
-                            } else {
-                                // ${#arr[n]} - length of element (same as ${#arr[n]})
-                                push_part!(WordPart::Length(format!("{}[{}]", var_name, index)));
-                            }
-                        } else {
-                            // Consume closing }
-                            if chars.peek() == Some(&'}') {
-                                chars.next();
-                            }
-                            push_part!(WordPart::Length(var_name));
-                        }
-                    } else if chars.peek() == Some(&'!') {
-                        // Check for ${!arr[@]} or ${!arr[*]} - array indices
-                        // or ${!var} - indirect expansion
-                        chars.next(); // consume '!'
-                        let mut var_name = String::new();
-                        while let Some(&c) = chars.peek() {
-                            if c == '}'
-                                || c == '['
-                                || c == '*'
-                                || c == '@'
-                                || c == ':'
-                                || c == '-'
-                                || c == '='
-                                || c == '+'
-                                || c == '?'
-                            {
-                                break;
-                            }
-                            var_name.push(chars.next().unwrap());
-                        }
-                        // Check for array indices ${!arr[@]} or ${!arr[*]}
-                        if chars.peek() == Some(&'[') {
-                            chars.next(); // consume '['
-                            let mut index = String::new();
-                            while let Some(&c) = chars.peek() {
-                                if c == ']' {
-                                    chars.next();
-                                    break;
-                                }
-                                index.push(chars.next().unwrap());
-                            }
-                            // Consume closing }
-                            if chars.peek() == Some(&'}') {
-                                chars.next();
-                            }
-                            if index == "@" || index == "*" {
-                                push_part!(WordPart::ArrayIndices(var_name));
-                            } else {
-                                // ${!arr[n]} - not standard, treat as variable
-                                push_part!(WordPart::Variable(format!("!{}[{}]", var_name, index)));
-                            }
-                        } else if chars.peek() == Some(&'}') {
-                            // ${!var} - indirect expansion (no operator)
-                            chars.next(); // consume '}'
-                            push_part!(WordPart::IndirectExpansion {
-                                name: var_name,
-                                operator: None,
-                                operand: String::new(),
-                                colon_variant: false,
-                            });
-                        } else if chars.peek() == Some(&':') {
-                            // ${!var:op} - indirect expansion with colon operator
-                            let mut lookahead = chars.clone();
-                            lookahead.next(); // skip ':'
-                            if matches!(
-                                lookahead.peek(),
-                                Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
-                            ) {
-                                chars.next(); // consume ':'
-                                let op_char = chars.next().unwrap();
-                                let operand = self.read_brace_operand(&mut chars);
-                                let operator = match op_char {
-                                    '-' => ParameterOp::UseDefault,
-                                    '=' => ParameterOp::AssignDefault,
-                                    '+' => ParameterOp::UseReplacement,
-                                    '?' => ParameterOp::Error,
-                                    _ => unreachable!(),
-                                };
-                                push_part!(WordPart::IndirectExpansion {
-                                    name: var_name,
-                                    operator: Some(operator),
-                                    operand,
-                                    colon_variant: true,
-                                });
-                            } else {
-                                // Not a param op after ':', treat as prefix match fallback
-                                let mut suffix = String::new();
-                                while let Some(&c) = chars.peek() {
-                                    if c == '}' {
-                                        chars.next();
-                                        break;
-                                    }
-                                    suffix.push(chars.next().unwrap());
-                                }
-                                push_part!(WordPart::Variable(format!("!{}{}", var_name, suffix)));
-                            }
-                        } else if matches!(
-                            chars.peek(),
-                            Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
-                        ) {
-                            // ${!var-op} - indirect expansion with non-colon operator
-                            let op_char = chars.next().unwrap();
-                            let operand = self.read_brace_operand(&mut chars);
-                            let operator = match op_char {
-                                '-' => ParameterOp::UseDefault,
-                                '=' => ParameterOp::AssignDefault,
-                                '+' => ParameterOp::UseReplacement,
-                                '?' => ParameterOp::Error,
-                                _ => unreachable!(),
-                            };
-                            push_part!(WordPart::IndirectExpansion {
-                                name: var_name,
-                                operator: Some(operator),
-                                operand,
-                                colon_variant: false,
-                            });
-                        } else {
-                            // ${!prefix*} or ${!prefix@} - prefix matching
-                            let mut suffix = String::new();
-                            while let Some(&c) = chars.peek() {
-                                if c == '}' {
-                                    chars.next();
-                                    break;
-                                }
-                                suffix.push(chars.next().unwrap());
-                            }
-                            // Strip trailing * or @
-                            if suffix.ends_with('*') || suffix.ends_with('@') {
-                                let full_prefix =
-                                    format!("{}{}", var_name, &suffix[..suffix.len() - 1]);
-                                push_part!(WordPart::PrefixMatch(full_prefix));
-                            } else {
-                                push_part!(WordPart::Variable(format!("!{}{}", var_name, suffix)));
-                            }
-                        }
-                    } else {
-                        // Read variable name
-                        let mut var_name = String::new();
-                        while let Some(&c) = chars.peek() {
-                            if c.is_ascii_alphanumeric() || c == '_' {
-                                var_name.push(chars.next().unwrap());
-                            } else {
-                                break;
-                            }
-                        }
-
-                        // Handle special parameters: ${@...}, ${*...}
-                        if var_name.is_empty()
-                            && let Some(&c) = chars.peek()
-                            && matches!(c, '@' | '*')
-                        {
-                            var_name.push(chars.next().unwrap());
-                        }
-
-                        // Check for array access ${arr[index]} or ${arr[@]:offset:length}
-                        if chars.peek() == Some(&'[') {
-                            chars.next(); // consume '['
-                            let mut index = String::new();
-                            // Track nesting so nested ${...} containing
-                            // brackets (e.g. ${#arr[@]}) don't prematurely
-                            // close the subscript.
-                            let mut bracket_depth: i32 = 0;
-                            let mut brace_depth: i32 = 0;
-                            while let Some(&c) = chars.peek() {
-                                if c == ']' && bracket_depth == 0 && brace_depth == 0 {
-                                    chars.next();
-                                    break;
-                                }
-                                match c {
-                                    '[' => bracket_depth += 1,
-                                    ']' => bracket_depth -= 1,
-                                    '$' => {
-                                        index.push(chars.next().unwrap());
-                                        if chars.peek() == Some(&'{') {
-                                            brace_depth += 1;
-                                            index.push(chars.next().unwrap());
-                                            continue;
-                                        }
-                                        continue;
-                                    }
-                                    '{' => brace_depth += 1,
-                                    '}' if brace_depth > 0 => brace_depth -= 1,
-                                    '}' => {}
-                                    _ => {}
-                                }
-                                index.push(chars.next().unwrap());
-                            }
-                            // Strip surrounding quotes from index (e.g. "foo" -> foo)
-                            if index.len() >= 2
-                                && ((index.starts_with('"') && index.ends_with('"'))
-                                    || (index.starts_with('\'') && index.ends_with('\'')))
-                            {
-                                index = index[1..index.len() - 1].to_string();
-                            }
-                            // After ], check for operators on array subscripts
-                            if let Some(&next_c) = chars.peek() {
-                                if next_c == ':' {
-                                    // Peek ahead to distinguish param ops (:- := :+ :?) from slice (:N)
-                                    let mut lookahead = chars.clone();
-                                    lookahead.next(); // skip ':'
-                                    let is_param_op = matches!(
-                                        lookahead.peek(),
-                                        Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?')
-                                    );
-                                    if is_param_op {
-                                        chars.next(); // consume ':'
-                                        let arr_name = format!("{}[{}]", var_name, index);
-                                        let op_char = chars.next().unwrap();
-                                        let operand = self.read_brace_operand(&mut chars);
-                                        let operator = match op_char {
-                                            '-' => ParameterOp::UseDefault,
-                                            '=' => ParameterOp::AssignDefault,
-                                            '+' => ParameterOp::UseReplacement,
-                                            '?' => ParameterOp::Error,
-                                            _ => unreachable!(),
-                                        };
-                                        push_part!(WordPart::ParameterExpansion {
-                                            name: arr_name,
-                                            operator,
-                                            operand,
-                                            colon_variant: true,
-                                        });
-                                    } else {
-                                        // Array slice ${arr[@]:offset:length}
-                                        chars.next(); // consume ':'
-                                        let mut offset = String::new();
-                                        while let Some(&c) = chars.peek() {
-                                            if c == ':' || c == '}' {
-                                                break;
-                                            }
-                                            offset.push(chars.next().unwrap());
-                                        }
-                                        let length = if chars.peek() == Some(&':') {
-                                            chars.next();
-                                            let mut len = String::new();
-                                            while let Some(&c) = chars.peek() {
-                                                if c == '}' {
-                                                    break;
-                                                }
-                                                len.push(chars.next().unwrap());
-                                            }
-                                            Some(len)
-                                        } else {
-                                            None
-                                        };
-                                        if chars.peek() == Some(&'}') {
-                                            chars.next();
-                                        }
-                                        push_part!(WordPart::ArraySlice {
-                                            name: var_name,
-                                            offset,
-                                            length,
-                                        });
-                                    }
-                                } else if matches!(next_c, '-' | '+' | '=' | '?') {
-                                    // Non-colon operators on array: ${arr[@]-default}
-                                    let arr_name = format!("{}[{}]", var_name, index);
-                                    let op_char = chars.next().unwrap();
-                                    let operand = self.read_brace_operand(&mut chars);
-                                    let operator = match op_char {
-                                        '-' => ParameterOp::UseDefault,
-                                        '=' => ParameterOp::AssignDefault,
-                                        '+' => ParameterOp::UseReplacement,
-                                        '?' => ParameterOp::Error,
-                                        _ => unreachable!(),
-                                    };
-                                    push_part!(WordPart::ParameterExpansion {
-                                        name: arr_name,
-                                        operator,
-                                        operand,
-                                        colon_variant: false,
-                                    });
-                                } else {
-                                    // Plain array access ${arr[index]}
-                                    if chars.peek() == Some(&'}') {
-                                        chars.next();
-                                    }
-                                    push_part!(WordPart::ArrayAccess {
-                                        name: var_name,
-                                        index,
-                                    });
-                                }
-                            } else {
-                                push_part!(WordPart::ArrayAccess {
-                                    name: var_name,
-                                    index,
-                                });
-                            }
-                        } else if let Some(&c) = chars.peek() {
-                            // Check for operator
-                            match c {
-                                ':' => {
-                                    chars.next(); // consume ':'
-                                    match chars.peek() {
-                                        Some(&'-') | Some(&'=') | Some(&'+') | Some(&'?') => {
-                                            let op_char = chars.next().unwrap();
-                                            let operand = self.read_brace_operand(&mut chars);
-                                            let operator = match op_char {
-                                                '-' => ParameterOp::UseDefault,
-                                                '=' => ParameterOp::AssignDefault,
-                                                '+' => ParameterOp::UseReplacement,
-                                                '?' => ParameterOp::Error,
-                                                _ => unreachable!(),
-                                            };
-                                            push_part!(WordPart::ParameterExpansion {
-                                                name: var_name,
-                                                operator,
-                                                operand,
-                                                colon_variant: true,
-                                            });
-                                        }
-                                        _ => {
-                                            // Substring extraction ${var:offset} or ${var:offset:length}
-                                            let mut offset = String::new();
-                                            while let Some(&ch) = chars.peek() {
-                                                if ch == ':' || ch == '}' {
-                                                    break;
-                                                }
-                                                offset.push(chars.next().unwrap());
-                                            }
-                                            let length = if chars.peek() == Some(&':') {
-                                                chars.next(); // consume ':'
-                                                let mut len = String::new();
-                                                while let Some(&ch) = chars.peek() {
-                                                    if ch == '}' {
-                                                        break;
-                                                    }
-                                                    len.push(chars.next().unwrap());
-                                                }
-                                                Some(len)
-                                            } else {
-                                                None
-                                            };
-                                            if chars.peek() == Some(&'}') {
-                                                chars.next();
-                                            }
-                                            push_part!(WordPart::Substring {
-                                                name: var_name,
-                                                offset,
-                                                length,
-                                            });
-                                        }
-                                    }
-                                }
-                                // Non-colon test operators: ${var-default}, ${var+alt}, ${var=assign}, ${var?err}
-                                '-' | '=' | '+' | '?' => {
-                                    let op_char = chars.next().unwrap();
-                                    let operand = self.read_brace_operand(&mut chars);
-                                    let operator = match op_char {
-                                        '-' => ParameterOp::UseDefault,
-                                        '=' => ParameterOp::AssignDefault,
-                                        '+' => ParameterOp::UseReplacement,
-                                        '?' => ParameterOp::Error,
-                                        _ => unreachable!(),
-                                    };
-                                    push_part!(WordPart::ParameterExpansion {
-                                        name: var_name,
-                                        operator,
-                                        operand,
-                                        colon_variant: false,
-                                    });
-                                }
-                                '#' => {
-                                    chars.next();
-                                    if chars.peek() == Some(&'#') {
-                                        chars.next();
-                                        let op = self.read_brace_operand(&mut chars);
-                                        push_part!(WordPart::ParameterExpansion {
-                                            name: var_name,
-                                            operator: ParameterOp::RemovePrefixLong,
-                                            operand: op,
-                                            colon_variant: false,
-                                        });
-                                    } else {
-                                        let op = self.read_brace_operand(&mut chars);
-                                        push_part!(WordPart::ParameterExpansion {
-                                            name: var_name,
-                                            operator: ParameterOp::RemovePrefixShort,
-                                            operand: op,
-                                            colon_variant: false,
-                                        });
-                                    }
-                                }
-                                '%' => {
-                                    chars.next();
-                                    if chars.peek() == Some(&'%') {
-                                        chars.next();
-                                        let op = self.read_brace_operand(&mut chars);
-                                        push_part!(WordPart::ParameterExpansion {
-                                            name: var_name,
-                                            operator: ParameterOp::RemoveSuffixLong,
-                                            operand: op,
-                                            colon_variant: false,
-                                        });
-                                    } else {
-                                        let op = self.read_brace_operand(&mut chars);
-                                        push_part!(WordPart::ParameterExpansion {
-                                            name: var_name,
-                                            operator: ParameterOp::RemoveSuffixShort,
-                                            operand: op,
-                                            colon_variant: false,
-                                        });
-                                    }
-                                }
-                                '/' => {
-                                    chars.next();
-                                    let replace_all = if chars.peek() == Some(&'/') {
-                                        chars.next();
-                                        true
-                                    } else {
-                                        false
-                                    };
-                                    let mut pattern = String::new();
-                                    while let Some(&ch) = chars.peek() {
-                                        if ch == '/' || ch == '}' {
-                                            break;
-                                        }
-                                        if ch == '\\' {
-                                            chars.next();
-                                            if let Some(&next) = chars.peek()
-                                                && next == '/'
-                                            {
-                                                pattern.push(chars.next().unwrap());
-                                                continue;
-                                            }
-                                            pattern.push('\\');
-                                            continue;
-                                        }
-                                        pattern.push(chars.next().unwrap());
-                                    }
-                                    let replacement = if chars.peek() == Some(&'/') {
-                                        chars.next();
-                                        let mut repl = String::new();
-                                        while let Some(&ch) = chars.peek() {
-                                            if ch == '}' {
-                                                break;
-                                            }
-                                            repl.push(chars.next().unwrap());
-                                        }
-                                        repl
-                                    } else {
-                                        String::new()
-                                    };
-                                    if chars.peek() == Some(&'}') {
-                                        chars.next();
-                                    }
-                                    let op = if replace_all {
-                                        ParameterOp::ReplaceAll {
-                                            pattern,
-                                            replacement,
-                                        }
-                                    } else {
-                                        ParameterOp::ReplaceFirst {
-                                            pattern,
-                                            replacement,
-                                        }
-                                    };
-                                    push_part!(WordPart::ParameterExpansion {
-                                        name: var_name,
-                                        operator: op,
-                                        operand: String::new(),
-                                        colon_variant: false,
-                                    });
-                                }
-                                '^' => {
-                                    chars.next();
-                                    let op = if chars.peek() == Some(&'^') {
-                                        chars.next();
-                                        ParameterOp::UpperAll
-                                    } else {
-                                        ParameterOp::UpperFirst
-                                    };
-                                    if chars.peek() == Some(&'}') {
-                                        chars.next();
-                                    }
-                                    push_part!(WordPart::ParameterExpansion {
-                                        name: var_name,
-                                        operator: op,
-                                        operand: String::new(),
-                                        colon_variant: false,
-                                    });
-                                }
-                                ',' => {
-                                    chars.next();
-                                    let op = if chars.peek() == Some(&',') {
-                                        chars.next();
-                                        ParameterOp::LowerAll
-                                    } else {
-                                        ParameterOp::LowerFirst
-                                    };
-                                    if chars.peek() == Some(&'}') {
-                                        chars.next();
-                                    }
-                                    push_part!(WordPart::ParameterExpansion {
-                                        name: var_name,
-                                        operator: op,
-                                        operand: String::new(),
-                                        colon_variant: false,
-                                    });
-                                }
-                                '@' => {
-                                    chars.next();
-                                    if let Some(&op) = chars.peek() {
-                                        chars.next();
-                                        if chars.peek() == Some(&'}') {
-                                            chars.next();
-                                        }
-                                        push_part!(WordPart::Transformation {
-                                            name: var_name,
-                                            operator: op,
-                                        });
-                                    } else {
-                                        if chars.peek() == Some(&'}') {
-                                            chars.next();
-                                        }
-                                        push_part!(WordPart::Variable(var_name));
-                                    }
-                                }
-                                '}' => {
-                                    chars.next();
-                                    if !var_name.is_empty() {
-                                        push_part!(WordPart::Variable(var_name));
-                                    }
-                                }
-                                _ => {
-                                    while let Some(&ch) = chars.peek() {
-                                        if ch == '}' {
-                                            chars.next();
-                                            break;
-                                        }
-                                        chars.next();
-                                    }
-                                    if !var_name.is_empty() {
-                                        push_part!(WordPart::Variable(var_name));
-                                    }
-                                }
-                            }
-                        } else if !var_name.is_empty() {
-                            push_part!(WordPart::Variable(var_name));
-                        }
-                    }
+                    self.parse_braced_parameter(
+                        &mut chars,
+                        &mut parts,
+                        &mut part_quoted,
+                        in_quoted_segment,
+                    );
                 } else if let Some(&c) = chars.peek() {
                     // Check for special single-character variables ($?, $#, $@, $*, $!, $$, $-, $0-$9)
                     if matches!(c, '?' | '#' | '@' | '*' | '!' | '$' | '-') || c.is_ascii_digit() {
@@ -3762,17 +4904,13 @@ impl<'a> Parser<'a> {
             push_part!(WordPart::Literal(current));
         }
 
-        // If no parts, create an empty literal
-        if parts.is_empty() {
-            push_part!(WordPart::Literal(String::new()));
-        }
-
-        Word {
+        finish_word(
             parts,
-            quoted: false,
-            has_unquoted_glob: false,
             part_quoted,
-        }
+            has_empty_quoted,
+            saw_quote_marker,
+            in_quoted_segment,
+        )
     }
 
     /// Read operand for brace expansion (everything until closing brace)
@@ -3780,7 +4918,26 @@ impl<'a> Parser<'a> {
         let mut operand = String::new();
         let mut depth = 1; // Track nested braces
         while let Some(&c) = chars.peek() {
-            if c == '{' {
+            if c == '\x00' {
+                // Lexer escape: keep the pair, never count the escaped char.
+                operand.push(chars.next().unwrap());
+                if let Some(n) = chars.next() {
+                    operand.push(n);
+                }
+            } else if c == '$' {
+                operand.push(chars.next().unwrap());
+                if chars.peek() == Some(&'(') {
+                    // `${x:-$(echo })}`: the substitution owns its braces.
+                    operand.push(chars.next().unwrap());
+                    let mut scanner = subst_scan::SubstScanner::new();
+                    for n in chars.by_ref() {
+                        operand.push(n);
+                        if scanner.feed(n) == subst_scan::Step::Close {
+                            break;
+                        }
+                    }
+                }
+            } else if c == '{' {
                 depth += 1;
                 operand.push(chars.next().unwrap());
             } else if c == '}' {
@@ -3798,10 +4955,902 @@ impl<'a> Parser<'a> {
     }
 }
 
+/// `a |& b` is `a 2>&1 | b`: append the dup to `a`. Out of line to keep
+/// the recursive `parse_pipeline` frame small (TM-DOS-044).
+#[inline(never)]
+fn add_stderr_to_pipe(cmd: &mut Command) {
+    let dup = Redirect {
+        fd: Some(2),
+        fd_var: None,
+        kind: RedirectKind::DupOutput,
+        target: Word::literal("1"),
+        heredoc_delim: None,
+    };
+    match cmd {
+        Command::Simple(sc) => sc.redirects.push(dup),
+        Command::Compound(_, redirects) => redirects.push(dup),
+        _ => {}
+    }
+}
+
+// AST assembly runs after recursive parsing returns, keeping its temporaries
+// off the recursive grammar frames (TM-DOS-044).
+#[inline(never)]
+fn finish_command_list(
+    first: Option<Box<Command>>,
+    rest: Vec<(ListOperator, Command)>,
+    span: Span,
+) -> Result<Option<Box<Command>>> {
+    let Some(first) = first else {
+        return Ok(None);
+    };
+    if rest.is_empty() {
+        Ok(Some(first))
+    } else {
+        Ok(Some(Box::new(Command::List(CommandList {
+            first,
+            rest,
+            span,
+        }))))
+    }
+}
+
+#[inline(never)]
+fn finish_pipeline(
+    commands: Vec<Command>,
+    negated: bool,
+    span: Span,
+) -> Result<Option<Box<Command>>> {
+    Ok(Some(Box::new(Command::Pipeline(Pipeline {
+        negated,
+        commands,
+        span,
+    }))))
+}
+
+#[inline(never)]
+fn finish_word(
+    mut parts: Vec<WordPart>,
+    mut part_quoted: Vec<bool>,
+    has_empty_quoted: bool,
+    saw_quote_marker: bool,
+    in_quoted_segment: bool,
+) -> Word {
+    // Empty quoted parts only matter next to an unquoted expansion
+    // (`""$x""` keeps empty fields) or a quoted `@` expansion (`"$@"""`
+    // is one empty field when there are no positional parameters);
+    // elsewhere drop them so the word keeps its plain shape.
+    if has_empty_quoted {
+        let unquoted_expansion = parts
+            .iter()
+            .zip(&part_quoted)
+            .any(|(p, q)| !*q && !matches!(p, WordPart::Literal(_)));
+        let quoted_at = parts.iter().zip(&part_quoted).any(|(p, q)| {
+            *q && match p {
+                WordPart::Variable(name) => name == "@",
+                WordPart::ArrayAccess { index, .. } => index == "@",
+                WordPart::ParameterExpansion { name, .. }
+                | WordPart::Transformation { name, .. }
+                | WordPart::Substring { name, .. } => name == "@" || name.ends_with("[@]"),
+                _ => false,
+            }
+        });
+        // `{X,,Y,}''`: brace items next to the empty quotes are words
+        // even when empty.
+        let brace_candidate = parts
+            .iter()
+            .zip(&part_quoted)
+            .any(|(p, q)| !*q && matches!(p, WordPart::Literal(t) if t.contains('{')));
+        if !unquoted_expansion && !quoted_at && !brace_candidate {
+            let mut kept_parts = Vec::with_capacity(parts.len());
+            let mut kept_quoted = Vec::with_capacity(parts.len());
+            for (p, q) in parts.into_iter().zip(part_quoted) {
+                if !matches!(&p, WordPart::Literal(s) if s.is_empty()) {
+                    kept_parts.push(p);
+                    kept_quoted.push(q);
+                }
+            }
+            parts = kept_parts;
+            part_quoted = kept_quoted;
+        }
+    }
+
+    // If no parts, create an empty literal
+    if parts.is_empty() {
+        parts.push(WordPart::Literal(String::new()));
+        part_quoted.push(in_quoted_segment);
+    }
+
+    // Every part quoted (`'a'"$x"`, `"$x"""`): the word is quoted, so its
+    // expansions are not field-split.
+    let quoted = saw_quote_marker && part_quoted.iter().all(|q| *q);
+    Word {
+        parts,
+        quoted,
+        has_unquoted_glob: false,
+        part_quoted,
+        raw: None,
+    }
+}
+
+// AST assembly runs after recursive parsing returns, keeping its temporaries
+// off the recursive grammar frames (TM-DOS-044).
+#[inline(never)]
+fn finish_simple_command(
+    mut words: Vec<Word>,
+    assignments: Vec<Assignment>,
+    redirects: Vec<Redirect>,
+    span: Span,
+) -> Result<Option<SimpleCommand>> {
+    // Handle assignment-only and redirect-only commands (`VAR=value`,
+    // `< file`, `> file`): bash runs them as null commands that still
+    // perform their assignments/redirections (#2448: `$(<file)`).
+    if words.is_empty() && (!assignments.is_empty() || !redirects.is_empty()) {
+        return Ok(Some(SimpleCommand {
+            name: Word::literal(""),
+            args: Vec::new(),
+            redirects,
+            assignments,
+            span,
+        }));
+    }
+
+    if words.is_empty() {
+        return Ok(None);
+    }
+
+    let name = words.remove(0);
+    let args = words;
+
+    Ok(Some(SimpleCommand {
+        name,
+        args,
+        redirects,
+        assignments,
+        span,
+    }))
+}
+
+/// `cmd &` before a closing keyword: an empty command carrying the `&`.
+/// Keep its `Command` temporary off the recursive list frame (TM-DOS-044).
+#[inline(never)]
+fn empty_background(span: Span) -> (ListOperator, Command) {
+    (
+        ListOperator::Background,
+        Command::Simple(SimpleCommand {
+            name: Word::literal(""),
+            args: vec![],
+            redirects: vec![],
+            assignments: vec![],
+            span,
+        }),
+    )
+}
+
+/// Consume a subscript after `[`, preserving its source text in `emit`.
+/// THREAT[TM-DOS-135]: admission and parameter parsing must agree on its end.
+fn scan_parameter_subscript(
+    chars: &mut impl Iterator<Item = char>,
+    mut emit: impl FnMut(char),
+) -> Option<usize> {
+    let mut brackets = 0usize;
+    let mut braces = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    let mut consumed = 0usize;
+    for c in chars.by_ref() {
+        consumed += c.len_utf8();
+        if escaped {
+            escaped = false;
+        } else {
+            match (quote, c) {
+                (Some('\''), '\'') => quote = None,
+                (Some('\''), _) => {}
+                (_, '\\' | '\x00') => escaped = true,
+                (Some('"'), '"') => quote = None,
+                (Some(_), _) => {}
+                (None, '\'' | '"') => quote = Some(c),
+                (None, '{') => braces += 1,
+                (None, '}') => braces = braces.saturating_sub(1),
+                (None, '[') => brackets += 1,
+                (None, ']') if brackets == 0 && braces == 0 => return Some(consumed),
+                (None, ']') => brackets = brackets.saturating_sub(1),
+                _ => {}
+            }
+        }
+        emit(c);
+    }
+    None
+}
+
+pub(crate) fn parameter_subscript_end(value: &str, open: usize) -> Option<usize> {
+    let rest = value.get(open..)?.strip_prefix('[')?;
+    scan_parameter_subscript(&mut rest.chars(), |_| {}).map(|used| open + 1 + used)
+}
+
+/// Whether a raw `=~` operand holds an expansion. A `$` that cannot start
+/// one (`^a$`, `(x$|y$)`) is the regex end anchor; single quotes hide both.
+/// Text inside `${...}` when bash would reject it with "bad substitution"
+/// at expansion time (`${x!}`, `${}`, `${#x:2}`, `${ x}`), else `None`.
+///
+/// `chars` is positioned just after the `{`. Only the parameter part is
+/// checked: a valid name (identifier, digits or one special character, with
+/// an optional subscript) must be followed by `}` or an operator. `${!...}`
+/// forms and anything involving quote/escape markers are left to the
+/// regular parser, so this only ever rejects words bash rejects too.
+fn bad_brace_parameter(chars: &std::iter::Peekable<std::str::Chars<'_>>) -> Option<String> {
+    const MARKERS: [char; 3] = ['\x00', '\u{1e}', '\u{1f}'];
+    let mut it = chars.clone();
+    let length_prefix = match it.peek() {
+        Some('!') => return None,
+        Some('#') => {
+            it.next();
+            match it.peek() {
+                // `${#}`, `${##}`, `${#-}`, ...: length of a special parameter
+                // or `$#` itself; leave these to the regular parser.
+                Some(c) if c.is_ascii_alphanumeric() || *c == '_' => true,
+                _ => return None,
+            }
+        }
+        _ => false,
+    };
+    let bad = match it.peek().copied() {
+        None => return None,
+        Some(c) if c.is_ascii_alphabetic() || c == '_' => {
+            while it
+                .peek()
+                .is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_')
+            {
+                it.next();
+            }
+            if it.peek() == Some(&'[') {
+                it.next();
+                scan_parameter_subscript(&mut it, |_| {})?;
+            }
+            next_is_bad(it.peek().copied(), length_prefix)
+        }
+        Some(c) if c.is_ascii_digit() => {
+            while it.peek().is_some_and(char::is_ascii_digit) {
+                it.next();
+            }
+            next_is_bad(it.peek().copied(), length_prefix)
+        }
+        Some('@' | '*' | '#' | '?' | '-' | '$' | '!') if !length_prefix => {
+            it.next();
+            next_is_bad(it.peek().copied(), false)
+        }
+        Some(c) if MARKERS.contains(&c) => return None,
+        Some(_) => true,
+    };
+    if !bad {
+        return None;
+    }
+    // Find the closing brace to report and skip the whole expansion.
+    let mut inner = String::new();
+    let mut depth = 0usize;
+    for c in chars.clone() {
+        // `${#1#'x'}` is bad whatever the quoting after the name.
+        if !length_prefix && (MARKERS.contains(&c) || c == '\'' || c == '"' || c == '\\') {
+            return None;
+        }
+        match c {
+            '{' => depth += 1,
+            '}' if depth == 0 => return Some(inner),
+            '}' => depth -= 1,
+            _ => {}
+        }
+        inner.push(c);
+    }
+    None
+}
+
+/// `${...}` text shown for a bad substitution, quote markers dropped.
+#[inline(never)]
+fn bad_substitution_text(inner: &str) -> String {
+    let shown: String = inner
+        .chars()
+        .filter(|c| !matches!(c, '\x00' | '\u{1e}' | '\u{1f}'))
+        .collect();
+    format!("${{{shown}}}")
+}
+
+/// `${!ref@a}`: push the transformation of the variable `ref` names
+/// (`suffix` is `@a`). Out of line so `parse_word`'s frame, which recurses
+/// per `$(...)` level, holds no extra `WordPart`.
+#[inline(never)]
+fn push_indirect_transformation(
+    parts: &mut Vec<WordPart>,
+    part_quoted: &mut Vec<bool>,
+    quoted: bool,
+    var_name: &str,
+    suffix: &str,
+) -> bool {
+    let Some(op) = suffix.strip_prefix('@') else {
+        return false;
+    };
+    let mut chars = op.chars();
+    let Some(c) = chars.next() else {
+        return false;
+    };
+    if chars.next().is_some() || !"QEPAKakuUL".contains(c) || var_name.is_empty() {
+        return false;
+    }
+    parts.push(WordPart::Transformation {
+        name: format!("!{var_name}"),
+        operator: c,
+    });
+    part_quoted.push(quoted);
+    true
+}
+
+/// One field of `${v:offset:length}`: up to a top-level `:` (when
+/// `stop_colon`) or `}`. Nested `$((..))`, `${..}` and a ternary's own `:`
+/// (`${s: 0 < 1 ? 2 : 0 : 1}`) stay inside the field.
+fn read_slice_field(
+    chars: &mut std::iter::Peekable<std::str::Chars<'_>>,
+    stop_colon: bool,
+) -> String {
+    let mut field = String::new();
+    let mut depth = 0usize;
+    let mut ternary = 0usize;
+    while let Some(&c) = chars.peek() {
+        match c {
+            '(' | '{' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            '}' if depth == 0 => break,
+            '}' => depth -= 1,
+            '?' if depth == 0 => ternary += 1,
+            ':' if depth == 0 && ternary > 0 => ternary -= 1,
+            ':' if depth == 0 && stop_colon => break,
+            _ => {}
+        }
+        field.push(c);
+        chars.next();
+    }
+    field
+}
+
+/// `${##pat}` / `${###}`: `$#` followed by a pattern-removal
+/// operator, not the length of a parameter (`${##}` alone is `${#'#'}`).
+fn hash_param_with_op(chars: &std::iter::Peekable<std::str::Chars<'_>>) -> bool {
+    let mut it = chars.clone();
+    it.next(); // '#'
+    it.next() == Some('#') && !matches!(it.next(), Some('}') | None)
+}
+
+/// After the parameter of `${...}`: whether `next` cannot start an operator.
+fn next_is_bad(next: Option<char>, length_prefix: bool) -> bool {
+    match next {
+        None => false,
+        Some('\x00' | '\u{1e}' | '\u{1f}') => false,
+        Some('}') => false,
+        Some(_) if length_prefix => true,
+        Some(':' | '-' | '=' | '+' | '?' | '#' | '%' | '/' | '^' | ',' | '~' | '@') => false,
+        Some(_) => true,
+    }
+}
+
+fn cond_regex_expands(raw: &str) -> bool {
+    let mut chars = raw.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => {
+                chars.next();
+            }
+            '\'' => {
+                for q in chars.by_ref() {
+                    if q == '\'' {
+                        break;
+                    }
+                }
+            }
+            '`' => return true,
+            '$' if chars.peek().is_some_and(|n| {
+                n.is_alphanumeric()
+                    || matches!(n, '_' | '{' | '(' | '@' | '*' | '#' | '?' | '!' | '-')
+            }) =>
+            {
+                return true;
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Turn a `=~` operand without expansions into the regex bash compiles:
+/// quoted text and backslash-escaped characters match literally, the rest
+/// is regex syntax (`^a'.'\.b$` matches `a.` then `.b`).
+fn cond_regex_literal(raw: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = raw.chars().collect();
+    // Inside a bracket expression bash only removes the quotes: `["a-z"]`
+    // is the range `[a-z]`. `bracket_start` is where its members begin.
+    let mut in_bracket = false;
+    let mut bracket_start = 0usize;
+    let literal = |out: &mut String, c: char, in_bracket: bool| {
+        if in_bracket {
+            if matches!(c, '\\' | '[' | ']') {
+                out.push('\\');
+            }
+            out.push(c);
+        } else if c.is_alphanumeric() || c == '_' || c == ' ' {
+            out.push(c);
+        } else {
+            out.push('\\');
+            out.push(c);
+        }
+    };
+    let mut i = 0usize;
+    while i < chars.len() {
+        let c = chars[i];
+        i += 1;
+        match c {
+            '\\' => match chars.get(i) {
+                Some(&n) => {
+                    i += 1;
+                    literal(&mut out, n, in_bracket);
+                }
+                None => out.push_str("\\\\"),
+            },
+            '$' if chars.get(i) == Some(&'\'') => {
+                let rest: String = chars[i + 1..].iter().collect();
+                match Lexer::decode_ansi_c_body(&rest) {
+                    Some((text, used)) => {
+                        for q in text.chars() {
+                            literal(&mut out, q, in_bracket);
+                        }
+                        i += 1 + rest[..used].chars().count();
+                    }
+                    None => out.push(c),
+                }
+            }
+            // `$"..."` is a double-quoted string.
+            '$' if chars.get(i) == Some(&'"') => {}
+            '\'' => {
+                while i < chars.len() {
+                    let q = chars[i];
+                    i += 1;
+                    if q == '\'' {
+                        break;
+                    }
+                    literal(&mut out, q, in_bracket);
+                }
+            }
+            '"' => {
+                while i < chars.len() {
+                    let q = chars[i];
+                    i += 1;
+                    match q {
+                        '"' => break,
+                        '\\' => match chars.get(i) {
+                            Some(&n @ ('"' | '\\' | '$' | '`')) => {
+                                i += 1;
+                                literal(&mut out, n, in_bracket);
+                            }
+                            Some(&n) => {
+                                i += 1;
+                                literal(&mut out, '\\', in_bracket);
+                                literal(&mut out, n, in_bracket);
+                            }
+                            None => literal(&mut out, '\\', in_bracket),
+                        },
+                        _ => literal(&mut out, q, in_bracket),
+                    }
+                }
+            }
+            '[' if !in_bracket => {
+                out.push(c);
+                in_bracket = true;
+                if chars.get(i) == Some(&'^') {
+                    out.push('^');
+                    i += 1;
+                }
+                bracket_start = out.len();
+            }
+            '[' if matches!(chars.get(i), Some(':' | '.' | '=')) => {
+                // `[:space:]` inside a bracket: copy through its `:]`.
+                let kind = chars[i];
+                out.push(c);
+                while i < chars.len() {
+                    let q = chars[i];
+                    i += 1;
+                    out.push(q);
+                    if q == ']' && out.len() >= 2 && out[..out.len() - 1].ends_with(kind) {
+                        break;
+                    }
+                }
+            }
+            ']' if in_bracket && out.len() > bracket_start => {
+                out.push(c);
+                in_bracket = false;
+            }
+            // A leading `]` or a bare `[` is a member (`[][{}]`); the regex
+            // engine wants both escaped.
+            '[' | ']' if in_bracket => {
+                out.push('\\');
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Undo the lexer's glob escaping of quoted text (`\*` -> `*`, `\\` -> `\`)
+/// for contexts that never glob.
+pub(crate) fn unescape_glob_literal(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\'
+            && let Some(&next) = chars.peek()
+            && matches!(
+                next,
+                '\\' | '*' | '?' | '[' | ']' | '{' | '}' | '@' | '!' | '+' | '(' | ')' | '|' | '-'
+            )
+        {
+            out.push(next);
+            chars.next();
+            continue;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// Split the text of `for ((init; cond; step))` at top-level `;`.
+fn split_arith_for_parts(body: &str) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut cur = String::new();
+    let mut depth = 0usize;
+    for c in body.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ';' if depth == 0 => {
+                parts.push(std::mem::take(&mut cur));
+                continue;
+            }
+            _ => {}
+        }
+        cur.push(c);
+    }
+    parts.push(cur);
+    parts
+}
+
+/// Expression text an arithmetic command evaluates: its source with
+/// surrounding blanks trimmed and double quotes removed (bash treats
+/// `(( ... ))` like `let "..."`).
+pub(crate) fn arith_exec_text(raw: &str) -> String {
+    raw.trim().chars().filter(|&c| c != '"').collect()
+}
+
+/// Backslash handling in an unquoted heredoc body, as in double quotes but
+/// without `"`: `\$`, `` \` `` and `\\` become literal characters (NUL
+/// sentinel for `parse_word`), `\<newline>` joins lines, and any other
+/// backslash is kept. Text inside `$(...)`, `${...}` and `$((...))` is copied
+/// for its own parser (only `\<newline>` is removed); backticks become
+/// `$(...)`.
+fn heredoc_body_escapes(content: &str) -> String {
+    if !content.contains(['\\', '`']) && !content.contains("$'") {
+        return content.to_string();
+    }
+    let mut out = String::with_capacity(content.len());
+    let mut chars = content.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => match chars.peek() {
+                Some('$' | '`' | '\\') => {
+                    out.push('\x00');
+                    out.push(chars.next().unwrap_or_default());
+                }
+                Some('\n') => {
+                    chars.next();
+                }
+                _ => out.push('\\'),
+            },
+            // `$'...'` is not ANSI-C quoting in a here-document.
+            '$' if chars.peek() == Some(&'\'') => {
+                out.push('\x00');
+                out.push('$');
+            }
+            '$' if matches!(chars.peek(), Some('(' | '{')) => {
+                out.push('$');
+                let open = chars.next().unwrap_or_default();
+                out.push(open);
+                let close = if open == '(' { ')' } else { '}' };
+                let mut depth = 1usize;
+                while let Some(ch) = chars.next() {
+                    if ch == '\\' && chars.peek() == Some(&'\n') {
+                        chars.next();
+                        continue;
+                    }
+                    out.push(ch);
+                    if ch == '\\' {
+                        if let Some(n) = chars.next() {
+                            out.push(n);
+                        }
+                    } else if ch == open {
+                        depth += 1;
+                    } else if ch == close {
+                        depth -= 1;
+                        if depth == 0 {
+                            break;
+                        }
+                    }
+                }
+            }
+            // `cmd` is command substitution, as `$(cmd)`; inside it `\``,
+            // `\$` and `\\` lose their backslash.
+            '`' => {
+                out.push_str("$(");
+                while let Some(ch) = chars.next() {
+                    match ch {
+                        '`' => break,
+                        '\\' if matches!(chars.peek(), Some('`' | '$' | '\\')) => {
+                            out.push(chars.next().unwrap_or_default());
+                        }
+                        '\\' if chars.peek() == Some(&'\n') => {
+                            chars.next();
+                        }
+                        _ => out.push(ch),
+                    }
+                }
+                out.push(')');
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// One `[[ ]]` token for [`check_conditional`]: a word (with its text when
+/// it is a bare unquoted word that may act as an operator) or an operator
+/// token the lexer split off (`&&`, `||`, `(`, `)`, `<`, `>`, other).
+enum CondTok {
+    Word(Option<String>),
+    Op(&'static str),
+}
+
+/// bash's `[[ ]]` grammar (parse.y `cond_expr`), checked at parse time so
+/// `[[ a $op b ]]`, `[[ -z ]]` or `[[ '(' x ]]` are syntax errors (status
+/// 2) as in bash, not runtime tests. Evaluation still runs on the words.
+fn check_conditional(toks: &[CondTok]) -> std::result::Result<(), String> {
+    let mut pos = 0;
+    cond_or(toks, &mut pos, 0)?;
+    if pos < toks.len() {
+        return Err(format!(
+            "syntax error in conditional expression: unexpected token `{}'",
+            cond_shown(toks.get(pos))
+        ));
+    }
+    Ok(())
+}
+
+const COND_UNARY: &[&str] = &[
+    "-a", "-b", "-c", "-d", "-e", "-f", "-g", "-h", "-k", "-n", "-o", "-p", "-r", "-s", "-t", "-u",
+    "-v", "-w", "-x", "-z", "-G", "-L", "-N", "-O", "-R", "-S",
+];
+const COND_BINARY: &[&str] = &[
+    "=", "==", "!=", "=~", "-nt", "-ot", "-ef", "-eq", "-ne", "-lt", "-le", "-gt", "-ge",
+];
+/// THREAT[TM-DOS-044]: bound recursion on `(((...` / `! ! ! ...`.
+const COND_MAX_DEPTH: usize = 256;
+
+fn cond_shown(tok: Option<&CondTok>) -> String {
+    match tok {
+        None => "]]".to_string(),
+        Some(CondTok::Op(op)) => op.to_string(),
+        Some(CondTok::Word(Some(text))) => text.clone(),
+        Some(CondTok::Word(None)) => "word".to_string(),
+    }
+}
+
+fn cond_word_text(tok: Option<&CondTok>) -> Option<&str> {
+    match tok {
+        Some(CondTok::Word(Some(text))) => Some(text),
+        _ => None,
+    }
+}
+
+fn cond_or(t: &[CondTok], pos: &mut usize, depth: usize) -> std::result::Result<(), String> {
+    if depth > COND_MAX_DEPTH {
+        return Err("conditional expression nested too deeply".to_string());
+    }
+    cond_and(t, pos, depth)?;
+    while matches!(t.get(*pos), Some(CondTok::Op("||"))) {
+        *pos += 1;
+        cond_and(t, pos, depth)?;
+    }
+    Ok(())
+}
+
+fn cond_and(t: &[CondTok], pos: &mut usize, depth: usize) -> std::result::Result<(), String> {
+    cond_term(t, pos, depth)?;
+    while matches!(t.get(*pos), Some(CondTok::Op("&&"))) {
+        *pos += 1;
+        cond_term(t, pos, depth)?;
+    }
+    Ok(())
+}
+
+fn cond_term(t: &[CondTok], pos: &mut usize, depth: usize) -> std::result::Result<(), String> {
+    if depth > COND_MAX_DEPTH {
+        return Err("conditional expression nested too deeply".to_string());
+    }
+    match t.get(*pos) {
+        None => Err("syntax error in conditional expression".to_string()),
+        Some(CondTok::Op("(")) => {
+            *pos += 1;
+            if matches!(t.get(*pos), Some(CondTok::Op(")"))) {
+                return Err("unexpected token `)' in conditional command".to_string());
+            }
+            cond_or(t, pos, depth + 1)?;
+            if !matches!(t.get(*pos), Some(CondTok::Op(")"))) {
+                return Err(format!(
+                    "unexpected token `{}', expected `)'",
+                    cond_shown(t.get(*pos))
+                ));
+            }
+            *pos += 1;
+            Ok(())
+        }
+        Some(CondTok::Word(_)) if cond_word_text(t.get(*pos)) == Some("!") => {
+            *pos += 1;
+            cond_term(t, pos, depth + 1)
+        }
+        Some(CondTok::Word(_)) => {
+            let first = cond_word_text(t.get(*pos));
+            *pos += 1;
+            if first.is_some_and(|w| COND_UNARY.contains(&w)) {
+                if !matches!(t.get(*pos), Some(CondTok::Word(_))) {
+                    return Err(format!(
+                        "unexpected argument `{}' to conditional unary operator",
+                        cond_shown(t.get(*pos))
+                    ));
+                }
+                *pos += 1;
+                return Ok(());
+            }
+            let binary = match t.get(*pos) {
+                Some(CondTok::Op("<" | ">")) => true,
+                Some(CondTok::Word(Some(op))) => COND_BINARY.contains(&op.as_str()),
+                None | Some(CondTok::Op("&&" | "||" | ")")) => return Ok(()),
+                _ => false,
+            };
+            if !binary {
+                return Err("conditional binary operator expected".to_string());
+            }
+            *pos += 1;
+            if !matches!(t.get(*pos), Some(CondTok::Word(_))) {
+                return Err(format!(
+                    "unexpected argument `{}' to conditional binary operator",
+                    cond_shown(t.get(*pos))
+                ));
+            }
+            *pos += 1;
+            Ok(())
+        }
+        Some(CondTok::Op(op)) => Err(format!("unexpected token `{op}' in conditional command")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn parameter_subscript_consumption_preserves_escaped_and_quoted_brackets() {
+        for (source, expected) in [
+            (r"${items[left\]right]}", r"left\]right"),
+            (r#"${items["left]right"]}"#, "left]right"),
+            (r"${items['left]right']}", "left]right"),
+            (r"${items[nested[0]]}", "nested[0]"),
+            (r"${items[${key}]}", "${key}"),
+        ] {
+            let parsed = Parser::parse_word_string(source);
+            assert!(
+                matches!(
+                    parsed.parts.as_slice(),
+                    [WordPart::ArrayAccess { name, index }]
+                        if name == "items" && index == expected
+                ),
+                "unexpected parts for {source}: {:?}",
+                parsed.parts
+            );
+        }
+    }
+
+    #[test]
+    fn parameter_subscript_consumption_keeps_explicit_operator_after_reference() {
+        let parsed = Parser::parse_word_string(r"${items[left\]right]:-fallback}");
+        assert!(matches!(
+            parsed.parts.as_slice(),
+            [WordPart::ParameterExpansion {
+                name,
+                operator: ParameterOp::UseDefault,
+                operand,
+                colon_variant: true,
+            }] if name == r"items[left\]right]" && operand == "fallback"
+        ));
+    }
+
+    #[test]
+    fn parameter_subscript_consumption_admits_exact_reference_only() {
+        for value in [
+            r"items[left\]right]",
+            r#"items["left]right"]"#,
+            r#"items["left\"]right"]"#,
+            "items[nested[0]]",
+            "items[${key}]",
+            "items[caf\u{e9}]",
+        ] {
+            assert_eq!(
+                parameter_subscript_end(value, 5),
+                Some(value.len()),
+                "{value}"
+            );
+        }
+        for value in ["items[0]:-fallback", "items[0][1]"] {
+            assert_ne!(
+                parameter_subscript_end(value, 5),
+                Some(value.len()),
+                "{value}"
+            );
+        }
+        for value in [r"items[left\]", "items['left]", "items[${key]"] {
+            assert_eq!(parameter_subscript_end(value, 5), None, "{value}");
+        }
+    }
+
+    #[test]
+    fn indirect_reparse_admission_inherits_depth_and_request_failures() {
+        use crate::limits::{ExecutionBudget, ExecutionLimits};
+        use std::sync::atomic::AtomicBool;
+
+        let budget = || {
+            ExecutionBudget::new(
+                &ExecutionLimits::default(),
+                Arc::new(AtomicBool::new(false)),
+            )
+        };
+        let input = "$(printf ok)";
+        assert!(Parser::parse_indirect_word(input, 1, 100, 0, budget()).is_ok());
+        let error = Parser::parse_indirect_word(input, 1, 100, 1, budget()).unwrap_err();
+        assert!(
+            error.to_string().contains("AST nesting too deep"),
+            "{error}"
+        );
+
+        let empty_work = ExecutionBudget::new(
+            &ExecutionLimits::default().max_work_units(0),
+            Arc::new(AtomicBool::new(false)),
+        );
+        assert!(matches!(
+            Parser::parse_indirect_word("${items[0]}", 1, 100, 0, empty_work),
+            Err(Error::ResourceLimit(_))
+        ));
+        let cancelled =
+            ExecutionBudget::new(&ExecutionLimits::default(), Arc::new(AtomicBool::new(true)));
+        assert!(matches!(
+            Parser::parse_indirect_word("${items[0]}", 1, 100, 0, cancelled),
+            Err(Error::Cancelled)
+        ));
+
+        let text = "${items[0]}";
+        let shared = ExecutionBudget::new(
+            &ExecutionLimits::default().max_work_units(text.len() as u64),
+            Arc::new(AtomicBool::new(false)),
+        );
+        assert!(Parser::parse_indirect_word(text, 1, 100, 0, shared.clone()).is_ok());
+        assert!(matches!(
+            Parser::parse_indirect_word(text, 1, 100, 0, shared),
+            Err(Error::ResourceLimit(_))
+        ));
+    }
 
     #[test]
     fn test_parse_simple_command() {
@@ -4137,9 +6186,10 @@ mod tests {
                     "ANSI-C quoted NUL must not expose expansions for {input}: {:?}",
                     arg.parts
                 );
+                // bash strings end at a NUL: nothing after it survives.
                 assert!(
-                    arg.to_string().starts_with('\0'),
-                    "decoded ANSI-C NUL should remain literal for {input}"
+                    arg.to_string().is_empty(),
+                    "decoded ANSI-C NUL should end the string for {input}"
                 );
             } else {
                 panic!("expected simple command");
@@ -4281,6 +6331,87 @@ mod tests {
             AssignmentValue::Scalar(word) => assert_eq!(word.to_string(), "x"),
             AssignmentValue::Array(_) => panic!("expected scalar assignment"),
         }
+    }
+
+    fn nested_command_substitution(levels: usize) -> String {
+        let mut script = String::from("echo ok");
+        for _ in 0..levels {
+            script = format!("echo $({script})");
+        }
+        script
+    }
+
+    #[test]
+    fn nested_command_substitution_consumes_ast_depth() {
+        let script = nested_command_substitution(4);
+        let err = Parser::with_limits(&script, 3, 10_000)
+            .parse()
+            .expect_err("substitution parsers must share AST depth");
+        assert!(err.to_string().contains("AST nesting too deep"));
+    }
+
+    #[test]
+    fn nested_command_substitution_parser_is_stack_safe() {
+        let script = nested_command_substitution(50);
+        Parser::new(&script)
+            .parse()
+            .expect("depth 50 remains within the hard AST limit");
+    }
+
+    #[test]
+    fn nested_command_substitution_hard_cap_is_stack_safe() {
+        let script = nested_command_substitution(120);
+        let err = Parser::with_limits(&script, usize::MAX, 100_000)
+            .parse()
+            .expect_err("the hard AST cap also covers substitution parsers");
+        assert!(err.to_string().contains("AST nesting too deep"));
+    }
+
+    #[test]
+    fn nested_command_substitution_depth_boundary() {
+        let valid = nested_command_substitution(3);
+        Parser::with_limits(&valid, 3, 10_000).parse().unwrap();
+        let mixed = "if true; then echo $(echo $(echo ok)); fi";
+        Parser::with_limits(mixed, 3, 10_000).parse().unwrap();
+        let err = Parser::with_limits(mixed, 2, 10_000).parse().unwrap_err();
+        assert!(err.to_string().contains("AST nesting too deep"));
+    }
+
+    #[test]
+    fn nested_command_substitution_hard_cap_in_other_grammar_positions() {
+        for template in [
+            "echo $(true; BODY)",
+            "echo $(true | BODY)",
+            "x=$(BODY)",
+            "echo $(>out BODY)",
+            "a=($(BODY))",
+            "declare a=($(BODY))",
+            "echo $(echo ${v:-x}; BODY)",
+        ] {
+            let mut script = String::from("echo ok");
+            for _ in 0..120 {
+                script = template.replace("BODY", &script);
+            }
+            let err = Parser::with_limits(&script, usize::MAX, 100_000)
+                .parse()
+                .unwrap_err();
+            assert!(
+                err.to_string().contains("AST nesting too deep"),
+                "{template}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn nested_command_substitution_preserves_timeout_origin() {
+        let mut parent =
+            Parser::with_limits_and_timeout("echo ok", 10, 1000, Some(Duration::from_millis(1)));
+        parent.started_at = Instant::now() - Duration::from_secs(1);
+        let mut child = parent.nested_parser("echo ok").unwrap();
+        assert!(matches!(
+            child.parse_inner(),
+            Err(Error::ResourceLimit(LimitExceeded::ParserTimeout(_)))
+        ));
     }
 
     fn nested_process_substitution(levels: usize) -> String {

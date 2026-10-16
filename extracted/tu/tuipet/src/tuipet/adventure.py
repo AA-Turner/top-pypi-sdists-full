@@ -123,6 +123,45 @@ MAPS_PER_AREA = 6   # the profile `maps` signal (eggs, AREA atoms, the road
 #                     shelf) speaks 5 areas: area n = the first 6(n+1) maps
 
 
+def wild_rarity(num):
+    r = data.load_requirements().get(num, {})
+    if r.get("hidden_evo"):
+        return "Hidden", 1
+    return {"Natural": ("Natural X", 4), "Induced": ("Induced X", 2)}.get(
+        r.get("xantibody"), ("ordinary", 8))
+
+
+def x_sample_wild(enemy):
+    return (not enemy.get("boss") and data.load_requirements().get(
+        enemy.get("num"), {}).get("xantibody") in ("Natural", "Induced"))
+
+
+def spawn_weight(enemy, holiday=False):
+    weight = max(1, enemy.get("chance", 100))
+    return min(8, weight * 2) if holiday and weight < 8 else weight
+
+
+def hunt_targets(zone, prog=None):
+    """Unbeaten exact-ID egg goals already roaming this map."""
+    from . import egg, persistence
+    if prog is None:
+        prog = persistence.get_progress()
+    zi = zone_index(zone)
+    pool = {e["num"] for e in zone.get("randoms", ())}
+    targets = {}
+    for r in data.load_egg_unlock().values():
+        zp = egg._zone_parts(r["zone"]) if r["zone"] is not None else None
+        if (zp and zp[0] == zi and zp[1] in pool
+                and f"{zi}:{zp[1]}" not in prog.get("wilds_beaten", ())):
+            targets[zp[1]] = egg.wild_goal(r["zone"])
+    return targets
+
+
+def find_pool(zone, prog=None):
+    from . import shop
+    return [k for k in zone.get("find_keys", ()) if shop.adventure_open(k, prog)]
+
+
 def _enemy(num, boss=False, final=False):
     """One road foe as the engine reads it -- a plain species card; the
     battle builds its Side from the dex (Side.wild)."""
@@ -135,7 +174,7 @@ def _enemy(num, boss=False, final=False):
         bits = WILD_BITS.get(stage, WILD_BITS["Rookie"])
     return {"num": num, "name": rec["name"], "stage": stage,
             "attribute": rec["attribute"], "boss": boss, "bits": bits,
-            "chance": 100, "loot_table": -1,
+            "chance": wild_rarity(num)[1], "rarity": wild_rarity(num)[0], "loot_table": -1,
             "parade_msg": FINAL_PARADE_MSG if final else ""}
 
 
@@ -161,6 +200,7 @@ def _load_maps():
             "bosses": [_enemy(m["boss"], boss=True, final=final)],
             "town_legs": [(TOWN_LEG, TOWN_LEG + 2, i)],
             "find_keys": list(m["finds"]),
+            "wild_drops": list(m["wild_drops"]),
             "reward": list(m["reward"]),
             "map": i // MAPS_PER_AREA + 1,     # its AREA (1-based)
         })
@@ -264,9 +304,10 @@ class Adventure:
     step toward the goal; `done` flips on arrival.  The view reads `name`,
     `scene`, `pct`, `ribbon()` and `last`."""
 
-    def __init__(self, pet, zone=None):
+    def __init__(self, pet, zone=None, hunt=None):
         self.pet = pet
         self.zone = zone if zone is not None else pick_zone(pet)
+        self.hunt = hunt if hunt in hunt_targets(self.zone) else None
         self.loc = 0                     # travel actions taken, 0..steps
         self.done = False
         self.failed = False              # 0 lives -> the run is lost (retreat home)
@@ -275,6 +316,8 @@ class Adventure:
         self._drain_acc = 0              # marched-legs accumulator toward a drain tick
         self._resting = False            # currently standing inside a town span
         self.bits_earned = 0             # bits won this run (wild bounties + the boss)
+        self._rematch_drop = []
+        self._x_sample = False
         self.bounty_spent = False        # the replay boss bounty was already claimed today
         self.fights = 0                  # fights entered this run (wild + boss)
         self.wins = 0                    # ...of those, won
@@ -368,8 +411,11 @@ class Adventure:
         pool = self._wild_pool()
         if not pool:
             return None
-        weights = [max(1, e.get("chance", 100)) for e in pool]
-        e = random.choices(pool, weights=weights, k=1)[0]
+        weights = [spawn_weight(e, self.holiday) for e in pool]
+        if self.hunt is not None and random.randrange(8) == 0:
+            e = next(e for e in pool if e["num"] == self.hunt)
+        else:
+            e = random.choices(pool, weights=weights, k=1)[0]
         return _veteran(e) if self.replay else e
 
     # -- road items (rebuild 2026-10-14) ----------------------------------------
@@ -430,7 +476,7 @@ class Adventure:
     def _roll_find(self):
         """A loot key spotted on the road this step, or None (no finds in a
         town -- the pet is resting, not scavenging)."""
-        pool = self.zone.get("find_keys") or ()
+        pool = find_pool(self.zone)
         if not pool or self._in_town(self.loc):
             return None
         chance = FIND_CHANCE * (HOLIDAY_FIND_MULT if self.holiday else 1)
@@ -461,7 +507,7 @@ class Adventure:
             return None
         # the zone's authored AppearanceChance weights, same as the walk
         # and warp picks -- this was the one unweighted draw (audit 2026-07-25)
-        weights = [max(1, e.get("chance", 100)) for e in pool]
+        weights = [spawn_weight(e, self.holiday) for e in pool]
         return random.choices(pool, weights=weights, k=1)[0]
 
     def score(self):
@@ -553,6 +599,14 @@ class Adventure:
                         amt, self.bounty_spent = 0, True
                     else:
                         led[str(zi)] = 1
+                        # Settle the prize with the paid bounty: a miss spends
+                        # the same daily ledger entry, including after reload.
+                        base = next((k for k in self.zone.get("reward", ())
+                                     if k in ("vitamin", "hp_chip", "hp_chip_g", "omni_chip_g")), None)
+                        if base and random.randrange(8) == 0:
+                            self.pet.add_item(base)
+                            self.drops += 1
+                            self._rematch_drop.append(base)
                     self.pet.road_bounty = led
         if amt:
             self.pet.bits += amt
@@ -560,13 +614,23 @@ class Adventure:
         return amt
 
     def award_drop(self, enemy):
-        """THE BOSS REWARD (rebuild 2026-10-14): a map's boss hands over the
-        map's reward items -- once, on the FIRST conquest (a replayed map
-        pays bits only, so the deep maps' spirits and chips can't be
-        farmed).  Wilds drop nothing; the road's loot is its finds.
-        Returns the granted catalog keys (possibly empty)."""
-        if not enemy.get("boss") or self.replay:
-            return []
+        """Grant independent wild loot/sample rolls or the gate's reward keys."""
+        if not enemy.get("boss"):
+            from . import shop
+            got = []
+            pool = self.zone.get("wild_drops") or ()
+            if pool and random.random() < FIND_CHANCE:
+                got.append(random.choices(pool, weights=[shop.tier_weight(k) for k in pool], k=1)[0])
+            if not self._x_sample and x_sample_wild(enemy) and random.randrange(40) == 0:
+                got.append("x_program")
+                self._x_sample = True
+            for key in got:
+                self.pet.add_item(key)
+                self.drops += 1
+            return got
+        if self.replay:
+            got, self._rematch_drop = self._rematch_drop, []
+            return got
         got = []
         for key in self.zone.get("reward") or ():
             self.pet.add_item(key)
@@ -632,7 +696,11 @@ class Adventure:
             return ("refused", None)
         enemy = self._roll_encounter()
         if enemy is not None:
-            self.last = f"A wild {enemy['name']} blocks the road!"
+            rarity = enemy.get("rarity", "ordinary")
+            mark = f" ({rarity})" if rarity != "ordinary" else ""
+            self.last = f"A wild {enemy['name']}{mark} blocks the road!"
+            if x_sample_wild(enemy) and not self._x_sample:
+                self.last += " X-Program: 1/40 on win (one/run)."
             return ("encounter", enemy)
         self.loc += 1
         self._march_drain()              # the leg's toll: energy / calories / effort

@@ -1,40 +1,43 @@
+import math
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any, Union
 
 import pandas as pd
 import polars as pl
 import pytest
 import sys
-from great_tables import GT, _locale
+from great_tables import GT, _locale, vals
 from great_tables._data_color.base import _html_color
 from great_tables._formats import (
     FmtImage,
+    _apply_value_pattern,
     _check_colors,
     _expand_exponential_to_full_string,
     _format_number_n_sigfig,
     _format_number_fixed_decimals,
     _format_number_compactly,
+    _get_currencies_data,
+    _get_currency_exponent,
     _get_currency_str,
     _get_locale_currency_code,
     _get_locale_dec_mark,
     _get_locale_sep_mark,
+    _get_next_si_prefix,
     _has_zero_value,
     _normalize_locale,
+    _round_rhu,
+    _rounds_up_to,
+    _SI_PREFIXES_DECIMAL,
+    _SI_PREFIXES_ENGINEERING,
     _validate_currency,
     _validate_locale,
+    _value_to_scientific_notation,
     fmt,
 )
-from great_tables._utils_render_html import create_body_component_h
 from great_tables.data import exibble
 from great_tables.gt import _get_column_of_values
-
-
-def assert_rendered_body(snapshot, gt):
-    built = gt._build_data("html")
-    body = create_body_component_h(built)
-
-    assert snapshot == body
+from tests.utils import assert_rendered_body
 
 
 def assert_repr_html(snapshot, gt):
@@ -257,8 +260,8 @@ def test_format_row_selection(expr):
             True,
             True,
             [
-                "+% 0.00",
-                "+% 0.00",
+                "% 0.00",
+                "% 0.00",
                 "+% 0.05",
                 "+% 0.46",
                 "+% 4.56",
@@ -274,8 +277,8 @@ def test_format_row_selection(expr):
             False,
             True,
             [
-                "+%0.00",
-                "+%0.00",
+                "%0.00",
+                "%0.00",
                 "+%0.05",
                 "+%0.46",
                 "+%4.56",
@@ -291,8 +294,8 @@ def test_format_row_selection(expr):
             True,
             True,
             [
-                "+0.00 %",
-                "+0.00 %",
+                "0.00 %",
+                "0.00 %",
                 "+0.05 %",
                 "+0.46 %",
                 "+4.56 %",
@@ -308,8 +311,8 @@ def test_format_row_selection(expr):
             False,
             True,
             [
-                "+0.00%",
-                "+0.00%",
+                "0.00%",
+                "0.00%",
                 "+0.05%",
                 "+0.46%",
                 "+4.56%",
@@ -1061,6 +1064,12 @@ def test_format_number_fixed_decimals(value: Union[int, float], x_out: str):
         (325, "325"),
         (-325, "-325"),
         (-1320, "-1,320"),
+        # Rounding carries over into the next power of ten
+        (9.9999, "10.0"),
+        (-9.9999, "-10.0"),
+        (99.96, "100"),
+        (999999, "1,000,000"),
+        (0.99999, "1.00"),
     ],
 )
 def test_format_number_n_sigfig_3(value, out: str):
@@ -1156,6 +1165,125 @@ def test_fmt_scientific_case(
     gt = GT(df).fmt_scientific(columns="x", **fmt_scientific_kwargs)
     x = _get_column_of_values(gt, column_name="x", context="html")
     assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "fmt_scientific_kwargs,x_out",
+    [
+        (
+            dict(decimals=2),
+            [
+                "1.00 × 10<sup style='font-size: 65%;'>1</sup>",
+                "−1.00 × 10<sup style='font-size: 65%;'>1</sup>",
+                "1.00 × 10<sup style='font-size: 65%;'>5</sup>",
+                "1.00",
+                "9.99",
+            ],
+        ),
+        (dict(exp_style="E"), ["1.00E01", "−1.00E01", "1.00E05", "1.00E00", "9.99E00"]),
+    ],
+)
+def test_fmt_scientific_rounding_carries_into_exponent(
+    fmt_scientific_kwargs: dict[str, Any], x_out: list[str]
+):
+    # Values that round up to the next power of ten should get a mantissa of 1 and
+    # a larger exponent, rather than a mantissa of 10
+    df = pd.DataFrame({"x": [9.9999, -9.9999, 99999.9, 0.99999, 9.994]})
+    gt = GT(df).fmt_scientific(columns="x", **fmt_scientific_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "fmt_method,fmt_kwargs,x_out",
+    [
+        ("fmt_scientific", dict(), ["inf", "−inf"]),
+        ("fmt_scientific", dict(exp_style="E", force_sign_m=True), ["+inf", "−inf"]),
+        ("fmt_engineering", dict(pattern="[{x}]"), ["[inf]", "[−inf]"]),
+        ("fmt_engineering", dict(force_sign_m=True), ["+inf", "−inf"]),
+        ("fmt_bytes", dict(), ["inf", "−inf"]),
+        ("fmt_bytes", dict(force_sign=True, pattern="[{x}]"), ["[+inf]", "[−inf]"]),
+        ("fmt_roman", dict(), ["ex terminis", "ex terminis"]),
+        ("fmt_roman", dict(pattern="[{x}]"), ["[ex terminis]", "[ex terminis]"]),
+        ("fmt_fraction", dict(pattern="[{x}]"), ["[inf]", "[−inf]"]),
+        ("fmt_index", dict(pattern="[{x}]"), ["[inf]", "[−inf]"]),
+        ("fmt_number", dict(compact=True), ["inf", "−inf"]),
+        ("fmt_number", dict(compact=True, accounting=True), ["inf", "(inf)"]),
+        ("fmt_integer", dict(compact=True, force_sign=True), ["+inf", "−inf"]),
+        ("fmt_currency", dict(compact=True), ["$inf", "−$inf"]),
+    ],
+)
+def test_fmt_infinite_values(fmt_method: str, fmt_kwargs: dict[str, Any], x_out: list[str]):
+    # Infinite values have no exponent, unit or roman numeral, and should not raise
+    df = pd.DataFrame({"x": [float("inf"), float("-inf")]})
+    gt = getattr(GT(df), fmt_method)(columns="x", **fmt_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "fmt_method,fmt_kwargs,x_out",
+    [
+        ("fmt_scientific", dict(pattern="{x} %"), [r"inf \%", r"-inf \%"]),
+        ("fmt_engineering", dict(pattern="{x} %"), [r"inf \%", r"-inf \%"]),
+        ("fmt_engineering", dict(force_sign_m=True), ["+inf", "-inf"]),
+        ("fmt_bytes", dict(pattern="{x} %"), [r"inf \%", r"-inf \%"]),
+        ("fmt_bytes", dict(force_sign=True), ["+inf", "-inf"]),
+        ("fmt_roman", dict(pattern="{x} %"), [r"ex terminis \%", r"ex terminis \%"]),
+    ],
+)
+def test_fmt_infinite_values_latex(fmt_method: str, fmt_kwargs: dict[str, Any], x_out: list[str]):
+    df = pd.DataFrame({"x": [float("inf"), float("-inf")]})
+    gt = getattr(GT(df), fmt_method)(columns="x", **fmt_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+    assert x == x_out
+
+
+@pytest.mark.filterwarnings("ignore:invalid value encountered:RuntimeWarning")
+@pytest.mark.parametrize("fmt_method", ["fmt_number", "fmt_scientific", "fmt_engineering"])
+def test_fmt_infinite_values_scale_by_zero(fmt_method: str):
+    # `inf * 0` is NaN, which has no mantissa or exponent either, and should not raise
+    df = pd.DataFrame({"x": [float("inf")]})
+    gt = getattr(GT(df), fmt_method)(columns="x", scale_by=0)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["nan"]
+
+
+@pytest.mark.parametrize(
+    "fmt_method,fmt_kwargs,x_out",
+    [
+        ("fmt_number", dict(n_sigfig=3), ["inf", "−inf"]),
+        ("fmt_number_si", dict(unit="g"), ["inf g", "−inf g"]),
+        ("fmt_number_si", dict(unit="g", n_sigfig=3, prefix_mode="decimal"), ["inf g", "−inf g"]),
+        ("fmt_duration", dict(input_units="seconds"), ["inf", "−inf"]),
+        ("fmt_duration", dict(input_units="days", force_sign=True), ["+inf", "−inf"]),
+    ],
+)
+def test_fmt_infinite_values_no_digits_or_parts(
+    fmt_method: str, fmt_kwargs: dict[str, Any], x_out: list[str]
+):
+    # Infinite values have no significant digits, SI prefix or time parts, and should not raise
+    df = pd.DataFrame({"x": [float("inf"), float("-inf")]})
+    gt = getattr(GT(df), fmt_method)(columns="x", **fmt_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "value,n_sigfig,x_out",
+    [
+        (1e11, 1, "1E11"),
+        (1e14, 4, "1.000E14"),
+        (1e23, 1, "1E23"),
+        (1e23, 3, "1.00E23"),
+        (1e-11, 1, "1E-11"),
+        (1e-20, 4, "1.000E-20"),
+    ],
+)
+def test_value_to_scientific_notation_exact_powers_of_ten(value: float, n_sigfig: int, x_out: str):
+    # Floating-point error when scaling exact powers of ten should not be treated as a
+    # rounding carry (nor raise an error when `n_sigfig=1`)
+    assert _value_to_scientific_notation(value, n_sigfig=n_sigfig) == x_out
 
 
 # ------------------------------------------------------------------------------
@@ -1273,6 +1401,33 @@ def test_fmt_scientific_case(
                 "350.00000 × 10<sup style='font-size: 65%;'>198</sup>",
             ],
         ),
+        # Rounding carries the mantissa up to 1000, so the next power of 1000 is used
+        (
+            dict(decimals=2),
+            [999999.5, -999999.5, 999.9999, 0.0009999999, 999499.0],
+            [
+                "1.00 × 10<sup style='font-size: 65%;'>6</sup>",
+                "−1.00 × 10<sup style='font-size: 65%;'>6</sup>",
+                "1.00 × 10<sup style='font-size: 65%;'>3</sup>",
+                "1.00 × 10<sup style='font-size: 65%;'>−3</sup>",
+                "999.50 × 10<sup style='font-size: 65%;'>3</sup>",
+            ],
+        ),
+        (
+            dict(n_sigfig=3, exp_style="e"),
+            [999999.5, 999.9999],
+            ["1.00e06", "1.00e03"],
+        ),
+        # The carry doesn't depend on `dec_mark=` (an empty one used to raise an error)
+        (dict(decimals=2, dec_mark=",", exp_style="E"), [999999.5], ["1,00E06"]),
+        (
+            dict(decimals=2, dec_mark=""),
+            [999999.5],
+            ["100 × 10<sup style='font-size: 65%;'>6</sup>"],
+        ),
+        # At a halfway value the carried mantissa is exactly 1, not a rounded-down `0.9`
+        (dict(n_sigfig=1, exp_style="E"), [9.5e-19], ["1E−18"]),
+        (dict(exp_style="E"), [0.0], ["0.00E00"]),
     ],
 )
 def test_fmt_engineering_case(
@@ -1321,6 +1476,20 @@ def test_fmt_engineering_latex_output():
     assert "123.00" in x[1]
 
 
+@pytest.mark.parametrize(
+    "fmt_fn,x_out",
+    [
+        ("fmt_scientific", ["1.23\\textsubscript{10}08", "-1.23\\textsubscript{10}-04"]),
+        ("fmt_engineering", ["123.46\\textsubscript{10}06", "-123.00\\textsubscript{10}-06"]),
+    ],
+)
+def test_fmt_exp_style_low_ten_latex(fmt_fn: str, x_out: list[str]):
+    df = pd.DataFrame({"x": [123456789, -0.000123]})
+    gt = getattr(GT(df), fmt_fn)(columns="x", exp_style="low-ten")
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+    assert x == x_out
+
+
 # ------------------------------------------------------------------------------
 # Tests of `fmt_currency()`
 # ------------------------------------------------------------------------------
@@ -1358,14 +1527,53 @@ def test_fmt_currency_force_sign():
 
     gt = GT(df).fmt_currency(columns="x", force_sign=True)
     x = _get_column_of_values(gt, column_name="x", context="html")
+    # `-0.0001` rounds to zero, so it's shown as zero without a sign
     assert x == [
         "−$234.65",
-        "−$0.00",
+        "$0.00",
         "$0.00",
         "+$2,352.23",
         "+$12,354.30",
         "+$9,939,293,923.23",
     ]
+
+
+@pytest.mark.parametrize(
+    "currency,x_out",
+    [
+        ("USD", ["\\$1,234.50", "-\\$2.00"]),
+        ("EUR", ["€1,234.50", "-€2.00"]),
+        ("JPY", ["¥1,234", "-¥2"]),
+        ("BRL", ["R\\$1,234.50", "-R\\$2.00"]),
+        ("CHF", ["SFr.1,234.50", "-SFr.2.00"]),
+    ],
+)
+def test_fmt_currency_latex_symbols(currency: str, x_out: list[str]):
+    # Currency symbols stored as HTML entities are written as characters in LaTeX, and LaTeX
+    # special characters in them are escaped
+    df = pd.DataFrame({"x": [1234.5, -2]})
+    gt = GT(df).fmt_currency(columns="x", currency=currency)
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+    assert x == x_out
+
+
+@pytest.mark.parametrize("context", ["html", "latex"])
+def test_fmt_currency_all_currencies(context: str):
+    # Every supported currency code formats with the default arguments
+    codes = [entry["curr_code"] for entry in _get_currencies_data()]
+    gt = GT(pd.DataFrame({"x": [1234.5] * len(codes)}))
+    for i, code in enumerate(codes):
+        gt = gt.fmt_currency(columns="x", rows=[i], currency=code)
+    x = _get_column_of_values(gt, column_name="x", context=context)
+    assert all("1,23" in x_i for x_i in x)
+
+
+@pytest.mark.parametrize("currency", ["XAG", "XAU", "XDR", "XPD", "XPT", "XSU", "XUA"])
+def test_fmt_currency_no_minor_unit(currency: str):
+    # Codes without a minor unit (an `NA` exponent in the currency data) use no decimal places
+    assert _get_currency_exponent(currency) == 0
+    x = vals.fmt_currency([1234.5], currency=currency)
+    assert x[0].endswith("1,234") or x[0].endswith("1,235")
 
 
 # ------------------------------------------------------------------------------
@@ -1403,6 +1611,44 @@ def test_fmt_time_h_p():
     gt = GT(df_fmt_time).fmt_time(columns="x", time_style="h_p")
     x = _get_column_of_values(gt, column_name="x", context="html")
     assert x == ["10 AM", "1 PM", "11 PM"]
+
+
+def test_fmt_time_datetime_strings():
+    # The documented `YYYY-MM-DD HH:MM:SS` form uses the time part of the datetime
+    df = pd.DataFrame({"x": ["2024-01-05 10:59:59", "2024-01-05T13:23:59", "23:15"]})
+    gt = GT(df).fmt_time(columns="x", time_style="iso")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["10:59:59", "13:23:59", "23:15:00"]
+
+
+def test_fmt_time_datetime_values():
+    # `datetime` values use their time part, as datetime strings do (and missing values pass)
+    df_pd = pd.DataFrame({"x": pd.to_datetime(["2024-01-05 10:59:59", None])})
+    gt = GT(df_pd).fmt_time(columns="x", time_style="iso")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["10:59:59", "<NA>"]
+
+    df_pl = pl.DataFrame({"x": [datetime(2024, 1, 5, 13, 23, 59)]})
+    gt = GT(df_pl).fmt_time(columns="x", time_style="h_m_p")
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1:23 PM"]
+
+
+def test_fmt_time_date_string_raises():
+    # A date without a time is rejected rather than shown as midnight
+    with pytest.raises(ValueError, match="is a date without a time"):
+        vals.fmt_time(["2024-01-05"])
+
+
+@pytest.mark.parametrize(
+    "x_in,match",
+    [
+        # The error for an invalid time string is kept, not replaced by the datetime parser's
+        ("25:00", "hour must be in 0..23"),
+        ("garbage", "Invalid isoformat string: 'garbage'"),
+    ],
+)
+def test_fmt_time_invalid_string_error(x_in: str, match: str):
+    with pytest.raises(ValueError, match=match):
+        vals.fmt_time([x_in])
 
 
 # ------------------------------------------------------------------------------
@@ -1447,6 +1693,31 @@ def test_fmt_date_iso_pads_the_year():
         date(999, 1, 5),
         date(1999, 1, 5),
     ]
+
+
+@pytest.mark.parametrize("locale", [None, "en-GB", "de", "ar"])
+def test_fmt_date_year_week_is_iso_week(locale: str | None):
+    # `year_week` is the ISO 8601 week date in every locale: near the start or end of a year a week
+    # can belong to the neighboring year, and the year shown is the one the week belongs to
+    df = pd.DataFrame(
+        {"x": ["2020-12-31", "2021-01-03", "2024-12-30", "2024-03-05", "2000-02-29", "0999-06-01"]}
+    )
+    gt = GT(df, locale=locale).fmt_date(columns="x", date_style="year_week")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["2020-W53", "2020-W53", "2025-W01", "2024-W10", "2000-W09", "0999-W22"]
+
+
+def test_fmt_date_year_week_matches_isocalendar():
+    days = [date(1990, 1, 1) + timedelta(days=n) for n in range(0, 365 * 50, 2)]
+    x = vals.fmt_date([day.isoformat() for day in days], date_style="year_week")
+    assert x == [f"{d.isocalendar()[0]:04d}-W{d.isocalendar()[1]:02d}" for d in days]
+
+
+def test_fmt_datetime_year_week_is_iso_week():
+    df = pd.DataFrame({"x": ["2024-12-30 13:45:00", "2021-01-03 08:00:00"]})
+    gt = GT(df).fmt_datetime(columns="x", date_style="year_week", time_style="iso", sep=" at ")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["2025-W01 at 13:45:00", "2020-W53 at 08:00:00"]
 
 
 # ------------------------------------------------------------------------------
@@ -1579,6 +1850,22 @@ def test_fmt_tf_case(fmt_tf_kwargs: dict[str, Any], x_out: list[str]):
     assert x == x_out
 
 
+@pytest.mark.parametrize(
+    "x_in,dtype,x_out",
+    [
+        ([True, False], "bool", ["yes", "no"]),
+        ([True, False, None], "boolean", ["yes", "no", "NA"]),
+    ],
+)
+@pytest.mark.parametrize("context", ["html", "latex"])
+def test_fmt_tf_pandas_bool_dtypes(x_in: list[Any], dtype: str, x_out: list[str], context: str):
+    # Cells of pandas boolean columns are NumPy booleans rather than `bool` values
+    df = pd.DataFrame({"x": pd.array(x_in, dtype=dtype)})
+    gt = GT(df).fmt_tf(columns="x", tf_style="yes-no", na_val="NA")
+    x = _get_column_of_values(gt, column_name="x", context=context)
+    assert x == x_out
+
+
 def test_fmt_tf_column_invalid_type():
     df = pl.DataFrame({"x": [0, 1, 2]})
     gt = GT(df).fmt_tf(columns="x")
@@ -1682,6 +1969,33 @@ def test_fmt_bytes_case(fmt_bytes_kwargs: dict[str, Any], x_in: list[float], x_o
     assert x == x_out
 
 
+@pytest.mark.parametrize(
+    "fmt_bytes_kwargs,x_in,x_out",
+    [
+        (dict(), [999949, 999999, -999999], ["999.9 kB", "1 MB", "−1 MB"]),
+        (dict(decimals=2), [999994, 999995], ["999.99 kB", "1 MB"]),
+        (dict(n_sigfig=3), [999499, 999500], ["999 kB", "1.00 MB"]),
+        (dict(standard="binary"), [1048524, 1048575], ["1,023.9 KiB", "1 MiB"]),
+    ],
+)
+def test_fmt_bytes_rounding_carries_into_next_unit(
+    fmt_bytes_kwargs: dict[str, Any], x_in: list[float], x_out: list[str]
+):
+    # Values that round up to the base should use the next unit (`1 MB`), not
+    # `1,000 kB`
+    df = pd.DataFrame({"x": x_in})
+    gt = GT(df).fmt_bytes(columns="x", **fmt_bytes_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+@pytest.mark.parametrize("context, x_out", [("html", ["−1.5 kB"]), ("latex", ["-1.5 kB"])])
+def test_fmt_bytes_minus_mark_follows_context(context: str, x_out: list[str]):
+    gt = GT(pd.DataFrame({"x": [-1500]})).fmt_bytes(columns="x")
+    x = _get_column_of_values(gt, column_name="x", context=context)
+    assert x == x_out
+
+
 # ------------------------------------------------------------------------------
 # Test `fmt_roman()`
 # ------------------------------------------------------------------------------
@@ -1700,6 +2014,13 @@ def test_fmt_roman_lower():
     gt = GT(df_fmt_roman).fmt_roman(columns="x", case="lower")
     x = _get_column_of_values(gt, column_name="x", context="html")
     assert x == ["mccxxxiv", "n", "n", "i", "i", "xcix", "ex terminis"]
+
+
+def test_fmt_roman_float32():
+    df = pd.DataFrame({"x": pd.Series([1.5, 4.0, -9.0], dtype="float32")})
+    gt = GT(df).fmt_roman(columns="x")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == ["II", "IV", "IX"]
 
 
 def test_fmt_roman_bad_case_raises():
@@ -1793,7 +2114,9 @@ def test_html_color_with_alpha(color: str, x_out: str, alpha: float):
 def test_fmt_image_single():
     formatter = FmtImage(sep=" ", file_pattern="{}.svg", encode=False)
     res = formatter.to_html("/a")
-    dst = formatter.SPAN_TEMPLATE.format('<img src="/a.svg" style="vertical-align: middle;">')
+    dst = formatter.SPAN_TEMPLATE.format(
+        '<img src="/a.svg" alt="" style="vertical-align: middle;">'
+    )
 
     assert strip_windows_drive(res) == dst
 
@@ -1810,9 +2133,9 @@ def test_fmt_image_multiple():
     formatter = FmtImage(sep="---", file_pattern="{}.svg", encode=False)
     res = formatter.to_html("/a,/b")
     dst = formatter.SPAN_TEMPLATE.format(
-        '<img src="/a.svg" style="vertical-align: middle;">'
+        '<img src="/a.svg" alt="" style="vertical-align: middle;">'
         "---"
-        '<img src="/b.svg" style="vertical-align: middle;">'
+        '<img src="/b.svg" alt="" style="vertical-align: middle;">'
     )
 
     assert strip_windows_drive(res) == dst
@@ -1831,7 +2154,9 @@ def test_fmt_image_encode(tmpdir):
 
     b64_content = b64encode(content.encode()).decode()
     img_src = f"data:image/svg+xml;base64,{b64_content}"
-    dst = formatter.SPAN_TEMPLATE.format(f'<img src="{img_src}" style="vertical-align: middle;">')
+    dst = formatter.SPAN_TEMPLATE.format(
+        f'<img src="{img_src}" alt="" style="vertical-align: middle;">'
+    )
 
     assert strip_windows_drive(res) == dst
 
@@ -1839,7 +2164,7 @@ def test_fmt_image_encode(tmpdir):
 def test_fmt_image_width_height_str():
     formatter = FmtImage(encode=False, width="20px", height="30px")
     res = formatter.to_html("/a")
-    dst_img = '<img src="/a" style="height: 30px;width: 20px;vertical-align: middle;">'
+    dst_img = '<img src="/a" alt="" style="height: 30px;width: 20px;vertical-align: middle;">'
     dst = formatter.SPAN_TEMPLATE.format(dst_img)
 
     assert strip_windows_drive(res) == dst
@@ -1848,7 +2173,7 @@ def test_fmt_image_width_height_str():
 def test_fmt_image_height_int():
     formatter = FmtImage(encode=False, height=30)
     res = formatter.to_html("/a")
-    dst_img = '<img src="/a" style="height: 30px;vertical-align: middle;">'
+    dst_img = '<img src="/a" alt="" style="height: 30px;vertical-align: middle;">'
     dst = formatter.SPAN_TEMPLATE.format(dst_img)
 
     assert strip_windows_drive(res) == dst
@@ -1874,7 +2199,7 @@ def test_fmt_image_path():
 def test_fmt_image_path_http(url: str):
     formatter = FmtImage(encode=False, height=30, path=url)
     res = formatter.to_html("c")
-    dst_img = '<img src="{}/c" style="height: 30px;vertical-align: middle;">'.format(
+    dst_img = '<img src="{}/c" alt="" style="height: 30px;vertical-align: middle;">'.format(
         url.removesuffix("/")
     )
     dst = formatter.SPAN_TEMPLATE.format(dst_img)
@@ -1973,7 +2298,7 @@ def test_fmt_icon_fill_color_dict_none():
     assert bool(re.search('style="fill:blue;', column_vals[1]))
     assert bool(
         re.search(
-            'style="fill-opacity:None;stroke-width:1px;stroke-opacity:None;height:1em;width:1.12em;position:relative;vertical-align:-0.125em;overflow:visible;">',
+            'style="stroke-width:1px;height:1em;width:1.12em;position:relative;vertical-align:-0.125em;overflow:visible;">',
             column_vals[2],
         )
     )
@@ -2100,7 +2425,7 @@ def test_fmt_flag_height():
 def test_fmt_image_http(url: str):
     formatter = FmtImage(encode=False, height=30)
     res = formatter.to_html(url)
-    dst_img = '<img src="{}" style="height: 30px;vertical-align: middle;">'.format(
+    dst_img = '<img src="{}" alt="" style="height: 30px;vertical-align: middle;">'.format(
         url.removesuffix("/")
     )
     dst = formatter.SPAN_TEMPLATE.format(dst_img)
@@ -2301,7 +2626,8 @@ def test_fmt_nanoplot_single_vals_only_line():
     )
 
     # All other test cases for the horizontal line nanoplot will produce the same output
-    # as this previous one (none will error as the non-relevant options are no ops)
+    # as this previous one (none will error as the non-relevant options are no ops), except
+    # that a reference line is drawn when one is given
 
     for _, params in enumerate(FMT_NANOPLOT_CASES[1:], start=1):
         gt = GT(df_fmt_nanoplot_single).fmt_nanoplot(
@@ -2310,6 +2636,10 @@ def test_fmt_nanoplot_single_vals_only_line():
             **params,
         )
         res_other = _get_column_of_values(gt, column_name="vals", context="html")[0]
+
+        if "reference_line" in params:
+            assert '<g class="ref-line">' in res_other
+            res_other = re.sub(r'<g class="ref-line">.*?</g>', "", res_other)
 
         assert res == res_other
 
@@ -2353,7 +2683,8 @@ def test_fmt_nanoplot_single_vals_only_bar():
     )
 
     # All other test cases for the horizontal bar nanoplot will produce the same output
-    # as this previous one (none will error as the non-relevant options are no ops)
+    # as this previous one (none will error as the non-relevant options are no ops), except
+    # that a reference line is drawn when one is given
     for _, params in enumerate(FMT_NANOPLOT_CASES[1:], start=1):
         gt = GT(df_fmt_nanoplot_single).fmt_nanoplot(
             columns="vals",
@@ -2361,6 +2692,10 @@ def test_fmt_nanoplot_single_vals_only_bar():
             **params,
         )
         res_other = _get_column_of_values(gt, column_name="vals", context="html")[0]
+
+        if "reference_line" in params:
+            assert '<g class="ref-line">' in res_other
+            res_other = re.sub(r'<g class="ref-line">.*?</g>', "", res_other)
 
         assert res == res_other
 
@@ -2974,11 +3309,175 @@ def test_validate_n_sigfig_less_than_one_raises():
         _validate_n_sigfig(0)
 
 
+@pytest.mark.parametrize(
+    "pattern,context,x_out",
+    [
+        ("{x}", "html", "1 & 2%"),
+        ("{x}", "latex", "1 & 2%"),
+        ("({x})", "html", "(1 & 2%)"),
+        ("{x} & 5%", "html", "1 & 2% & 5%"),
+        # In LaTeX only the pattern's literals are escaped, not the formatted value
+        ("{x} & 5%", "latex", r"1 & 2% \& 5\%"),
+        ("{x}/{x}", "latex", "1 & 2%/1 & 2%"),
+    ],
+)
+def test_apply_value_pattern(pattern: str, context: str, x_out: str):
+    assert _apply_value_pattern("1 & 2%", pattern=pattern, context=context) == x_out
+
+
+@pytest.mark.parametrize(
+    "fmt_method,x_in,fmt_kwargs",
+    [
+        ("fmt_number", 1.5, {}),
+        ("fmt_integer", 2, {}),
+        ("fmt_scientific", 12345.0, {}),
+        ("fmt_engineering", 12345.0, {}),
+        ("fmt_number_si", 1234.0, {}),
+        ("fmt_percent", 0.5, {}),
+        ("fmt_partsper", 0.001, {}),
+        ("fmt_currency", 1.5, {}),
+        ("fmt_roman", 4, {}),
+        ("fmt_fraction", 1.5, {}),
+        ("fmt_index", 3, {}),
+        ("fmt_bytes", 2000, {}),
+        ("fmt_tf", True, {}),
+        ("fmt_date", date(2024, 1, 5), {}),
+        ("fmt_duration", 3700, dict(input_units="seconds")),
+        ("fmt_passthrough", "a", {}),
+        ("fmt_number", float("inf"), {}),
+        ("fmt_scientific", float("-inf"), {}),
+    ],
+)
+@pytest.mark.parametrize("context,suffix", [("html", " & 5%"), ("latex", r" \& 5\%")])
+def test_fmt_pattern_all_formatters(
+    fmt_method: str, x_in: Any, fmt_kwargs: dict[str, Any], context: str, suffix: str
+):
+    # Every formatter decorates its output with `pattern=`, escaping the literals in LaTeX
+    df = pd.DataFrame({"x": [x_in]})
+    gt = getattr(GT(df), fmt_method)(columns="x", pattern="{x} & 5%", **fmt_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context=context)
+    assert x[0].endswith(suffix)
+    assert not x[0].startswith(suffix.strip())
+
+
 def test_fmt_scientific_drop_trailing_zeros():
     df = pd.DataFrame({"x": [1000.0]})
     gt = GT(df).fmt_scientific(columns="x", decimals=3, drop_trailing_zeros=True)
     x = _get_column_of_values(gt, column_name="x", context="html")
     assert "1" in x[0]
+
+
+def test_fmt_scientific_n_sigfig_keeps_trailing_zeros():
+    # With `n_sigfig=`, trailing zeros are significant digits and `drop_trailing_zeros=` is
+    # ignored (as documented, and as in gt)
+    df = pd.DataFrame({"x": [937.29, 643.0, 2.232, 0.0, -23.24]})
+    x_out = ["9.37290E02", "6.43000E02", "2.23200E00", "0.00000E00", "\u22122.32400E01"]
+
+    for drop_trailing_zeros in [True, False]:
+        gt = GT(df).fmt_scientific(
+            columns="x", n_sigfig=6, drop_trailing_zeros=drop_trailing_zeros, exp_style="E"
+        )
+
+        assert _get_column_of_values(gt, column_name="x", context="html") == x_out
+
+
+# `drop_trailing_zeros=` must only strip zeros from the decimal part, never from the integer part
+# (with `decimals=0` there is no decimal part at all)
+@pytest.mark.parametrize(
+    "fn,x_in,kwargs,x_out",
+    [
+        (
+            vals.fmt_number,
+            [0, 10, 100, 2000, -100],
+            dict(decimals=0, drop_trailing_zeros=True),
+            ["0", "10", "100", "2,000", "−100"],
+        ),
+        (
+            vals.fmt_number,
+            [0, 100, 100.5, 100.25],
+            dict(decimals=2, drop_trailing_zeros=True),
+            ["0", "100", "100.5", "100.25"],
+        ),
+        (
+            vals.fmt_number,
+            [100, 100.5],
+            dict(decimals=2, drop_trailing_zeros=True, drop_trailing_dec_mark=False),
+            ["100.", "100.5"],
+        ),
+        (
+            vals.fmt_number,
+            [100, 100.5],
+            dict(decimals=2, drop_trailing_zeros=True, dec_mark=",", sep_mark="."),
+            ["100", "100,5"],
+        ),
+        (
+            vals.fmt_percent,
+            [1, 0.105],
+            dict(decimals=0, drop_trailing_zeros=True),
+            ["100%", "10%"],
+        ),
+        (
+            vals.fmt_engineering,
+            [0, 10, 100],
+            dict(decimals=0, drop_trailing_zeros=True),
+            ["0", "10", "100"],
+        ),
+        (
+            vals.fmt_scientific,
+            [0, 1.5],
+            dict(decimals=0, drop_trailing_zeros=True),
+            ["0", "2"],
+        ),
+        (
+            vals.fmt_scientific,
+            [0, 1.0, 1.5],
+            dict(decimals=2, drop_trailing_zeros=True, dec_mark=","),
+            ["0", "1", "1,5"],
+        ),
+        (
+            vals.fmt_number_si,
+            [0, 10, 100],
+            dict(decimals=0, drop_trailing_zeros=True),
+            ["0", "10", "100"],
+        ),
+        (
+            vals.fmt_bytes,
+            [0, 100, 10000, 300000],
+            dict(decimals=0),
+            ["0 B", "100 B", "10 kB", "300 kB"],
+        ),
+    ],
+)
+def test_drop_trailing_zeros_keeps_integer_zeros(fn, x_in, kwargs: dict, x_out: list[str]):
+    assert fn(x_in, **kwargs) == x_out
+
+
+# A value that rounds to zero is shown as zero: no minus sign, accounting parentheses or forced
+# plus sign (the sign is decided from the rounded value, not the input)
+@pytest.mark.parametrize(
+    "fn,x_in,kwargs,x_out",
+    [
+        (vals.fmt_integer, [-0.4, 0.4, -0.6, -0.0], dict(), ["0", "0", "−1", "0"]),
+        (vals.fmt_number, [-0.001, -0.006, -0.0], dict(decimals=2), ["0.00", "−0.01", "0.00"]),
+        (vals.fmt_number, [-0.001, -0.006], dict(decimals=2, accounting=True), ["0.00", "(0.01)"]),
+        (vals.fmt_number, [0.001, -0.001], dict(decimals=2, force_sign=True), ["0.00", "0.00"]),
+        (vals.fmt_number, [-0.001], dict(decimals=2, compact=True), ["0.00"]),
+        # With significant figures, a nonzero value never rounds to zero
+        (vals.fmt_number, [-0.001], dict(n_sigfig=2), ["−0.0010"]),
+        (vals.fmt_currency, [-0.001], dict(currency="USD"), ["$0.00"]),
+        (vals.fmt_currency, [-0.001], dict(currency="USD", accounting=True), ["$0.00"]),
+        (vals.fmt_currency, [0.001], dict(currency="USD", force_sign=True), ["$0.00"]),
+        (vals.fmt_percent, [-0.00001], dict(decimals=1), ["0.0%"]),
+        (vals.fmt_percent, [-0.00001], dict(decimals=1, accounting=True), ["0.0%"]),
+        (vals.fmt_partsper, [-1e-7], dict(), ["0.00‰"]),
+        (vals.fmt_number_si, [-1e-40], dict(unit="g"), ["0.00 g"]),
+        # Non-finite values keep their sign
+        (vals.fmt_number, [float("-inf")], dict(), ["−inf"]),
+        (vals.fmt_number, [float("inf")], dict(force_sign=True), ["+inf"]),
+    ],
+)
+def test_value_rounding_to_zero_has_no_sign(fn, x_in, kwargs: dict, x_out: list[str]):
+    assert fn(x_in, **kwargs) == x_out
 
 
 def test_fmt_scientific_force_sign_m_positive():
@@ -3122,6 +3621,76 @@ def test_fmt_number_si_latex_pattern():
     x = _get_column_of_values(gt, column_name="x", context="latex")
     assert len(x) == 1
     assert "Value" in x[0]
+
+
+@pytest.mark.parametrize(
+    "fmt_kwargs,x_in,x_out",
+    [
+        (
+            dict(decimals=1),
+            [999.94, 999.96, 999960, -999960],
+            ["999.9", "1.0 k", "1.0 M", "−1.0 M"],
+        ),
+        (dict(decimals=1), [0.99996], ["1.0"]),
+        (dict(n_sigfig=3), [999.4, 999.6], ["999", "1.00 k"]),
+        (dict(decimals=2, prefix_mode="decimal"), [9.9996, 99.996], ["1.00 da", "1.00 h"]),
+        (dict(decimals=1), [1e-40], ["0.0"]),
+        # Carries from the zepto prefix (where rebuilding the value used to fall short of 1e-18)
+        (dict(decimals=2), [9.99995e-19, 9.9996e-19], ["1.00 a", "999.96 z"]),
+        # Halfway values with `n_sigfig=` carry to exactly 1 of the next prefix
+        (dict(n_sigfig=1), [9.5e-19], ["1 a"]),
+        (dict(n_sigfig=4), [0.99995], ["1.000"]),
+        (dict(n_sigfig=2, prefix_mode="decimal"), [9.95, 0.995], ["1.0 da", "1.0"]),
+    ],
+)
+def test_fmt_number_si_rounding_carries_into_next_prefix(
+    fmt_kwargs: dict[str, Any], x_in: list[float], x_out: list[str]
+):
+    # Values that round up to the next prefix should use that prefix (`1.0 k`), not
+    # `1,000.0`
+    df = pd.DataFrame({"x": x_in})
+    gt = GT(df).fmt_number_si(columns="x", **fmt_kwargs)
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
+
+
+@pytest.mark.parametrize(
+    "exp,si_table,next_prefix",
+    [
+        (0, _SI_PREFIXES_ENGINEERING, (3, "k")),
+        (3, _SI_PREFIXES_ENGINEERING, (6, "M")),
+        (-3, _SI_PREFIXES_ENGINEERING, (0, "")),
+        (-21, _SI_PREFIXES_ENGINEERING, (-18, "a")),
+        (30, _SI_PREFIXES_ENGINEERING, None),
+        (0, _SI_PREFIXES_DECIMAL, (1, "da")),
+        (-1, _SI_PREFIXES_DECIMAL, (0, "")),
+        (-3, _SI_PREFIXES_DECIMAL, (-2, "c")),
+        (2, _SI_PREFIXES_DECIMAL, (3, "k")),
+        (30, _SI_PREFIXES_DECIMAL, None),
+    ],
+)
+def test_get_next_si_prefix(exp: int, si_table: list, next_prefix: tuple[int, str] | None):
+    assert _get_next_si_prefix(exp, si_table=si_table) == next_prefix
+
+
+@pytest.mark.parametrize(
+    "scaled_value,threshold,decimals,n_sigfig,x_out",
+    [
+        (999.995, 1000, 2, None, True),
+        (999.994, 1000, 2, None, False),
+        (-999.995, 1000, 2, None, True),
+        (999.5, 1000, 0, 3, True),
+        (999.4, 1000, 2, 3, False),
+        (1023.5, 1024, 0, None, True),
+        (9.96, 10, 1, None, True),
+        (0.0, 1000, 2, None, False),
+    ],
+)
+def test_rounds_up_to(
+    scaled_value: float, threshold: float, decimals: int, n_sigfig: int | None, x_out: bool
+):
+    result = _rounds_up_to(scaled_value, threshold=threshold, decimals=decimals, n_sigfig=n_sigfig)
+    assert result is x_out
 
 
 def test_fmt_partsper_latex_pattern():
@@ -3309,11 +3878,25 @@ def test_fmt_duration_timedelta_input():
     assert x[0] is not None
 
 
+@pytest.mark.parametrize(
+    "duration_style,x_out",
+    [
+        ("narrow", ["\\textless{}1s", "1m 30s"]),
+        ("wide", ["\\textless{}1 second", "1 minute 30 seconds"]),
+    ],
+)
+def test_fmt_duration_latex_less_than(duration_style: str, x_out: list[str]):
+    df = pd.DataFrame({"x": [0.5, 90.0]})
+    gt = GT(df).fmt_duration(columns="x", input_units="seconds", duration_style=duration_style)
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+    assert x == x_out
+
+
 def test_context_exp_str_else_branch():
     from great_tables._formats import _context_exp_str
 
     # A completely unrecognized exp_style hits the else branch → returns "E"
-    result = _context_exp_str("ZZZZ")
+    result = _context_exp_str("ZZZZ", context="html")
     assert result == "E"
 
 
@@ -3420,6 +4003,30 @@ def test_fmt_units_custom_pattern():
     assert result[0].startswith("(") or "(" in result[0]
 
 
+def test_fmt_units_latex():
+    df = pl.DataFrame({"units": ["kg m^-3"]})
+    gt = GT(df).fmt_units(columns="units", pattern="{x} & more")
+    result = _get_column_of_values(gt, column_name="units", context="latex")
+
+    assert result == ["kg m\\textsuperscript{\\ensuremath{-}3} \\& more"]
+
+
+def test_fmt_units_as_latex_has_no_html():
+    df = pl.DataFrame({"units": ["kg m^-3"]})
+    latex = (
+        GT(df)
+        .fmt_units(columns="units")
+        .cols_label(units="Density ({{kg m^-3}})")
+        .tab_spanner(label="Rate ({{s^-1}})", columns="units")
+        .as_latex()
+    )
+
+    assert "<span" not in latex
+    assert "Density (kg m\\textsuperscript{\\ensuremath{-}3})" in latex
+    assert "Rate (s\\textsuperscript{\\ensuremath{-}1})" in latex
+    assert "\nkg m\\textsuperscript{\\ensuremath{-}3} \\\\" in latex
+
+
 def test_fmt_date_invalid_date_object_raises():
     # ValueError when cell value is not a string or date object
     with pytest.raises(ValueError, match="Invalid date object"):
@@ -3522,6 +4129,81 @@ def test_format_number_compactly_zero_returns_zero_string():
     assert result == "0"
 
 
+@pytest.mark.parametrize(
+    "value,x_out", [(float("inf"), "inf"), (float("-inf"), "-inf"), (float("nan"), "nan")]
+)
+def test_format_number_compactly_nonfinite(value: float, x_out: str):
+    # Non-finite values have no suffix and should not raise (e.g., in `math.log()`)
+    result = _format_number_compactly(
+        value=value,
+        decimals=2,
+        n_sigfig=None,
+        drop_trailing_zeros=False,
+        drop_trailing_dec_mark=False,
+        use_seps=True,
+        sep_mark=",",
+        dec_mark=".",
+        force_sign=False,
+    )
+    assert result == x_out
+
+
+@pytest.mark.parametrize(
+    "fn,x_in,kwargs,x_out",
+    [
+        (
+            vals.fmt_number,
+            [999999, -999999, 999.996],
+            dict(decimals=2),
+            ["1.00M", "−1.00M", "1.00K"],
+        ),
+        (vals.fmt_number, [999499], dict(decimals=2), ["999.50K"]),
+        (vals.fmt_number, [999999], dict(n_sigfig=3), ["1.00M"]),
+        (vals.fmt_integer, [999999, 999499, 999500], dict(), ["1M", "999K", "1M"]),
+        (
+            vals.fmt_currency,
+            [999999, 999.996, -999999],
+            dict(currency="USD"),
+            ["$1.00M", "$1.00K", "−$1.00M"],
+        ),
+    ],
+)
+def test_fmt_compact_rounding_carries_into_next_suffix(fn, x_in, kwargs: dict, x_out: list[str]):
+    # The same carry as `_format_number_compactly()`, through the public formatters
+    assert fn(x_in, compact=True, **kwargs) == x_out
+
+
+@pytest.mark.parametrize(
+    "value,kwargs,x_out",
+    [
+        # Rounding carries the scaled value up to 1000, so the next suffix is used
+        (999999, dict(decimals=2), "1.00M"),
+        (-999999, dict(decimals=2), "-1.00M"),
+        (999.996, dict(decimals=2), "1.00K"),
+        (999999999, dict(decimals=2), "1.00B"),
+        (999999, dict(decimals=0), "1M"),
+        (999999, dict(decimals=2, n_sigfig=3), "1.00M"),
+        # No carry: the suffix stays the same
+        (999499, dict(decimals=0), "999K"),
+        (999500, dict(decimals=2), "999.50K"),
+        (999400, dict(decimals=2, n_sigfig=3), "999K"),
+    ],
+)
+def test_format_number_compactly_rounding_carries_into_next_suffix(value, kwargs, x_out):
+    result = _format_number_compactly(
+        value=value,
+        n_sigfig=kwargs.get("n_sigfig"),
+        decimals=kwargs["decimals"],
+        drop_trailing_zeros=False,
+        drop_trailing_dec_mark=True,
+        use_seps=True,
+        sep_mark=",",
+        dec_mark=".",
+        force_sign=False,
+    )
+    assert result == x_out
+
+
 def test_has_zero_value():
     # _has_zero_value returns True for 0, False otherwise
     assert _has_zero_value(0) is True
@@ -3544,11 +4226,31 @@ def test_fmt_icon_na_value_returns_na():
     assert result[1] is None or str(result[1]) in ("None", "null", "")
 
 
-def test_fmt_flag_invalid_country_code_length_raises():
-    # ValueError when country code is not 2 or 3 characters
-    df = pl.DataFrame({"flag": ["U"]})
-    with pytest.raises(ValueError, match="2 or 3 characters long"):
-        GT(df).fmt_flag(columns="flag").as_raw_html()
+def test_fmt_flag_unrecognized_codes_kept_as_text():
+    df = pl.DataFrame({"flag": ["U", "ZZ", "ZZZ", "Europe", "US", "<b>"]})
+
+    vals = _get_column_of_values(
+        GT(df).fmt_flag(columns="flag"), column_name="flag", context="html"
+    )
+
+    assert vals[:4] == [
+        '<span style="white-space:nowrap;">U</span>',
+        '<span style="white-space:nowrap;">ZZ</span>',
+        '<span style="white-space:nowrap;">ZZZ</span>',
+        '<span style="white-space:nowrap;">Europe</span>',
+    ]
+    assert re.search("^<span style.*?<svg.*?>.*?</svg></span>$", vals[4])
+    assert vals[5] == '<span style="white-space:nowrap;">&lt;b&gt;</span>'
+
+
+def test_fmt_flag_mixed_recognized_and_unrecognized_in_cell():
+    df = pl.DataFrame({"flag": ["fr,xx,DE"]})
+
+    val = _get_column_of_values(
+        GT(df).fmt_flag(columns="flag"), column_name="flag", context="html"
+    )[0]
+
+    assert re.search("^<span style.*?<svg.*?>.*?</svg> xx <svg.*?>.*?</svg></span>$", val)
 
 
 def test_fmt_flag_height_none_defaults_to_1em():
@@ -3662,7 +4364,8 @@ def test_fmt_fraction_inf():
     df = pd.DataFrame({"x": [float("inf"), float("-inf")]})
     gt = GT(df).fmt_fraction(columns="x")
     x = _get_column_of_values(gt, column_name="x", context="html")
-    assert x == ["inf", "-inf"]
+    # The minus sign is the same as for finite negative fractions (and for other formatters)
+    assert x == ["inf", "−inf"]
 
 
 def test_fmt_fraction_polars():
@@ -3670,6 +4373,23 @@ def test_fmt_fraction_polars():
     gt = GT(df).fmt_fraction(columns="x")
     x = _get_column_of_values(gt, column_name="x", context="html")
     assert x == ["1/2", "1 1/4", "3 3/4"]
+
+
+@pytest.mark.parametrize(
+    "values,dtype,x_out",
+    [
+        ([-3, 0, 2], "int64", ["−3", "0", "2"]),
+        ([1, 250], "uint8", ["1", "250"]),
+        ([1.5, -0.25], "float32", ["1 1/2", "−1/4"]),
+        ([1, -2], "Int64", ["1", "−2"]),
+    ],
+)
+def test_fmt_fraction_pandas_numpy_dtypes(values: list, dtype: str, x_out: list):
+    # Values from these columns are NumPy scalars rather than Python numbers
+    df = pd.DataFrame({"x": pd.Series(values, dtype=dtype)})
+    gt = GT(df).fmt_fraction(columns="x")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+    assert x == x_out
 
 
 def test_fmt_fraction_invalid_accuracy_str():
@@ -3772,6 +4492,47 @@ def test_fmt_chem_reaction_arrows():
     assert "&#8652;" in x[3]  # <=>
     assert "&#8640;" in x[4]  # <=>>
     assert "&#8637;" in x[5]  # <<=>
+
+
+def test_fmt_chem_longest_arrow_first():
+    # `<-->` contains `<-` and `->`, so it must be matched as a whole
+    assert vals.fmt_chem("A <--> B") == ["A &#8596; B"]
+
+
+@pytest.mark.parametrize(
+    "src,dst",
+    [
+        ("C6H12O6", "C\\textsubscript{6}H\\textsubscript{12}O\\textsubscript{6}"),
+        ("(NH4)2SO4", "(NH\\textsubscript{4})\\textsubscript{2}SO\\textsubscript{4}"),
+        (
+            "2H2 + O2 -> 2H2O",
+            "2\\,H\\textsubscript{2} + O\\textsubscript{2} \\ensuremath{\\rightarrow} 2\\,H\\textsubscript{2}O",
+        ),
+        ("A <--> B", "A \\ensuremath{\\leftrightarrow} B"),
+        ("N2 <=> 2N", "N\\textsubscript{2} \\ensuremath{\\rightleftharpoons} 2\\,N"),
+        ("CuSO4 . 5H2O", "CuSO\\textsubscript{4} \\ensuremath{\\cdot} 5\\,H\\textsubscript{2}O"),
+        ("SO4^2-", "SO\\textsubscript{4}\\textsuperscript{2\\ensuremath{-}}"),
+        ("M^{n+}", "M\\textsuperscript{\\emph{n}+}"),
+        ("Cl-", "Cl\\textsuperscript{\\ensuremath{-}}"),
+        ("^{14}_6C", "\\ensuremath{{}^{14}_{6}}C"),
+        ("^14C", "\\ensuremath{{}^{14}}C"),
+        (":alpha:Fe", "\\ensuremath{\\alpha}Fe"),
+        ("x H2O", "\\emph{x}\\,H\\textsubscript{2}O"),
+        ("C_n", "C\\textsubscript{\\emph{n}}"),
+        ("H2O & 10%", "H\\textsubscript{2}O\\&10\\%"),
+    ],
+)
+def test_fmt_chem_latex(src: str, dst: str):
+    gt = GT(pl.DataFrame({"x": [src]})).fmt_chem(columns="x")
+
+    assert _get_column_of_values(gt, column_name="x", context="latex") == [dst]
+
+
+def test_fmt_chem_as_latex_has_no_html():
+    latex = GT(pl.DataFrame({"x": ["H2O", "SO4^2-"]})).fmt_chem(columns="x").as_latex()
+
+    assert "<span" not in latex and "&#" not in latex
+    assert "H\\textsubscript{2}O \\\\" in latex
 
 
 def test_fmt_chem_bonds():
@@ -3925,6 +4686,14 @@ def test_fmt_index_pattern():
     assert x[2] == "C."
 
 
+def test_fmt_index_pattern_latex_escaped():
+    df = pd.DataFrame({"x": [1, 2]})
+    gt = GT(df).fmt_index(columns="x", pattern="#{x}%")
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+
+    assert x == ["\\#A\\%", "\\#B\\%"]
+
+
 def test_fmt_index_zero():
     df = pd.DataFrame({"x": [0, 1, 2]})
     gt = GT(df).fmt_index(columns="x")
@@ -3945,13 +4714,33 @@ def test_fmt_index_zero_with_pattern():
 
 
 def test_fmt_index_negative():
-    df = pd.DataFrame({"x": [-1, -2, -3]})
+    # Negative values are indexed by their absolute value, as in R gt
+    df = pd.DataFrame({"x": [-1, -2, -3, -50, -1.5, -0.999, -0.4]})
     gt = GT(df).fmt_index(columns="x")
     x = _get_column_of_values(gt, column_name="x", context="html")
 
-    assert x[0] == ""  # _round_rhu(-1, 0) -> 0.0 -> empty
-    assert x[1] == "A"
-    assert x[2] == "B"
+    assert x == ["A", "B", "C", "XX", "B", "A", ""]
+
+
+@pytest.mark.parametrize(
+    "x,digits,expected",
+    [
+        (2.5, 0, 3.0),
+        (-2.5, 0, -3.0),
+        (-50, 0, -50.0),
+        (-1.5, 0, -2.0),
+        (-0.999, 0, -1.0),
+        (-0.4, 0, 0.0),
+        (1.005, 2, 1.01),
+        (-1.005, 2, -1.01),
+    ],
+)
+def test_round_rhu(x: float, digits: int, expected: float):
+    # Halves are rounded away from zero, like `round_gt()` in R gt
+    result = _round_rhu(x, digits)
+
+    assert result == expected
+    assert math.copysign(1, result) == math.copysign(1, expected)
 
 
 def test_fmt_index_na():
@@ -3991,6 +4780,14 @@ def test_fmt_index_excel_large():
     assert x[2] == "AAA"
 
 
+def test_fmt_index_float32():
+    df = pd.DataFrame({"x": pd.Series([1.0, 2.6, 27.0], dtype="float32")})
+    gt = GT(df).fmt_index(columns="x")
+    x = _get_column_of_values(gt, column_name="x", context="html")
+
+    assert x == ["A", "C", "AA"]
+
+
 def test_fmt_index_polars():
     df = pl.DataFrame({"x": [1, 2, 3]})
     gt = GT(df).fmt_index(columns="x")
@@ -4017,7 +4814,7 @@ def test_fmt_index_inf():
     x = _get_column_of_values(gt, column_name="x", context="html")
 
     assert x[0] == "inf"
-    assert x[1] == "-inf"
+    assert x[1] == "−inf"
 
 
 # ==============================================================================
@@ -4157,6 +4954,20 @@ def test_fmt_url_button_auto_text_color():
     assert "color:#FFFFFF" in x[0]
 
 
+def test_fmt_url_latex():
+    df = pd.DataFrame(
+        {"x": ["https://example.com/a_b%20c?q=1&r=2#top", "[My Site](https://example.com)"]}
+    )
+    gt = GT(df).fmt_url(columns="x", as_button=True)
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+
+    assert x == [
+        "\\href{https://example.com/a_b\\%20c?q=1\\&r=2\\#top}"
+        "{https://example.com/a\\_b\\%20c?q=1\\&r=2\\#top}",
+        "\\href{https://example.com}{My Site}",
+    ]
+
+
 # ==============================================================================
 # fmt_email tests
 # ==============================================================================
@@ -4247,3 +5058,334 @@ def test_fmt_email_rows_subset():
     assert "mailto:" in x[0]
     assert x[1] == "b@b.com"  # unformatted
     assert "mailto:" in x[2]
+
+
+def test_fmt_email_latex():
+    df = pd.DataFrame({"x": ["first_last@example.com"]})
+    gt = GT(df).fmt_email(columns="x", display_name=lambda e: e.split("@")[0])
+    x = _get_column_of_values(gt, column_name="x", context="latex")
+
+    assert x == ["\\href{mailto:first_last@example.com}{first\\_last}"]
+
+
+# ==============================================================================
+# min_sep_threshold tests (the expected values are those of the gt tests)
+# ==============================================================================
+
+MIN_SEP_VALUES = [100, 500, 999, 999.49, 999.50, 999.99, 1000, 5000, 10000, 50000, 100000]
+
+
+@pytest.mark.parametrize(
+    "min_sep_threshold,expected",
+    [
+        (
+            1,
+            [
+                "100",
+                "500",
+                "999",
+                "999",
+                "1,000",
+                "1,000",
+                "1,000",
+                "5,000",
+                "10,000",
+                "50,000",
+                "100,000",
+            ],
+        ),
+        (
+            2,
+            [
+                "100",
+                "500",
+                "999",
+                "999",
+                "1000",
+                "1000",
+                "1000",
+                "5000",
+                "10,000",
+                "50,000",
+                "100,000",
+            ],
+        ),
+        (
+            3,
+            [
+                "100",
+                "500",
+                "999",
+                "999",
+                "1000",
+                "1000",
+                "1000",
+                "5000",
+                "10000",
+                "50000",
+                "100,000",
+            ],
+        ),
+    ],
+)
+def test_fmt_number_min_sep_threshold(min_sep_threshold: int, expected: list[str]):
+    df = pd.DataFrame({"x": MIN_SEP_VALUES})
+    gt = GT(df).fmt_number(columns="x", decimals=0, min_sep_threshold=min_sep_threshold)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == expected
+
+
+def test_fmt_number_min_sep_threshold_negative_values():
+    df = pd.DataFrame({"x": [-x for x in MIN_SEP_VALUES]})
+    gt = GT(df).fmt_number(columns="x", decimals=0, min_sep_threshold=2)
+
+    expected = [
+        "100",
+        "500",
+        "999",
+        "999",
+        "1000",
+        "1000",
+        "1000",
+        "5000",
+        "10,000",
+        "50,000",
+        "100,000",
+    ]
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["−" + x for x in expected]
+
+
+def test_fmt_number_min_sep_threshold_n_sigfig():
+    df = pd.DataFrame({"x": [1234.5678, 12345.678]})
+    gt = GT(df).fmt_number(columns="x", n_sigfig=6, min_sep_threshold=2)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1234.57", "12,345.7"]
+
+
+@pytest.mark.parametrize(
+    "locale,expected",
+    [
+        ("en", ["1,836", "2,763", "10,000"]),
+        ("et", ["1836", "2763", "10 000"]),
+        ("es", ["1836", "2763", "10.000"]),
+    ],
+)
+def test_fmt_number_min_sep_threshold_from_locale(locale: str, expected: list[str]):
+    # The locale's minimum grouping digits value takes precedence over `min_sep_threshold=`
+    df = pd.DataFrame({"x": [1836, 2763, 10000]})
+    gt = GT(df).fmt_number(columns="x", decimals=0, min_sep_threshold=1, locale=locale)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == expected
+
+
+def test_fmt_number_min_sep_threshold_from_gt_locale():
+    df = pd.DataFrame({"x": [1836, 10000]})
+    gt = GT(df, locale="et").fmt_number(columns="x", decimals=0)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["1836", "10 000"]
+
+
+def test_fmt_percent_min_sep_threshold_from_locale():
+    df = pd.DataFrame({"x": [-23.24]})
+    gt = GT(df).fmt_percent(columns="x", decimals=2, locale="et")
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == ["−2324,00%"]
+
+
+@pytest.mark.parametrize(
+    "fmt,kwargs,values,expected",
+    [
+        ("fmt_partsper", {}, [1.8364, 18.364], ["1836,40‰", "18.364,00‰"]),
+        ("fmt_fraction", {}, [1836.25, 18364.25], ["1836 1/4", "18.364 1/4"]),
+        ("fmt_number_si", {"decimals": 1}, [1.8364e33, 1.8364e34], ["1836,4 Q", "18.364,0 Q"]),
+        (
+            "fmt_duration",
+            {"input_units": "days", "output_units": "days"},
+            [1836, 18364],
+            ["1836d", "18.364d"],
+        ),
+        (
+            "fmt_duration",
+            {"input_units": "days", "duration_style": "colon-sep"},
+            [1836.5, 18364.5],
+            ["1836/12:00:00", "18.364/12:00:00"],
+        ),
+    ],
+)
+def test_fmt_other_formatters_min_sep_threshold_from_locale(
+    fmt: str, kwargs: dict[str, Any], values: list[float], expected: list[str]
+):
+    # As with `fmt_number()`, a minimum grouping digits value of 2 ("es") leaves four-digit
+    # numbers ungrouped
+    df = pd.DataFrame({"x": values})
+    gt = getattr(GT(df), fmt)(columns="x", locale="es", **kwargs)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == expected
+
+
+def test_format_whole_number_and_duration_number_min_sep_threshold():
+    from great_tables._formats import _format_number_for_duration, _format_whole_number
+
+    assert _format_whole_number(1836, True, ",") == "1,836"
+    assert _format_whole_number(1836, True, ",", min_sep_threshold=2) == "1836"
+    assert _format_whole_number(18364, True, ",", min_sep_threshold=2) == "18,364"
+    assert _format_number_for_duration(1836, ",") == "1,836"
+    assert _format_number_for_duration(1836, ",", min_sep_threshold=2) == "1836"
+    assert _format_number_for_duration(18364, ",", min_sep_threshold=2) == "18,364"
+
+
+@pytest.mark.parametrize(
+    "fmt,kwargs,values,expected",
+    [
+        ("fmt_integer", {}, [999, 1000, 9999, 10000], ["999", "1000", "9999", "10,000"]),
+        (
+            "fmt_percent",
+            {"decimals": 0},
+            [9.99, 10.00, 99.99, 100.00],
+            ["999%", "1000%", "9999%", "10,000%"],
+        ),
+        (
+            "fmt_currency",
+            {"currency": "USD"},
+            [999, 1000, 9999, 10000],
+            ["$999.00", "$1000.00", "$9999.00", "$10,000.00"],
+        ),
+        (
+            "fmt_bytes",
+            {"standard": "binary", "decimals": 1},
+            [1500, 1500 * 1024, 15000 * 1024],
+            ["1.5 KiB", "1.5 MiB", "14.6 MiB"],
+        ),
+    ],
+)
+def test_fmt_min_sep_threshold(fmt: str, kwargs: dict[str, Any], values: list, expected: list[str]):
+    df = pd.DataFrame({"x": values})
+    gt = getattr(GT(df), fmt)(columns="x", min_sep_threshold=2, **kwargs)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == expected
+
+
+def test_fmt_bytes_min_sep_threshold_large_values():
+    df = pd.DataFrame({"x": [1234 * 1024**8, 12345 * 1024**8]})
+    gt = GT(df).fmt_bytes(columns="x", standard="binary", decimals=0, min_sep_threshold=2)
+
+    assert _get_column_of_values(gt, column_name="x", context="html") == [
+        "1234 YiB",
+        "12,345 YiB",
+    ]
+
+
+@pytest.mark.parametrize("min_sep_threshold", [0, -1, 1.5, True, "2"])
+def test_fmt_number_min_sep_threshold_invalid(min_sep_threshold: Any):
+    df = pd.DataFrame({"x": [1000]})
+
+    with pytest.raises(ValueError, match="must be an integer of 1 or more"):
+        GT(df).fmt_number(columns="x", min_sep_threshold=min_sep_threshold)
+
+
+@pytest.mark.parametrize(
+    "x_in,duration_style,kwargs,x_out",
+    [
+        # The ISO style uses an ASCII hyphen (ISO 8601 parsers reject the typographic minus) and
+        # leaves out zero-valued units
+        ([-3661], "iso", dict(), ["-PT1H1M1S"]),
+        ([604861, 86400, 90061], "iso", dict(), ["P7DT1M1S", "P1D", "P1DT1H1M1S"]),
+        ([0], "iso", dict(), ["PT0S"]),
+        # A duration shown as zero gets no sign in the colon and ISO styles
+        ([-0.5, 0.4], "iso", dict(force_sign=True), ["PT0S", "PT0S"]),
+        ([-0.5, 0.4], "colon-sep", dict(force_sign=True), ["00:00:00", "00:00:00"]),
+        ([-3661, 5], "colon-sep", dict(force_sign=True), ["−01:01:01", "+00:00:05"]),
+        # The narrow and wide styles show such a duration as less than a second, keeping the sign
+        ([-0.5], "narrow", dict(), ["−<1s"]),
+    ],
+)
+def test_fmt_duration_iso_and_zero_signs(x_in, duration_style: str, kwargs: dict, x_out: list[str]):
+    assert (
+        vals.fmt_duration(x_in, input_units="seconds", duration_style=duration_style, **kwargs)
+        == x_out
+    )
+
+
+def test_fmt_duration_iso_minus_in_latex():
+    df = pl.DataFrame({"x": [-3661.0]})
+    gt = GT(df).fmt_duration(columns="x", input_units="seconds", duration_style="iso")
+    assert _get_column_of_values(gt, column_name="x", context="latex") == ["-PT1H1M1S"]
+
+
+# Accessible markup of cell graphics ----------------------------------------------------------
+
+
+def test_fmt_image_alt_text():
+    from great_tables import from_column
+
+    df = pl.DataFrame(
+        {"img": ["https://e.x/a.png", "https://e.x/b.png, https://e.x/c.png"], "d": ["A & B", None]}
+    )
+
+    def alts(gt: GT) -> list[str]:
+        return re.findall(r'alt="([^"]*)"', gt.as_raw_html())
+
+    # Decorative (empty) by default, a pattern with `{x}` for each image, or text from a column
+    assert alts(GT(df).fmt_image("img")) == ["", "", ""]
+    assert alts(GT(df).fmt_image("img", alt="Image {x}")) == [
+        "Image https://e.x/a.png",
+        "Image https://e.x/b.png",
+        "Image https://e.x/c.png",
+    ]
+    assert alts(GT(df).fmt_image("img", alt=from_column("d", fn=str.upper))) == [
+        "A &amp; B",
+        "",
+        "",
+    ]
+
+
+def test_fmt_flag_title_is_accessible_name():
+    df = pl.DataFrame({"c": ["BA"]})
+
+    titled = GT(df).fmt_flag("c").as_raw_html()
+    assert 'role="img" aria-label="Bosnia and Herzegovina"' in titled
+    assert "aria-hidden" not in titled.split("<tbody", 1)[1]
+
+    untitled = GT(df).fmt_flag("c", use_title=False).as_raw_html()
+    assert 'aria-hidden="true"' in untitled and "aria-label" not in untitled
+
+
+def test_fmt_icon_has_no_invalid_opacity():
+    html_str = GT(pl.DataFrame({"i": ["star"]})).fmt_icon("i").as_raw_html()
+    assert "opacity:None" not in html_str
+
+
+def test_svg_ids_in_cells_are_unique():
+    # Flags and nanoplots define SVG elements with ids; each cell gets its own, and every
+    # reference resolves to the definition in the same cell
+    df = pl.DataFrame({"c": ["GB", "US", "GB"], "n": ["1,2,3", "3,2,1", "1,2,3"]})
+    html_str = GT(df, id="t").fmt_flag("c").fmt_nanoplot("n").as_raw_html()
+    table = html_str.split("<table", 1)[1]
+
+    ids = re.findall(r'\bid="([^"]*)"', table)
+    refs = [a or b for a, b in re.findall(r'url\(#([^)]+)\)|href="#([^"]+)"', table)]
+
+    assert len(ids) == len(set(ids))
+    assert refs and all(ref in ids for ref in refs)
+    assert "t-c-0-a" in ids and "t-c-2-a" in ids
+
+
+def test_fmt_nanoplot_accessible_name():
+    from great_tables import from_column
+
+    df = pl.DataFrame({"n": ["12,30,47,20,30", "1,2,3"], "d": ["Sales", None]})
+
+    def labels(gt: GT) -> list[str]:
+        return re.findall(r'aria-label="([^"]*)"', gt.as_raw_html())
+
+    assert labels(GT(df).fmt_nanoplot("n"))[0] == (
+        "Line plot of 5 values from 12.0 to 47.0, ending at 30.0"
+    )
+    assert labels(GT(df).fmt_nanoplot("n", alt="Weekly: {x}"))[1] == (
+        "Weekly: Line plot of 3 values from 1.00 to 3.00, ending at 3.00"
+    )
+    # A row without text in the column keeps the summary
+    assert labels(GT(df).fmt_nanoplot("n", alt=from_column("d"))) == [
+        "Sales",
+        "Line plot of 3 values from 1.00 to 3.00, ending at 3.00",
+    ]

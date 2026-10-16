@@ -8,30 +8,39 @@ import logging
 import typing
 
 import keycloak
-from jwcrypto import jwk
 from keycloak import KeycloakOpenID
-from starlette.authentication import AuthenticationBackend, BaseUser
 from starlette.requests import HTTPConnection
 
+from fastapi_keycloak_middleware.claims import get_claim, normalize_scopes
 from fastapi_keycloak_middleware.exceptions import (
     AuthClaimMissing,
     AuthHeaderMissing,
     AuthInvalidToken,
     AuthKeycloakError,
+    AuthServiceError,
     AuthUserError,
 )
 from fastapi_keycloak_middleware.fast_api_user import FastApiUser
+from fastapi_keycloak_middleware.jwks import KeySetCache, get_token_kid
+from fastapi_keycloak_middleware.schemas.auth_context import AuthContext
 from fastapi_keycloak_middleware.schemas.authorization_methods import (
     AuthorizationMethod,
 )
 from fastapi_keycloak_middleware.schemas.keycloak_configuration import (
     KeycloakConfiguration,
 )
+from fastapi_keycloak_middleware.schemas.principal_type import PrincipalType
+from fastapi_keycloak_middleware.service_principal import ServicePrincipal
 
 log = logging.getLogger(__name__)
 
+#: Async function mapping the token claims to a user or service object
+PrincipalMapper = typing.Callable[[typing.Dict[str, typing.Any]], typing.Awaitable[typing.Any]]
+#: Function deciding whether the token claims belong to a service principal
+ServiceDetector = typing.Callable[[typing.Dict[str, typing.Any]], bool]
 
-class KeycloakBackend(AuthenticationBackend):
+
+class KeycloakBackend:
     """
     Backend to perform authentication using Keycloak
     """
@@ -39,14 +48,19 @@ class KeycloakBackend(AuthenticationBackend):
     def __init__(
         self,
         keycloak_configuration: KeycloakConfiguration,
-        user_mapper: typing.Callable[[typing.Dict[str, typing.Any]], typing.Awaitable[typing.Any]]
-        | None,
+        user_mapper: PrincipalMapper | None = None,
+        service_mapper: PrincipalMapper | None = None,
+        service_detector: ServiceDetector | None = None,
     ):
         self.keycloak_configuration = keycloak_configuration
         self.keycloak_openid = self._get_keycloak_openid()
-        if not self.keycloak_configuration.use_introspection_endpoint:
-            self.public_key = self._get_public_key()
-        self.get_user = user_mapper if user_mapper else KeycloakBackend._get_user
+        # The key set is fetched on the first request, not at startup
+        self.key_set_cache = KeySetCache(
+            self.keycloak_openid, keycloak_configuration.jwks_refresh_interval
+        )
+        self.user_mapper = user_mapper or KeycloakBackend._default_user_mapper
+        self.service_mapper = service_mapper or KeycloakBackend._default_service_mapper
+        self.service_detector = service_detector
 
     def _get_keycloak_openid(self) -> KeycloakOpenID:
         """
@@ -60,45 +74,34 @@ class KeycloakBackend(AuthenticationBackend):
             verify=self.keycloak_configuration.verify,
         )
 
-    def _get_public_key(self) -> jwk.JWK:
-        """
-        Returns the public key used to validate tokens.
-        This is only used if the introspection endpoint is not used.
-        """
-        log.debug("Fetching public key from Keycloak server at %s", self.keycloak_configuration.url)
-        try:
-            key = (
-                "-----BEGIN PUBLIC KEY-----\n"
-                + self.keycloak_openid.public_key()
-                + "\n-----END PUBLIC KEY-----"
-            )
-            return jwk.JWK.from_pem(key.encode("utf-8"))
-        except keycloak.exceptions.KeycloakGetError as exc:
-            log.error("Failed to fetch public key from Keycloak server: %s", exc.error_message)
-            raise AuthKeycloakError from exc
-
     @staticmethod
-    async def _get_user(userinfo: typing.Dict[str, typing.Any]) -> BaseUser:
+    async def _default_user_mapper(claims: typing.Dict[str, typing.Any]) -> FastApiUser:
         """
-        Default implementation of the get_user method.
+        Default user mapper, returns a FastApiUser built from the standard claims.
         """
         return FastApiUser(
-            first_name=userinfo.get("given_name", ""),
-            last_name=userinfo.get("family_name", ""),
-            user_id=userinfo.get("user_id", ""),
+            first_name=claims.get("given_name", ""),
+            last_name=claims.get("family_name", ""),
+            user_id=claims.get("sub", ""),
         )
 
-    async def authenticate(self, conn: HTTPConnection) -> tuple[list[str], BaseUser | None]:
+    @staticmethod
+    async def _default_service_mapper(claims: typing.Dict[str, typing.Any]) -> ServicePrincipal:
         """
-        The authenticate method is invoked each time a route is called that
-        the middleware is applied to.
+        Default service mapper, returns a ServicePrincipal identified by the client ID.
         """
+        return ServicePrincipal(
+            client_id=claims.get("client_id") or claims.get("azp") or claims.get("sub", "")
+        )
 
-        # If this is a websocket connection, we can extract the token
-        # from the cookies
+    def _get_token(self, conn: HTTPConnection) -> str:
+        """
+        Extracts the access token from the request.
+        """
+        # Websockets can't send custom headers from browsers, the token is read from a cookie
         if (
             self.keycloak_configuration.enable_websocket_support
-            and conn.headers.get("upgrade") == "websocket"
+            and conn.scope["type"] == "websocket"
         ):
             auth_header = conn.cookies.get(self.keycloak_configuration.websocket_cookie_name, None)
         else:
@@ -111,87 +114,95 @@ class KeycloakBackend(AuthenticationBackend):
         token = auth_header.split(" ")
         if len(token) != 2 or token[0] != self.keycloak_configuration.authentication_scheme:
             raise AuthInvalidToken
+        return token[1]
 
+    async def _validate_token(self, token: str) -> typing.Dict[str, typing.Any]:
+        """
+        Validates the token and returns its claims.
+        """
         # Depending on the chosen method by the user, either
         # use the introspection endpoint or decode the token
         if self.keycloak_configuration.use_introspection_endpoint:
             log.debug("Using introspection endpoint to validate token")
-            # Call introspect endpoint to check if token is valid
             try:
-                token_info = await self.keycloak_openid.a_introspect(token[1])
-            except keycloak.exceptions.KeycloakPostError as exc:
+                token_info = await self.keycloak_openid.a_introspect(token)
+            except keycloak.exceptions.KeycloakError as exc:
                 raise AuthKeycloakError from exc
-        else:
-            log.debug("Using keycloak public key to validate token")
-            # Decode Token locally using the public key
-            token_info = await self.keycloak_openid.a_decode_token(
-                token[1],
-                self.keycloak_configuration.validate_token,
-                **self.keycloak_configuration.validation_options,
-                key=self.public_key,
-            )
+            # Expired, revoked or otherwise invalid tokens are reported as inactive
+            if not token_info.get("active", False):
+                raise AuthInvalidToken
+            return token_info
 
-        # Calculate claims to extract
-        # Default is user configured claims
-        claims = self.keycloak_configuration.claims
-        # If device auth is enabled + device claim is present...
-        if (
-            self.keycloak_configuration.enable_device_authentication
-            and self.keycloak_configuration.device_authentication_claim in token_info
-        ):
-            # ...only add the device auth claim to the claims to extract
-            claims = [self.keycloak_configuration.device_authentication_claim]
-            # If claim based authorization is enabled...
-            if self.keycloak_configuration.authorization_method == AuthorizationMethod.CLAIM:
-                # ...add the authorization claim to the claims to extract
-                claims.append(self.keycloak_configuration.authorization_claim)
+        options = dict(self.keycloak_configuration.validation_options)
+        # A key passed in the validation options takes precedence over the realm key set
+        key = options.pop("key", None)
+        if self.keycloak_configuration.validate_token and key is None:
+            log.debug("Using the realm key set to validate token")
+            key = await self.key_set_cache.get_key_set(get_token_kid(token))
+        if key is not None:
+            options["key"] = key
 
-        # Extract claims from token
-        user_info = {}
-        for claim in claims:
-            try:
-                user_info[claim] = token_info[claim]
-            except KeyError:
-                log.warning("Claim %s is configured but missing in the token", claim)
-                if self.keycloak_configuration.reject_on_missing_claim:
-                    log.warning("Rejecting request because of missing claim")
-                    raise AuthClaimMissing from KeyError
-                log.debug("Backend is configured to ignore missing claims, continuing...")
+        return await self.keycloak_openid.a_decode_token(
+            token, self.keycloak_configuration.validate_token, **options
+        )
 
-        # Handle Authorization depending on the Claim Method
-        scope_auth = None
-        if self.keycloak_configuration.authorization_method == AuthorizationMethod.CLAIM:
-            if self.keycloak_configuration.authorization_claim not in token_info:
-                raise AuthClaimMissing
-            scope_auth = token_info[self.keycloak_configuration.authorization_claim]
+    def _get_scopes(self, claims: typing.Dict[str, typing.Any]) -> typing.List[str]:
+        """
+        Extracts the authorization scopes from the token claims.
+        """
+        if self.keycloak_configuration.authorization_method != AuthorizationMethod.CLAIM:
+            return []
 
-        # Check if the device authentication claim is present and evaluated to true
-        # If so, the rest (mapping claims, user mapper, authorization) is skipped
-        if self.keycloak_configuration.enable_device_authentication:
-            log.debug("Device authentication is enabled, checking for device claim")
-            try:
-                if token_info[self.keycloak_configuration.device_authentication_claim]:
-                    log.info("Request contains a device token, skipping user mapping")
-                    return scope_auth, None
-            except KeyError:
-                log.debug(
-                    "Device authentication claim is missing in the token, "
-                    "proceeding with normal authentication"
-                )
-
-        # Call user function to get user object
+        claim = self.keycloak_configuration.authorization_claim
         try:
-            user = await self.get_user(user_info)
+            scopes = normalize_scopes(get_claim(claims, claim))
+        except KeyError as exc:
+            log.warning("Authorization claim %s is missing in the token", claim)
+            raise AuthClaimMissing(claim) from exc
+
+        if not isinstance(scopes, list):
+            log.warning("Authorization claim %s is neither a list nor a string", claim)
+            raise AuthInvalidToken
+        return scopes
+
+    async def authenticate(self, conn: HTTPConnection) -> typing.Tuple[AuthContext, typing.Any]:
+        """
+        The authenticate method is invoked each time a route is called that
+        the middleware is applied to.
+
+        :return: The authentication context (with unmapped scopes) and the principal
+            returned by the user or service mapper
+        """
+        claims = await self._validate_token(self._get_token(conn))
+
+        for claim in self.keycloak_configuration.required_claims:
+            try:
+                get_claim(claims, claim)
+            except KeyError as exc:
+                log.warning("Required claim %s is missing in the token", claim)
+                raise AuthClaimMissing(claim) from exc
+
+        principal_type = PrincipalType.USER
+        if self.service_detector and self.service_detector(claims):
+            principal_type = PrincipalType.SERVICE
+        log.debug("Token was issued to a principal of type %s", principal_type.value)
+
+        scopes = self._get_scopes(claims)
+
+        error: typing.Type[Exception]
+        if principal_type == PrincipalType.SERVICE:
+            mapper, error = self.service_mapper, AuthServiceError
+        else:
+            mapper, error = self.user_mapper, AuthUserError
+
+        try:
+            principal = await mapper(claims)
         except Exception as exc:
-            log.warning(
-                "Error while getting user object: %s. "
-                "The user-provided function raised an exception",
-                exc,
-            )
-            raise AuthUserError from exc
+            log.warning("The %s mapper raised an exception: %s", principal_type.value, exc)
+            raise error from exc
 
-        if not user:
-            log.warning("User object is None. The user-provided function returned None")
-            raise AuthUserError
+        if principal is None:
+            log.warning("The %s mapper returned None, rejecting request", principal_type.value)
+            raise error
 
-        return scope_auth, user
+        return AuthContext(principal_type=principal_type, claims=claims, scopes=scopes), principal

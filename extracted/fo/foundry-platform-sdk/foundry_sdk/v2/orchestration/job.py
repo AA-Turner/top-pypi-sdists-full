@@ -71,6 +71,9 @@ class JobClient:
 
         Users are allowed to make a maximum of **4 requests per second** and **25 concurrent requests**.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param job_rid: The RID of a Job.
         :type job_rid: JobRid
         :param preview: Enables the use of preview functionality.
@@ -127,6 +130,9 @@ class JobClient:
 
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetJobsBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -221,6 +227,9 @@ class AsyncJobClient:
 
         Users are allowed to make a maximum of **4 requests per second** and **25 concurrent requests**.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param job_rid: The RID of a Job.
         :type job_rid: JobRid
         :param preview: Enables the use of preview functionality.
@@ -277,6 +286,9 @@ class AsyncJobClient:
 
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetJobsBatchRequestElement]
         :param preview: Enables the use of preview functionality.

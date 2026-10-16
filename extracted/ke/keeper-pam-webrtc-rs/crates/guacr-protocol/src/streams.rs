@@ -211,6 +211,15 @@ pub fn format_terminal_data_binary(data: &[u8]) -> bytes::Bytes {
     buf.freeze()
 }
 
+/// Frame an ANSI byte stream as ordered, independent TerminalData messages that fit
+/// inside the Vault's incoming data-channel message limit (including its outer wrapper).
+/// Splits may occur within an escape sequence; the receiver concatenates payload bytes.
+pub fn format_terminal_data_binary_bounded(data: &[u8]) -> impl Iterator<Item = bytes::Bytes> + '_ {
+    data.chunks(crate::binary::FRAGMENT_PAYLOAD_SIZE)
+        .chain(std::iter::once(&[][..]).take(usize::from(data.is_empty())))
+        .map(format_terminal_data_binary)
+}
+
 /// Format a `vnc-data` instruction — raw RFB protocol frame for noVNC
 ///
 /// Carries a post-auth RFB server message from the VNC proxy to the browser

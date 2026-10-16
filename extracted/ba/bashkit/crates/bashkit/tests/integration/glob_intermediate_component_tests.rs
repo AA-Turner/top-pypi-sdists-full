@@ -165,13 +165,15 @@ async fn quoted_intermediate_glob_is_literal() {
 // and already affects the trailing component (`echo /skills/\*`), so it is
 // tracked separately rather than pinned to the wrong behaviour here.
 
+/// bash keeps the trailing `/` on each match and matches directories only.
 #[tokio::test]
 async fn trailing_slash_glob_still_lists_directories() {
     let mut bash = skills_shell().await;
 
     let result = bash.exec("echo /skills/*/").await.unwrap();
 
-    assert_eq!(result.stdout, "/skills/pdf /skills/xlsx\n");
+    // bash keeps the trailing slash on every match.
+    assert_eq!(result.stdout, "/skills/pdf/ /skills/xlsx/\n");
 }
 
 /// Per-component expansion walks the VFS, so it must not become a traversal
@@ -203,10 +205,11 @@ async fn glob_walk_stays_clamped_at_vfs_root() {
         .await
         .unwrap();
 
-    assert_ne!(result.exit_code, 0);
+    // `..` clamps at the VFS root: this is the synthetic /etc/passwd.
     assert!(
-        !result.stdout.contains("root:"),
-        "`..` past the VFS root must not reach the host filesystem"
+        result.stdout.contains("sandbox:x:1000:1000") && !result.stdout.contains("daemon:"),
+        "`..` past the VFS root must not reach the host filesystem: {}",
+        result.stdout
     );
 }
 

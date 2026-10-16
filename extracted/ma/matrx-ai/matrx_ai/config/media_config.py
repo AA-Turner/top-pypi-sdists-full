@@ -128,14 +128,10 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
 
     from matrx_ai.config.template_substitution import substitute_authored
 
-    # Track which fields originally carried a template — those are the
-    # ones the user "intended to fill". Empty result on any of them means
-    # the user opted out of an optional slot → caller should drop block.
+    # The fields the pass actually changed are the ones a declared slot filled; one that
+    # came back empty means the person left an optional slot out → drop the block.
+    # (Decided by the pass itself, never by searching the text for braces.)
     templated_fields: list[str] = []
-    for field_name in ("url", "file_id", "file_uri", "base64_data"):
-        current = getattr(content, field_name, None)
-        if isinstance(current, str) and "{{" in current and "}}" in current:
-            templated_fields.append(field_name)
 
     # Substitute in any string field.
     for field_name in ("url", "file_id", "file_uri", "base64_data"):
@@ -151,6 +147,7 @@ def _substitute_and_coerce_media_fields(content: Any, variables: dict[str, Any])
         )
         # Trim — variable value can include leading/trailing whitespace.
         if substituted != current:
+            templated_fields.append(field_name)
             substituted = substituted.strip()
         setattr(content, field_name, substituted or None)
 

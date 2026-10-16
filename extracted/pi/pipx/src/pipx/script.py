@@ -1,27 +1,35 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "base64",
+    "packaging.specifiers",
+    "packaging.utils",
+    "pathlib",
+    "pipx.util",
+    "tempfile",
+    "tomllib",
+    "urllib.parse",
+]
+
 import base64
-import hashlib
 import re
 import stat
 import tomllib
 import urllib.parse
-import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Final, cast
-from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from packaging.requirements import InvalidRequirement, Requirement
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 
-from pipx.util import PipxError
+from pipx.util import PipxError, redact_url_credentials
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from zipfile import ZipFile
 
 
 _APP_NAME: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]*")
@@ -78,6 +86,11 @@ def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
     if not isinstance(dependencies, list) or not all(isinstance(dependency, str) for dependency in dependencies):
         msg = "Inline script `dependencies` must be an array of strings."
         raise PipxError(msg)
+    from packaging.requirements import (  # ruff:ignore[import-outside-top-level]  # parser slows startup
+        InvalidRequirement,
+        Requirement,
+    )
+
     normalized: Final[list[str]] = []
     try:
         for dependency in dependencies:
@@ -156,10 +169,10 @@ def _read_script(package_or_url: str, expected_apps: tuple[str, ...]) -> _Script
     try:
         metadata: Final[ScriptMetadata | None] = read_script_metadata(content)
     except ValueError as error:
-        msg = f"Invalid inline metadata in script {package_or_url}: {error}."
+        msg = f"Invalid inline metadata in script {redact_url_credentials(package_or_url)}: {error}."
         raise PipxError(msg) from error
     if metadata is None:
-        msg = f"Script {package_or_url} has no PEP 723 inline metadata block."
+        msg = f"Script {redact_url_credentials(package_or_url)} has no PEP 723 inline metadata block."
         raise PipxError(msg)
     return _Script(_script_app(package_or_url, expected_apps), content, metadata)
 
@@ -171,15 +184,20 @@ _MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
 
 
 def _read_url(url: str) -> str:
+    from urllib.request import urlopen  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
+
     try:
-        with urllib.request.urlopen(url, timeout=_URL_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]  # http(s) only, validated upstream
+        with urlopen(url, timeout=_URL_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]  # http(s) only, validated upstream
             data = response.read(_MAX_SCRIPT_BYTES + 1)
             if len(data) > _MAX_SCRIPT_BYTES:
-                msg = f"Script {url} is larger than {_MAX_SCRIPT_BYTES} bytes; refusing to download it."
+                msg = (
+                    f"Script {redact_url_credentials(url)} is larger than {_MAX_SCRIPT_BYTES} bytes; "
+                    "refusing to download it."
+                )
                 raise PipxError(msg)
             return data.decode(response.headers.get_content_charset() or "utf-8")
     except OSError as error:
-        msg = f"Unable to read script {url}: {error}"
+        msg = f"Unable to read script {redact_url_credentials(url)}: {error}"
         raise PipxError(msg) from error
 
 
@@ -197,6 +215,9 @@ def _normalize_requires_python(value: str | list[str] | None) -> str | None:
 
 
 def _write_wheel(directory: Path, package_name: str, script: _Script) -> Path:
+    import hashlib  # ruff:ignore[import-outside-top-level]  # loads OpenSSL, slows startup
+    from zipfile import ZIP_DEFLATED, ZipFile  # ruff:ignore[import-outside-top-level]  # slows startup
+
     digest: Final[str] = hashlib.sha256(script.content.encode()).hexdigest()[:12]
     version: Final[str] = f"0+{digest}"
     distribution: Final[str] = re.sub(r"[-_.]+", "_", package_name)
@@ -243,6 +264,8 @@ def _metadata(package_name: str, version: str, metadata: ScriptMetadata) -> byte
 
 
 def _write_member(archive: ZipFile, name: str, data: bytes) -> None:
+    from zipfile import ZIP_DEFLATED, ZipInfo  # ruff:ignore[import-outside-top-level]  # slows startup
+
     info: Final[ZipInfo] = ZipInfo(name)
     info.create_system = 3
     info.external_attr = (stat.S_IFREG | 0o644) << 16
@@ -250,6 +273,8 @@ def _write_member(archive: ZipFile, name: str, data: bytes) -> None:
 
 
 def _digest(data: bytes) -> str:
+    import hashlib  # ruff:ignore[import-outside-top-level]  # loads OpenSSL, slows startup
+
     return base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
 
 

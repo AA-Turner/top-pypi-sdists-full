@@ -1,7 +1,7 @@
 use crate::streams::{
     format_audio, format_bell_audio, format_blob, format_chunked_blobs, format_clipboard,
     format_clipboard_text, format_end, format_terminal_data, format_terminal_data_binary,
-    format_video, format_vnc_data, parse_clipboard_blob,
+    format_terminal_data_binary_bounded, format_video, format_vnc_data, parse_clipboard_blob,
 };
 
 #[test]
@@ -174,6 +174,43 @@ fn test_format_terminal_data_binary_empty() {
     assert_eq!(msg.len(), 8);
     assert_eq!(msg[0], 0x20);
     assert_eq!(&msg[4..8], &[0, 0, 0, 0]); // payload_len = 0
+}
+
+#[test]
+fn bounded_terminal_data_preserves_empty_frame() {
+    // Given an empty terminal payload, when bounded, then preserve the one-frame codec contract.
+    let frames: Vec<_> = format_terminal_data_binary_bounded(b"").collect();
+    assert_eq!(frames, vec![format_terminal_data_binary(b"")]);
+}
+
+#[test]
+fn test_bounded_terminal_data_when_ansi_crosses_frame_boundary() {
+    use crate::binary::{BINARY_PROTOCOL_OVERHEAD, FRAGMENT_PAYLOAD_SIZE, MAX_SAFE_PAYLOAD_SIZE};
+
+    // Given: an ANSI stream with an escape sequence straddling the frame boundary.
+    let mut ansi = vec![b'x'; FRAGMENT_PAYLOAD_SIZE - 1];
+    ansi.extend_from_slice(b"\x1b[32mgreen\x1b[0m");
+    ansi.extend(vec![b'y'; FRAGMENT_PAYLOAD_SIZE * 2]);
+
+    // When: the bounded formatter splits it into complete TerminalData frames.
+    let frames: Vec<_> = format_terminal_data_binary_bounded(&ansi).collect();
+
+    // Then: every header reports the actual payload and reconstructing the stream
+    // preserves even the ANSI bytes that crossed the boundary.
+    let mut recovered = Vec::new();
+    for frame in &frames {
+        assert!(frame.len() <= MAX_SAFE_PAYLOAD_SIZE);
+        assert_eq!(frame[0], 0x20);
+        assert_eq!(&frame[1..4], &[0, 0, 0]);
+        assert_eq!(
+            u32::from_le_bytes(frame[4..8].try_into().unwrap()) as usize,
+            frame.len() - 8
+        );
+        recovered.extend_from_slice(&frame[BINARY_PROTOCOL_OVERHEAD..]);
+    }
+    assert_eq!(frames.len(), 4);
+    assert_eq!(frames[0].len(), MAX_SAFE_PAYLOAD_SIZE);
+    assert_eq!(recovered, ansi);
 }
 
 #[test]

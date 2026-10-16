@@ -1,3 +1,4 @@
+from collections.abc import Collection, Mapping
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -238,4 +239,61 @@ def merge_field_bindings_from_variables(
         declaration = reader() if callable(reader) else None
         if declaration is not None:
             out[name] = declaration
+    return out
+
+
+_TOGGLE_TYPES = ("toggle", "light-switch")
+
+
+def _toggle_off_label(declared: Any) -> str | None:
+    """The off label a toggle run form sends (``toggleValues[0]``, default "No"), else None."""
+    cc = getattr(declared, "custom_component", None)
+    if not isinstance(cc, dict) or cc.get("type") not in _TOGGLE_TYPES:
+        return None
+    labels = cc.get("toggleValues") or (cc.get("stash") or {}).get("toggleValues") or []
+    return str(labels[0]) if labels else "No"
+
+
+def compose_variable_values(
+    definitions: Mapping[str, Any] | None,
+    client: Mapping[str, Any] | None = None,
+    bound: Mapping[str, Any] | None = None,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+    ignore_client: Collection[str] = (),
+) -> dict[str, Any]:
+    """THE one composition of a run's first-turn values, used by every door.
+
+    For each DECLARED name: explicit non-empty client value > non-empty bound value > non-empty
+    saved default > ``""``. Empty is ``template_substitution.is_empty_value``. A toggle whose
+    value is its off label becomes an ``OffValue`` (fills as its text, empties a section).
+    ``defaults`` adds or overrides saved defaults by name (raw values); ``ignore_client`` names
+    whose client value is discarded (a locked merge field). A client key no definition declares
+    passes through unchanged."""
+    from matrx_ai.config.template_substitution import OffValue, is_empty_value
+
+    definitions = definitions or {}
+    floor: dict[str, Any] = {}
+    for name, declared in definitions.items():
+        value = getattr(declared, "value", None)
+        floor[name] = value if not is_empty_value(value) else getattr(declared, "default_value", None)
+    floor.update(defaults or {})
+
+    out: dict[str, Any] = {}
+    for name, value in floor.items():
+        out[name] = "" if is_empty_value(value) else value
+    for name, value in (bound or {}).items():
+        if not is_empty_value(value) or name not in out:
+            out[name] = "" if value is None else value
+    for name, value in (client or {}).items():
+        if name in ignore_client:
+            continue
+        if name not in floor and name not in (bound or {}):
+            out[name] = value  # undeclared: passed through as given
+        elif not is_empty_value(value):
+            out[name] = value
+    for name, declared in definitions.items():
+        off = _toggle_off_label(declared)
+        if off is not None and isinstance(out.get(name), str) and out[name] == off:
+            out[name] = OffValue(out[name])
     return out

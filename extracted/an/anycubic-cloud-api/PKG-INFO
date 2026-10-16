@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anycubic-cloud-api
-Version: 0.4.34
+Version: 0.4.35
 Summary: Async client for the Anycubic Cloud API and its MQTT stream
 Author: WaresWichall, Nino Bondonno
 Maintainer: Nino Bondonno

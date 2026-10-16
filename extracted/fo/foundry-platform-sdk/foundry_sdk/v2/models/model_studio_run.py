@@ -70,6 +70,9 @@ class ModelStudioRunClient:
     ) -> core.ResourceIterator[models_models.ModelStudioRun]:
         """
         Lists all runs for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param config_version: Filter runs by configuration version.
@@ -176,6 +179,9 @@ class AsyncModelStudioRunClient:
     ) -> core.AsyncResourceIterator[models_models.ModelStudioRun]:
         """
         Lists all runs for a Model Studio.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param config_version: Filter runs by configuration version.

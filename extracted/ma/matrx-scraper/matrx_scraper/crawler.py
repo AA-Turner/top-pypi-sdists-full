@@ -29,6 +29,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 from urllib import robotparser
@@ -37,6 +38,7 @@ from urllib.parse import urljoin, urlparse
 import tldextract
 
 from matrx_scraper.unreachable import UNREACHABLE_ERROR_SIGNATURES as _UNREACHABLE_ERROR_SIGNATURES
+from matrx_scraper.cpu_lane import LANE_BULK, LANE_INTERACTIVE, CrawlLane, bulk_page_slots, reset_lane, run_cpu, set_lane
 from matrx_scraper.events import (
     CrawlCompletedEvent,
     CrawlEvent,
@@ -662,6 +664,9 @@ CRAWL_KNOB_MIRRORS: dict[str, Any] = {
     "crawl.html_max_bytes": 1_048_576,
     "crawl.link_first": True,
     "crawl.item_lease_seconds": 600,
+    # Arman 2026-10-15: we do not obey robots.txt access rules. An organization
+    # MAY turn this on for its own crawls (overridable); the platform never does.
+    "respect_robots": False,
 }
 
 
@@ -695,6 +700,9 @@ class CrawlKnobs:
     #: How long one worker's claim on a page lasts on the durable frontier. The
     #: page's own work must finish within this minus ITEM_LEASE_MARGIN_SECONDS.
     item_lease_seconds: float = 600.0
+    #: Whether robots.txt ACCESS rules (Disallow) refuse a page. Default OFF
+    #: (knowledge.scraper `respect_robots`); Crawl-delay pacing is separate and stays.
+    respect_robots: bool = False
 
     @classmethod
     def from_values(cls, values: dict[str, Any]) -> CrawlKnobs:
@@ -708,6 +716,7 @@ class CrawlKnobs:
             html_max_bytes=int(values["crawl.html_max_bytes"]),
             link_first=bool(values["crawl.link_first"]),
             item_lease_seconds=float(values["crawl.item_lease_seconds"]),
+            respect_robots=bool(values.get("respect_robots", False)),
         )
 
     @classmethod
@@ -742,7 +751,10 @@ class SiteCrawlerConfig:
     max_depth: int | None = None
     concurrency: int = 8
     follow_subdomains: bool = False
-    respect_robots: bool = True
+    # None (default) = the `knowledge.scraper.respect_robots` knob decides, and
+    # that knob ships OFF: we do not obey robots.txt Disallow. True/False is an
+    # explicit per-crawl choice that wins over the knob.
+    respect_robots: bool | None = None
     seed_from_sitemap: bool = True
     # The bot identity used for robots.txt matching and sitemap discovery. It
     # has NEVER been the UA of the page fetches themselves (those go through
@@ -789,6 +801,11 @@ class SiteCrawlerConfig:
     # This exists for tests and for a host that has been explicitly measured;
     # it is NOT a per-crawl option and no request field sets it.
     adaptive_pacing: bool = True
+    # Which lane this crawl's pages run in (cpu_lane.py). "interactive": a
+    # person is waiting (site initialization, homepage bootstrap) — never
+    # queued behind background crawls. "bulk": also bounded by the
+    # crawl.bulk_page_slots / crawl.bulk_cpu_threads knobs.
+    lane: CrawlLane = LANE_INTERACTIVE
 
 
 class SiteCrawler:
@@ -864,7 +881,14 @@ class SiteCrawler:
         # `self.user_agent` on purpose: robots/sitemap always need SOME agent
         # string, while the transports need to know whether to override at all.
         self._user_agent_override = normalize_user_agent(config.user_agent_override)
-        self._robots = _RobotsCache(self.user_agent) if config.respect_robots else None
+        # None means "the knob decides"; platform value now, re-resolved for the
+        # crawl's organization in `_resolve_scoped_knobs`.
+        self._respect_robots = (
+            bool(parser_knob("respect_robots", False))
+            if config.respect_robots is None
+            else bool(config.respect_robots)
+        )
+        self._robots = _RobotsCache(self.user_agent) if self._respect_robots else None
         # --- pacing ---------------------------------------------------
         # The limiter's DEFAULT is the floor, not the requested rate: a host
         # this crawl never planned for (a followed subdomain, an off-site
@@ -922,6 +946,10 @@ class SiteCrawler:
         self._bytes_downloaded = 0
         self._cancel = asyncio.Event()
         self._semaphore = asyncio.Semaphore(config.concurrency)
+        # Workers queued for a process-wide page slot (the global cap, and the
+        # bulk lane's share of it). Waiting on OTHER crawls is load, not a
+        # stall: the stall detector must never end a crawl for it (MKT-155).
+        self._shared_slot_waiters = 0
         self._started_at: float | None = None
         self._last_progress_at: float = 0.0
         self._progress_emitted_at_pages = 0
@@ -1019,8 +1047,7 @@ class SiteCrawler:
         """The seed host's stated ``Crawl-delay`` / ``Request-rate``, if any.
 
         Read regardless of ``respect_robots``. That switch governs ACCESS — may
-        we fetch this path — and these crawls are authorized first-party crawls
-        that deliberately ignore it. Pacing is a different question: a site
+        we fetch this path — and it ships OFF (we do not obey Disallow). Pacing is a different question: a site
         stating how fast it wants to be read is telling us something true about
         its own capacity, and honouring it costs us nothing but politeness.
         """
@@ -1179,6 +1206,9 @@ class SiteCrawler:
         if self._knob_scope is None:
             return
         self._knobs = await CrawlKnobs.load_for(self._knob_scope)
+        if self.config.respect_robots is None:
+            self._respect_robots = self._knobs.respect_robots
+            self._robots = _RobotsCache(self.user_agent) if self._respect_robots else None
         if self._explicit_pacing_knobs is None:
             self._pacing_knobs = self._knobs.pacing(DEFAULT_KNOBS)
             if self._adaptive_pacing:
@@ -1187,6 +1217,14 @@ class SiteCrawler:
         self._pause = self._new_pause()
 
     async def run(self) -> dict[str, ScrapeResult]:
+        # Every task this run spawns inherits its lane (cpu_lane.py).
+        lane_token = set_lane(self.config.lane)
+        try:
+            return await self._run()
+        finally:
+            reset_lane(lane_token)
+
+    async def _run(self) -> dict[str, ScrapeResult]:
         self._started_at = time.monotonic()
         await self._resolve_scoped_knobs()
         self._apply_item_lease()
@@ -1268,7 +1306,7 @@ class SiteCrawler:
                     "max_depth": self.config.max_depth,
                     "concurrency": self.config.concurrency,
                     "follow_subdomains": self.config.follow_subdomains,
-                    "respect_robots": self.config.respect_robots,
+                    "respect_robots": self._respect_robots,
                     "seed_from_sitemap": self.config.seed_from_sitemap,
                     "user_agent": self.user_agent,
                     "user_agent_override": self._user_agent_override,
@@ -1640,9 +1678,11 @@ class SiteCrawler:
         the reclaim) changes the signature.
         """
         paused = self._pause.remaining() > 0 and not getattr(self._pause, "_halted", False)
-        if (queue_depth == 0 and self._pages_reserved == 0) or paused:
-            # Nothing left to do (the normal exits decide), or a crawl-wide 429
-            # pause — bounded by crawl.max_cooldown_minutes — is in force.
+        if (queue_depth == 0 and self._pages_reserved == 0) or paused or self._shared_slot_waiters:
+            # Nothing left to do (the normal exits decide), a crawl-wide 429
+            # pause — bounded by crawl.max_cooldown_minutes — is in force, or a
+            # worker is queued behind other crawls for a shared page slot (the
+            # crawls holding those slots answer to their own deadlines).
             self._stall_signature = None
             self._stall_since = None
             return False
@@ -2009,7 +2049,17 @@ class SiteCrawler:
         try:
             # Pacing is over: the page's own work — and its deadline — starts here.
             # The process-wide cap bounds every crawl in this process together.
-            async with _global_page_slots():
+            # Background crawls also share a smaller pool of page slots, so
+            # the rest of the process-wide cap is always free for a person
+            # waiting on an initialization (MKT-150).
+            async with AsyncExitStack() as shared_slots:
+                self._shared_slot_waiters += 1
+                try:
+                    if self.config.lane == LANE_BULK:
+                        await shared_slots.enter_async_context(bulk_page_slots())
+                    await shared_slots.enter_async_context(_global_page_slots())
+                finally:
+                    self._shared_slot_waiters -= 1
                 self._begin_page_work()
                 await self._process_page(item)
         finally:
@@ -2183,7 +2233,7 @@ class SiteCrawler:
                 # parsing is CPU-bound (a PDF body here parses the whole
                 # document) and must not block the event loop — every other
                 # worker, the heartbeat, and the stream stall behind it.
-                result = await asyncio.to_thread(_build_result_from_response, response)
+                result = await run_cpu(_build_result_from_response, response)
                 response_ms = int((time.monotonic() - t0) * 1000)
                 shots = [
                     CapturedShot(kind=s.kind, width=s.width, height=s.height, bytes=s.bytes)
@@ -2538,7 +2588,12 @@ class SiteCrawler:
             # Build the complete page summary before persistence. Canonical
             # web persistence needs the extracted signals to create the
             # immutable snapshot in the same operation as its artifacts.
-            summary = self._build_summary(result, item, response_ms, bytes_total, None)
+            # The SEO audit re-parses the whole page — CPU-bound, 24 s on a 2.9 MB
+            # homepage (MKT-150). Off the event loop, so every other crawl's
+            # workers, heartbeats and streams keep moving while it runs.
+            summary = await run_cpu(
+                self._build_summary, result, item, response_ms, bytes_total, None
+            )
             # The byte cap bounds what is STORED, after the whole page was
             # read: every link on the page becomes an edge and every check
             # sees the whole page. Capping before the summary lost the links
@@ -3345,7 +3400,7 @@ async def crawl_site(
     concurrency: int = 8,
     max_depth: int | None = None,
     follow_subdomains: bool = False,
-    respect_robots: bool = True,
+    respect_robots: bool | None = None,
     seed_from_sitemap: bool = True,
     user_agent: str = "MatrxScraperBot/0.1 (+https://aimatrx.com)",
     user_agent_override: str | None = None,

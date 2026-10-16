@@ -1,6 +1,7 @@
 use sqlparser::dialect::DuckDbDialect;
+use sqlparser::keywords::Keyword;
 use sqlparser::parser::Parser;
-use sqlparser::tokenizer::{Token, Tokenizer};
+use sqlparser::tokenizer::{Token, Tokenizer, Word};
 
 /// A parse error with location info.
 #[derive(Debug)]
@@ -37,6 +38,48 @@ pub fn parse_errors(sql: &str) -> Vec<ParseError> {
             }]
         }
     }
+}
+
+/// Flag syntax that the DuckDB dialect accepts but Chalk SQL does not.
+///
+/// `sqlparser` only gates the angle-bracket array type on Snowflake and
+/// ClickHouse; every other dialect — DuckDB included — falls through to
+/// `ARRAY '<' <type> '>'`, so `CAST(x AS ARRAY<VARCHAR(123)>)` parses cleanly
+/// even though it is BigQuery syntax. There is no `Dialect` hook to turn that
+/// off, so it is rejected here instead.
+///
+/// This runs on the token stream rather than the AST, so it still reports when
+/// the statement fails to parse for some unrelated reason. The tradeoff is that
+/// an unquoted column named `array` compared with `<` would be flagged — quote
+/// it to avoid that (a quoted word never carries a `Keyword`).
+pub fn unsupported_syntax_errors(sql: &str) -> Vec<ParseError> {
+    let tokens: Vec<(Token, usize, usize)> = tokenize(sql)
+        .into_iter()
+        .filter(|(token, _, _)| !matches!(token, Token::Whitespace(_)))
+        .collect();
+
+    tokens
+        .windows(2)
+        .filter(|pair| {
+            matches!(
+                pair[0].0,
+                Token::Word(Word {
+                    keyword: Keyword::ARRAY,
+                    ..
+                })
+            ) && matches!(pair[1].0, Token::Lt)
+        })
+        .map(|pair| {
+            let (_, line, column) = pair[1];
+            ParseError {
+                message:
+                    "`ARRAY<...>` is BigQuery syntax: use `<type>[]` instead, e.g. `VARCHAR(123)[]`"
+                        .to_string(),
+                line: line as u32,
+                column: column as u32,
+            }
+        })
+        .collect()
 }
 
 /// Extract line/column from sqlparser error messages.
@@ -202,6 +245,30 @@ mod tests {
     fn test_parse_invalid_sql() {
         let errors = parse_errors("SELEC 1");
         assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn test_angle_bracket_array_type_rejected() {
+        let errors = unsupported_syntax_errors("select CAST(foo as array<varchar(123)>);");
+        assert_eq!(errors.len(), 1);
+        assert_eq!((errors[0].line, errors[0].column), (1, 25));
+    }
+
+    #[test]
+    fn test_angle_bracket_array_type_rejected_with_whitespace() {
+        let errors = unsupported_syntax_errors("select CAST(foo as ARRAY\n  <int64>);");
+        assert_eq!(errors.len(), 1);
+        assert_eq!((errors[0].line, errors[0].column), (2, 3));
+    }
+
+    #[test]
+    fn test_bracket_array_type_allowed() {
+        assert!(unsupported_syntax_errors("select CAST(foo as varchar(123)[]);").is_empty());
+    }
+
+    #[test]
+    fn test_quoted_array_identifier_allowed() {
+        assert!(unsupported_syntax_errors(r#"select x from t where "array" < 5"#).is_empty());
     }
 
     #[test]

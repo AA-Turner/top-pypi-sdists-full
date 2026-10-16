@@ -1,18 +1,18 @@
 # File: matrx_scraper/db/models_scraper.py
 from matrx_orm import BooleanField, CharField, DateTimeField, DecimalField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
-from enum import Enum
+from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -66,13 +66,13 @@ class DataFetchJob(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -174,13 +174,13 @@ class ScrapeFailureLog(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"

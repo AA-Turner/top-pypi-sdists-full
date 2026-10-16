@@ -1,9 +1,9 @@
 use crate::security::{
     check_sql_query_allowed, classify_sql_query, is_keyboard_event_allowed_readonly,
     is_mouse_event_allowed_readonly, is_mysql_export_query, is_mysql_import_query,
-    is_postgres_copy_in, is_postgres_copy_out, DatabaseSecuritySettings, HandlerSecuritySettings,
-    QueryType, RbiSecuritySettings, ReadOnlyBehavior, SftpOperation, SftpSecuritySettings,
-    CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE,
+    is_postgres_copy_in, is_postgres_copy_out, mouse_buttons_blocked, DatabaseSecuritySettings,
+    HandlerSecuritySettings, QueryType, RbiSecuritySettings, ReadOnlyBehavior, SftpOperation,
+    SftpSecuritySettings, CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE,
 };
 use std::collections::HashMap;
 
@@ -393,6 +393,71 @@ fn test_rbi_url_filtering() {
 
     assert!(settings_allowlist.is_url_allowed("https://internal.corp/app"));
     assert!(!settings_allowlist.is_url_allowed("https://google.com"));
+}
+
+#[test]
+fn rbi_blocklist_rejects_canonical_hosts_when_url_is_deceptive() {
+    // Given: a session blocklist containing a domain and an IPv6 address.
+    let settings = RbiSecuritySettings {
+        url_blocklist: vec!["blocked.example".into(), "[::1]".into()],
+        ..Default::default()
+    };
+
+    // When: a URL names a blocked host through a different valid URL spelling.
+    for url in [
+        "https://user:pass@blocked.example/path",
+        "HTTPS://BLOCKED.EXAMPLE/path",
+        "https://blocked.example./path",
+        "https://[::1]:8443/path",
+    ] {
+        // Then: the session denies the canonical host, never matching userinfo or port.
+        assert!(!settings.is_url_allowed(url), "must reject {url}");
+    }
+}
+
+#[test]
+fn rbi_blocklist_rejects_malformed_urls_but_allows_unlisted_hosts() {
+    // Given: a configured blocklist.
+    let settings = RbiSecuritySettings {
+        url_blocklist: vec!["blocked.example".into()],
+        ..Default::default()
+    };
+
+    // When: a malformed URL or ordinary unrelated host is checked.
+    // Then: an unparseable target fails closed, while an unrelated host passes.
+    assert!(!settings.is_url_allowed("https://%invalid/"));
+    assert!(settings.is_url_allowed("https://other.example/path"));
+}
+
+#[test]
+fn rbi_allowlist_matches_canonical_hosts_without_accepting_deceptive_authorities() {
+    // Given: a session allowlist with a domain and an IPv6 address.
+    let settings = RbiSecuritySettings {
+        url_allowlist: vec!["allowed.example".into(), "[::1]".into()],
+        ..Default::default()
+    };
+
+    // When: canonical equivalents and a userinfo decoy are checked.
+    // Then: only URLs whose actual host is allowlisted pass.
+    assert!(settings.is_url_allowed("HTTPS://USER:PASS@SUB.ALLOWED.EXAMPLE./ok"));
+    assert!(settings.is_url_allowed("https://[::1]:8443/ok"));
+    assert!(!settings.is_url_allowed("https://allowed.example@evil.example/"));
+    assert!(!settings.is_url_allowed("https://%invalid/"));
+}
+
+#[test]
+fn rbi_blocklist_overrides_allowlist_for_the_same_host() {
+    // Given: an allowed parent domain containing a blocked subdomain.
+    let settings = RbiSecuritySettings {
+        url_allowlist: vec!["example.com".into()],
+        url_blocklist: vec!["blocked.example.com".into()],
+        ..Default::default()
+    };
+
+    // When: both hosts are checked.
+    // Then: the blocked subdomain is refused without excluding the rest of the allowlist.
+    assert!(!settings.is_url_allowed("https://blocked.example.com/"));
+    assert!(settings.is_url_allowed("https://good.example.com/"));
 }
 
 // SQL classifier bypass tests — these prove the bugs that DangerousStatementDetector fixes.
@@ -807,4 +872,38 @@ fn test_mouse_readonly_edge_cases() {
     assert!(is_mouse_event_allowed_readonly(0x08)); // Scroll up only
     assert!(is_mouse_event_allowed_readonly(0x10)); // Scroll down only
     assert!(is_mouse_event_allowed_readonly(0x18)); // Scroll up + down (edge case)
+}
+
+/// The composed policy every handler needs: read-only *and* a blocked button.
+///
+/// SSH, Telnet, Serial, VNC and RDP each wrote `read_only && !allowed(mask)` inline, so
+/// there were five copies of one rule and no test over the composition — only over
+/// `is_mouse_event_allowed_readonly` alone. The `read_only == false` half is the one the
+/// duplication put at risk: an inverted or dropped conjunct there blocks every click in a
+/// perfectly writable session, and no existing test would notice.
+#[test]
+fn test_mouse_buttons_blocked_composes_read_only_with_the_button_mask() {
+    // A writable session blocks nothing, whatever the buttons are.
+    for mask in [0x00, 0x01, 0x02, 0x04, 0x07, 0x08, 0x18] {
+        assert!(
+            !mouse_buttons_blocked(false, mask),
+            "mask 0x{mask:02x} must pass through when the session is not read-only"
+        );
+    }
+
+    // Read-only blocks the buttons that change state.
+    for mask in [0x01, 0x02, 0x04, 0x03, 0x07, 0x09, 0x11] {
+        assert!(
+            mouse_buttons_blocked(true, mask),
+            "mask 0x{mask:02x} presses a button, so read-only must block it"
+        );
+    }
+
+    // Read-only still allows looking around: movement and scroll.
+    for mask in [0x00, 0x08, 0x10, 0x18] {
+        assert!(
+            !mouse_buttons_blocked(true, mask),
+            "mask 0x{mask:02x} only moves or scrolls, which read-only allows"
+        );
+    }
 }

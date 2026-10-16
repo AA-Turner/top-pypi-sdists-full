@@ -37,10 +37,16 @@ class Event(BaseModel):
         "card_transaction.updated",
         "card.converted",
         "card.created",
+        "card.pin_updated",
         "card.reissued",
         "card.renewed",
         "card.shipped",
         "card.updated",
+        "claim_document.accepted",
+        "claim_document.rejected",
+        "claim_document.uploaded",
+        "claim.created",
+        "claim.updated",
         "digital_wallet.tokenization_result",
         "digital_wallet.tokenization_two_factor_authentication_code",
         "digital_wallet.tokenization_two_factor_authentication_code_sent",
@@ -49,6 +55,8 @@ class Event(BaseModel):
         "dispute_transaction.created",
         "dispute_transaction.updated",
         "dispute.updated",
+        "embed.session_generated",
+        "embed.viewed",
         "external_bank_account.created",
         "external_bank_account.updated",
         "external_payment.created",
@@ -80,7 +88,7 @@ class Event(BaseModel):
     """The type of event that occurred. Possible values:
 
     - account_holder_document.updated: Occurs when an account holder's document
-      upload status has been updated
+      upload status has been updated.
     - account_holder.created: Occurs when a new account_holder is created.
     - account_holder.updated: Occurs when an account_holder is updated.
     - account_holder.verification: Occurs when an asynchronous account_holder's
@@ -105,10 +113,21 @@ class Event(BaseModel):
     - card.converted: Occurs when a card is converted from virtual to physical
       cards.
     - card.created: Occurs when a new card is created.
+    - card.pin_updated: Occurs when a card's PIN is set, changed, unblocked, or
+      blocked due to excessive incorrect PIN attempts.
     - card.reissued: Occurs when a card is reissued.
     - card.renewed: Occurs when a card is renewed.
     - card.shipped: Occurs when a card is shipped.
     - card.updated: Occurs when a card is updated.
+    - claim_document.accepted: Occurs when a claim document passes validation and is
+      accepted.
+    - claim_document.rejected: Occurs when a claim document fails validation and is
+      rejected.
+    - claim_document.uploaded: Occurs when a claim document is uploaded and begins
+      validation.
+    - claim.created: Occurs when a dispute intake claim is created.
+    - claim.updated: Occurs when a dispute intake claim is updated, such as a status
+      change or a change to its outstanding requirements.
     - digital_wallet.tokenization_result: Occurs when a tokenization request
       succeeded or failed.
 
@@ -135,10 +154,25 @@ class Event(BaseModel):
     This event will be deprecated in the future. We recommend using
     `tokenization.updated` instead.
 
-    - dispute_evidence.upload_failed: Occurs when a dispute evidence upload fails.
+    - dispute_evidence.upload_failed: Occurs when an evidence upload fails for a
+      dispute filed through the Chargebacks API (`/v1/disputes`).
+
+    This event is not emitted for Managed Disputes.
+
     - dispute_transaction.created: Occurs when a new dispute transaction is created
-    - dispute_transaction.updated: Occurs when a dispute transaction is updated
-    - dispute.updated: Occurs when a dispute is updated.
+      for a Managed Disputes case.
+    - dispute_transaction.updated: Occurs when a dispute transaction for a Managed
+      Disputes case is updated.
+    - dispute.updated: Occurs when a dispute filed through the Chargebacks API
+      (`/v1/disputes`) is created or updated.
+
+    This event is not emitted for Managed Disputes. Use
+    `dispute_transaction.created` and `dispute_transaction.updated` instead.
+
+    - embed.session_generated: Occurs when a card embed session is successfully
+      generated.
+    - embed.viewed: Occurs when a card detail is successfully revealed through an
+      embed.
     - external_bank_account.created: Occurs when an external bank account is
       created.
     - external_bank_account.updated: Occurs when an external bank account is
@@ -160,12 +194,12 @@ class Event(BaseModel):
     - payment_transaction.updated: Occurs when a payment transaction is updated.
     - settlement_report.updated: Occurs when a settlement report is created or
       updated.
-    - statements.created: Occurs when a statement has been created
+    - statements.created: Occurs when a statement has been created.
     - three_ds_authentication.challenge: The `three_ds_authentication.challenge`
       event. Upon receiving this request, the Card Program should issue its own
       challenge to the cardholder. After a cardholder challenge is successfully
       completed, the Card Program needs to respond back to Lithic by call to
-      [/v1/three_ds_decisioning/challenge_response](https://docs.lithic.com/reference/post_v1-three-ds-decisioning-challenge-response).
+      [/v1/three_ds_decisioning/challenge_response](https://docs.lithic.com/reference/postthreedschallengeresponse).
       Then the cardholder must navigate back to the merchant checkout flow to
       complete the transaction. Some merchants will include an `app_requestor_url`
       for app-based purchases; Lithic recommends triggering a redirect to that URL

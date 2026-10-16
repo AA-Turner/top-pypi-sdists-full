@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -193,19 +194,19 @@ def device_uses_mqtt(yaml_content: str) -> bool:
     return yaml_has_top_level_block(yaml_content, "mqtt")
 
 
-# Prefix on every stored digest; bump when the algorithm changes.
-CONTENT_FINGERPRINT_VERSION = "1:"
+# Prefix on every stored digest; a bump regens every device once on its next scan.
+CONTENT_FINGERPRINT_VERSION = "2:"
 
 
-def extract_config_content_fingerprint(yaml_content: str) -> str:
-    """Versioned digest of the YAML's significant lines; empty when there are none."""
-    digest = _digest_lines(_significant_lines(yaml_content))
-    return f"{CONTENT_FINGERPRINT_VERSION}{digest}" if digest else ""
-
-
-def content_fingerprint_is_current(stored: object) -> bool:
-    """Return True when *stored* is a digest the current algorithm produced."""
-    return isinstance(stored, str) and stored.startswith(CONTENT_FINGERPRINT_VERSION)
+def extract_config_content_fingerprint(
+    yaml_content: str, dependencies: Iterable[tuple[str, str]]
+) -> str:
+    """Versioned digest of the YAML's significant lines plus each dependency's path and digest."""
+    lines = _significant_lines(yaml_content)
+    for dependency, digest in dependencies:
+        lines.append(dependency)
+        lines.append(digest)
+    return f"{CONTENT_FINGERPRINT_VERSION}{hashlib.sha256('\n'.join(lines).encode()).hexdigest()}"
 
 
 # The blocks that decide *which* component modules esphome loads:
@@ -969,10 +970,10 @@ def _resolve_substitutions(value: str | None, subs: dict[str, str]) -> str | Non
     return value
 
 
-def safe_stat_key(path: Path) -> tuple[int, int]:
+def safe_stat_key(path: Path | str) -> tuple[int, int]:
     """Return *path*'s ``(mtime_ns, size)``, or ``(0, 0)`` when the file is missing."""
     try:
-        st = path.stat()
+        st = os.stat(path)  # noqa: PTH116
     except OSError:
         return (0, 0)
     return (st.st_mtime_ns, st.st_size)

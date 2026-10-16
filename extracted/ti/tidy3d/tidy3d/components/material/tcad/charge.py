@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import Field, NonNegativeFloat, PositiveFloat, field_validator
 
+from tidy3d._runtime import always_validate
 from tidy3d.components.data.data_array import SpatialDataArray
 from tidy3d.components.medium import AbstractMedium
 from tidy3d.components.tcad.doping import ConstantDoping, DopingBoxType
@@ -379,6 +380,7 @@ class SemiconductorMedium(AbstractChargeMedium):
     # DEPRECATION VALIDATORS
     @field_validator("N_c")
     @classmethod
+    @always_validate
     def check_nc_uses_model(cls, val: EffectiveDOSModelType | float) -> EffectiveDOSModelType:
         """Issue deprecation warning if float is provided"""
         if isinstance(val, (float, int)):
@@ -391,6 +393,7 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     @field_validator("N_v")
     @classmethod
+    @always_validate
     def check_nv_uses_model(cls, val: EffectiveDOSModelType | float) -> EffectiveDOSModelType:
         """Issue deprecation warning if float is provided"""
         if isinstance(val, (float, int)):
@@ -403,6 +406,7 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     @field_validator("E_g")
     @classmethod
+    @always_validate
     def check_eg_uses_model(cls, val: EnergyBandGapModelType | float) -> EnergyBandGapModelType:
         """Issue deprecation warning if float is provided"""
         if isinstance(val, (float, int)):
@@ -415,6 +419,7 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     @field_validator("N_d")
     @classmethod
+    @always_validate
     def check_nd_uses_model(
         cls,
         val: NonNegativeFloat | SpatialDataArray | tuple[DopingBoxType, ...] | list[DopingBoxType],
@@ -432,6 +437,7 @@ class SemiconductorMedium(AbstractChargeMedium):
 
     @field_validator("N_a")
     @classmethod
+    @always_validate
     def check_na_uses_model(
         cls,
         val: NonNegativeFloat | SpatialDataArray | tuple[DopingBoxType, ...] | list[DopingBoxType],

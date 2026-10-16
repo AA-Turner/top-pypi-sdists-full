@@ -384,3 +384,21 @@ using M44fParam = MatrixParam<float, 4>;
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::has_double_subscript_RC;
+using v3_1::has_subscript_N;
+using v3_1::has_xy;
+using v3_1::has_xyz;
+using v3_1::has_xyzw;
+using v3_1::M33fParam;
+using v3_1::M44fParam;
+using v3_1::MatrixParam;
+using v3_1::V3fParam;
+using v3_1::Vec3Param;
+#endif
+OIIO_NAMESPACE_END

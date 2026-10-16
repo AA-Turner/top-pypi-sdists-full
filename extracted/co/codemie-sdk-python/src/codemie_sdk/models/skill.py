@@ -45,6 +45,23 @@ class SkillBase(BaseModel):
     mcp_servers: list[MCPServerDetails] = Field(default_factory=list)
 
 
+class SkillCompanionFileMetadata(BaseModel):
+    """Metadata of a companion (bundle) file stored alongside a skill."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    path: str
+    mime_type: str = "text/plain"
+    encoding: str = "text"
+    size_bytes: int = 0
+
+
+class SkillCompanionFilePayload(SkillCompanionFileMetadata):
+    """Companion file sent on skill create/update, or returned with its content."""
+
+    content: str
+
+
 class SkillListResponse(SkillBase):
     """Skill list item response."""
 
@@ -61,6 +78,8 @@ class SkillDetailResponse(SkillListResponse):
     content: str
     slug: str | None = None
     icon_url: str | None = Field(None, alias="iconUrl")
+    companion_files: list[SkillCompanionFileMetadata] = Field(default_factory=list)
+    bundle_warning: str | None = None
 
 
 class SkillCreateRequest(BaseModel):
@@ -74,6 +93,7 @@ class SkillCreateRequest(BaseModel):
     categories: list[str] | None = Field(default_factory=list)
     enabled_builtin_subagents: list[str] | None = None
     mcp_servers: list[MCPServerDetails] | None = Field(default_factory=list)
+    companion_files: list[SkillCompanionFilePayload] | None = None
 
 
 class SkillUpdateRequest(BaseModel):
@@ -87,6 +107,7 @@ class SkillUpdateRequest(BaseModel):
     categories: list[str] | None = None
     enabled_builtin_subagents: list[str] | None = None
     mcp_servers: list[MCPServerDetails] | None = None
+    companion_files: list[SkillCompanionFilePayload] | None = None
 
 
 class SkillImportRequest(BaseModel):
@@ -227,3 +248,6 @@ class SkillConfigResponse(BaseModel):
 
     max_content_length: int
     min_content_length: int
+    bundle_seed_max_file_count: int | None = None
+    bundle_seed_max_file_size_bytes: int | None = None
+    bundle_seed_max_total_size_bytes: int | None = None

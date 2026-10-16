@@ -1,0 +1,5470 @@
+use snafu::{OptionExt, ResultExt};
+use std::future::Future;
+use std::path::PathBuf;
+use std::sync::RwLock;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
+use super::async_query_registry::AsyncQueryRegistry;
+use super::error::*;
+use super::global_state::DatabaseDriverV1;
+use super::heartbeat::{HeartbeatHandle, compute_heartbeat_interval, spawn_heartbeat_task};
+use super::query_submit::{query_context, submit_query, update_caches};
+use super::spcs_token::read_spcs_token;
+use super::validation::{
+    ValidationIssue, ValidationSeverity, canonicalize_setting_key, collect_unknown_settings,
+    normalize_host_underscores, resolve_options, validate_connection_seed_write,
+    validate_session_override_write,
+};
+use super::{Setting, WrapperPresets, logout};
+use crate::apis::operation_ctx::OperationCtx;
+use crate::config::rest_parameters::resolve_include_retry_reason;
+use crate::config::{
+    ParamStore,
+    connection_config::{ConnectionConfig, DiagnosticConfig},
+    logout::LogoutConfig,
+    param_registry::{ParamKey, param_names},
+    resolver,
+    rest_parameters::{
+        BrowserOpenFn, ClientInfo, LoginMethod, LoginParameters, QueryParameters,
+        resolve_log_max_query_length, resolve_log_query_parameters, resolve_log_query_text,
+    },
+    retry::{RetryPolicy, read_optional_duration_secs},
+    settings::Settings,
+};
+use crate::diagnostic::DiagnosticRunner;
+use crate::handle_manager::Handle;
+use crate::rest::snowflake::query_context_cache::QueryContextCacheAdapter;
+use crate::rest::snowflake::{
+    self, QueryExecutionMode, QueryInput, RestError, SessionTokens, heartbeat,
+};
+use crate::sensitive::SensitiveString;
+use crate::stage_binding::{AtomicStageState, StageState};
+use crate::tls::config::ProxyConfig;
+use crate::xp_backend::{SnowflakeBackend, XpSlot};
+use std::time::Duration;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::{Mutex, Notify, OwnedMutexGuard, RwLock as AsyncRwLock};
+use tracing::Instrument;
+
+/// Server session-parameter key for the JDBC PUT/GET disable switch. Read by
+/// [`Connection::enable_put_get`]; upstream uppercases session-parameter names.
+const JDBC_ENABLE_PUT_GET_SERVER_KEY: &str = "JDBC_ENABLE_PUT_GET";
+
+impl DatabaseDriverV1 {
+    /// Set autocommit on the given connection.
+    ///
+    /// Pre-connect: stores `AUTOCOMMIT` in `init_session_parameters` so it is applied
+    /// at login time — no SQL execution required.
+    /// Post-connect: executes `ALTER SESSION SET AUTOCOMMIT = TRUE/FALSE`.
+    pub async fn connection_set_autocommit(
+        &self,
+        conn_handle: Handle,
+        autocommit: bool,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+                let is_post_connect = {
+                    let conn = conn_ptr.lock().await;
+                    conn.is_post_connect()
+                };
+
+                if is_post_connect {
+                    let sql = if autocommit {
+                        "ALTER SESSION SET AUTOCOMMIT = TRUE"
+                    } else {
+                        "ALTER SESSION SET AUTOCOMMIT = FALSE"
+                    };
+                    self.execute_session_sql(&conn_ptr, sql).await
+                } else {
+                    let mut conn = conn_ptr.lock().await;
+                    conn.init_session_parameters
+                        .get_or_insert_with(HashMap::new)
+                        .insert("AUTOCOMMIT".to_string(), autocommit.to_string());
+                    Ok(())
+                }
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Execute `USE DATABASE "<name>"` on the given connection.
+    /// The database name is escaped (internal `"` doubled).
+    /// Must only be called after the connection is initialised (`is_post_connect()`).
+    pub async fn connection_use_database(
+        &self,
+        conn_handle: Handle,
+        database: &str,
+    ) -> Result<(), ApiError> {
+        let db = database.trim();
+        if db.is_empty() {
+            return InvalidArgumentSnafu {
+                argument: "database name must not be empty".to_string(),
+            }
+            .fail();
+        }
+        let escaped = escape_sql_identifier(db);
+        let sql = format!("USE DATABASE \"{escaped}\"");
+
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+                {
+                    let conn = conn_ptr.lock().await;
+                    if !conn.is_post_connect() {
+                        return InvalidArgumentSnafu {
+                            argument: "connection_use_database called before connection is open"
+                                .to_string(),
+                        }
+                        .fail();
+                    }
+                }
+                self.execute_session_sql(&conn_ptr, &sql).await
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Commit the open transaction on the given connection by executing `COMMIT`.
+    /// Must only be called after the connection is initialised (`is_post_connect()`).
+    pub async fn connection_commit(&self, conn_handle: Handle) -> Result<(), ApiError> {
+        self.execute_transaction_control(conn_handle, "COMMIT")
+            .await
+    }
+
+    /// Roll back the open transaction on the given connection by executing `ROLLBACK`.
+    /// Must only be called after the connection is initialised (`is_post_connect()`).
+    pub async fn connection_rollback(&self, conn_handle: Handle) -> Result<(), ApiError> {
+        self.execute_transaction_control(conn_handle, "ROLLBACK")
+            .await
+    }
+
+    /// Shared implementation for `connection_commit` / `connection_rollback`:
+    /// run the transaction-control statement on the connection's session.
+    async fn execute_transaction_control(
+        &self,
+        conn_handle: Handle,
+        sql: &str,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+                {
+                    let conn = conn_ptr.lock().await;
+                    if !conn.is_post_connect() {
+                        return InvalidArgumentSnafu {
+                            argument: format!("{sql} called before connection is open"),
+                        }
+                        .fail();
+                    }
+                }
+                self.execute_session_sql(&conn_ptr, sql).await
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Execute `USE SCHEMA "<name>"` or `USE SCHEMA "<db>"."<name>"` when a session database is set.
+    /// Schema and database names are escaped (internal `"` doubled).
+    /// Must only be called after the connection is initialised (`is_post_connect()`).
+    pub async fn connection_use_schema(
+        &self,
+        conn_handle: Handle,
+        schema: &str,
+    ) -> Result<(), ApiError> {
+        let schema = schema.trim();
+        if schema.is_empty() {
+            return InvalidArgumentSnafu {
+                argument: "schema name must not be empty".to_string(),
+            }
+            .fail();
+        }
+
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+                let sql = {
+                    let conn = conn_ptr.lock().await;
+                    if !conn.is_post_connect() {
+                        return InvalidArgumentSnafu {
+                            argument: "connection_use_schema called before connection is open"
+                                .to_string(),
+                        }
+                        .fail();
+                    }
+                    let database = resolve_session_database(&conn)?;
+                    build_use_schema_sql(database.as_deref(), schema)
+                };
+                self.execute_session_sql(&conn_ptr, &sql).await
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Execute a session-scoped SQL command without creating a statement.
+    ///
+    /// Not cancellable: none of the callers reach core with an operation handle.
+    async fn execute_session_sql(
+        &self,
+        conn_ptr: &Arc<Mutex<Connection>>,
+        sql: &str,
+    ) -> Result<(), ApiError> {
+        let transport = query_context(conn_ptr).await?;
+        let query_timeout = {
+            let conn = conn_ptr.lock().await;
+            conn.request_timeout_budget()
+        };
+
+        let response = submit_query(
+            None,
+            conn_ptr,
+            &transport,
+            QueryInput::new(sql),
+            QueryExecutionMode::Blocking,
+            uuid::Uuid::new_v4(),
+            query_timeout,
+        )
+        .await?;
+
+        update_caches(conn_ptr, sql, &response).await;
+
+        Ok(())
+    }
+
+    /// Establish the session for `conn_handle`.
+    ///
+    /// Options from `db_handle` form the base programmatic layer. Options set
+    /// directly on the connection override database options before config-file
+    /// and registry-default resolution.
+    ///
+    /// `operation_ctx` is the operation's cancellation context, or `None` when the caller
+    /// reached core without an operation handle (a blocking FFI entry, an
+    /// internal caller, a test) and therefore has no way to cancel. This is the
+    /// single observation point for the operation: cancellation surfaces as
+    /// [`ApiError::Cancelled`] and propagates like any other error.
+    pub async fn connection_init(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        conn_handle: Handle,
+        db_handle: Handle,
+    ) -> Result<(), ApiError> {
+        crate::apis::operation_ctx::run_opt(
+            operation_ctx,
+            "connection_init",
+            Box::pin(self.connection_init_inner(conn_handle, db_handle)),
+        )
+        .await
+    }
+
+    async fn connection_init_inner(
+        &self,
+        conn_handle: Handle,
+        db_handle: Handle,
+    ) -> Result<(), ApiError> {
+        self.start_platform_detection();
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let database_seed = self.database_settings(db_handle).await?;
+                let (
+                    config,
+                    host,
+                    port,
+                    client_info,
+                    init_params,
+                    resolved_snapshot,
+                    browser_opener,
+                ) = {
+                    let conn = conn_ptr.lock().await;
+                    // TODO(sfc-gh-boler): Clone the mutable connection inputs under the mutex,
+                    // then drop the lock before calling resolve/build. Those paths can do
+                    // synchronous disk I/O and private-key parsing, which currently extends the
+                    // connection mutex critical section and can block the async runtime thread.
+                    let effective_seed = conn.effective_seed(&database_seed);
+                    let mut resolved = resolver::resolve_for_wrapper_with_connections_file(
+                        &effective_seed,
+                        conn.no_connection_details,
+                        self.wrapper_presets.configuration_flavor,
+                        conn.connections_file_path.as_deref(),
+                    )
+                    .context(ConfigurationSnafu)?;
+                    normalize_host_underscores(&mut resolved);
+                    crate::xp_backend::seed_settings_for_host_backend(
+                        &mut resolved,
+                        self.xp_slot.running_inside_xp(),
+                    );
+                    let config = ConnectionConfig::build(&resolved).context(ConfigurationSnafu)?;
+                    let host = resolved.get_string(param_names::HOST);
+                    let port = resolved.get_int(param_names::PORT);
+                    let mut client_info =
+                        ClientInfo::from_settings(&resolved).context(ConfigurationSnafu)?;
+                    client_info.os_details = self.os_details().cloned();
+                    let init_params = conn.init_session_parameters.clone();
+                    let resolved_snapshot = resolved.clone();
+
+                    // Session parameters to send in the login request. Seeded
+                    // with unrecognized connection options (so drivers can set
+                    // arbitrary Snowflake session params via regular connection
+                    // options), then augmented below with registered session
+                    // params that belong in SESSION_PARAMETERS
+                    // (CLIENT_SESSION_KEEP_ALIVE, its heartbeat frequency,
+                    // CLIENT_PREFETCH_THREADS, QUERY_TAG) to match the Python connector.
+                    let mut login_session_params = collect_unknown_settings(&effective_seed);
+                    if let Some(v) = resolved.get_bool(param_names::CLIENT_SESSION_KEEP_ALIVE) {
+                        login_session_params.insert(
+                            param_names::CLIENT_SESSION_KEEP_ALIVE.as_str().to_string(),
+                            v.to_string(),
+                        );
+                    }
+                    if let Some(v) =
+                        resolved.get_int(param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY)
+                    {
+                        let clamped_frequency =
+                            compute_heartbeat_interval(None, u64::try_from(v).ok()).as_secs();
+                        login_session_params.insert(
+                            param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY
+                                .as_str()
+                                .to_string(),
+                            clamped_frequency.to_string(),
+                        );
+                    }
+                    if let Some(v) = resolved.get_int(param_names::CLIENT_PREFETCH_THREADS) {
+                        login_session_params.insert(
+                            param_names::CLIENT_PREFETCH_THREADS.as_str().to_string(),
+                            v.to_string(),
+                        );
+                    }
+                    if resolved
+                        .get_bool(param_names::VALIDATE_DEFAULT_PARAMETERS)
+                        .unwrap_or(false)
+                    {
+                        login_session_params.insert(
+                            "CLIENT_VALIDATE_DEFAULT_PARAMETERS".to_string(),
+                            "true".to_string(),
+                        );
+                    }
+                    // QUERY_TAG is a registered session parameter (also
+                    // statement-overridable), so it isn't "unknown"; mirror a
+                    // connection-level value into the login session parameters.
+                    if let Some(v) = resolved.get_string(param_names::QUERY_TAG) {
+                        login_session_params.insert("QUERY_TAG".to_string(), v);
+                    }
+                    let init_params = match init_params {
+                        Some(explicit) => {
+                            // Normalize explicit keys to uppercase so precedence
+                            // is case-insensitive (unknown settings are uppercased).
+                            let mut merged: HashMap<String, String> = explicit
+                                .into_iter()
+                                .map(|(k, v)| (k.to_uppercase(), v))
+                                .collect();
+                            // Explicit session params take precedence
+                            for (k, v) in login_session_params {
+                                merged.entry(k).or_insert(v);
+                            }
+                            Some(merged)
+                        }
+                        None if !login_session_params.is_empty() => Some(login_session_params),
+                        None => None,
+                    };
+
+                    let browser_opener = conn.browser_opener.clone();
+                    (
+                        config,
+                        host,
+                        port,
+                        client_info,
+                        init_params,
+                        resolved_snapshot,
+                        browser_opener,
+                    )
+                };
+
+                warn_query_logging_risk(&resolved_snapshot);
+
+                let timeout_config =
+                    crate::config::retry::TimeoutConfig::from_params(&resolved_snapshot);
+
+                let login_parameters = LoginParameters::from_connection_config(
+                    &config,
+                    client_info,
+                    None,
+                    read_spcs_token(self.fs_adapter().as_ref()),
+                    self.wrapper_presets.validate_session_token,
+                    browser_opener,
+                );
+
+                let prebuilt_credentials =
+                    snowflake::prebuild_keypair_credentials(&login_parameters)
+                        .context(LoginSnafu)?;
+
+                // ---- Diagnostics: pre-connect -----------------------------------
+                // Run diagnostics when explicitly enabled OR when troubleshooting
+                // is active (SNOWFLAKE_TROUBLESHOOTING_ENABLED=true implies diagnostics).
+                let ts_path = self.troubleshooting_path();
+                let effective_diag = match config.diagnostic {
+                    DiagnosticConfig::Enabled {
+                        ref log_path,
+                        ref allowlist_path,
+                    } => Some(DiagnosticConfig::Enabled {
+                        log_path: log_path.clone().or_else(|| ts_path.clone()),
+                        allowlist_path: allowlist_path.clone(),
+                    }),
+                    DiagnosticConfig::Disabled if ts_path.is_some() => {
+                        Some(DiagnosticConfig::Enabled {
+                            log_path: ts_path,
+                            allowlist_path: None,
+                        })
+                    }
+                    _ => None,
+                };
+
+                let (http_client, diag_rustls) =
+                    crate::tls::client::build_tls_client_and_rustls_config(
+                        &config.tls,
+                        Some(&config.proxy),
+                        self.crl_manager.clone(),
+                        self.root_store_provider.clone(),
+                        timeout_config.connect_timeout,
+                        effective_diag.is_some(),
+                    )
+                    .await
+                    .context(TlsClientCreationSnafu)?;
+
+                let mut diag_runner = match (effective_diag, diag_rustls) {
+                    (Some(diag_cfg), Some(diag_rustls)) => {
+                        let account = config.server.account.clone();
+                        let host_str = host.clone().unwrap_or_default();
+                        let diag_proxy = config.proxy.clone();
+                        let diag_client_info = login_parameters.client_info.clone();
+                        self.platform_detector.start();
+                        tokio::task::spawn_blocking(move || {
+                            let mut runner = DiagnosticRunner::new(
+                                &account,
+                                &host_str,
+                                diag_cfg,
+                                diag_rustls,
+                                diag_proxy,
+                                &diag_client_info,
+                            );
+                            runner.run_pre_connect();
+                            runner
+                        })
+                        .await
+                        .ok()
+                    }
+                    _ => None,
+                };
+
+                let token_caching_requested = matches!(
+                    &login_parameters.login_method,
+                    LoginMethod::UserPasswordMfa {
+                        client_store_temporary_credential: true,
+                        ..
+                    } | LoginMethod::ExternalBrowser {
+                        client_store_temporary_credential: true,
+                        ..
+                    }
+                );
+                // OAuth Authorization Code uses the same token cache to
+                // (a) short-circuit the interactive flow with a cached
+                // access token, (b) exchange a cached refresh token, and
+                // (c) drive 390303/390318 refresh-on-failure eviction
+                // (AC state machine: cache → refresh → interactive;
+                // cross-driver eviction on 390303/390318). Client
+                // Credentials intentionally never persists tokens
+                // (CC stateless by design) and the legacy pre-acquired
+                // `OAUTH` flow forwards a caller-supplied token, so
+                // neither needs the cache wired here.
+                let oauth_caching_requested = matches!(
+                    &login_parameters.login_method,
+                    LoginMethod::OAuthAuthorizationCode(cfg)
+                        if cfg.client_store_temporary_credential
+                );
+
+                let token_cache = if token_caching_requested || oauth_caching_requested {
+                    Some(self.token_cache().context(TokenCacheInitializationSnafu)?)
+                } else {
+                    None
+                };
+
+                let retry_policy = RetryPolicy::login(&resolved_snapshot);
+                let xp_backend = {
+                    let conn = conn_ptr.lock().await;
+                    conn.xp_backend_arc().context(LoginSnafu)?
+                };
+
+                let login_fut = crate::rest::snowflake::snowflake_login_with_client(
+                    &http_client,
+                    &login_parameters,
+                    init_params.as_ref(),
+                    token_cache,
+                    Some(&self.prompt_locks),
+                    &retry_policy,
+                    prebuilt_credentials,
+                    xp_backend.as_deref(),
+                    self.crl_manager.clone(),
+                    self.root_store_provider.clone(),
+                    timeout_config
+                        .login_timeout
+                        .map(|budget| std::time::Instant::now() + budget),
+                );
+
+                let login_result = if let Some(budget) = timeout_config.login_timeout {
+                    match tokio::time::timeout(budget, login_fut).await {
+                        Ok(inner) => inner,
+                        Err(_) => Err(crate::rest::snowflake::OperationTimeoutSnafu {
+                            operation: "login".to_string(),
+                            budget,
+                            ids: crate::rest::snowflake::QueryIds::default(),
+                        }
+                        .build()),
+                    }
+                } else {
+                    login_fut.await
+                };
+
+                // ---- Diagnostics: post-connect ----------------------------------
+                if let Some(mut runner) = diag_runner.take() {
+                    let runner = tokio::task::spawn_blocking(move || {
+                        runner.run_post_connect(None);
+                        runner
+                    })
+                    .await
+                    .ok();
+                    if let Some(mut runner) = runner {
+                        runner.record_platforms(self.platform_detector.platforms());
+                        tokio::task::spawn_blocking(move || runner.write_report())
+                            .await
+                            .ok();
+                    }
+                }
+
+                let login_result = login_result.context(LoginSnafu)?;
+
+                // Initialize connection with session parameters from login response.
+                // The server returns system-level parameters but may not echo back
+                // user-set parameters (e.g. QUERY_TAG), so we merge in the
+                // init_session_parameters the caller explicitly requested.
+                let mut merged_params: HashMap<String, Setting> = init_params
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(k, v)| (k, Setting::String(v)))
+                    .collect();
+                merged_params.extend(login_result.session_parameters.unwrap_or_default());
+
+                let login_final_names = FinalSessionNames {
+                    database: login_result.database_name,
+                    schema: login_result.schema_name,
+                    warehouse: login_result.warehouse_name,
+                    role: login_result.role_name,
+                };
+                let login_server_version = login_result.server_version;
+                let external_session_id = match &login_parameters.login_method {
+                    LoginMethod::PatWithExternalSession {
+                        external_session_id,
+                        ..
+                    } => Some(external_session_id.clone()),
+                    _ => None,
+                };
+
+                // `CLIENT_SESSION_KEEP_ALIVE` and
+                // `CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY` are read from
+                // `merged_params` so the server-echoed value (or a server-side
+                // default) takes effect even when the client did not pass them
+                // explicitly. The client-mirrored values are already merged in
+                // above (init_params + login_result.session_parameters).
+                let keep_alive = merged_params
+                    .get_bool_or(param_names::CLIENT_SESSION_KEEP_ALIVE.as_str(), false);
+                let heartbeat_frequency_secs = merged_params
+                    .get_u64(param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY.as_str());
+
+                {
+                    let logout_config = LogoutConfig::from_settings(&resolved_snapshot)
+                        .context(ConfigurationSnafu)?;
+                    let mut conn = conn_ptr.lock().await;
+
+                    conn.initialize(
+                        login_result.tokens,
+                        http_client,
+                        host,
+                        port,
+                        login_parameters.server_url.clone(),
+                        login_parameters.client_info.clone(),
+                        merged_params,
+                        login_final_names,
+                        login_server_version,
+                        database_seed,
+                        resolved_snapshot,
+                        logout_config,
+                        timeout_config,
+                        self.wrapper_presets.clone(),
+                        external_session_id,
+                    )
+                    .await;
+
+                    // Cache the telemetry id on the Connection so entry-point
+                    // methods can stamp `snowflake.telemetry.id` on their spans
+                    // by reading the field under the same mutex they already
+                    // take to do their work.
+                    let telemetry_id = conn_handle.id;
+                    conn.telemetry_id = Some(telemetry_id);
+
+                    // Telemetry setup: check if the server has opted this session
+                    // into in-band telemetry and a session registry is configured,
+                    // then register the connection so spans tagged with its
+                    // telemetry id are routed to /telemetry/send.
+                    let telemetry_enabled = self.telemetry_sessions().is_some()
+                        && conn
+                            .session_parameters
+                            .read()
+                            .await
+                            .get(param_names::CLIENT_TELEMETRY_ENABLED.as_str())
+                            .map(|v| v.coerce_bool().unwrap_or(false))
+                            .unwrap_or(true);
+
+                    if telemetry_enabled {
+                        use crate::telemetry::snowflake_exporter::ExporterSession;
+
+                        let Some(http_client) = conn.http_client.clone() else {
+                            tracing::warn!(
+                                "Skipping telemetry: http_client not set after connection init"
+                            );
+                            drop(conn);
+                            return Ok(());
+                        };
+
+                        let query_parameters = conn.query_transport_parameters()?;
+                        let exporter_session = Arc::new(ExporterSession {
+                            client: http_client,
+                            query_parameters,
+                            session_token: conn.tokens.clone(),
+                        });
+
+                        if let Some(sessions) = self.telemetry_sessions() {
+                            sessions
+                                .write()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .insert(telemetry_id, exporter_session);
+                        } else {
+                            // `telemetry_enabled` implies `telemetry_sessions()`
+                            // was Some (checked above); reaching None here means
+                            // the registry was cleared concurrently.
+                            tracing::error!(
+                                "telemetry session registry unexpectedly absent after \
+                                 telemetry_enabled check; connection {telemetry_id} not \
+                                 registered for telemetry"
+                            );
+                        }
+
+                        let env_info = conn
+                            .wrapper_identity
+                            .as_ref()
+                            .map(crate::telemetry::environment::EnvironmentInfo::with_wrapper)
+                            .unwrap_or_else(crate::telemetry::environment::EnvironmentInfo::detect);
+                        // Bounded `session_init` span: an event-carrier span whose
+                        // sole purpose is to attach `snowflake.telemetry.id` to the
+                        // session_init OTEL event. It does NOT measure connection_init
+                        // duration — login has already completed by the time this span
+                        // opens. Each subsequent driver operation emits its own bounded
+                        // span tagged with the same telemetry id; they share no trace_id
+                        // with this span.
+                        // TODO: instrument the surrounding connection_init future so we
+                        // capture login duration + Status::Error on failure.
+                        let init_span =
+                            crate::snowflake_op_span!("session_init", Some(telemetry_id));
+                        let _guard = init_span.enter();
+                        crate::telemetry::record_session_init(&env_info);
+                    }
+
+                    if keep_alive
+                        && conn.xp_backend_arc().context(LoginSnafu)?.is_none()
+                        && conn.external_session_id.is_none()
+                    {
+                        let interval = compute_heartbeat_interval(
+                            conn.tokens
+                                .read()
+                                .await
+                                .as_ref()
+                                .and_then(|t| t.master_validity),
+                            heartbeat_frequency_secs,
+                        );
+                        let handle = spawn_heartbeat_task(
+                            conn.tokens.clone(),
+                            conn.http_client
+                                .clone()
+                                .context(ConnectionNotInitializedSnafu)?,
+                            conn.server_url
+                                .clone()
+                                .context(ConnectionNotInitializedSnafu)?,
+                            conn.client_info
+                                .clone()
+                                .context(ConnectionNotInitializedSnafu)?,
+                            interval,
+                            conn.is_master_token_expired.clone(),
+                            conn.session_terminated.clone(),
+                        );
+                        conn.heartbeat_handle = Some(handle);
+                    }
+                }
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Flush all telemetry for this connection and remove it from the telemetry
+    /// registry. Called from `connection_close`; `connection_release` does not
+    /// call it.
+    ///
+    /// Order matters:
+    /// 1. Flush the connection's buffered telemetry — awaited export to
+    ///    `/telemetry/send` while session tokens are still alive for authentication.
+    /// 2. Remove the connection from the exporter registry so it no longer resolves.
+    ///
+    /// Must be called while session tokens are still alive (before logout).
+    /// Idempotent. Each driver operation emits a bounded span that ends when the
+    /// operation returns, so there is no long-lived parent span to drop here.
+    pub async fn flush_connection_telemetry(&self, conn_handle: Handle) {
+        let telemetry_id = self.telemetry_id_for_conn(conn_handle).await;
+
+        if let Some(id) = telemetry_id {
+            if let Some(telemetry) = self.session_telemetry() {
+                self.platform_detector.report(telemetry, id);
+            }
+            self.flush_telemetry_connection(id).await;
+
+            if let Some(sessions) = self.telemetry_sessions() {
+                sessions
+                    .write()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(&id);
+            }
+        }
+    }
+
+    pub async fn connection_set_option(
+        &self,
+        handle: Handle,
+        key: String,
+        value: Setting,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                let post = conn.is_post_connect();
+                let (canonical, def) =
+                    canonicalize_setting_key(self.wrapper_presets.configuration_flavor, &key);
+                validate_connection_seed_write(post, def)?;
+                conn.connection_seed.insert(canonical, value);
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_set_options(
+        &self,
+        handle: Handle,
+        options: HashMap<String, Setting>,
+        no_connection_details: bool,
+        connections_file_path: Option<PathBuf>,
+    ) -> Result<Vec<ValidationIssue>, ApiError> {
+        match self.connections.get_obj(handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                let post = conn.is_post_connect();
+                // Latch the bare-connect signal so a later non-bare set_options
+                // call cannot clear it. Only the wrapper can compute this (it
+                // alone sees the raw caller input before bookkeeping is added).
+                conn.no_connection_details |= no_connection_details;
+                if let Some(connections_file_path) = connections_file_path
+                    && !connections_file_path.as_os_str().is_empty()
+                {
+                    conn.connections_file_path = Some(connections_file_path);
+                }
+                let (resolved, issues) =
+                    resolve_options(self.wrapper_presets.configuration_flavor, options);
+                let error_messages: Vec<String> = issues
+                    .iter()
+                    .filter(|i| i.severity == ValidationSeverity::Error)
+                    .map(|i| i.to_string())
+                    .collect();
+                if !error_messages.is_empty() {
+                    return InvalidArgumentSnafu {
+                        argument: error_messages.join("; "),
+                    }
+                    .fail();
+                }
+                for key in resolved.keys() {
+                    let def = crate::config::param_registry::registry().resolve(key.as_str());
+                    validate_connection_seed_write(post, def)?;
+                }
+                for (key, value) in resolved {
+                    conn.connection_seed.insert(key, value);
+                }
+                Ok(issues
+                    .into_iter()
+                    .filter(|i| i.severity == ValidationSeverity::Warning)
+                    .collect())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_validate_options(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<Vec<ValidationIssue>, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+                // TODO(sfc-gh-boler): Clone `conn.connection_seed` under the mutex and run
+                // resolve/validate after releasing the lock, since layered config resolution may
+                // perform synchronous file I/O.
+                let resolved = conn.resolved_settings().context(ConfigurationSnafu)?;
+                Ok(crate::config::connection_config::validate_settings(
+                    &resolved,
+                ))
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_set_session_parameters(
+        &self,
+        handle: Handle,
+        parameters: HashMap<String, String>,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                conn.init_session_parameters = Some(parameters);
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Set a session-scoped parameter for the current session only (post-connect).
+    ///
+    /// Connection-scoped and statement-scoped registry parameters must use their respective
+    /// setters. Unknown keys are accepted as opaque session overrides.
+    pub async fn connection_set_session_option(
+        &self,
+        handle: Handle,
+        key: String,
+        value: Setting,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                if !conn.is_post_connect() {
+                    return InvalidArgumentSnafu {
+                        argument:
+                            "Session options are only available after the connection is established"
+                                .to_string(),
+                    }
+                    .fail();
+                }
+                let (canonical, def) =
+                    canonicalize_setting_key(self.wrapper_presets.configuration_flavor, &key);
+                validate_session_override_write(def)?;
+                conn.session_overrides.insert(canonical, value);
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub fn connection_new(&self) -> Handle {
+        let mut conn = Connection::new();
+        conn.xp_slot = Arc::clone(&self.xp_slot);
+        self.seed_log_defaults_into(&mut conn.connection_seed);
+        self.connections.add_handle(Mutex::new(conn))
+    }
+
+    /// Seed process-wide defaults sourced from the `LogManager`
+    /// (parsed from `sf.odbc.ini` / `[log]` TOML). Explicit per-connection
+    /// settings still win because they are inserted unconditionally on top.
+    fn seed_log_defaults_into(&self, seed: &mut ParamStore) {
+        if let Some(v) = self.log_query_text() {
+            inject_if_absent(seed, param_names::LOG_QUERY_TEXT.as_str(), Setting::Bool(v));
+        }
+        if let Some(v) = self.log_query_parameters() {
+            inject_if_absent(
+                seed,
+                param_names::LOG_QUERY_PARAMETERS.as_str(),
+                Setting::Bool(v),
+            );
+        }
+    }
+
+    pub fn connection_release(&self, conn_handle: Handle) -> Result<(), ApiError> {
+        match self.connections.delete_handle(conn_handle) {
+            true => {
+                self.reap_connection_streams(conn_handle);
+                Ok(())
+            }
+            false => InvalidArgumentSnafu {
+                argument: "Failed to release connection handle".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_set_browser_opener(
+        &self,
+        conn_handle: Handle,
+        opener: BrowserOpenFn,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                conn.browser_opener = Some(opener);
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Invalid connection handle".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Store wrapper identity on a connection. Called once from `ConnectionInit`.
+    ///
+    /// In addition to storing the identity for telemetry, this injects the
+    /// identity fields into the connection seed so that [`ClientInfo::from_settings`]
+    /// picks them up during login. Seed entries set earlier by the wrapper
+    /// (e.g. the user's `application` kwarg → `client_app_id`) are preserved
+    /// because we only insert when the key is absent.
+    pub async fn set_wrapper_identity(
+        &self,
+        conn_handle: Handle,
+        identity: WrapperIdentity,
+    ) -> Result<(), ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let mut conn = conn_ptr.lock().await;
+                if conn.wrapper_identity.is_some() {
+                    tracing::warn!(
+                        "Wrapper identity set more than once on the same connection; overwriting previous identity"
+                    );
+                }
+
+                // Inject identity fields into the connection seed so
+                // ClientInfo::from_settings picks them up at login time.
+                // Only insert when the key is absent to respect values the
+                // wrapper already set via connection_set_option.
+                inject_if_absent(
+                    &mut conn.connection_seed,
+                    "client_app_id",
+                    Setting::String(identity.driver_name.clone()),
+                );
+                inject_if_absent(
+                    &mut conn.connection_seed,
+                    "client_app_version",
+                    Setting::String(identity.driver_version.clone()),
+                );
+                inject_if_absent(
+                    &mut conn.connection_seed,
+                    "client_runtime_name",
+                    Setting::String(identity.language_runtime.clone()),
+                );
+                inject_if_absent(
+                    &mut conn.connection_seed,
+                    "client_runtime_version",
+                    Setting::String(identity.language_version.clone()),
+                );
+                if let Some(compiler) = identity.language_compiler.clone() {
+                    inject_if_absent(
+                        &mut conn.connection_seed,
+                        "client_compiler",
+                        Setting::String(compiler),
+                    );
+                }
+                if let Some(release_type) = identity.release_type.clone() {
+                    inject_if_absent(
+                        &mut conn.connection_seed,
+                        "client_release_type",
+                        Setting::String(release_type),
+                    );
+                }
+                if let Some(application_path) = identity.application_path.clone() {
+                    inject_if_absent(
+                        &mut conn.connection_seed,
+                        "client_application_path",
+                        Setting::String(application_path),
+                    );
+                }
+
+                conn.wrapper_identity = Some(identity);
+                Ok(())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Invalid connection handle".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Read the stored wrapper identity for a connection, if set during `ConnectionInit`.
+    pub async fn get_wrapper_identity(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<Option<WrapperIdentity>, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+                Ok(conn.wrapper_identity.clone())
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Invalid connection handle".to_string(),
+            }
+            .fail(),
+        }
+    }
+}
+
+/// Insert a value into the seed only when the key is absent. For
+/// `Setting::String`, the value is trimmed first and skipped when empty;
+/// other variants are inserted as-is. Used both for wrapper-identity seeding
+/// and for process-wide defaults parsed from `sf.odbc.ini` / `[log]` TOML.
+fn warn_query_logging_risk(settings: &ParamStore) {
+    if resolve_log_query_text(settings) {
+        tracing::warn!(
+            "log_query_text is enabled: SQL query text will appear in logs - \
+             ensure logs are protected as confidential data"
+        );
+    }
+    if resolve_log_query_parameters(settings) {
+        tracing::warn!(
+            "log_query_parameters is enabled: bind parameter values will appear in logs - \
+             ensure logs are protected as confidential data"
+        );
+    }
+}
+
+fn inject_if_absent(seed: &mut ParamStore, key: &str, value: Setting) {
+    let value = match value {
+        Setting::String(s) => {
+            let trimmed = s.trim();
+            if trimmed.is_empty() {
+                return;
+            }
+            if trimmed.len() == s.len() {
+                Setting::String(s)
+            } else {
+                Setting::String(trimmed.to_owned())
+            }
+        }
+        other => other,
+    };
+    if seed.get_any(key).is_none() {
+        seed.insert(key.to_owned(), value);
+    }
+}
+
+/// Wrapper identity set once via `ConnectionInit` and attached to all subsequent telemetry events.
+#[derive(Debug, Clone, Default)]
+pub struct WrapperIdentity {
+    pub driver_name: String,
+    pub driver_version: String,
+    pub language_runtime: String,
+    pub language_version: String,
+    /// `None` means compiler info is not applicable for this language.
+    pub language_compiler: Option<String>,
+    /// Optional override for `CLIENT_ENVIRONMENT.RELEASE_TYPE`. When `None`,
+    /// core derives the value from `driver_version` (Cargo/semver `-rc1` or
+    /// PEP 440 `.dev0` / `rc1`). Set explicitly only when the wrapper needs a
+    /// value different from that suffix. `None` on GA builds when the version
+    /// has no suffix.
+    pub release_type: Option<String>,
+    pub application_path: Option<String>,
+}
+
+pub struct Connection {
+    /// Options inherited from the database used to initialize this connection.
+    /// Connection options override this base layer.
+    pub(crate) database_seed: ParamStore,
+    /// Explicit connection-string / API options. These override [`Self::database_seed`]
+    /// in the top programmatic layer passed to [`resolver::resolve`].
+    pub(crate) connection_seed: ParamStore,
+    /// True when the caller invoked a bare `connect()` with no connection
+    /// options — the wrapper's `is_kwargs_empty` signal, received via
+    /// `ConnectionSetOptionsRequest::no_connection_details`. Drives the
+    /// default-profile fallback in [`resolver::resolve`]. Latched on, so a
+    /// later non-bare `set_options` call cannot clear it.
+    pub(crate) no_connection_details: bool,
+    pub(crate) connections_file_path: Option<PathBuf>,
+    /// Resolved settings snapshot captured at successful login (defaults + files + seed).
+    pub(crate) resolved_connect: Option<ParamStore>,
+    /// Typed session overrides set after connect (session scope only).
+    pub(crate) session_overrides: ParamStore,
+    /// Session tokens - RwLock allows concurrent reads, exclusive writes for refresh
+    pub tokens: Arc<AsyncRwLock<Option<SessionTokens>>>,
+    pub http_client: Option<reqwest::Client>,
+    pub retry_policy: RetryPolicy,
+    /// Effective host after layered config resolution.
+    pub host: Option<String>,
+    /// Effective port after layered config resolution.
+    pub port: Option<i64>,
+    /// Server URL for refresh requests
+    pub server_url: Option<String>,
+    /// Client info for refresh requests
+    pub client_info: Option<ClientInfo>,
+    /// Session parameters cache (populated after login)
+    pub session_parameters: Arc<AsyncRwLock<HashMap<String, Setting>>>,
+    /// Query context cache (HTAP support)
+    pub query_context_cache: QueryContextCacheAdapter,
+    /// Session parameters to send during initialization (set before connection_init)
+    pub init_session_parameters: Option<HashMap<String, String>>,
+    /// Registry for tracking async queries (for Fire & Forget auto-detection)
+    pub async_query_registry: AsyncQueryRegistry,
+    /// Where this connection is in its close lifecycle.
+    ///
+    /// Three states rather than a bool because "a close is running" and "the close
+    /// completed" are different facts, and a single flag serving both is what made a
+    /// failed logout unrecoverable: the connection was marked closed before the
+    /// request went out, so a retry short-circuited and the server session leaked.
+    /// See [`CloseState`].
+    pub close_state: Arc<AtomicCloseState>,
+    /// Woken when [`Self::close_state`] leaves `Closing`, so a concurrent closer
+    /// learns the outcome instead of being told the connection is closed while the
+    /// logout is still in flight.
+    pub close_done: Arc<Notify>,
+    /// Flag indicating the master token has expired.
+    ///
+    /// Set to `true` when the server returns GS code 390114 (master token expired),
+    /// or when a time-based check (`SessionTokens::is_master_expired`) confirms
+    /// expiry just before a refresh attempt.  Once set, the session can never be
+    /// renewed — full re-authentication is required.
+    ///
+    /// Mirrors `SnowflakeConnection.expired` in the legacy Python connector and is
+    /// intended as a read-only signal for external pool / application code.
+    pub is_master_token_expired: Arc<AtomicBool>,
+
+    /// Set when the server answers that this session cannot be recovered.
+    /// Other RENEW refusals leave the flag unset: the session can still be open.
+    /// Unlike [`Self::is_master_token_expired`], the token pair itself may still
+    /// be valid: a renewal presents the master token against a session that no
+    /// longer exists.
+    pub(crate) session_terminated: Arc<AtomicBool>,
+
+    /// Logout configuration (set via ConnectionSetOption* before init, parsed at init time)
+    pub logout_config: LogoutConfig,
+    /// Resolved operation-level timeout configuration (populated at connect time).
+    pub timeout_config: crate::config::retry::TimeoutConfig,
+    /// Server-echoed final names from login and query responses (e.g. after USE DATABASE).
+    /// Stored separately from session_parameters to keep concerns distinct.
+    pub final_session_names: RwLock<FinalSessionNames>,
+    /// Snowflake server version reported in the login response (e.g. "9.34.0").
+    /// Read by ODBC `SQLGetInfo(SQL_DBMS_VER)` and the equivalent JDBC
+    /// `getDatabaseProductVersion`. `None` until login completes.
+    pub server_version: RwLock<Option<String>>,
+    /// Wrapper identity for telemetry, set once via ConnectionInit.
+    pub wrapper_identity: Option<WrapperIdentity>,
+    /// This connection's handle id, populated once `connection_init` succeeds.
+    /// Telemetry is keyed by it rather than by the session id, which a
+    /// connection that adopted session tokens never learns. Read by entry-point
+    /// methods (under the connection mutex) to stamp `snowflake.telemetry.id` on
+    /// telemetry spans. `None` until login completes.
+    pub(crate) telemetry_id: Option<u64>,
+    /// Handle to the per-connection heartbeat background task (if keep-alive is enabled).
+    pub(crate) heartbeat_handle: Option<HeartbeatHandle>,
+    /// Set for `PAT_WITH_EXTERNAL_SESSION`. Query headers and
+    /// `connection_heartbeat` send Bearer plus this id. Session refresh,
+    /// background keep-alive, and HTTP logout are skipped.
+    pub(crate) external_session_id: Option<SensitiveString>,
+
+    /// Lifecycle state of the per-session `SYSTEM$BIND` stage.
+    ///
+    /// A single tri-state value is used instead of two booleans to make the
+    /// illegal fourth state (`Created = true` **and** `Disabled = true`
+    /// simultaneously) unrepresentable by construction.
+    ///
+    /// Wrappers should consult this — together with the session parameter
+    /// `CLIENT_STAGE_ARRAY_BINDING_THRESHOLD` — when deciding whether to send
+    /// CSV bindings.
+    pub stage_state: Arc<AtomicStageState>,
+    pub(crate) xp_slot: Arc<XpSlot>,
+    /// Captured from [`WrapperPresets::optimistic_alter_session_param_cache`] at
+    /// [`Self::initialize`]; gates the `ALTER SESSION SET` parse in
+    /// [`Self::update_session_params_cache`]. `false` until login completes, so
+    /// a pre-login cache write never parses SQL.
+    pub(crate) optimistic_alter_session_param_cache: bool,
+    /// Per-connection gate when session operations are serialized.
+    /// Acquire this before [`Mutex<Connection>`].
+    session_mutex: Arc<Mutex<()>>,
+    pub(crate) browser_opener: Option<BrowserOpenFn>,
+}
+
+impl Default for Connection {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Connection {
+    pub fn new() -> Self {
+        Connection {
+            database_seed: ParamStore::new(),
+            connection_seed: ParamStore::new(),
+            no_connection_details: false,
+            connections_file_path: None,
+            resolved_connect: None,
+            session_overrides: ParamStore::new(),
+            tokens: Arc::new(AsyncRwLock::new(None)),
+            http_client: None,
+            retry_policy: RetryPolicy::default(),
+            host: None,
+            port: None,
+            server_url: None,
+            client_info: None,
+            session_parameters: Arc::new(AsyncRwLock::new(HashMap::new())),
+            query_context_cache: QueryContextCacheAdapter::new(),
+            init_session_parameters: None,
+            async_query_registry: AsyncQueryRegistry::new(),
+            close_state: Arc::new(AtomicCloseState::new(CloseState::Open)),
+            close_done: Arc::new(Notify::new()),
+            is_master_token_expired: Arc::new(AtomicBool::new(false)),
+            session_terminated: Arc::new(AtomicBool::new(false)),
+            logout_config: LogoutConfig::default(),
+            timeout_config: crate::config::retry::TimeoutConfig::default(),
+            final_session_names: RwLock::new(FinalSessionNames::default()),
+            server_version: RwLock::new(None),
+            wrapper_identity: None,
+            telemetry_id: None,
+            heartbeat_handle: None,
+            external_session_id: None,
+            stage_state: Arc::new(AtomicStageState::new(StageState::Unknown)),
+            xp_slot: Arc::new(XpSlot::new(false, None)),
+            optimistic_alter_session_param_cache: false,
+            session_mutex: Arc::new(Mutex::new(())),
+            browser_opener: None,
+        }
+    }
+
+    pub(crate) fn xp_backend_arc(&self) -> Result<Option<Arc<dyn SnowflakeBackend>>, RestError> {
+        Ok(self.xp_slot.active()?.cloned())
+    }
+
+    /// `true` after a successful [`Connection::initialize`] (post-login transport is ready).
+    pub(crate) fn is_post_connect(&self) -> bool {
+        self.http_client.is_some()
+    }
+
+    /// Resolves the `ENABLE_STAGE_S3_PRIVATELINK_FOR_US_EAST_1` session
+    /// parameter to a boolean by briefly read-locking the parameter cache.
+    /// Used by the PUT/GET dispatch path to OR into the S3 regional-URL
+    /// decision. See `read_use_s3_regional_url_session_param`.
+    pub(crate) async fn use_s3_regional_url_session_param(&self) -> bool {
+        let params = self.session_parameters.read().await;
+        crate::rest::snowflake::query_response::read_use_s3_regional_url_session_param(&params)
+    }
+
+    /// Reads `unsafe_file_write` from the effective resolved settings. Default `false`
+    /// (owner-only 0o600 permissions on GET downloads on Unix).
+    pub(crate) fn unsafe_file_write(&self) -> bool {
+        self.connection_seed
+            .get_bool(param_names::UNSAFE_FILE_WRITE)
+            .or_else(|| {
+                self.resolved_connect
+                    .as_ref()
+                    .and_then(|settings| settings.get_bool(param_names::UNSAFE_FILE_WRITE))
+            })
+            .or_else(|| self.database_seed.get_bool(param_names::UNSAFE_FILE_WRITE))
+            .unwrap_or(false)
+    }
+
+    /// Effective PUT/GET enablement. Legacy parity: PUT/GET is disabled if
+    /// EITHER the client `enablePutGet` property or the server
+    /// `JDBC_ENABLE_PUT_GET` session parameter is `false`; both default `true`.
+    /// When disabled, the statement path rejects PUT/GET before dispatch with
+    /// "File transfers have been disabled."
+    ///
+    /// Both flags are JDBC-specific — the caller only consults this on wrappers
+    /// that opt in via `WrapperPresets::honor_put_get_disable` (JDBC only), so
+    /// this accessor just reads the flags and does not itself scope by driver.
+    pub(crate) async fn enable_put_get(&self) -> bool {
+        // Read through the resolved snapshot with post-init connection
+        // overrides applied, not the raw connection seed: `enable_put_get=false`
+        // can arrive from the database handle or a config profile, and those
+        // layers never reach `connection_seed`. Consulting the seed alone let a
+        // database-level file-transfer disable be bypassed.
+        let client_enabled = self
+            .effective_settings()
+            .get_bool(param_names::ENABLE_PUT_GET)
+            .unwrap_or(true);
+
+        let server_enabled = self
+            .session_parameters
+            .read()
+            .await
+            .get(JDBC_ENABLE_PUT_GET_SERVER_KEY)
+            .map(|value| {
+                if let Setting::String(value) = value
+                    && value.trim().is_empty()
+                {
+                    return true;
+                }
+                value.coerce_bool().unwrap_or(false)
+            })
+            .unwrap_or(true);
+
+        client_enabled && server_enabled
+    }
+
+    /// Resolves a client-only boolean override: session override first, then
+    /// live connection options, the resolved login snapshot, and the database
+    /// seed. `None` if unset, so the caller falls back to the wrapper preset.
+    /// Backs `put_fastfail`/`get_fastfail`.
+    ///
+    /// These are client-only params never echoed by the server, so the server
+    /// session-parameter cache does not apply.
+    fn resolve_override_bool(&self, key: ParamKey) -> Option<bool> {
+        self.session_overrides
+            .get_bool(key)
+            .or_else(|| self.connection_seed.get_bool(key))
+            .or_else(|| {
+                self.resolved_connect
+                    .as_ref()
+                    .and_then(|settings| settings.get_bool(key))
+            })
+            .or_else(|| self.database_seed.get_bool(key))
+    }
+
+    fn resolve_override_int(&self, key: ParamKey) -> Option<i64> {
+        self.session_overrides
+            .get_int(key)
+            .or_else(|| self.connection_seed.get_int(key))
+            .or_else(|| {
+                self.resolved_connect
+                    .as_ref()
+                    .and_then(|settings| settings.get_int(key))
+            })
+            .or_else(|| self.database_seed.get_int(key))
+    }
+
+    fn resolve_override_string(&self, key: ParamKey) -> Option<String> {
+        self.session_overrides
+            .get_string(key)
+            .or_else(|| self.connection_seed.get_string(key))
+            .or_else(|| {
+                self.resolved_connect
+                    .as_ref()
+                    .and_then(|settings| settings.get_string(key))
+            })
+            .or_else(|| self.database_seed.get_string(key))
+    }
+
+    /// Resolves `PUT_FASTFAIL` (see [`Self::resolve_override_bool`]).
+    pub(crate) fn put_fastfail(&self) -> Option<bool> {
+        self.resolve_override_bool(param_names::PUT_FASTFAIL)
+    }
+
+    /// Resolves `GET_FASTFAIL` (see [`Self::resolve_override_bool`]).
+    pub(crate) fn get_fastfail(&self) -> Option<bool> {
+        self.resolve_override_bool(param_names::GET_FASTFAIL)
+    }
+
+    pub(crate) fn put_compress_level(&self, default: u32) -> u32 {
+        crate::compression::clamp_gzip_compress_level(
+            self.resolve_override_int(param_names::PUT_COMPRESS_LEVEL),
+            default,
+        )
+    }
+
+    pub(crate) fn put_tempdir(&self) -> Option<PathBuf> {
+        self.resolve_override_string(param_names::PUT_TEMPDIR)
+            .filter(|s| !s.is_empty())
+            .map(PathBuf::from)
+    }
+
+    /// The resolved TLS config for this connection, read from the established
+    /// [`ClientInfo`]. Falls back to the default `TlsConfig` before login
+    /// (when `client_info` is unset). Used by the storage (S3/GCS/Azure) HTTP
+    /// clients on the PUT/GET path to honour CRL, custom root stores, and the
+    /// protocol-version window.
+    pub(crate) fn tls_config(&self) -> crate::tls::config::TlsConfig {
+        self.client_info
+            .as_ref()
+            .map(|ci| ci.tls_config.clone())
+            .unwrap_or_default()
+    }
+
+    /// The resolved proxy config for this connection, read from the established
+    /// [`ClientInfo`]. Falls back to the default `ProxyConfig` before login
+    /// (when `client_info` is unset). Used by the storage (S3/GCS/Azure) HTTP
+    /// clients on the PUT/GET path to honour `proxy_host`/`proxy_port`/
+    /// `no_proxy`/`use_proxy_env` — mirroring the GS/REST connection client.
+    pub(crate) fn proxy_config(&self) -> crate::tls::config::ProxyConfig {
+        self.client_info
+            .as_ref()
+            .map(|ci| ci.proxy_config.clone())
+            .unwrap_or_default()
+    }
+
+    /// Server URL + client fingerprint for query and refresh calls (transport snapshot).
+    pub(crate) fn query_transport_parameters(&self) -> Result<QueryParameters, ApiError> {
+        let empty = ParamStore::new();
+        let settings = self.resolved_connect.as_ref().unwrap_or(&empty);
+
+        Ok(QueryParameters {
+            server_url: self
+                .server_url
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            client_info: self
+                .client_info
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            log_max_query_length: resolve_log_max_query_length(settings),
+            log_query_text: resolve_log_query_text(settings),
+            log_query_parameters: resolve_log_query_parameters(settings),
+            include_retry_reason: resolve_include_retry_reason(settings),
+            external_session_id: self.external_session_id.clone(),
+        })
+    }
+
+    /// Convenience setter for tests and direct call sites.
+    pub fn set_option(&mut self, key: String, value: Setting) {
+        self.connection_seed.insert(key, value);
+    }
+
+    fn resolved_settings(&self) -> Result<ParamStore, crate::config::ConfigError> {
+        resolver::resolve_with_connections_file(
+            &self.effective_seed(&self.database_seed),
+            self.no_connection_details,
+            self.connections_file_path.as_deref(),
+        )
+    }
+
+    fn effective_seed(&self, database_seed: &ParamStore) -> ParamStore {
+        let mut effective = database_seed.clone();
+        effective.extend_from_case_insensitive(&self.connection_seed);
+        effective
+    }
+
+    /// Effective settings for client-side behavior after login.
+    ///
+    /// The resolved snapshot preserves registry and config-file layers selected
+    /// by database options such as `connection_name`. Mutable connection options
+    /// set after initialization are then applied as the final precedence layer.
+    pub(crate) fn effective_settings(&self) -> ParamStore {
+        let mut settings = self
+            .resolved_connect
+            .clone()
+            .unwrap_or_else(|| self.database_seed.clone());
+        settings.extend_from_case_insensitive(&self.connection_seed);
+        settings
+    }
+
+    /// Wall-clock budget for one REST operation on this connection, or `None` when
+    /// `request_timeout` is unset or configured as `0`.
+    ///
+    /// This is [`RetryPolicy::http`]'s `max_elapsed`. A path that retries under a
+    /// policy carrying no `max_elapsed` of its own — [`RetryPolicy::query`] — has
+    /// to apply the budget as an outer deadline to be bounded at all.
+    pub(crate) fn request_timeout_budget(&self) -> Option<Duration> {
+        read_optional_duration_secs(&self.effective_settings(), param_names::REQUEST_TIMEOUT)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) async fn initialize(
+        &mut self,
+        tokens: SessionTokens,
+        http_client: reqwest::Client,
+        host: Option<String>,
+        port: Option<i64>,
+        server_url: String,
+        client_info: ClientInfo,
+        session_params: HashMap<String, Setting>,
+        final_names: FinalSessionNames,
+        server_version: Option<String>,
+        database_seed: ParamStore,
+        resolved_connect: ParamStore,
+        logout_config: LogoutConfig,
+        timeout_config: crate::config::retry::TimeoutConfig,
+        wrapper_presets: WrapperPresets,
+        external_session_id: Option<SensitiveString>,
+    ) {
+        self.external_session_id = external_session_id;
+        *self.tokens.write().await = Some(tokens);
+        self.http_client = Some(http_client);
+        self.database_seed = database_seed;
+        self.retry_policy = RetryPolicy::http(&resolved_connect);
+        self.timeout_config = timeout_config;
+        self.host = host;
+        self.port = port;
+        self.server_url = Some(server_url);
+        self.client_info = Some(client_info);
+        self.resolved_connect = Some(resolved_connect);
+        self.query_context_cache
+            .init(self.resolved_connect.as_ref(), &wrapper_presets);
+        self.optimistic_alter_session_param_cache =
+            wrapper_presets.optimistic_alter_session_param_cache;
+        self.session_overrides = ParamStore::new();
+        self.logout_config = logout_config;
+
+        let mut cache = self.session_parameters.write().await;
+        *cache = session_params;
+        drop(cache);
+
+        if let Ok(mut names) = self.final_session_names.write() {
+            *names = final_names;
+        }
+
+        if let Ok(mut version) = self.server_version.write() {
+            *version = server_version;
+        }
+    }
+
+    /// Update the session parameters cache after a successful query.
+    pub async fn update_session_params_cache(
+        &self,
+        query: &str,
+        response_parameters: Option<
+            &Vec<crate::rest::snowflake::query_response::NameValueParameter>,
+        >,
+        final_names: &FinalSessionNames,
+    ) {
+        let mut cache = self.session_parameters.write().await;
+
+        // 1. ALTER SESSION SET detection: optimistically update the cache based on user's query.
+        // This is necessary as Snowflake returns only part of session parameters in response.
+        // Details: SNOW-3104303
+        // Only wrappers that opt in via
+        // `WrapperPresets::optimistic_alter_session_param_cache` read parameter
+        // changes out of the SQL; for the rest the cache follows the response.
+        if self.optimistic_alter_session_param_cache {
+            cache.extend(
+                super::alter_session_parser::parse_all_alter_sessions(query)
+                    .into_iter()
+                    .map(|p| {
+                        tracing::debug!(
+                            param_name = %p.name,
+                            "Detected ALTER SESSION SET, updating cache optimistically"
+                        );
+                        (p.name.clone(), Setting::String(p.value.clone()))
+                    }),
+            );
+        }
+
+        // 2. Response parameters: merge any server-returned session parameters into the cache.
+        if let Some(parameters) = response_parameters {
+            cache.extend(parameters.iter().filter_map(|param| {
+                Setting::from_session_parameter_json(&param.value)
+                    .map(|setting| (param.name.to_uppercase(), setting))
+            }));
+        }
+
+        // 3. Server-echoed final names are stored separately in `final_session_names`
+        //    so that conn.database etc. reflect changes from USE DATABASE, USE SCHEMA, etc.
+        match self.final_session_names.write() {
+            Ok(mut names) => {
+                if final_names.database.is_some() {
+                    names.database = final_names.database.clone();
+                }
+                if final_names.schema.is_some() {
+                    names.schema = final_names.schema.clone();
+                }
+                if final_names.warehouse.is_some() {
+                    names.warehouse = final_names.warehouse.clone();
+                }
+                if final_names.role.is_some() {
+                    names.role = final_names.role.clone();
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Failed to acquire write lock for final_session_names"
+                );
+            }
+        }
+    }
+}
+
+/// This function:
+/// 1. Reads the session token (allows concurrent readers)
+/// 2. Runs the provided function with that token
+/// 3. On SessionExpired error, acquires write lock, refreshes, and retries
+pub async fn with_valid_session<F, Fut, T>(
+    conn: &Arc<Mutex<Connection>>,
+    f: F,
+) -> Result<T, ApiError>
+where
+    F: Fn(SensitiveString) -> Fut,
+    Fut: Future<Output = Result<T, RestError>>,
+{
+    let mut refresh_ctx = RefreshContext::from_arc(conn).await?;
+    refresh_ctx.execute_with_refresh(f).await
+}
+
+/// Run `submit` against the connection's session token, refreshing the session
+/// and retrying whenever the attempt fails with an expired token.
+///
+/// Sibling of [`with_valid_session`], which runs the same shape through
+/// `RefreshContext`'s `Refresher` impl. The two differ in what they surface for a
+/// non-renewable master token: this one reports
+/// [`ApiError::MasterTokenTerminal`] carrying the GS code, that one propagates the
+/// attempt's own [`ApiError::Query`]. The query-submitting paths use this one.
+pub(super) async fn with_session_refresh<F, Fut, T>(
+    conn: &Arc<Mutex<Connection>>,
+    submit: F,
+) -> Result<T, ApiError>
+where
+    F: Fn(SensitiveString) -> Fut,
+    Fut: Future<Output = Result<T, RestError>>,
+{
+    let mut refresh_ctx = RefreshContext::from_arc(conn).await?;
+    let mut last_error = None;
+    loop {
+        let session_token = refresh_ctx.refresh_token(last_error).await?;
+        match submit(session_token).await {
+            Ok(value) => return Ok(value),
+            Err(error) => last_error = Some(error),
+        }
+    }
+}
+
+/// Context for automatic session token refresh.
+///
+/// Instead of a higher-order function pattern, `RefreshContext` gives callers
+/// a loop-based API:
+///
+/// ```ignore
+/// let mut refresh_ctx = RefreshContext::new(&conn)?;
+/// let mut last_error: Option<RestError> = None;
+/// loop {
+///     let token = refresh_ctx.refresh_token(last_error).await?;
+///     match do_something(token).await {
+///         Ok(result) => return Ok(result),
+///         Err(e) => last_error = Some(e),
+///     }
+/// }
+/// ```
+///
+/// On first call (`last_error = None`), reads the session token (concurrent readers allowed).
+/// On subsequent calls with a `SessionExpired` error, acquires write lock and refreshes.
+/// On non-SessionExpired errors, propagates the error immediately.
+/// Only one refresh attempt is allowed; a second SessionExpired error is propagated.
+/// Tracks the state of the refresh lifecycle.
+enum RefreshState {
+    /// No token has been issued yet (initial call).
+    Initial,
+    /// A token was issued but hasn't been refreshed yet. Holds the token
+    /// so we can detect if another request already refreshed while we waited.
+    FirstToken(SensitiveString),
+    /// A refresh has already been performed. A second SessionExpired will be propagated.
+    Refreshed,
+}
+
+pub struct RefreshContext {
+    tokens_lock: Arc<AsyncRwLock<Option<SessionTokens>>>,
+    http_client: reqwest::Client,
+    server_url: String,
+    client_info: ClientInfo,
+    state: RefreshState,
+    /// Shared expired flag; set to `true` when master token expiry is detected
+    /// during a refresh attempt so the owning `Connection` exposes it publicly.
+    is_master_token_expired: Arc<AtomicBool>,
+    /// The owning connection's [`Connection::session_terminated`] flag.
+    session_terminated: Arc<AtomicBool>,
+    xp_backend: Option<Arc<dyn SnowflakeBackend>>,
+    skip_session_refresh: bool,
+    external_session_id: Option<SensitiveString>,
+}
+
+/// Whether `err` is an ordinary failed query or heartbeat whose GS code means
+/// the session cannot be recovered. Those answers have no `RestError` variant
+/// of their own.
+fn reports_session_gone(err: &RestError) -> bool {
+    let code = match err {
+        RestError::QueryFailed { code, .. } => *code,
+        RestError::Heartbeat { code, .. } => Some(*code),
+        _ => return false,
+    };
+    code.is_some_and(snowflake::is_unrecoverable_session)
+}
+
+impl RefreshContext {
+    /// Create a `RefreshContext` for a query operation.
+    ///
+    /// Rejects context creation if the connection is already closed, preventing
+    /// in-flight queries from performing token refreshes after `close()` is called.
+    /// This is safe because the query's early close-state check already rejected
+    /// the operation; this provides a second gate for races between that check and
+    /// the token refresh setup.
+    pub async fn from_arc(conn: &Arc<Mutex<Connection>>) -> Result<Self, ApiError> {
+        let guard = conn.lock().await;
+        // `Closing` counts as closed here: a token refresh must not race a logout
+        // that is already in flight.
+        if guard.close_state.load(Ordering::SeqCst) != CloseState::Open {
+            return ConnectionClosedSnafu {}.fail();
+        }
+        Self::new(&guard)
+    }
+
+    /// Create a `RefreshContext` from individual components (no `Connection` needed).
+    ///
+    /// `is_master_token_expired` should be the owning connection's shared flag so
+    /// that a master-token expiry detected here (e.g. on the background heartbeat
+    /// path) is observable via `Connection::is_expired`.
+    pub fn from_parts(
+        tokens_lock: Arc<AsyncRwLock<Option<SessionTokens>>>,
+        http_client: reqwest::Client,
+        server_url: String,
+        client_info: ClientInfo,
+        is_master_token_expired: Arc<AtomicBool>,
+        session_terminated: Arc<AtomicBool>,
+        xp_backend: Option<Arc<dyn SnowflakeBackend>>,
+    ) -> Self {
+        Self {
+            tokens_lock,
+            http_client,
+            server_url,
+            client_info,
+            state: RefreshState::Initial,
+            is_master_token_expired,
+            session_terminated,
+            xp_backend,
+            skip_session_refresh: false,
+            external_session_id: None,
+        }
+    }
+
+    /// Create a new `RefreshContext` by extracting connection info.
+    ///
+    /// Does **not** check the close state. Use `from_arc` for query paths (which
+    /// must reject creation on a closed connection). The logout path calls
+    /// `new` directly because logout itself runs while the state is `Closing`.
+    pub fn new(conn: &Connection) -> Result<Self, ApiError> {
+        Ok(Self {
+            tokens_lock: conn.tokens.clone(),
+            http_client: conn
+                .http_client
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            server_url: conn
+                .server_url
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            client_info: conn
+                .client_info
+                .clone()
+                .context(ConnectionNotInitializedSnafu)?,
+            state: RefreshState::Initial,
+            is_master_token_expired: conn.is_master_token_expired.clone(),
+            session_terminated: conn.session_terminated.clone(),
+            xp_backend: conn.xp_backend_arc().context(QuerySnafu)?,
+            skip_session_refresh: conn.external_session_id.is_some(),
+            external_session_id: conn.external_session_id.clone(),
+        })
+    }
+
+    async fn renew_session_tokens(
+        &self,
+        tokens: &SessionTokens,
+    ) -> Result<SessionTokens, RestError> {
+        if self.xp_backend.is_some() {
+            tracing::info!("Skipping session refresh HTTP; host owns the session");
+            return Ok(tokens.clone());
+        }
+        snowflake::refresh_session(
+            &self.http_client,
+            &self.server_url,
+            &self.client_info,
+            tokens,
+        )
+        .await
+    }
+
+    pub(crate) fn host_backend_active(&self) -> bool {
+        self.xp_backend.is_some()
+    }
+
+    /// Records a server answer that takes the session away, and reports whether it did.
+    fn record_session_gone(&self, err: &RestError) -> bool {
+        if !reports_session_gone(err) {
+            return false;
+        }
+        tracing::error!("Server reported the session no longer exists");
+        self.session_terminated.store(true, Ordering::SeqCst);
+        true
+    }
+
+    fn record_failed_renewal(&self, err: &RestError) {
+        match err {
+            RestError::MasterTokenTerminal { .. } => {
+                tracing::error!(
+                    "Server reported master token can never be renewed during refresh, full re-authentication required"
+                );
+                self.is_master_token_expired.store(true, Ordering::SeqCst);
+            }
+            RestError::SessionRefreshFailed { code, .. }
+                if snowflake::is_unrecoverable_session(*code) =>
+            {
+                tracing::error!(code, "Server refused the session renewal");
+                self.session_terminated.store(true, Ordering::SeqCst);
+            }
+            _ => {}
+        }
+    }
+
+    /// Get a valid session token, optionally refreshing if the previous call failed.
+    ///
+    /// - `last_error = None`: reads the current session token (first call).
+    /// - `last_error = Some(SessionExpired)`: refreshes the session and returns a new token.
+    /// - `last_error = Some(other)`: propagates the error immediately.
+    ///
+    /// Only one refresh is allowed. If the refreshed token also triggers SessionExpired,
+    /// the error is propagated on the next call.
+    pub async fn refresh_token(
+        &mut self,
+        last_error: Option<RestError>,
+    ) -> Result<SensitiveString, ApiError> {
+        if let Some(err) = last_error.as_ref() {
+            self.record_session_gone(err);
+        }
+        match &self.state {
+            // No token issued yet - read the current session token
+            RefreshState::Initial => {
+                let tokens_guard = self.tokens_lock.read().await;
+                let token = tokens_guard
+                    .as_ref()
+                    .map(|t| t.session_token.clone())
+                    .context(ConnectionNotInitializedSnafu)?;
+                self.state = RefreshState::FirstToken(token.clone());
+                Ok(token)
+            }
+
+            // First token was issued - check if it failed with SessionExpired
+            RefreshState::FirstToken(failed_token) => match last_error {
+                // Server returned GS 390113/390114/390115 — master token can
+                // never be renewed; mark expired immediately so the connection's
+                // `is_master_token_expired` flag is visible to external observers
+                // before the error propagates.
+                Some(RestError::MasterTokenTerminal { code, .. }) => {
+                    tracing::error!(
+                        code,
+                        "Server reported master token can never be renewed, full re-authentication required"
+                    );
+                    self.is_master_token_expired.store(true, Ordering::SeqCst);
+                    MasterTokenTerminalSnafu {
+                        master_token_gs_code: Some(code),
+                    }
+                    .fail()
+                }
+                Some(err @ RestError::SessionExpired { .. }) => {
+                    if self.skip_session_refresh {
+                        return Err(err).context(QuerySnafu);
+                    }
+                    tracing::info!("Session expired, attempting refresh");
+                    let failed_token = failed_token.clone();
+                    self.state = RefreshState::Refreshed;
+
+                    // Acquire write lock - blocks other readers/writers during refresh
+                    let mut tokens_guard = self.tokens_lock.write().await;
+
+                    let tokens = tokens_guard
+                        .as_ref()
+                        .cloned()
+                        .context(ConnectionNotInitializedSnafu)?;
+
+                    // If another request already refreshed while we waited, use the new token.
+                    if tokens.session_token.reveal() != failed_token.reveal() {
+                        tracing::debug!("Session already refreshed by another request");
+                        return Ok(tokens.session_token.clone());
+                    }
+
+                    // Check if master token is expired. This is a client-side,
+                    // time-based prediction — no server round-trip happened, so
+                    // there is no real GS code to carry; never fabricate one.
+                    if tokens.is_master_expired() {
+                        tracing::error!("Master token expired, full re-authentication required");
+                        self.is_master_token_expired.store(true, Ordering::SeqCst);
+                        return MasterTokenTerminalSnafu {
+                            master_token_gs_code: None,
+                        }
+                        .fail();
+                    }
+
+                    // Refresh session (still holding write lock to prevent concurrent refreshes)
+                    let new_tokens = match self.renew_session_tokens(&tokens).await {
+                        Ok(new_tokens) => new_tokens,
+                        Err(refresh_err) => {
+                            self.record_failed_renewal(&refresh_err);
+                            return Err(refresh_err).context(SessionRefreshSnafu);
+                        }
+                    };
+
+                    let new_session_token = new_tokens.session_token.clone();
+
+                    // Update tokens
+                    *tokens_guard = Some(new_tokens);
+                    drop(tokens_guard);
+
+                    tracing::info!("Session refreshed, retrying operation");
+
+                    Ok(new_session_token)
+                }
+                Some(other) => Err(other).context(QuerySnafu),
+                None => InvalidRefreshStateSnafu {
+                    message: "refresh_token called with None after FirstToken".to_string(),
+                }
+                .fail(),
+            },
+
+            // Already refreshed once - propagate any error
+            RefreshState::Refreshed => match last_error {
+                Some(err) => Err(err).context(QuerySnafu),
+                None => InvalidRefreshStateSnafu {
+                    message: "refresh_token called with None after Refreshed".to_string(),
+                }
+                .fail(),
+            },
+        }
+    }
+
+    /// Execute an async operation with automatic token refresh on session expiry.
+    ///
+    /// On `SessionExpired`, refreshes the session token via master token and
+    /// retries exactly once. Implemented on top of the generic
+    /// [`refresh::execute_with_refresh`](crate::refresh::execute_with_refresh)
+    /// helper. Named to parallel
+    /// [`execute_with_retry`](crate::http::retry::execute_with_retry).
+    pub async fn execute_with_refresh<F, Fut, T>(&mut self, f: F) -> Result<T, ApiError>
+    where
+        F: Fn(SensitiveString) -> Fut,
+        Fut: Future<Output = Result<T, RestError>>,
+    {
+        crate::refresh::execute_with_refresh(self, |token| {
+            let fut = f(token);
+            async move { fut.await.context(QuerySnafu) }
+        })
+        .await
+    }
+}
+
+impl crate::refresh::Refresher<SensitiveString, ApiError> for RefreshContext {
+    fn current(&mut self) -> crate::refresh::RefreshFuture<'_, Result<SensitiveString, ApiError>> {
+        Box::pin(async move {
+            let tokens_guard = self.tokens_lock.read().await;
+            let token = tokens_guard
+                .as_ref()
+                .map(|t| t.session_token.clone())
+                .context(ConnectionNotInitializedSnafu)?;
+            // Stamp the token into the state machine on first read so
+            // that `refresh()` can detect — by comparing this token
+            // against the cache after acquiring the write lock — whether
+            // another request already rotated while we were waiting.
+            if matches!(self.state, RefreshState::Initial) {
+                self.state = RefreshState::FirstToken(token.clone());
+            }
+            Ok(token)
+        })
+    }
+
+    /// Whether `err` warrants a session refresh. Note the deliberate
+    /// side-effect: for a non-renewable master-token terminal
+    /// (GS 390113/390114/390115) this sets `is_master_token_expired` here
+    /// (before declining to refresh), because `refresh()` is never reached
+    /// for that error.
+    fn should_refresh(&self, err: &ApiError) -> bool {
+        let ApiError::Query { source, .. } = err else {
+            return false;
+        };
+        // GS 390113/390114/390115: master token can never be renewed — mark
+        // connection as expired and do NOT attempt a refresh.
+        if matches!(source.as_ref(), RestError::MasterTokenTerminal { .. }) {
+            tracing::error!(
+                "Server reported master token can never be renewed, full re-authentication required"
+            );
+            self.is_master_token_expired.store(true, Ordering::SeqCst);
+            return false;
+        }
+        if self.record_session_gone(source.as_ref()) {
+            return false;
+        }
+        matches!(source.as_ref(), RestError::SessionExpired { .. }) && !self.skip_session_refresh
+    }
+
+    fn refresh(&mut self) -> crate::refresh::RefreshFuture<'_, Result<bool, ApiError>> {
+        Box::pin(async move {
+            // One-shot state machine: the first refresh call does the
+            // work, subsequent calls return Ok(false) so the generic
+            // helper propagates the original error. `Initial` is
+            // unreachable in practice — `execute_with_refresh` always
+            // calls `current()` first, which transitions Initial →
+            // FirstToken — but we keep a safe fallback rather than
+            // panicking on a misuse from a future caller.
+            let failed_token = match &self.state {
+                RefreshState::FirstToken(t) => t.clone(),
+                RefreshState::Refreshed => return Ok(false),
+                RefreshState::Initial => {
+                    debug_assert!(
+                        false,
+                        "RefreshContext::refresh() called before current(); \
+                         execute_with_refresh always calls current() first"
+                    );
+                    return Ok(false);
+                }
+            };
+            self.state = RefreshState::Refreshed;
+
+            // Acquire the write lock — blocks other readers/writers during
+            // refresh.
+            let mut tokens_guard = self.tokens_lock.write().await;
+            let tokens = tokens_guard
+                .as_ref()
+                .cloned()
+                .context(ConnectionNotInitializedSnafu)?;
+
+            // If another request already refreshed while we waited, the
+            // current token is fresh — treat as a successful rotation
+            // without hitting GS.
+            if tokens.session_token.reveal() != failed_token.reveal() {
+                tracing::debug!("Session already refreshed by another request");
+                return Ok(true);
+            }
+
+            if tokens.is_master_expired() {
+                // Client-side, time-based prediction — no server round-trip
+                // happened, so there is no real GS code to carry; never
+                // fabricate one (see the matching comment in refresh_token above).
+                tracing::error!("Master token expired, full re-authentication required");
+                self.is_master_token_expired.store(true, Ordering::SeqCst);
+                return MasterTokenTerminalSnafu {
+                    master_token_gs_code: None,
+                }
+                .fail();
+            }
+
+            tracing::info!("Session expired, attempting refresh");
+            let new_tokens = match self.renew_session_tokens(&tokens).await {
+                Ok(new_tokens) => new_tokens,
+                Err(refresh_err) => {
+                    self.record_failed_renewal(&refresh_err);
+                    return Err(refresh_err).context(SessionRefreshSnafu);
+                }
+            };
+
+            *tokens_guard = Some(new_tokens);
+            drop(tokens_guard);
+
+            tracing::info!("Session refreshed, retrying operation");
+            Ok(true)
+        })
+    }
+}
+
+pub use super::final_session_names::FinalSessionNames;
+
+/// HTTP response returned by connection_send_http_request
+#[derive(Debug, Clone)]
+pub struct HttpResponse {
+    pub status_code: i32,
+    pub headers: HashMap<String, String>,
+    pub body: Vec<u8>,
+}
+
+/// Connection information returned by connection_get_info
+#[derive(Debug, Clone)]
+pub struct ConnectionInfo {
+    /// The host name of the Snowflake server
+    pub host: Option<String>,
+    /// The port number (if explicitly configured)
+    pub port: Option<i64>,
+    /// The full server URL
+    pub server_url: Option<String>,
+    /// The session token for authentication (redacted in Debug output)
+    pub session_token: Option<SensitiveString>,
+    /// The server-assigned session ID
+    pub session_id: Option<i64>,
+    /// The Snowflake account name
+    pub account: Option<String>,
+    /// The authenticated user name
+    pub user: Option<String>,
+    /// The current role
+    pub role: Option<String>,
+    /// The current database
+    pub database: Option<String>,
+    /// The current schema
+    pub schema: Option<String>,
+    /// The current warehouse
+    pub warehouse: Option<String>,
+    /// The master token for session renewal (redacted in Debug output)
+    pub master_token: Option<SensitiveString>,
+    /// The User-Agent string built by the core for this client
+    pub user_agent: Option<String>,
+    /// The configured HTTP proxy hostname, if any
+    pub proxy_host: Option<String>,
+    /// The configured HTTP proxy port, if any
+    pub proxy_port: Option<i64>,
+    /// The configured HTTP proxy username for Basic auth, if any
+    pub proxy_user: Option<String>,
+    /// The configured HTTP proxy password for Basic auth (redacted in Debug output)
+    pub proxy_password: Option<SensitiveString>,
+    /// Comma-separated list of hosts that bypass the proxy, if configured
+    pub no_proxy: Option<String>,
+    /// The session token expiry in epoch milliseconds
+    pub session_token_expires_at_ms: Option<i64>,
+    /// The master token expiry in epoch milliseconds
+    pub master_token_expires_at_ms: Option<i64>,
+}
+
+fn setting_as_display_string(setting: &Setting) -> Option<String> {
+    match setting {
+        Setting::String(s) => Some(s.clone()),
+        Setting::Int(i) => Some(i.to_string()),
+        Setting::Bool(b) => Some(b.to_string()),
+        Setting::Double(d) => Some(d.to_string()),
+        Setting::Bytes(_) => None,
+    }
+}
+
+fn is_empty_string_setting(setting: &Setting) -> bool {
+    matches!(setting, Setting::String(s) if s.is_empty())
+}
+
+fn resolved_or_seed_string(conn: &Connection, key: ParamKey) -> Option<String> {
+    if let Some(resolved) = &conn.resolved_connect
+        && let Some(s) = resolved.get_string(key)
+    {
+        return Some(s);
+    }
+    conn.connection_seed
+        .get_string(key)
+        .or_else(|| conn.database_seed.get_string(key))
+}
+
+/// Session effective read: server cache → session overrides → resolved connect (then seed).
+fn get_session_or_setting(
+    conn: &Connection,
+    param_name: &str,
+    setting_key: ParamKey,
+) -> Option<String> {
+    if let Ok(cache) = conn.session_parameters.try_read()
+        && let Some(v) = cache.get(param_name)
+        && !is_empty_string_setting(v)
+    {
+        return setting_as_display_string(v);
+    }
+    if let Some(s) = conn
+        .session_overrides
+        .get(setting_key)
+        .and_then(setting_as_display_string)
+    {
+        return Some(s);
+    }
+    resolved_or_seed_string(conn, setting_key)
+}
+
+// TODO: ensure that this is correct escaping
+fn escape_sql_identifier(name: &str) -> String {
+    name.replace('"', "\"\"")
+}
+
+fn build_use_schema_sql(database: Option<&str>, schema: &str) -> String {
+    let escaped_schema = escape_sql_identifier(schema);
+    match database.filter(|db| !db.is_empty()) {
+        Some(db) => {
+            let escaped_db = escape_sql_identifier(db);
+            format!("USE SCHEMA \"{escaped_db}\".\"{escaped_schema}\"")
+        }
+        None => format!("USE SCHEMA \"{escaped_schema}\""),
+    }
+}
+
+fn resolve_session_database(conn: &Connection) -> Result<Option<String>, ApiError> {
+    let final_names = conn
+        .final_session_names
+        .read()
+        .map_err(|_| ConnectionLockSnafu {}.build())?;
+    Ok(final_names
+        .database
+        .clone()
+        .or_else(|| get_session_or_setting(conn, "DATABASE", param_names::DATABASE))
+        .filter(|db| !db.is_empty()))
+}
+
+impl DatabaseDriverV1 {
+    /// Get connection information for the given connection handle
+    pub async fn connection_get_info(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<ConnectionInfo, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+
+                let host = conn
+                    .host
+                    .clone()
+                    .or_else(|| conn.connection_seed.get_string(param_names::HOST));
+
+                let port = conn
+                    .port
+                    .or_else(|| conn.connection_seed.get_int(param_names::PORT));
+
+                let server_url = conn.server_url.clone();
+
+                let (
+                    session_token,
+                    session_id,
+                    master_token,
+                    session_token_expires_at_ms,
+                    master_token_expires_at_ms,
+                ) = {
+                    let tokens_guard = conn.tokens.read().await;
+                    match tokens_guard.as_ref() {
+                        Some(tokens) => (
+                            Some(tokens.session_token.clone()),
+                            tokens.session_id,
+                            tokens.master_token_for_renewal().cloned(),
+                            tokens.session_expires_at_epoch_ms(),
+                            tokens.master_expires_at_epoch_ms(),
+                        ),
+                        None => (None, None, None, None, None),
+                    }
+                };
+
+                let account = resolved_or_seed_string(&conn, param_names::ACCOUNT);
+                let user = resolved_or_seed_string(&conn, param_names::USER);
+
+                // Resolution order for session-scoped values:
+                //   1. final_session_names  (server-echoed via login sessionInfo or query finalXxxName)
+                //   2. session_parameters   (server-returned session params, only pre-login / missing sessionInfo)
+                //   3. session_overrides     (post-connect session setters)
+                //   4. resolved_connect (login snapshot) then connection_seed
+                // After a successful login, final_session_names is always populated, so the
+                // or_else branch only fires before connection_init or when the server omits
+                // the field from sessionInfo.
+                let final_names = conn
+                    .final_session_names
+                    .read()
+                    .map_err(|_| ConnectionLockSnafu {}.build())?;
+                let role = final_names
+                    .role
+                    .clone()
+                    .or_else(|| get_session_or_setting(&conn, "ROLE", param_names::ROLE));
+                let database = final_names
+                    .database
+                    .clone()
+                    .or_else(|| get_session_or_setting(&conn, "DATABASE", param_names::DATABASE));
+                let schema = final_names
+                    .schema
+                    .clone()
+                    .or_else(|| get_session_or_setting(&conn, "SCHEMA", param_names::SCHEMA));
+                let warehouse = final_names
+                    .warehouse
+                    .clone()
+                    .or_else(|| get_session_or_setting(&conn, "WAREHOUSE", param_names::WAREHOUSE));
+                drop(final_names);
+
+                let user_agent = conn
+                    .client_info
+                    .as_ref()
+                    .map(crate::rest::snowflake::user_agent);
+
+                // Rebuild the effective proxy config from the resolved login
+                // snapshot (falling back to the raw seed before login) so the
+                // legacy `PROXY` URL form is merged with the individual
+                // `proxy_*` fields exactly as the HTTP client sees them. Reuses
+                // the single parser rather than re-reading fields piecemeal.
+                let proxy_settings: &dyn Settings = conn
+                    .resolved_connect
+                    .as_ref()
+                    .map(|s| s as &dyn Settings)
+                    .unwrap_or(&conn.connection_seed);
+                let proxy = ProxyConfig::from_settings(proxy_settings);
+
+                Ok(ConnectionInfo {
+                    host,
+                    port,
+                    server_url,
+                    session_token,
+                    session_id,
+                    account,
+                    user,
+                    role,
+                    database,
+                    schema,
+                    warehouse,
+                    master_token,
+                    user_agent,
+                    proxy_host: proxy.host,
+                    proxy_port: proxy.port,
+                    proxy_user: proxy.user,
+                    proxy_password: proxy.password,
+                    no_proxy: proxy.no_proxy,
+                    session_token_expires_at_ms,
+                    master_token_expires_at_ms,
+                })
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_get_query_status(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        conn_handle: Handle,
+        query_id: &str,
+    ) -> Result<snowflake::QueryStatusResult, ApiError> {
+        let status = async {
+            if query_id.is_empty() {
+                return InvalidArgumentSnafu {
+                    argument: "query_id must be non-empty".to_string(),
+                }
+                .fail();
+            }
+
+            let conn_ptr =
+                self.connections
+                    .get_obj(conn_handle)
+                    .with_context(|| InvalidArgumentSnafu {
+                        argument: "Connection handle not found".to_string(),
+                    })?;
+            let _session_guard = self.lock_session_if_needed(&conn_ptr).await;
+
+            let (http_client, query_parameters, retry_policy, xp_backend) = {
+                let conn = conn_ptr.lock().await;
+                (
+                    conn.http_client
+                        .clone()
+                        .context(ConnectionNotInitializedSnafu)?,
+                    conn.query_transport_parameters()?,
+                    conn.retry_policy.clone(),
+                    conn.xp_backend_arc().context(QuerySnafu)?,
+                )
+            };
+
+            with_valid_session(&conn_ptr, |token| {
+                let http_client = &http_client;
+                let query_parameters = &query_parameters;
+                let retry_policy = &retry_policy;
+                let xp_backend = xp_backend.clone();
+                async move {
+                    snowflake::get_query_status(
+                        http_client,
+                        query_parameters,
+                        &token,
+                        query_id,
+                        retry_policy,
+                        xp_backend.as_deref(),
+                    )
+                    .await
+                }
+            })
+            .await
+        };
+        crate::apis::operation_ctx::run_opt(operation_ctx, "connection_get_query_status", status)
+            .await
+    }
+
+    pub async fn connection_get_all_parameters(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<HashMap<String, Setting>, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+                let mut result = HashMap::new();
+
+                for (k, v) in conn.connection_seed.iter() {
+                    if let Some(s) = setting_as_display_string(v) {
+                        result.insert(k.to_uppercase(), Setting::String(s));
+                    }
+                }
+                if let Some(resolved) = &conn.resolved_connect {
+                    for (k, v) in resolved.iter() {
+                        if let Some(s) = setting_as_display_string(v) {
+                            result.insert(k.to_uppercase(), Setting::String(s));
+                        }
+                    }
+                }
+                for (k, v) in conn.session_overrides.iter() {
+                    if let Some(s) = setting_as_display_string(v) {
+                        result.insert(k.to_uppercase(), Setting::String(s));
+                    }
+                }
+
+                let cache = conn.session_parameters.read().await;
+                for (k, v) in cache.iter() {
+                    if !is_empty_string_setting(v) {
+                        result.insert(k.clone(), v.clone());
+                    }
+                }
+
+                Ok(result)
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Returns the Snowflake server version cached from the login response
+    /// (`serverVersion` in `/session/v1/login-request`).
+    ///
+    /// Backs `SQLGetInfo(SQL_DBMS_VER)` in ODBC and
+    /// `getDatabaseProductVersion` in JDBC. Kept separate from
+    /// [`Self::connection_get_info`] so probing this single attribute
+    /// (Excel does it during `SQLDriverConnect`) doesn't pay for the
+    /// full info aggregation — token guard, session-parameters async lock,
+    /// final-session-names lock, and the seed/resolved/override lookups
+    /// for role/database/schema/warehouse.
+    ///
+    /// Returns `Ok(None)` if the connection has not completed login yet,
+    /// so callers can render the attribute as an empty string instead of
+    /// failing the surrounding ODBC/JDBC call.
+    pub async fn connection_get_server_version(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<Option<String>, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+                let version = conn
+                    .server_version
+                    .read()
+                    .map_err(|_| ConnectionLockSnafu {}.build())?
+                    .clone();
+                Ok(version)
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    pub async fn connection_get_parameter(
+        &self,
+        conn_handle: Handle,
+        key: String,
+    ) -> Result<Option<Setting>, ApiError> {
+        match self.connections.get_obj(conn_handle) {
+            Some(conn_ptr) => {
+                let conn = conn_ptr.lock().await;
+
+                let cache = conn.session_parameters.read().await;
+
+                let normalized_key = key.to_uppercase();
+                if let Some(v) = cache
+                    .get(&normalized_key)
+                    .filter(|s| !is_empty_string_setting(s))
+                {
+                    return Ok(Some(v.clone()));
+                }
+                drop(cache);
+
+                let (canonical, def) =
+                    canonicalize_setting_key(self.wrapper_presets.configuration_flavor, &key);
+                if let Some(d) = def
+                    && d.is_session_scoped()
+                {
+                    if let Some(s) = conn
+                        .session_overrides
+                        .get_any(&canonical)
+                        .and_then(setting_as_display_string)
+                    {
+                        return Ok(Some(Setting::String(s)));
+                    }
+                    return Ok(
+                        resolved_or_seed_string(&conn, ParamKey::new(d.canonical_name))
+                            .map(Setting::String),
+                    );
+                }
+
+                if let Some(s) = conn
+                    .session_overrides
+                    .get_any(&canonical)
+                    .and_then(setting_as_display_string)
+                {
+                    return Ok(Some(Setting::String(s)));
+                }
+
+                Ok(conn
+                    .resolved_connect
+                    .as_ref()
+                    .and_then(|r| r.get_any(&canonical))
+                    .and_then(setting_as_display_string)
+                    .or_else(|| {
+                        conn.connection_seed
+                            .get_any(&canonical)
+                            .and_then(setting_as_display_string)
+                    })
+                    .map(Setting::String))
+            }
+            None => InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            }
+            .fail(),
+        }
+    }
+
+    /// Send an HTTP request through the connection's TLS-configured client.
+    ///
+    /// The `url` must be a relative path (e.g. `/session/token-request`).
+    /// It is resolved against the connection's `server_url`. Absolute URLs
+    /// are rejected so requests stay on the configured host.
+    /// Auth is always the current session token managed by sf_core.
+    ///
+    /// The connection's client carries no request timeout, so without a `operation_ctx`
+    /// this call is bounded only by the server. Cancelling drops the request;
+    /// what the server does with an already-received one is its own business,
+    /// which is why the caller chooses the path and the method.
+    pub async fn connection_send_http_request(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        conn_handle: Handle,
+        method: String,
+        url: String,
+        headers: HashMap<String, String>,
+        body: Option<Vec<u8>>,
+    ) -> Result<HttpResponse, ApiError> {
+        let send = async {
+            if url.starts_with("http://") || url.starts_with("https://") || url.starts_with("//") {
+                return InvalidArgumentSnafu {
+                    argument: format!(
+                        "Absolute URLs are not allowed; pass a relative path instead: {url}"
+                    ),
+                }
+                .fail();
+            }
+            if reqwest::Url::parse(&url).is_ok() {
+                return InvalidArgumentSnafu {
+                    argument: format!(
+                        "Absolute URLs are not allowed; pass a relative path instead: {url}"
+                    ),
+                }
+                .fail();
+            }
+
+            let conn_ptr = self
+                .connections
+                .get_obj(conn_handle)
+                .context(InvalidArgumentSnafu {
+                    argument: "Connection handle not found".to_string(),
+                })?;
+
+            // Extract needed fields under the lock, then release before network I/O
+            let (http_client, server_url, token, external_session_id) = {
+                let conn = conn_ptr.lock().await;
+
+                let http_client = conn
+                    .http_client
+                    .clone()
+                    .context(ConnectionNotInitializedSnafu)?;
+
+                let server_url = conn
+                    .server_url
+                    .clone()
+                    .context(ConnectionNotInitializedSnafu)?;
+
+                let tokens_guard = conn.tokens.read().await;
+                let tokens = tokens_guard
+                    .as_ref()
+                    .context(ConnectionNotInitializedSnafu)?;
+                let token = tokens.session_token.reveal().to_string();
+                let external_session_id = conn.external_session_id.clone();
+
+                (http_client, server_url, token, external_session_id)
+            };
+
+            let full_url = reqwest::Url::parse(&server_url)
+                .and_then(|base| base.join(&url))
+                .map(|u| u.to_string())
+                .map_err(|_| {
+                    InvalidArgumentSnafu {
+                        argument: format!("Failed to resolve URL '{url}' against '{server_url}'"),
+                    }
+                    .build()
+                })?;
+
+            let method = method.to_uppercase();
+            let reqwest_method = match method.as_str() {
+                "GET" => reqwest::Method::GET,
+                "POST" => reqwest::Method::POST,
+                "PUT" => reqwest::Method::PUT,
+                "DELETE" => reqwest::Method::DELETE,
+                "PATCH" => reqwest::Method::PATCH,
+                other => {
+                    return InvalidArgumentSnafu {
+                        argument: format!("Unsupported HTTP method: {other}"),
+                    }
+                    .fail();
+                }
+            };
+
+            let auth_value =
+                snowflake::authorization_header(token.as_str(), external_session_id.is_some());
+
+            let mut builder = http_client
+                .request(reqwest_method, &full_url)
+                .header(reqwest::header::AUTHORIZATION, auth_value);
+
+            if let Some(id) = external_session_id.as_ref() {
+                let header_value =
+                    reqwest::header::HeaderValue::from_str(id.reveal()).map_err(|_| {
+                        InvalidArgumentSnafu {
+                            argument: "External session id contains invalid header characters"
+                                .to_string(),
+                        }
+                        .build()
+                    })?;
+                builder = builder.header("X-Snowflake-External-Session-ID", header_value);
+            }
+
+            for (key, value) in &headers {
+                let header_name =
+                    reqwest::header::HeaderName::from_bytes(key.as_bytes()).map_err(|_| {
+                        InvalidArgumentSnafu {
+                            argument: format!("Invalid header name: {key}"),
+                        }
+                        .build()
+                    })?;
+                if header_name == reqwest::header::AUTHORIZATION
+                    || header_name == reqwest::header::HOST
+                {
+                    tracing::warn!(
+                        header = %header_name,
+                        "Ignoring caller-supplied security-sensitive header; managed by sf_core"
+                    );
+                    continue;
+                }
+                let header_value = reqwest::header::HeaderValue::from_str(value).map_err(|_| {
+                    InvalidArgumentSnafu {
+                        argument: format!("Invalid header value for '{key}'"),
+                    }
+                    .build()
+                })?;
+                builder = builder.header(header_name, header_value);
+            }
+
+            if let Some(body_bytes) = body {
+                builder = builder.body(body_bytes);
+            }
+
+            let response = builder.send().await.context(HttpRequestSnafu {
+                context: format!("Failed to send {method} {full_url}"),
+            })?;
+
+            let status_code = response.status().as_u16() as i32;
+            let response_headers: HashMap<String, String> = response
+                .headers()
+                .iter()
+                .map(|(k, v)| {
+                    let value = match v.to_str() {
+                        Ok(s) => s.to_string(),
+                        Err(_) => String::from_utf8_lossy(v.as_bytes()).into_owned(),
+                    };
+                    (k.to_string(), value)
+                })
+                .collect();
+            let response_body = response.bytes().await.context(HttpRequestSnafu {
+                context: "Failed to read response body".to_string(),
+            })?;
+
+            Ok(HttpResponse {
+                status_code,
+                headers: response_headers,
+                body: response_body.to_vec(),
+            })
+        };
+        crate::apis::operation_ctx::run_opt(operation_ctx, "connection_send_http", send).await
+    }
+
+    /// Send a heartbeat to validate that the connection and session are still alive.
+    ///
+    /// Returns `true` if the session is valid, `false` otherwise.
+    /// Automatically attempts one token refresh on 401 (session expired),
+    /// except when the connection has an external session id. There is no
+    /// master token to renew, so a 401 is reported as invalid.
+    pub async fn connection_heartbeat(&self, conn_handle: Handle) -> Result<bool, ApiError> {
+        self.connection_heartbeat_with_timeout(conn_handle, None)
+            .await
+    }
+
+    /// Like [`Self::connection_heartbeat`] but with an optional HTTP request timeout override.
+    pub async fn connection_heartbeat_with_timeout(
+        &self,
+        conn_handle: Handle,
+        timeout: Option<Duration>,
+    ) -> Result<bool, ApiError> {
+        let telemetry_id = self.telemetry_id_for_conn(conn_handle).await;
+        async {
+            let conn_ptr = self
+                .connections
+                .get_obj(conn_handle)
+                .context(InvalidArgumentSnafu {
+                    argument: "Connection handle not found".to_string(),
+                })?;
+
+            let mut refresh_ctx = match RefreshContext::from_arc(&conn_ptr).await {
+                Ok(refresh_ctx) => refresh_ctx,
+                Err(_) => return Ok(false),
+            };
+
+            let server_url = match url::Url::parse(&refresh_ctx.server_url) {
+                Ok(u) => u,
+                Err(_) => return Ok(false),
+            };
+
+            let mut last_error: Option<RestError> = None;
+
+            if refresh_ctx.host_backend_active() {
+                return Ok(true);
+            }
+
+            loop {
+                let token = match refresh_ctx.refresh_token(last_error.take()).await {
+                    Ok(t) => t,
+                    Err(_) => return Ok(false),
+                };
+
+                match heartbeat::send_heartbeat_with_timeout(
+                    &refresh_ctx.http_client,
+                    &server_url,
+                    &refresh_ctx.client_info,
+                    token.reveal(),
+                    timeout,
+                    refresh_ctx
+                        .external_session_id
+                        .as_ref()
+                        .map(|id| id.reveal().as_str()),
+                )
+                .await
+                {
+                    Ok(()) => return Ok(true),
+                    Err(e @ RestError::SessionExpired { .. }) => {
+                        last_error = Some(e);
+                    }
+                    Err(e) => {
+                        refresh_ctx.record_session_gone(&e);
+                        return Ok(false);
+                    }
+                }
+            }
+        }
+        .instrument(crate::snowflake_op_span!(
+            "connection_heartbeat",
+            telemetry_id
+        ))
+        .await
+    }
+
+    /// Execute a token request (ISSUE/RENEW) using the connection's master token.
+    ///
+    /// Cancelling drops the request without invalidating anything: the master
+    /// token this authenticates with is unaffected, and a session token the
+    /// server may have minted for a dropped ISSUE is simply never used.
+    pub async fn connection_token_request(
+        &self,
+        operation_ctx: Option<&OperationCtx>,
+        conn_handle: Handle,
+        request_type: String,
+    ) -> Result<snowflake::TokenRequestResult, ApiError> {
+        let token = async {
+            if request_type != "ISSUE" && request_type != "RENEW" {
+                return InvalidArgumentSnafu {
+                    argument: format!(
+                        "Invalid request_type '{request_type}', must be 'ISSUE' or 'RENEW'"
+                    ),
+                }
+                .fail();
+            }
+
+            let conn_ptr = self
+                .connections
+                .get_obj(conn_handle)
+                .context(InvalidArgumentSnafu {
+                    argument: "Connection handle not found".to_string(),
+                })?;
+
+            // Extract needed fields under the lock, then release before network I/O
+            let (http_client, server_url, client_info, tokens, xp_backend) = {
+                let conn = conn_ptr.lock().await;
+
+                let http_client = conn
+                    .http_client
+                    .clone()
+                    .context(ConnectionNotInitializedSnafu)?;
+
+                let server_url = conn
+                    .server_url
+                    .clone()
+                    .context(ConnectionNotInitializedSnafu)?;
+
+                let client_info = conn
+                    .client_info
+                    .clone()
+                    .context(ConnectionNotInitializedSnafu)?;
+
+                let tokens_guard = conn.tokens.read().await;
+                let tokens = tokens_guard
+                    .as_ref()
+                    .context(ConnectionNotInitializedSnafu)?
+                    .clone();
+                let xp_backend = conn.xp_backend_arc().context(TokenRequestSnafu)?;
+
+                (http_client, server_url, client_info, tokens, xp_backend)
+            };
+
+            if xp_backend.is_some() {
+                tracing::info!("Skipping token request HTTP; host owns the session");
+                return Ok(snowflake::TokenRequestResult {
+                    session_token: tokens.session_token,
+                    validity_in_seconds: None,
+                });
+            }
+
+            snowflake::token_request(
+                &http_client,
+                &server_url,
+                &client_info,
+                &tokens,
+                &request_type,
+            )
+            .await
+            .context(TokenRequestSnafu)
+        };
+        crate::apis::operation_ctx::run_opt(operation_ctx, "connection_request_token", token).await
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionUsability {
+    Usable,
+    NeverEstablished,
+    Terminated,
+}
+
+impl DatabaseDriverV1 {
+    /// Check if a connection has been closed.
+    ///
+    /// Returns true if close() has been called, false otherwise.
+    pub async fn connection_is_closed(&self, conn_handle: Handle) -> Result<bool, ApiError> {
+        let conn_ptr = self
+            .connections
+            .get_obj(conn_handle)
+            .context(InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            })?;
+
+        let conn = conn_ptr.lock().await;
+        // Completion, not intent: a close whose logout failed reports `false`, which
+        // is what makes the retry visible to the caller.
+        Ok(conn.close_state.load(Ordering::SeqCst) == CloseState::Closed)
+    }
+
+    /// Check if a login has completed on a connection.
+    ///
+    /// Not a latch: a completed close clears the session this is derived from, so
+    /// it reports `false` both before a login and after a close. Callers that need
+    /// to tell those apart read it with [`Self::connection_is_closed`].
+    pub async fn connection_is_initialized(&self, conn_handle: Handle) -> Result<bool, ApiError> {
+        let conn_ptr = self
+            .connections
+            .get_obj(conn_handle)
+            .context(InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            })?;
+
+        let conn = conn_ptr.lock().await;
+        Ok(conn.is_post_connect())
+    }
+
+    /// Check if the connection's master token has expired.
+    ///
+    /// Returns `true` when the server returned GS code 390114 or a time-based
+    /// check confirmed master-token expiry during a refresh attempt.  Once
+    /// `true`, the session can never be renewed — full re-authentication is
+    /// required.
+    ///
+    /// Mirrors `SnowflakeConnection.expired` in the legacy Python connector.
+    pub async fn connection_is_expired(&self, conn_handle: Handle) -> Result<bool, ApiError> {
+        let conn_ptr = self
+            .connections
+            .get_obj(conn_handle)
+            .context(InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            })?;
+
+        let conn = conn_ptr.lock().await;
+        Ok(conn.is_master_token_expired.load(Ordering::SeqCst))
+    }
+
+    /// Answers under one lock what [`Self::connection_is_closed`],
+    /// [`Self::connection_is_expired`] and [`Self::connection_is_initialized`] answer
+    /// under three, so a close landing between those reads cannot make a terminated
+    /// session look like one that was never established.
+    ///
+    /// An expired master token counts as terminated, and so does a session the server
+    /// has reported gone (390111) or closed (390117). The answer is the client's own
+    /// view and contacts no server, so a session discarded without us hearing of it
+    /// still reads as usable.
+    pub async fn connection_is_usable(
+        &self,
+        conn_handle: Handle,
+    ) -> Result<ConnectionUsability, ApiError> {
+        let conn_ptr = self
+            .connections
+            .get_obj(conn_handle)
+            .context(InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            })?;
+
+        let conn = conn_ptr.lock().await;
+        if conn.close_state.load(Ordering::SeqCst) == CloseState::Closed
+            || conn.is_master_token_expired.load(Ordering::SeqCst)
+            || conn.session_terminated.load(Ordering::SeqCst)
+        {
+            return Ok(ConnectionUsability::Terminated);
+        }
+        if conn.is_post_connect() {
+            Ok(ConnectionUsability::Usable)
+        } else {
+            Ok(ConnectionUsability::NeverEstablished)
+        }
+    }
+
+    /// Close a connection and optionally send logout request.
+    ///
+    /// Behavior depends on `config.error_strategy`:
+    /// - `Strict`: surface errors to the caller (close() may fail)
+    /// - `BestEffort`: suppress errors, log WARN (close() always succeeds)
+    ///
+    /// Close the connection using logout configuration set during initialization.
+    ///
+    /// Logout behavior is determined by connection fields set via ConnectionSetOption*:
+    /// - `server_session_keep_alive`: Control server session lifecycle
+    /// - `enable_server_session_keep_alive_auto_detection`: Enable async query detection
+    /// - `logout_error_strategy`: Error handling (Strict or BestEffort)
+    /// - `logout_total_timeout`: Total timeout budget
+    /// - `logout_max_attempts`: Maximum total attempts (1 = no retries, 3 = 2 retries)
+    /// - `logout_request_timeout`: Per-request timeout
+    ///
+    /// This design matches all existing Snowflake drivers (Python, Go, JDBC, .NET, Node.js)
+    /// which configure logout behavior at connection initialization, not at close time.
+    pub async fn connection_close(&self, conn_handle: Handle) -> Result<(), ApiError> {
+        let conn_ptr = self
+            .connections
+            .get_obj(conn_handle)
+            .context(InvalidArgumentSnafu {
+                argument: "Connection handle not found".to_string(),
+            })?;
+
+        let (close_state, close_done) = {
+            let conn = conn_ptr.lock().await;
+            (conn.close_state.clone(), conn.close_done.clone())
+        };
+
+        loop {
+            // Registered before the state is read, so a wake published between the
+            // read and the await cannot be missed.
+            let notified = close_done.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+
+            match close_state.load(Ordering::SeqCst) {
+                CloseState::Closed => return Ok(()),
+                CloseState::Closing => {
+                    // Someone else owns the close. Wait for their outcome rather than
+                    // reporting success while their logout is still in flight.
+                    notified.await;
+                }
+                CloseState::Open => match close_state.try_begin_close() {
+                    // This caller now owns the close and must leave the state either
+                    // `Closed` or back at `Open`.
+                    Ok(()) => {
+                        return self
+                            .perform_close(conn_handle, &conn_ptr, &close_done)
+                            .await;
+                    }
+                    // Lost the race; re-read and either wait or take over.
+                    Err(_) => continue,
+                },
+            }
+        }
+    }
+
+    /// Drive one close attempt, having already claimed the closer role.
+    ///
+    /// Every exit path publishes a terminal state and wakes waiters: `Closed` when
+    /// the session is gone, `Open` when it may still be alive so a later close can
+    /// reclaim it.
+    async fn perform_close(
+        &self,
+        conn_handle: Handle,
+        conn_ptr: &Arc<Mutex<Connection>>,
+        close_done: &Arc<Notify>,
+    ) -> Result<(), ApiError> {
+        let settle = |state: CloseState| {
+            let conn_ptr = conn_ptr.clone();
+            let close_done = close_done.clone();
+            async move {
+                conn_ptr
+                    .lock()
+                    .await
+                    .close_state
+                    .store(state, Ordering::SeqCst);
+                close_done.notify_waiters();
+            }
+        };
+
+        // Single lock acquisition for all pre-network synchronous work, so a
+        // concurrent set_option_int cannot race between reading the config and
+        // extracting the logout data from it.
+        let prepared = {
+            let conn = conn_ptr.lock().await;
+
+            // Re-derive logout config from the resolved login snapshot at
+            // close()-time, then apply post-init connection overrides (e.g.
+            // retry=False sets logout_max_attempts=1). Starting from the
+            // snapshot rather than the raw seed preserves the config-file layers
+            // selected by database options such as connection_name.
+            let close_settings = conn.effective_settings();
+            let config = LogoutConfig::from_settings(&close_settings).unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "Failed to re-derive LogoutConfig at close-time; using init-time config");
+                conn.logout_config.clone()
+            });
+            let error_strategy = config.error_strategy;
+
+            // TODO: SNOW-2912513 - Record telemetry for logout decision
+
+            logout::prepare_logout_from_conn(&conn, &config, &close_settings)
+                .map(|data| (data, error_strategy))
+        };
+
+        // `logout_data` is `None` when there is nothing to log out — never
+        // initialised, or `server_session_keep_alive`. That is a *completed* close,
+        // so it deliberately flows through the success path below rather than
+        // getting its own arm: tokens still get cleared and the state still reaches
+        // `Closed`, which is what `should_cleanup_all_tokens_on_close_regardless_of_whether_logout_was_sent`
+        // and the `connection_is_closed` tests require.
+        let (logout_data, error_strategy) = match prepared {
+            Ok(pair) => pair,
+            // The pre-flight reads failed, so no logout was attempted and the
+            // session — if there is one — is untouched. Reopen so the caller can
+            // retry rather than leaving it unreachable.
+            Err(e) => {
+                settle(CloseState::Open).await;
+                return Err(e);
+            }
+        };
+
+        // Reap any upload/download stream sessions still open on this
+        // connection before logout I/O invalidates its credentials — a
+        // download's background tasks reading from cloud storage with a
+        // soon-to-be-revoked session would otherwise keep running (or sit
+        // stalled) until they hit their own error path.
+        self.reap_connection_streams(conn_handle);
+
+        // Flush telemetry before logout — session tokens are still alive and
+        // telemetry records the connection's lifetime events (session_init, api_usage).
+        self.flush_connection_telemetry(conn_handle).await;
+
+        // Execute logout — network I/O, lock must not be held
+        let raw_result = match logout_data {
+            Some(data) => logout::send_logout_request(data).await,
+            None => Ok(()),
+        };
+
+        // The state follows the *raw* outcome while the return value follows the
+        // error strategy. `best_effort` therefore still reports success to its
+        // caller, but the connection stays reclaimable instead of leaking silently —
+        // which is the whole point of the fix.
+        let logged_out = raw_result.is_ok();
+        let returned = error_strategy.handle_failed_logout(raw_result);
+
+        if logged_out {
+            tracing::info!("Logout completed successfully");
+            // Only tear down local resources once the session is actually gone; a
+            // retry needs the HTTP client this would otherwise clear.
+            cleanup_connection(conn_ptr).await?;
+            settle(CloseState::Closed).await;
+            tracing::info!("Connection closed successfully");
+        } else {
+            settle(CloseState::Open).await;
+        }
+        returned
+    }
+
+    pub(super) async fn lock_session_if_needed(
+        &self,
+        conn: &Arc<Mutex<Connection>>,
+    ) -> Option<OwnedMutexGuard<()>> {
+        let mutex = {
+            let conn = conn.lock().await;
+            let serialize = conn
+                .connection_seed
+                .get_bool(param_names::SERIALIZE_SESSION_OPERATIONS)
+                .unwrap_or(self.wrapper_presets.serialize_session_operations);
+            if !serialize {
+                return None;
+            }
+            conn.session_mutex.clone()
+        };
+        Some(mutex.lock_owned().await)
+    }
+}
+
+/// Where a connection is in its close lifecycle.
+///
+/// Modelled on [`crate::stage_binding::StageState`] — a `#[repr(u8)]` enum behind an
+/// `AtomicU8` — so the state is always one of the three named values.
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum CloseState {
+    /// No close has completed. New work is accepted, and a close may begin.
+    Open = 0,
+    /// A close is running: its pre-flight reads, or the logout request itself, are
+    /// in progress. New work is rejected, but the close has *not* completed, so
+    /// this is not what `connection_is_closed` reports.
+    Closing = 1,
+    /// The close completed — either the logout succeeded, or there was nothing to
+    /// log out (never initialised, or `server_session_keep_alive`).
+    Closed = 2,
+}
+
+impl CloseState {
+    fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Closing,
+            2 => Self::Closed,
+            _ => Self::Open,
+        }
+    }
+}
+
+/// Atomically readable/writable [`CloseState`].
+///
+/// Unlike [`crate::stage_binding::AtomicStageState`] this exposes a
+/// compare-exchange, because claiming the closer role has to be a single atomic
+/// step: two callers racing must produce exactly one logout.
+pub struct AtomicCloseState(AtomicU8);
+
+impl AtomicCloseState {
+    pub fn new(state: CloseState) -> Self {
+        Self(AtomicU8::new(state as u8))
+    }
+
+    pub fn load(&self, order: Ordering) -> CloseState {
+        CloseState::from_u8(self.0.load(order))
+    }
+
+    pub fn store(&self, state: CloseState, order: Ordering) {
+        self.0.store(state as u8, order);
+    }
+
+    /// Claim the closer role by moving `Open → Closing`.
+    ///
+    /// `Ok(())` means this caller owns the close and must drive it to either
+    /// `Closed` or back to `Open`. `Err(state)` is whatever was found instead —
+    /// another caller is already closing, or the close is already done.
+    pub fn try_begin_close(&self) -> Result<(), CloseState> {
+        self.0
+            .compare_exchange(
+                CloseState::Open as u8,
+                CloseState::Closing as u8,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .map(|_| ())
+            .map_err(CloseState::from_u8)
+    }
+}
+
+/// Clear tokens, HTTP client, and stop background tasks.
+async fn cleanup_connection(conn_ptr: &Arc<Mutex<Connection>>) -> Result<(), ApiError> {
+    let mut conn = conn_ptr.lock().await;
+    if let Some(mut hb) = conn.heartbeat_handle.take() {
+        hb.cancel_and_wait().await;
+    }
+    *conn.tokens.write().await = None;
+    conn.http_client = None;
+    tracing::debug!("Cleared session tokens and HTTP client");
+
+    // Telemetry is flushed before logout in connection_close (flush_connection_telemetry).
+    // TODO: Implement QCC (query result cache) clearing
+    // Upload/download stream sessions are reaped in connection_close, before
+    // logout I/O, and in connection_release, via
+    // DatabaseDriverV1::reap_connection_streams — not here.
+    // TODO(SNOW-3704961): a stream begun and abandoned on a connection that
+    // stays open leaks until that connection is closed or released; there is
+    // no idle-timeout reaper for abandoned upload/download stream sessions yet.
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::apis::database_driver_v1::global_state::DriverProviders;
+    use crate::config::ParamStore;
+    use crate::config::param_registry::param_names;
+    use crate::rest::snowflake::TokenExpiry;
+
+    fn make_connection_with_settings(settings: Vec<(&str, Setting)>) -> Connection {
+        let mut conn = Connection::new();
+        for (key, value) in settings {
+            conn.connection_seed.insert(key.to_string(), value);
+        }
+        conn
+    }
+
+    #[test]
+    fn effective_seed_inherits_database_options() {
+        let conn = Connection::new();
+        let mut database_seed = ParamStore::new();
+        database_seed.insert("account".into(), Setting::String("database-account".into()));
+
+        let effective = conn.effective_seed(&database_seed);
+
+        assert_eq!(
+            effective.get_string(param_names::ACCOUNT),
+            Some("database-account".into())
+        );
+    }
+
+    #[test]
+    fn effective_seed_prefers_connection_options() {
+        let conn = make_connection_with_settings(vec![(
+            "account",
+            Setting::String("connection-account".into()),
+        )]);
+        let mut database_seed = ParamStore::new();
+        database_seed.insert("account".into(), Setting::String("database-account".into()));
+        database_seed.insert("user".into(), Setting::String("database-user".into()));
+
+        let effective = conn.effective_seed(&database_seed);
+
+        assert_eq!(
+            effective.get_string(param_names::ACCOUNT),
+            Some("connection-account".into())
+        );
+        assert_eq!(
+            effective.get_string(param_names::USER),
+            Some("database-user".into())
+        );
+    }
+
+    #[tokio::test]
+    async fn connection_set_options_stores_connections_file_path() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        let path = PathBuf::from("/tmp/custom-connections.toml");
+
+        ds.connection_set_options(handle, HashMap::new(), false, Some(path.clone()))
+            .await
+            .unwrap();
+        ds.connection_set_options(handle, HashMap::new(), false, None)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(conn.connections_file_path.as_ref(), Some(&path));
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_options_ignores_empty_connections_file_path() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        ds.connection_set_options(handle, HashMap::new(), false, Some(PathBuf::new()))
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(conn.connections_file_path, None);
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[test]
+    fn effective_seed_applies_unknown_option_precedence_case_insensitively() {
+        let conn = make_connection_with_settings(vec![(
+            "custom_session_parameter",
+            Setting::String("connection-value".into()),
+        )]);
+        let mut database_seed = ParamStore::new();
+        database_seed.insert(
+            "CUSTOM_SESSION_PARAMETER".into(),
+            Setting::String("database-value".into()),
+        );
+
+        let effective = conn.effective_seed(&database_seed);
+        let unknown = collect_unknown_settings(&effective);
+
+        assert_eq!(unknown.len(), 1);
+        assert_eq!(
+            unknown.get("CUSTOM_SESSION_PARAMETER"),
+            Some(&"connection-value".to_string())
+        );
+    }
+
+    #[test]
+    fn resolved_settings_uses_database_and_connection_options() {
+        let mut conn = make_connection_with_settings(vec![(
+            "account",
+            Setting::String("connection-account".into()),
+        )]);
+        conn.database_seed
+            .insert("account".into(), Setting::String("database-account".into()));
+        conn.database_seed
+            .insert("user".into(), Setting::String("database-user".into()));
+
+        let resolved = conn.resolved_settings().unwrap();
+
+        assert_eq!(
+            resolved.get_string(param_names::ACCOUNT),
+            Some("connection-account".into())
+        );
+        assert_eq!(
+            resolved.get_string(param_names::USER),
+            Some("database-user".into())
+        );
+    }
+
+    #[test]
+    fn effective_settings_preserves_resolved_layers_and_applies_connection_overrides() {
+        let mut conn =
+            make_connection_with_settings(vec![("logout_max_attempts", Setting::Int(1))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert(param_names::RETRY_BACKOFF_BASE_MS.into(), Setting::Int(123));
+        resolved.insert(param_names::LOGOUT_MAX_ATTEMPTS.into(), Setting::Int(5));
+        conn.resolved_connect = Some(resolved);
+
+        let settings = conn.effective_settings();
+
+        assert_eq!(
+            settings.get_int(param_names::RETRY_BACKOFF_BASE_MS),
+            Some(123)
+        );
+        assert_eq!(settings.get_int(param_names::LOGOUT_MAX_ATTEMPTS), Some(1));
+    }
+
+    #[test]
+    fn put_get_retry_policy_uses_resolved_settings_and_connection_overrides() {
+        let mut conn =
+            make_connection_with_settings(vec![("put_get_max_attempts", Setting::Int(2))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert(param_names::PUT_GET_MAX_ATTEMPTS.into(), Setting::Int(5));
+        resolved.insert(param_names::RETRY_BACKOFF_BASE_MS.into(), Setting::Int(123));
+        conn.resolved_connect = Some(resolved);
+
+        let policy = RetryPolicy::put_get(&conn.effective_settings());
+
+        assert_eq!(policy.max_attempts, 2);
+        assert_eq!(policy.backoff.base, Duration::from_millis(123));
+    }
+
+    #[test]
+    fn query_retry_policy_uses_resolved_settings_and_connection_overrides() {
+        let mut conn = make_connection_with_settings(vec![("retry_max_attempts", Setting::Int(2))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert(param_names::RETRY_MAX_ATTEMPTS.into(), Setting::Int(5));
+        resolved.insert(param_names::RETRY_BACKOFF_BASE_MS.into(), Setting::Int(123));
+        conn.resolved_connect = Some(resolved);
+
+        let policy = RetryPolicy::query(&conn.effective_settings());
+
+        assert_eq!(policy.max_attempts, 2);
+        assert_eq!(policy.backoff.base, Duration::from_millis(123));
+    }
+
+    #[test]
+    fn request_timeout_budget_uses_resolved_settings_and_connection_overrides() {
+        let mut conn = make_connection_with_settings(vec![("request_timeout", Setting::Int(7))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert(param_names::REQUEST_TIMEOUT.into(), Setting::Int(90));
+        conn.resolved_connect = Some(resolved);
+
+        assert_eq!(
+            conn.request_timeout_budget(),
+            Some(Duration::from_secs(7)),
+            "connection override wins over the resolved layer"
+        );
+    }
+
+    #[test]
+    fn request_timeout_budget_reads_zero_as_no_budget() {
+        let conn = make_connection_with_settings(vec![("request_timeout", Setting::Int(0))]);
+
+        assert_eq!(conn.request_timeout_budget(), None);
+    }
+
+    #[tokio::test]
+    async fn connection_init_requires_a_valid_database_handle() {
+        let driver = DatabaseDriverV1::new();
+        let conn_handle = driver.connection_new();
+        let missing_database = Handle {
+            id: u64::MAX,
+            magic: 0,
+        };
+
+        let error = driver
+            .connection_init(None, conn_handle, missing_database)
+            .await
+            .unwrap_err();
+
+        assert!(
+            error.to_string().contains("Database handle not found"),
+            "unexpected error: {error}"
+        );
+        driver.connection_release(conn_handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_connection_as_not_initialized_before_a_login() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+
+        assert!(!driver.connection_is_initialized(handle).await.unwrap());
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_connection_as_initialized_once_the_transport_is_ready() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+        if let Some(c) = driver.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        assert!(driver.connection_is_initialized(handle).await.unwrap());
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_closed_connection_as_not_initialized() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+        if let Some(c) = driver.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        driver.connection_close(handle).await.unwrap();
+
+        assert!(!driver.connection_is_initialized(handle).await.unwrap());
+        assert!(driver.connection_is_closed(handle).await.unwrap());
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_reject_an_initialized_read_for_an_unknown_handle() {
+        let driver = DatabaseDriverV1::new();
+        let missing = Handle {
+            id: u64::MAX,
+            magic: 0,
+        };
+
+        let error = driver.connection_is_initialized(missing).await.unwrap_err();
+
+        assert!(
+            error.to_string().contains("Connection handle not found"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_report_a_connection_without_a_login_as_never_established() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+
+        assert_eq!(
+            driver.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::NeverEstablished
+        );
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_logged_in_connection_as_usable() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+        if let Some(c) = driver.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        assert_eq!(
+            driver.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::Usable
+        );
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_closed_connection_as_terminated() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+        if let Some(c) = driver.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+
+        driver.connection_close(handle).await.unwrap();
+
+        assert_eq!(
+            driver.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::Terminated
+        );
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_connection_with_an_expired_master_token_as_terminated() {
+        let driver = DatabaseDriverV1::new();
+        let handle = driver.connection_new();
+        if let Some(c) = driver.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+            conn.is_master_token_expired.store(true, Ordering::SeqCst);
+        }
+
+        assert_eq!(
+            driver.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::Terminated
+        );
+
+        driver.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_reject_a_usability_read_for_an_unknown_handle() {
+        let driver = DatabaseDriverV1::new();
+        let missing = Handle {
+            id: u64::MAX,
+            magic: 0,
+        };
+
+        let error = driver.connection_is_usable(missing).await.unwrap_err();
+
+        assert!(
+            error.to_string().contains("Connection handle not found"),
+            "unexpected error: {error}"
+        );
+    }
+
+    // `enable_put_get()` reads the two flags only; the JDBC-only scoping lives in
+    // the statement gate via `WrapperPresets::honor_put_get_disable` (asserted in
+    // global_state's preset tests), so these cases need no wrapper identity.
+    #[tokio::test]
+    async fn enable_put_get_defaults_to_true_when_unset() {
+        let conn = Connection::new();
+        assert!(conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_false_when_client_property_disables() {
+        let conn = make_connection_with_settings(vec![(
+            param_names::ENABLE_PUT_GET.as_str(),
+            Setting::Bool(false),
+        )]);
+        assert!(!conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_false_when_database_option_disables() {
+        // The flag can arrive on the database handle rather than the connection
+        // string. Reading `connection_seed` alone let that disable be bypassed
+        // and PUT/GET stayed allowed.
+        let mut conn = Connection::new();
+        conn.database_seed
+            .insert(param_names::ENABLE_PUT_GET.into(), Setting::Bool(false));
+        assert!(!conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_connection_option_overrides_the_database_option() {
+        // Connection options are the higher-precedence layer, so an explicit
+        // re-enable on the connection still wins over the database default.
+        let mut conn = make_connection_with_settings(vec![(
+            param_names::ENABLE_PUT_GET.as_str(),
+            Setting::Bool(true),
+        )]);
+        conn.database_seed
+            .insert(param_names::ENABLE_PUT_GET.into(), Setting::Bool(false));
+        assert!(conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_false_when_server_session_param_disables() {
+        // Server `JDBC_ENABLE_PUT_GET=false` disables even with the client seed absent/true.
+        let conn = Connection::new();
+        conn.session_parameters.try_write().unwrap().insert(
+            "JDBC_ENABLE_PUT_GET".into(),
+            Setting::String("false".into()),
+        );
+        assert!(!conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_true_when_server_session_param_blank() {
+        // A blank `JDBC_ENABLE_PUT_GET` is treated as unset, not as `false`.
+        let conn = Connection::new();
+        conn.session_parameters
+            .try_write()
+            .unwrap()
+            .insert("JDBC_ENABLE_PUT_GET".into(), Setting::String("".into()));
+        assert!(conn.enable_put_get().await);
+    }
+
+    #[tokio::test]
+    async fn enable_put_get_true_when_both_flags_enabled() {
+        let conn = make_connection_with_settings(vec![(
+            param_names::ENABLE_PUT_GET.as_str(),
+            Setting::Bool(true),
+        )]);
+        conn.session_parameters
+            .try_write()
+            .unwrap()
+            .insert("JDBC_ENABLE_PUT_GET".into(), Setting::String("true".into()));
+        assert!(conn.enable_put_get().await);
+    }
+
+    #[test]
+    fn build_use_schema_sql_without_database() {
+        assert_eq!(
+            build_use_schema_sql(None, "PUBLIC"),
+            "USE SCHEMA \"PUBLIC\""
+        );
+    }
+
+    #[test]
+    fn build_use_schema_sql_with_database() {
+        assert_eq!(
+            build_use_schema_sql(Some("TEST_DB"), "MY_SCHEMA"),
+            "USE SCHEMA \"TEST_DB\".\"MY_SCHEMA\""
+        );
+    }
+
+    #[test]
+    fn build_use_schema_sql_escapes_quotes() {
+        assert_eq!(
+            build_use_schema_sql(Some("DB\"1"), "SC\"2"),
+            "USE SCHEMA \"DB\"\"1\".\"SC\"\"2\""
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_prefers_session_parameter() {
+        let conn =
+            make_connection_with_settings(vec![("database", Setting::String("setting_db".into()))]);
+        conn.session_parameters
+            .try_write()
+            .unwrap()
+            .insert("DATABASE".into(), Setting::String("session_db".into()));
+
+        assert_eq!(
+            get_session_or_setting(&conn, "DATABASE", param_names::DATABASE),
+            Some("session_db".into())
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_falls_back_to_setting() {
+        let conn =
+            make_connection_with_settings(vec![("database", Setting::String("setting_db".into()))]);
+
+        assert_eq!(
+            get_session_or_setting(&conn, "DATABASE", param_names::DATABASE),
+            Some("setting_db".into())
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_ignores_empty_session_param() {
+        let conn =
+            make_connection_with_settings(vec![("role", Setting::String("setting_role".into()))]);
+        conn.session_parameters
+            .try_write()
+            .unwrap()
+            .insert("ROLE".into(), Setting::String(String::new()));
+
+        assert_eq!(
+            get_session_or_setting(&conn, "ROLE", param_names::ROLE),
+            Some("setting_role".into())
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_returns_none_when_both_absent() {
+        let conn = Connection::new();
+        assert_eq!(
+            get_session_or_setting(&conn, "ROLE", param_names::ROLE),
+            None
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_prefers_resolved_connect_over_seed() {
+        let mut conn =
+            make_connection_with_settings(vec![("database", Setting::String("seed_db".into()))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert("database".into(), Setting::String("resolved_db".into()));
+        conn.resolved_connect = Some(resolved);
+        assert_eq!(
+            get_session_or_setting(&conn, "DATABASE", param_names::DATABASE),
+            Some("resolved_db".into())
+        );
+    }
+
+    #[test]
+    fn get_session_or_setting_prefers_session_overrides_over_resolved() {
+        let mut conn =
+            make_connection_with_settings(vec![("database", Setting::String("seed_db".into()))]);
+        let mut resolved = ParamStore::new();
+        resolved.insert("database".into(), Setting::String("resolved_db".into()));
+        conn.resolved_connect = Some(resolved);
+        conn.session_overrides
+            .insert("database".into(), Setting::String("override_db".into()));
+        assert_eq!(
+            get_session_or_setting(&conn, "DATABASE", param_names::DATABASE),
+            Some("override_db".into())
+        );
+    }
+
+    #[test]
+    fn put_fastfail_returns_none_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(conn.put_fastfail(), None);
+    }
+
+    #[test]
+    fn put_fastfail_returns_connection_seed_value_when_only_seed_set() {
+        let conn = make_connection_with_settings(vec![("put_fastfail", Setting::Bool(true))]);
+        assert_eq!(conn.put_fastfail(), Some(true));
+    }
+
+    #[test]
+    fn put_fastfail_prefers_session_override_over_connection_seed() {
+        let mut conn = make_connection_with_settings(vec![("put_fastfail", Setting::Bool(true))]);
+        conn.session_overrides
+            .insert("put_fastfail".into(), Setting::Bool(false));
+        assert_eq!(conn.put_fastfail(), Some(false));
+    }
+
+    #[test]
+    fn get_fastfail_returns_none_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(conn.get_fastfail(), None);
+    }
+
+    #[test]
+    fn get_fastfail_returns_connection_seed_value_when_only_seed_set() {
+        let conn = make_connection_with_settings(vec![("get_fastfail", Setting::Bool(true))]);
+        assert_eq!(conn.get_fastfail(), Some(true));
+    }
+
+    #[test]
+    fn get_fastfail_prefers_session_override_over_connection_seed() {
+        let mut conn = make_connection_with_settings(vec![("get_fastfail", Setting::Bool(true))]);
+        conn.session_overrides
+            .insert("get_fastfail".into(), Setting::Bool(false));
+        assert_eq!(conn.get_fastfail(), Some(false));
+    }
+
+    #[test]
+    fn put_compress_level_defaults_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::default().put_compress_level_default),
+            9
+        );
+    }
+
+    #[test]
+    fn put_compress_level_odbc_defaults_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::odbc().put_compress_level_default),
+            6
+        );
+    }
+
+    #[test]
+    fn put_compress_level_jdbc_defaults_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::jdbc().put_compress_level_default),
+            6
+        );
+    }
+
+    #[test]
+    fn put_compress_level_nodejs_defaults_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::nodejs().put_compress_level_default),
+            6
+        );
+    }
+
+    #[test]
+    fn put_compress_level_returns_connection_seed_when_valid() {
+        let conn = make_connection_with_settings(vec![("put_compress_level", Setting::Int(1))]);
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::default().put_compress_level_default),
+            1
+        );
+    }
+
+    #[test]
+    fn put_compress_level_clamps_invalid_seed_to_default() {
+        let too_low = make_connection_with_settings(vec![("put_compress_level", Setting::Int(-1))]);
+        assert_eq!(
+            too_low.put_compress_level(WrapperPresets::default().put_compress_level_default),
+            9
+        );
+        let too_high =
+            make_connection_with_settings(vec![("put_compress_level", Setting::Int(10))]);
+        assert_eq!(
+            too_high.put_compress_level(WrapperPresets::default().put_compress_level_default),
+            9
+        );
+        assert_eq!(
+            too_high.put_compress_level(WrapperPresets::odbc().put_compress_level_default),
+            6
+        );
+    }
+
+    #[test]
+    fn put_compress_level_prefers_session_override_over_connection_seed() {
+        let mut conn = make_connection_with_settings(vec![("put_compress_level", Setting::Int(1))]);
+        conn.session_overrides
+            .insert("put_compress_level".into(), Setting::Int(4));
+        assert_eq!(
+            conn.put_compress_level(WrapperPresets::default().put_compress_level_default),
+            4
+        );
+    }
+
+    #[test]
+    fn put_tempdir_returns_none_when_unset() {
+        let conn = Connection::new();
+        assert_eq!(conn.put_tempdir(), None);
+    }
+
+    #[test]
+    fn put_tempdir_returns_connection_seed_path() {
+        let conn = make_connection_with_settings(vec![(
+            "put_tempdir",
+            Setting::String("/tmp/put-gzip".into()),
+        )]);
+        assert_eq!(
+            conn.put_tempdir(),
+            Some(std::path::PathBuf::from("/tmp/put-gzip"))
+        );
+    }
+
+    #[test]
+    fn put_tempdir_treats_empty_seed_as_unset() {
+        let conn =
+            make_connection_with_settings(vec![("put_tempdir", Setting::String(String::new()))]);
+        assert_eq!(conn.put_tempdir(), None);
+    }
+
+    #[tokio::test]
+    async fn connection_set_option_put_tempdir_after_connect() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+        ds.connection_set_option(
+            handle,
+            param_names::PUT_TEMPDIR.as_str().into(),
+            Setting::String("/tmp/put-gzip-after-connect".into()),
+        )
+        .await
+        .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.put_tempdir(),
+            Some(std::path::PathBuf::from("/tmp/put-gzip-after-connect"))
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_new_seeds_log_query_defaults_from_log_manager() {
+        use crate::apis::database_driver_v1::global_state::DriverProviders;
+        use crate::fs_adapter::RealFs;
+        use crate::logging::LogManager;
+        use std::sync::Arc;
+
+        let lm = LogManager::with_none_subscriber(Arc::new(RealFs))
+            .with_query_log_defaults(Some(true), Some(false));
+        let ds = DatabaseDriverV1::with_providers(DriverProviders {
+            log_manager: Some(lm),
+            ..Default::default()
+        });
+
+        let handle = ds.connection_new();
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.connection_seed.get_bool(param_names::LOG_QUERY_TEXT),
+            Some(true)
+        );
+        assert_eq!(
+            conn.connection_seed
+                .get_bool(param_names::LOG_QUERY_PARAMETERS),
+            Some(false)
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_browser_opener_stores_the_callback() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        let seen = Arc::new(std::sync::Mutex::new(None::<String>));
+        let seen_cb = Arc::clone(&seen);
+        ds.connection_set_browser_opener(
+            handle,
+            Arc::new(move |url: &str| {
+                *seen_cb.lock().unwrap() = Some(url.to_string());
+                Ok(())
+            }),
+        )
+        .await
+        .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        conn.browser_opener
+            .as_ref()
+            .expect("opener should be stored")("https://idp.snowflake.com/sso")
+        .unwrap();
+        drop(conn);
+
+        assert_eq!(
+            seen.lock().unwrap().as_deref(),
+            Some("https://idp.snowflake.com/sso")
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_options_records_no_connection_details_flag() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        // A bare connect() arrives as set_options with the flag set.
+        ds.connection_set_options(handle, HashMap::new(), true, None)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert!(conn.no_connection_details);
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_options_latches_no_connection_details_flag() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        // First call marks the connection as bare; a later non-bare call must
+        // not clear the latch.
+        ds.connection_set_options(handle, HashMap::new(), true, None)
+            .await
+            .unwrap();
+        let mut later = HashMap::new();
+        later.insert("user".to_owned(), Setting::String("alice".to_owned()));
+        ds.connection_set_options(handle, later, false, None)
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert!(
+            conn.no_connection_details,
+            "no_connection_details must stay latched across later set_options calls"
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_new_does_not_seed_when_log_manager_absent() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.connection_seed.get_bool(param_names::LOG_QUERY_TEXT),
+            None
+        );
+        assert_eq!(
+            conn.connection_seed
+                .get_bool(param_names::LOG_QUERY_PARAMETERS),
+            None
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_option_overrides_log_query_seed() {
+        use crate::apis::database_driver_v1::global_state::DriverProviders;
+        use crate::fs_adapter::RealFs;
+        use crate::logging::LogManager;
+        use std::sync::Arc;
+
+        let lm = LogManager::with_none_subscriber(Arc::new(RealFs))
+            .with_query_log_defaults(Some(true), Some(true));
+        let ds = DatabaseDriverV1::with_providers(DriverProviders {
+            log_manager: Some(lm),
+            ..Default::default()
+        });
+
+        let handle = ds.connection_new();
+        ds.connection_set_option(handle, "log_query_text".into(), Setting::Bool(false))
+            .await
+            .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.connection_seed.get_bool(param_names::LOG_QUERY_TEXT),
+            Some(false),
+            "explicit option must override the ini-derived seed default"
+        );
+        assert_eq!(
+            conn.connection_seed
+                .get_bool(param_names::LOG_QUERY_PARAMETERS),
+            Some(true),
+            "untouched seed default should still be honored"
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_rejects_statement_scoped_param_on_connection_seed() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        let err = ds
+            .connection_set_option(handle, "async_execution".into(), Setting::Bool(true))
+            .await
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("statement-scoped"), "unexpected error: {msg}");
+        ds.connection_release(handle).unwrap();
+    }
+
+    /// `set_option` with the canonical `put_get_max_attempts` key must land
+    /// on `connection_seed` so the PUT/GET dispatch site can read it.
+    #[tokio::test]
+    async fn connection_set_option_put_get_max_attempts_lands_on_seed() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            param_names::PUT_GET_MAX_ATTEMPTS.as_str().into(),
+            Setting::Int(10),
+        )
+        .await
+        .unwrap();
+
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+        let conn = conn_ptr.lock().await;
+        assert_eq!(
+            conn.connection_seed
+                .get_int(param_names::PUT_GET_MAX_ATTEMPTS),
+            Some(10),
+        );
+        drop(conn);
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_rejects_session_scoped_after_post_connect() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+        let err = ds
+            .connection_set_option(handle, "database".into(), Setting::String("x".into()))
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("session-scoped"),
+            "unexpected: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_rejects_immutable_connection_param_after_post_connect() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+        }
+        let err = ds
+            .connection_set_option(handle, "account".into(), Setting::String("other".into()))
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("cannot be changed after connect"),
+            "unexpected: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_set_session_option_rejects_before_post_connect() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        let err = ds
+            .connection_set_session_option(handle, "database".into(), Setting::String("db".into()))
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("after the connection is established")
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_returns_all_settings() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            "host".into(),
+            Setting::String("snow.example.com".into()),
+        )
+        .await
+        .unwrap();
+        ds.connection_set_option(handle, "port".into(), Setting::Int(8080))
+            .await
+            .unwrap();
+        ds.connection_set_option(
+            handle,
+            "account".into(),
+            Setting::String("my_account".into()),
+        )
+        .await
+        .unwrap();
+        ds.connection_set_option(handle, "user".into(), Setting::String("my_user".into()))
+            .await
+            .unwrap();
+        ds.connection_set_option(handle, "role".into(), Setting::String("my_role".into()))
+            .await
+            .unwrap();
+        ds.connection_set_option(handle, "database".into(), Setting::String("my_db".into()))
+            .await
+            .unwrap();
+        ds.connection_set_option(handle, "schema".into(), Setting::String("my_schema".into()))
+            .await
+            .unwrap();
+        ds.connection_set_option(handle, "warehouse".into(), Setting::String("my_wh".into()))
+            .await
+            .unwrap();
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+
+        assert_eq!(info.host, Some("snow.example.com".into()));
+        assert_eq!(info.port, Some(8080));
+        assert_eq!(info.account, Some("my_account".into()));
+        assert_eq!(info.user, Some("my_user".into()));
+        assert_eq!(info.role, Some("my_role".into()));
+        assert_eq!(info.database, Some("my_db".into()));
+        assert_eq!(info.schema, Some("my_schema".into()));
+        assert_eq!(info.warehouse, Some("my_wh".into()));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_returns_none_for_unset_fields() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+
+        assert_eq!(info.host, None);
+        assert_eq!(info.port, None);
+        assert_eq!(info.account, None);
+        assert_eq!(info.user, None);
+        assert_eq!(info.role, None);
+        assert_eq!(info.database, None);
+        assert_eq!(info.schema, None);
+        assert_eq!(info.warehouse, None);
+        assert!(info.session_token.is_none());
+        assert_eq!(info.session_id, None);
+        assert_eq!(info.proxy_host, None);
+        assert_eq!(info.proxy_port, None);
+        assert_eq!(info.proxy_user, None);
+        assert!(info.proxy_password.is_none());
+        assert_eq!(info.no_proxy, None);
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_returns_proxy_settings() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            "proxy_host".into(),
+            Setting::String("proxy.example.com".into()),
+        )
+        .await
+        .unwrap();
+        ds.connection_set_option(handle, "proxy_port".into(), Setting::Int(8080))
+            .await
+            .unwrap();
+        ds.connection_set_option(handle, "proxy_user".into(), Setting::String("puser".into()))
+            .await
+            .unwrap();
+        ds.connection_set_option(
+            handle,
+            "proxy_password".into(),
+            Setting::String("ppass".into()),
+        )
+        .await
+        .unwrap();
+        ds.connection_set_option(
+            handle,
+            "no_proxy".into(),
+            Setting::String("localhost,127.0.0.1".into()),
+        )
+        .await
+        .unwrap();
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+
+        assert_eq!(info.proxy_host, Some("proxy.example.com".into()));
+        assert_eq!(info.proxy_port, Some(8080));
+        assert_eq!(info.proxy_user, Some("puser".into()));
+        assert_eq!(
+            info.proxy_password.as_ref().map(|p| p.reveal().as_str()),
+            Some("ppass")
+        );
+        assert_eq!(info.no_proxy, Some("localhost,127.0.0.1".into()));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    /// The legacy ODBC `PROXY` URL form must be parsed and surfaced through
+    /// `connection_get_info` exactly as the HTTP client sees it, since the
+    /// info aggregation reuses `ProxyConfig::from_settings`.
+    #[tokio::test]
+    async fn connection_get_info_parses_legacy_proxy_url() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            "proxy".into(),
+            Setting::String("http://puser:ppass@proxy.example.com:8080".into()),
+        )
+        .await
+        .unwrap();
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+
+        assert_eq!(info.proxy_host, Some("proxy.example.com".into()));
+        assert_eq!(info.proxy_port, Some(8080));
+        assert_eq!(info.proxy_user, Some("puser".into()));
+        assert_eq!(
+            info.proxy_password.as_ref().map(|p| p.reveal().as_str()),
+            Some("ppass")
+        );
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    /// On a pre-login connection the cached server version must surface as
+    /// `None` so callers can render `SQL_DBMS_VER` / `getDatabaseProductVersion`
+    /// as empty rather than failing the surrounding ODBC/JDBC call.
+    #[tokio::test]
+    async fn connection_get_server_version_returns_none_before_login() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        let version = ds.connection_get_server_version(handle).await.unwrap();
+
+        assert_eq!(version, None);
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    /// Whatever the login response wrote into `Connection.server_version`
+    /// must round-trip through `connection_get_server_version` unchanged.
+    /// This is the invariant that backs `SQLGetInfo(SQL_DBMS_VER)` in ODBC
+    /// and `getDatabaseProductVersion` in JDBC.
+    #[tokio::test]
+    async fn connection_get_server_version_returns_cached_value() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        if let Some(conn_ptr) = ds.connections.get_obj(handle) {
+            let conn = conn_ptr.lock().await;
+            *conn.server_version.write().unwrap() = Some("9.34.0".into());
+        }
+
+        let version = ds.connection_get_server_version(handle).await.unwrap();
+
+        assert_eq!(version, Some("9.34.0".into()));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    /// Calling the getter on a released handle must produce a structured
+    /// `invalid_argument`, mirroring how the other connection-scoped
+    /// getters fail. Guards against accidental panics from `unwrap()` if
+    /// someone re-wires `connections.get_obj` later.
+    #[tokio::test]
+    async fn connection_get_server_version_invalid_handle_returns_error() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_release(handle).unwrap();
+
+        let err = ds
+            .connection_get_server_version(handle)
+            .await
+            .expect_err("released handle must not succeed");
+        assert!(
+            matches!(err, ApiError::InvalidArgument { .. }),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_session_params_override_settings() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            "database".into(),
+            Setting::String("original_db".into()),
+        )
+        .await
+        .unwrap();
+        ds.connection_set_option(
+            handle,
+            "role".into(),
+            Setting::String("original_role".into()),
+        )
+        .await
+        .unwrap();
+
+        if let Some(conn_ptr) = ds.connections.get_obj(handle) {
+            let conn = conn_ptr.lock().await;
+            conn.session_parameters
+                .write()
+                .await
+                .insert("DATABASE".into(), Setting::String("session_db".into()));
+            conn.session_parameters
+                .write()
+                .await
+                .insert("ROLE".into(), Setting::String("session_role".into()));
+        }
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+
+        assert_eq!(info.database, Some("session_db".into()));
+        assert_eq!(info.role, Some("session_role".into()));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_final_names_override_session_params() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        ds.connection_set_option(
+            handle,
+            "database".into(),
+            Setting::String("setting_db".into()),
+        )
+        .await
+        .unwrap();
+
+        if let Some(conn_ptr) = ds.connections.get_obj(handle) {
+            let conn = conn_ptr.lock().await;
+            conn.session_parameters
+                .write()
+                .await
+                .insert("DATABASE".into(), Setting::String("session_db".into()));
+            conn.final_session_names.write().unwrap().database = Some("final_db".into());
+        }
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+        assert_eq!(info.database, Some("final_db".into()));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn update_session_params_cache_stores_final_names_separately() {
+        let conn = Connection::new();
+        let final_names = FinalSessionNames {
+            database: Some("new_db".into()),
+            schema: Some("new_schema".into()),
+            warehouse: None,
+            role: None,
+        };
+
+        conn.update_session_params_cache("SELECT 1", None, &final_names)
+            .await;
+
+        let cache = conn.session_parameters.read().await;
+        assert!(
+            cache.get("DATABASE").is_none(),
+            "final names should not be stored in session_parameters"
+        );
+        assert!(
+            cache.get("SCHEMA").is_none(),
+            "final names should not be stored in session_parameters"
+        );
+
+        let names = conn.final_session_names.read().unwrap();
+        assert_eq!(names.database, Some("new_db".into()));
+        assert_eq!(names.schema, Some("new_schema".into()));
+    }
+
+    #[tokio::test]
+    async fn update_session_params_cache_applies_alter_session_when_opted_in() {
+        let mut conn = Connection::new();
+        conn.optimistic_alter_session_param_cache = true;
+
+        conn.update_session_params_cache(
+            "ALTER SESSION SET QUERY_TAG = 'tag_from_sql'",
+            None,
+            &FinalSessionNames::default(),
+        )
+        .await;
+
+        assert_eq!(
+            conn.session_parameters.read().await.get("QUERY_TAG"),
+            Some(&Setting::String("tag_from_sql".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn update_session_params_cache_ignores_alter_session_sql_when_not_opted_in() {
+        let conn = Connection::new();
+
+        conn.update_session_params_cache(
+            "ALTER SESSION SET QUERY_TAG = 'tag_from_sql'",
+            None,
+            &FinalSessionNames::default(),
+        )
+        .await;
+
+        assert!(
+            conn.session_parameters
+                .read()
+                .await
+                .get("QUERY_TAG")
+                .is_none(),
+            "the SQL parse must not run for a wrapper that did not opt in"
+        );
+    }
+
+    #[tokio::test]
+    async fn update_session_params_cache_applies_response_parameters_without_opt_in() {
+        let conn = Connection::new();
+        let parameters = vec![crate::rest::snowflake::query_response::NameValueParameter {
+            name: "QUERY_TAG".into(),
+            value: serde_json::Value::String("tag_from_response".into()),
+        }];
+
+        conn.update_session_params_cache(
+            "ALTER SESSION SET QUERY_TAG = 'tag_from_sql'",
+            Some(&parameters),
+            &FinalSessionNames::default(),
+        )
+        .await;
+
+        assert_eq!(
+            conn.session_parameters.read().await.get("QUERY_TAG"),
+            Some(&Setting::String("tag_from_response".into()))
+        );
+    }
+
+    async fn setup_connection_for_http_tests(ds: &DatabaseDriverV1) -> Handle {
+        let handle = ds.connection_new();
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(
+                reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_millis(100))
+                    .build()
+                    .unwrap(),
+            );
+            conn.server_url = Some("https://192.0.2.1:9".into());
+            let tokens = SessionTokens {
+                session_token: "test-session-token".into(),
+                master_token: "test-master-token".into(),
+                session_id: Some(1),
+                session_expires_at: None,
+                master_expires_at: None,
+                master_validity: None,
+            };
+            *conn.tokens.write().await = Some(tokens);
+        }
+        handle
+    }
+
+    #[tokio::test]
+    async fn send_http_rejects_absolute_https_url() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+        let err = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "GET".into(),
+                "https://evil.com/steal".into(),
+                HashMap::new(),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Absolute URLs are not allowed"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_http_rejects_absolute_http_url() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+        let err = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "GET".into(),
+                "http://evil.com/steal".into(),
+                HashMap::new(),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Absolute URLs are not allowed"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_http_rejects_scheme_relative_url() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+        let err = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "GET".into(),
+                "//evil.com/path".into(),
+                HashMap::new(),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Absolute URLs are not allowed"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_http_rejects_unsupported_method() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+        let err = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "TRACE".into(),
+                "/session/token-request".into(),
+                HashMap::new(),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Unsupported HTTP method"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_http_strips_authorization_header() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+
+        let mut headers = HashMap::new();
+        headers.insert("Authorization".into(), "Bearer evil-token".into());
+        headers.insert("Content-Type".into(), "application/json".into());
+
+        // The call will fail at the network level (no real server), but it should
+        // get past the header validation without error -- the Authorization header
+        // is silently stripped, not rejected.
+        let result = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "POST".into(),
+                "/session/token-request".into(),
+                headers,
+                None,
+            )
+            .await;
+
+        // We expect a network error (connection refused / DNS), not an InvalidArgument
+        assert!(
+            result.is_err(),
+            "expected network error from non-existent server"
+        );
+        let err = result.unwrap_err();
+        assert!(
+            !err.to_string().contains("Authorization"),
+            "Authorization header should be silently stripped, not cause an error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_http_rejects_invalid_header_name() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+
+        let mut headers = HashMap::new();
+        headers.insert("Invalid Header\nName".into(), "value".into());
+
+        let err = ds
+            .connection_send_http_request(
+                None,
+                handle,
+                "GET".into(),
+                "/api/test".into(),
+                headers,
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("Invalid header name"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn token_request_rejects_invalid_request_type() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_http_tests(&ds).await;
+        let err = ds
+            .connection_token_request(None, handle, "INVALID".into())
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("must be 'ISSUE' or 'RENEW'"),
+            "unexpected error: {err}"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_uses_bearer_for_pat_with_external_session() {
+        use serde_json::json;
+        use wiremock::matchers::{header, method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/session/heartbeat"))
+            .and(header("Authorization", "Bearer pat-token"))
+            .and(header("X-Snowflake-External-Session-ID", "ext-session-1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true})))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        {
+            let conn_ptr = ds.connections.get_obj(handle).expect("new handle");
+            let mut conn = conn_ptr.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+            conn.server_url = Some(server.uri());
+            conn.client_info =
+                Some(crate::config::rest_parameters::test_fixtures::test_client_info());
+            conn.external_session_id = Some("ext-session-1".into());
+            *conn.tokens.write().await = Some(SessionTokens {
+                session_token: "pat-token".into(),
+                master_token: SensitiveString::from(""),
+                session_id: None,
+                session_expires_at: None,
+                master_expires_at: None,
+                master_validity: None,
+            });
+        }
+
+        assert!(ds.connection_heartbeat(handle).await.unwrap());
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_reports_invalid_pat_external_session() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/session/heartbeat"))
+            .respond_with(ResponseTemplate::new(401))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        {
+            let conn_ptr = ds.connections.get_obj(handle).expect("new handle");
+            let mut conn = conn_ptr.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+            conn.server_url = Some(server.uri());
+            conn.client_info =
+                Some(crate::config::rest_parameters::test_fixtures::test_client_info());
+            conn.external_session_id = Some("ext-session-1".into());
+            *conn.tokens.write().await = Some(SessionTokens {
+                session_token: "pat-token".into(),
+                master_token: SensitiveString::from(""),
+                session_id: None,
+                session_expires_at: None,
+                master_expires_at: None,
+                master_validity: None,
+            });
+        }
+
+        assert!(!ds.connection_heartbeat(handle).await.unwrap());
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn token_request_rejects_pat_external_session_without_http() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+        {
+            let conn_ptr = ds.connections.get_obj(handle).expect("new handle");
+            let mut conn = conn_ptr.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+            conn.server_url = Some(format!("http://{addr}"));
+            conn.client_info =
+                Some(crate::config::rest_parameters::test_fixtures::test_client_info());
+            conn.external_session_id = Some("ext-session-1".into());
+            *conn.tokens.write().await = Some(SessionTokens {
+                session_token: "pat-token".into(),
+                master_token: SensitiveString::from(""),
+                session_id: None,
+                session_expires_at: None,
+                master_expires_at: None,
+                master_validity: None,
+            });
+        }
+
+        let err = ds
+            .connection_token_request(None, handle, "RENEW".into())
+            .await
+            .expect_err("PAT_WITH_EXTERNAL_SESSION has no master token to renew");
+
+        assert_eq!(
+            err.kind(),
+            crate::apis::database_driver_v1::ErrorKind::AuthenticationError
+        );
+        let ApiError::TokenRequest { source, .. } = &err else {
+            panic!("expected TokenRequest, got {err:?}");
+        };
+        assert!(
+            matches!(
+                source.as_ref(),
+                RestError::MissingMasterToken {
+                    operation: "token request",
+                    ..
+                }
+            ),
+            "expected MissingMasterToken, got {source:?}"
+        );
+        assert_eq!(
+            err.to_string(),
+            "Token request failed: This session has no master token, so token request cannot be performed"
+        );
+        ds.connection_release(handle).unwrap();
+    }
+
+    async fn setup_connection_for_heartbeat_tests(
+        ds: &DatabaseDriverV1,
+        server_url: &str,
+    ) -> Handle {
+        let handle = ds.connection_new();
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.http_client = Some(reqwest::Client::new());
+            conn.server_url = Some(server_url.to_string());
+            conn.client_info =
+                Some(crate::config::rest_parameters::test_fixtures::test_client_info());
+            let tokens = SessionTokens {
+                session_token: "test-session-token".into(),
+                master_token: "test-master-token".into(),
+                session_id: Some(1),
+                session_expires_at: None,
+                master_expires_at: Some(TokenExpiry::from_duration(
+                    std::time::Duration::from_secs(14400),
+                )),
+                master_validity: Some(std::time::Duration::from_secs(14400)),
+            };
+            *conn.tokens.write().await = Some(tokens);
+        }
+        handle
+    }
+
+    #[tokio::test]
+    async fn heartbeat_returns_true_on_success() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/session/heartbeat"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({"success": true})),
+            )
+            .mount(&server)
+            .await;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &server.uri()).await;
+
+        let valid = ds.connection_heartbeat(handle).await.unwrap();
+        assert!(valid, "heartbeat should return true on success");
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_returns_false_on_failure_response() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/session/heartbeat"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(
+                serde_json::json!({"success": false, "message": "Heartbeat failed", "code": "390100"}),
+            ))
+            .mount(&server)
+            .await;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &server.uri()).await;
+
+        let valid = ds.connection_heartbeat(handle).await.unwrap();
+        assert!(!valid, "heartbeat should return false on failure response");
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_records_a_session_the_server_reports_gone() {
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, MockServer, ResponseTemplate};
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/session/heartbeat"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "success": false,
+                "message": "Session no longer exists.",
+                "code": snowflake::SESSION_GONE.to_string(),
+            })))
+            .mount(&server)
+            .await;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &server.uri()).await;
+
+        assert!(!ds.connection_heartbeat(handle).await.unwrap());
+        assert_eq!(
+            ds.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::Terminated,
+            "a heartbeat the server answers with 390111 must end the session"
+        );
+        assert!(
+            !ds.connection_is_expired(handle).await.unwrap(),
+            "390111 is not a dead master token"
+        );
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn should_report_a_session_reported_gone_on_a_query_as_terminated() {
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, "http://127.0.0.1:1").await;
+        let conn_ptr = ds.connections.get_obj(handle).unwrap();
+
+        let mut ctx = RefreshContext::from_arc(&conn_ptr).await.unwrap();
+        ctx.refresh_token(None).await.unwrap();
+        ctx.refresh_token(Some(query_failed_with(snowflake::SESSION_GONE)))
+            .await
+            .expect_err("a gone session leaves nothing to refresh");
+
+        assert_eq!(
+            ds.connection_is_usable(handle).await.unwrap(),
+            ConnectionUsability::Terminated,
+            "the flag the refresh context writes must reach the connection"
+        );
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn heartbeat_returns_false_on_network_error() {
+        // Bind to an ephemeral port, capture the address, then close the listener
+        // so the port is guaranteed to refuse connections.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &format!("http://{addr}")).await;
+
+        let valid = ds.connection_heartbeat(handle).await.unwrap();
+        assert!(!valid, "heartbeat should return false on network error");
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    async fn attach_host_backend(ds: &DatabaseDriverV1, handle: Handle) {
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let mut conn = c.lock().await;
+            conn.xp_slot = Arc::new(XpSlot::new(
+                true,
+                Some(Arc::new(crate::xp_backend::TestBackend)),
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn heartbeat_skips_http_when_host_backend_active() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &format!("http://{addr}")).await;
+        attach_host_backend(&ds, handle).await;
+
+        let valid = ds.connection_heartbeat(handle).await.unwrap();
+        assert!(valid, "XP heartbeat must not contact the session endpoint");
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn token_request_skips_http_when_host_backend_active() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let ds = DatabaseDriverV1::new();
+        let handle = setup_connection_for_heartbeat_tests(&ds, &format!("http://{addr}")).await;
+        attach_host_backend(&ds, handle).await;
+
+        let result = ds
+            .connection_token_request(None, handle, "ISSUE".into())
+            .await
+            .expect("XP token request must not send HTTP");
+        assert_eq!(result.session_token.reveal(), "test-session-token");
+        assert!(result.validity_in_seconds.is_none());
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn session_refresh_skips_http_when_host_backend_active() {
+        let tokens = SessionTokens {
+            session_token: "keep-session".into(),
+            master_token: "keep-master".into(),
+            session_id: Some(7),
+            session_expires_at: None,
+            master_expires_at: None,
+            master_validity: None,
+        };
+        let backend: Arc<dyn SnowflakeBackend> = Arc::new(crate::xp_backend::TestBackend);
+        let ctx = RefreshContext::from_parts(
+            Arc::new(AsyncRwLock::new(Some(tokens.clone()))),
+            reqwest::Client::new(),
+            "http://127.0.0.1:1".into(),
+            crate::config::rest_parameters::test_fixtures::test_client_info(),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicBool::new(false)),
+            Some(backend),
+        );
+        let renewed = ctx
+            .renew_session_tokens(&tokens)
+            .await
+            .expect("XP refresh must not send HTTP");
+        assert_eq!(renewed.session_token.reveal(), "keep-session");
+        assert_eq!(renewed.master_token.reveal(), "keep-master");
+        assert_eq!(renewed.session_id, Some(7));
+    }
+
+    fn session_gone_context(
+        session_terminated: &Arc<AtomicBool>,
+        server_url: &str,
+    ) -> RefreshContext {
+        RefreshContext::from_parts(
+            Arc::new(AsyncRwLock::new(Some(SessionTokens {
+                session_token: "session".into(),
+                master_token: "master".into(),
+                session_id: Some(1),
+                session_expires_at: None,
+                master_expires_at: None,
+                master_validity: None,
+            }))),
+            reqwest::Client::new(),
+            server_url.to_string(),
+            crate::config::rest_parameters::test_fixtures::test_client_info(),
+            Arc::new(AtomicBool::new(false)),
+            session_terminated.clone(),
+            None,
+        )
+    }
+
+    fn query_failed_with(code: i32) -> RestError {
+        RestError::QueryFailed {
+            message: "Session no longer exists.".to_string(),
+            code: Some(code),
+            sql_state: None,
+            ids: snowflake::QueryIds::default(),
+            location: snafu::Location::default(),
+            query_context: None,
+        }
+    }
+
+    fn refresh_failed_with(code: i32) -> RestError {
+        RestError::SessionRefreshFailed {
+            message: "Session refresh refused.".to_string(),
+            code,
+            location: snafu::Location::default(),
+        }
+    }
+
+    #[tokio::test]
+    async fn should_record_a_session_the_server_reports_gone() {
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        ctx.refresh_token(None).await.unwrap();
+
+        let err = ctx
+            .refresh_token(Some(query_failed_with(snowflake::SESSION_GONE)))
+            .await
+            .expect_err("a gone session leaves nothing to refresh");
+
+        assert!(
+            matches!(&err, ApiError::Query { source, .. } if reports_session_gone(source)),
+            "the server's own error must propagate, got {err:?}"
+        );
+        assert!(session_terminated.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn should_record_a_session_reported_gone_after_a_refresh() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/session/token-request"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "success": true,
+                    "data": {
+                        "sessionToken": "renewed-session",
+                        "masterToken": "renewed-master",
+                        "sessionId": 2
+                    }
+                })),
+            )
+            .mount(&server)
+            .await;
+
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        ctx.refresh_token(None).await.unwrap();
+        ctx.refresh_token(Some(RestError::SessionExpired {
+            location: snafu::Location::default(),
+        }))
+        .await
+        .expect("the renewal succeeds");
+
+        ctx.refresh_token(Some(query_failed_with(snowflake::SESSION_GONE)))
+            .await
+            .expect_err("a gone session leaves nothing to refresh");
+
+        assert!(
+            session_terminated.load(Ordering::SeqCst),
+            "a session reported gone after the refresh must still be recorded"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_record_a_session_reported_gone_on_the_retrying_path() {
+        use crate::refresh::Refresher;
+
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+
+        let refresh = Refresher::<SensitiveString, ApiError>::should_refresh(
+            &ctx,
+            &ApiError::Query {
+                source: Box::new(query_failed_with(snowflake::SESSION_GONE)),
+                location: snafu::Location::default(),
+            },
+        );
+
+        assert!(!refresh, "a gone session must not be refreshed");
+        assert!(session_terminated.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn should_record_a_renewal_the_server_refuses() {
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/session/token-request"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "success": false,
+                    "code": "390111",
+                    "message": "Session no longer exists."
+                })),
+            )
+            .mount(&server)
+            .await;
+
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        ctx.refresh_token(None).await.unwrap();
+
+        ctx.refresh_token(Some(RestError::SessionExpired {
+            location: snafu::Location::default(),
+        }))
+        .await
+        .expect_err("a refused renewal must not yield a token");
+
+        assert!(
+            session_terminated.load(Ordering::SeqCst),
+            "a renewal the server answers and refuses must mark the session terminated"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_record_a_refused_renewal_on_the_retrying_path() {
+        use crate::refresh::Refresher;
+
+        let server = wiremock::MockServer::start().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path("/session/token-request"))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "success": false,
+                    "code": "390111",
+                    "message": "Session no longer exists."
+                })),
+            )
+            .mount(&server)
+            .await;
+
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, &server.uri());
+        Refresher::<SensitiveString, ApiError>::current(&mut ctx)
+            .await
+            .unwrap();
+
+        Refresher::<SensitiveString, ApiError>::refresh(&mut ctx)
+            .await
+            .expect_err("a refused renewal must not report a rotation");
+
+        assert!(
+            session_terminated.load(Ordering::SeqCst),
+            "the retrying path must record the refusal the same way"
+        );
+    }
+
+    #[tokio::test]
+    async fn should_leave_the_session_alone_when_a_renewal_cannot_reach_the_server() {
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        ctx.refresh_token(None).await.unwrap();
+
+        ctx.refresh_token(Some(RestError::SessionExpired {
+            location: snafu::Location::default(),
+        }))
+        .await
+        .expect_err("an unreachable server must not yield a token");
+
+        assert!(
+            !session_terminated.load(Ordering::SeqCst),
+            "a transport failure says nothing about the session"
+        );
+    }
+
+    #[test]
+    fn should_mark_terminated_only_when_renew_cannot_recover_the_session() {
+        for code in [snowflake::SESSION_GONE, snowflake::SESSION_CLOSED] {
+            let session_terminated = Arc::new(AtomicBool::new(false));
+            let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+            ctx.record_failed_renewal(&refresh_failed_with(code));
+            assert!(
+                session_terminated.load(Ordering::SeqCst),
+                "GS {code} on RENEW must mark the session terminated"
+            );
+        }
+
+        for code in [390104, 390110, 390142, 390204, 390261, 390400] {
+            let session_terminated = Arc::new(AtomicBool::new(false));
+            let ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+            ctx.record_failed_renewal(&refresh_failed_with(code));
+            assert!(
+                !session_terminated.load(Ordering::SeqCst),
+                "GS {code} on RENEW must not mark the session terminated"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn should_record_a_closed_session_the_same_way_as_a_gone_one() {
+        let session_terminated = Arc::new(AtomicBool::new(false));
+        let mut ctx = session_gone_context(&session_terminated, "http://127.0.0.1:1");
+        ctx.refresh_token(None).await.unwrap();
+
+        let err = ctx
+            .refresh_token(Some(query_failed_with(snowflake::SESSION_CLOSED)))
+            .await
+            .expect_err("a closed session leaves nothing to refresh");
+
+        assert!(
+            matches!(&err, ApiError::Query { source, .. } if reports_session_gone(source)),
+            "the server's own error must propagate, got {err:?}"
+        );
+        assert!(session_terminated.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn heartbeat_returns_false_when_not_initialized() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        let valid = ds.connection_heartbeat(handle).await.unwrap();
+        assert!(
+            !valid,
+            "heartbeat should return false on uninitialized connection"
+        );
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_all_parameters_returns_empty_by_default() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        let params = ds.connection_get_all_parameters(handle).await.unwrap();
+        assert!(params.is_empty());
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_all_parameters_returns_cached_values() {
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        if let Some(c) = ds.connections.get_obj(handle) {
+            let conn = c.lock().await;
+            let mut cache = conn.session_parameters.write().await;
+            cache.insert(
+                "TIMEZONE".into(),
+                Setting::String("America/Los_Angeles".into()),
+            );
+            cache.insert("QUERY_TAG".into(), Setting::String("test_tag".into()));
+        }
+
+        let params = ds.connection_get_all_parameters(handle).await.unwrap();
+        assert_eq!(
+            params.get("TIMEZONE").unwrap(),
+            &Setting::String("America/Los_Angeles".into())
+        );
+        assert_eq!(
+            params.get("QUERY_TAG").unwrap(),
+            &Setting::String("test_tag".into())
+        );
+        assert_eq!(params.len(), 2);
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn connection_get_info_user_agent_reflects_client_info() {
+        use crate::config::rest_parameters::test_fixtures::test_client_info;
+
+        let ds = DatabaseDriverV1::new();
+        let handle = ds.connection_new();
+
+        // No client_info set: user_agent must be None.
+        let info = ds.connection_get_info(handle).await.unwrap();
+        assert_eq!(info.user_agent, None);
+
+        // Inject a ClientInfo and verify the UA string is populated.
+        let ci = test_client_info();
+        let expected_ua = crate::rest::snowflake::user_agent(&ci);
+        if let Some(conn_ptr) = ds.connections.get_obj(handle) {
+            let mut conn = conn_ptr.lock().await;
+            conn.client_info = Some(ci);
+        }
+
+        let info = ds.connection_get_info(handle).await.unwrap();
+        assert_eq!(info.user_agent, Some(expected_ua));
+
+        ds.connection_release(handle).unwrap();
+    }
+
+    #[tokio::test]
+    async fn session_guard_excludes_a_second_holder_when_serializing() {
+        let ds = DatabaseDriverV1::with_providers(DriverProviders {
+            wrapper_presets: WrapperPresets::odbc(),
+            ..Default::default()
+        });
+        let conn = Arc::new(Mutex::new(Connection::new()));
+        let session_guard = ds.lock_session_if_needed(&conn).await;
+        assert!(session_guard.is_some());
+        let raced_guard =
+            tokio::time::timeout(Duration::from_millis(20), ds.lock_session_if_needed(&conn)).await;
+        assert!(raced_guard.is_err(), "second holder must wait on the gate");
+        drop(session_guard);
+        assert!(ds.lock_session_if_needed(&conn).await.is_some());
+    }
+
+    #[tokio::test]
+    async fn session_guard_is_absent_when_not_serializing() {
+        for presets in [WrapperPresets::python(), WrapperPresets::jdbc()] {
+            let ds = DatabaseDriverV1::with_providers(DriverProviders {
+                wrapper_presets: presets,
+                ..Default::default()
+            });
+            let conn = Arc::new(Mutex::new(Connection::new()));
+            assert!(ds.lock_session_if_needed(&conn).await.is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn session_guard_excludes_a_second_holder_when_python_overrides_true() {
+        let ds = DatabaseDriverV1::with_providers(DriverProviders {
+            wrapper_presets: WrapperPresets::python(),
+            ..Default::default()
+        });
+        let conn = Arc::new(Mutex::new(make_connection_with_settings(vec![(
+            "serialize_session_operations",
+            Setting::Bool(true),
+        )])));
+        let session_guard = ds.lock_session_if_needed(&conn).await;
+        assert!(session_guard.is_some());
+        let raced_guard =
+            tokio::time::timeout(Duration::from_millis(20), ds.lock_session_if_needed(&conn)).await;
+        assert!(raced_guard.is_err(), "second holder must wait on the gate");
+        drop(session_guard);
+        assert!(ds.lock_session_if_needed(&conn).await.is_some());
+    }
+
+    #[tokio::test]
+    async fn session_guard_is_absent_when_odbc_overrides_false() {
+        let ds = DatabaseDriverV1::with_providers(DriverProviders {
+            wrapper_presets: WrapperPresets::odbc(),
+            ..Default::default()
+        });
+        let conn = Arc::new(Mutex::new(make_connection_with_settings(vec![(
+            "serialize_session_operations",
+            Setting::Bool(false),
+        )])));
+        assert!(ds.lock_session_if_needed(&conn).await.is_none());
+    }
+}

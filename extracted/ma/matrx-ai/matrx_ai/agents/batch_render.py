@@ -80,7 +80,7 @@ async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
     from matrx_ai.orchestrator.requests import AIMatrixRequest
     from matrx_ai.providers.unified_client import UnifiedAIClient
 
-    if (agent.variable_values or agent.variable_defaults) and not agent._variables_applied:
+    if not agent._variables_applied:
         await agent.prepare_variables()  # the pre-substitution step, as execute runs it
         agent.apply_variables()
 

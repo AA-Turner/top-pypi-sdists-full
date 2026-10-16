@@ -16,9 +16,10 @@
 //! - **Async-first** - Built on tokio
 //! - **Experimental: Git** - Virtual git operations on the VFS (`git` feature)
 //! - **Experimental: Python** - Embedded Python via [Monty](https://github.com/pydantic/monty) (`python` feature)
+//! - **Python (CPython)** - Real CPython 3.14 in a WebAssembly sandbox (`cpython` feature)
 //! - **Experimental: SQLite** - Embedded SQLite-compatible engine via [Turso](https://github.com/tursodatabase/turso) (`sqlite` feature)
 //!
-//! # Built-in Commands (164)
+//! # Built-in Commands (182)
 //!
 //! | Category | Commands |
 //! |----------|----------|
@@ -26,21 +27,21 @@
 //! | Navigation | `cd`, `pwd`, `ls`, `find`, `tree`, `pushd`, `popd`, `dirs` |
 //! | Flow control | `true`, `false`, `exit`, `return`, `break`, `continue`, `test`, `[`, `assert` |
 //! | Variables | `export`, `set`, `unset`, `local`, `shift`, `source`, `.`, `eval`, `readonly`, `times`, `declare`, `typeset`, `let`, `dotenv`, `envsubst` |
-//! | Shell | `bash`, `sh` (virtual re-invocation), `exec`, `:`, `trap`, `caller`, `getopts`, `shopt`, `command`, `type`, `which`, `hash`, `alias`, `unalias`, `compgen`, `fc`, `help` |
+//! | Shell | `bash`, `sh` (virtual re-invocation), `exec`, `:`, `trap`, `caller`, `getopts`, `shopt`, `command`, `builtin`, `enable`, `umask`, `ulimit`, `type`, `which`, `hash`, `alias`, `unalias`, `compgen`, `fc`, `help` |
 //! | Text processing | `grep`, `rg`, `sed`, `awk`, `jq` and `yq` (with `jq` feature), `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `paste`, `column`, `diff`, `comm`, `strings`, `tac`, `rev`, `seq`, `expr`, `fold`, `expand`, `unexpand`, `join`, `split`, `iconv`, `shuf`, `template` |
-//! | File operations | `mkdir`, `mktemp`, `mkfifo`, `rm`, `cp`, `mv`, `touch`, `chmod`, `chown`, `ln`, `rmdir`, `realpath`, `readlink`, `truncate`, `glob`, `patch` |
+//! | File operations | `mkdir`, `mktemp`, `mkfifo`, `rm`, `cp`, `mv`, `touch`, `chmod`, `chown`, `ln`, `rmdir`, `realpath`, `readlink`, `truncate`, `install`, `dd`, `glob`, `patch` |
 //! | File inspection | `file`, `stat`, `less` |
 //! | Archives | `tar`, `gzip`, `gunzip`, `bzip2`, `bunzip2`, `bzcat`, `zip`, `unzip` |
-//! | Byte tools | `od`, `xxd`, `hexdump`, `base64` |
-//! | Checksums | `md5sum`, `sha1sum`, `sha256sum`, `verify` |
-//! | Utilities | `sleep`, `date`, `basename`, `dirname`, `timeout`, `wait`, `watch`, `yes`, `kill`, `clear`, `numfmt`, `retry`, `parallel` |
+//! | Byte tools | `od`, `xxd`, `hexdump`, `base64`, `base32`, `basenc`, `cmp` |
+//! | Checksums | `md5sum`, `sha1sum`, `sha224sum`, `sha256sum`, `sha384sum`, `sha512sum`, `b2sum`, `cksum`, `verify` |
+//! | Utilities | `sleep`, `date`, `basename`, `dirname`, `timeout`, `wait`, `watch`, `yes`, `kill`, `clear`, `numfmt`, `factor`, `tsort`, `retry`, `parallel` |
 //! | Disk | `df`, `du` |
 //! | Pipeline | `xargs`, `tee` |
-//! | System info | `whoami`, `hostname`, `uname`, `id`, `env`, `printenv`, `history` |
+//! | System info | `whoami`, `hostname`, `uname`, `id`, `nproc`, `locale`, `env`, `printenv`, `history` |
 //! | Structured data | `json`, `csv`, `tomlq`, `semver` |
 //! | Network | `curl`, `wget`, `http` (requires [`NetworkAllowlist`])
 //! | Arithmetic | `bc` |
-//! | Experimental | `python`, `python3` (requires `python` feature), `git` (requires `git` feature), `ts`, `typescript`, `node`, `deno`, `bun` (requires `typescript` feature), `ssh`, `scp`, `sftp` (requires `ssh` feature), `sqlite`, `sqlite3` (requires `sqlite` feature)
+//! | Experimental | `python`, `python3` (requires `python` or `cpython` feature), `git` (requires `git` feature), `ts`, `typescript`, `node`, `deno`, `bun` (requires `typescript` feature), `ssh`, `scp`, `sftp` (requires `ssh` feature), `sqlite`, `sqlite3` (requires `sqlite` feature)
 //!
 //! # Shell Features
 //!
@@ -322,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.18.2", features = ["git"] }
+//! bashkit = { version = "0.19.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -353,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.18.2", features = ["python"] }
+//! bashkit = { version = "0.19.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -406,6 +407,7 @@
 //! - [`live_mounts_guide`] - Live mount/unmount on running instances
 //! - [`namespace_filesystems_guide`] - Static namespaces with rebasing and per-mount access
 //! - `python_guide` - Embedded Python (Monty) guide (requires `python` feature)
+//! - `cpython_guide` - Embedded CPython (WebAssembly) guide (requires `cpython` feature)
 //! - `logging_guide` - Structured logging with security (requires `logging` feature)
 //!
 //! # Resources
@@ -452,28 +454,33 @@ mod network;
 /// Parser module - exposed for fuzzing and testing
 pub mod parser;
 mod profile;
-/// Scripted tool: compose ToolDef+callback pairs into a single Tool via bash scripts.
-/// Requires the `scripted_tool` feature.
-#[cfg(feature = "scripted_tool")]
-pub mod scripted_tool;
+#[cfg(any(feature = "python", feature = "typescript"))]
+mod runtime_call;
 mod snapshot;
 mod stream;
+#[cfg(feature = "terminal")]
+pub mod terminal;
 /// Test-only helpers shared between internal `#[cfg(test)]` modules,
 /// integration tests in `tests/*.rs`, and cargo-fuzz targets in
 /// `fuzz/fuzz_targets/*.rs`. See `knowledge/security/threat-model.md` for the
 /// invariants enforced (TM-INF-013, TM-INF-016, TM-INF-022).
 #[doc(hidden)]
 pub mod testing;
+/// Clock and timer that match the interpreter's target.
+///
+/// Native targets use tokio's clock (it follows paused/advanced test time),
+/// JS-host wasm uses `Performance.now()`/`setTimeout`, and non-JS wasm uses the
+/// embedder-supplied host clock. Code that layers on bashkit (tool registries,
+/// custom builtins) should read time and race deadlines through these so it
+/// agrees with the interpreter's own deadlines on every target.
+pub mod time {
+    pub use crate::time_compat::{Instant, SystemTime, TimeoutElapsed, UNIX_EPOCH, sleep, timeout};
+}
 mod time_compat;
 /// Tool contract for LLM integration.
 /// Requires the `bash_tool` feature (enabled by default).
 #[cfg(feature = "bash_tool")]
 pub mod tool;
-/// Reusable tool primitives: ToolDef, ToolArgs, ToolImpl, exec types.
-#[cfg(feature = "scripted_tool")]
-pub(crate) mod tool_def;
-#[cfg(feature = "scripted_tool")]
-mod tool_registry;
 /// Structured execution trace events.
 pub mod trace;
 pub use stream::StreamData;
@@ -486,7 +493,7 @@ pub use builtins::git::GitConfig;
 pub use builtins::ssh::{SshAllowlist, SshConfig, TrustedHostKey};
 pub use builtins::{
     BashkitContext, Builtin, BuiltinRegistry, ClapBuiltin, CommandResolver,
-    Context as BuiltinContext, Extension,
+    Context as BuiltinContext, ExecutionPlan, Extension, SubCommand,
 };
 pub use clap;
 #[cfg(feature = "http_client")]
@@ -506,7 +513,8 @@ pub use fs::{
 pub use fs::{RealFs, RealFsMode};
 pub use host_call::{ExecutionEvent, ExecutionHandle, HostCallId, HostCallRequest};
 pub use interpreter::{
-    ControlFlow, ExecResult, HistoryEntry, OutputCallback, ShellState, ShellStateView,
+    ControlFlow, ExecResult, HistoryEntry, OutputCallback, ShellFeatures, ShellState,
+    ShellStateView,
 };
 pub use limits::{
     ExecutionBudget, ExecutionBudgetExceeded, ExecutionBudgetLease, ExecutionCounters,
@@ -535,20 +543,6 @@ pub use trace::{
     TraceCallback, TraceCollector, TraceEvent, TraceEventDetails, TraceEventKind, TraceMode,
 };
 
-#[cfg(feature = "scripted_tool")]
-pub use scripted_tool::{
-    AsyncToolCallback, CallbackKind, DiscoverTool, DiscoveryMode, ScriptedCommandInvocation,
-    ScriptedCommandKind, ScriptedExecutionTrace, ScriptedTool, ScriptedToolBuilder,
-    ScriptingToolSet, ScriptingToolSetBuilder, ToolArgs, ToolCallback, ToolDef, ToolDefExtension,
-    ToolDefExtensionBuilder, ToolDefInvocationTrace,
-};
-#[cfg(feature = "scripted_tool")]
-pub use tool_def::{AsyncToolExec, SyncToolExec, ToolImpl};
-#[cfg(feature = "scripted_tool")]
-pub use tool_registry::{
-    ToolCall, ToolCallDecision, ToolCallRequest, ToolCallSurface, ToolRegistry, ToolRegistryBuilder,
-};
-
 #[cfg(feature = "http_client")]
 pub use network::HttpClient;
 
@@ -573,11 +567,16 @@ pub use builtins::git::GitClient;
 pub use builtins::ssh::{SshClient, SshHandler, SshOutput, SshTarget};
 
 #[cfg(feature = "python")]
-pub use builtins::{PythonExternalFnHandler, PythonExternalFns, PythonLimits};
+pub use builtins::{Python, PythonExternalFnHandler, PythonExternalFns, PythonLimits};
 
 // Shared resource-limit core for embedded language VMs (Python, TypeScript).
-#[cfg(any(feature = "python", feature = "typescript"))]
+#[cfg(any(feature = "python", feature = "typescript", feature = "cpython"))]
 pub use builtins::RuntimeLimits;
+#[cfg(any(feature = "python", feature = "typescript"))]
+pub use runtime_call::RuntimeCallContext;
+
+#[cfg(feature = "cpython")]
+pub use builtins::{CPython, CPythonLimits};
 
 #[cfg(feature = "sqlite")]
 pub use builtins::{Sqlite, SqliteBackend, SqliteLimits};
@@ -823,6 +822,31 @@ pub struct Bash {
     /// Real host directories mounted into the VFS, for host-path resolution.
     #[cfg(feature = "realfs")]
     host_mounts: HostMounts,
+    /// Set by [`terminal::Terminal`]: time blocked on terminal input is
+    /// excluded from the execution timeout.
+    #[cfg(feature = "terminal")]
+    input_wait_clock: Option<time_compat::InputWaitClock>,
+    /// Set by [`terminal::Terminal`]: a notify fired on Ctrl-C. While set,
+    /// `exec` aborts the running command mid-way when it fires and the
+    /// cancellation token is set, instead of waiting for the next command
+    /// boundary.
+    #[cfg(feature = "terminal")]
+    interrupt: Option<Arc<tokio::sync::Notify>>,
+    /// `$?` for the next exec: an interactive shell keeps `$?` across lines.
+    #[cfg(feature = "terminal")]
+    carried_exit_code: Option<i32>,
+}
+
+/// Resolve once `notify` fires while `cancel` is set. A notify permit left
+/// over from an earlier command (the flag already reset) is ignored.
+#[cfg(feature = "terminal")]
+async fn wait_for_interrupt(notify: &tokio::sync::Notify, cancel: &std::sync::atomic::AtomicBool) {
+    loop {
+        notify.notified().await;
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+    }
 }
 
 impl Default for Bash {
@@ -921,6 +945,7 @@ impl Bash {
         // THREAT[TM-ISO-027]: close every request-owned boundary on all exits,
         // including timeout/cancellation and unwinding teardown paths.
         let _budget_completion = self.interpreter.execution_budget().completion_guard();
+        self.interpreter.bind_command_hash_budget()?;
         // Expose active execution limits and deadline to builtins that need to
         // honor per-execution sandbox settings inside synchronous VM sections.
         let active_limits = self.interpreter.limits().clone();
@@ -945,12 +970,26 @@ impl Bash {
         if let Ok(exec_result) = &mut result {
             exec_result.capability_cleanup = cleanup;
         }
+        // THREAT[TM-DOS-020]: trap-nesting exhaustion skips the nested
+        // handler without disturbing the interrupted command, but resource
+        // exhaustion still fails the execution, like command fuel.
+        if let Some(depth_error) = self
+            .interpreter
+            .take_trap_depth_error()
+            .filter(|_| result.is_ok())
+        {
+            result = Err(Error::ResourceLimit(depth_error));
+        }
         result
     }
 
     async fn exec_impl(&mut self, script: &str, invocation: Invocation) -> Result<ExecResult> {
         // THREAT[TM-ISO-005/006/007]: Reset transient state between exec() calls
         self.interpreter.reset_transient_state();
+        #[cfg(feature = "terminal")]
+        if let Some(code) = self.carried_exit_code.take() {
+            self.interpreter.set_last_exit_code(code);
+        }
 
         // THREAT[TM-DOS-059]: Count every host exec() call at the boundary so
         // malformed or parser-expensive scripts cannot bypass session limits.
@@ -1023,6 +1062,8 @@ impl Bash {
         }
 
         let parser_timeout = self.parser_timeout;
+        // Aliases and extglob from earlier calls shape this parse.
+        let parse_options = self.interpreter.parse_options();
         let max_ast_depth = self.max_ast_depth;
         let max_parser_operations = self.max_parser_operations;
 
@@ -1034,6 +1075,13 @@ impl Bash {
             max_operations = max_parser_operations,
             "Parsing script"
         );
+
+        // A syntax error after runnable commands is reported as bash reports
+        // one in a script: `$0: line N: ...`.
+        let syntax_who = invocation
+            .arg0
+            .clone()
+            .unwrap_or_else(|| self.interpreter.diag_name());
 
         // Important decision: skip the tokio `spawn_blocking` + `time::timeout`
         // round-trip for small scripts. The parser already enforces a fuel
@@ -1057,8 +1105,9 @@ impl Bash {
                 max_parser_operations,
                 Some(parser_timeout),
             )
-            .with_execution_budget(self.interpreter.execution_budget().clone());
-            parser.parse()?
+            .with_execution_budget(self.interpreter.execution_budget().clone())
+            .with_options(parse_options.clone());
+            recover_partial_parse(parser.parse_recovering(), &syntax_who, script)?
         };
 
         // On native targets, parse inline for small scripts (avoid threadpool
@@ -1067,8 +1116,9 @@ impl Bash {
         #[cfg(not(target_family = "wasm"))]
         let ast = if input_len <= SPAWN_BLOCKING_THRESHOLD {
             let parser = Parser::with_limits(script, max_ast_depth, max_parser_operations)
-                .with_execution_budget(self.interpreter.execution_budget().clone());
-            match parser.parse() {
+                .with_execution_budget(self.interpreter.execution_budget().clone())
+                .with_options(parse_options.clone());
+            match recover_partial_parse(parser.parse_recovering(), &syntax_who, script) {
                 Ok(ast) => {
                     #[cfg(feature = "logging")]
                     tracing::debug!(target: "bashkit::parser", "Parse completed (inline)");
@@ -1083,12 +1133,15 @@ impl Bash {
         } else {
             let script_owned = script.to_owned();
             let execution_budget = self.interpreter.execution_budget().clone();
+            let who = syntax_who.clone();
+            let parse_options = parse_options.clone();
             let parse_result = tokio::time::timeout(parser_timeout, async {
                 tokio::task::spawn_blocking(move || {
                     let parser =
                         Parser::with_limits(&script_owned, max_ast_depth, max_parser_operations)
-                            .with_execution_budget(execution_budget);
-                    parser.parse()
+                            .with_execution_budget(execution_budget)
+                            .with_options(parse_options);
+                    recover_partial_parse(parser.parse_recovering(), &who, &script_owned)
                 })
                 .await
             })
@@ -1140,6 +1193,8 @@ impl Bash {
 
         // Load persisted history on first exec (no-op if already loaded)
         self.interpreter.load_history().await;
+        // The script's text, for bash's line-by-line history (`set -o history`).
+        self.interpreter.set_top_level_source(&ast, script);
 
         // Install per-invocation state (see `Invocation`): after
         // `reset_transient_state` cleared `pipeline_stdin`, and after every
@@ -1162,35 +1217,77 @@ impl Bash {
         // THREAT[TM-DOS-057]: Wrap execution with a host-backed timeout to
         // prevent sleep and pending async callbacks from bypassing the budget.
         let execution_timeout = self.interpreter.limits().timeout;
-        let result =
-            match crate::time_compat::timeout(execution_timeout, self.interpreter.execute(&ast))
-                .await
-            {
-                Ok(r) => r,
-                Err(_elapsed) => {
-                    self.interpreter.clear_cancelled_execution_state();
-                    Err(Error::ResourceLimit(LimitExceeded::Timeout(
-                        execution_timeout,
-                    )))
+        #[cfg(feature = "terminal")]
+        let timed = {
+            let clock = self.input_wait_clock.clone();
+            let interrupt = self.interrupt.clone();
+            let cancel = self.interpreter.cancellation_token();
+            let run = async {
+                match clock {
+                    Some(clock) => {
+                        crate::time_compat::timeout_excluding_input_wait(
+                            execution_timeout,
+                            &clock,
+                            self.interpreter.execute(&ast),
+                        )
+                        .await
+                    }
+                    None => {
+                        crate::time_compat::timeout(
+                            execution_timeout,
+                            self.interpreter.execute(&ast),
+                        )
+                        .await
+                    }
                 }
             };
+            // Terminal Ctrl-C: drop the running command mid-way, the same way
+            // the execution timeout does, then reconcile interpreter state.
+            let outcome = match interrupt {
+                Some(notify) => tokio::select! {
+                    r = run => Some(r),
+                    () = wait_for_interrupt(&notify, &cancel) => None,
+                },
+                None => Some(run.await),
+            };
+            match outcome {
+                Some(r) => r,
+                None => {
+                    self.interpreter.clear_cancelled_execution_state();
+                    Ok(Err(Error::Cancelled))
+                }
+            }
+        };
+        #[cfg(not(feature = "terminal"))]
+        let timed =
+            crate::time_compat::timeout(execution_timeout, self.interpreter.execute(&ast)).await;
+        let result = match timed {
+            Ok(r) => r,
+            Err(_elapsed) => {
+                self.interpreter.clear_cancelled_execution_state();
+                Err(Error::ResourceLimit(LimitExceeded::Timeout(
+                    execution_timeout,
+                )))
+            }
+        };
         // Positional parameters are per-invocation: drop the synthetic frame
         // (and anything the interpreter leaked above it on an error path) so
         // the next exec starts with `$#` back at 0.
         if installed_invocation {
             self.interpreter.truncate_call_stack(call_stack_baseline);
         }
-        // Issue #1184: clean up process substitution temp files after execution.
-        // Done here (outside Interpreter::execute) to avoid increasing the
-        // recursive async state machine size which causes stack overflow.
-        self.interpreter.cleanup_proc_sub_files().await;
+        // Issue #1184: close process substitution fds left open (a compound
+        // command's words, an aborted command) so the next exec starts at 63.
+        self.interpreter.close_proc_sub_fds();
         let duration_ms = exec_start.elapsed().as_millis() as u64;
 
-        // Record history entry for each line of the script
+        // Record history entry for each line of the script, unless the
+        // script recorded its lines as it read them (`set -o history`).
+        let recorded_live = self.interpreter.take_history_recorded_live();
         if let Ok(ref exec_result) = result {
             let cwd = self.interpreter.cwd().to_string_lossy().to_string();
             let timestamp = crate::time_compat::now_utc().timestamp();
-            for line in script.lines() {
+            for line in script.lines().filter(|_| !recorded_live) {
                 let trimmed = line.trim();
                 if !trimmed.is_empty() && !trimmed.starts_with('#') {
                     self.interpreter.record_history(
@@ -1353,6 +1450,13 @@ impl Bash {
         .await
     }
 
+    /// Seed `$?` for the next exec (terminal: `$?` survives across lines,
+    /// and Ctrl-C reports 130).
+    #[cfg(feature = "terminal")]
+    pub(crate) fn carry_exit_code(&mut self, code: i32) {
+        self.carried_exit_code = Some(code);
+    }
+
     /// Return a shared cancellation token.
     ///
     /// Set the token to `true` from any thread to abort execution at the next
@@ -1413,6 +1517,26 @@ impl Bash {
         Arc::clone(&self.fs)
     }
 
+    /// Mark this shell interactive, as a REPL or terminal front end does.
+    ///
+    /// Shell diagnostics then read `bash: nocmd: command not found`, like
+    /// `bash -i`, instead of the non-interactive `bash: line 1: nocmd: ...`
+    /// (`$0: line N: `) form scripts get. Off by default.
+    ///
+    /// ```rust
+    /// # #[tokio::main]
+    /// # async fn main() -> bashkit::Result<()> {
+    /// let mut bash = bashkit::Bash::new();
+    /// assert_eq!(bash.exec("nocmd").await?.stderr, "bash: line 1: nocmd: command not found\n");
+    /// bash.set_interactive(true);
+    /// assert_eq!(bash.exec("nocmd").await?.stderr, "bash: nocmd: command not found\n");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn set_interactive(&mut self, interactive: bool) {
+        self.interpreter.set_interactive(interactive);
+    }
+
     /// Mount a filesystem at `vfs_path` on a live interpreter.
     ///
     /// Unlike [`BashBuilder`] mount methods which configure mounts before build,
@@ -1459,7 +1583,7 @@ impl Bash {
         vfs_path: impl AsRef<std::path::Path>,
         fs: Arc<dyn FileSystem>,
     ) -> Result<()> {
-        // THREAT[TM-DOS-058]: `Bash::fs()` exposes the live outer VFS handle;
+        // THREAT[TM-DOS-118]: `Bash::fs()` exposes the live outer VFS handle;
         // reject mounting that handle back into this Bash before any wrappers
         // can hide pointer identity and recurse through delegated operations.
         if Arc::ptr_eq(&self.fs, &fs) {
@@ -1863,7 +1987,8 @@ pub struct BashBuilder {
     fixed_epoch: Option<i64>,
     /// Constant seconds offset applied to real-clock for `date` (TM-INF-018)
     epoch_offset: Option<i64>,
-    shell_profile: interpreter::ShellProfile,
+    shell_features: ShellFeatures,
+    builtin_filter: Option<interpreter::BuiltinFilter>,
     custom_builtins: HashMap<String, Box<dyn Builtin>>,
     /// Optional host-owned mutable registry. Entries here are consulted at
     /// dispatch time, so embedders can register/remove builtins after build.
@@ -1909,6 +2034,12 @@ pub struct BashBuilder {
     history_file: Option<PathBuf>,
     /// When true, deny all filesystem mutations after configured mounts/files are applied.
     readonly_filesystem: bool,
+    /// When true, skip the default `/etc`, `/proc`, `/bin`, `/usr/bin` layer.
+    no_rootfs: bool,
+    /// When true, symlinks are stored but not followed (pre-0.19 behavior).
+    no_follow_symlinks: bool,
+    /// When true, `&` jobs run to completion when spawned.
+    sequential_jobs: bool,
     /// Interceptor hooks
     hooks_on_exit: Vec<hooks::Interceptor<hooks::ExitEvent>>,
     hooks_before_exec: Vec<hooks::Interceptor<hooks::ExecInput>>,
@@ -1956,54 +2087,12 @@ impl BashBuilder {
         self
     }
 
-    /// Install one ToolDef-backed registry across shell, embedded Python, and
-    /// embedded TypeScript. Runtime surfaces are included when their cargo
-    /// features are enabled and share the registry's callback and policy Arcs.
-    #[cfg(feature = "scripted_tool")]
-    pub fn tool_registry(mut self, registry: ToolRegistry) -> Self {
-        self = self.extension(scripted_tool::ToolDefExtension::from_registry(
-            registry.clone(),
-        ));
-        #[cfg(feature = "python")]
-        {
-            let limits = self.profile.python_limits().clone();
-            let names = vec!["__bashkit_tool_call".to_string()];
-            let handler = registry.python_handler();
-            let prelude = registry.python_prelude();
-            self = self
-                .builtin(
-                    "python",
-                    Box::new(
-                        builtins::Python::with_limits(limits.clone())
-                            .with_external_handler_and_prelude(
-                                names.clone(),
-                                handler.clone(),
-                                prelude.clone(),
-                            ),
-                    ),
-                )
-                .builtin(
-                    "python3",
-                    Box::new(
-                        builtins::Python::with_limits(limits)
-                            .with_external_handler_and_prelude(names, handler, prelude),
-                    ),
-                );
-        }
-        #[cfg(feature = "typescript")]
-        {
-            let limits = self.profile.typescript_limits().clone();
-            self = self.extension(
-                builtins::TypeScriptExtension::with_external_handler_and_prelude(
-                    limits,
-                    registry.typescript_external_names(),
-                    registry.typescript_handler(),
-                    registry.typescript_prelude(),
-                    registry.typescript_rewrites(),
-                ),
-            );
-        }
-        self
+    /// Execution profile this builder currently carries.
+    ///
+    /// Lets builder add-ons (for example a tool registry installing its
+    /// Python/TypeScript surfaces) reuse the configured runtime limits.
+    pub fn execution_profile(&self) -> &ExecutionProfile {
+        &self.profile
     }
 
     /// Set a custom filesystem.
@@ -2030,10 +2119,22 @@ impl BashBuilder {
         self
     }
 
-    /// Restrict this shell to logic/data-flow commands and custom builtins.
-    #[cfg(feature = "scripted_tool")]
-    pub(crate) fn logic_only(mut self) -> Self {
-        self.shell_profile = interpreter::ShellProfile::LogicOnly;
+    /// Enable or disable shell language features that reach beyond in-memory
+    /// computation (file redirects, process substitution, script execution).
+    ///
+    /// Combine with [`Self::builtin_filter`] and a rejecting [`Self::fs`] to
+    /// build a restricted shell. See [`ShellFeatures`].
+    pub fn shell_features(mut self, features: ShellFeatures) -> Self {
+        self.shell_features = features;
+        self
+    }
+
+    /// Keep only the default builtins for which `keep(name)` returns true.
+    ///
+    /// Applies to Bashkit's own builtins only: builtins added with
+    /// [`Self::builtin`] and extensions are always registered.
+    pub fn builtin_filter(mut self, keep: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
+        self.builtin_filter = Some(Arc::new(keep));
         self
     }
 
@@ -2445,6 +2546,43 @@ impl BashBuilder {
     pub fn python(self) -> Self {
         let limits = self.profile.python_limits().clone();
         self.python_with_limits(limits)
+    }
+
+    /// Enable `python`/`python3` backed by real CPython 3.14 running in a
+    /// WebAssembly sandbox, with default [`CPythonLimits`].
+    ///
+    /// The guest only reaches the virtual filesystem, captured stdio, clocks
+    /// and a random source; there is no network, subprocess or host
+    /// filesystem access. Each call runs in a fresh instance mapped from a
+    /// pre-initialized snapshot, so no state crosses calls or tenants.
+    /// Requires the `cpython` feature. Replaces the Monty-backed builtins when
+    /// both features are enabled and this method is called after
+    /// [`BashBuilder::python`].
+    ///
+    /// The interpreter loads on the first call; call [`CPython::warm_up`] at
+    /// process start to move that cost out of the first request.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let bash = Bash::builder().cpython().build();
+    /// bash.exec("python3 -c 'import json; print(json.dumps([1, 2]))'").await?;
+    /// ```
+    #[cfg(feature = "cpython")]
+    pub fn cpython(self) -> Self {
+        self.cpython_with_limits(builtins::CPythonLimits::default())
+    }
+
+    /// Enable CPython `python`/`python3` with custom limits.
+    ///
+    /// See [`BashBuilder::cpython`].
+    #[cfg(feature = "cpython")]
+    pub fn cpython_with_limits(self, limits: builtins::CPythonLimits) -> Self {
+        self.builtin(
+            "python",
+            Box::new(builtins::CPython::with_limits(limits.clone())),
+        )
+        .builtin("python3", Box::new(builtins::CPython::with_limits(limits)))
     }
 
     /// Enable embedded SQLite (`sqlite`/`sqlite3` builtins) via Turso.
@@ -3239,6 +3377,99 @@ impl BashBuilder {
         self
     }
 
+    /// Provide the default root filesystem layout (on by default).
+    ///
+    /// Adds a read-only system layer under the session filesystem:
+    /// `/etc/{os-release,passwd,group,hostname,hosts,shells,timezone}`,
+    /// `/proc/{cpuinfo,meminfo,version,loadavg}`, and a stub in `/bin` and
+    /// `/usr/bin` for every registered command, so `which ls` prints
+    /// `/usr/bin/ls` and `/usr/bin/env` runs. Content comes from the virtual
+    /// identity (username, hostname), never the host. Session files shadow
+    /// system files; system files cannot be modified or removed. See
+    /// `knowledge/foundations/vfs.md` ("Root filesystem layout").
+    ///
+    /// ```rust
+    /// # use bashkit::Bash;
+    /// # #[tokio::main]
+    /// # async fn main() -> bashkit::Result<()> {
+    /// let mut bash = Bash::builder().build();
+    /// let r = bash.exec("which ls; grep ^ID= /etc/os-release").await?;
+    /// assert_eq!(r.stdout, "/usr/bin/ls\nID=bashkit\n");
+    ///
+    /// let mut bare = Bash::builder().rootfs(false).build();
+    /// let r = bare.exec("test -e /etc/passwd || echo none").await?;
+    /// assert_eq!(r.stdout, "none\n");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn rootfs(mut self, enabled: bool) -> Self {
+        self.no_rootfs = !enabled;
+        self
+    }
+
+    /// Follow symbolic links in path lookups (on by default).
+    ///
+    /// `cat link`, `cd linkdir`, `echo x > link` and `[ -d linkdir ]` act on
+    /// the link's target, as on Linux; `rm`, `mv`, `readlink`, `[ -L ]` and
+    /// `ls -l` act on the link itself. Targets are VFS paths, so a link can
+    /// never reach the host, and lookups give up after 40 links with "Too
+    /// many levels of symbolic links". With `false`, links are stored but
+    /// opening one fails. See `knowledge/foundations/vfs.md` ("Symlink
+    /// Handling").
+    ///
+    /// ```rust
+    /// # use bashkit::Bash;
+    /// # #[tokio::main]
+    /// # async fn main() -> bashkit::Result<()> {
+    /// let mut bash = Bash::builder().build();
+    /// let r = bash.exec("echo hi > /tmp/t; ln -s t /tmp/l; cat /tmp/l").await?;
+    /// assert_eq!(r.stdout, "hi\n");
+    ///
+    /// let mut bare = Bash::builder().follow_symlinks(false).build();
+    /// let r = bare.exec("echo hi > /tmp/t; ln -s t /tmp/l; cat /tmp/l").await?;
+    /// assert_eq!(r.exit_code, 1);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn follow_symlinks(mut self, enabled: bool) -> Self {
+        self.no_follow_symlinks = !enabled;
+        self
+    }
+
+    /// Run background jobs (`cmd &`) concurrently (on by default).
+    ///
+    /// Jobs run on a forked shell and are polled together with the
+    /// foreground script on the same task (no threads), so `sleep 1 & sleep 1
+    /// & wait` takes one second and `kill $!` stops a running job. `exec()`
+    /// returns once every job finished. With `false`, each job runs to
+    /// completion when it is started, which keeps output order fully
+    /// deterministic (eval replay, snapshot tests). See
+    /// `knowledge/foundations/parallel-execution.md` ("Background jobs").
+    ///
+    /// The same switch makes pipeline stages that run shell code stream into
+    /// each other concurrently, so `while :; do echo x; done | head -1` ends
+    /// the loop with SIGPIPE (141); with `false` stages run one after another
+    /// ("Pipelines").
+    ///
+    /// ```rust
+    /// # use bashkit::Bash;
+    /// # #[tokio::main]
+    /// # async fn main() -> bashkit::Result<()> {
+    /// let mut bash = Bash::builder().build();
+    /// let r = bash.exec("sleep 5 & kill $!; wait $!; echo $?").await?;
+    /// assert_eq!(r.stdout, "143\n");
+    ///
+    /// let mut seq = Bash::builder().concurrent_jobs(false).build();
+    /// let r = seq.exec("(sleep 0.01; echo a) & echo b; wait").await?;
+    /// assert_eq!(r.stdout, "a\nb\n");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn concurrent_jobs(mut self, enabled: bool) -> Self {
+        self.sequential_jobs = !enabled;
+        self
+    }
+
     /// Build the Bash instance.
     ///
     /// If mounted files are specified, they are added via an [`OverlayFs`] layer
@@ -3274,9 +3505,7 @@ impl BashBuilder {
     /// # }
     /// ```
     pub fn build(self) -> Bash {
-        let base_fs: Arc<dyn FileSystem> = if self.shell_profile.is_logic_only() {
-            Arc::new(fs::DisabledFs)
-        } else if let Some(fs) = self.fs {
+        let base_fs: Arc<dyn FileSystem> = if let Some(fs) = self.fs {
             fs
         } else {
             // No custom filesystem was supplied: provision the default
@@ -3299,6 +3528,23 @@ impl BashBuilder {
             self.mount_path_allowlist.as_deref(),
             base_fs,
         );
+
+        // Layer 1.5: default root filesystem layout (/etc, /proc, /usr/bin).
+        let rootfs = (!self.no_rootfs).then(|| {
+            Arc::new(fs::RootFs::new(
+                base_fs.clone(),
+                self.username
+                    .as_deref()
+                    .unwrap_or(builtins::DEFAULT_USERNAME),
+                self.hostname
+                    .as_deref()
+                    .unwrap_or(builtins::DEFAULT_HOSTNAME),
+            ))
+        });
+        let base_fs: Arc<dyn FileSystem> = match &rootfs {
+            Some(root) => Arc::clone(root) as Arc<dyn FileSystem>,
+            None => base_fs,
+        };
 
         // Layer 2: If there are mounted text/lazy files, wrap in an OverlayFs
         let has_mounts = !self.mounted_files.is_empty() || !self.mounted_lazy_files.is_empty();
@@ -3328,6 +3574,13 @@ impl BashBuilder {
         let mountable = Arc::new(MountableFs::new(base_fs));
         let fs: Arc<dyn FileSystem> = Arc::clone(&mountable) as Arc<dyn FileSystem>;
 
+        // Layer 5: follow symlinks across every layer and mount.
+        let fs: Arc<dyn FileSystem> = if self.no_follow_symlinks {
+            fs
+        } else {
+            Arc::new(fs::FollowFs::new(fs))
+        };
+
         let mut result = Self::build_with_fs(
             fs,
             mountable,
@@ -3338,7 +3591,8 @@ impl BashBuilder {
             self.fixed_epoch,
             self.epoch_offset,
             self.cwd,
-            self.shell_profile,
+            self.shell_features,
+            self.builtin_filter,
             self.profile.name() == ExecutionProfileName::Hardened,
             self.limits,
             self.session_limits,
@@ -3371,6 +3625,14 @@ impl BashBuilder {
         #[cfg(feature = "realfs")]
         {
             result.host_mounts = host_mounts;
+        }
+
+        if let Some(root) = &rootfs {
+            root.set_commands(result.interpreter.rootfs_command_names());
+        }
+
+        if self.sequential_jobs {
+            result.interpreter.set_concurrent_jobs(false);
         }
 
         // Set hooks after build — avoids adding another arg to build_with_fs.
@@ -3557,7 +3819,8 @@ impl BashBuilder {
         fixed_epoch: Option<i64>,
         epoch_offset: Option<i64>,
         cwd: Option<PathBuf>,
-        shell_profile: interpreter::ShellProfile,
+        shell_features: ShellFeatures,
+        builtin_filter: Option<interpreter::BuiltinFilter>,
         hardened_timing: bool,
         limits: ExecutionLimits,
         session_limits: SessionLimits,
@@ -3596,7 +3859,8 @@ impl BashBuilder {
             epoch_offset,
             custom_builtins,
             host_builtins,
-            shell_profile,
+            shell_features,
+            builtin_filter,
             hardened_timing,
         );
 
@@ -3692,6 +3956,12 @@ impl BashBuilder {
             sqlite_inprocess_opt_in,
             #[cfg(feature = "realfs")]
             host_mounts: HostMounts::default(),
+            #[cfg(feature = "terminal")]
+            input_wait_clock: None,
+            #[cfg(feature = "terminal")]
+            interrupt: None,
+            #[cfg(feature = "terminal")]
+            carried_exit_code: None,
         }
     }
 }
@@ -3743,9 +4013,34 @@ pub fn is_sensitive_mount_path(host_path: &Path) -> bool {
     {
         return true;
     }
+
+    // Windows home directories are drive- or share-qualified, so they cannot
+    // match the Unix-shaped `/Users` prefix above. Treat the first normal path
+    // component as the home-root marker instead.
+    #[cfg(windows)]
+    if host_path
+        .components()
+        .find_map(|component| match component {
+            std::path::Component::Normal(name) => Some(name),
+            _ => None,
+        })
+        .is_some_and(|name| name.to_string_lossy().eq_ignore_ascii_case("Users"))
+    {
+        return true;
+    }
+
     host_path.components().any(|c| {
         let s = c.as_os_str();
-        SENSITIVE_PATH_COMPONENTS.iter().any(|sec| s == *sec)
+        SENSITIVE_PATH_COMPONENTS.iter().any(|sec| {
+            #[cfg(windows)]
+            {
+                s.to_string_lossy().eq_ignore_ascii_case(sec)
+            }
+            #[cfg(not(windows))]
+            {
+                s == *sec
+            }
+        })
     })
 }
 
@@ -3867,6 +4162,21 @@ pub mod threat_model {}
 #[doc = include_str!("../docs/python.md")]
 pub mod python_guide {}
 
+/// Guide for real CPython 3.14 running as a WebAssembly guest.
+///
+/// Topics covered:
+/// - Quick start with `Bash::builder().cpython()`
+/// - Why CPython instead of Monty
+/// - Supported command line, stdio, environment and VFS behavior
+/// - Resource limits via [`CPythonLimits`]
+/// - HTTP through the egress pipeline, including `requests` and `httpx`
+/// - Limitations (no subprocess, raw sockets, threads or other third-party packages)
+///
+/// **Related:** [`BashBuilder::cpython`], [`CPythonLimits`], [`CPython`], [`threat_model`]
+#[cfg(feature = "cpython")]
+#[doc = include_str!("../docs/cpython.md")]
+pub mod cpython_guide {}
+
 /// Guide for the embedded SQLite builtin (Turso).
 ///
 /// Topics covered:
@@ -3952,6 +4262,31 @@ pub mod logging_guide {}
 /// **Related:** [`BashBuilder`], [`hooks`], [`custom_builtins_guide`]
 #[doc = include_str!("../docs/hooks.md")]
 pub mod hooks_guide {}
+
+/// Turn a [`parser::Parser::parse_recovering`] result into the script to run.
+///
+/// Decision: like bash, commands on lines before a syntax error still run and
+/// the error is reported afterwards (stderr + exit 2, via
+/// `Script::trailing_error`). With nothing runnable before it, the error stays
+/// a hard `Err` exactly as before, so callers that only validate syntax are
+/// unaffected.
+fn recover_partial_parse(
+    (mut script, error): (parser::Script, Option<Error>),
+    who: &str,
+    source: &str,
+) -> Result<parser::Script> {
+    match error {
+        None => Ok(script),
+        Some(e) if script.commands.is_empty() => Err(e),
+        Some(e) => {
+            let report = e
+                .syntax_report(who, source)
+                .unwrap_or_else(|| format!("{who}: syntax error: {e}\n"));
+            script.trailing_error = Some(report);
+            Ok(script)
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -4596,7 +4931,10 @@ mod tests {
     #[tokio::test]
     async fn test_read_basic() {
         let mut bash = Bash::new();
-        let result = bash.exec("echo hello | read VAR; echo $VAR").await.unwrap();
+        let result = bash
+            .exec("shopt -s lastpipe; echo hello | read VAR; echo $VAR")
+            .await
+            .unwrap();
         assert_eq!(result.stdout, "hello\n");
     }
 
@@ -4604,7 +4942,7 @@ mod tests {
     async fn test_read_multiple_vars() {
         let mut bash = Bash::new();
         let result = bash
-            .exec("echo 'a b c' | read X Y Z; echo $X $Y $Z")
+            .exec("shopt -s lastpipe; echo 'a b c' | read X Y Z; echo $X $Y $Z")
             .await
             .unwrap();
         assert_eq!(result.stdout, "a b c\n");
@@ -4763,9 +5101,14 @@ fn
     #[tokio::test]
     async fn test_local_basic() {
         let mut bash = Bash::new();
-        // Test that local command runs without error
-        let result = bash.exec("local X=test; echo $X").await.unwrap();
-        assert_eq!(result.stdout, "test\n");
+        // `local` declares inside a function; outside one it fails (bash).
+        let result = bash
+            .exec("f() { local X=test; echo $X; }; f; echo \"[$X]\"")
+            .await
+            .unwrap();
+        assert_eq!(result.stdout, "test\n[]\n");
+        let result = bash.exec("local X=test; echo $?").await.unwrap();
+        assert_eq!(result.stdout, "1\n");
     }
 
     #[tokio::test]
@@ -5032,7 +5375,9 @@ fn
             .exec("awk 'BEGIN { i=0; while(1) { i++; if(i>999) break } print i }'")
             .await
             .unwrap();
-        assert_eq!(result.stdout.trim(), "5");
+        assert_eq!(result.exit_code, 2);
+        assert_eq!(result.stdout, "");
+        assert!(result.stderr.contains("loop iteration limit (5) exceeded"));
     }
 
     #[tokio::test]
@@ -5040,10 +5385,12 @@ fn
         let limits = ExecutionLimits::new().max_loop_iterations(3);
         let mut bash = Bash::builder().limits(limits).build();
         let result = bash
-            .exec("awk 'BEGIN { for(i=1;i<=10;i++) a[i]=i; c=0; for(k in a) c++; print c }'")
+            .exec("awk 'BEGIN { a[1]=1; a[2]=2; a[3]=3; a[4]=4; c=0; for(k in a) c++; print c }'")
             .await
             .unwrap();
-        assert_eq!(result.stdout.trim(), "3");
+        assert_eq!(result.exit_code, 2);
+        assert_eq!(result.stdout, "");
+        assert!(result.stderr.contains("loop iteration limit (3) exceeded"));
     }
 
     #[tokio::test]
@@ -6894,15 +7241,14 @@ if true; then
 echo missing fi"#,
             )
             .await;
-        // Should fail to parse due to missing 'fi'
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        let err_msg = format!("{}", err);
-        // Error should mention line number
-        assert!(
-            err_msg.contains("line") || err_msg.contains("parse"),
-            "Error should be a parse error: {}",
-            err_msg
+        // Like bash: line 1 runs, then the missing 'fi' is reported (exit 2)
+        let result = result.unwrap();
+        assert_eq!(result.stdout, "ok\n");
+        assert_eq!(result.exit_code, 2);
+        // Reported like bash: on the line after the last.
+        assert_eq!(
+            result.stderr,
+            "bash: line 4: syntax error: unexpected end of file\n"
         );
     }
 
@@ -7481,6 +7827,13 @@ echo missing fi"#,
     }
 
     #[tokio::test]
+    async fn test_streaming_equivalence_xtrace_function_and_eval() {
+        // The call's own trace line streams before the body's output; it
+        // used to vanish from the stream once the body emitted.
+        assert_streaming_equivalence("set -x; f() { echo in; }; f a; eval 'echo ev'; x=$(f)").await;
+    }
+
+    #[tokio::test]
     async fn test_streaming_equivalence_pipeline() {
         assert_streaming_equivalence("echo -e 'a\\nb\\nc' | grep b").await;
     }
@@ -7511,13 +7864,12 @@ echo missing fi"#,
                     .max_loop_iterations(10_000),
             )
             .build();
-        let result = bash
+        let error = bash
             .exec(r#"x=AAAAAAAAAA; i=0; while [ $i -lt 25 ]; do x="$x$x"; i=$((i+1)); done; echo ${#x}"#)
             .await
-            .unwrap();
-        let len: usize = result.stdout.trim().parse().unwrap();
-        // 25 doublings of 10 bytes = 335 544 320 without limits; must be capped ≤ 1024
-        assert!(len <= 1024, "string length {len} must be ≤ 1024");
+            .unwrap_err();
+        // 25 doublings of 10 bytes = 335 544 320 without limits.
+        assert!(error.to_string().contains("variable byte limit (1024)"));
     }
 
     /// Issue #1116: 2>/dev/null must suppress stderr in streaming mode

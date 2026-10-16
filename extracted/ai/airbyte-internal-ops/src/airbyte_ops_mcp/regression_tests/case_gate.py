@@ -46,6 +46,8 @@ from airbyte_ops_mcp.regression_tests.repro_case import (
 )
 from airbyte_ops_mcp.regression_tests.sandbox_support import (
     SandboxDiscovery,
+    connector_files,
+    manifest_stream_names,
     run_sandbox_support_check,
 )
 
@@ -342,6 +344,17 @@ def sandbox_input_problems(case: ReproCase, executable: str = "sandbox") -> list
     return problems
 
 
+def _case_config(case: ReproCase) -> tuple[dict[str, Any], list[str]]:
+    """The case's connector config, which decides the hosts read from config."""
+    try:
+        config = json.loads(case.config_template_path.read_text())
+    except (OSError, ValueError) as exc:
+        return {}, [f"config.template.json cannot be read: {exc}"]
+    if not isinstance(config, dict):
+        return {}, ["config.template.json is not a JSON object"]
+    return config, []
+
+
 def _catalog_streams(case: ReproCase) -> list[str]:
     catalog = json.loads(case.catalog_path.read_text())
     return [entry["stream"]["name"] for entry in catalog.get("streams", [])]
@@ -378,13 +391,40 @@ def check_case(
             report.problems.append(f"could not check origin.json: {exc}")
     report.problems += sandbox_input_problems(case)
     if case.origin is not None:
+        ref = case.origin.affected_ref
+        new_streams = list(case.expectations.new_streams)
+        files = None
+        if new_streams:
+            try:
+                files = connector_files(connector, ref, connector_dir)
+            # Fail closed: an absence that could not be confirmed does not pass.
+            except Exception as exc:
+                report.problems.append(
+                    f"could not read the connector at {ref} for new_streams: {exc}"
+                )
+            else:
+                report.problems += new_stream_problems(new_streams, ref, *files)
+        # The affected release defines no requests for a new stream to check.
+        streams = [s for s in _catalog_streams(case) if s not in new_streams]
+        check = case.expectations.command == "check"
+        config, config_problems = _case_config(case)
+        report.problems += config_problems
         support = run_sandbox_support_check(
             connector_name=connector,
-            streams=_catalog_streams(case),
+            streams=streams,
             connector_dir=connector_dir,
-            ref=case.origin.affected_ref,
+            ref=ref,
             discovery=discovery,
+            check_streams=check,
+            # A CHECK reads its own streams, whatever the catalog configures.
+            host_only=not streams and not check,
+            files=files,
+            config=config,
         )
+        if new_streams:
+            # Neither this check nor the `reproduced` runs (both on the affected
+            # release) exercise the twin for them; a later fix run decides.
+            support["new_streams_unchecked"] = new_streams
         report.support = support
         if support["result"] != "supported":
             report.problems.append(
@@ -393,6 +433,35 @@ def check_case(
             )
     report.status = "fail" if report.problems else "pass"
     return report
+
+
+def new_stream_problems(
+    new_streams: Sequence[str],
+    affected_ref: str,
+    metadata: dict[str, Any],
+    manifest: dict[str, Any] | None,
+) -> list[str]:
+    """Why the declared new streams are not confirmed absent from the affected release.
+
+    A side that shows no sign of a declared stream violates the case, so the
+    declaration must be true: the stream is not in the manifest at
+    `affected_ref`, and the connector defines no streams outside it.
+    """
+    try:
+        defined = manifest_stream_names(metadata, manifest)
+    # Fail closed: a manifest that does not resolve confirms nothing.
+    except Exception as exc:
+        return [f"new_streams cannot be confirmed at {affected_ref}: {exc}"]
+    if defined is None:
+        return [
+            f"new_streams needs a manifest-only connector at {affected_ref} to "
+            "confirm the affected release does not define them"
+        ]
+    return [
+        f"new_streams names {stream!r}, which the manifest at {affected_ref} defines"
+        for stream in new_streams
+        if stream in defined
+    ]
 
 
 def _default_origin_checker(github_token: str | None) -> OriginChecker:

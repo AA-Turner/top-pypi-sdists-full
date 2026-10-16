@@ -27,7 +27,14 @@ from matrx_connect import AppContext, Emitter
 from matrx_files import FileManager
 from matrx_files.cloud_sync.models import SyncResult
 from matrx_files.service import FileService
-from matrx_orm import IntegrityError, call_function, rls_session, transaction
+from matrx_orm import (
+    IntegrityError,
+    LockContentionError,
+    call_function,
+    retry_on_transient,
+    rls_session,
+    transaction,
+)
 from matrx_utils import capture_error, utcnow
 from matrx_utils.row_access import SHOWN_TO_TYPE_DEFAULT
 
@@ -162,6 +169,25 @@ DEAD_RUN_LEASE_AFTER = timedelta(minutes=5)
 # sequence). Layer TWO under the lease: even if ownership is somehow shared,
 # a sequence collision must be recoverable, never run-fatal.
 EVENT_SEQUENCE_MAX_RETRIES = 8
+
+# MKT-160: a live schema change queues ACCESS EXCLUSIVE locks on web.* tables; a crawl write
+# waiting behind it is cancelled (55P03) inside its transaction and, un-retried, fails the whole
+# crawl. Every crawl write unit is all-or-nothing, so it re-runs: 0.5 s doubling over 6 retries
+# (~31 s of backoff plus each attempt's own lock wait) outlasts a queued ALTER TABLE.
+LOCK_CONTENTION_ATTEMPTS = 7
+LOCK_CONTENTION_BASE_BACKOFF = 0.5
+
+
+async def _retry_lock_contention(factory: Callable[[], Awaitable[Any]], *, label: str) -> Any:
+    """Re-run one all-or-nothing crawl write when Postgres cancelled it for lock contention."""
+    return await retry_on_transient(
+        factory,
+        attempts=LOCK_CONTENTION_ATTEMPTS,
+        base_backoff=LOCK_CONTENTION_BASE_BACKOFF,
+        jitter_ratio=0.5,
+        retry_on=(LockContentionError,),
+        label=label,
+    )
 
 
 def build_user_claims(ctx: AppContext) -> dict[str, Any]:
@@ -532,6 +558,28 @@ class HomepageCapture:
     page_id: str
     snapshot_id: str
     final_url: str
+
+
+_TARGET_LOOKUP_CHUNK = 500
+
+
+async def _canonical_ids_by_url_hash(site_id: str, digests: set[str]) -> dict[str, str]:
+    """Map each known ``url_hash`` on the site to its canonical page id.
+
+    Chunked set-membership reads (one statement per 500 hashes) instead of
+    one ``get_or_none`` per link — see ``_persist_rows``.
+    """
+    resolved: dict[str, str] = {}
+    ordered = sorted(digests)
+    for start in range(0, len(ordered), _TARGET_LOOKUP_CHUNK):
+        chunk = ordered[start : start + _TARGET_LOOKUP_CHUNK]
+        rows = await WebPage.filter(site_id=site_id, url_hash__in=chunk).values(
+            "url_hash", "canonical_page_id"
+        )
+        for row in rows:
+            if row.get("canonical_page_id") is not None:
+                resolved[str(row["url_hash"])] = str(row["canonical_page_id"])
+    return resolved
 
 
 def _cumulative_progress(state: "CrawlPersistenceState", *, fetched: int, remaining: int) -> dict[str, int]:
@@ -2433,7 +2481,7 @@ class CanonicalBodyPersister:
                 written.append((shot_path, shot_result))
                 screenshot_artifacts.append((shot, shot_result))
 
-            result = await self._persist_rows(
+            result = await self._persist_rows_retrying(
                 request=request,
                 identity=identity,
                 normalized=normalized,
@@ -2589,6 +2637,20 @@ class CanonicalBodyPersister:
             deleted_at__isnull=True,
         )
 
+    async def _persist_rows_retrying(self, **kwargs: Any) -> Any:
+        """`_persist_rows` re-run on lock contention (MKT-160). Its one in-memory write inside the
+        transaction (the bootstrap homepage screenshot id) is undone before each re-run."""
+        prior_homepage = self.state.homepage_screenshot_id
+
+        async def _attempt() -> Any:
+            try:
+                return await self._persist_rows(**kwargs)
+            except LockContentionError:
+                self.state.homepage_screenshot_id = prior_homepage
+                raise
+
+        return await _retry_lock_contention(_attempt, label=f"crawl page {self.state.session_id}")
+
     async def _persist_rows(
         self,
         *,
@@ -2684,36 +2746,55 @@ class CanonicalBodyPersister:
                     ),
                 )
 
-                for position, link in enumerate(summary.links):
-                    target_normalized = _normalise_url(link.target_url)
-                    target_page = None
-                    if link.link_type != "external":
-                        # Resolve the internal target against the canonical
-                        # page registry at write time — links NEVER create
-                        # pages. A URL not yet in the registry leaves
-                        # target_page_id NULL; the standalone
-                        # /links/resolve backfill picks it up once the page
-                        # exists (sitemap, crawl, or GSC provenance).
-                        target_digest = url_hash(target_normalized)
-                        target_page = await WebPage.get_or_none(
-                            use_cache=False,
-                            site_id=self.state.site_id,
-                            url_hash=target_digest,
-                        )
-                    await WebLinkEdge.create(
-                        organization_id=self.state.organization_id,
-                        created_by=self.state.user_id,
-                        site_id=self.state.site_id,
-                        snapshot_id=str(snapshot.id),
-                        source_page_id=str(page.id),
-                        target_url=target_normalized,
-                        target_page_id=(
-                            str(target_page.canonical_page_id) if target_page else None
-                        ),
-                        is_internal=link.link_type != "external",
-                        rel=link.rel or ("nofollow" if link.nofollow else None),
-                        anchor_text=link.anchor_text,
-                        position=position,
+                # ONE read resolves every internal target and ONE insert lands
+                # every edge. Per-link round trips held this write
+                # transaction open for 20-45 s on link-heavy pages (two
+                # statements per link at ~120 ms each), and every logical
+                # replication slot creation (Supabase Realtime's CDC
+                # attach) waits for each running xid-holder — 2026-10-15
+                # outage. Keep this transaction a handful of statements.
+                link_rows = [
+                    (position, link, _normalise_url(link.target_url))
+                    for position, link in enumerate(summary.links)
+                ]
+                target_canonical = await _canonical_ids_by_url_hash(
+                    self.state.site_id,
+                    {
+                        url_hash(target_normalized)
+                        for _, link, target_normalized in link_rows
+                        if link.link_type != "external"
+                    },
+                )
+                if link_rows:
+                    await WebLinkEdge.bulk_create(
+                        [
+                            {
+                                "organization_id": self.state.organization_id,
+                                "created_by": self.state.user_id,
+                                "site_id": self.state.site_id,
+                                "snapshot_id": str(snapshot.id),
+                                "source_page_id": str(page.id),
+                                "target_url": target_normalized,
+                                # Resolve the internal target against the
+                                # canonical page registry at write time —
+                                # links NEVER create pages. A URL not yet in
+                                # the registry leaves target_page_id NULL;
+                                # the standalone /links/resolve backfill
+                                # picks it up once the page exists (sitemap,
+                                # crawl, or GSC provenance).
+                                "target_page_id": (
+                                    target_canonical.get(url_hash(target_normalized))
+                                    if link.link_type != "external"
+                                    else None
+                                ),
+                                "is_internal": link.link_type != "external",
+                                "rel": link.rel or ("nofollow" if link.nofollow else None),
+                                "anchor_text": link.anchor_text,
+                                "position": position,
+                            }
+                            for position, link, target_normalized in link_rows
+                        ],
+                        returning=["id"],
                     )
 
                 screenshot_ids: dict[str, str] = {}
@@ -2864,12 +2945,19 @@ class DurableCrawlEventSink:
         broker: CrawlEventBroker | None,
         emitter: Emitter,
         before_completed: Callable[[], Awaitable[None]] | None = None,
+        hold_completion: bool = False,
     ) -> None:
         self.repository = repository
         self.state = state
         self.broker = broker
         self.emitter = emitter
         self.before_completed = before_completed
+        # Site initialization: the crawl of the homepage is only the first step
+        # of the command. Its terminal event is HELD until the command's last
+        # step so the session row (status, finished_at) and the stream end
+        # together (MKT-132: the row said finished ~70 s before the stream did).
+        self.hold_completion = hold_completion
+        self.held_completion: CrawlCompletedEvent | None = None
         self._completion_barrier_passed = False
         # Resume-safe: a fresh session starts at 0; a resumed session's state
         # carries MAX(crawl_event.sequence) so the next emit appends instead of
@@ -2877,7 +2965,20 @@ class DurableCrawlEventSink:
         self._sequence = int(state.event_sequence or 0)
         self._lock = asyncio.Lock()
 
+    async def release_held_completion(self) -> None:
+        """Persist and stream the held terminal event, stamped with the moment
+        the command really ended. No-op when nothing is held."""
+
+        held, self.held_completion = self.held_completion, None
+        if held is None:
+            return
+        self.hold_completion = False
+        await self.emit(held.model_copy(update={"ts": datetime.now(UTC).isoformat()}))
+
     async def emit(self, event: CrawlEvent) -> None:
+        if self.hold_completion and isinstance(event, CrawlCompletedEvent):
+            self.held_completion = event
+            return
         # A successful terminal event is the durable resume boundary. Run
         # required, idempotent post-crawl evidence BEFORE persisting it: if a
         # deploy cancels this task, the session remains resumable and the boot
@@ -3003,7 +3104,11 @@ class DurableCrawlEventSink:
 
         for attempt in range(1, EVENT_SEQUENCE_MAX_RETRIES + 1):
             try:
-                await self.repository.persist_event(canonical, self.state)
+                event = canonical
+                await _retry_lock_contention(
+                    lambda: self.repository.persist_event(event, self.state),
+                    label=f"crawl event {self.state.session_id}",
+                )
                 return canonical
             except IntegrityError as exc:
                 if not _is_event_sequence_collision(exc) or attempt == EVENT_SEQUENCE_MAX_RETRIES:

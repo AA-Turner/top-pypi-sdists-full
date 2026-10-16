@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import click
 
-from tinybird.tb.modules.cli import _looks_like_uuid, cli, ensure_valid_workspace_name
+from tinybird.tb.modules.cli import _looks_like_uuid, cli, ensure_valid_workspace_name, sanitize_branch_name
 from tinybird.tb.modules.common import (
     MAIN_BRANCH,
     create_workspace_branch,
@@ -207,17 +207,33 @@ def clear_branch(
     if branch_name_or_id:
         if branch_name_or_id == MAIN_BRANCH:
             raise CLIException(FeedbackManager.error_not_allowed_in_main_branch())
-        lookup_branch_name_or_id = (
-            branch_name_or_id if _looks_like_uuid(branch_name_or_id) else ensure_valid_workspace_name(branch_name_or_id)
-        )
-        workspace_to_clear = next(
-            (
-                workspace
-                for workspace in workspace_branches
-                if workspace["name"] == lookup_branch_name_or_id or workspace["id"] == lookup_branch_name_or_id
-            ),
-            None,
-        )
+        if _looks_like_uuid(branch_name_or_id):
+            lookup_candidates = [branch_name_or_id]
+        else:
+            # Git-derived branches keep a leading digit, `tb branch create` adds branch_.
+            unprefixed_name = sanitize_branch_name(branch_name_or_id, enforce_workspace_prefix_rules=False)
+            lookup_candidates = [unprefixed_name or branch_name_or_id, sanitize_branch_name(branch_name_or_id)]
+        lookup_branch_name_or_id = lookup_candidates[0]
+        matching_branches = [
+            workspace
+            for candidate in dict.fromkeys(lookup_candidates)
+            for workspace in workspace_branches
+            if workspace["name"] == candidate or workspace["id"] == candidate
+        ]
+        if len({workspace["id"] for workspace in matching_branches}) > 1:
+            raise CLIBranchException(
+                FeedbackManager.error_branch_name_ambiguous(
+                    branch=branch_name_or_id,
+                    matches=", ".join(f"'{workspace['name']}' ({workspace['id']})" for workspace in matching_branches),
+                )
+            )
+        workspace_to_clear = matching_branches[0] if matching_branches else None
+        if workspace_to_clear and branch_name_or_id not in (workspace_to_clear["name"], workspace_to_clear["id"]):
+            click.echo(
+                FeedbackManager.warning_branch_name_sanitized(
+                    context="Branch", original=branch_name_or_id, sanitized=workspace_to_clear["name"]
+                )
+            )
     else:
         workspace_to_clear = next(
             (workspace for workspace in workspace_branches if workspace["id"] == config["id"]), None

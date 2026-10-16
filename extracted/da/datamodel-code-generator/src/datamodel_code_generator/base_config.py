@@ -7,7 +7,7 @@ classes that are only needed once generation starts.
 
 from __future__ import annotations
 
-from collections.abc import Sequence  # noqa: TC003 - used at runtime by Pydantic
+from collections.abc import Mapping, Sequence  # noqa: TC003 - used at runtime by Pydantic
 from pathlib import Path  # noqa: TC003 - used at runtime by Pydantic
 from typing import TYPE_CHECKING, Any, TypeAlias
 
@@ -30,6 +30,9 @@ from datamodel_code_generator.enums import (
     AllOfClassHierarchy,
     AllOfMergeMode,
     ClassNameAffixScope,
+    ClientBodyArguments,
+    ClientSignatureStyle,
+    ClientType,
     CollapseRootModelsNameStrategy,
     CustomFileHeaderMode,
     DataclassArguments,
@@ -43,12 +46,18 @@ from datamodel_code_generator.enums import (
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
     SchemaValidatorType,
+    ServerBodyMode,
+    ServerHandlerMode,
+    ServerLayout,
+    ServerType,
     TargetPydanticVersion,
     UnionMode,
     VersionMode,
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Set as AbstractSet
+
     from datamodel_code_generator._source import DirectoryInputFilter
     from datamodel_code_generator.preset_names import PresetName as PresetNameValue
 else:
@@ -70,6 +79,89 @@ def _validate_additional_import_paths(value: list[str] | None) -> list[str] | No
         raise Error(msg) from None
 
 
+_TARGET_SELECTORS: tuple[tuple[str, str], ...] = (("generate_server", "server_"), ("generate_client", "client_"))
+_TARGET_REQUIRED: tuple[str, ...] = ("output", "package", "model_package")
+
+
+def _option_list(flags: Sequence[str]) -> str:
+    """Name options as an English list."""
+    return flags[0] if len(flags) == 1 else f"{', '.join(flags[:-1])} and {flags[-1]}"
+
+
+def _flag(field: str, *, negative: bool = False) -> str:
+    """Return the option of a config field, or its --no- form."""
+    return f"--{'no-' if negative else ''}{field.replace('_', '-')}"
+
+
+def _selected_target(config: Any) -> tuple[str, str] | None:
+    """Return the selector and the settings prefix of the target a config selects, or None for a model-only config."""
+    return next((item for item in _TARGET_SELECTORS if getattr(config, item[0]) is not None), None)
+
+
+def _target_options_error(config: Any, *, output: bool = True) -> str | None:
+    """Return why the target a config selects cannot run with its options, or None when it can.
+
+    A target needs its required options and an input explicitly typed as OpenAPI. Without `output`, the package
+    directory is not required: a run that writes nothing does not use it.
+    """
+    if (selected := _selected_target(config)) is None:
+        return None
+    selector, prefix = selected
+    required = _TARGET_REQUIRED if output else _TARGET_REQUIRED[1:]
+    if missing := [_flag(field) for name in required if getattr(config, field := f"{prefix}{name}") is None]:
+        return f"{_flag(selector)} requires {_option_list(missing)}"
+    if (input_file_type := InputFileType(config.input_file_type)) is not InputFileType.OpenAPI:
+        return f"{_flag(selector)} requires --input-file-type openapi, not {input_file_type.value}"
+    return None
+
+
+def implied_model_settings(config: Any, explicit: AbstractSet[str]) -> dict[str, bool]:
+    """Return the constraint settings a config leaves unset, with the values its other settings imply.
+
+    A setting is unset unless `explicit` names it. msgspec models use `Annotated` constraints, `use_annotated` writes
+    the constraints as field constraints, and an unset `field_constraints` follows `use_annotated`, so the command
+    line and `generate()` keep the same constraints.
+    """
+    use_annotated = config.use_annotated
+    implied: dict[str, bool] = {}
+    if "use_annotated" not in explicit and DataModelType(config.output_model_type) is DataModelType.MsgspecStruct:
+        implied["use_annotated"] = use_annotated = True
+    if use_annotated or "field_constraints" not in explicit:
+        implied["field_constraints"] = use_annotated
+    return implied
+
+
+def implied_target_settings(config: Any, explicit: AbstractSet[str]) -> dict[str, Any]:
+    """Return the model settings a server or client target needs that a config leaves unset, with the values it implies.
+
+    A setting is unset unless `explicit` names it, the fields an option, a configuration key, a `generate()` argument,
+    or a preset set. The target needs the `api` scope, Python 3.11, and its backend's settings: the MISSING sentinel
+    with pydantic 2.14 for Pydantic dataclasses, pydantic 2.14 for any sentinel, and the decodable unions and enums of
+    msgspec. A setting that was set keeps its value, which the target refuses when it cannot use it.
+    """
+    from datamodel_code_generator.enums import DataModelType, OpenAPIScope, TargetPydanticVersion  # noqa: PLC0415
+
+    implied: dict[str, Any] = {}
+    scopes = list(config.openapi_scopes or (OpenAPIScope.Schemas,))
+    if "openapi_scopes" not in explicit and OpenAPIScope.Api not in scopes:
+        implied["openapi_scopes"] = [*scopes, OpenAPIScope.Api]
+    if "target_python_version" not in explicit and not config.target_python_version.has_strenum:
+        implied["target_python_version"] = PythonVersion.PY_311
+    backend = DataModelType(config.output_model_type)
+    switches = {
+        DataModelType.PydanticV2Dataclass: ("use_missing_sentinel",),
+        DataModelType.MsgspecStruct: ("use_msgspec_tagged_unions", "use_msgspec_nullable_enum_alias"),
+    }.get(backend, ())
+    implied.update((name, True) for name in switches if name not in explicit and not getattr(config, name))
+    if (
+        implied.get("use_missing_sentinel", config.use_missing_sentinel)
+        and backend in {DataModelType.PydanticV2BaseModel, DataModelType.PydanticV2Dataclass}
+        and "target_pydantic_version" not in explicit
+    ):
+        implied["target_pydantic_version"] = TargetPydanticVersion.V2_14
+    return implied
+
+
 class BaseGenerateConfig(BaseModel):
     """Shared generation configuration fields."""
 
@@ -87,6 +179,7 @@ class BaseGenerateConfig(BaseModel):
     _logical_output: Path | None = PrivateAttr(default=None)
     _logical_model_metadata: Path | None = PrivateAttr(default=None)
     _directory_input_filter: DirectoryInputFilter | None = PrivateAttr(default=None)
+    _target_document_bases: dict[str, Path] | None = PrivateAttr(default=None)
 
     input_file_type: InputFileType = InputFileType.Auto
     output: Path | None = None
@@ -141,6 +234,9 @@ class BaseGenerateConfig(BaseModel):
     ignore_enum_constraints: bool = False
     use_one_literal_as_default: bool = False
     use_enum_values_in_discriminator: bool = False
+    use_msgspec_tagged_unions: bool = False
+    use_msgspec_nullable_enum_alias: bool = False
+    use_typed_nullable_map_values: bool = False
     set_default_enum_member: bool = False
     use_subclass_enum: bool = False
     use_specialized_enum: bool = True
@@ -257,6 +353,31 @@ class BaseGenerateConfig(BaseModel):
     schema_version: str | None = None
     schema_version_mode: VersionMode | None = None
     external_ref_mapping: dict[str, str] | None = None
+    generate_server: ServerType | None = None
+    server_output: Path | None = None
+    server_package: str | None = None
+    server_model_package: str | None = None
+    server_layout: ServerLayout | None = None
+    server_handler_mode: ServerHandlerMode | None = None
+    server_handler_modes: Mapping[str, ServerHandlerMode] | None = None
+    server_include_request: bool | None = None
+    server_body_mode: ServerBodyMode | None = None
+    server_body_modes: Mapping[str, ServerBodyMode] | None = None
+    server_primary_responses: Mapping[str, Any] | None = None
+    server_operation_names: Mapping[str, str] | None = None
+    server_router_names: Mapping[str, str] | None = None
+    server_parameter_names: Mapping[str, Mapping[str, str]] | None = None
+    generate_client: ClientType | None = None
+    client_output: Path | None = None
+    client_package: str | None = None
+    client_model_package: str | None = None
+    client_signature_style: ClientSignatureStyle | None = None
+    client_body_arguments: ClientBodyArguments | None = None
+    client_resource_names: Mapping[str, str] | None = None
+    client_operations: Mapping[str, Mapping[str, Any]] | None = None
+    client_default_base_url: str | None = None
+    client_server_base_url: str | None = None
+    client_protocols: Mapping[str, Any] | None = None
 
     @field_validator("additional_imports")
     @classmethod
@@ -279,6 +400,16 @@ class BaseGenerateConfig(BaseModel):
         if self.update_lock and self.locked:
             msg = "--update-lock and --locked cannot be used together"
             raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def validate_target_selection(self) -> Self:
+        """Validate that one run selects at most one generation target."""
+        if self.generate_server is not None and self.generate_client is not None:
+            from datamodel_code_generator import Error  # noqa: PLC0415
+
+            msg = "--generate-server and --generate-client cannot be used together"
+            raise Error(msg)
         return self
 
     @model_validator(mode="after")

@@ -8,7 +8,13 @@ from mlx_vlm.models.base import create_attention_mask
 from mechbench_compute._arch import GLOBAL_HOOK_POINTS, LAYER_HOOK_POINTS, Arch
 from mechbench_compute._attention_mask import apply_mask
 from mechbench_compute.adapter_keys import ADAPTER_KEYS
-from mechbench_compute.architectures._dispatch import dispatch, run_head
+from mechbench_compute.architectures._dispatch import (
+    dispatch,
+    read_layers,
+    run_head,
+    run_mlp_with_internals,
+    stop_early,
+)
 from mechbench_compute.architectures._head import (
     make_head_logits,
     make_project_to_logits,
@@ -135,38 +141,6 @@ def _attention_with_internals(
     return attn.o_proj(output)
 
 
-def _mlp_with_internals(
-    mlp,
-    x_normed: mx.array,
-    *,
-    hooks: dict[str, HookFn],
-    capture_set: set[str],
-    cache: ActivationCache,
-    layer_idx: int,
-) -> mx.array:
-    gate = mlp.gate_proj(x_normed)
-    gate = dispatch(
-        f"blocks.{layer_idx}.mlp.gate", layer_idx, "mlp.gate", gate,
-        hooks, capture_set, cache,
-    )
-    up = mlp.up_proj(x_normed)
-    up = dispatch(
-        f"blocks.{layer_idx}.mlp.up", layer_idx, "mlp.up", up,
-        hooks, capture_set, cache,
-    )
-    act = nn.gelu_approx(gate)
-    act = dispatch(
-        f"blocks.{layer_idx}.mlp.act", layer_idx, "mlp.act", act,
-        hooks, capture_set, cache,
-    )
-    down_in = act * up
-    down_in = dispatch(
-        f"blocks.{layer_idx}.mlp.down_in", layer_idx, "mlp.down_in", down_in,
-        hooks, capture_set, cache,
-    )
-    return mlp.down_proj(down_in)
-
-
 # external: mlx-vlm — this mirrors models/gemma3/language.py (Gemma3Model, TransformerBlock, Attention, MLP, LanguageModel __call__)
 def run_forward(
     model,
@@ -176,7 +150,8 @@ def run_forward(
     capture: list[str] | None = None,
     arch: Arch | None = None,
     kv_cache=None,
-) -> tuple[mx.array, ActivationCache]:
+    stop_after: int | None = None,
+) -> tuple[mx.array | None, ActivationCache]:
     hooks = dict(hooks or {})
     capture_set = set(capture or [])
     manual_attn_layer_set = attn_internal_layers(
@@ -207,7 +182,7 @@ def run_forward(
         else None
     )
 
-    for i, layer in enumerate(tm.layers):
+    for i, layer in enumerate(read_layers(tm.layers, stop_after)):
         c = kv_cache[i]
         is_global = (i + 1) % pattern == 0
         local_mask = global_mask if is_global else sliding_mask
@@ -242,8 +217,8 @@ def run_forward(
             hooks, capture_set, cache,
         )
         if i in manual_mlp_layer_set:
-            m_out = _mlp_with_internals(
-                layer.mlp, m_in,
+            m_out = run_mlp_with_internals(
+                layer.mlp, m_in, act=nn.gelu_approx,
                 hooks=hooks, capture_set=capture_set, cache=cache, layer_idx=i,
             )
         else:
@@ -258,6 +233,8 @@ def run_forward(
             f"blocks.{i}.resid_post", i, "resid_post", h, hooks, capture_set, cache,
         )
 
+    if stop_after is not None:
+        return stop_early(cache)
     logits = run_head(h, norm=tm.norm, unembed=lm.lm_head,
                       hooks=hooks, capture_set=capture_set, cache=cache)
     return logits, cache

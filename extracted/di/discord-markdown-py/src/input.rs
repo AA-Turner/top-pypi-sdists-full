@@ -24,7 +24,7 @@ pub struct Input<'data> {
 	///
 	/// Link detection needs it: a schemaless host is only a link when it begins a token, and nothing
 	/// else tells a parser whether it sits mid-word (see
-	/// [`crate::inline::link::detection::at_token_start`]).
+	/// [`crate::node::inline::link::detection::at_token_start`]).
 	source: &'data str,
 }
 

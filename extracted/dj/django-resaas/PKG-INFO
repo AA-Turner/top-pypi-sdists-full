@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django_resaas
-Version: 0.0.656
+Version: 0.0.658
 Summary: Django SAAS Framework
 Author-email: Dias Metano Salvador Chavana <metanochava@gmail.com>
 License: RESAAS Commercial License
@@ -73,7 +73,7 @@ Keywords: django,saas,framework
 Classifier: License :: Other/Proprietary License
 Classifier: Framework :: Django
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django==5.2.10
@@ -85,8 +85,6 @@ Requires-Dist: Pillow
 Requires-Dist: pyotp
 Requires-Dist: qrcode[pil]>=7.4.2
 Requires-Dist: python-barcode==0.15.1
-Requires-Dist: black
-Requires-Dist: gunicorn
 Requires-Dist: weasyprint
 Requires-Dist: django-money
 Requires-Dist: python-dotenv
@@ -100,6 +98,10 @@ Requires-Dist: factory_boy>=3.3; extra == "dev"
 Requires-Dist: celery>=5.3; extra == "dev"
 Provides-Extra: notifications
 Requires-Dist: celery>=5.3; extra == "notifications"
+Provides-Extra: scaffold
+Requires-Dist: black; extra == "scaffold"
+Provides-Extra: server
+Requires-Dist: gunicorn; extra == "server"
 Dynamic: license-file
 
 # 🚀 django_resaas
@@ -107,7 +109,7 @@ Dynamic: license-file
 **Full-stack framework for building secure, multi-tenant business applications with Django and Quasar** — this is the Django backend; [quasar_resaas](https://github.com/metanochava/quasar_resaas) is the frontend.
 
 [![PyPI](https://img.shields.io/badge/pypi-django__resaas-3776AB?logo=pypi&logoColor=white)](https://pypi.org/project/django_resaas/)
-[![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![Django](https://img.shields.io/badge/django-5.2-0C4B33?logo=django&logoColor=white)](pyproject.toml)
 [![License: Commercial](https://img.shields.io/badge/license-commercial-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-active%20development-orange)](https://github.com/metanochava/django_resaas)

@@ -30,9 +30,6 @@ public:
     bool write_scanlines(int ybegin, int yend, int z, TypeDesc format,
                          const void* data, stride_t xstride = AutoStride,
                          stride_t ystride = AutoStride) override;
-    bool write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                    stride_t xstride, stride_t ystride,
-                    stride_t zstride) override;
 
 private:
     std::string m_filename;  // Stash the filename
@@ -42,7 +39,7 @@ private:
 
     unsigned int m_dither;
     std::vector<unsigned char> m_scratch;
-    std::vector<unsigned char> m_tilebuffer;
+    int64_t m_data_start_offset = 0;  // File position where pixel data begins.
 
     void init(void) { ioproxy_clear(); }
 
@@ -310,10 +307,8 @@ PNMOutput::open(const std::string& name, const ImageSpec& userspec,
             ok &= iowritefmt("{}\n", scale);
         }
     }
-    // If user asked for tiles -- which this format doesn't support, emulate
-    // it by buffering the whole image.
-    if (m_spec.tile_width && m_spec.tile_height)
-        m_tilebuffer.resize(m_spec.image_bytes());
+
+    m_data_start_offset = iotell();
 
     return ok;
 }
@@ -326,17 +321,8 @@ PNMOutput::close()
     if (!ioproxy_opened())  // already closed
         return true;
 
-    bool ok = true;
-    if (m_spec.tile_width) {
-        // Handle tile emulation -- output the buffered pixels
-        OIIO_DASSERT(m_tilebuffer.size());
-        ok &= ImageOutput::write_scanlines(m_spec.y, m_spec.y + m_spec.height,
-                                           0, m_spec.format, &m_tilebuffer[0]);
-        m_tilebuffer.shrink_to_fit();
-    }
-
     init();
-    return ok;
+    return true;
 }
 
 
@@ -398,6 +384,25 @@ PNMOutput::write_scanlines(int ybegin, int yend, int z, TypeDesc format,
         && format == TypeDesc::FLOAT) {
         DBG std::cerr << "Flipping PFM vertically\n";
 
+        // PFM stores rows bottom-first. Reversing the rows within this
+        // call's range is only correct if the call covers the whole image;
+        // write_image() calls us once per chunk, which would flip each
+        // chunk separately and scramble the file. Instead, place this
+        // call's rows at their final file positions: source rows
+        // [ybegin, yend) land at file rows [height - yend, height - ybegin).
+        // The rows within the call are still written in reverse order, so
+        // the file as a whole ends up bottom-row-first no matter how the
+        // calls are chunked.
+        stride_t row_bytes = m_spec.scanline_bytes(true);
+        int64_t dest       = m_data_start_offset
+                             + (int64_t(m_spec.height) - yend + m_spec.y)
+                                   * int64_t(row_bytes);
+        if (!ioseek(dest)) {
+            errorfmt(
+                "PFM vertical flip requires a seekable output (pnm:pfmflip)");
+            return false;
+        }
+
         // Default implementation: write each scanline individually
         stride_t native_pixel_bytes = (stride_t)m_spec.pixel_bytes(true);
         if (format == TypeDesc::UNKNOWN && xstride == AutoStride)
@@ -420,16 +425,6 @@ PNMOutput::write_scanlines(int ybegin, int yend, int z, TypeDesc format,
                                         ystride);
 }
 
-
-
-bool
-PNMOutput::write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                      stride_t xstride, stride_t ystride, stride_t zstride)
-{
-    // Emulate tiles by buffering the whole image
-    return copy_tile_to_image_buffer(x, y, z, format, data, xstride, ystride,
-                                     zstride, &m_tilebuffer[0]);
-}
 
 
 OIIO_PLUGIN_NAMESPACE_END

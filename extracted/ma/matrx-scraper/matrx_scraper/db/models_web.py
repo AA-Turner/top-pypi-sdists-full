@@ -1,18 +1,18 @@
 # File: matrx_scraper/db/models_web.py
 from matrx_orm import BigIntegerField, BooleanField, CharField, DateField, DateTimeField, DecimalField, EnumField, FloatField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, SmallIntegerField, TextArrayField, TextField, UUIDField, model_registry, BaseDTO, BaseManager
-from enum import Enum
+from enum import StrEnum
 from dataclasses import dataclass
 from typing import ClassVar
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -63,13 +63,13 @@ class Brand(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -137,13 +137,13 @@ class ChannelAnalyticsDaily(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -174,6 +174,7 @@ class DomainCategory(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    label = TextField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "domain_category"
@@ -211,13 +212,13 @@ class DomainCategoryObservation(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -261,13 +262,13 @@ class ListingPublisher(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -317,13 +318,13 @@ class NewsItem(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -365,13 +366,13 @@ class OfferingTemplate(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -409,13 +410,13 @@ class Provider(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -461,13 +462,13 @@ class YoutubeVideo(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -547,13 +548,13 @@ class BrandAsset(MatrxEntity):
 
 
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
     EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
@@ -618,7 +619,7 @@ class BrandOffering(MatrxEntity):
     price_currency = TextField()
     price_unit = TextField()
     price_note = TextField()
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'site_offering': {'from_model': 'SiteOffering', 'from_field': 'brand_offering_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_offering_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'brand_offering_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand_offering"
     _db_schema = "web"
@@ -630,13 +631,13 @@ class BrandOffering(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"
@@ -751,7 +752,7 @@ class BusinessLocation(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
@@ -1059,6 +1060,7 @@ class DiscoveredItem(MatrxEntity):
     custom_fields = JSONBField(null=False, default={})
     relation_key = TextField()
     sentiment = TextField()
+    resolved_offering_id = ForeignKey(to_model=BrandOffering, to_column='id', to_schema='web', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "discovered_item"
@@ -1375,13 +1377,13 @@ class Screenshot(MatrxEntity):
 
 
 
-class Visibility(str, Enum):
+class Visibility(StrEnum):
     PERSONAL = "personal"
     INTERNAL = "internal"
     LINK = "link"
     PUBLIC = "public"
 
-class ShownTo(str, Enum):
+class ShownTo(StrEnum):
     ONLY_ME = "only_me"
     MY_TEAM = "my_team"
     EVERYONE = "everyone"

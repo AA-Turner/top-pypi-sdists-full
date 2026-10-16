@@ -195,6 +195,47 @@ def _load_shapefiles(parser, countries=None):
     return dg, dict_config
 
 
+def _admin1_boundaries(parser, countries=None):
+    """Admin-1 polygons for the state lines on admin_2 maps, or None.
+
+    One frame (ADM0_NAME, ADM1_NAME, geometry) over every admin_2 country,
+    from the same file the parent-aggregation maps use (``[ML]
+    parent_boundary_admin_1``, default ``Level_1.shp``). A country whose file
+    cannot be read or matched is left out with a log line; the maps then fall
+    back to GMT's border level 2 for it. Never raises.
+    """
+    from geocif.viz.aggregation import _load_parent_boundary
+
+    countries = countries or ast.literal_eval(parser.get("DEFAULT", "countries"))
+    frames = []
+    for country in countries:
+        if parser.get(country, "admin_level", fallback="admin_1") != "admin_2":
+            continue
+        try:
+            gdf, reason = _load_parent_boundary(parser, country)
+        except Exception as exc:  # noqa: BLE001 — map furniture only
+            gdf, reason = None, f"{type(exc).__name__}: {exc}"
+        display = country.replace("_", " ").lower()
+        adm0 = next((c for c in ("ADM0_NAME", "ADMIN0", "NAME_0")
+                     if gdf is not None and c in gdf.columns), None)
+        # _load_parent_boundary returns the whole file when no row matches
+        # the country; a world of state lines is worse than GMT's fallback.
+        if gdf is not None and (
+            adm0 is None
+            or not (gdf[adm0].astype(str).str.replace("_", " ").str.lower() == display).all()
+        ):
+            gdf, reason = None, "no admin-1 rows for this country"
+        if gdf is None:
+            logger.info(f"State lines for {country}: GMT border level 2 ({reason})")
+            continue
+        gdf = gdf[["ADM1_NAME", "geometry"]].copy()
+        gdf["ADM0_NAME"] = country.title().replace("_", " ")
+        frames.append(gdf)
+    if not frames:
+        return None
+    return gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), crs=frames[0].crs)
+
+
 _CANON_PRED = "Predicted Yield (tn per ha)"
 _CANON_OBS = "Observed Yield (tn per ha)"
 
@@ -219,6 +260,31 @@ def _yield_display_for(parser, crop):
     if crop in disp:
         return str(disp[crop][0]), float(disp[crop][1])
     return base, 1.0
+
+
+#: Class widths the predicted-yield maps choose from (any display unit).
+_YIELD_CLASS_STEPS = (0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100)
+
+
+def _predicted_yield_scale(values, n_classes=10, quantile=99.5):
+    """Fixed colour scale for one combo's predicted-yield maps: (vmax, step).
+
+    Starts at 0 and is shared by every year and stage of the combo, so maps
+    from different years can be compared by colour. vmax is the 99.5th
+    percentile of the non-negative predictions rounded up to a class edge
+    (a handful of outliers no longer stretch the scale; they take the top
+    class under the end cap). Brazil soybean municipalities: (5.0, 0.5).
+    Returns (None, None) when there is nothing positive to scale.
+    """
+    v = pd.to_numeric(pd.Series(values), errors="coerce")
+    v = v[np.isfinite(v) & (v >= 0)]
+    if v.empty or float(v.max()) <= 0:
+        return None, None
+    top = float(np.percentile(v, quantile)) or float(v.max())
+    step = next((s for s in _YIELD_CLASS_STEPS if s >= top / n_classes),
+                _YIELD_CLASS_STEPS[-1])
+    vmax = float(np.ceil(top / step - 1e-9) * step)
+    return vmax, step
 
 
 def _convert_yield_columns(df, factor):
@@ -5163,6 +5229,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
 
     # ---- Step 2: Load shapefiles ----
     dg, dict_config = _load_shapefiles(parser)
+    plot.set_admin1_boundaries(_admin1_boundaries(parser))
 
     # ---- Step 3: Query DB, compute outlook, generate maps ----
     # `dir_outlook` was set up earlier (before the ML phase) so observed-
@@ -5247,6 +5314,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             # outlook index is a ratio, so it is unaffected.
             _, _disp_factor = _yield_display_for(parser, crop)
             df = _convert_yield_columns(df, _disp_factor)
+            # One colour scale for every year/stage of this combo's
+            # predicted-yield maps (display units, so after the conversion).
+            pred_vmax, pred_step = _predicted_yield_scale(df[_CANON_PRED])
 
             # Store raw predictions for diagnostics (once per combo, not per year)
             df_pred_store[(country, crop, model)] = df
@@ -5363,10 +5433,24 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                         df_pred_map = dfo[[
                             "Country", "Region", "Country Region", "current_predicted",
                         ]].rename(columns={"current_predicted": "Predicted Yield (tn per ha)"})
+                        # A negative yield is physically impossible: leave the
+                        # region blank rather than colour it as a low yield.
+                        _pv = df_pred_map["Predicted Yield (tn per ha)"]
+                        df_pred_map.loc[_pv < 0, "Predicted Yield (tn per ha)"] = np.nan
                         pred_fname = (
                             f"predicted_yield_{_countries_str}_{crop}_{model}"
                             f"_{stage_name}_{year_to_map}{season_token}.png"
                         )
+                        if pred_vmax is not None:
+                            # Fixed 0..vmax classes shared across the combo's
+                            # years; outliers above vmax get the end cap.
+                            _scale = dict(
+                                vmin=0.0, vmax=pred_vmax, class_step=pred_step,
+                                fixed_range=True,
+                                extend="max" if (_pv > pred_vmax).any() else "neither",
+                            )
+                        else:
+                            _scale = dict(vmin=float(_pv.min()), vmax=float(_pv.max()))
                         plot.plot_map(
                             dg,
                             df_pred_map,
@@ -5376,12 +5460,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                             dir_out=dir_model,
                             fname=pred_fname,
                             label=f"Predicted yield ({_yield_display_for(parser, crop)[0]})\n{crop.title()}, {year_to_map}, {friendly_stage_label(stage_name)}{season_label}",
-                            vmin=float(df_pred_map["Predicted Yield (tn per ha)"].min()),
-                            vmax=float(df_pred_map["Predicted Yield (tn per ha)"].max()),
                             cmap=pal.scientific.sequential.Bamako_20_r,
                             series="sequential",
                             annotate_regions=False,
                             loc_legend="lower left",
+                            **_scale,
                         )
 
                         # Observed-baseline anomaly maps — current year only.

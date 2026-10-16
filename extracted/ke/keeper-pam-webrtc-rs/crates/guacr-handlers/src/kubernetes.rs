@@ -18,7 +18,7 @@ use k8s_openapi::api::core::v1::{Namespace, Pod};
 use kube::api::{Api, AttachParams, ListParams, LogParams};
 use kube::config::{KubeConfigOptions, Kubeconfig};
 use kube::Client;
-use log::{debug, info, warn};
+use log::{debug, info};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio_util::compat::FuturesAsyncReadCompatExt;
 
@@ -646,10 +646,6 @@ pub(crate) fn build_config_from_token(
             .decode(ca_b64)
             .map_err(|e| format!("Invalid base64 in ca_cert: {}", e))?;
         config.root_cert = Some(vec![ca_bytes]);
-    } else {
-        // Without a CA cert, we must accept insecure TLS (not recommended)
-        config.accept_invalid_certs = true;
-        warn!("No CA certificate provided with token auth; TLS verification disabled");
     }
 
     info!("Using token-based authentication against {}", server);
@@ -675,9 +671,6 @@ pub(crate) fn build_config_from_server_cert(
             .decode(ca_b64)
             .map_err(|e| format!("Invalid base64 in ca_cert: {}", e))?;
         config.root_cert = Some(vec![ca_bytes]);
-    } else {
-        config.accept_invalid_certs = true;
-        warn!("No CA certificate provided; TLS verification disabled");
     }
 
     // If a token is also provided, use it

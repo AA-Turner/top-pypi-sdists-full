@@ -213,17 +213,16 @@ catalog_plugin(const std::string& format_name,
     }
 
     std::string version_function = format_name + "_imageio_version";
-    int* plugin_version          = (int*)Plugin::getsym(handle,
-                                                        version_function.c_str());
+    int* plugin_version = (int*)Plugin::getsym(handle,
+                                               version_function.c_str());
     if (!plugin_version || *plugin_version != OIIO_PLUGIN_VERSION) {
         Plugin::close(handle);
         return;
     }
 
     std::string lib_version_function = format_name + "_imageio_library_version";
-    PluginLibVersionFunc plugin_lib_version
-        = (PluginLibVersionFunc)Plugin::getsym(handle,
-                                               lib_version_function.c_str());
+    PluginLibVersionFunc plugin_lib_version = (PluginLibVersionFunc)
+        Plugin::getsym(handle, lib_version_function.c_str());
 
     // Add the filepath and handle to the master lists
     plugin_filepaths[format_name] = plugin_fullpath;
@@ -231,14 +230,12 @@ catalog_plugin(const std::string& format_name,
 
     ImageInput::Creator input_creator = (ImageInput::Creator)
         Plugin::getsym(handle, format_name + "_input_imageio_create");
-    const char** input_extensions
-        = (const char**)Plugin::getsym(handle,
-                                       format_name + "_input_extensions");
+    const char** input_extensions = (const char**)
+        Plugin::getsym(handle, format_name + "_input_extensions");
     ImageOutput::Creator output_creator = (ImageOutput::Creator)
         Plugin::getsym(handle, format_name + "_output_imageio_create");
-    const char** output_extensions
-        = (const char**)Plugin::getsym(handle,
-                                       format_name + "_output_extensions");
+    const char** output_extensions = (const char**)
+        Plugin::getsym(handle, format_name + "_output_extensions");
 
     if (input_creator || output_creator)
         declare_imageio_format_locked(format_name, input_creator,
@@ -504,7 +501,7 @@ pvt::catalog_all_plugins(std::string searchpath)
         // ImageInput::create will take a lock of imageio_mutex
         auto inp = ImageInput::create(f.first);
         lock.lock();
-        if (inp->supports("procedural"))
+        if (inp && inp->supports("procedural"))
             procedural_plugins.insert(f.first);
     }
 }
@@ -753,20 +750,25 @@ ImageInput::create(string_view filename, bool do_open, const ImageSpec* config,
             }
             if (!in)
                 continue;
-            if (!do_open) {
-                if ((ioproxy && in->supports("ioproxy")
-                     && !in->valid_file(ioproxy))
-                    || (!ioproxy && !filename.empty()
-                        && !in->valid_file(filename))) {
-                    // Since we didn't need to open it, we just checked whether
-                    // it was a valid file, and it's not.  Try the next one.
-                    if (OIIO::pvt::oiio_print_debug > 1)
-                        OIIO::debugfmt(
-                            "ImageInput::create: \"{}\" did not open using format \"{}\" {} [valid_file was false].\n",
-                            filename, plugin->first, in->format_name());
-                    in.reset();
-                    continue;
-                }
+
+            // It can be quite expensive to do a full open() on each file
+            // type. So if the obvious one failed already, as we're checking
+            // the rest, try their valid_file method first, and if it fails,
+            // don't proceed to the full open. (If it succeeds, though, we
+            // will try a full open, so that should really incentivize us to
+            // ensure that every format class has a valid_file method, or this
+            // will be expensive since it will open twice.)
+            if ((ioproxy && in->supports("ioproxy") && !in->valid_file(ioproxy))
+                || (!ioproxy && !filename.empty()
+                    && !in->valid_file(filename))) {
+                // Since we didn't need to open it, we just checked whether
+                // it was a valid file, and it's not.  Try the next one.
+                if (OIIO::pvt::oiio_print_debug > 1)
+                    OIIO::debugfmt(
+                        "ImageInput::create: \"{}\" did not open using format \"{}\" {} [valid_file was false].\n",
+                        filename, plugin->first, in->format_name());
+                in.reset();
+                continue;
             }
 
             // We either need to open it, or we already know it appears

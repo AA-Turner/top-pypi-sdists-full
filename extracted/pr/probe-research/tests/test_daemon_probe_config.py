@@ -595,3 +595,11 @@ def test_a_printed_off_path_hides_only_its_own_line(levels):
     assert "secret/keys.txt" not in out
     heading, _ = exclusions_mod.scrub_listing("secret/keys.txt\n1:LEAK\n2:LEAK\n\nsrc/a.py\n3:ok", checker)
     assert "LEAK" not in heading and "3:ok" in heading
+
+
+@pytest.mark.parametrize("program", ["md5sum", "sha224sum", "sha384sum", "b2sum", "cksum", "shasum -a 256"])
+def test_every_digest_program_reads_the_file_it_names(levels, program):
+    # The daemon's shell runs these at once (F3); the file they hash is a file read, for the
+    # `read` note and the off check alike. md5sum was listed already: the control.
+    files, trees = exclusions_mod.command_reads(f"{program} a.py", str(levels / "src"))
+    assert files == [str(levels / "src" / "a.py")] and trees == [], program

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from inspect import isclass
 from typing import Any, TypeGuard
 
@@ -8,10 +9,13 @@ import pydantic
 from packaging import version
 from pydantic import BaseModel
 
-try:
-    from pydantic.v1 import BaseModel as V1BaseModel
-except ImportError:
+if sys.version_info >= (3, 15):
     V1BaseModel = None
+else:
+    try:
+        from pydantic.v1 import BaseModel as V1BaseModel
+    except ImportError:
+        V1BaseModel = None
 
 is_pydantic_v1 = version.parse(pydantic.__version__).major == 1
 

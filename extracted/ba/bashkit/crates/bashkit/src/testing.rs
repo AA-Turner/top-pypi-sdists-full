@@ -213,7 +213,7 @@ const SHELL_ERROR_SUFFIXES: &[&str] = &[
     ": Permission denied",
     ": cannot execute: required file not found",
     ": cannot execute binary file",
-    // Remaining errno templates that `redirect_error_reason` can emit
+    // Remaining errno templates that `io_error_reason` can emit
     // for `bash: <redirect target>: <strerror>`.
     ": Not a directory",
     ": File exists",
@@ -351,6 +351,16 @@ fn truncate(s: &str, max: usize) -> String {
     } else {
         format!("{}...<truncated>", &s[..max.min(s.len())])
     }
+}
+
+/// Decode one CPython HTTP bridge request record (the bytes the guest hands
+/// to `bashkit.http_request`) and assert what the host guarantees before
+/// dispatch: allowed method, bounded URL and headers, no CR/LF/NUL in
+/// values, no host-owned headers (`Host`, framing, hop-by-hop). Never
+/// panics on malformed input. Used by the `cpython_http_fuzz` target.
+#[cfg(feature = "cpython")]
+pub fn check_cpython_http_request(data: &[u8]) {
+    crate::builtins::check_http_request_invariants(data);
 }
 
 #[cfg(test)]

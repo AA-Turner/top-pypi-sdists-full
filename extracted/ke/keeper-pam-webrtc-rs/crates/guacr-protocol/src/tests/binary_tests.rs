@@ -2,6 +2,7 @@ use crate::binary::{
     BinaryEncoder, Opcode, FLAG_FRAGMENTED, FRAGMENT_PAYLOAD_SIZE, FRAME_PROTOCOL_OVERHEAD,
     MAX_SAFE_PAYLOAD_SIZE,
 };
+use crate::reassembly::MessageReassembler;
 use bytes::Bytes;
 
 #[test]
@@ -47,7 +48,9 @@ fn test_encode_size() {
 fn test_fragment_sub_limit_not_fragmented() {
     let mut enc = BinaryEncoder::new();
     let payload = vec![0xABu8; 100]; // well under MAX_SAFE_PAYLOAD_SIZE
-    let frames = enc.fragment_message(Opcode::Image, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Image, 0, &payload)
+        .expect("valid fragment count");
     assert_eq!(frames.len(), 1, "sub-limit message must be a single frame");
     // FLAG_FRAGMENTED must NOT be set.
     assert_eq!(
@@ -74,7 +77,9 @@ fn test_fragment_over_limit_splits() {
     let mut enc = BinaryEncoder::new();
     let payload_size = FRAGMENT_PAYLOAD_SIZE * 2 + 100; // forces 3 fragments
     let payload = vec![0xBBu8; payload_size];
-    let frames = enc.fragment_message(Opcode::Audio, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Audio, 0, &payload)
+        .expect("valid fragment count");
     assert_eq!(frames.len(), 3, "should produce exactly 3 fragments");
     // Each fragment must fit within MAX_SAFE_PAYLOAD_SIZE.
     for frame in &frames {
@@ -90,7 +95,9 @@ fn test_fragment_over_limit_splits() {
 fn test_fragment_headers_seq_and_total() {
     let mut enc = BinaryEncoder::new();
     let payload = vec![0xCCu8; FRAGMENT_PAYLOAD_SIZE + 1]; // forces 2 fragments
-    let frames = enc.fragment_message(Opcode::Cursor, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Cursor, 0, &payload)
+        .expect("valid fragment count");
     assert_eq!(frames.len(), 2);
     for frame in &frames {
         // FLAG_FRAGMENTED must be set.
@@ -108,7 +115,9 @@ fn test_fragment_headers_seq_and_total() {
 fn test_fragment_shares_opcode() {
     let mut enc = BinaryEncoder::new();
     let payload = vec![0u8; FRAGMENT_PAYLOAD_SIZE * 3];
-    let frames = enc.fragment_message(Opcode::Audio, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Audio, 0, &payload)
+        .expect("valid fragment count");
     for frame in &frames {
         assert_eq!(
             frame[0],
@@ -123,7 +132,9 @@ fn test_fragment_shares_opcode() {
 fn test_non_fragmented_standard_header() {
     let mut enc = BinaryEncoder::new();
     let payload = vec![42u8; 8];
-    let frames = enc.fragment_message(Opcode::Key, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Key, 0, &payload)
+        .expect("valid fragment count");
     assert_eq!(frames.len(), 1);
     // Header bytes: [opcode, flags, reserved_lo, reserved_hi, len_le x4]
     assert_eq!(frames[0][0], Opcode::Key as u8);
@@ -133,6 +144,48 @@ fn test_non_fragmented_standard_header() {
 }
 
 // ── End fragmentation tests ─────────────────────────────────────────────────
+
+#[test]
+fn test_fragment_rejects_256_chunks_before_emitting_frames() {
+    // Given: one byte beyond the 255-fragment wire limit.
+    let mut enc = BinaryEncoder::new();
+    let payload = vec![0x5Au8; FRAGMENT_PAYLOAD_SIZE * 255 + 1];
+
+    // When: encoding the entire message.
+    let result = enc.fragment_message(Opcode::Image, 0, &payload);
+
+    // Then: an explicit error, without any frames to emit.
+    assert_eq!(
+        result,
+        Err(crate::FragmentError::TooManyFragments { count: 256 })
+    );
+}
+
+#[test]
+fn test_fragment_255_chunks_fit_vault_and_reassemble_byte_exact() {
+    // Given: a full 255-fragment message with distinct bytes across chunk boundaries.
+    let mut enc = BinaryEncoder::new();
+    let payload: Vec<u8> = (0u8..=255)
+        .cycle()
+        .take(FRAGMENT_PAYLOAD_SIZE * 255)
+        .collect();
+
+    // When: encoding and feeding the frames to the reassembler.
+    let frames = enc
+        .fragment_message(Opcode::Image, 0, &payload)
+        .expect("255 fragments fit");
+    let mut reassembler = MessageReassembler::new();
+    let mut complete = None;
+    for frame in &frames {
+        assert!(frame.len() + FRAME_PROTOCOL_OVERHEAD <= (16 * 1024 - FRAME_PROTOCOL_OVERHEAD) * 2);
+        complete = reassembler.feed(frame.clone());
+    }
+
+    // Then: all sequence bytes, total bytes and reassembled payload match exactly.
+    assert_eq!(frames.len(), 255);
+    assert_eq!(frames[254][2..4], [254, 255]);
+    assert_eq!(&complete.expect("full message reassembles")[8..], payload);
+}
 
 // AC-6: Compile-time invariant — a fragment plus its outer Frame must fit the vault's real
 // incoming cap. ControlDataChannel.ts drops anything over MAX_INCOMING_MESSAGE_BYTES, which is
@@ -162,7 +215,9 @@ fn test_every_wire_message_fits_vault_incoming_cap() {
     let mut enc = BinaryEncoder::new();
     // ~99 KB, the screenshot size that produced the original "no content received" report.
     let payload = vec![0x7Au8; 99 * 1024];
-    let frames = enc.fragment_message(Opcode::Image, 0, &payload);
+    let frames = enc
+        .fragment_message(Opcode::Image, 0, &payload)
+        .expect("valid fragment count");
 
     assert!(frames.len() > 1, "99 KB payload must fragment");
 

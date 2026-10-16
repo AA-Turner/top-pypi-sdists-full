@@ -16,6 +16,7 @@
    the cascade resolution run under the caller's per-tree critical section. */
 
 #include "data/attr_atom.h"
+#include "core/ascii.h"
 #include "css/cssom/cssom.h"
 #include "dom/nodes.h"
 #include "css/select/selector.h"
@@ -238,6 +239,57 @@ static int css_slice_ci_eq(const Py_UCS4 *data, Py_ssize_t len, const char *word
     return word[len] == '\0';
 }
 
+static void css_unescape_name(Py_UCS4 *name, Py_ssize_t *length);
+
+typedef enum {
+    CSS_WIDE_NONE,
+    CSS_WIDE_INHERIT,
+    CSS_WIDE_INITIAL,
+    CSS_WIDE_UNSET,
+    CSS_WIDE_REVERT,
+    CSS_WIDE_REVERT_LAYER,
+} css_wide_value;
+
+static css_wide_value css_wide_keyword(const Py_UCS4 *value, Py_ssize_t len) {
+    if (len < 5) {
+        return CSS_WIDE_NONE;
+    }
+    Py_UCS4 first = css_lower(value[0]);
+    if (first != '\\' && first != 'i' && first != 'r' && first != 'u') {
+        return CSS_WIDE_NONE;
+    }
+    Py_UCS4 decoded[97];
+    for (Py_ssize_t pos = 0; pos < len; pos++) {
+        if (value[pos] != '\\') {
+            continue;
+        }
+        if (len > 96) {
+            return CSS_WIDE_NONE;
+        }
+        memcpy(decoded, value, (size_t)len * sizeof(Py_UCS4));
+        decoded[len] = 0;
+        css_unescape_name(decoded, &len);
+        value = decoded;
+        break;
+    }
+    switch (css_lower(value[0])) {
+    case 'i':
+        if (css_slice_ci_eq(value, len, "inherit")) {
+            return CSS_WIDE_INHERIT;
+        }
+        return css_slice_ci_eq(value, len, "initial") ? CSS_WIDE_INITIAL : CSS_WIDE_NONE;
+    case 'u':
+        return css_slice_ci_eq(value, len, "unset") ? CSS_WIDE_UNSET : CSS_WIDE_NONE;
+    case 'r':
+        if (css_slice_ci_eq(value, len, "revert")) {
+            return CSS_WIDE_REVERT;
+        }
+        return css_slice_ci_eq(value, len, "revert-layer") ? CSS_WIDE_REVERT_LAYER : CSS_WIDE_NONE;
+    default:
+        return CSS_WIDE_NONE;
+    }
+}
+
 /* Three-way ASCII case-insensitive compare of a code-point slice against a lowercase C
    string, ordering the lowercased slice lexicographically: <0, 0, or >0. */
 static int css_slice_ci_cmp(const Py_UCS4 *data, Py_ssize_t len, const char *word) {
@@ -398,8 +450,12 @@ typedef struct {
     Py_ssize_t name_len;
     const Py_UCS4 *value;
     Py_ssize_t value_len;
-    int important;
+    unsigned char important;
+    unsigned char escaped_name;
+    unsigned char mixed_wide;
 } css_decl;
+
+static int css_mixed_wide_keyword(const Py_UCS4 *value, Py_ssize_t len);
 
 /* Trim leading and trailing whitespace from a slice in place. */
 static void css_trim(const Py_UCS4 **data, Py_ssize_t *len) {
@@ -413,6 +469,57 @@ static void css_trim(const Py_UCS4 **data, Py_ssize_t *len) {
     }
     *data += start;
     *len = stop - start;
+}
+
+static void css_trim_escaped_name(const Py_UCS4 **data, Py_ssize_t *len) {
+    Py_ssize_t start = 0;
+    Py_ssize_t stop = *len;
+    while (css_is_ws((*data)[start])) {
+        start++;
+    }
+    while (css_is_ws((*data)[stop - 1])) {
+        Py_ssize_t backslashes = 0;
+        while (stop - backslashes > start + 1 && (*data)[stop - backslashes - 2] == '\\') {
+            backslashes++;
+        }
+        if (backslashes & 1) {
+            break;
+        }
+        stop--;
+    }
+    *data += start;
+    *len = stop - start;
+}
+
+static void css_unescape_name(Py_UCS4 *name, Py_ssize_t *length) {
+    Py_ssize_t write = 0;
+    for (Py_ssize_t read = 0; read < *length; read++) {
+        if (name[read] != '\\') {
+            name[write++] = name[read];
+            continue;
+        }
+        read++;
+        if (!is_ascii_hexdigit(name[read])) {
+            name[write++] = name[read] == 0 ? 0xFFFD : name[read];
+            continue;
+        }
+        uint32_t code = 0;
+        int digits = 0;
+        do {
+            Py_UCS4 hex = name[read++];
+            code = code * 16 + (hex <= '9' ? (uint32_t)(hex - '0') : (uint32_t)((hex | 32) - 'a' + 10));
+            digits++;
+        } while (digits < 6 && read < *length && is_ascii_hexdigit(name[read]));
+        if (read < *length && css_is_ws(name[read])) {
+            if (name[read] == '\r' && name[read + 1] == '\n') {
+                read++;
+            }
+            read++;
+        }
+        name[write++] = code == 0 || code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF) ? 0xFFFD : code;
+        read--;
+    }
+    *length = write;
 }
 
 /* Strip a trailing "! important" (case-insensitive, optional inner whitespace) from
@@ -454,7 +561,8 @@ static const Py_UCS4 CSS_BLOCK_CLOSERS[4] = {0, ')', ']', '}'};
    closer is a token inside it (CSS Syntax 3 §5.5.8), so `{a)}` stays one block and the open kinds form a stack. The
    innermost 32 kinds sit two bits each in a register, which keeps a stack array and its per-call setup out of the
    common shallow scan; deeper kinds spill to the heap. */
-static Py_ssize_t css_scan_to(const Py_UCS4 *data, Py_ssize_t pos, Py_ssize_t end, Py_UCS4 stop, Py_UCS4 also_stop) {
+static Py_ssize_t css_scan_to(const Py_UCS4 *data, Py_ssize_t pos, Py_ssize_t end, Py_UCS4 stop, Py_UCS4 also_stop,
+                              int *escaped) {
     uint64_t open_kinds = 0;
     unsigned char *spilled = NULL;
     Py_ssize_t spilled_capacity = 0;
@@ -507,6 +615,10 @@ static Py_ssize_t css_scan_to(const Py_UCS4 *data, Py_ssize_t pos, Py_ssize_t en
             }
         } else if (cur == '\\') {
             /* an escaped code point is part of a name (CSS Syntax 3 §4.3.7), so `\}` stays in the name */
+            if (escaped != NULL && *escaped >= 0) {
+                *escaped =
+                    pos + 1 < end && (data[pos + 1] == '\n' || data[pos + 1] == '\r' || data[pos + 1] == '\f') ? -1 : 1;
+            }
             pos++;
         }
         pos++;
@@ -519,29 +631,37 @@ static Py_ssize_t css_scan_to(const Py_UCS4 *data, Py_ssize_t pos, Py_ssize_t en
 
 /* Parse the declarations in the cleaned block [start, end) into decls, growing the
    array as needed. Returns the count, or -1 on allocation failure. */
-static Py_ssize_t css_parse_block(const Py_UCS4 *data, Py_ssize_t start, Py_ssize_t end, css_decl **out,
-                                  Py_ssize_t *capacity) {
+static Py_ssize_t css_parse_block(Py_UCS4 *data, Py_ssize_t start, Py_ssize_t end, css_decl **out, Py_ssize_t *capacity,
+                                  int decode_names) {
     Py_ssize_t count = 0;
     Py_ssize_t pos = start;
     while (pos < end) {
         /* the value scan starts past the colon, so the name is read once */
-        Py_ssize_t colon = css_scan_to(data, pos, end, ':', ';');
+        int escaped = 0;
+        Py_ssize_t colon = css_scan_to(data, pos, end, ':', ';', &escaped);
         if (colon < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        Py_ssize_t semi = colon < end && data[colon] == ':' ? css_scan_to(data, colon + 1, end, ';', ';') : colon;
+        Py_ssize_t semi = colon < end && data[colon] == ':' ? css_scan_to(data, colon + 1, end, ';', ';', NULL) : colon;
         if (semi < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;  /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         if (colon < semi) {
             const Py_UCS4 *name = data + pos;
             Py_ssize_t name_len = colon - pos;
-            css_trim(&name, &name_len);
+            if (escaped) {
+                css_trim_escaped_name(&name, &name_len);
+            } else {
+                css_trim(&name, &name_len);
+            }
             const Py_UCS4 *value = data + colon + 1;
             Py_ssize_t value_len = semi - colon - 1;
             css_trim(&value, &value_len);
             int important = css_take_important(&value, &value_len);
-            if (name_len > 0 && value_len > 0) {
+            if (name_len > 0 && value_len > 0 && escaped >= 0) {
+                if (decode_names && escaped) {
+                    css_unescape_name((Py_UCS4 *)name, &name_len);
+                }
                 if (count == *capacity) {
                     Py_ssize_t grown = *capacity == 0 ? TH_INITIAL_CAPACITY(8) : *capacity * 2;
                     css_decl *bigger = PyMem_Realloc(*out, (size_t)grown * sizeof(css_decl));
@@ -551,7 +671,13 @@ static Py_ssize_t css_parse_block(const Py_UCS4 *data, Py_ssize_t start, Py_ssiz
                     *out = bigger;
                     *capacity = grown;
                 }
-                (*out)[count++] = (css_decl){name, name_len, value, value_len, important};
+                (*out)[count++] = (css_decl){name,
+                                             name_len,
+                                             value,
+                                             value_len,
+                                             important,
+                                             !decode_names && escaped,
+                                             decode_names && css_mixed_wide_keyword(value, value_len)};
             }
         }
         pos = semi + 1;
@@ -567,7 +693,7 @@ int th_css_inline_whitespace(const Py_UCS4 *source, Py_ssize_t length, int inher
     }
     css_decl *declarations = NULL;
     Py_ssize_t capacity = 0;
-    Py_ssize_t count = css_parse_block(clean, 0, clean_len, &declarations, &capacity);
+    Py_ssize_t count = css_parse_block(clean, 0, clean_len, &declarations, &capacity, 1);
     int mode = inherited;
     int important = 0;
     for (Py_ssize_t index = 0; index < count; index++) {
@@ -625,6 +751,39 @@ static PyObject *css_slice_str(const Py_UCS4 *data, Py_ssize_t len) {
     return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, data, len);
 }
 
+static PyObject *css_decoded_name(PyObject *name);
+static PyObject *css_property_name(const Py_UCS4 *data, Py_ssize_t len) {
+    if (len > 1 && data[0] == '-' && data[1] == '-') {
+        return css_slice_str(data, len);
+    }
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (data[index] >= 'A' && data[index] <= 'Z') {
+            goto lowercase;
+        }
+    }
+    return css_slice_str(data, len);
+
+lowercase:
+    {
+        Py_UCS4 maximum = 0;
+        for (Py_ssize_t index = 0; index < len; index++) {
+            if (data[index] > maximum) {
+                maximum = data[index];
+            }
+        }
+        PyObject *name = PyUnicode_New(len, maximum);
+        if (name == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            return NULL;    /* GCOVR_EXCL_LINE */
+        }
+        for (Py_ssize_t index = 0; index < len; index++) {
+            Py_UCS4 point = data[index];
+            PyUnicode_WRITE(PyUnicode_KIND(name), PyUnicode_DATA(name), index,
+                            point >= 'A' && point <= 'Z' ? point + ('a' - 'A') : point);
+        }
+        return name;
+    }
+}
+
 /* Build the ((name, value, important), ...) tuple for a parsed declaration list. */
 static PyObject *css_decls_to_tuple(const css_decl *decls, Py_ssize_t count) {
     PyObject *result = PyTuple_New(count);
@@ -632,16 +791,29 @@ static PyObject *css_decls_to_tuple(const css_decl *decls, Py_ssize_t count) {
         return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     for (Py_ssize_t index = 0; index < count; index++) {
-        PyObject *name = css_slice_str(decls[index].name, decls[index].name_len);
+        PyObject *raw_name = decls[index].escaped_name ? css_slice_str(decls[index].name, decls[index].name_len) : NULL;
+        if (decls[index].escaped_name && raw_name == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+            Py_DECREF(result);                               /* GCOVR_EXCL_LINE */
+            return NULL;                                     /* GCOVR_EXCL_LINE */
+        }
+        PyObject *name;
+        if (decls[index].escaped_name) {
+            name = css_decoded_name(raw_name);
+        } else {
+            name = css_property_name(decls[index].name, decls[index].name_len);
+        }
         PyObject *value = css_slice_str(decls[index].value, decls[index].value_len);
-        /* the whole triple must survive to be stored; any half-built member is freed here */
         if (name == NULL || value == NULL) { /* GCOVR_EXCL_BR_LINE: allocation-failure path */
+            Py_XDECREF(raw_name);            /* GCOVR_EXCL_LINE: allocation-failure path */
             Py_XDECREF(name);                /* GCOVR_EXCL_LINE: allocation-failure path */
             Py_XDECREF(value);               /* GCOVR_EXCL_LINE: allocation-failure path */
             Py_DECREF(result);               /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;                     /* GCOVR_EXCL_LINE: allocation-failure path */
         }
-        PyObject *triple = PyTuple_Pack(3, name, value, decls[index].important ? Py_True : Py_False);
+        PyObject *triple = raw_name == NULL
+                               ? PyTuple_Pack(3, name, value, decls[index].important ? Py_True : Py_False)
+                               : PyTuple_Pack(4, name, value, decls[index].important ? Py_True : Py_False, raw_name);
+        Py_XDECREF(raw_name);
         Py_DECREF(name);
         Py_DECREF(value);
         if (triple == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -661,8 +833,10 @@ static int css_declaration_items(PyObject *items) {
     }
     for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(items); index++) {
         PyObject *triple = PyTuple_GET_ITEM(items, index);
-        if (!PyTuple_Check(triple) || PyTuple_GET_SIZE(triple) != 3 || !PyUnicode_Check(PyTuple_GET_ITEM(triple, 0)) ||
-            !PyUnicode_Check(PyTuple_GET_ITEM(triple, 1))) {
+        if (!PyTuple_Check(triple) ||
+            (PyTuple_GET_SIZE(triple) != 3 &&
+             (PyTuple_GET_SIZE(triple) != 4 || !PyUnicode_Check(PyTuple_GET_ITEM(triple, 3)))) ||
+            !PyUnicode_Check(PyTuple_GET_ITEM(triple, 0)) || !PyUnicode_Check(PyTuple_GET_ITEM(triple, 1))) {
             PyErr_SetString(PyExc_TypeError, "declaration items must be a tuple of (name, value, important) triples");
             return -1;
         }
@@ -670,8 +844,19 @@ static int css_declaration_items(PyObject *items) {
     return 0;
 }
 
-/* _css_declaration_index(items) -> {name: index}: the winning declaration of each property, a later duplicate
-   winning the way the cascade resolves it, keyed in first-seen order so iteration visits each property once. */
+static PyObject *css_decoded_name(PyObject *name) {
+    Py_ssize_t length = PyUnicode_GET_LENGTH(name);
+    Py_UCS4 *decoded = PyUnicode_AsUCS4Copy(name);
+    if (decoded == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+        return NULL;       /* GCOVR_EXCL_LINE */
+    }
+    css_unescape_name(decoded, &length);
+    PyObject *result = css_property_name(decoded, length);
+    PyMem_Free(decoded);
+    return result;
+}
+
+/* _css_declaration_index(items) -> {name: index}: important declarations win over normal duplicates. */
 PyObject *turbohtml_css_declaration_index(PyObject *Py_UNUSED(module), PyObject *items) {
     if (css_declaration_items(items) < 0) {
         return NULL;
@@ -681,16 +866,41 @@ PyObject *turbohtml_css_declaration_index(PyObject *Py_UNUSED(module), PyObject 
         return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(items); index++) {
+        PyObject *triple = PyTuple_GET_ITEM(items, index);
+        PyObject *name = PyTuple_GET_ITEM(triple, 0);
         PyObject *position = PyLong_FromSsize_t(index);
         if (position == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             Py_DECREF(index_of); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;         /* GCOVR_EXCL_LINE */
         }
-        int stored = PyDict_SetItem(index_of, PyTuple_GET_ITEM(PyTuple_GET_ITEM(items, index), 0), position);
+        int stored = PyDict_SetItem(index_of, name, position);
         Py_DECREF(position);
         if (stored < 0) {        /* GCOVR_EXCL_BR_LINE: a str-keyed insert only fails on allocation failure */
             Py_DECREF(index_of); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;         /* GCOVR_EXCL_LINE */
+        }
+    }
+    if (PyDict_Size(index_of) < PyTuple_GET_SIZE(items)) {
+        for (Py_ssize_t index = 0; index < PyTuple_GET_SIZE(items); index++) {
+            PyObject *triple = PyTuple_GET_ITEM(items, index);
+            if (PyTuple_GET_ITEM(triple, 2) != Py_True) {
+                continue;
+            }
+            PyObject *name = PyTuple_GET_ITEM(triple, 0);
+            if (PyLong_AsSsize_t(PyDict_GetItem(index_of, name)) == index) {
+                continue;
+            }
+            PyObject *position = PyLong_FromSsize_t(index);
+            if (position == NULL) {  /* GCOVR_EXCL_BR_LINE: allocation failure */
+                Py_DECREF(index_of); /* GCOVR_EXCL_LINE: allocation-failure path */
+                return NULL;         /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
+            int stored = PyDict_SetItem(index_of, name, position);
+            Py_DECREF(position);
+            if (stored < 0) {        /* GCOVR_EXCL_BR_LINE: allocation failure */
+                Py_DECREF(index_of); /* GCOVR_EXCL_LINE: allocation-failure path */
+                return NULL;         /* GCOVR_EXCL_LINE: allocation-failure path */
+            }
         }
     }
     return index_of;
@@ -714,8 +924,8 @@ PyObject *turbohtml_css_declaration_text(PyObject *Py_UNUSED(module), PyObject *
             Py_DECREF(parts);
             return NULL;
         }
-        PyObject *part = th_str_format("%U: %U%s", PyTuple_GET_ITEM(triple, 0), PyTuple_GET_ITEM(triple, 1),
-                                       important ? " !important" : "");
+        PyObject *part = th_str_format("%U: %U%s", PyTuple_GET_ITEM(triple, PyTuple_GET_SIZE(triple) == 4 ? 3 : 0),
+                                       PyTuple_GET_ITEM(triple, 1), important ? " !important" : "");
         if (part == NULL) {   /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             Py_DECREF(parts); /* GCOVR_EXCL_LINE: allocation-failure path */
             return NULL;      /* GCOVR_EXCL_LINE */
@@ -751,7 +961,7 @@ PyObject *turbohtml_css_parse_declarations(PyObject *module, PyObject *text) {
     }
     css_decl *decls = NULL;
     Py_ssize_t capacity = 0;
-    Py_ssize_t count = css_parse_block(clean, 0, clean_len, &decls, &capacity);
+    Py_ssize_t count = css_parse_block(clean, 0, clean_len, &decls, &capacity, 0);
     PyObject *result;
     if (count < 0) {               /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         result = PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -781,7 +991,7 @@ static void css_free_rules(css_rule *rules, Py_ssize_t count) {
 /* Parse the cleaned stylesheet [0, len) into style rules. At-rules (a top-level
    token starting '@') are skipped whole, including any block. Returns the rules and
    sets *out_count, or NULL on allocation failure (with *out_count negative). */
-static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t *out_count) {
+static css_rule *css_parse_sheet(Py_UCS4 *data, Py_ssize_t len, Py_ssize_t *out_count, int decode_names) {
     css_rule *rules = NULL;
     Py_ssize_t count = 0;
     Py_ssize_t capacity = 0;
@@ -793,7 +1003,7 @@ static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t
         if (pos >= len) {
             break;
         }
-        Py_ssize_t brace = css_scan_to(data, pos, len, '{', '{');
+        Py_ssize_t brace = css_scan_to(data, pos, len, '{', '{', NULL);
         if (brace < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             goto fail;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -801,7 +1011,7 @@ static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t
             /* an at-rule: a statement one (@import, @charset) ends at ';', a block one
                (@media, @supports) at its balanced '}'; either is skipped whole. The scan stops at the brace, since
                past it a ';' outside the block lies in a later statement. */
-            Py_ssize_t semi = css_scan_to(data, pos, brace, ';', ';');
+            Py_ssize_t semi = css_scan_to(data, pos, brace, ';', ';', NULL);
             if (semi < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 goto fail;  /* GCOVR_EXCL_LINE: allocation-failure path */
             }
@@ -809,7 +1019,7 @@ static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t
                 pos = semi < len ? semi + 1 : len;
                 continue;
             }
-            Py_ssize_t block_end = css_scan_to(data, brace + 1, len, '}', '}');
+            Py_ssize_t block_end = css_scan_to(data, brace + 1, len, '}', '}', NULL);
             if (block_end < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
                 goto fail;       /* GCOVR_EXCL_LINE: allocation-failure path */
             }
@@ -819,7 +1029,7 @@ static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t
         if (brace >= len) {
             break;
         }
-        Py_ssize_t close = css_scan_to(data, brace + 1, len, '}', '}');
+        Py_ssize_t close = css_scan_to(data, brace + 1, len, '}', '}', NULL);
         if (close < 0) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             goto fail;   /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -828,7 +1038,7 @@ static css_rule *css_parse_sheet(const Py_UCS4 *data, Py_ssize_t len, Py_ssize_t
         css_trim(&selector, &selector_len);
         css_decl *decls = NULL;
         Py_ssize_t decl_cap = 0;
-        Py_ssize_t decl_count = css_parse_block(data, brace + 1, close, &decls, &decl_cap);
+        Py_ssize_t decl_count = css_parse_block(data, brace + 1, close, &decls, &decl_cap, decode_names);
         if (decl_count < 0) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             PyMem_Free(decls); /* GCOVR_EXCL_LINE: allocation-failure path */
             goto fail;         /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -875,7 +1085,7 @@ PyObject *turbohtml_css_parse_rules(PyObject *module, PyObject *text) {
         return NULL;     /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t rule_count = 0;
-    css_rule *rules = css_parse_sheet(clean, clean_len, &rule_count);
+    css_rule *rules = css_parse_sheet(clean, clean_len, &rule_count, 0);
     if (rule_count < 0) {        /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         PyMem_Free(clean);       /* GCOVR_EXCL_LINE: allocation-failure path */
         return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -990,6 +1200,13 @@ static int css_apply_distributive(css_slot slots[NUM_PROPS], const css_decl *dec
         if (part_count > shorthand->axes || pos < decl->value_len) {
             return 1;
         }
+        if (part_count > 1) {
+            for (int part = 0; part < part_count; part++) {
+                if (css_wide_keyword(parts[part], part_lens[part])) {
+                    return 1;
+                }
+            }
+        }
         for (int side = 0; side < shorthand->axes; side++) {
             /* the 1-to-4 rule: 1 value fills all, 2 splits opposite pairs, 3 sets the
                fourth from the second, 4 is verbatim; overflow's 2 axes mirror the same */
@@ -1020,11 +1237,20 @@ static int css_apply_box(css_slot slots[NUM_PROPS], const css_decl *decl, const 
         if (!css_slice_ci_eq(decl->name, decl->name_len, shorthand->name)) {
             continue;
         }
+        if (css_wide_keyword(decl->value, decl->value_len)) {
+            for (int target = 0; target < shorthand->target_count; target++) {
+                css_set_slot(slots, shorthand->targets[target].prop, decl->value, decl->value_len, rank);
+            }
+            return 1;
+        }
         css_span components[3] = {CSS_COMPONENT_INITIAL[0], CSS_COMPONENT_INITIAL[1], CSS_COMPONENT_INITIAL[2]};
         int seen[3] = {0, 0, 0};
         Py_ssize_t pos = 0;
         while (pos < decl->value_len) {
             Py_ssize_t stop = css_component_end(decl->value, pos, decl->value_len);
+            if (css_wide_keyword(decl->value + pos, stop - pos)) {
+                return 1;
+            }
             int kind = css_classify_component(decl->value + pos, stop - pos);
             if (seen[kind]) {
                 return 1;
@@ -1045,13 +1271,127 @@ static int css_apply_box(css_slot slots[NUM_PROPS], const css_decl *decl, const 
     return 0;
 }
 
+static Py_ssize_t css_escape_end(const Py_UCS4 *value, Py_ssize_t pos, Py_ssize_t len) {
+    pos++;
+    if (!is_ascii_hexdigit(value[pos])) {
+        return pos + 1;
+    }
+    int digits = 0;
+    do {
+        pos++;
+        digits++;
+    } while (digits < 6 && pos < len && is_ascii_hexdigit(value[pos]));
+    return pos < len && css_is_ws(value[pos]) ? pos + 1 : pos;
+}
+
+static int css_mixed_wide_keyword(const Py_UCS4 *value, Py_ssize_t len) {
+    if (len < 5) {
+        return 0;
+    }
+    int candidate = 0;
+    for (Py_ssize_t pos = 0; pos + 2 < len; pos++) {
+        if (value[pos] == '\\') {
+            candidate = 1;
+            break;
+        }
+        Py_UCS4 first = value[pos] | 32;
+        if (first != 'i' && first != 'r' && first != 'u') {
+            continue;
+        }
+        Py_UCS4 second = value[pos + 1] | 32;
+        Py_UCS4 third = value[pos + 2] | 32;
+        if ((first == 'i' && second == 'n' && (third == 'h' || third == 'i')) ||
+            (first == 'r' && second == 'e' && third == 'v') || (first == 'u' && second == 'n' && third == 's')) {
+            candidate = 1;
+            break;
+        }
+    }
+    if (!candidate) {
+        return 0;
+    }
+    Py_UCS4 quote = 0;
+    int depth = 0;
+    for (Py_ssize_t pos = 0; pos < len;) {
+        Py_UCS4 ch = value[pos];
+        if (quote != 0) {
+            if (ch == '\\' && pos + 1 < len) { /* GCOVR_EXCL_BR_LINE: a terminal escape cannot precede a keyword */
+                pos = css_escape_end(value, pos, len);
+                continue;
+            }
+            if (ch == quote) {
+                quote = 0;
+            }
+            pos++;
+            continue;
+        }
+        if (ch == '"' || ch == '\'') {
+            quote = ch;
+            pos++;
+            continue;
+        }
+        if (ch == '\\' && depth > 0 && pos + 1 < len) { /* GCOVR_EXCL_BR_LINE: terminal escape */
+            pos = css_escape_end(value, pos, len);
+            continue;
+        }
+        if (ch == '(') {
+            depth++;
+            pos++;
+            continue;
+        }
+        if (ch == ')' && depth > 0) {
+            depth--;
+            pos++;
+            continue;
+        }
+        if (depth > 0) {
+            pos++;
+            continue;
+        }
+        if (!((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '-' ||
+              ch == '_' || ch >= 128 || ch == '\\')) {
+            pos++;
+            continue;
+        }
+        Py_ssize_t stop = pos;
+        while (stop < len) {
+            Py_UCS4 part = value[stop];
+            if (part == '\\') {
+                stop = stop + 1 < len ? css_escape_end(value, stop, len) : stop + 1;
+            } else if ((part >= 'a' && part <= 'z') || (part >= 'A' && part <= 'Z') || (part >= '0' && part <= '9') ||
+                       part == '-' || part == '_' || part >= 128) {
+                stop++;
+            } else {
+                break;
+            }
+        }
+        if (css_wide_keyword(value + pos, stop - pos)) {
+            return pos != 0 || stop != len;
+        }
+        pos = stop;
+    }
+    return 0;
+}
+
 /* Feed one declaration into the cascade slots, expanding a shorthand across its
    longhands. Every candidate for one declaration shares an order stamp. */
 static void css_apply_decl(css_slot slots[NUM_PROPS], const css_decl *decl, int inline_style, int spec_a, int spec_b,
                            int spec_c, long order) {
     css_slot rank = {NULL, 0, decl->important, inline_style, spec_a, spec_b, spec_c, order, 1};
+    if (decl->name_len == 3 && css_slice_ci_eq(decl->name, decl->name_len, "all")) {
+        if (css_wide_keyword(decl->value, decl->value_len)) {
+            for (int prop = 0; prop < NUM_PROPS; prop++) {
+                if (prop != PROP_DIRECTION) {
+                    css_set_slot(slots, prop, decl->value, decl->value_len, &rank);
+                }
+            }
+        }
+        return;
+    }
     int direct = css_prop_id(decl->name, decl->name_len);
     if (direct >= 0) {
+        if (decl->mixed_wide) {
+            return;
+        }
         css_set_slot(slots, direct, decl->value, decl->value_len, &rank);
         return;
     }
@@ -1101,15 +1441,16 @@ static int css_resolve(css_value *out, const css_slot *slot, const css_value *pa
     if (slot->set) {
         const Py_UCS4 *value = slot->value;
         Py_ssize_t len = slot->value_len;
-        if (css_slice_ci_eq(value, len, "inherit")) {
+        css_wide_value wide = css_wide_keyword(value, len);
+        if (wide == CSS_WIDE_INHERIT) {
             return inherited != NULL ? css_value_set_slice(out, inherited->data, inherited->len)
                                      : css_value_set_ascii(out, meta->initial, meta->initial_len);
         }
-        if (css_slice_ci_eq(value, len, "initial")) {
+        if (wide == CSS_WIDE_INITIAL) {
             return css_value_set_ascii(out, meta->initial, meta->initial_len);
         }
-        if (css_slice_ci_eq(value, len, "unset") || css_slice_ci_eq(value, len, "revert")) {
-            /* revert has no user/UA origin to fall back to here, so it collapses to unset */
+        if (wide != CSS_WIDE_NONE) {
+            /* no user/UA origin or layers exist here, so both rollback keywords act as unset */
             if (meta->inherited && inherited != NULL) {
                 return css_value_set_slice(out, inherited->data, inherited->len);
             }
@@ -1216,6 +1557,28 @@ static void css_prioritize_subject(sel_compiled *compiled) {
     }
 }
 
+static int css_style_type_supported(const th_node *node) {
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        const th_node_attr *attr = &node->attrs[index];
+        if (attr->name_atom == TH_ATTR_TYPE) {
+            if (attr->value_len == 0) {
+                return 1;
+            }
+            if (attr->value_len != 8) {
+                return 0;
+            }
+            for (Py_ssize_t offset = 0; offset < 8; offset++) {
+                Py_UCS4 codepoint = attr->value[offset];
+                if ((node->ns == TH_NS_HTML ? lower_ascii(codepoint) : codepoint) != (Py_UCS4) "text/css"[offset]) {
+                    return 0;
+                }
+            }
+            return 1;
+        }
+    }
+    return 1;
+}
+
 /* Collect every <style> element's text under root (document order), parsing each
    into a sheet whose selectors are compiled against tree. A selector that fails to
    compile leaves compiled[rule] NULL so the rule matches nothing. Returns the sheet
@@ -1225,7 +1588,7 @@ static css_sheet *css_collect_sheets(module_state *state, th_tree *tree, th_node
     Py_ssize_t count = 0;
     Py_ssize_t capacity = 0;
     for (th_node *node = root; node != NULL; node = preorder_next(node, root)) {
-        if (node->type != TH_NODE_ELEMENT || node->atom != TH_TAG_STYLE) {
+        if (node->type != TH_NODE_ELEMENT || node->atom != TH_TAG_STYLE || !css_style_type_supported(node)) {
             continue;
         }
         Py_ssize_t text_len = 0;
@@ -1240,7 +1603,7 @@ static css_sheet *css_collect_sheets(module_state *state, th_tree *tree, th_node
             goto fail;       /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         Py_ssize_t rule_count = 0;
-        css_rule *rules = css_parse_sheet(clean, clean_len, &rule_count);
+        css_rule *rules = css_parse_sheet(clean, clean_len, &rule_count, 1);
         if (rule_count < 0) {  /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             PyMem_Free(clean); /* GCOVR_EXCL_LINE: allocation-failure path */
             goto fail;         /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1396,7 +1759,7 @@ static int css_cascade_element(th_node *element, const css_sheet *sheets, Py_ssi
             return -1;              /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         Py_ssize_t capacity = 0;
-        Py_ssize_t decl_count = css_parse_block(inline_clean, 0, clean_len, &inline_decls, &capacity);
+        Py_ssize_t decl_count = css_parse_block(inline_clean, 0, clean_len, &inline_decls, &capacity, 1);
         if (decl_count < 0) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             PyMem_Free(inline_decls); /* GCOVR_EXCL_LINE: allocation-failure path */
             PyMem_Free(inline_clean); /* GCOVR_EXCL_LINE: allocation-failure path */

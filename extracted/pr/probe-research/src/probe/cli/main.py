@@ -766,7 +766,7 @@ def _version_notice() -> None:
         latest = isinstance(manifest, dict) and updater.cli_update_available(manifest, __version__)
         if not latest:
             # Cold cache or CLI current: nothing to apply, except a pi package
-            # update a running pi deferred, which pi's session start retries.
+            # update that failed, which pi's session start retries.
             _retry_owed_pi_update()
             return
 
@@ -820,15 +820,15 @@ def _update_trigger():
 
 
 def _retry_owed_pi_update() -> None:
-    """pi's session start, with a pi package update still owed
-    (`autoupdate.pi_update_pending`): spawn it, to run once pi exits. No run
-    check: it touches pi's package, never the CLI a run imports from."""
+    """pi's session start, with a pi package update still owed because the last
+    one failed (`autoupdate.pi_update_due`): try it again now. No run check: it
+    touches pi's package, never the CLI a run imports from."""
     if not _extension_session_start():
         return
     from . import autoupdate
 
-    if autoupdate.pi_update_pending():
-        _spawn_harness_update()
+    if autoupdate.pi_update_due():
+        _spawn_session_start_update()
 
 
 def _extension_session_start() -> bool:
@@ -985,13 +985,7 @@ def _spawn_version_refresh() -> None:
         version_policy.release_refresh()
 
 
-def _spawn_update(
-    flag: str,
-    *,
-    harness_pid: int | None = None,
-    trigger: str | None = None,
-    pi_pid: int | None = None,
-) -> None:
+def _spawn_update(flag: str, *, trigger: str | None = None) -> None:
     """Launch version_refresh detached, naming OURSELVES as the pid to outlive.
 
     The wait is the whole point, and it is why both update triggers share this
@@ -1007,66 +1001,27 @@ def _spawn_update(
     env = dict(os.environ)
     env[autoupdate.WAIT_FOR_PID_ENV] = str(os.getpid())
     # What asked, for the server's update report: a harness's session start
-    # (named, or implied by a harness to wait for); else the CLI's own trigger.
-    env[autoupdate.TRIGGER_ENV] = trigger or (
-        autoupdate.Trigger.SESSION_START if harness_pid is not None else autoupdate.Trigger.CLI
-    ).value
-    if harness_pid is not None:
-        env[autoupdate.WAIT_FOR_HARNESS_PID_ENV] = str(harness_pid)
-    # Only the spawn that names it carries it: an inherited one names some
-    # other process's pi.
-    env.pop(autoupdate.PI_PID_ENV, None)
-    if pi_pid is not None and pi_pid > 1:
-        env[autoupdate.PI_PID_ENV] = str(pi_pid)
+    # when named; else the CLI's own trigger.
+    env[autoupdate.TRIGGER_ENV] = trigger or autoupdate.Trigger.CLI.value
     _spawn_detached([sys.executable, "-m", "probe.cli.version_refresh", flag], env)
 
 
 def _spawn_session_start_update() -> None:
     """Apply an update found at an extension harness's session start (pi's), NOW.
 
-    It used to wait for that pi to exit first (`_spawn_harness_update`), since
-    the update rewrites the package folder pi loads from. But the update leaves
-    that folder alone while pi runs anyway -- its pi step defers and the update
-    is owed (`autoupdate.PI_UPDATE_PENDING_FILENAME`) -- and the wait held the
-    CLI back with it: a pi process lives for days, the wait gives up after 12
-    hours, and strand-ai's pi-only laptop sat on CLI 0.219.0 through a day of
-    pi session starts (2026-10-07). So the CLI updates now (it is the only
-    thing this update moves: the update runs as pi, which has no marketplace
-    plugins); pi's package waits for pi, through the owed-update retry at pi's
-    next session start (`_retry_owed_pi_update`). The pi that ran us (our
-    parent) is named to the update (`autoupdate.PI_PID_ENV`), which defers
-    `pi update` while it lives even if no process reads as pi.
+    Nothing waits for pi: neither the CLI nor pi's package (`pi update` runs
+    under a running pi, which keeps what it loaded until `/reload`; see
+    `upgrading._update_pi_package`). Waiting for that pi held both back: a pi
+    process lives for days, and strand-ai's pi-only laptop sat on CLI 0.219.0
+    through a day of pi session starts (2026-10-07), then on an old pi package
+    with pi agents running around the clock (2026-10-15).
     `--apply-if-newer` re-checks on a fresh manifest under the update lock, so
     several pi sessions starting at once update once.
     """
     from . import autoupdate
 
     try:
-        _spawn_update(
-            "--apply-if-newer",
-            trigger=autoupdate.Trigger.SESSION_START.value,
-            pi_pid=os.getppid(),
-        )
-    except Exception:  # noqa: BLE001 -- fail-open: never block the command
-        pass
-
-
-def _spawn_harness_update() -> None:
-    """Apply the pi package update a running pi deferred (pi's session start).
-
-    The child waits for THAT harness (our parent: pi runs `probe session
-    initialize` itself) to exit before it updates, since the update rewrites
-    the package folder pi loads from; and it re-checks what is still due
-    (`--apply-if-newer`), so several pi sessions started while one was pending
-    never stack duplicate updates.
-    """
-    harness_pid = os.getppid()
-    if harness_pid <= 1:
-        # Our parent is already gone (reparented to init): there is no pi to
-        # wait for, and waiting on init would hold the update for hours.
-        return
-    try:
-        _spawn_update("--apply-if-newer", harness_pid=harness_pid)
+        _spawn_update("--apply-if-newer", trigger=autoupdate.Trigger.SESSION_START.value)
     except Exception:  # noqa: BLE001 -- fail-open: never block the command
         pass
 
@@ -9934,7 +9889,7 @@ session_app = typer.Typer(
 app.add_typer(session_app, name="session")
 
 
-def _resolve_agent_session(session: str | None) -> str:
+def _resolve_agent_session(session: str | None, *, read: bool = False) -> str:
     """This session's id for `probe session ...`, or exit 1 saying so.
 
     Resolves through the ``AGENTS`` table rather than naming variables here.
@@ -9942,8 +9897,19 @@ def _resolve_agent_session(session: str | None) -> str:
     is why every `probe session` subcommand exited 1 under pi even though
     ``PI_SESSION_ID`` was in that table: an agent added to the table did not
     become an agent the switch could name.
+
+    `read`: a command that only reads the session (`session status`, the
+    `companion` logs) falls back to the session the Probe daemon watches. The
+    daemon's `probe` calls run with a stripped environment that names no
+    coding agent, only `PROBE_DAEMON_SESSION` (`daemon/worker.py::probe_env`),
+    so its `probe session status` answered "no session id" (62 times in 14
+    days for one pi user) and it went hunting for the id with `printenv`, each
+    hunt a question for the researcher. A fallback, after the agent's own
+    variables: no coding agent's shell carries that variable, so the agent
+    side resolves exactly as before. Never for a command that moves the
+    switch: those stay the researcher's, however they are run.
     """
-    resolved = session or agent_session.session_id_from_env()
+    resolved = session or agent_session.session_id_from_env() or (_daemon_session() if read else None)
     if not resolved:
         from probe.cli.capabilities import cloud_agent_refusal
 
@@ -9954,6 +9920,23 @@ def _resolve_agent_session(session: str | None) -> str:
         )
         raise typer.Exit(1)
     return resolved
+
+
+def _daemon_session() -> "str | None":
+    """The session the Probe daemon watches, when the daemon runs this command:
+    its `probe` calls carry no coding agent's variables, only
+    `PROBE_DAEMON_SESSION` (`daemon/worker.py::probe_env`), and no coding agent's
+    shell carries that one. None anywhere else."""
+    if agent_session.session_id_from_env() is not None:
+        return None
+    value = os.environ.get(agent_session.DAEMON_SESSION_ENV)
+    return value if agent_session.valid_session_id(value) else None
+
+
+#: `probe session status` run by the Probe daemon (`_daemon_session`) says why
+#: these three are null.
+DAEMON_STATUS_NOTE = ("run by the Probe daemon, not the coding agent: capture, effective and writes_allowed "
+                      "describe the agent's own shell, so they are null here")
 
 
 def _require_tracking_state(session_id: str, on: bool) -> None:
@@ -10475,7 +10458,7 @@ def session_status(
     session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
 ) -> None:
     """Whether this conversation is being tracked, and how that was decided."""
-    resolved = _resolve_agent_session(session)
+    resolved = _resolve_agent_session(session, read=True)
     signal = session_marker.tracking_signal(resolved)
     session_state = session_marker.session_state(resolved)
     state = session_marker.read(resolved)
@@ -10494,7 +10477,13 @@ def session_status(
         decided_by = "machine default"
     else:
         decided_by = "folder default"
-    capture = _capture_block(resolved, heal_cwd=os.getcwd())
+    # Run by the Probe daemon: its shell is not the coding agent's. Capture is read
+    # by the agent's `PROBE_AGENT`, which the daemon's shell drops, so it answered
+    # Claude Code's watcher for a pi session ("not installed"), and its heal can
+    # start `tap start` for pi; `writes_allowed` is the agent's, and read by the
+    # daemon it sounds like the daemon's own. Null, never guessed, and no heal.
+    by_daemon = _daemon_session() is not None
+    capture = None if by_daemon else _capture_block(resolved, heal_cwd=os.getcwd())
     reads_allowed = session_marker.state_allows_reads(session_state)
     _print_json(
         {
@@ -10505,7 +10494,7 @@ def session_status(
             "reads_allowed": reads_allowed,
             # Whether the AGENT may record freely. Under `daemon` with a live
             # lease the daemon records and this is False; degraded, it is True.
-            "writes_allowed": session_marker.agent_writes_freely(resolved, session_state),
+            "writes_allowed": None if by_daemon else session_marker.agent_writes_freely(resolved, session_state),
             "daemon": _daemon_block(resolved, session_state),
             # The daemon paused itself: the session's work is not ML and its
             # state is a default (`state_source`), never the researcher's choice.
@@ -10531,13 +10520,14 @@ def session_status(
             # when nothing is. `tracking: true` with no daemon is the lie this
             # pair exists to make unsayable.
             "capture": capture,
-            "effective": _effective(tracking, capture),
+            "effective": None if by_daemon else _effective(tracking, capture),
             # Runs opened with no project (daemon v2) that nobody has filed yet.
             # null under `off`, which promises no Probe calls at all.
             "unfiled_runs": _unfiled_runs_block() if reads_allowed else None,
             # `.probe.config` (paths Probe never records): where this session
             # started, and the researcher's answer about the files above it.
             "probe_config": _probe_config_block(resolved),
+            **({"note": DAEMON_STATUS_NOTE} if by_daemon else {}),
         }
     )
 

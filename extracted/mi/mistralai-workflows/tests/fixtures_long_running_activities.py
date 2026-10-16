@@ -19,7 +19,10 @@ class ActivityTracker:
 fixture_activity_tracker = ActivityTracker()
 
 
-@activity(start_to_close_timeout=timedelta(seconds=3), heartbeat_timeout=timedelta(seconds=0.5), _skip_registering=True)
+# start_to_close must dwarf heartbeat_timeout: the test asserts the stuck
+# activity dies of a HEARTBEAT timeout, and on a starved CI event loop a short
+# start_to_close can expire before the first heartbeat is even recorded.
+@activity(start_to_close_timeout=timedelta(minutes=5), heartbeat_timeout=timedelta(seconds=0.5), _skip_registering=True)
 async def process_with_heartbeat(params: HeartbeatProcessingParams) -> HeartbeatProcessingResult:
     fixture_activity_tracker.items_processed = 0
     fixture_activity_tracker.heartbeat_count = 0

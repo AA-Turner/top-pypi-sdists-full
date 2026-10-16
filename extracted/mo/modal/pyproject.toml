@@ -7,7 +7,7 @@ name = "modal"
 description = "Python client library for Modal"
 readme = "README.md"
 dynamic = ["version"]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 license = "Apache-2.0"
 
 authors = [{ name = "Modal Labs", email = "support@modal.com" }]
@@ -26,6 +26,8 @@ dependencies = [
     "types-toml",
     "watchfiles",
     "typing_extensions~=4.6",
+    # typing_extensions<4.14 fails to import on Python 3.15
+    "typing_extensions>=4.14 ; python_version >= '3.15'",
 ]
 keywords = ["modal", "client", "cloud", "serverless", "infrastructure"]
 classifiers = [
@@ -44,7 +46,7 @@ dev = [
     "grpclib==0.4.9",
     "invoke~=2.2",
     "httpx~=0.28.1",
-    "pyjwt~=2.14.0",
+    "pyjwt~=2.15.0",
     "pre-commit>=2.21,<4",
     "mypy~=1.18.2",
     "packaging>=23.1",
@@ -65,7 +67,7 @@ dev = [
     "types-toml~=0.10.4",
     "wheel~=0.38.1",
     "nbclient~=0.10.2",
-    "notebook~=7.5.4",
+    "notebook~=7.6.3",
     "jupytext~=1.19.1",
     "pyright~=1.1.351",
     "console-ctrl~=0.1.0",
@@ -146,6 +148,10 @@ module = [
     "modal/_vendor/cloudpickle",
     "modal/_vendor/tblib",
     "modal/_vendor/a2wsgi_wsgi",
+    # TODO: fix the type errors in the Sandbox implementation. It was previously only
+    # type-checked through its generated stub (see the pyright exclude below).
+    "modal.sandbox._sandbox",
+    "modal.sandbox._sidecar",
 ]
 ignore_errors = true
 
@@ -226,6 +232,7 @@ extra-standard-library = ["pytest"]
 max-nested-blocks = 7
 
 [tool.pyright]
+reportPrivateUsage = false
 reportUnnecessaryComparison = true
 # mypy checks most of the codebase, but it skips the .py implementation of any
 # module that also ships a .pyi type stub, so pyright covers those
@@ -247,6 +254,7 @@ exclude = [
     "modal/mount.py",  # 23 errors together with stub
     "modal/mount.pyi",
     "modal/parallel_map.py",  # 18 errors, needs some thought around implementation / interface types
-    "modal/sandbox.py",  # 31 errors together with stub
-    "modal/sandbox.pyi",
+    "modal/sandbox/_sandbox.py",  # 31 errors together with stub
+    "modal/sandbox/_sidecar.py",
+    "modal/sandbox/sandbox.pyi",
 ]

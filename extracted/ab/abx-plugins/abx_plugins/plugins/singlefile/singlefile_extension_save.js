@@ -148,27 +148,51 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   await fs.promises.mkdir(CHROME_DOWNLOADS_DIR, { recursive: true });
 
   const timeoutMs = options.timeoutMs || getSinglefileDownloadWaitTimeoutMs();
-  const deadline = Date.now() + timeoutMs;
+  const saveStartedAt = Date.now();
+  const deadline = saveStartedAt + timeoutMs;
   console.error(
     `[singlefile] saving exact target=${targetId} tab=${tab.id} url=${tab.url}`
   );
   const helperPage = await page.browser().newPage();
   let releaseDownloadLock;
   let downloadedPath;
+  let originalProfileOptions;
   try {
     // Download behavior belongs to the live CDP connection. The launch
     // connection has already disconnected, so relying on it sends extension
     // downloads into the user's default Downloads folder. Share the existing
     // browser-download lock and use GUID names to avoid same-title collisions.
+    const lockStartedAt = Date.now();
+    console.error("[singlefile] phase=download-lock waiting");
     releaseDownloadLock = await chromeUtils.acquireSessionLock(
       path.join(CHROME_DOWNLOADS_DIR, ".download.lock"), timeoutMs
     );
+    console.error(`[singlefile] phase=download-lock elapsed_ms=${Date.now() - lockStartedAt}`);
     await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
       behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
     });
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
+    // A snapshot is replayed at other viewport sizes. SingleFile's default
+    // optimizations discard currently hidden images and alternate media rules.
+    // Use its normal configuration API, restoring the persona's preferences
+    // after this capture while still holding the browser download lock.
+    originalProfileOptions = await helperPage.evaluate(async (tabId) => {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: async () => chrome.runtime.sendMessage({ method: "bootstrap.init" }),
+      });
+      const { options } = result.result;
+      const profile = {};
+      const captureProfile = {};
+      for (const key of ["removeHiddenElements", "removeUnusedStyles", "removeAlternativeMedias", "removeAlternativeImages"]) {
+        profile[key] = options[key];
+        captureProfile[key] = false;
+      }
+      await chrome.runtime.sendMessage({ method: "config.updateProfile", profileName: options.profileName, profile: captureProfile });
+      return { profileName: options.profileName, profile };
+    }, tab.id);
     // Use Chrome's actual toolbar action. Importing SingleFile's source modules
     // bypasses its bundled entrypoint and breaks bare imports in current releases.
     // Register download listeners first; a small page can finish immediately.
@@ -185,6 +209,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       // Chrome actions target the selected tab. Select the exact saved CDP page;
       // opening the observer page above otherwise leaves that helper selected.
       await page.bringToFront();
+      console.error(`[singlefile] phase=capture started elapsed_ms=${Date.now() - saveStartedAt}`);
       await page.triggerExtensionAction(installed);
     });
     const downloadTimeoutMs = deadline - Date.now();
@@ -297,6 +322,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       },
       { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
     );
+    console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
     const stat = await fs.promises.stat(downloadedPath);
     if (stat.size <= 0) {
       throw new Error(`SingleFile download is empty: ${downloadedPath}`);
@@ -304,19 +330,29 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
       await moveAcrossMounts(downloadedPath, outputPath);
     }
+    console.error(`[singlefile] phase=file-saved elapsed_ms=${Date.now() - saveStartedAt}`);
     return outputPath;
   } finally {
-    if (releaseDownloadLock) {
-      await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
-        behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
-      }).catch(() => {});
-      releaseDownloadLock();
+    try {
+      if (originalProfileOptions) {
+        await helperPage.evaluate(options => chrome.runtime.sendMessage({
+          method: "config.updateProfile", ...options,
+        }), originalProfileOptions);
+      }
+    } finally {
+      if (releaseDownloadLock) {
+        await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
+          behavior: "allow", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
+        }).catch(() => {});
+        releaseDownloadLock();
+      }
+      await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
-    await helperPage.close({ runBeforeUnload: false }).catch(() => {});
   }
 }
 
 async function main() {
+  const startedAt = Date.now();
   const args = parseArgs();
   const url = args.url;
   const outputPath =
@@ -336,6 +372,7 @@ async function main() {
       waitForNavigationComplete: true,
     });
     browser = connection.browser;
+    console.error(`[singlefile] phase=connect elapsed_ms=${Date.now() - startedAt}`);
 
     const sessionEntry = chromeUtils.findExtensionMetadataByName(
       connection.extensions || [],
@@ -359,6 +396,7 @@ async function main() {
       { wakePath: SERVICE_WORKER_WAKE_PATH }
     );
     await chromeUtils.loadExtensionFromTarget([extension], extensionTarget);
+    console.error(`[singlefile] phase=extension elapsed_ms=${Date.now() - startedAt}`);
 
     const savedPath = await saveSinglefileWithExtension(
       connection.page,

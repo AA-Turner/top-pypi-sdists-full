@@ -8,7 +8,7 @@ use crate::EcfpBitInfo;
 use crate::Mol;
 use crate::RdkitBestAlignment;
 use crate::RdkitMorganDetail;
-use crate::formats::{bitvec2048_to_bytes, flat_to_coords3d};
+use crate::formats::{bitvec2048_to_bytes, checked_coords3d, flat_to_coords3d};
 use ndarray::Array1;
 use numpy::{IntoPyArray, PyArray1};
 use pyo3::exceptions::PyValueError;
@@ -20,11 +20,17 @@ type PyUffTerm = (String, Vec<usize>, Vec<f64>);
 type PyExplicitHydrogenMmffResult = (Vec<[f64; 3]>, Vec<[f64; 3]>, f64, bool, usize, f64);
 
 mod analysis;
+mod atom_environment;
 mod descriptors;
 mod extended;
 mod fingerprints;
+mod graph_queries;
 mod identity;
+mod layered_config;
+pub(crate) mod ogb;
+mod path_enumeration;
 mod properties;
+mod stereo_groups;
 mod three_d;
 mod transformations;
 

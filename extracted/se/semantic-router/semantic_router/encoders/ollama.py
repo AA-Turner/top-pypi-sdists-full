@@ -30,7 +30,6 @@ class OllamaEncoder(DenseEncoder):
     def __init__(
         self,
         name: Optional[str] = None,
-        score_threshold: float = 0.5,
         base_url: str | None = None,
     ):
         """Initializes the OllamaEncoder.
@@ -39,8 +38,6 @@ class OllamaEncoder(DenseEncoder):
             If not provided, the default model specified in EncoderDefault will
             be used.
         :type name: str
-        :param score_threshold: The threshold for similarity scores.
-        :type score_threshold: float
         :param base_url: The API endpoint for OLLAMA.
             If not provided, it will be retrieved from the `OLLAMA_BASE_URL` environment variable.
         :type base_url: str
@@ -51,17 +48,17 @@ class OllamaEncoder(DenseEncoder):
         if name is None:
             name = EncoderDefault.OLLAMA.value["embedding_model"]
 
-        super().__init__(name=name, score_threshold=score_threshold)
+        super().__init__(name=name)
         if base_url is None:
             base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         self.client = self._initialize_client(base_url=base_url)
 
     def _initialize_client(self, base_url: str):
-        """Initializes the Google AI Platform client.
+        """Initializes the Ollama embedding client.
 
         :param base_url: hosted URL of ollama.
-        :return: An instance of the TextEmbeddingModel client.
-        :rtype: TextEmbeddingModel
+        :return: An instance of the Ollama client.
+        :rtype: ollama.Client
         :raise ImportError: If the required ollama library is not installed.
         :raise ValueError: If the hosted base url is not provided properly or if the ollama
             client fails to initialize.

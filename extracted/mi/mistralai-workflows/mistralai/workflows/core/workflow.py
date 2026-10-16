@@ -812,7 +812,7 @@ class workflow:
         Args:
             search_keys: Mapping of search key to value. Values are coerced to strings
                 (enums use their value, dates and datetimes use ISO 8601); a None value
-                is skipped.
+                is stored as null, marking the key as present but unset.
 
         Raises:
             ApplicationError: If a key is empty, contains ':', starts with the SDK-reserved

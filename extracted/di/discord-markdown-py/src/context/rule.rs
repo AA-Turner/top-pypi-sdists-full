@@ -5,11 +5,13 @@ use tracing::Level;
 
 use crate::{
 	Input,
-	block::{heading, list, quote, small},
 	error::ParseError,
 	grammar::{ByteHint, Grammar},
-	inline::{code, code_block, emoji, link, mention, timestamp},
-	node::{Element, ParsedNode},
+	node::{
+		Element,
+		block::{heading, list, quote, small},
+		inline::{code, code_block, emoji, link, mention, timestamp},
+	},
 	rule::ParsedRule,
 	span::{Span, TraceOk, TraceParse},
 };
@@ -39,7 +41,7 @@ where
 	S: Span,
 	E: ParseError<'data>,
 {
-	type Output = Element<'data, S, ParsedNode<'data, S>>;
+	type Output = Element<'data, S>;
 	type Error = E;
 
 	#[tracing::instrument(name = "contextual_rule", level = Level::TRACE, fields(ok, output))]

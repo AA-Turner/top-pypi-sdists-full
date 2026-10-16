@@ -210,7 +210,7 @@ extern char doc_timesys[230];
 extern char doc_timeunit[264];
 extern char doc_timrder[132];
 extern char doc_timsyer[119];
-extern char doc_to_header[2232];
+extern char doc_to_header[2382];
 extern char doc_trefdir[118];
 extern char doc_trefpos[110];
 extern char doc_tstart[150];

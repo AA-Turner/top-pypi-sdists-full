@@ -36,6 +36,14 @@ from .loan_tapes import (
 )
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
+from .open_to_buy import (
+    OpenToBuyResource,
+    AsyncOpenToBuyResource,
+    OpenToBuyResourceWithRawResponse,
+    AsyncOpenToBuyResourceWithRawResponse,
+    OpenToBuyResourceWithStreamingResponse,
+    AsyncOpenToBuyResourceWithStreamingResponse,
+)
 from ...pagination import SyncSinglePage, AsyncSinglePage
 from ..._base_client import AsyncPaginator, make_request_options
 from .credit_configuration import (
@@ -79,6 +87,14 @@ from .loan_tape_configuration import (
     AsyncLoanTapeConfigurationResourceWithStreamingResponse,
 )
 from ...types.financial_account import FinancialAccount
+from .installment_plans.installment_plans import (
+    InstallmentPlans,
+    AsyncInstallmentPlans,
+    InstallmentPlansWithRawResponse,
+    AsyncInstallmentPlansWithRawResponse,
+    InstallmentPlansWithStreamingResponse,
+    AsyncInstallmentPlansWithStreamingResponse,
+)
 
 __all__ = ["FinancialAccounts", "AsyncFinancialAccounts"]
 
@@ -87,6 +103,10 @@ class FinancialAccounts(SyncAPIResource):
     @cached_property
     def balances(self) -> Balances:
         return Balances(self._client)
+
+    @cached_property
+    def open_to_buy(self) -> OpenToBuyResource:
+        return OpenToBuyResource(self._client)
 
     @cached_property
     def financial_transactions(self) -> FinancialTransactions:
@@ -103,6 +123,10 @@ class FinancialAccounts(SyncAPIResource):
     @cached_property
     def loan_tapes(self) -> LoanTapes:
         return LoanTapes(self._client)
+
+    @cached_property
+    def installment_plans(self) -> InstallmentPlans:
+        return InstallmentPlans(self._client)
 
     @cached_property
     def loan_tape_configuration(self) -> LoanTapeConfigurationResource:
@@ -416,6 +440,10 @@ class AsyncFinancialAccounts(AsyncAPIResource):
         return AsyncBalances(self._client)
 
     @cached_property
+    def open_to_buy(self) -> AsyncOpenToBuyResource:
+        return AsyncOpenToBuyResource(self._client)
+
+    @cached_property
     def financial_transactions(self) -> AsyncFinancialTransactions:
         return AsyncFinancialTransactions(self._client)
 
@@ -430,6 +458,10 @@ class AsyncFinancialAccounts(AsyncAPIResource):
     @cached_property
     def loan_tapes(self) -> AsyncLoanTapes:
         return AsyncLoanTapes(self._client)
+
+    @cached_property
+    def installment_plans(self) -> AsyncInstallmentPlans:
+        return AsyncInstallmentPlans(self._client)
 
     @cached_property
     def loan_tape_configuration(self) -> AsyncLoanTapeConfigurationResource:
@@ -767,6 +799,10 @@ class FinancialAccountsWithRawResponse:
         return BalancesWithRawResponse(self._financial_accounts.balances)
 
     @cached_property
+    def open_to_buy(self) -> OpenToBuyResourceWithRawResponse:
+        return OpenToBuyResourceWithRawResponse(self._financial_accounts.open_to_buy)
+
+    @cached_property
     def financial_transactions(self) -> FinancialTransactionsWithRawResponse:
         return FinancialTransactionsWithRawResponse(self._financial_accounts.financial_transactions)
 
@@ -781,6 +817,10 @@ class FinancialAccountsWithRawResponse:
     @cached_property
     def loan_tapes(self) -> LoanTapesWithRawResponse:
         return LoanTapesWithRawResponse(self._financial_accounts.loan_tapes)
+
+    @cached_property
+    def installment_plans(self) -> InstallmentPlansWithRawResponse:
+        return InstallmentPlansWithRawResponse(self._financial_accounts.installment_plans)
 
     @cached_property
     def loan_tape_configuration(self) -> LoanTapeConfigurationResourceWithRawResponse:
@@ -819,6 +859,10 @@ class AsyncFinancialAccountsWithRawResponse:
         return AsyncBalancesWithRawResponse(self._financial_accounts.balances)
 
     @cached_property
+    def open_to_buy(self) -> AsyncOpenToBuyResourceWithRawResponse:
+        return AsyncOpenToBuyResourceWithRawResponse(self._financial_accounts.open_to_buy)
+
+    @cached_property
     def financial_transactions(self) -> AsyncFinancialTransactionsWithRawResponse:
         return AsyncFinancialTransactionsWithRawResponse(self._financial_accounts.financial_transactions)
 
@@ -833,6 +877,10 @@ class AsyncFinancialAccountsWithRawResponse:
     @cached_property
     def loan_tapes(self) -> AsyncLoanTapesWithRawResponse:
         return AsyncLoanTapesWithRawResponse(self._financial_accounts.loan_tapes)
+
+    @cached_property
+    def installment_plans(self) -> AsyncInstallmentPlansWithRawResponse:
+        return AsyncInstallmentPlansWithRawResponse(self._financial_accounts.installment_plans)
 
     @cached_property
     def loan_tape_configuration(self) -> AsyncLoanTapeConfigurationResourceWithRawResponse:
@@ -871,6 +919,10 @@ class FinancialAccountsWithStreamingResponse:
         return BalancesWithStreamingResponse(self._financial_accounts.balances)
 
     @cached_property
+    def open_to_buy(self) -> OpenToBuyResourceWithStreamingResponse:
+        return OpenToBuyResourceWithStreamingResponse(self._financial_accounts.open_to_buy)
+
+    @cached_property
     def financial_transactions(self) -> FinancialTransactionsWithStreamingResponse:
         return FinancialTransactionsWithStreamingResponse(self._financial_accounts.financial_transactions)
 
@@ -885,6 +937,10 @@ class FinancialAccountsWithStreamingResponse:
     @cached_property
     def loan_tapes(self) -> LoanTapesWithStreamingResponse:
         return LoanTapesWithStreamingResponse(self._financial_accounts.loan_tapes)
+
+    @cached_property
+    def installment_plans(self) -> InstallmentPlansWithStreamingResponse:
+        return InstallmentPlansWithStreamingResponse(self._financial_accounts.installment_plans)
 
     @cached_property
     def loan_tape_configuration(self) -> LoanTapeConfigurationResourceWithStreamingResponse:
@@ -923,6 +979,10 @@ class AsyncFinancialAccountsWithStreamingResponse:
         return AsyncBalancesWithStreamingResponse(self._financial_accounts.balances)
 
     @cached_property
+    def open_to_buy(self) -> AsyncOpenToBuyResourceWithStreamingResponse:
+        return AsyncOpenToBuyResourceWithStreamingResponse(self._financial_accounts.open_to_buy)
+
+    @cached_property
     def financial_transactions(self) -> AsyncFinancialTransactionsWithStreamingResponse:
         return AsyncFinancialTransactionsWithStreamingResponse(self._financial_accounts.financial_transactions)
 
@@ -937,6 +997,10 @@ class AsyncFinancialAccountsWithStreamingResponse:
     @cached_property
     def loan_tapes(self) -> AsyncLoanTapesWithStreamingResponse:
         return AsyncLoanTapesWithStreamingResponse(self._financial_accounts.loan_tapes)
+
+    @cached_property
+    def installment_plans(self) -> AsyncInstallmentPlansWithStreamingResponse:
+        return AsyncInstallmentPlansWithStreamingResponse(self._financial_accounts.installment_plans)
 
     @cached_property
     def loan_tape_configuration(self) -> AsyncLoanTapeConfigurationResourceWithStreamingResponse:

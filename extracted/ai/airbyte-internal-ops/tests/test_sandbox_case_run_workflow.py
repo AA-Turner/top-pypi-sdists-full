@@ -433,3 +433,24 @@ def test_finalize_survives_rejected_inputs(tmp_path):
     assert result["run_url"].endswith("/runs/1")
     assert not list((tmp_path / "out").glob("*.tmp"))
     assert "evil.example" not in (tmp_path / "summary.md").read_text()
+
+
+def test_the_case_command_comes_from_the_validated_setup_output():
+    step = _step("read")
+
+    assert step["env"]["CASE_COMMAND"] == "${{ steps.setup.outputs.command }}"
+    assert '--command "$CASE_COMMAND"' in step["run"]
+
+
+@needs_jq
+@pytest.mark.parametrize(
+    "command,succeeds", [("read", True), ("check", True), ("spec", False), ("", False)]
+)
+def test_only_a_read_or_check_case_command_runs(tmp_path, command, succeeds):
+    # Only the validation, not the run: stop right after it.
+    script = _step("read")["run"].split("esac", 1)[0] + "esac\necho validated"
+
+    completed, _outputs = _run_script(script, {"CASE_COMMAND": command}, tmp_path)
+
+    assert (completed.returncode == 0) is succeeds
+    assert ("validated" in completed.stdout) is succeeds

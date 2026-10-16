@@ -12,6 +12,8 @@ use tombi_future::Boxable;
 
 #[cfg(not(target_arch = "wasm32"))]
 use super::github_credentials::github_authorization;
+#[cfg(not(target_arch = "wasm32"))]
+use super::system_proxy::{SystemProxy, normalize_host};
 
 #[derive(Debug, Clone)]
 pub struct ReqwestHttpClient {
@@ -65,6 +67,9 @@ impl ReqwestHttpClient {
         // store's stale-cache handling. Follow GET redirects here so a policy
         // refusal remains a typed, terminal error.
         for _ in 0..10 {
+            #[cfg(not(target_arch = "wasm32"))]
+            check_proxied_destination(&self.policy, &current_url).await?;
+
             let response = client
                 .get(current_url.clone())
                 .send()
@@ -147,15 +152,23 @@ fn build_client(policy: Arc<SchemaFetchPolicy>) -> Result<reqwest::Client, Fetch
     let mut builder = reqwest::Client::builder()
         .user_agent("tombi")
         .timeout(std::time::Duration::from_secs(http_timeout_secs()))
-        // An ambient proxy can resolve the destination outside our resolver.
-        .no_proxy()
         // Redirects are handled manually so each hop is revalidated and policy
         // denials can never be mistaken for ordinary network failures.
         .redirect(reqwest::redirect::Policy::none());
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        builder = builder.dns_resolver(Arc::new(FilteredDnsResolver { policy }));
+        let proxy = SystemProxy::current();
+        // Proxies are installed explicitly so the resolver exemption and the
+        // client always agree on which proxies exist.
+        builder = builder.no_proxy();
+        for reqwest_proxy in proxy.reqwest_proxies() {
+            builder = builder.proxy(reqwest_proxy);
+        }
+        builder = builder.dns_resolver(Arc::new(FilteredDnsResolver {
+            policy,
+            proxy_hosts: proxy.hosts().clone(),
+        }));
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -187,10 +200,80 @@ fn fetch_error_from_reqwest(error: reqwest::Error) -> FetchError {
     }
 }
 
+/// How long the local pre-check of a proxied destination may wait on DNS.
+#[cfg(not(target_arch = "wasm32"))]
+const PROXIED_DESTINATION_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// When a proxy is configured, the proxy resolves the destination and the
+/// connection-time DNS check only sees the proxy host. Resolve the destination
+/// locally first so names known to point at private addresses are still
+/// refused. A failed lookup is not a denial: the destination may only be
+/// resolvable by the proxy.
+#[cfg(not(target_arch = "wasm32"))]
+async fn check_proxied_destination(
+    policy: &SchemaFetchPolicy,
+    url: &reqwest::Url,
+) -> Result<(), FetchError> {
+    let proxy = SystemProxy::current();
+    check_not_proxy_host(proxy.hosts(), url)?;
+    if !proxy.is_proxied(url) {
+        // Direct connections are covered by `FilteredDnsResolver`.
+        return Ok(());
+    }
+    check_local_resolution(policy, url).await
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn check_local_resolution(
+    policy: &SchemaFetchPolicy,
+    url: &reqwest::Url,
+) -> Result<(), FetchError> {
+    let Some(host) = url.domain() else {
+        // IP literals were already checked by `check_http_url`.
+        return Ok(());
+    };
+
+    let lookup = tokio::time::timeout(
+        PROXIED_DESTINATION_LOOKUP_TIMEOUT,
+        tokio::net::lookup_host((host, 0)),
+    )
+    .await;
+    let Ok(Ok(addresses)) = lookup else {
+        log::debug!("{host} is not resolvable locally, leaving resolution to the proxy");
+        return Ok(());
+    };
+    let resolved_ips = addresses.map(|address| address.ip()).collect::<Vec<_>>();
+    if resolved_ips.is_empty() {
+        return Ok(());
+    }
+
+    policy
+        .check_resolved_addresses(host, &resolved_ips)
+        .map_err(FetchError::from)
+}
+
+/// The resolver lets proxy hosts resolve to non-public addresses so the proxy
+/// itself stays reachable. A schema URL must not reuse that exemption to reach
+/// the proxy's own address on arbitrary ports.
+#[cfg(not(target_arch = "wasm32"))]
+fn check_not_proxy_host(
+    proxy_hosts: &HashSet<String>,
+    url: &reqwest::Url,
+) -> Result<(), FetchError> {
+    let is_proxy_host = url
+        .host_str()
+        .is_some_and(|host| proxy_hosts.contains(&normalize_host(host)));
+    if is_proxy_host {
+        return Err(FetchError::HostNotTrusted);
+    }
+    Ok(())
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 struct FilteredDnsResolver {
     policy: Arc<SchemaFetchPolicy>,
+    proxy_hosts: Arc<HashSet<String>>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -198,19 +281,22 @@ impl reqwest::dns::Resolve for FilteredDnsResolver {
     fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
         let policy = self.policy.clone();
         let host = name.as_str().to_string();
+        let is_proxy_host = self.proxy_hosts.contains(&normalize_host(&host));
 
         Box::pin(async move {
             let addresses = tokio::net::lookup_host((host.as_str(), 0))
                 .await
                 .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?
                 .collect::<Vec<SocketAddr>>();
-            let resolved_ips = addresses
-                .iter()
-                .map(SocketAddr::ip)
-                .collect::<Vec<IpAddr>>();
-            policy
-                .check_resolved_addresses(&host, &resolved_ips)
-                .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
+            if !is_proxy_host {
+                let resolved_ips = addresses
+                    .iter()
+                    .map(SocketAddr::ip)
+                    .collect::<Vec<IpAddr>>();
+                policy
+                    .check_resolved_addresses(&host, &resolved_ips)
+                    .map_err(|err| Box::new(err) as Box<dyn std::error::Error + Send + Sync>)?;
+            }
 
             Ok(Box::new(addresses.into_iter()) as reqwest::dns::Addrs)
         })
@@ -226,6 +312,7 @@ async fn authenticated_response(
     policy
         .check_http_url(url.as_ref())
         .map_err(FetchError::from)?;
+    check_proxied_destination(&policy, &url).await?;
     let client = build_client(policy).map_err(|_| FetchError::AuthenticationFailed {
         reason: "failed to create authenticated GitHub HTTP client".to_string(),
     })?;

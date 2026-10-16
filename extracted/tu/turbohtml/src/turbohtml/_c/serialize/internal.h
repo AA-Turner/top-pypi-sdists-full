@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "serialize/buffer.h" /* the sbuf struct and its reserve/append hot path */
+#include "serialize/xml_text.h"
 
 /* The #document attribute sort works in fixed stack buffers: at most this many
    attributes are ordered, each rendered name capped at this many bytes. */
@@ -222,95 +223,6 @@ static inline void sbuf_put_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len,
         }
         sbuf_put_special(out, text[special], formatter);
         index = special + 1;
-    }
-}
-
-/* Whether an ASCII code point interrupts an XML text run: bit 0 marks the characters
-   that break a run in any context -- the structural `& < >`, the carriage return XML
-   escapes so a reparse cannot fold it to a newline, and every C0 control the Char
-   production forbids (dropped on emit) -- and bit 1 the two the attribute context adds,
-   the double quote and the tab/newline XML would otherwise normalize away. One table
-   lookup replaces the per-character comparison chain on the hot serialize path. */
-static const unsigned char XML_TEXT_STOP[128] = {
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-};
-
-/* Whether a code point cannot appear in XML 1.0 character data, so an XML
-   serialization drops it: the C0 controls other than tab/newline/carriage return,
-   the UTF-16 surrogate block, and the two noncharacters U+FFFE and U+FFFF. Written
-   as arithmetic and single comparisons, not a chained ||, so gcc's branch counting
-   matches clang's. */
-static inline int xml_char_invalid(Py_UCS4 character) {
-    if (character < 0x20) {
-        Py_UCS4 allowed = (1u << '\t') | (1u << '\n') | (1u << '\r');
-        return ((allowed >> character) & 1u) == 0;
-    }
-    if (character < 0xD800) {
-        return 0;
-    }
-    if (character <= 0xDFFF) {
-        return 1;
-    }
-    if (character == 0xFFFE) {
-        return 1;
-    }
-    return character == 0xFFFF;
-}
-
-/* Emit one flagged character's XML replacement. */
-static inline void sbuf_put_xml_special(sbuf *out, Py_UCS4 character) {
-    if (character == '&') {
-        sbuf_puts(out, "&amp;");
-    } else if (character == '<') {
-        sbuf_puts(out, "&lt;");
-    } else if (character == '>') {
-        sbuf_puts(out, "&gt;");
-    } else if (character == '"') {
-        sbuf_puts(out, "&quot;");
-    } else if (character == '\t') {
-        sbuf_puts(out, "&#9;");
-    } else if (character == '\n') {
-        sbuf_puts(out, "&#10;");
-    } else {
-        sbuf_puts(out, "&#13;"); /* the only remaining flagged character is U+000D */
-    }
-}
-
-/* Whether a code point interrupts a well-formed XML text run: an ASCII character is
-   one table lookup (the attribute context also stops on the bit-1 set), and only the
-   rare non-ASCII invalids reach the Char-production check. */
-static inline int xml_text_stop(Py_UCS4 character, int in_attr) {
-    if (character < 0x80) {
-        int mask = in_attr ? 0x3 : 0x1;
-        return (XML_TEXT_STOP[character] & mask) != 0;
-    }
-    return xml_char_invalid(character);
-}
-
-/* Append text under XML escaping, bulk-copying each run with nothing to escape and
-   rewriting only the specials between. Unlike the HTML formatter, no-break space is
-   left verbatim (XML predefines no &nbsp;) and `>` escapes in every context. A code
-   point XML cannot hold (a C0 control, a surrogate, a noncharacter) is dropped rather
-   than emitted, so the serialization always reparses. */
-static inline void sbuf_put_xml_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len, int in_attr) {
-    Py_ssize_t index = 0;
-    while (index < len) {
-        Py_ssize_t start = index;
-        while (index < len && !xml_text_stop(text[index], in_attr)) {
-            index++;
-        }
-        if (index > start) {
-            sbuf_put_run(out, &text[start], index - start);
-        }
-        if (index < len) {
-            if (!xml_char_invalid(text[index])) {
-                sbuf_put_xml_special(out, text[index]);
-            }
-            index++;
-        }
     }
 }
 
@@ -670,17 +582,134 @@ typedef struct {
     int default_ns;
 } xml_ns_emitted;
 
-/* Emit the namespace declarations an XML start tag needs to stay well-formed: the
-   default namespace on the root of a foreign (SVG/MathML) subtree -- an element
-   whose parent is in a different namespace -- and the xlink prefix on any element
-   carrying an `xlink:`-prefixed attribute (a redundant redeclaration on a nested
-   element is still well-formed, so no ancestor tracking is needed). */
-static inline xml_ns_emitted ser_xml_ns_decls(sbuf *out, th_tree *tree, const th_node *node) {
+static inline int ser_xml_ns_name(const char *name, Py_ssize_t len) {
+    return (len == 5 && memcmp(name, "xmlns", 5) == 0) || (len > 6 && memcmp(name, "xmlns:", 6) == 0);
+}
+
+static inline int ser_xml_ns_shadowed(th_tree *tree, const th_node *node, const th_node *ancestor, const char *name,
+                                      Py_ssize_t len) {
+    for (const th_node *cursor = node; cursor != ancestor; cursor = cursor->parent) {
+        for (Py_ssize_t position = 0; position < cursor->attr_count; position++) {
+            Py_ssize_t previous_len;
+            const char *previous = th_attr_name(tree, cursor->attrs[position].name_atom, &previous_len);
+            if (previous_len == len && memcmp(previous, name, (size_t)len) == 0) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+static inline int ser_xml_qname_uses(const Py_UCS4 *name, Py_ssize_t name_len, const char *declaration,
+                                     Py_ssize_t declaration_len) {
+    if (declaration_len == 5) {
+        for (Py_ssize_t position = 0; position < name_len; position++) {
+            if (name[position] == ':') {
+                return 0;
+            }
+        }
+        return 1;
+    }
+    Py_ssize_t name_position = 0;
+    for (Py_ssize_t position = 6; position < declaration_len;) {
+        unsigned char lead = (unsigned char)declaration[position++];
+        Py_UCS4 character = lead;
+        if (lead >= 0xF0) {
+            character = (Py_UCS4)(lead & 0x07) << 18 | ((unsigned char)declaration[position] & 0x3F) << 12 |
+                        ((unsigned char)declaration[position + 1] & 0x3F) << 6 |
+                        ((unsigned char)declaration[position + 2] & 0x3F);
+            position += 3;
+        } else if (lead >= 0xE0) {
+            character = (Py_UCS4)(lead & 0x0F) << 12 | ((unsigned char)declaration[position] & 0x3F) << 6 |
+                        ((unsigned char)declaration[position + 1] & 0x3F);
+            position += 2;
+        } else if (lead >= 0xC0) {
+            character = (Py_UCS4)(lead & 0x1F) << 6 | ((unsigned char)declaration[position] & 0x3F);
+            position++;
+        }
+        if (name_position == name_len || name[name_position] != character) {
+            return 0;
+        }
+        name_position++;
+    }
+    return name_position < name_len && name[name_position] == ':';
+}
+
+static inline int ser_xml_ns_used(th_tree *tree, const th_node *root, const char *declaration,
+                                  Py_ssize_t declaration_len) {
+    for (const th_node *node = root;;) {
+        if (node->type == TH_NODE_ELEMENT) {
+            int used = ser_xml_qname_uses(node->text, node->text_len, declaration, declaration_len);
+            if (!used && declaration_len != 5) {
+                Py_ssize_t prefix_len = declaration_len - 6;
+                for (Py_ssize_t position = 0; position < node->attr_count; position++) {
+                    Py_ssize_t name_len;
+                    const char *name = th_attr_name(tree, node->attrs[position].name_atom, &name_len);
+                    if (name_len > prefix_len && name[prefix_len] == ':' &&
+                        memcmp(name, declaration + 6, (size_t)prefix_len) == 0) {
+                        used = 1;
+                        break;
+                    }
+                }
+            }
+            if (used && !ser_xml_ns_shadowed(tree, node, root->parent, declaration, declaration_len)) {
+                return 1;
+            }
+        }
+        if (node->first_child != NULL) {
+            node = node->first_child;
+            continue;
+        }
+        while (node != root && node->next_sibling == NULL) {
+            node = node->parent;
+        }
+        if (node == root) {
+            break;
+        }
+        node = node->next_sibling;
+    }
+    return 0;
+}
+
+static inline void ser_xml_inherited_ns_decls(sbuf *out, th_tree *tree, const th_node *node, xml_ns_emitted emitted) {
+    for (const th_node *ancestor = node->parent; ancestor != NULL; ancestor = ancestor->parent) {
+        if (ancestor->type != TH_NODE_ELEMENT) {
+            continue;
+        }
+        for (Py_ssize_t position = 0; position < ancestor->attr_count; position++) {
+            const th_node_attr *attr = &ancestor->attrs[position];
+            Py_ssize_t name_len;
+            const char *name = th_attr_name(tree, attr->name_atom, &name_len);
+            if (!ser_xml_ns_name(name, name_len) || (name_len == 5 && emitted.default_ns) ||
+                ser_xml_ns_shadowed(tree, node, ancestor, name, name_len) ||
+                !ser_xml_ns_used(tree, node, name, name_len)) {
+                continue;
+            }
+            sbuf_putc(out, ' ');
+            sbuf_put_utf8(out, name, name_len);
+            sbuf_puts(out, "=\"");
+            sbuf_put_xml_text(out, attr->value, attr->value_len, 1);
+            sbuf_putc(out, '"');
+        }
+    }
+}
+
+/* Emit the default namespace on a foreign subtree root and a missing xlink binding.
+   XML trees keep inherited xlink declarations; HTML trees need the built-in URI. */
+static inline xml_ns_emitted ser_xml_ns_decls(sbuf *out, th_tree *tree, const th_node *node,
+                                              const th_serialize_opts *opts) {
     xml_ns_emitted emitted = {0};
-    if (node->ns != TH_NS_HTML && (node->parent == NULL || node->parent->ns != node->ns)) {
-        sbuf_puts(out, node->ns == TH_NS_SVG ? " xmlns=\"http://www.w3.org/2000/svg\""
-                                             : " xmlns=\"http://www.w3.org/1998/Math/MathML\"");
+    if (node->parent == NULL ? node->ns != TH_NS_HTML : node->parent->ns != node->ns) {
+        sbuf_puts(out, node->ns == TH_NS_HTML  ? " xmlns=\"\""
+                       : node->ns == TH_NS_SVG ? " xmlns=\"http://www.w3.org/2000/svg\""
+                                               : " xmlns=\"http://www.w3.org/1998/Math/MathML\"");
         emitted.default_ns = 1;
+    }
+    if (node->attr_count == 0) {
+        if (opts->xml_boundary != NULL && node->parent == opts->xml_boundary) {
+            ser_xml_inherited_ns_decls(out, tree, node, emitted);
+        }
+        return emitted;
     }
     int has_xlink_attr = 0;
     int has_xlink_decl = 0;
@@ -693,20 +722,34 @@ static inline xml_ns_emitted ser_xml_ns_decls(sbuf *out, th_tree *tree, const th
             has_xlink_attr = 1;
         }
     }
-    /* Inject the xlink binding only when the element does not already carry one: a stored
-       xmlns:xlink is emitted in attribute order instead, which keeps the declarations in
-       the same order whether the element came from an HTML parse (namespace injected) or
-       an XML parse (namespace stored), so serialize/parse_xml round-trips (#1031). */
+    if (has_xlink_attr && !has_xlink_decl && th_tree_is_xml(tree)) {
+        for (const th_node *ancestor = node->parent; ancestor != NULL; ancestor = ancestor->parent) {
+            for (Py_ssize_t position = 0; position < ancestor->attr_count; position++) {
+                Py_ssize_t name_len;
+                const char *name = th_attr_name(tree, ancestor->attrs[position].name_atom, &name_len);
+                if (name_len == 11 && memcmp(name, "xmlns:xlink", 11) == 0) {
+                    has_xlink_decl = 1;
+                    break;
+                }
+            }
+            if (has_xlink_decl) {
+                break;
+            }
+        }
+    }
+    /* A local binding is written with attributes; an XML ancestor already binds the prefix. */
     if (has_xlink_attr && !has_xlink_decl) {
         sbuf_puts(out, " xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
+    }
+    if (opts->xml_boundary != NULL && node->parent == opts->xml_boundary) {
+        ser_xml_inherited_ns_decls(out, tree, node, emitted);
     }
     return emitted;
 }
 
-/* XML Name character classes over ASCII: bit 0 NameStartChar, bit 1 NameChar. A code
-   point >= 0x80 is accepted wholesale rather than decoding the full Unicode Name ranges,
-   matching the datatype validator. A table keeps gcc and clang counting the same branches,
-   which a chained comparison over the character literals would not. */
+/* XML Name character classes over ASCII: bit 0 NameStartChar, bit 1 NameChar.
+   Non-ASCII names use the XML Name ranges. A table keeps gcc and clang counting
+   the same branches, which a chained comparison would not. */
 static const unsigned char XML_NAME_FLAGS[128] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0,
@@ -720,18 +763,26 @@ static const unsigned char XML_NAME_FLAGS[128] = {
    caller declared is kept), and a name carrying a character XML forbids in a Name --
    the tag-soup `=`, `/`, `<`, quotes and spaces the HTML parser keeps but XML cannot
    -- is dropped so the tag stays well-formed. */
+int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t name_len);
+
 static inline int xml_attr_name_writable(const char *name, Py_ssize_t name_len, xml_ns_emitted emitted) {
     int is_default_decl = name_len == 5 && memcmp(name, "xmlns", 5) == 0;
     if (is_default_decl && emitted.default_ns) {
         return 0;
     }
     unsigned char first = (unsigned char)name[0];
-    if (first < 0x80 && (XML_NAME_FLAGS[first] & 0x1) == 0) {
+    if (first >= 0x80) {
+        return th_xml_attr_name_wellformed_utf8(name, name_len);
+    }
+    if ((XML_NAME_FLAGS[first] & 0x1) == 0) {
         return 0;
     }
     for (Py_ssize_t index = 1; index < name_len; index++) {
         unsigned char character = (unsigned char)name[index];
-        if (character < 0x80 && (XML_NAME_FLAGS[character] & 0x2) == 0) {
+        if (character >= 0x80) {
+            return th_xml_attr_name_wellformed_utf8(name, name_len);
+        }
+        if ((XML_NAME_FLAGS[character] & 0x2) == 0) {
             return 0;
         }
     }
@@ -749,7 +800,7 @@ static inline void ser_open_tag(sbuf *out, th_tree *tree, th_node *node, const t
     sbuf_put_ucs4(out, node->text, node->text_len);
     xml_ns_emitted emitted = {0};
     if (opts->xml) {
-        emitted = ser_xml_ns_decls(out, tree, node);
+        emitted = ser_xml_ns_decls(out, tree, node, opts);
     }
     Py_ssize_t stack_order[MAX_SORTED_ATTRS];
     Py_ssize_t *order = ser_attr_order(tree, node, opts->sort_attributes, stack_order);
@@ -807,6 +858,13 @@ static inline void sbuf_presize_for_root(sbuf *out, th_tree *tree, th_node *node
         /* reserving the input length is a no-op for an empty or programmatic
            tree (length 0), so no separate guard is needed */
         sbuf_reserve(out, tree->length);
+    }
+}
+
+static inline void sbuf_presize_for_c14n(sbuf *out, th_tree *tree) {
+    /* Sparse input may be mostly comments that canonicalization drops. */
+    if (tree->length >= 4096 && tree->length <= 16384 && tree->node_seq >= (uint32_t)(tree->length / 32)) {
+        sbuf_reserve(out, tree->length + 64);
     }
 }
 

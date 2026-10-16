@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 
 from matrx_utils import detached_task, vcprint
 
+from matrx_ai.tools.arg_pins import PINNED_TOOL_ARGS_KEY
 from matrx_ai.tools.models import CustomTool, CustomToolInputSchema, ToolDefinition, ToolType
 from matrx_ai.tools.specs import (
     AgentToolSpec,
@@ -86,6 +87,7 @@ _TOOL_RUNTIME_METADATA_KEYS: frozenset[str] = frozenset(
         "client_capabilities_payloads",
         "desktop_target_instance_id",
         "filesystem_authority",
+        PINNED_TOOL_ARGS_KEY,
     }
 )
 
@@ -239,6 +241,9 @@ STICKY_SOURCE_COMPUTE_TARGET = "compute_target:"
 #: A member of a bundle the AGENT owns (``agent_bundle:<lister>``): it rides only while the
 #: agent still carries that lister, so an agent edit that drops the bundle drops its members.
 STICKY_SOURCE_AGENT_BUNDLE = "agent_bundle:"
+#: Brought by the person's per-chat search pin (``user.search_types``): offered only on a
+#: turn that sends a pin, so clearing the last pin takes the tool away again.
+STICKY_SOURCE_SEARCH_PIN = "search_pin"
 #: Source classes the automatic-tools switch withholds while it is off.
 AUTOMATIC_STICKY_SOURCES = frozenset(
     {STICKY_SOURCE_SURFACE, STICKY_SOURCE_REQUEST, STICKY_SOURCE_CONTEXT}
@@ -310,7 +315,7 @@ def agent_owned_listers(config: UnifiedConfig) -> set[str]:
 
 
 def withheld_sticky_tools(
-    config: UnifiedConfig, *, automatic_off: bool, target_kind: str | None
+    config: UnifiedConfig, *, automatic_off: bool, target_kind: str | None, search_pinned: bool = False
 ) -> list[str]:
     """The sticky tools this turn does NOT offer (kept on record, never forgotten).
 
@@ -318,6 +323,7 @@ def withheld_sticky_tools(
       automatic switch is on (a compute target's tools are automatic: owner ruling 2026-10-03).
     - ``surface`` / ``request`` / ``context``: withheld while the automatic switch is off.
     - ``agent_bundle:<lister>``: offered only while the agent still carries that lister.
+    - ``search_pin``: offered only while this turn sends a search pin (``search_pinned``).
     - ``user`` / ``bundle``: always offered (exclusions and viability still apply later).
     """
     attached = compute_target_source(target_kind) if target_kind else None
@@ -332,6 +338,9 @@ def withheld_sticky_tools(
             if agent_listers is None:
                 agent_listers = agent_owned_listers(config)
             if source[len(STICKY_SOURCE_AGENT_BUNDLE) :] not in agent_listers:
+                withheld.append(name)
+        elif source == STICKY_SOURCE_SEARCH_PIN:
+            if not search_pinned:
                 withheld.append(name)
         elif automatic_off and source in AUTOMATIC_STICKY_SOURCES:
             withheld.append(name)

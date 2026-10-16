@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import threading
 from pathlib import Path
@@ -9,12 +10,14 @@ from pathlib import Path
 from git import Actor, Git, Repo
 from git.exc import GitCommandError
 
-from plato.git_ops.models import GitOpResult
+from plato.git_ops.models import GitOpErrorKind, GitOpResult
 
 PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
 _TRUSTED_DIRECTORIES: set[str] = set()
 _TRUSTED_DIRECTORIES_LOCK = threading.Lock()
+# ssh's own stderr when the world-git ConnectTimeout or ServerAlive limits end the link.
+_WORLD_GIT_SSH_TIMEOUT_RE = re.compile(r"Connection timed out|Timeout, server \S+ not responding")
 
 
 def trust_git_directory(path: str | Path) -> None:
@@ -187,7 +190,12 @@ def clone_setup(
     repo = _refresh_existing_clone(target, origin_url) if checkout_ref is not None else None
     if repo is None:
         shutil.rmtree(target, ignore_errors=True)
-        repo = Repo.clone_from(origin_url, target)
+        try:
+            repo = Repo.clone_from(origin_url, target)
+        except GitCommandError as exc:
+            if _WORLD_GIT_SSH_TIMEOUT_RE.search(str(exc.stderr)) is None:
+                raise
+            return _error_result(exc).model_copy(update={"error_kind": GitOpErrorKind.WORLD_GIT_SSH_TIMEOUT})
         trust_git_directory(target)
     with repo.config_writer() as config:
         config.set_value("user", "email", AGENT_ACTOR.email)

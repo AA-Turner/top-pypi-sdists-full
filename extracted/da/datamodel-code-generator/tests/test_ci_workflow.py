@@ -39,7 +39,13 @@ def test_workflow_matrix_and_coverage_contract() -> None:
         for entries in groups.values()
         for entry in entries
     )
-    shard_entries = [entry for entries in groups.values() for entry in entries if "shard" in entry]
+    shard_entries = [entry for name in ("test-shard", "test-shard-nocov") for entry in groups[name]]
+    shard_groups: dict[tuple[str, str, str, str], list[tuple[int, int]]] = {}
+    for name, entries in groups.items():
+        for entry in entries:
+            if "shard" in entry:
+                key = (name, entry["tox_env"], entry["os"], entry.get("profile", ""))
+                shard_groups.setdefault(key, []).append((int(entry["shard"]), int(entry["shard_total"])))
     all_setup_steps = [step for job in jobs.values() for step in job["steps"] if "setup-uv@" in step.get("uses", "")]
     output = {
         "configurations": sorted(configurations),
@@ -51,6 +57,10 @@ def test_workflow_matrix_and_coverage_contract() -> None:
             if entry.get("extra_tests")
         ),
         "shard_profile_mapping": jobs["test-shard"]["env"]["SHARD_PROFILE"],
+        "shards_complete": all(
+            sorted(shards) == [(index, len(shards)) for index in range(1, len(shards) + 1)]
+            for shards in shard_groups.values()
+        ),
         "shard_profiles_known": all(entry.get("profile") in PROFILES for entry in shard_entries),
         "exclude_tests": sorted({entry["exclude_tests"] for entry in shard_entries if entry.get("exclude_tests")}),
         "exclude_only_without_coverage": all(
@@ -81,7 +91,7 @@ def test_workflow_matrix_and_coverage_contract() -> None:
 
 
 def test_gate_rejects_every_unsuccessful_group() -> None:
-    """Execute the actual workflow gate for each group's failure, skip and cancellation."""
+    """Execute the actual workflow gate for each group's failure, skip and cancellation, including mid-stack runs."""
     jobs = yaml.load((ROOT / ".github/workflows/test.yaml").read_text(encoding="utf-8"), Loader=yaml.BaseLoader)["jobs"]
     gate = jobs["test-gate"]
     success = {name: {"result": "success"} for name in gate["needs"]}
@@ -91,11 +101,20 @@ def test_gate_rejects_every_unsuccessful_group() -> None:
         for name in success
         for state in ("failure", "cancelled", "skipped")
     })
+    skipped = {name: {"result": "skipped"} for name in gate["needs"]}
+    mid_stack_cases = {"mid-stack:skipped": skipped, "mid-stack:empty": {}}
+    mid_stack_cases.update({
+        f"mid-stack:{name}:{state}": {**skipped, name: {"result": state}}
+        for name in skipped
+        for state in ("success", "failure", "cancelled")
+    })
+    full_runs = {**dict.fromkeys(cases, "true"), **dict.fromkeys(mid_stack_cases, "false")}
+    cases.update(mid_stack_cases)
     outputs = {}
     for name, needs in cases.items():
         result = subprocess.run(
             [sys.executable, "-c", gate["steps"][0]["run"]],
-            env={**os.environ, "NEEDS": json.dumps(needs)},
+            env={**os.environ, "NEEDS": json.dumps(needs), "FULL_TEST_RUN": full_runs[name]},
             capture_output=True,
             text=True,
             check=False,

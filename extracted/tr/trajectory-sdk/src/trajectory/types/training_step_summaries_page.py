@@ -31,6 +31,12 @@ class TrainingStepSummary(BaseModel):
   avg_tokens: float | None
   """Mean generated tokens per finished rollout."""
 
+  min_tokens: int | None
+  """Fewest generated tokens among finished rollouts at this training step."""
+
+  max_tokens: int | None
+  """Most generated tokens among finished rollouts at this training step."""
+
   tool_failure_count: int
   """
     Finished rollouts with at least one tool failure (recoverable; not folded into

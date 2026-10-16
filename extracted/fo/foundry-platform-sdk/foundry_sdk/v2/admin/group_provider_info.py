@@ -66,6 +66,9 @@ class GroupProviderInfoClient:
     ) -> admin_models.GroupProviderInfo:
         """
         Get the GroupProviderInfo.
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -114,6 +117,9 @@ class GroupProviderInfoClient:
     ) -> admin_models.GroupProviderInfo:
         """
         Replace the GroupProviderInfo.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param provider_id: The ID of the Group in the external authentication provider. This value is determined by the authentication provider. At most one Group can have a given provider ID in a given Realm.
@@ -218,6 +224,9 @@ class AsyncGroupProviderInfoClient:
     ) -> typing.Awaitable[admin_models.GroupProviderInfo]:
         """
         Get the GroupProviderInfo.
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -266,6 +275,9 @@ class AsyncGroupProviderInfoClient:
     ) -> typing.Awaitable[admin_models.GroupProviderInfo]:
         """
         Replace the GroupProviderInfo.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param provider_id: The ID of the Group in the external authentication provider. This value is determined by the authentication provider. At most one Group can have a given provider ID in a given Realm.

@@ -68,6 +68,9 @@ class ContentClient:
     ) -> aip_agents_models.Content:
         """
         Get the conversation content for a session between the calling user and an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -168,6 +171,9 @@ class AsyncContentClient:
     ) -> typing.Awaitable[aip_agents_models.Content]:
         """
         Get the conversation content for a session between the calling user and an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.

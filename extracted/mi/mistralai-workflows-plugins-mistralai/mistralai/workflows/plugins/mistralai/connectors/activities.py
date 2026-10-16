@@ -229,9 +229,8 @@ async def connector_list_user_credentials(
 ) -> CredentialsResponse:
     """List the current user's credentials for a connector.
 
-    Returns a CredentialsInfo with ``credentials`` (list of stored
-    credentials) and ``connector_preset_credentials_for_auth`` (auth types
-    the connector has preset/platform credentials for).
+    Returns a CredentialsResponse with ``credentials`` (list of stored
+    credentials).
     """
     client = _build_connector_client(run_as)
     info = await client.beta.connectors.list_user_credentials_async(
@@ -241,7 +240,6 @@ async def connector_list_user_credentials(
         "Listed user credentials",
         connector_id_or_name=connector_id_or_name,
         credential_count=len(info.credentials),
-        preset_auth_types=info.connector_preset_credentials_for_auth,
     )
     return info
 

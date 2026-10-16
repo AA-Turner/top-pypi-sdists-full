@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: modal
-Version: 1.6.1
+Version: 1.6.2
 Summary: Python client library for Modal
 Author-email: Modal Labs <support@modal.com>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Keywords: modal,client,cloud,serverless,infrastructure
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <3.15,>=3.10
+Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
@@ -29,6 +29,7 @@ Requires-Dist: types-certifi
 Requires-Dist: types-toml
 Requires-Dist: watchfiles
 Requires-Dist: typing_extensions~=4.6
+Requires-Dist: typing_extensions>=4.14; python_version >= "3.15"
 Provides-Extra: api-proxy-support
 Requires-Dist: python-socks[asyncio]>=2.5; extra == "api-proxy-support"
 Requires-Dist: aiohttp-socks>=0.8; extra == "api-proxy-support"
@@ -52,7 +53,7 @@ a [user guide](https://modal.com/docs/guide), and the detailed
 
 ## Installation
 
-**This library requires Python 3.10 – 3.14.**
+**This library requires Python 3.10 – 3.15.**
 
 Install the package with `uv` or `pip`:
 

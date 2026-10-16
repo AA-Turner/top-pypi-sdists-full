@@ -7,7 +7,7 @@ r'''
   <a href="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml"><img src="https://github.com/badmintoncryer/cdk-preflight/actions/workflows/monthly-verify.yml/badge.svg" alt="monthly real-deploy verification"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/v/cdk-preflight.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/cdk-preflight"><img src="https://img.shields.io/npm/dt/cdk-preflight.svg" alt="npm total downloads"></a>
-  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3217-blue" alt="3217 bundled rules"></a>
+  <a href="docs/rules.md"><img src="https://img.shields.io/badge/rules-3226-blue" alt="3226 bundled rules"></a>
 </p>
 
 Some CloudFormation constraints are not expressed in resource provider schemas — they live only in documentation, in service API validation, or across multiple properties. Templates that violate them pass `cdk synth`, pass CloudFormation pre-deployment validation, and then fail minutes into a deployment, burning a rollback cycle.
@@ -131,6 +131,8 @@ WARNING idle_timeout.timeout_seconds is 5000 but must be between 1 and 4000 seco
 | `strict` | `false` | With `enforce`: also fail on error-class findings (`ERROR`/`FATAL`, e.g. `F3034`) of the built-in validation engine itself, which the CDK currently downgrades to warnings |
 | `exclude` | `[]` | Rule ids to disable |
 | `includeUpstreamPending` | `true` | Include rules already proposed to the upstream engine but not yet merged |
+| `checkQuotas` | `false` | Also check the target account's Service Quotas and current usage (calls AWS at synth time, see below) |
+| `quotaCacheTtl` | 5 minutes | How long `checkQuotas` reuses the usage and deployed-stack state it fetched |
 
 To opt out of a single rule everywhere, pass its id in `exclude`. To suppress a
 single *finding* on one construct, acknowledge it — this works in both modes, the
@@ -144,6 +146,41 @@ cdk.Validations.of(errorFilter).acknowledge({
 });
 ```
 
+## Service quota check (opt-in)
+
+The rules only read the template, so they never assert a limit an account can raise. `checkQuotas: true` covers that
+gap for the quotas a CDK app runs into most: it adds up what every stack in the app (nested stacks included) is about
+to create in each account and Region, and compares that against the account's applied quota and current usage.
+
+```python
+Preflight.apply(app, { checkQuotas: true });
+```
+
+| Check | Counts | Against |
+|---|---|---|
+| `pf-quota-vpcs-per-region` | new `AWS::EC2::VPC` | VPCs per Region (`vpc/L-F678F1CE`) |
+| `pf-quota-internet-gateways-per-region` | new `AWS::EC2::InternetGateway` | Internet gateways per Region (`vpc/L-A4707A72`) |
+| `pf-quota-elastic-ips-per-region` | new `AWS::EC2::EIP` (one per NAT gateway in a default `ec2.Vpc`) | EC2-VPC Elastic IPs (`ec2/L-0263D0A3`) |
+| `pf-quota-lambda-unreserved-concurrency` | increase in `ReservedConcurrentExecutions` | Lambda keeps at least 100 concurrent executions unreserved |
+
+* **Only new resources count.** The deployed template of each stack is read with `GetTemplate`; a resource whose
+  logical id and type are already deployed is not counted again, so redeploying an unchanged app never trips the
+  check. Resources behind a `Condition` and the brief overlap during a replacement are not counted.
+* **A finding fails synth** in enforce mode and is a warning with `enforce: false`. Acknowledge one like any other
+  finding (`cdk-preflight::pf-quota-...`; `cdk-preflight-quotas::pf-quota-...` with `enforce: false`). The ids also work in `exclude`, including `pf-quota-check-skipped` to silence the skip warning.
+* **It needs credentials in the app process.** The CDK CLI does not pass `--profile` on to the app, so set
+  `AWS_PROFILE` (or `AWS_*` variables) instead. When the credentials are missing, lack permissions, or belong to a
+  different account than the stack's, the check is skipped with a `pf-quota-check-skipped` warning and synth goes on.
+* **Permissions:** `servicequotas:GetServiceQuota`, `servicequotas:GetAWSDefaultServiceQuota`, `ec2:DescribeVpcs`,
+  `ec2:DescribeInternetGateways`, `ec2:DescribeAddresses`, `lambda:GetAccountSettings`, `cloudformation:GetTemplate`,
+  `cloudformation:DescribeStackResource`, `sts:GetCallerIdentity`. All read-only.
+* **Results are cached** in `cdk.out/.cdk-preflight/quota-cache.json`: usage and deployed templates for
+  `quotaCacheTtl` (5 minutes), quota values for 24 hours. Delete the file to force a refetch.
+* Usage can change between synth and deploy (another team deploying to the same account), so a clean check is not a
+  guarantee. The reverse also happens: EC2 does not always enforce the Elastic IP quota when CloudFormation
+  creates several addresses in parallel (measured 2026-10-16: with 4 of 5 in use, two parallel `AWS::EC2::EIP` both
+  succeeded), so a template the check stops may occasionally deploy. The check follows the quota, not the race.
+
 ## Bundled rules
 
 See [docs/rules.md](docs/rules.md) for the generated rule table.
@@ -156,7 +193,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | Service | Resource types |
 |---|---|
 | **(any resource type)** | `*` (14) |
-| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (12), `Model` (3), `Resource` (1), `RestApi` (4), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
+| **ApiGateway** | `ApiKey` (1), `Authorizer` (5), `Deployment` (1), `DocumentationPart` (1), `DomainName` (4), `GatewayResponse` (1), `Method` (14), `Model` (3), `Resource` (1), `RestApi` (4), `Stage` (9), `UsagePlan` (5), `VpcLink` (1) |
 | **ApiGatewayV2** | `Api` (5), `Authorizer` (11), `DomainName` (3), `Integration` (15), `IntegrationResponse` (1), `Model` (2), `Route` (6), `RouteResponse` (2), `Stage` (4), `VpcLink` (1) |
 | **ApplicationAutoScaling** | `ScalableTarget` (19), `ScalingPolicy` (30) |
 | **AppSync** | `Api` (7), `ApiCache` (4), `ApiKey` (2), `ChannelNamespace` (5), `DataSource` (15), `DomainName` (1), `FunctionConfiguration` (24), `GraphQLApi` (16), `GraphQLSchema` (12), `Resolver` (32), `SourceApiAssociation` (3) |
@@ -172,7 +209,7 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **CloudFormation** | `GuardHook` (1), `Stack` (2), `StackSet` (6) |
 | **CloudFront** | `AnycastIpList` (1), `CachePolicy` (7), `ContinuousDeploymentPolicy` (5), `Distribution` (55), `Function` (4), `KeyGroup` (1), `KeyValueStore` (2), `OriginRequestPolicy` (5), `PublicKey` (1), `RealtimeLogConfig` (3), `ResponseHeadersPolicy` (8), `VpcOrigin` (3) |
 | **CloudTrail** | `EventDataStore` (1), `Trail` (19) |
-| **CloudWatch** | `Alarm` (21), `AnomalyDetector` (6), `CompositeAlarm` (6), `Dashboard` (14), `InsightRule` (7), `MetricStream` (6) |
+| **CloudWatch** | `Alarm` (22), `AnomalyDetector` (6), `CompositeAlarm` (7), `Dashboard` (14), `InsightRule` (7), `MetricStream` (6) |
 | **CodeBuild** | `Project` (37), `ReportGroup` (2), `SourceCredential` (4) |
 | **CodeCommit** | `Repository` (11) |
 | **CodeDeploy** | `Application` (7), `DeploymentConfig` (12), `DeploymentGroup` (23) |
@@ -184,24 +221,24 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **DynamoDB** | `GlobalTable` (25), `Table` (28) |
 | **EC2** | `ClientVpnAuthorizationRule` (1), `ClientVpnEndpoint` (6), `DHCPOptions` (2), `EIPAssociation` (1), `FlowLog` (4), `Instance` (10), `KeyPair` (1), `LaunchTemplate` (12), `NatGateway` (2), `NetworkAclEntry` (1), `NetworkInterface` (2), `PlacementGroup` (3), `PrefixList` (3), `Route` (1), `SecurityGroup` (7), `SecurityGroupEgress` (5), `SecurityGroupIngress` (5), `Subnet` (14), `TrafficMirrorTarget` (1), `TransitGateway` (2), `TransitGatewayRoute` (1), `Volume` (6), `VPC` (2), `VPCCidrBlock` (1), `VPCEndpoint` (4), `VPCGatewayAttachment` (1), `VPNConnection` (5) |
 | **ECR** | `PullThroughCacheRule` (3), `RegistryScanningConfiguration` (1), `ReplicationConfiguration` (1), `Repository` (7), `RepositoryCreationTemplate` (8), `SigningConfiguration` (1) |
-| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (64), `TaskSet` (2) |
+| **ECS** | `CapacityProvider` (3), `Cluster` (5), `Service` (37), `TaskDefinition` (65), `TaskSet` (2) |
 | **EFS** | `AccessPoint` (1), `FileSystem` (7), `MountTarget` (4) |
 | **EKS** | `AccessEntry` (14), `Addon` (5), `Cluster` (21), `FargateProfile` (5), `IdentityProviderConfig` (3), `Nodegroup` (21), `PodIdentityAssociation` (5) |
 | **ElastiCache** | `CacheCluster` (9), `ReplicationGroup` (14), `User` (2), `UserGroup` (1) |
 | **ElasticBeanstalk** | `Application` (2), `ConfigurationTemplate` (37), `Environment` (35) |
 | **ElasticLoadBalancingV2** | `Listener` (57), `ListenerCertificate` (2), `ListenerRule` (38), `LoadBalancer` (37), `TargetGroup` (58), `TrustStore` (1), `TrustStoreRevocation` (1) |
-| **Events** | `ApiDestination` (1), `Archive` (5), `Connection` (1), `Endpoint` (2), `EventBus` (2), `Rule` (23) |
+| **Events** | `ApiDestination` (1), `Archive` (5), `Connection` (1), `Endpoint` (2), `EventBus` (2), `Rule` (27) |
 | **EventSchemas** | `Discoverer` (1), `Registry` (1), `RegistryPolicy` (1), `Schema` (1) |
 | **GlobalAccelerator** | `Accelerator` (1), `EndpointGroup` (5), `Listener` (2) |
 | **Glue** | `Classifier` (6), `Connection` (5), `Crawler` (11), `CustomEntityType` (1), `Database` (1), `DataQualityRuleset` (1), `Job` (15), `MLTransform` (4), `Partition` (1), `Schema` (3), `SecurityConfiguration` (1), `Table` (1), `Trigger` (10), `UserDefinedFunction` (2), `Workflow` (1) |
 | **Grafana** | `Workspace` (7) |
-| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (40), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
+| **IAM** | `Group` (23), `GroupPolicy` (1), `InstanceProfile` (2), `ManagedPolicy` (31), `OIDCProvider` (2), `Policy` (29), `Role` (42), `RolePolicy` (1), `ServiceLinkedRole` (1), `User` (24), `UserPolicy` (1) |
 | **IoT** | `Authorizer` (3), `Certificate` (1), `CertificateProvider` (1), `Command` (1), `DomainConfiguration` (3), `JobTemplate` (3), `MitigationAction` (1), `Policy` (4), `PolicyPrincipalAttachment` (1), `ProvisioningTemplate` (3), `RoleAlias` (1), `ScheduledAudit` (1), `Thing` (1), `ThingGroup` (2), `TopicRule` (5), `TopicRuleDestination` (2) |
 | **Kinesis** | `ResourcePolicy` (4), `Stream` (5), `StreamConsumer` (2) |
 | **KinesisAnalyticsV2** | `Application` (20), `ApplicationCloudWatchLoggingOption` (1), `ApplicationOutput` (1), `ApplicationReferenceDataSource` (1) |
 | **KinesisFirehose** | `DeliveryStream` (68) |
 | **KMS** | `Alias` (2), `Key` (12), `ReplicaKey` (4) |
-| **Lambda** | `Alias` (7), `CodeSigningConfig` (1), `EventInvokeConfig` (5), `EventSourceMapping` (54), `Function` (45), `LayerVersion` (8), `LayerVersionPermission` (3), `Permission` (8), `Url` (8), `Version` (1) |
+| **Lambda** | `Alias` (7), `CodeSigningConfig` (1), `EventInvokeConfig` (5), `EventSourceMapping` (54), `Function` (48), `LayerVersion` (8), `LayerVersionPermission` (3), `Permission` (8), `Url` (8), `Version` (1) |
 | **Logs** | `AccountPolicy` (6), `DeliveryDestination` (3), `Destination` (1), `LogAnomalyDetector` (2), `LogGroup` (10), `MetricFilter` (7), `QueryDefinition` (1), `ResourcePolicy` (1), `SubscriptionFilter` (6), `Transformer` (3) |
 | **MediaConvert** | `JobTemplate` (9), `Preset` (32), `Queue` (2) |
 | **MemoryDB** | `Cluster` (8), `User` (1) |
@@ -224,8 +261,8 @@ Resource names are relative to `AWS::<Service>::`; the number in parentheses is 
 | **SecretsManager** | `RotationSchedule` (4), `Secret` (5), `SecretTargetAttachment` (1) |
 | **ServiceDiscovery** | `HttpNamespace` (3), `Instance` (19), `PrivateDnsNamespace` (4), `PublicDnsNamespace` (4), `Service` (13) |
 | **SES** | `ConfigurationSetEventDestination` (8), `ContactList` (1), `EmailIdentity` (6), `ReceiptRule` (6), `ReceiptRuleSet` (1), `Template` (1) |
-| **SNS** | `Subscription` (9), `Topic` (12), `TopicPolicy` (1) |
-| **SQS** | `Queue` (9), `QueuePolicy` (1) |
+| **SNS** | `Subscription` (10), `Topic` (14), `TopicPolicy` (1) |
+| **SQS** | `Queue` (10), `QueuePolicy` (1) |
 | **SSM** | `Association` (4), `Document` (3), `MaintenanceWindow` (2), `MaintenanceWindowTarget` (1), `MaintenanceWindowTask` (1), `Parameter` (5) |
 | **StepFunctions** | `Activity` (3), `StateMachine` (26) |
 | **Synthetics** | `Canary` (16) |
@@ -267,7 +304,8 @@ and the failure is a service-side validation rejection — CREATE_FAILED/UPDATE_
 with a 400-class message such as "Invalid request provided: ..." — cdk-preflight is
 missing a rule. Report it:
 
-1. Qualify first. NOT reportable: AccessDenied / permissions, service quotas,
+1. Qualify first. NOT reportable: AccessDenied / permissions, service quotas
+   (those belong to the opt-in `checkQuotas`; open a regular issue if it missed one),
    throttling, name conflicts with existing resources, stabilization timeouts.
 2. Redact account-specific data (account IDs -> 123456789012, real ARNs/domains
    -> placeholders).
@@ -289,7 +327,7 @@ Rules move the other way too. Once the validation engine bundled in `aws-cdk-lib
 
 ## How it works
 
-`Preflight.apply()` evaluates the rules with the [cloudformation-validate](https://github.com/aws-cloudformation/cloudformation-validate) Rust/WASM engine that ships inside `aws-cdk-lib` — no extra binaries, no network access at synth time. In the default enforce mode the engine is invoked through a dedicated CDK validation plugin so that violations fail synthesis; with `enforce: false` the rules are instead injected into the CDK built-in `CloudFormationValidatePlugin` and reported as warnings.
+`Preflight.apply()` evaluates the rules with the [cloudformation-validate](https://github.com/aws-cloudformation/cloudformation-validate) Rust/WASM engine that ships inside `aws-cdk-lib` — no extra binaries, and no network access at synth time unless you opt in to `checkQuotas`, which calls AWS from a child process. In the default enforce mode the engine is invoked through a dedicated CDK validation plugin so that violations fail synthesis; with `enforce: false` the rules are instead injected into the CDK built-in `CloudFormationValidatePlugin` and reported as warnings.
 
 Constraints that *can* be expressed in schemas or generic engine rules also make good upstream PRs to that engine, but nothing here waits on one — the upstream release cycle is deliberately slower than this pack's. Each rule's `meta.yaml` tracks its upstream status so that retirement stays bookkeeping.
 
@@ -337,9 +375,11 @@ class _LazyImport:
 
 if typing.TYPE_CHECKING:
 
+    import aws_cdk as _aws_cdk_ceddda9d
     import constructs as _constructs_77d1e7e8
 else:
 
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
@@ -362,26 +402,32 @@ class Preflight(metaclass=jsii.JSIIMeta, jsii_type="cdk-preflight.Preflight"):
         cls,
         scope: "_constructs_77d1e7e8.IConstruct",
         *,
+        check_quotas: typing.Optional[builtins.bool] = None,
         enforce: typing.Optional[builtins.bool] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_upstream_pending: typing.Optional[builtins.bool] = None,
+        quota_cache_ttl: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         strict: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Register the cdk-preflight rules on an App or Stage.
 
         :param scope: -
+        :param check_quotas: Compare what the app is about to create against the target account's Service Quotas and current usage: VPCs, internet gateways and Elastic IPs per Region, and the unreserved Lambda concurrency left after reserved concurrency changes. Counts are summed over every stack (including nested stacks) that deploys to the same account and Region, and resources that already exist in the deployed stack are not counted again. This is the one feature that makes synth call AWS. It needs credentials for the target account in the app process: the CDK CLI does not pass ``--profile`` on to the app, so set ``AWS_PROFILE`` (or ``AWS_*`` variables) instead. Without usable credentials the check is skipped with a warning and synth goes on. A finding fails synth in enforce mode and is a warning with ``enforce: false``. Default: false
         :param enforce: Fail synthesis when a bundled rule is violated. In the default (enforce) mode, cdk-preflight evaluates its rules with its own validation plugin and a violation makes ``cdk synth`` fail — the whole point of preflight checks is that a template known to fail at deploy time never leaves your machine. Set ``enforce: false`` to observe first: findings are then reported through the CDK built-in CloudFormation validator and surface as synth warnings with construct traces, which can be muted per finding via ``Acknowledge with 'CloudFormation-Validate::<rule-id>'``. Default: true
         :param exclude: Rule ids to disable (see ``Preflight.ruleIds()`` or docs/rules.md). Default: - all bundled rules are enabled
         :param include_upstream_pending: Include rules that are marked ``pending-engine`` (candidates that have been proposed to the upstream cloudformation-validate engine but are not merged yet). Disable this if you run a newer engine that already covers them. Rules marked ``cfn-schema`` are unaffected by this switch. CloudFormation's own registry schema does reject those templates, but only with a stack-level "Validation failed with 1 error(s)" that names no property, so they keep earning their place at synth time and no engine release retires them. Default: true
+        :param quota_cache_ttl: How long ``checkQuotas`` reuses the usage and deployed-stack state it fetched, cached under the cloud assembly directory (``cdk.out``). Quota values themselves are cached for 24 hours. Default: Duration.minutes(5)
         :param strict: In enforce mode, additionally fail synthesis on error-class findings (severity ERROR/FATAL) of the built-in validation engine itself, e.g. schema violations like ``F3034``. This is the workaround for the CDK behavior where all built-in findings are downgraded to warnings. Since the engine's own errors then fail synthesis, bundled rules that the running engine already covers are skipped instead of being reported twice. The same happens with ``enforce: false``, and when the app sets the context ``@aws-cdk/core:validateAgainstDefaultRules: true``. Only effective in enforce mode (the default). Default: false
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b535ea6056dfabd62239bba1185a75fb43155b62d18b3cbb69ca8a01b7edfa8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = PreflightOptions(
+            check_quotas=check_quotas,
             enforce=enforce,
             exclude=exclude,
             include_upstream_pending=include_upstream_pending,
+            quota_cache_ttl=quota_cache_ttl,
             strict=strict,
         )
 
@@ -398,9 +444,11 @@ class Preflight(metaclass=jsii.JSIIMeta, jsii_type="cdk-preflight.Preflight"):
     jsii_type="cdk-preflight.PreflightOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "check_quotas": "checkQuotas",
         "enforce": "enforce",
         "exclude": "exclude",
         "include_upstream_pending": "includeUpstreamPending",
+        "quota_cache_ttl": "quotaCacheTtl",
         "strict": "strict",
     },
 )
@@ -408,33 +456,63 @@ class PreflightOptions:
     def __init__(
         self,
         *,
+        check_quotas: typing.Optional[builtins.bool] = None,
         enforce: typing.Optional[builtins.bool] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_upstream_pending: typing.Optional[builtins.bool] = None,
+        quota_cache_ttl: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         strict: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for {@link Preflight.apply}.
 
+        :param check_quotas: Compare what the app is about to create against the target account's Service Quotas and current usage: VPCs, internet gateways and Elastic IPs per Region, and the unreserved Lambda concurrency left after reserved concurrency changes. Counts are summed over every stack (including nested stacks) that deploys to the same account and Region, and resources that already exist in the deployed stack are not counted again. This is the one feature that makes synth call AWS. It needs credentials for the target account in the app process: the CDK CLI does not pass ``--profile`` on to the app, so set ``AWS_PROFILE`` (or ``AWS_*`` variables) instead. Without usable credentials the check is skipped with a warning and synth goes on. A finding fails synth in enforce mode and is a warning with ``enforce: false``. Default: false
         :param enforce: Fail synthesis when a bundled rule is violated. In the default (enforce) mode, cdk-preflight evaluates its rules with its own validation plugin and a violation makes ``cdk synth`` fail — the whole point of preflight checks is that a template known to fail at deploy time never leaves your machine. Set ``enforce: false`` to observe first: findings are then reported through the CDK built-in CloudFormation validator and surface as synth warnings with construct traces, which can be muted per finding via ``Acknowledge with 'CloudFormation-Validate::<rule-id>'``. Default: true
         :param exclude: Rule ids to disable (see ``Preflight.ruleIds()`` or docs/rules.md). Default: - all bundled rules are enabled
         :param include_upstream_pending: Include rules that are marked ``pending-engine`` (candidates that have been proposed to the upstream cloudformation-validate engine but are not merged yet). Disable this if you run a newer engine that already covers them. Rules marked ``cfn-schema`` are unaffected by this switch. CloudFormation's own registry schema does reject those templates, but only with a stack-level "Validation failed with 1 error(s)" that names no property, so they keep earning their place at synth time and no engine release retires them. Default: true
+        :param quota_cache_ttl: How long ``checkQuotas`` reuses the usage and deployed-stack state it fetched, cached under the cloud assembly directory (``cdk.out``). Quota values themselves are cached for 24 hours. Default: Duration.minutes(5)
         :param strict: In enforce mode, additionally fail synthesis on error-class findings (severity ERROR/FATAL) of the built-in validation engine itself, e.g. schema violations like ``F3034``. This is the workaround for the CDK behavior where all built-in findings are downgraded to warnings. Since the engine's own errors then fail synthesis, bundled rules that the running engine already covers are skipped instead of being reported twice. The same happens with ``enforce: false``, and when the app sets the context ``@aws-cdk/core:validateAgainstDefaultRules: true``. Only effective in enforce mode (the default). Default: false
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__12ab0dc6052d00feef3e218547f7a8add8c0a9bd629d0362a30a71aa52b7cab1)
+            check_type(argname="argument check_quotas", value=check_quotas, expected_type=type_hints["check_quotas"])
             check_type(argname="argument enforce", value=enforce, expected_type=type_hints["enforce"])
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument include_upstream_pending", value=include_upstream_pending, expected_type=type_hints["include_upstream_pending"])
+            check_type(argname="argument quota_cache_ttl", value=quota_cache_ttl, expected_type=type_hints["quota_cache_ttl"])
             check_type(argname="argument strict", value=strict, expected_type=type_hints["strict"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if check_quotas is not None:
+            self._values["check_quotas"] = check_quotas
         if enforce is not None:
             self._values["enforce"] = enforce
         if exclude is not None:
             self._values["exclude"] = exclude
         if include_upstream_pending is not None:
             self._values["include_upstream_pending"] = include_upstream_pending
+        if quota_cache_ttl is not None:
+            self._values["quota_cache_ttl"] = quota_cache_ttl
         if strict is not None:
             self._values["strict"] = strict
+
+    @builtins.property
+    def check_quotas(self) -> typing.Optional[builtins.bool]:
+        '''Compare what the app is about to create against the target account's Service Quotas and current usage: VPCs, internet gateways and Elastic IPs per Region, and the unreserved Lambda concurrency left after reserved concurrency changes.
+
+        Counts are summed over every stack (including nested
+        stacks) that deploys to the same account and Region, and resources that
+        already exist in the deployed stack are not counted again.
+
+        This is the one feature that makes synth call AWS. It needs credentials
+        for the target account in the app process: the CDK CLI does not pass
+        ``--profile`` on to the app, so set ``AWS_PROFILE`` (or ``AWS_*`` variables)
+        instead. Without usable credentials the check is skipped with a warning
+        and synth goes on. A finding fails synth in enforce mode and is a warning
+        with ``enforce: false``.
+
+        :default: false
+        '''
+        result = self._values.get("check_quotas")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enforce(self) -> typing.Optional[builtins.bool]:
@@ -480,6 +558,15 @@ class PreflightOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def quota_cache_ttl(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''How long ``checkQuotas`` reuses the usage and deployed-stack state it fetched, cached under the cloud assembly directory (``cdk.out``). Quota values themselves are cached for 24 hours.
+
+        :default: Duration.minutes(5)
+        '''
+        result = self._values.get("quota_cache_ttl")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    @builtins.property
     def strict(self) -> typing.Optional[builtins.bool]:
         '''In enforce mode, additionally fail synthesis on error-class findings (severity ERROR/FATAL) of the built-in validation engine itself, e.g. schema violations like ``F3034``. This is the workaround for the CDK behavior where all built-in findings are downgraded to warnings.
 
@@ -517,9 +604,11 @@ publication.publish()
 def _typecheckingstub__5b535ea6056dfabd62239bba1185a75fb43155b62d18b3cbb69ca8a01b7edfa8(
     scope: _constructs_77d1e7e8.IConstruct,
     *,
+    check_quotas: typing.Optional[builtins.bool] = None,
     enforce: typing.Optional[builtins.bool] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_upstream_pending: typing.Optional[builtins.bool] = None,
+    quota_cache_ttl: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     strict: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -527,9 +616,11 @@ def _typecheckingstub__5b535ea6056dfabd62239bba1185a75fb43155b62d18b3cbb69ca8a01
 
 def _typecheckingstub__12ab0dc6052d00feef3e218547f7a8add8c0a9bd629d0362a30a71aa52b7cab1(
     *,
+    check_quotas: typing.Optional[builtins.bool] = None,
     enforce: typing.Optional[builtins.bool] = None,
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_upstream_pending: typing.Optional[builtins.bool] = None,
+    quota_cache_ttl: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     strict: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

@@ -247,8 +247,11 @@ strhash (string_view s)
     size_t len = s.length();
     if (! len) return 0;
     unsigned int h = 0;
-    for (size_t i = 0;  i < len;  ++i) {
-        h += (unsigned char)(s[i]);
+    for (auto c : s) {
+        // Note: by using range for here, instead of looping over indices and
+        // calling operator[] to get each char, we avoid the bounds checking
+        // that operator[] does.
+        h += (unsigned char)(c);
         h += h << 10;
         h ^= h >> 6;
     }
@@ -617,3 +620,15 @@ private:
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+// Replicate the hashing namespaces in v3_1:: inside OIIO::
+namespace fasthash { using namespace OIIO::v3_1::fasthash; }
+namespace xxhash { using namespace OIIO::v3_1::xxhash; }
+namespace bjhash { using namespace OIIO::v3_1::bjhash; }
+namespace murmur { using namespace OIIO::v3_1::murmur; }
+namespace farmhash { using namespace OIIO::v3_1::farmhash; }
+using v3_1::SHA1;
+OIIO_NAMESPACE_END

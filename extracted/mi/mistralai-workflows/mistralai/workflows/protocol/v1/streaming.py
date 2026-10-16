@@ -34,6 +34,7 @@ class StreamEventWorkflowContext(BaseModel):
 class StreamEventNatsContext(BaseModel):
     nats_stream: str
     nats_subject: str
+    event_stream_routing_revision: int = 0
 
 
 class StreamEvent(BaseModel):

@@ -80,10 +80,7 @@ if TYPE_CHECKING:
     def validator(*args: str, pre: bool = ...) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
 
 else:
-    try:
-        from pydantic.v1 import BaseModel, ValidationError, validator
-    except ImportError:
-        from pydantic import BaseModel, ValidationError, validator
+    from chalk.utils.pydanticutil.sdk import BaseModel, ValidationError, validator
 
 _SOURCES: Mapping[str, Union[Type[BaseSQLSource], Type[StreamSource]]] = {
     "snowflake": SnowflakeSourceImpl,
@@ -134,9 +131,9 @@ CHALK_SQL_SQLGLOT_DIALECT = "duckdb"
 
 
 class IncrementalSettingsSQLFileResolver(BaseModel):
-    incremental_column: Optional[str]
+    incremental_column: Optional[str] = None
 
-    lookback_period: Optional[Duration]
+    lookback_period: Optional[Duration] = None
 
     mode: Literal["row", "group", "parameter"] = "row"
 
@@ -195,33 +192,33 @@ class RetryConditionSQLFileResolver(BaseModel):
 
 
 class RetryPolicySQLFileResolver(BaseModel):
-    if_not_found: Optional[RetryConditionSQLFileResolver]
-    if_timeout: Optional[RetryConditionSQLFileResolver]
+    if_not_found: Optional[RetryConditionSQLFileResolver] = None
+    if_timeout: Optional[RetryConditionSQLFileResolver] = None
 
 
 class CommentDict(BaseModel):
-    total: Optional[bool]
-    source: Optional[str]
-    resolves: Optional[str]
-    namespace: Optional[str]
-    incremental: Optional[IncrementalSettingsSQLFileResolver]
-    tags: Optional[List[str]]
-    environment: Optional[List[str]]
-    count: Optional[Literal[1, "one", "one_or_none", "all"]]
-    cron: Optional[Any]
-    machine_type: Optional[str]
-    owner: Optional[str]
-    type: Optional[str]
-    timeout: Optional[str]
-    fields: Optional[Dict[str, str]]
-    field_types: Optional[Dict[str, str]]
-    unique_on: Optional[List[str]]
-    partitioned_by: Optional[List[str]]
-    skip_sql_validation: Optional[bool]
-    handle_duplicate_outputs: Optional[str]
-    use_native_sql: Optional[bool]
-    retry_policy: Optional[RetryPolicySQLFileResolver]
-    max_row_version_lookback: Optional[Duration]
+    total: Optional[bool] = None
+    source: Optional[str] = None
+    resolves: Optional[str] = None
+    namespace: Optional[str] = None
+    incremental: Optional[IncrementalSettingsSQLFileResolver] = None
+    tags: Optional[List[str]] = None
+    environment: Optional[List[str]] = None
+    count: Optional[Literal[1, "one", "one_or_none", "all"]] = None
+    cron: Optional[Any] = None
+    machine_type: Optional[str] = None
+    owner: Optional[str] = None
+    type: Optional[str] = None
+    timeout: Optional[str] = None
+    fields: Optional[Dict[str, str]] = None
+    field_types: Optional[Dict[str, str]] = None
+    unique_on: Optional[List[str]] = None
+    partitioned_by: Optional[List[str]] = None
+    skip_sql_validation: Optional[bool] = None
+    handle_duplicate_outputs: Optional[str] = None
+    use_native_sql: Optional[bool] = None
+    retry_policy: Optional[RetryPolicySQLFileResolver] = None
+    max_row_version_lookback: Optional[Duration] = None
 
     @validator("tags", "environment", "unique_on", "partitioned_by", pre=True)
     @classmethod

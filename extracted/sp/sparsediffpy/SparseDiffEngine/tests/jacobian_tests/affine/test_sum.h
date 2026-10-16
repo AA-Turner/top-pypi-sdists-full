@@ -8,7 +8,6 @@
 #include "minunit.h"
 #include "numerical_diff.h"
 #include "test_helpers.h"
-#include "utils/stacked_pd.h"
 
 const char *test_jacobian_sum_log(void)
 {
@@ -202,7 +201,7 @@ const char *test_jacobian_sum_log_axis_1(void)
    correctly when the child Jacobian is a permuted_dense. Constructed as
    sum(A2 @ (A1 @ x), -1): a single left_matmul on a leaf variable goes
    through the sparse leaf-var fast path, but the outer left_matmul on a
-   composite child fires the PD jacobian_init path (BA_pd_matrices_alloc),
+   composite child fires the PD jacobian_init path (BA_matrices_alloc),
    giving us a PD child for sum. We assert the PD-ness of the child and then
    verify the resulting sum Jacobian by finite differences.
 
@@ -223,7 +222,8 @@ const char *test_jacobian_sum_axis_minus_one_pd_child(void)
 
     double u_vals[2] = {0.5, -1.5};
     jacobian_init(sum_node);
-    mu_assert("child Jacobian should be PD", A2_A1_x->jacobian->is_permuted_dense);
+    mu_assert("child Jacobian should be PD",
+              A2_A1_x->jacobian->kind == MATRIX_PERMUTED_DENSE);
 
     mu_assert("check_jacobian failed",
               check_jacobian_num(sum_node, u_vals, NUMERICAL_DIFF_DEFAULT_H));
@@ -250,8 +250,10 @@ const char *test_jacobian_sum_spd_child_axis_minus_one(void)
     expr *sum_node = sum_spd_child_fixture(-1, &L);
     double u[6] = {0.1, 0.2, 0.3, -0.1, -0.2, -0.3};
     jacobian_init(sum_node);
-    mu_assert("child Jacobian should be spd", L->jacobian->is_stacked_pd);
-    mu_assert("sum Jacobian should be spd", sum_node->jacobian->is_stacked_pd);
+    mu_assert("child Jacobian should be spd",
+              L->jacobian->kind == MATRIX_STACKED_PD);
+    mu_assert("sum Jacobian should be spd",
+              sum_node->jacobian->kind == MATRIX_STACKED_PD);
     mu_assert("check_jacobian failed",
               check_jacobian_num(sum_node, u, NUMERICAL_DIFF_DEFAULT_H));
     free_expr(sum_node);
@@ -265,7 +267,8 @@ const char *test_jacobian_sum_spd_child_axis_0(void)
     expr *sum_node = sum_spd_child_fixture(0, &L);
     double u[6] = {0.1, 0.2, 0.3, -0.1, -0.2, -0.3};
     jacobian_init(sum_node);
-    mu_assert("sum Jacobian should be spd", sum_node->jacobian->is_stacked_pd);
+    mu_assert("sum Jacobian should be spd",
+              sum_node->jacobian->kind == MATRIX_STACKED_PD);
     mu_assert("check_jacobian failed",
               check_jacobian_num(sum_node, u, NUMERICAL_DIFF_DEFAULT_H));
     free_expr(sum_node);
@@ -281,7 +284,8 @@ const char *test_jacobian_sum_spd_child_axis_1(void)
     expr *sum_node = sum_spd_child_fixture(1, &L);
     double u[6] = {0.1, 0.2, 0.3, -0.1, -0.2, -0.3};
     jacobian_init(sum_node);
-    mu_assert("sum Jacobian should be spd", sum_node->jacobian->is_stacked_pd);
+    mu_assert("sum Jacobian should be spd",
+              sum_node->jacobian->kind == MATRIX_STACKED_PD);
     mu_assert("check_jacobian failed",
               check_jacobian_num(sum_node, u, NUMERICAL_DIFF_DEFAULT_H));
 

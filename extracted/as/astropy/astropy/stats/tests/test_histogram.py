@@ -48,7 +48,10 @@ def test_freedman_bin_width():
     # data with too small IQR
     test_x = [1, 2, 3] + [4] * 100 + [5, 6, 7]
     with pytest.raises(ValueError, match=r"Please use another bin method"):
-        with pytest.warns(RuntimeWarning, match=r"divide by zero encountered"):
+        with pytest.warns(
+            RuntimeWarning,
+            match=r"divide by zero encountered|invalid value encountered in ceil",
+        ):
             freedman_bin_width(test_x, return_bins=True)
 
     # data with small IQR but not too small
@@ -182,3 +185,11 @@ def test_histogram_badargs():
     # bad bins arg gives ValueError
     with pytest.raises(ValueError):
         histogram(x, bins="bad_argument")
+
+
+def test_histogram_range_weights():
+    data = np.array([-10.0, 2.5, 5.0, 7.5, 50.0])
+    weights = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    hist, edges = histogram(data, bins=5, range=(0, 10), weights=weights)
+    assert_allclose(hist, [0.0, 2.0, 3.0, 4.0, 0.0])
+    assert_allclose(edges, [0.0, 2.0, 4.0, 6.0, 8.0, 10.0])

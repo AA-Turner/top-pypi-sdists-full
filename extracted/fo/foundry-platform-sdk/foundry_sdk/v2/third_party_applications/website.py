@@ -81,6 +81,9 @@ class WebsiteClient:
     ) -> third_party_applications_models.Website:
         """
         Deploy a version of the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param version:
@@ -129,6 +132,9 @@ class WebsiteClient:
     ) -> third_party_applications_models.Website:
         """
         Get the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -172,6 +178,9 @@ class WebsiteClient:
     ) -> third_party_applications_models.Website:
         """
         Remove the currently deployed version of the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -278,6 +287,9 @@ class AsyncWebsiteClient:
     ) -> typing.Awaitable[third_party_applications_models.Website]:
         """
         Deploy a version of the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param version:
@@ -326,6 +338,9 @@ class AsyncWebsiteClient:
     ) -> typing.Awaitable[third_party_applications_models.Website]:
         """
         Get the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -369,6 +384,9 @@ class AsyncWebsiteClient:
     ) -> typing.Awaitable[third_party_applications_models.Website]:
         """
         Remove the currently deployed version of the Website.
+
+        Required scopes: [third-party-application:deploy-application-website]
+
         :param third_party_application_rid: An RID identifying a third-party application created in Developer Console.
         :type third_party_application_rid: ThirdPartyApplicationRid
         :param request_timeout: timeout setting for this request in seconds.

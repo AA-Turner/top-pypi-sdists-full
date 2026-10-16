@@ -14,7 +14,7 @@ import numpy as np
 
 from river_client.images import ImageHandle
 from river_client.renderers import ModelInputChunk
-from river_client.types import PolicyVersion, Sample
+from river_client.types import PolicySpan, PolicyVersion, Sample
 
 
 _RECOVERING_UNSET = object()
@@ -50,6 +50,7 @@ class Span:
     kind: Literal["prompt", "generated", "framing"]
     policy_step: int | None
     policy_version: PolicyVersion | None
+    policy_spans: tuple[PolicySpan, ...]
     kv_cache_policy_version: PolicyVersion | None
     retained_kv: bool
     routing_handle: str | None
@@ -67,6 +68,7 @@ class Span:
         policy_step=None,
         run=0,
         policy_version=None,
+        policy_spans=(),
         retained_kv=False,
         kv_cache_policy_version=None,
         routing_handle=None,
@@ -78,6 +80,10 @@ class Span:
             policy_version = PolicyVersion(**policy_version)
         if kind not in {"prompt", "generated", "framing"} or run < 0:
             raise ValueError("invalid span kind or run")
+        policy_spans = tuple(
+            PolicySpan(**span) if isinstance(span, dict) else span
+            for span in policy_spans
+        )
         stored = []
         for chunk in chunks:
             if chunk["type"] == "text":
@@ -118,6 +124,14 @@ class Span:
         )
         if n == 0:
             raise ValueError("spans must contain at least one token")
+        if policy_spans:
+            ends = [0, *(span.end for span in policy_spans)]
+            if ends[-1] != n or any(a >= b for a, b in zip(ends, ends[1:])):
+                raise ValueError("policy spans must cover generated tokens in order")
+            if kind != "generated" or policy_version != policy_spans[0].policy_version:
+                raise ValueError(
+                    "the summary policy must be the first generated-token policy"
+                )
         lp = None
         if kind == "generated":
             if policy_step is None or policy_step < 0:
@@ -134,6 +148,7 @@ class Span:
             ("logprobs", lp),
             ("policy_step", policy_step),
             ("policy_version", policy_version),
+            ("policy_spans", policy_spans),
             ("kv_cache_policy_version", kv_cache_policy_version),
             ("retained_kv", retained_kv),
             ("routing_handle", routing_handle),
@@ -167,6 +182,7 @@ class Span:
             "kv_cache_policy_version": None
             if self.kv_cache_policy_version is None
             else asdict(self.kv_cache_policy_version),
+            "policy_spans": [asdict(span) for span in self.policy_spans],
             "policy_version": None
             if self.policy_version is None
             else asdict(self.policy_version),
@@ -273,6 +289,7 @@ class Trajectory:
                 policy_step=sample.model_step if policy_step is None else policy_step,
                 run=self.run,
                 policy_version=sample.policy_version,
+                policy_spans=sample.policy_spans,
                 retained_kv=sample.retained_kv,
                 kv_cache_policy_version=sample.kv_cache_policy_version,
                 routing_handle=routing.handle if routing else None,

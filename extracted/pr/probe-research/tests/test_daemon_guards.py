@@ -1276,6 +1276,48 @@ def test_a_delete_probe_cannot_undo_is_a_question(tmp_path, argv):
     assert appr.AUTO in _run(tools.run_probe_command(bypass, argv)) and bypass.replay.calls == [argv]
 
 
+class CountsTrashLookups(Replay):
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.lookups = 0
+
+    def server_features(self):
+        self.lookups += 1
+        return super().server_features()
+
+
+@pytest.mark.parametrize("trash", [True, False])
+def test_a_help_request_is_a_read_whatever_it_names(tmp_path, trash):
+    """`probe artifact delete --help` was held twice as a delete that cannot be
+    undone. click takes `--help` there as the help flag, so the CLI prints the help
+    and deletes nothing: it runs, with no question, no delete check and no trash lookup."""
+    parsed = precheck.parse(["artifact", "delete", "--help"])
+    assert parsed.help and parsed.owner == precheck.READ
+    assert precheck.check(parsed, cwd=tmp_path, trash=None) is None
+    deps = _deps(tmp_path, replay=CountsTrashLookups(trash=trash))
+    out = _run(tools.shell(deps, "probe artifact delete --help"))
+    assert out.startswith("[exit 0]"), out
+    assert deps.replay.calls == [["artifact", "delete", "--help"]] and deps.replay.lookups == 0
+    assert deps.board.all() == [] and deps.lost_writes == 0
+
+
+@pytest.mark.parametrize("argv", [
+    ["notes", "delete", "--run", "R", "--note", "--help", "--yes"],  # `--help` is the note's title
+    ["notes", "delete", "--run", "R", "--note=--help", "--yes"],
+    ["artifact", "delete", "--", "--help"],  # `--help` is the artifact id
+])
+def test_help_as_an_options_value_is_still_a_gated_delete(tmp_path, argv):
+    """Help is what click acts on, never a word in the command: these delete."""
+    parsed = precheck.parse(argv)
+    assert not parsed.help and parsed.owner == precheck.DAEMON
+    deps = _deps(tmp_path, replay=CountsTrashLookups(trash=True))
+    out = _run(tools.run_probe_command(deps, argv))
+    assert "held for the researcher" in out and deps.replay.calls == [] and deps.replay.lookups == 1, out
+    assert deps.board.all()[0].policy == "delete.permanent"
+    no_trash = _deps(tmp_path / "no-trash", replay=Replay(trash=False))
+    assert precheck.NO_TRASH in _run(tools.run_probe_command(no_trash, argv)) and no_trash.replay.calls == []
+
+
 def test_every_delete_the_daemon_may_run_is_checked():
     """[R3-3] a delete-shaped command the daemon owns is either trash-backed and
     checked for others' data, or a question: none runs unasked."""

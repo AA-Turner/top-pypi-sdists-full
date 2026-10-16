@@ -17,6 +17,11 @@ from ggshield.verticals.ai.installation import (
 from tests.unit.conftest import assert_invoke_ok
 
 
+@pytest.fixture(autouse=True)
+def no_endpoint_registration(monkeypatch):
+    monkeypatch.setenv("GGSHIELD_NO_ENDPOINT_REGISTRATION", "1")
+
+
 AGENTS_PATH = "ggshield.verticals.ai.installation.AGENTS"
 
 
@@ -320,6 +325,21 @@ class TestSetupGitHooks:
         mock_dir.return_value = tmp_path  # empty dir -> both hooks absent
         assert _setup_git_hooks(system=False) is True
         assert mock_install.call_count == 2  # pre-commit + pre-push
+
+    @patch(f"{BASE}.install_global")
+    def test_skips_git_hooks_without_git(self, mock_install, no_git, capsys):
+        """
+        GIVEN git cannot be found
+        WHEN the git hooks step runs
+        THEN it warns, installs nothing, and does not fail the setup
+        """
+        from ggshield.cmd.machine.setup import _setup_git_hooks
+
+        assert _setup_git_hooks(system=False) is True
+        mock_install.assert_not_called()
+        self.git_mock.assert_not_called()
+        captured = capsys.readouterr()
+        assert "git hooks skipped: no git" in captured.out + captured.err
 
     @patch(f"{BASE}.is_root", return_value=False)
     @patch(f"{BASE}.install_global")

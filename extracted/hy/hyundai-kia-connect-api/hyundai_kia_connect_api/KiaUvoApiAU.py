@@ -5,12 +5,16 @@
 import base64
 import datetime as dt
 import logging
-import typing as ty
 from zoneinfo import ZoneInfo
 
 from .ApiImpl import ApiImplSession
-from .ApiImplType1 import ApiImplType1, _check_response_for_errors
+from .ApiImplType1 import (
+    USER_AGENT_OK_HTTP,
+    ApiImplType1,
+    _check_response_for_errors,
+)
 from .const import (
+    BRAND_GENESIS,
     BRAND_HYUNDAI,
     BRAND_KIA,
     BRANDS,
@@ -21,6 +25,7 @@ from .const import (
     REGION_AUSTRALIA,
     REGION_NZ,
     REGIONS,
+    SEAT_LOCATION,
 )
 from .exceptions import AuthenticationError
 from .Token import Token
@@ -33,9 +38,6 @@ from .Vehicle import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-USER_AGENT_OK_HTTP: str = "okhttp/3.12.0"
-USER_AGENT_MOZILLA: str = "Mozilla/5.0 (Linux; Android 4.1.1; Galaxy Nexus Build/JRO03C) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.166 Mobile Safari/535.19"
 
 
 class KiaUvoApiAU(ApiImplType1):
@@ -54,6 +56,17 @@ class KiaUvoApiAU(ApiImplType1):
             self.BASIC_AUTHORIZATION: str = "Basic OGFjYjc3OGEtYjkxOC00YThkLTg2MjQtNzNhMGJlYjY0Mjg5OjdTY01NbTZmRVlYZGlFUEN4YVBhUW1nZVlkbFVyZndvaDRBZlhHT3pZSVMyQ3U5VA=="
             self.CFB = base64.b64decode(
                 "SGGCDRvrzmRa2WTNFQPUaNfSFdtPklZ48xUuVckigYasxmeOQqVgCAC++YNrI1vVabI="
+            )
+        elif BRANDS[brand] == BRAND_GENESIS and REGIONS[region] == REGION_AUSTRALIA:
+            # Genesis Connected Services AU (Android app com.genesis.aus v1.0.15).
+            # The Stamp CFB keystream was recovered from the app's whitebox
+            # AES-CFB implementation (IV "iv.ccsp.stamp.ap").
+            self.BASE_URL: str = "au-apigw-genesis.ccs.hyundai.com.au:8081"
+            self.CCSP_SERVICE_ID: str = "c56c78de-b2c2-4831-b776-7bb6830eea97"
+            self.APP_ID: str = "e4bfae6c-ba94-4226-b545-72a08d85944f"  # Android app ID
+            self.BASIC_AUTHORIZATION: str = "Basic YzU2Yzc4ZGUtYjJjMi00ODMxLWI3NzYtN2JiNjgzMGVlYTk3OnhzNWoyVjdGYlF5UzJ3MGhURkFEYW1EVEhDcE15MVFKSFgwVkQ2SElPUm44S1BSNA=="
+            self.CFB = base64.b64decode(
+                "Z31R4ngT9T1snjynGKRcSFMadGU7uBn4U7oJ4r0DyDLPvsSzf+g/m3zTq2chbyI="
             )
         elif BRANDS[brand] == BRAND_HYUNDAI:
             self.BASE_URL: str = "au-apigw.ccs.hyundai.com.au:8080"
@@ -85,7 +98,6 @@ class KiaUvoApiAU(ApiImplType1):
         self,
         username: str,
         password: str,
-        otp_handler: ty.Callable[[dict], dict] | None = None,
         pin: str | None = None,
     ) -> Token:
         stamp = self._get_stamp()
@@ -245,7 +257,7 @@ class KiaUvoApiAU(ApiImplType1):
                 parse_datetime(get_child_value(location, "time"), self.data_timezone),
             )
 
-    def _get_location(self, token: Token, vehicle: Vehicle) -> dict:
+    def _get_location(self, token: Token, vehicle: Vehicle) -> dict | None:
         url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/location/park"
 
         try:
@@ -274,9 +286,9 @@ class KiaUvoApiAU(ApiImplType1):
         _check_response_for_errors(response)
         return response["msgId"]
 
-    def _get_drv_seat_loc(self, vehicle: Vehicle) -> str:
+    def _get_drv_seat_loc(self, vehicle: Vehicle) -> SEAT_LOCATION:
         """Australia uses RHD vehicles regardless of the odometer unit."""
-        return "R"
+        return SEAT_LOCATION.RIGHT
 
     def _get_cookies(self) -> dict:
         # Get Cookies #

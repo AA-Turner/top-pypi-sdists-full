@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.10.4"
+version = "1.11.0"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries",
 ]
 keywords = [
@@ -43,7 +44,6 @@ dependencies = [
     "psutil>=6.0.0",
     "pydantic-settings>=2.12.0",
     "pydantic>=2.11.0",
-    "tldextract>=5.3.0",
     "typing-extensions>=4.10.0",
     "yarl>=1.18.0",
 ]
@@ -56,8 +56,8 @@ email = "support@apify.com"
 all = ["crawlee[adaptive-crawler,pydantic-ai,beautifulsoup,cli,curl-impersonate,httpx,parsel,playwright,otel,sql_sqlite,sql_postgres,sql_mysql,stagehand,redis]"]
 adaptive-crawler = [
     "crawlee[beautifulsoup,parsel]",
-    "jaro-winkler>=2.0.3",
     "playwright>=1.27.0",
+    "rapidfuzz>=3.0.0",
     "scikit-learn>=1.6.0",
     "apify_fingerprint_datapoints>=0.0.3",
     "browserforge>=1.2.4",
@@ -137,18 +137,21 @@ dev = [
     "anyio<5.0.0",
     "apify_client<3.0.0",
     "build<2.0.0",
-    "fakeredis[probabilistic,json,lua]<3.0.0",
+    "fakeredis[probabilistic,json,lua]<3.0.0; python_version != '3.15' or sys_platform != 'win32'",
+    "fakeredis[probabilistic,json]<3.0.0; python_version == '3.15' and sys_platform == 'win32'",
+    "filelock<5.0.0",
     "poethepoet<1.0.0",
     "pre-commit<5.0.0",
     "proxy-py<3.0.0",
     "pydoc-markdown<5.0.0",
-    "pytest-asyncio<2.0.0",
+    "pytest-asyncio<2.0.0; python_version >= '3.11'",
+    "pytest-asyncio>=1.0.0,<1.1.0; python_version < '3.11'",
     "pytest-cov<8.0.0",
     "pytest-rerunfailures<17.0.0",
     "pytest-timeout<3.0.0",
     "pytest-xdist<4.0.0",
     "pytest<10.0.0",
-    "ruff~=0.16.0",
+    "ruff~=0.17.0",
     "setuptools",
     "ty~=0.0.0",
     "types-beautifulsoup4<5.0.0",
@@ -265,6 +268,8 @@ addopts = "-r a --verbose --dist worksteal"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
 timeout = 1800
+timeout_method = "thread"
+faulthandler_timeout = 600
 markers = ["run_alone: marks tests that must run in isolation"]
 filterwarnings = [
     "ignore:websockets.legacy is deprecated:DeprecationWarning",
@@ -324,37 +329,59 @@ apify-client = false
 apify-shared = false
 apify_fingerprint_datapoints = false
 crawlee = false
+impit = false
 
-[tool.poe.tasks]
-clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache .uv-cache build coverage-unit.xml dist htmlcov website/.docusaurus website/module_shortcuts.json website/node_modules "
-install-sync = "uv sync --all-extras"
-build = "uv build --verbose"
-publish-to-pypi = "uv publish --verbose --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
-type-check = "uv run ty check"
-check-code = [
+[tool.poe.tasks.clean]
+cmd = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache .uv-cache build coverage-unit.xml dist htmlcov website/.docusaurus website/module_shortcuts.json website/node_modules "
+help = "Remove build artifacts and clean caches"
+
+[tool.poe.tasks.install-sync]
+cmd = "uv sync --all-extras"
+help = "Sync dependencies with all extras"
+
+[tool.poe.tasks.build]
+cmd = "uv build --verbose"
+help = "Build the package"
+
+[tool.poe.tasks.publish-to-pypi]
+cmd = "uv publish --verbose --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+help = "Publish the package to PyPI"
+
+[tool.poe.tasks.type-check]
+cmd = "uv run ty check"
+help = "Run the type checker"
+
+[tool.poe.tasks.check-code]
+sequence = [
     "lint",
     "type-check",
     "unit-tests",
 ]
+help = "Run lint, type check, and unit tests"
 
 [tool.poe.tasks.install-dev]
 shell = "uv sync --all-extras && uv run pre-commit install && uv run playwright install"
+help = "Install development dependencies, pre-commit hooks, and Playwright browsers"
 
 [tool.poe.tasks.lint]
 shell = "uv run ruff format --check && uv run ruff check"
+help = "Run the linter and check formatting"
 
 [tool.poe.tasks.format]
 shell = "uv run ruff check --fix && uv run ruff format"
+help = "Fix lint issues and format code"
 
 [tool.poe.tasks.unit-tests]
 shell = """
 uv run pytest -m "run_alone" tests/unit && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" tests/unit
 """
+help = "Run unit tests (`run_alone` tests first, then the rest in parallel)"
 
 [tool.poe.tasks.unit-tests-cov]
 shell = """
 uv run pytest -m "run_alone" --cov=src/crawlee --cov-report=xml:coverage-unit.xml tests/unit && uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} -m "not run_alone" --cov=src/crawlee --cov-report=xml:coverage-unit.xml --cov-append tests/unit
 """
+help = "Run unit tests with an XML coverage report"
 
 [tool.poe.tasks.unit-tests-cov.env]
 COVERAGE_CORE = "sysmon"
@@ -363,15 +390,14 @@ COVERAGE_CORE = "sysmon"
 cmd = """
 uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --basetemp=./.pytest-tmp tests/e2e/project_template
 """
-
-[tool.poe.tasks.update-docs-theme]
-shell = "pnpm update @apify/docs-theme"
-cwd = "website"
+help = "Run E2E tests of the project templates"
 
 [tool.poe.tasks.build-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm build"
 cwd = "website"
+help = "Build the documentation website"
 
 [tool.poe.tasks.run-docs]
 shell = "./build_api_reference.sh && pnpm install && uv run pnpm start"
 cwd = "website"
+help = "Run the documentation website locally"

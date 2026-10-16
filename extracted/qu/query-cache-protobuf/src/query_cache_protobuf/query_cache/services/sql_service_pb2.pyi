@@ -368,8 +368,10 @@ class SkipExecutionResponse(google.protobuf.message.Message):
     EXECUTION_RESULTS_FIELD_NUMBER: builtins.int
     EXECUTION_RUNTIME_MS_FIELD_NUMBER: builtins.int
     EXECUTION_DECISION_ID_FIELD_NUMBER: builtins.int
+    EXECUTION_ID_FIELD_NUMBER: builtins.int
     execution_runtime_ms: builtins.int
     execution_decision_id: builtins.str
+    execution_id: builtins.str
     @property
     def explained_decision(self) -> query_cache_protobuf.query_cache.shared_pb2.ExplainedDecision: ...
     @property
@@ -384,9 +386,10 @@ class SkipExecutionResponse(google.protobuf.message.Message):
         execution_results: query_cache_protobuf.query_cache.struct_pb2.Struct | None = ...,
         execution_runtime_ms: builtins.int | None = ...,
         execution_decision_id: builtins.str | None = ...,
+        execution_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "_execution_runtime_ms", b"_execution_runtime_ms", "execution_decision_id", b"execution_decision_id", "execution_results", b"execution_results", "execution_runtime_ms", b"execution_runtime_ms", "explained_decision", b"explained_decision"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "_execution_runtime_ms", b"_execution_runtime_ms", "execution_decision_id", b"execution_decision_id", "execution_results", b"execution_results", "execution_runtime_ms", b"execution_runtime_ms", "explained_decision", b"explained_decision", "transformed_nodes_by_query", b"transformed_nodes_by_query"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_execution_decision_id", b"_execution_decision_id", "_execution_runtime_ms", b"_execution_runtime_ms", "execution_decision_id", b"execution_decision_id", "execution_id", b"execution_id", "execution_results", b"execution_results", "execution_runtime_ms", b"execution_runtime_ms", "explained_decision", b"explained_decision", "transformed_nodes_by_query", b"transformed_nodes_by_query"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_execution_decision_id", b"_execution_decision_id"]) -> typing.Literal["execution_decision_id"] | None: ...
     @typing.overload

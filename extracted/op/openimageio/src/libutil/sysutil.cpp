@@ -78,8 +78,6 @@
 #    define HAVE_STACKTRACE 1
 #endif
 
-OIIO_INTEL_PRAGMA(warning disable 2196)
-
 
 OIIO_NAMESPACE_3_1_BEGIN
 
@@ -413,7 +411,10 @@ enableVTMode()
 
 namespace Sysutil {
 
-Term::Term(FILE* file) { m_is_console = isatty(fileno((file))); }
+Term::Term(FILE* file)
+{
+    m_is_console = isatty(fileno((file)));
+}
 
 
 Term::Term(const std::ostream& stream)

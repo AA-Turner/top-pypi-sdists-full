@@ -149,7 +149,7 @@ c_str(string_view str)
     // in C++17 string_view. So maybe we'll find ourselves relying on it a
     // lot less, and therefore the performance hit of doing it foolproof
     // won't be as onerous.
-    if (str[str.size()] == 0)  // 0-terminated
+    if (str.data()[str.size()] == 0)  // 0-terminated
         return str.data();
 
     // Rare case: may not be 0-terminated. Bite the bullet and construct a
@@ -539,7 +539,7 @@ strcasecmp(const char* a, const char* b)
 #elif defined(__EMSCRIPTEN__)
     return ::strcasecmp(a, b);
 #else
-#    error("need equivalent of strcasecmp_l on this platform");
+#    error ("need equivalent of strcasecmp_l on this platform");
 #endif
 }
 
@@ -569,7 +569,7 @@ strncasecmp(const char* a, const char* b, size_t size)
 #elif defined(__EMSCRIPTEN__)
     return ::strncasecmp(a, b, size);
 #else
-#    error("need equivalent of strncasecmp_l on this platform");
+#    error ("need equivalent of strncasecmp_l on this platform");
 #endif
 }
 

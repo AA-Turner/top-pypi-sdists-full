@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnimarket"
-version = "0.4.313"
+version = "0.4.314"
 description = "OmniMarket - Portable ONEX workflow package registry"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -225,7 +225,12 @@ dependencies = [
     # migrations, so the Sibling Release Compatibility Gate finds them in the
     # pinned release. 0.38.71 declares the same omnibase-compat, omnibase-core
     # and omnibase-spi bounds as 0.38.70, so this bump cascades nothing.
-    "omnibase-infra>=0.38.71,<0.39.0",
+    # OMN-18946: floor raised to 0.38.72, the first omnibase_infra release that
+    # vendors the claude_hook_events 0007 node migration (omnibase_infra#4933), so the
+    # Sibling Release Compatibility Gate finds it in the pinned release. 0.38.72
+    # declares the same omnibase-compat, omnibase-core and omnibase-spi bounds as
+    # 0.38.71, so this bump cascades nothing.
+    "omnibase-infra>=0.38.72,<0.39.0",
     "click>=8.1.0",
     "pydantic>=2.12.5,<3.0.0",
     "pydantic-settings>=2.0.0,<3.0.0",
@@ -374,6 +379,7 @@ node_ast_node_analyzer = "omnimarket.nodes.node_ast_node_analyzer"
 node_stub_detector = "omnimarket.nodes.node_stub_detector"
 node_contract_graph_ir_compute = "omnimarket.nodes.node_contract_graph_ir_compute"
 node_delegation_escalation_decision_compute = "omnimarket.nodes.node_delegation_escalation_decision_compute"
+node_delegation_answer_gate_compute = "omnimarket.nodes.node_delegation_answer_gate_compute"
 node_glm_allowance_compute = "omnimarket.nodes.node_glm_allowance_compute"
 node_claude_review_budget_compute = "omnimarket.nodes.node_claude_review_budget_compute"
 node_glm_usage_record_compute = "omnimarket.nodes.node_glm_usage_record_compute"
@@ -553,6 +559,7 @@ node_projection_lab_lane_health = "omnimarket.nodes.node_projection_lab_lane_hea
 node_projection_lab_container_memory = "omnimarket.nodes.node_projection_lab_container_memory"
 node_projection_lab_proof_receipts = "omnimarket.nodes.node_projection_lab_proof_receipts"
 node_projection_work_ledger = "omnimarket.nodes.node_projection_work_ledger"
+node_work_ledger_render_effect = "omnimarket.nodes.node_work_ledger_render_effect"
 node_work_ledger_emit_effect = "omnimarket.nodes.node_work_ledger_emit_effect"
 node_work_ledger_seq_gap_effect = "omnimarket.nodes.node_work_ledger_seq_gap_effect"
 node_projection_alert_channel_liveness = "omnimarket.nodes.node_projection_alert_channel_liveness"
@@ -736,6 +743,7 @@ node_monitor_alert_responder = "omnimarket.nodes.node_monitor_alert_responder"
 # remains, hard-gated fail-closed (contract.yaml lifecycle: deprecated).
 node_rebase_effect = "omnimarket.nodes.node_rebase_effect"
 node_ci_rerun_effect = "omnimarket.nodes.node_ci_rerun_effect"
+node_superseded_run_cancel_effect = "omnimarket.nodes.node_superseded_run_cancel_effect"
 node_ci_fix_effect = "omnimarket.nodes.node_ci_fix_effect"
 node_conflict_hunk_effect = "omnimarket.nodes.node_conflict_hunk_effect"
 node_content_ingestion_effect = "omnimarket.nodes.node_content_ingestion_effect"
@@ -798,6 +806,7 @@ node_friction_triage_orchestrator = "omnimarket.nodes.node_friction_triage_orche
 node_tech_debt_sweep_orchestrator = "omnimarket.nodes.node_tech_debt_sweep_orchestrator"
 node_test_generator = "omnimarket.nodes.node_test_generator"
 node_version_skew_detector = "omnimarket.nodes.node_version_skew_detector"
+node_e2e_bridge_effect = "omnimarket.nodes.node_e2e_bridge_effect"
 node_e2e_orchestrator = "omnimarket.nodes.node_e2e_orchestrator"
 node_contract_reducer = "omnimarket.nodes.node_contract_reducer"
 node_adr_draft_generation_compute = "omnimarket.nodes.node_adr_draft_generation_compute"
@@ -868,6 +877,7 @@ node_projection_sandbox_decisions = "omnimarket.nodes.node_projection_sandbox_de
 node_projection_delegation_inference_response = "omnimarket.nodes.node_projection_delegation_inference_response"
 node_worker_memory_admission_compute = "omnimarket.nodes.node_worker_memory_admission_compute"
 node_fleet_partition_key_compute = "omnimarket.nodes.node_fleet_partition_key_compute"
+node_omniclaude_pin_bump_compute = "omnimarket.nodes.node_omniclaude_pin_bump_compute"
 node_facts_first_prompt_compute = "omnimarket.nodes.node_facts_first_prompt_compute"
 node_report_anchor_probe_effect = "omnimarket.nodes.node_report_anchor_probe_effect"
 node_report_validation_compute = "omnimarket.nodes.node_report_validation_compute"
@@ -1148,7 +1158,12 @@ override-dependencies = [
     # migrations, so the Sibling Release Compatibility Gate finds them in the
     # pinned release. 0.38.71 declares the same omnibase-compat, omnibase-core
     # and omnibase-spi bounds as 0.38.70, so this bump cascades nothing.
-    "omnibase-infra>=0.38.71,<0.39.0",
+    # OMN-18946: floor raised to 0.38.72, the first omnibase_infra release that
+    # vendors the claude_hook_events 0007 node migration (omnibase_infra#4933), so the
+    # Sibling Release Compatibility Gate finds it in the pinned release. 0.38.72
+    # declares the same omnibase-compat, omnibase-core and omnibase-spi bounds as
+    # 0.38.71, so this bump cascades nothing.
+    "omnibase-infra>=0.38.72,<0.39.0",
     "omnibase-compat==0.5.7",
 ]
 
@@ -1203,9 +1218,9 @@ force-include = { "config/ci_bus_lanes.yaml" = "omnimarket/config/ci_bus_lanes.y
 # To move the pin: bump `version`, download the new asset, compute its sha256
 # locally, and paste it. A mismatch is refused, never repaired -- re-downloading
 # on mismatch would turn an attack into a cache miss.
-version = "v1.1.9"
-sha256 = "41c54ad3523ce2c228083d10474391fc77dc4d5ccce3ef57d3bd8e69de358024"
-asset = "omnidash-bundle-v1.1.9.tar.gz"
+version = "v1.1.10"
+sha256 = "30a933f965cd21c66883ed4d146db166013f6694c562e9381c0b35f64a7e41e5"
+asset = "omnidash-bundle-v1.1.10.tar.gz"
 repository = "OmniNode-ai/omnidash"
 
 [tool.hatch.build]

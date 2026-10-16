@@ -1687,6 +1687,85 @@ def test_a_nan_metric_fails_every_gate():
     assert healthy.compare({"overall": {"choice_accuracy": 0.9}})[0]
 
 
+def test_compare_refuses_a_document_the_gate_cannot_subtract_through():
+    """`--baseline` and the report path name files this function does arithmetic on.
+
+    Every shape that is not a metric name to number map used to reach the subtraction and raise
+    `AttributeError`/`TypeError` there, and a baseline that simply had no metrics compared nothing
+    and returned a pass. A bool was the quietest of the group: `float(True)` is 1.0, so
+    `"choice_accuracy": true` was read as a measurement of 100%.
+    """
+    report = EvalReport(overall={"choice_accuracy": 0.9})
+
+    for baseline in (None, [], [{"accuracy": 0.9}], "reviewed baseline", 5, True):
+        with pytest.raises(EvalError, match="baseline report must be a JSON object"):
+            report.compare(baseline)
+
+    for overall in (None, [], "abc", 5):
+        with pytest.raises(EvalError, match="baseline metrics must be an object"):
+            report.compare({"overall": overall})
+
+    for empty in ({}, {"overall": {}}):
+        with pytest.raises(EvalError, match="no metrics to compare"):
+            report.compare(empty)
+
+    # A report-shaped document with no `overall` falls back to its top level as the metric map, so
+    # the schema tag is what gets subtracted.
+    with pytest.raises(EvalError, match="baseline metric 'schema' is not a number"):
+        report.compare({"schema": "laya-eval/1", "config": {}})
+    for value, kind in (("0.9", "str"), (None, "NoneType"), ({"v": 1}, "dict"), (True, "bool")):
+        with pytest.raises(EvalError, match="is not a number, got %s" % kind):
+            report.compare({"overall": {"choice_accuracy": value}})
+
+    # The candidate side is read from disk by the same command, so it is checked the same way.
+    with pytest.raises(EvalError, match="report metric 'ece' is not a number"):
+        EvalReport(overall={"ece": "0.02"}).compare({"overall": {"ece": 0.02}})
+
+    # NaN stays a comparison, not a shape error: it fails the gate rather than refusing it.
+    assert not report.compare({"overall": {"choice_accuracy": float("nan")}})[0]
+
+    # And a run that lost a metric a baseline still has is still a result, not a usage error.
+    ok, deltas = EvalReport(overall={}).compare({"overall": {"choice_accuracy": 0.9}})
+    assert not ok and deltas["choice_accuracy"]["missing"]
+
+
+def test_cli_exits_2_for_a_malformed_baseline_or_report(tmp_path, capsys):
+    """A broken artifact is exit code 2; exit 1 is what a quality failure is worth.
+
+    Before, `laya-evals compare report.json --baseline {}` exited 0 with nothing compared, and
+    `--baseline 5` died in a traceback that exited 1 -- indistinguishable from a regression to the
+    CI job reading it.
+    """
+    from laya import evals_cli
+
+    fresh = tmp_path / "report.json"
+    fresh.write_text(json.dumps({"overall": {"choice_accuracy": 0.9}}))
+    good = tmp_path / "good.json"
+    good.write_text(json.dumps({"overall": {"choice_accuracy": 0.9}}))
+
+    for raw in ("{}", "null", "[]", '"reviewed baseline"', "5", '{"overall": {}}',
+                '{"overall": null}', '{"overall": {"choice_accuracy": "0.9"}}',
+                '{"overall": {"choice_accuracy": true}}'):
+        broken = tmp_path / "baseline.json"
+        broken.write_text(raw)
+        assert evals_cli.main(["compare", str(fresh), "--baseline", str(broken)]) == 2, raw
+    # The candidate document carries the same shapes.
+    for raw in ('{"overall": "abc"}', '{"overall": {"choice_accuracy": "0.9"}}'):
+        broken = tmp_path / "candidate.json"
+        broken.write_text(raw)
+        assert evals_cli.main(["compare", str(broken), "--baseline", str(good)]) == 2, raw
+
+    printed = capsys.readouterr().err
+    assert "laya-evals: baseline has no metrics to compare" in printed
+    assert "Traceback" not in printed
+
+    # A well-formed pair still compares, and still exits 1 only when the numbers moved.
+    assert evals_cli.main(["compare", str(fresh), "--baseline", str(good)]) == 0
+    drifted = tmp_path / "drifted.json"
+    drifted.write_text(json.dumps({"overall": {"choice_accuracy": 0.5}}))
+    assert evals_cli.main(["compare", str(fresh), "--baseline", str(drifted)]) == 1
+
+
 def test_cli_rejects_a_nan_limit_or_tolerance(capsys):
     from laya import evals_cli
 
@@ -1702,6 +1781,57 @@ def test_cli_rejects_a_nan_limit_or_tolerance(capsys):
     args = evals_cli._build_parser().parse_args(["run", "data.jsonl", "--min-accuracy", "0.8",
                                                  "--max-ece", "0.1"])
     assert (args.min_accuracy, args.max_ece) == (0.8, 0.1)
+
+
+def test_cli_rejects_an_infinite_limit_or_tolerance(capsys):
+    """`inf` disables a gate exactly as `nan` does, and arrives without anyone typing "inf"."""
+    from laya import evals_cli
+
+    # Every spelling `float()` answers with a non-finite number, plus the overflow that is the
+    # reason this is not only a typo case: `--max ece=1e999` parses clean and means no cap.
+    for raw in ("inf", "-inf", "+inf", "Infinity", "-Infinity", "1e999", "inf ", " INF"):
+        with pytest.raises(EvalError, match="is not a number") as exc:
+            evals_cli._parse_pairs(["ece=%s" % raw])
+        assert raw in str(exc.value), "the message names the value the caller typed"
+
+    # The two dedicated flags bypass `_parse_pairs`, and exit 2 rather than a traceback.
+    for flag in ("--min-accuracy", "--max-ece"):
+        for raw in ("inf", "1e999"):
+            with pytest.raises(SystemExit) as exc:
+                evals_cli.main(["run", "data.jsonl", flag, raw])
+            assert exc.value.code == 2
+            assert "not a number" in capsys.readouterr().err
+        # A leading "-" is argparse's own refusal here, not `_limit`'s: the value reads as the
+        # next option. Still exit 2, and `--min accuracy=-inf` -- the form that reaches
+        # `_parse_pairs` -- is refused above.
+        with pytest.raises(SystemExit) as exc:
+            evals_cli.main(["run", "data.jsonl", flag, "-inf"])
+        assert exc.value.code == 2
+        assert "expected one argument" in capsys.readouterr().err
+
+    # Only the two non-finite kinds are refused: a boundary number is still a limit.
+    assert evals_cli._parse_pairs(["ece=0.0", "choice_accuracy=1.0", "brier=-0.0"]) == {
+        "ece": 0.0, "choice_accuracy": 1.0, "brier": 0.0}
+    assert evals_cli._limit("1e308") == 1e308
+
+
+def test_an_infinite_limit_would_have_decided_nothing():
+    """The harm the guard above prevents, pinned so relaxing it cannot go quiet.
+
+    Without the refusal these are the values `_check_thresholds` and `compare` compute from a
+    non-finite limit, and each one is a pass: `laya-evals` would exit 0 having gated nothing. A
+    test that asserts them is not asserting correct behaviour -- it is the witness that the
+    guard's absence was a defect.
+    """
+    from laya import evals_cli
+
+    inf = float("inf")
+    assert evals_cli._check_thresholds({"ece": 0.42}, {}, {"ece": inf}) == []
+    assert evals_cli._check_thresholds({"choice_accuracy": 0.10}, {"choice_accuracy": -inf}, {}) == []
+    ok, deltas = EvalReport(config={}, overall={"choice_accuracy": 0.10}).compare(
+        {"overall": {"choice_accuracy": 0.90}}, {"choice_accuracy": inf})
+    assert ok, "an 0.80 drop passed a gate whose tolerance was inf"
+    assert deltas["choice_accuracy"]["diff"] == pytest.approx(-0.8)
 
 
 def test_default_evaluators_cover_the_three_types():
@@ -2152,6 +2282,80 @@ def test_cli_run_an_unwritable_output_path_is_a_usage_error(monkeypatch, tmp_pat
                     "%s %s lost the errno the caller needs: %s" % (flag, label, err))
                 # Put `open` back: a later row must not inherit a refuser aimed at this path.
                 monkeypatch.setattr("builtins.open", real_open)
+
+
+def test_cli_report_reads_refuse_an_unreadable_report_with_code_2(monkeypatch, tmp_path, capsys):
+    """`main` promises an unreadable report is a usage error; only one shape of it kept that promise.
+
+    Every report read goes through `_load_report` -- `compare`'s report and baseline, and `run`'s
+    baseline -- and it opened bare. A path that does not exist raised `FileNotFoundError`, which
+    `main` narrows to exit 2, but the other ways a file fails to be a report each escaped: a path
+    that *is* a directory (`IsADirectoryError`), text that is not JSON (`JSONDecodeError`), JSON
+    that is valid but not an object (`AttributeError` one call later), and an errno that names no
+    path at all. Each left a traceback and exit 1 -- the code this CLI reserves for "a threshold or
+    a baseline tolerance failed" -- so a CI job could not tell a corrupt artifact from a regression.
+    The message has to name the path, because three of those four errors do not.
+    """
+    from laya import evals_cli
+
+    real_open = open                      # captured before any patch below delegates to it
+    document = json.dumps({"overall": {"choice_accuracy": 0.5}, "slices": {}, "cases": []})
+    good = tmp_path / "good.json"
+    good.write_text(document, encoding="utf-8")
+    not_json = tmp_path / "not-json.json"
+    not_json.write_text("{nope", encoding="utf-8")
+    not_object = tmp_path / "not-object.json"
+    not_object.write_text("[1, 2]", encoding="utf-8")
+    a_directory = tmp_path / "a-directory"
+    a_directory.mkdir()
+    denied = tmp_path / "denied.json"
+    denied.write_text(document, encoding="utf-8")
+
+    cases = [
+        ("a path that is a directory, not a file", str(a_directory), None),
+        ("a file that is not JSON", str(not_json), None),
+        ("a file that is valid JSON but not an object", str(not_object), None),
+        ("a volume that refuses the read", str(denied), OSError(13, "Permission denied")),
+    ]
+
+    def make_refuser(wanted, err):
+        """`open` for real, except that one path raises. A factory, so nothing binds late."""
+        def refuse(target, *a, **k):
+            if str(target) == wanted:
+                raise err
+            return real_open(target, *a, **k)
+        return refuse
+
+    for label, path, error in cases:
+        for position in ("report", "baseline"):
+            monkeypatch.setattr("builtins.open", real_open)
+            if error is not None:
+                monkeypatch.setattr("builtins.open", make_refuser(path, error))
+            argv = (["compare", path, "--baseline", str(good)] if position == "report" else
+                    ["compare", str(good), "--baseline", path])
+            capsys.readouterr()
+            assert evals_cli.main(argv) == 2, "%s as %s: %s" % (label, position, argv)
+            err = capsys.readouterr().err
+            assert "Traceback" not in err, "%s as %s leaked a traceback: %s" % (label, position, err)
+            assert "cannot read report" in err, "%s as %s: %s" % (label, position, err)
+            assert path in err, "%s as %s did not name the path: %s" % (label, position, err)
+            if error is not None:
+                assert "Permission denied" in err, (
+                    "%s as %s lost the errno the caller needs: %s" % (label, position, err))
+
+    # `run` reads the same function, on the same two shapes, after a whole evaluation pass.
+    _patch_router(monkeypatch)
+    dataset = _write_dataset(tmp_path, RUN_ROWS)
+    for label, path, error in cases[:2]:
+        monkeypatch.setattr("builtins.open", real_open)
+        if error is not None:
+            monkeypatch.setattr("builtins.open", make_refuser(path, error))
+        capsys.readouterr()
+        assert evals_cli.main(["run", dataset, "--baseline", path]) == 2, "%s under run" % label
+        err = capsys.readouterr().err
+        assert "Traceback" not in err, "%s under run leaked a traceback: %s" % (label, err)
+        assert "cannot read report" in err and path in err, "%s under run: %s" % (label, err)
+    monkeypatch.setattr("builtins.open", real_open)
 
 
 def test_cli_run_refuses_a_baseline_from_a_different_dataset(monkeypatch, tmp_path, capsys):

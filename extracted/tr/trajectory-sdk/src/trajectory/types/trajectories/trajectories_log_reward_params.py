@@ -12,7 +12,9 @@ class TrajectoriesLogRewardParams(TypedDict, total=False):
   """
   name: Required[str]
   """
-  Reward component name.
+  Reward component name. Each call adds one component; the trajectory's logged reward is the
+  weighted average of its components' scaled values, (value - min_value) / (max_value -
+  min_value).
   """
   value: Required[float]
   """
@@ -28,11 +30,11 @@ class TrajectoriesLogRewardParams(TypedDict, total=False):
   """
   explanation: str
   """
-  Human-readable reason for the reward.
+  Human-readable reason for this component's value.
   """
   weight: float
   """
-  Weight of this component in the trajectory's summed reward. Use 0 to store the component for
-  diagnostics without counting it. If every component has weight 0, the trajectory's reward is
-  0.
+  Weight of this component in the trajectory's weighted average reward. Use 0 to store the
+  component for diagnostics without counting it. If every component has weight 0, the
+  trajectory's reward is 0.
   """

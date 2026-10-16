@@ -21,6 +21,7 @@ from typing import Any
 
 import pytest
 
+from cozy_runtime._cpus import cpus
 from cozy_runtime.internal import kernel_cache, kernel_compile, kernel_sources, liveness
 
 
@@ -121,6 +122,20 @@ def test_a_failure_is_this_boots_and_the_next_boot_retries(
     monkeypatch.setenv("TMPDIR", str(fresh))
     monkeypatch.setattr("tempfile.tempdir", None)
     kernel_compile._STARTED[job.key.digest][0].wait()  # its lock frees as it exits
+    assert kernel_compile.status(store, job).state == "pending"
+
+
+def test_a_failure_is_this_runtimes_and_another_runtime_retries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A Runtime that may have fixed the builder compiles the key again in the same boot."""
+    root = _registry(tmp_path / "sources", corrupt=True)
+    store = kernel_cache.Store(tmp_path / "u1")
+    job = kernel_sources.job(kernel_sources.PYTHON, 89, root)
+    kernel_compile.submit(store, job)
+    assert _wait(store, job).state == "failed"
+    kernel_compile._STARTED[job.key.digest][0].wait()
+    monkeypatch.setattr(kernel_compile, "COMMIT", "a-later-build")
     assert kernel_compile.status(store, job).state == "pending"
 
 
@@ -246,8 +261,21 @@ def test_an_executor_waits_on_the_machines_claim_and_builds_nothing(tmp_path: Pa
 
 
 def test_the_machine_offers_the_cpus_and_memory_this_process_may_use() -> None:
-    assert 1 <= kernel_compile.cpus() <= len(os.sched_getaffinity(0))
+    assert 1 <= cpus() <= len(os.sched_getaffinity(0))
     assert 0 < kernel_compile.available_memory() <= kernel_compile._meminfo("MemTotal")
+
+
+def test_a_cgroup_cpu_quota_bounds_the_cpus_a_process_may_use() -> None:
+    """A container's quota, never the host's cores: a vast pod on a 128-core EPYC with a
+    15-CPU quota ran `ninja -j 128` (2026-10-15)."""
+    scope = ["systemd-run", "--user", "--scope", "-q", "-p", "CPUQuota=300%"]
+    if subprocess.run([*scope, "true"], capture_output=True).returncode != 0:
+        pytest.skip("no systemd user manager to create a CPU-limited cgroup")
+    probe = "from cozy_runtime._cpus import cpus; print(cpus())"
+    shown = subprocess.run(
+        [*scope, sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert int(shown.stdout) == min(3, len(os.sched_getaffinity(0)))
 
 
 def _held(store: kernel_cache.Store, job: kernel_compile.Job, builder: str) -> tuple[int, Any]:

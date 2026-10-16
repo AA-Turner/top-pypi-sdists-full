@@ -15,6 +15,8 @@
 #include <OpenImageIO/strutil.h>
 #include <OpenImageIO/typedesc.h>
 
+#include "imageio_pvt.h"
+
 #include "targa_pvt.h"
 
 OIIO_PLUGIN_NAMESPACE_BEGIN
@@ -37,9 +39,6 @@ public:
     bool close() override;
     bool write_scanline(int y, int z, TypeDesc format, const void* data,
                         stride_t xstride) override;
-    bool write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                    stride_t xstride, stride_t ystride,
-                    stride_t zstride) override;
     bool set_thumbnail(const ImageBuf& thumb) override;
 
 private:
@@ -50,7 +49,6 @@ private:
     std::vector<unsigned char> m_scratch;
     int m_idlen;  ///< Length of the TGA ID block
     unsigned int m_dither;
-    std::vector<unsigned char> m_tilebuffer;
     ImageBuf m_thumb;
 
     // Initialize private members to pre-opened state
@@ -137,7 +135,10 @@ OIIO_EXPORT const char* targa_output_extensions[] = { "tga", "tpic", nullptr };
 OIIO_PLUGIN_EXPORTS_END
 
 
-TGAOutput::TGAOutput() { init(); }
+TGAOutput::TGAOutput()
+{
+    init();
+}
 
 
 
@@ -185,7 +186,9 @@ TGAOutput::open(const std::string& name, const ImageSpec& userspec,
     m_convert_alpha = m_spec.alpha_channel != -1
                       && !m_spec.get_int_attribute("oiio:UnassociatedAlpha", 0);
 
-    m_gamma = m_spec.get_float_attribute("oiio:Gamma", 1.0);
+    m_gamma = pvt::get_colorspace_rec709_gamma(m_spec);
+    if (m_gamma == 0.0f)
+        m_gamma = 1.0f;
 
     // prepare and write Targa header
     tga_header tga;
@@ -238,11 +241,6 @@ TGAOutput::open(const std::string& name, const ImageSpec& userspec,
             return false;
         }
     }
-
-    // If user asked for tiles -- which this format doesn't support, emulate
-    // it by buffering the whole image.
-    if (m_spec.tile_width && m_spec.tile_height)
-        m_tilebuffer.resize(m_spec.image_bytes());
 
     return true;
 }
@@ -369,27 +367,13 @@ TGAOutput::write_tga20_data_fields()
         }
 
         // gamma -- two shorts, giving a ratio
-        const ColorConfig& colorconfig = ColorConfig::default_colorconfig();
-        string_view colorspace = m_spec.get_string_attribute("oiio:ColorSpace");
-        if (colorconfig.equivalent(colorspace, "g22_rec709")) {
-            m_gamma = 2.2f;
-            write(uint16_t(m_gamma * 10.0f));
-            write(uint16_t(10));
-        } else if (colorconfig.equivalent(colorspace, "g18_rec709")) {
-            m_gamma = 1.8f;
-            write(uint16_t(m_gamma * 10.0f));
-            write(uint16_t(10));
-        } else if (Strutil::istarts_with(colorspace, "Gamma")) {
-            // Extract gamma value from color space, if it's there
-            Strutil::parse_word(colorspace);
-            float g = Strutil::from_string<float>(colorspace);
-            if (g >= 0.01f && g <= 10.0f /* sanity check */)
-                m_gamma = g;
+        const float gamma = pvt::get_colorspace_rec709_gamma(m_spec);
+        if (gamma != 0.0f) {
             // FIXME: invent a smarter way to convert to a vulgar fraction?
             // NOTE: the spec states that only 1 decimal place of precision
             // is needed, thus the expansion by 10
             // numerator
-            write(uint16_t(std::round(m_gamma * 10.0f)));
+            write(uint16_t(std::round(gamma * 10.0f)));
             write(uint16_t(10));
         } else {
             // just dump two zeros in there
@@ -437,16 +421,7 @@ TGAOutput::close()
         return true;
     }
 
-    bool ok = true;
-    if (m_spec.tile_width) {
-        // Handle tile emulation -- output the buffered pixels
-        OIIO_ASSERT(m_tilebuffer.size());
-        ok &= write_scanlines(m_spec.y, m_spec.y + m_spec.height, 0,
-                              m_spec.format, &m_tilebuffer[0]);
-        m_tilebuffer.shrink_to_fit();
-    }
-
-    ok &= write_tga20_data_fields();
+    bool ok = write_tga20_data_fields();
 
     init();  // re-initialize
     return ok;
@@ -693,17 +668,6 @@ TGAOutput::write_scanline(int y, int z, TypeDesc format, const void* data,
     }
 
     return true;
-}
-
-
-
-bool
-TGAOutput::write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                      stride_t xstride, stride_t ystride, stride_t zstride)
-{
-    // Emulate tiles by buffering the whole image
-    return copy_tile_to_image_buffer(x, y, z, format, data, xstride, ystride,
-                                     zstride, &m_tilebuffer[0]);
 }
 
 

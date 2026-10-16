@@ -40,7 +40,8 @@ use std::io::Read;
 use std::os::unix::fs::{FileExt as _, OpenOptionsExt};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::panic::AssertUnwindSafe;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 /// One request's bytes. Measured on a pod at 128 workers: 4, 8 and 16 MiB chunks all move
@@ -302,12 +303,31 @@ impl Download<'_> {
             landed: AtomicU64::new(0),
             writers: Writers::new(),
         };
-        std::thread::scope(|scope| {
-            for slot in 0..streams {
-                let run = &run;
-                scope.spawn(move || run.work(slot));
+        let streams = std::thread::scope(|scope| {
+            // A thread the container refuses to start is backpressure, never a panic: the
+            // queue runs on the streams that started, and with none this thread is the walk's
+            // one stream. A stream that panics ends the walk: its chunk would keep its peers
+            // waiting.
+            let mut started = 0;
+            while started < streams {
+                let (run, slot) = (&run, started);
+                let spawned = std::thread::Builder::new().spawn_scoped(scope, move || {
+                    if std::panic::catch_unwind(AssertUnwindSafe(|| run.work(slot))).is_err() {
+                        let refusal = Refusal { code: Code::IO_FAILED, detail: "a stream panicked".into() };
+                        run.fail(&mut run.state.lock().unwrap_or_else(PoisonError::into_inner), refusal);
+                        run.wake.notify_all();
+                    }
+                });
+                if spawned.is_err() {
+                    break;
+                }
+                started += 1;
             }
-            run.watch(&mut observer);
+            match started {
+                0 => run.work(0),
+                _ => run.watch(&mut observer),
+            }
+            started.max(1)
         });
         if let Some(observer) = observer.as_mut() {
             observer.moved(run.landed.load(Ordering::Relaxed));

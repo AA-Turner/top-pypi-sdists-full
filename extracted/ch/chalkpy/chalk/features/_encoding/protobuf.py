@@ -97,9 +97,17 @@ def convert_proto_message_type_to_pyarrow_type(
                 self_referential_detector.remove(new_message_type)
             else:
                 field_type = _get_pyarrow_type_for_proto_field(fd)
-            if fd.label == FieldDescriptor.LABEL_REPEATED:
+            # Protobuf 7 removed label; older supported runtimes may not expose
+            # the replacement predicates. Avoid evaluating label on new runtimes.
+            is_repeated = getattr(fd, "is_repeated", None)
+            if is_repeated is None:
+                is_repeated = fd.label == FieldDescriptor.LABEL_REPEATED
+            is_required = getattr(fd, "is_required", None)
+            if is_required is None:
+                is_required = fd.label == FieldDescriptor.LABEL_REQUIRED
+            if is_repeated:
                 field_type = pa.large_list(field_type)
-            struct_fields.append(pa.field(fd.name, field_type, fd.label != FieldDescriptor.LABEL_REQUIRED))
+            struct_fields.append(pa.field(fd.name, field_type, not is_required))
         return pa.struct(struct_fields)
 
     return _convert_proto_message_type_to_pyarrow_type(

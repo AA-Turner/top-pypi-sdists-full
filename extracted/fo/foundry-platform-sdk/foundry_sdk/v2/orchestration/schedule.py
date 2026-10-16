@@ -79,6 +79,9 @@ class ScheduleClient:
         will be built or cause builds to fail. Consider using a project-scoped schedule instead.
         :::
 
+
+        Required scopes: [api:orchestration-write]
+
         :param action:
         :type action: CreateScheduleRequestAction
         :param description:
@@ -139,6 +142,9 @@ class ScheduleClient:
     ) -> None:
         """
         Delete the Schedule with the specified rid.
+
+        Required scopes: [api:orchestration-write]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -181,6 +187,9 @@ class ScheduleClient:
     ) -> orchestration_models.Schedule:
         """
         Get the Schedule with the specified rid.
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param preview: Enables the use of preview functionality.
@@ -228,6 +237,9 @@ class ScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> orchestration_models.AffectedResourcesResponse:
         """
+
+
+        Required scopes: [api:orchestration-read]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -284,6 +296,9 @@ class ScheduleClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetSchedulesBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -325,6 +340,9 @@ class ScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> None:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -379,6 +397,9 @@ class ScheduleClient:
         that the user has access to. If the user's permissions change later, this could change the outputs that
         will be built or cause builds to fail. Consider using a project-scoped schedule instead.
         :::
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -444,6 +465,9 @@ class ScheduleClient:
     ) -> orchestration_models.ScheduleRun:
         """
 
+
+        Required scopes: [api:orchestration-write]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -490,6 +514,9 @@ class ScheduleClient:
         """
         Get the most recent runs of a Schedule. If no page size is provided, a page size of 100 will be used.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param page_size: The page size to use for the endpoint.
@@ -535,6 +562,9 @@ class ScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> None:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -667,6 +697,9 @@ class AsyncScheduleClient:
         will be built or cause builds to fail. Consider using a project-scoped schedule instead.
         :::
 
+
+        Required scopes: [api:orchestration-write]
+
         :param action:
         :type action: CreateScheduleRequestAction
         :param description:
@@ -727,6 +760,9 @@ class AsyncScheduleClient:
     ) -> typing.Awaitable[None]:
         """
         Delete the Schedule with the specified rid.
+
+        Required scopes: [api:orchestration-write]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -769,6 +805,9 @@ class AsyncScheduleClient:
     ) -> typing.Awaitable[orchestration_models.Schedule]:
         """
         Get the Schedule with the specified rid.
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param preview: Enables the use of preview functionality.
@@ -816,6 +855,9 @@ class AsyncScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[orchestration_models.AffectedResourcesResponse]:
         """
+
+
+        Required scopes: [api:orchestration-read]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -872,6 +914,9 @@ class AsyncScheduleClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetSchedulesBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -913,6 +958,9 @@ class AsyncScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[None]:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -967,6 +1015,9 @@ class AsyncScheduleClient:
         that the user has access to. If the user's permissions change later, this could change the outputs that
         will be built or cause builds to fail. Consider using a project-scoped schedule instead.
         :::
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
@@ -1032,6 +1083,9 @@ class AsyncScheduleClient:
     ) -> typing.Awaitable[orchestration_models.ScheduleRun]:
         """
 
+
+        Required scopes: [api:orchestration-write]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -1078,6 +1132,9 @@ class AsyncScheduleClient:
         """
         Get the most recent runs of a Schedule. If no page size is provided, a page size of 100 will be used.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_rid:
         :type schedule_rid: ScheduleRid
         :param page_size: The page size to use for the endpoint.
@@ -1123,6 +1180,9 @@ class AsyncScheduleClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[None]:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param schedule_rid:
         :type schedule_rid: ScheduleRid

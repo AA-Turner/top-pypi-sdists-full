@@ -75,6 +75,9 @@ class TableImportClient:
     ) -> connectivity_models.TableImport:
         """
         Creates a new TableImport.
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param config:
@@ -152,6 +155,9 @@ class TableImportClient:
         Deleting the table import does not delete the destination dataset but the dataset will no longer
         be updated by this import.
 
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:
@@ -200,6 +206,9 @@ class TableImportClient:
         """
         Executes the TableImport, which runs asynchronously as a [Foundry Build](https://palantir.com/docs/foundry/data-integration/builds/).
         The returned BuildRid can be used to check the status via the Orchestration API.
+
+
+        Required scopes: [api:connectivity-table-import-execute]
 
         :param connection_rid:
         :type connection_rid: ConnectionRid
@@ -250,6 +259,9 @@ class TableImportClient:
     ) -> connectivity_models.TableImport:
         """
         Get the TableImport with the specified rid.
+
+        Required scopes: [api:connectivity-table-import-read]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:
@@ -301,6 +313,9 @@ class TableImportClient:
         """
         Lists all table imports defined for this connection.
         Only table imports that the user has permissions to view will be returned.
+
+
+        Required scopes: [api:connectivity-table-import-read]
 
         :param connection_rid:
         :type connection_rid: ConnectionRid
@@ -359,6 +374,9 @@ class TableImportClient:
     ) -> connectivity_models.TableImport:
         """
         Replace the TableImport with the specified rid.
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:
@@ -499,6 +517,9 @@ class AsyncTableImportClient:
     ) -> typing.Awaitable[connectivity_models.TableImport]:
         """
         Creates a new TableImport.
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param config:
@@ -576,6 +597,9 @@ class AsyncTableImportClient:
         Deleting the table import does not delete the destination dataset but the dataset will no longer
         be updated by this import.
 
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:
@@ -624,6 +648,9 @@ class AsyncTableImportClient:
         """
         Executes the TableImport, which runs asynchronously as a [Foundry Build](https://palantir.com/docs/foundry/data-integration/builds/).
         The returned BuildRid can be used to check the status via the Orchestration API.
+
+
+        Required scopes: [api:connectivity-table-import-execute]
 
         :param connection_rid:
         :type connection_rid: ConnectionRid
@@ -674,6 +701,9 @@ class AsyncTableImportClient:
     ) -> typing.Awaitable[connectivity_models.TableImport]:
         """
         Get the TableImport with the specified rid.
+
+        Required scopes: [api:connectivity-table-import-read]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:
@@ -725,6 +755,9 @@ class AsyncTableImportClient:
         """
         Lists all table imports defined for this connection.
         Only table imports that the user has permissions to view will be returned.
+
+
+        Required scopes: [api:connectivity-table-import-read]
 
         :param connection_rid:
         :type connection_rid: ConnectionRid
@@ -783,6 +816,9 @@ class AsyncTableImportClient:
     ) -> typing.Awaitable[connectivity_models.TableImport]:
         """
         Replace the TableImport with the specified rid.
+
+        Required scopes: [api:connectivity-table-import-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param table_import_rid:

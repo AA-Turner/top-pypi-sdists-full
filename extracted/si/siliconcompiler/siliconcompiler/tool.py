@@ -39,6 +39,7 @@ from siliconcompiler import sc_open
 from siliconcompiler.utils import paths
 from siliconcompiler.utils.logging import SC_LOG, SC_LOGERROR, SC_CONSOLE_FORCE
 from siliconcompiler.utils.multiprocessing import MPManager, forking
+from siliconcompiler.utils.settings import KeyedSettingsCategory, Setting
 
 from siliconcompiler.schema_support.pathschema import PathSchema
 from siliconcompiler.schema_support.record import RecordTool, RecordSchema
@@ -1071,7 +1072,8 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             workdir (str): The path to the run's working directory.
             include_path (bool): If True, includes PATH information.
         """
-        replay_opts: Dict[str, Optional[Union[Dict[str, str], str, int]]] = {}
+        replay_opts: Dict[str, Any] = {}
+        replay_opts["quote"] = shlex.quote
         replay_opts["work_dir"] = workdir
         replay_opts["exports"] = self.get_runtime_environmental_variables(include_path=include_path)
 
@@ -1089,26 +1091,32 @@ class Task(NamedSchema, PathSchema, DocsSchema):
         arg_test = re.compile(r'^[-+]')
         file_test = re.compile(r'^[/\.]')
 
-        if replay_opts["executable"]:
-            format_cmd: List[str] = [replay_opts["executable"]]
+        def format_cmd(args: List[str]) -> List[str]:
+            cmd: List[str] = [replay_opts["executable"]]
 
-            for cmdarg in self.get_runtime_arguments():
-                add_new_line = len(format_cmd) == 1
+            for cmdarg in args:
+                add_new_line = len(cmd) == 1
 
                 if arg_test.match(cmdarg) or file_test.match(cmdarg):
                     add_new_line = True
                 else:
-                    if not arg_test.match(format_cmd[-1]):
+                    if not arg_test.match(cmd[-1]):
                         add_new_line = True
 
                 cmdarg = shlex.quote(cmdarg)
                 if add_new_line:
-                    format_cmd.append(cmdarg)
+                    cmd.append(cmdarg)
                 else:
-                    format_cmd[-1] += f' {cmdarg}'
-        else:
-            format_cmd = []
-        replay_opts["cmds"] = format_cmd
+                    cmd[-1] += f' {cmdarg}'
+            return cmd
+
+        replay_opts["cmds"] = []
+        replay_opts["modes"] = {}
+        if replay_opts["executable"]:
+            args = self.get_runtime_arguments()
+            replay_opts["cmds"] = format_cmd(args)
+            for mode, mode_args in self.replay_modes(args).items():
+                replay_opts["modes"][mode] = format_cmd(mode_args)
 
         # Create replay file from template
         with open(filepath, 'w') as f:
@@ -3006,6 +3014,20 @@ class Task(NamedSchema, PathSchema, DocsSchema):
             cmdargs.extend(script)
         return cmdargs
 
+    def replay_modes(self, args: List[str]) -> Dict[str, List[str]]:
+        """
+        Alternative commands the node's ``replay.sh`` offers, each selected with
+        ``--<mode>``, such as rerunning the step in the tool's GUI. Can be overridden.
+
+        Args:
+            args (list): the arguments the node runs with, from
+                :meth:`get_runtime_arguments`.
+
+        Returns:
+            dict: mode name to the full argument list for that mode.
+        """
+        return {}
+
     def run(self) -> int:
         """
         The main execution logic for Python-based tasks. Must be implemented.
@@ -3982,10 +4004,8 @@ class OpenTask(Task):
             return find_task_by_spec(tool, ext, tasks)
 
         # 2. Check User Settings for Preference
-        if issubclass(cls, ShowTask):
-            preference = MPManager.get_settings().get("showtask", ext)
-        else:
-            preference = MPManager.get_settings().get("opentask", ext)
+        category = SHOWTASK_SETTINGS if issubclass(cls, ShowTask) else OPENTASK_SETTINGS
+        preference = category.setting(ext).get()
 
         # Unlike an explicit request, a stale preference degrades quietly: a
         # setting left over from an uninstalled viewer should not make show()
@@ -4177,3 +4197,21 @@ class ScreenshotTask(ShowTask):
     def has_breakpoint(self):
         # Use task level breakpoint information
         return Task.has_breakpoint(self)
+
+
+def _viewer_setting(task: Type[OpenTask], category: str, ext: str) -> Setting:
+    """The tool, or tool/task, that ``task`` opens ``ext`` files with."""
+    def normalize(tool: str) -> str:
+        if task.get_task(ext, tool=tool) is None:
+            raise ValueError(f"{tool} cannot open .{ext} files")
+        return tool
+
+    return Setting(category, ext, "str", normalize=normalize)
+
+
+SHOWTASK_SETTINGS = KeyedSettingsCategory(
+    "showtask", "<extension>", "the tool, or tool/task, sc-show views a file with",
+    lambda ext: _viewer_setting(ShowTask, "showtask", ext))
+OPENTASK_SETTINGS = KeyedSettingsCategory(
+    "opentask", "<extension>", "the interactive tool, or tool/task, a file is opened in",
+    lambda ext: _viewer_setting(OpenTask, "opentask", ext))

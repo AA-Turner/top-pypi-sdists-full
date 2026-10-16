@@ -312,7 +312,7 @@ def test_other_items_page_findings_are_untouched(monkeypatch):
 
 def _page_row(status, subject="p1", item="item-title", reasoning="Blocked — could not assess"):
     row = {"subject_type": "page", "subject_id": subject, "page_id": subject, "item_id": item, "item_key": "k",
-           "category": "c", "subcategory": None, "severity": "info", "status": status,
+           "category": "c", "subcategory": None, "severity": "med", "status": status,
            "metadata": {"reasoning": reasoning}}
     return row, SimpleNamespace(id="r-new")
 
@@ -420,3 +420,22 @@ def test_a_rollup_closes_as_cause_gone_when_pages_were_rejudged(monkeypatch):
     _summary, ups = _run_reconcile_rollup(monkeypatch, [site_f], results, {}, {"item-img"})
     row = next(u for u in ups if u.get("id") == "fs")
     assert "cause_gone" in row["metadata"]
+
+
+def _info_row(subject="p1", item="item-title"):
+    row, created = _page_row("warn", subject=subject, item=item)
+    row["severity"] = "info"
+    return row, created
+
+
+def test_an_info_result_never_opens_a_finding(monkeypatch):
+    summary, updates = _run_reconcile(monkeypatch, [], [_info_row()], set())
+    assert summary.findings_opened == 0 and updates == []
+
+
+def test_an_open_finding_that_drops_to_info_closes_below_the_bar(monkeypatch):
+    f = _FakeFinding(id="f1", subject_id="p1", item_id="item-title", subject_type="page",
+                     status="open", resolved_at=None, metadata={})
+    _summary, updates = _run_reconcile(monkeypatch, [f], [_info_row()], set())
+    rows = [u for batch in updates for u in batch]
+    assert rows[0]["status"] == "resolved" and "below_bar" in rows[0]["metadata"]

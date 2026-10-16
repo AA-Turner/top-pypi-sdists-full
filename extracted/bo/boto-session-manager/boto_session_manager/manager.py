@@ -4,14 +4,15 @@
 Manage the underlying boto3 session and client.
 """
 
-# standard library
 import typing as T
 import os
 import json
 import uuid
 import contextlib
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
+from datetime import timezone
+from datetime import timedelta
 
 # boto3 is NOT declared as a hard dependency in pyproject.toml on purpose.
 # It releases almost daily, so pinning a range here would frequently conflict
@@ -21,31 +22,25 @@ try:
     import boto3
     import boto3.session
     import botocore.session
-except ImportError as e:  # pragma: no cover
+except ImportError:  # pragma: no cover
     print("You probably need to install 'boto3' first.")
 
 try:
-    from botocore.credentials import (
-        AssumeRoleCredentialFetcher,
-        DeferredRefreshableCredentials,
-    )
-except ImportError as e:  # pragma: no cover
+    from botocore.credentials import AssumeRoleCredentialFetcher
+    from botocore.credentials import DeferredRefreshableCredentials
+except ImportError:  # pragma: no cover
     print("The auto refreshable assume role session would not work.")
 
-from .vendor.aws_sts import (
-    mask_user_id,
-    mask_aws_account_id,
-    mask_iam_principal_arn,
-    get_caller_identity,
-    get_account_alias,
-)
-
-# modules from this project
 from .services import AwsServiceEnum
 from .clients import ClientMixin
-from .sentinel import NOTHING, resolve_kwargs
+from .sentinel import NOTHING
+from .sentinel import resolve_kwargs
 from .exc import NoBotocoreCredentialError
-
+from .vendor.aws_sts import mask_user_id
+from .vendor.aws_sts import mask_aws_account_id
+from .vendor.aws_sts import mask_iam_principal_arn
+from .vendor.aws_sts import get_caller_identity
+from .vendor.aws_sts import get_account_alias
 
 if T.TYPE_CHECKING:  # pragma: no cover
     from botocore.client import BaseClient
@@ -53,7 +48,7 @@ if T.TYPE_CHECKING:  # pragma: no cover
 
 try:
     PATH_DEFAULT_SNAPSHOT = Path.home().joinpath(".bsm-snapshot.json")
-except Exception as e:  # pragma: no cover
+except Exception:  # pragma: no cover
     PATH_DEFAULT_SNAPSHOT = None
 
 
@@ -75,7 +70,7 @@ class BotoSesManager(ClientMixin):
         aws_secret_access_key: str | None = NOTHING,
         aws_session_token: str | None = NOTHING,
         region_name: str | None = NOTHING,
-        botocore_session: T.Optional["botocore.session.Session"] = NOTHING,
+        botocore_session: "botocore.session.Session | None" = NOTHING,
         profile_name: str = NOTHING,
         default_client_kwargs: dict = NOTHING,
         expiration_time: datetime = NOTHING,
@@ -87,7 +82,7 @@ class BotoSesManager(ClientMixin):
         if botocore_session is not NOTHING:  # pragma: no cover
             if not isinstance(botocore_session, botocore.session.Session):
                 raise TypeError
-        self.botocore_session: T.Optional["botocore.session.Session"] = botocore_session
+        self.botocore_session: "botocore.session.Session | None" = botocore_session
         self.profile_name = profile_name
         self.expiration_time: datetime
         if expiration_time is NOTHING:
@@ -98,7 +93,7 @@ class BotoSesManager(ClientMixin):
             default_client_kwargs = dict()
         self.default_client_kwargs = default_client_kwargs
 
-        self._boto_ses_cache: T.Optional["boto3.session.Session"] = NOTHING
+        self._boto_ses_cache: "boto3.session.Session | None" = NOTHING
         self._client_cache: dict[str, "BaseClient"] = dict()
         self._resource_cache: dict[str, "ServiceResource"] = dict()
         self._aws_user_id_cache: str | None = NOTHING
@@ -196,7 +191,7 @@ class BotoSesManager(ClientMixin):
         return self._aws_region_cache
 
     @property
-    def aws_account_alias(self) -> T.Optional[str]:
+    def aws_account_alias(self) -> str | None:
         """
         Get the first aws account alias of the boto session. This is a cached property.
         """
@@ -298,8 +293,8 @@ class BotoSesManager(ClientMixin):
         role_arn: str,
         role_session_name: str = NOTHING,
         duration_seconds: int = 3600,
-        tags: T.Optional[list[dict[str, str]]] = NOTHING,
-        transitive_tag_keys: T.Optional[list[str]] = NOTHING,
+        tags: list[dict[str, str]] | None = NOTHING,
+        transitive_tag_keys: list[str] | None = NOTHING,
         external_id: str = NOTHING,
         mfa_serial_number: str = NOTHING,
         mfa_token: str = NOTHING,
@@ -320,14 +315,12 @@ class BotoSesManager(ClientMixin):
         # if region_name is not specified, use the same region as the current session
         if region_name is NOTHING:
             region_name = self.aws_region
-        # this branch cannot be tested regularly
-        # it is tested in a separate integration test environment.
-        if auto_refresh:  # pragma: no cover
+        if auto_refresh:
             botocore_session = self.boto_ses._session
             credentials = botocore_session.get_credentials()
             # the get_credentials() method can return None
             # raise error explicitly
-            if not credentials:
+            if not credentials:  # pragma: no cover
                 raise NoBotocoreCredentialError
 
             credential_fetcher = AssumeRoleCredentialFetcher(
@@ -367,7 +360,7 @@ class BotoSesManager(ClientMixin):
                 DurationSeconds=duration_seconds,
                 Tags=tags,
                 TransitiveTagKeys=transitive_tag_keys,
-                external_id=external_id,
+                ExternalId=external_id,
                 SerialNumber=mfa_serial_number,
                 TokenCode=mfa_token,
                 SourceIdentity=source_identity,

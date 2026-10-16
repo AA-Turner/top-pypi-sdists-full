@@ -964,6 +964,7 @@ class TsJestTsconfig(
         incremental: typing.Optional[builtins.bool] = None,
         inline_source_map: typing.Optional[builtins.bool] = None,
         inline_sources: typing.Optional[builtins.bool] = None,
+        isolated_declarations: typing.Optional[builtins.bool] = None,
         isolated_modules: typing.Optional[builtins.bool] = None,
         jsx: typing.Optional["_javascript_eb5dbe11.TypeScriptJsxMode"] = None,
         jsx_import_source: typing.Optional[builtins.str] = None,
@@ -1031,6 +1032,7 @@ class TsJestTsconfig(
         :param incremental: (experimental) Tells TypeScript to save information about the project graph from the last compilation to files stored on disk. This creates a series of .tsbuildinfo files in the same folder as your compilation output. They are not used by your JavaScript at runtime and can be safely deleted. You can read more about the flag in the 3.4 release notes.
         :param inline_source_map: (experimental) When set, instead of writing out a .js.map file to provide source maps, TypeScript will embed the source map content in the .js files. Default: true
         :param inline_sources: (experimental) When set, TypeScript will include the original content of the .ts file as an embedded string in the source map. This is often useful in the same cases as inlineSourceMap. Default: true
+        :param isolated_declarations: (experimental) Require sufficient annotation on exports so other tools can trivially generate declaration files. Requires TypeScript 5.5 or later. Default: undefined
         :param isolated_modules: (experimental) Perform additional checks to ensure that separate compilation (such as with transpileModule or. Default: false
         :param jsx: (experimental) Support JSX in .tsx files: "react", "preserve", "react-native" etc. Default: undefined
         :param jsx_import_source: (experimental) Declares the module specifier to be used for importing the jsx and jsxs factory functions when using jsx. Default: undefined
@@ -1100,6 +1102,7 @@ class TsJestTsconfig(
             incremental=incremental,
             inline_source_map=inline_source_map,
             inline_sources=inline_sources,
+            isolated_declarations=isolated_declarations,
             isolated_modules=isolated_modules,
             jsx=jsx,
             jsx_import_source=jsx_import_source,

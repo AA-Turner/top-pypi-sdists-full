@@ -361,6 +361,7 @@ import scipy.spatial.distance
 from . import _below_interface, _crossing_fill, _field_ground, _ground_mirror
 from . import _medium_spec, _schedule, _sinusoidal_mp, _sommerfeld, _sommerfeld_below
 from . import _wire_loading, _wire_spec
+from . import _lapack
 from ._accel import acc as _acc
 from ._bspline_kernels import _ek_axis_groups_coaxial
 from ._bspline_kernels import _reg_cplx_pool as _piece_pool
@@ -381,6 +382,7 @@ from .sinusoidal import (
     _recip_sin_gap,
     _sin_minus_arg,
 )
+from ._vec3 import norm3
 
 # D1 serves a FULLY-buried deck (one pair class, one medium) and D2 the
 # MIXED deck (above x above at k_p, below x below at k_m, the transmitted
@@ -417,6 +419,59 @@ _JUNCTION_PORTS_FINITE_GROUND_REFUSAL = (
     "(Z_pp ~ 1/(jw*4*pi*eps*a)) would survive. Use BSplineSolver, a PEC "
     "ground (ground_z alone), or free space"
 )
+# momwire#1344: two SEGMENTS on one path, in different wires (a radial
+# screen's rises, each inside its own radial's polyline). `drop_duplicated_wires`
+# keys on whole wires, so it never sees them. The mixed-potential fill solves
+# them; the direct-field fill answers them from rounding.
+_DIRECT_FILL_COINCIDENT_REFUSAL = (
+    "the direct-field fill cannot solve coincident conductors: for two "
+    "segments on one path its answer depends on rounding (momwire#1344: the "
+    "rise-spelled fan read -5.6 - 3326j ohm as written, 3977 - 26802j ohm "
+    "moved 0.3 m, and 32.8 - 341.1j ohm, the right answer, moved 1 m). The "
+    "mixed-potential fill solves them: it is this family's default and "
+    "serves free space, a PEC ground and a Sommerfeld ground, but not "
+    'fill="direct", junction_ports, a wire end in the ground plane or a '
+    "reflection-coefficient ground. Solve the deck with BSplineSolver, or "
+    "spell it so that the mixed-potential fill serves it"
+)
+
+
+def _coincident_segments(seg_l, seg_r):
+    """The first two segments that share BOTH endpoints, in either order, or
+    None. EQUAL, not close, on `_wire_spec.find_duplicated_wires`' terms:
+    bucketed on nanometre-rounded endpoints and then held to 1e-12 of the
+    deck's coordinate scale, because a pair merely close is another
+    conductor, which is served, and a looser test would start refusing it."""
+    a = np.asarray(seg_l, dtype=float)
+    b = np.asarray(seg_r, dtype=float)
+    if a.shape[0] < 2:
+        return None
+    ka = np.round(a * 1e9).astype(np.int64)
+    kb = np.round(b * 1e9).astype(np.int64)
+    eq0, eq1 = ka[:, 0] == kb[:, 0], ka[:, 1] == kb[:, 1]
+    swap = (
+        (ka[:, 0] > kb[:, 0])
+        | (eq0 & (ka[:, 1] > kb[:, 1]))
+        | (eq0 & eq1 & (ka[:, 2] > kb[:, 2]))
+    )[:, None]
+    rows = np.hstack([np.where(swap, kb, ka), np.where(swap, ka, kb)])
+    _uniq, first, inverse, counts = np.unique(
+        rows, axis=0, return_index=True, return_inverse=True, return_counts=True
+    )
+    inverse = inverse.ravel()
+    tol = 1e-12 * max(1.0, float(np.max(np.abs(a))), float(np.max(np.abs(b))))
+    for u in np.flatnonzero(counts > 1):
+        members = np.flatnonzero(inverse == u)
+        m = int(members[0])
+        for n in members[1:]:
+            n = int(n)
+            same = max(np.abs(a[m] - a[n]).max(), np.abs(b[m] - b[n]).max())
+            flip = max(np.abs(a[m] - b[n]).max(), np.abs(b[m] - a[n]).max())
+            if min(same, flip) <= tol:
+                return m, n
+    return None
+
+
 _JUNCTION_PORTS_MIXED_RADII_REFUSAL = (
     "junction_ports with mixed per-wire radii are not implemented on "
     "SinusoidalGalerkinSolver: the kernel is not reciprocal under mixed "
@@ -837,12 +892,13 @@ def _solve_in_place(G, rhs):
     `lu_factor` alone would (it only warns).
 
     Callers must not read G afterwards; neither SG solve does, and this
-    family stashes no matrix or factors on the solver.
+    family stashes no matrix or factors on the solver. The factor and solve
+    go through `momwire._lapack` (scipy's unless a host published its own).
     """
-    lu_piv = scipy.linalg.lu_factor(G, overwrite_a=True)
+    lu_piv = _lapack.lu_factor(G, overwrite_a=True)
     if not np.all(np.diagonal(lu_piv[0])):
         raise np.linalg.LinAlgError("singular matrix")
-    return scipy.linalg.lu_solve(lu_piv, rhs)
+    return _lapack.lu_solve(lu_piv, rhs)
 
 
 def _solve_constrained(G, rhs, C):
@@ -865,12 +921,13 @@ def _solve_constrained(G, rhs, C):
     T = -np.linalg.solve(C[:, p], C[:, r])
     Grp = G[np.ix_(r, p)]
     Gpr = G[np.ix_(p, r)]
-    Gc = G[np.ix_(r, r)] + T.T @ Gpr + Grp @ T + T.T @ G[np.ix_(p, p)] @ T
-    rhs_c = rhs[r] + T.T @ rhs[p]
+    mm = _lapack.matmul
+    Gc = G[np.ix_(r, r)] + mm(T.T, Gpr) + mm(Grp, T) + mm(mm(T.T, G[np.ix_(p, p)]), T)
+    rhs_c = rhs[r] + mm(T.T, rhs[p])
     x_r = _solve_in_place(np.asfortranarray(Gc), rhs_c)
     x = np.empty((n,) + x_r.shape[1:], dtype=np.result_type(x_r, T))
     x[r] = x_r
-    x[p] = T @ x_r
+    x[p] = _lapack.matmul(T, x_r)
     return x
 
 
@@ -1691,10 +1748,21 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         * with mixed per-wire radii the kernel is not even symmetric (M2's
           finding), and the correction's regularization radius is ambiguous
           at a node whose members disagree about `a`.
+
+        A junction port at a CROSSING node is refused by its own sentence
+        (momwire#849). The finite-ground sentence ends "Use BSplineSolver",
+        and BSplineSolver refuses that port too; what serves the node on
+        both is a series source (`node_gaps`, momwire#1285).
         """
         if not self.junction_ports:
             return
         if self.ground_z is not None and self.ground_eps is not None:
+            crossing = set(self._crossing_junction_indices())
+            for j_idx, _v in self.junction_ports:
+                if j_idx in crossing:
+                    raise NotImplementedError(
+                        _below_interface.crossing_junction_port_refusal(j_idx)
+                    )
             raise NotImplementedError(_JUNCTION_PORTS_FINITE_GROUND_REFUSAL)
         if self._uniform_radius is None:
             raise NotImplementedError(_JUNCTION_PORTS_MIXED_RADII_REFUSAL)
@@ -1895,7 +1963,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             u = np.einsum("pgd,pd->pg", d, tb[bi])
             u = np.clip(u, -hh[bi][:, None], hh[bi][:, None])
             perp = d - u[..., None] * tb[bi][:, None, :]
-            return np.linalg.norm(perp, axis=-1).min(axis=1)
+            return norm3(perp).min(axis=1)
 
         gap = np.minimum(
             _gap(m, n, c, t, cs, ts),  # test segment sampled against the source
@@ -4451,6 +4519,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
 
         if self.fill == "mixed-potential" and self._mp_serves(geom):
             return self._assemble_Z_mp(geom, k, eta)
+        self._refuse_coincident_segments(geom)
 
         # (k, eta) is ONE operating point and both halves are arguments
         # (momwire#995); a wholly-buried solve hands in k_m with eta_m.
@@ -4504,6 +4573,17 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
     # ------------------------------------------------------------------
     # The mixed-potential fill on the B-spline pair machinery (momwire#1354)
     # ------------------------------------------------------------------
+
+    def _refuse_coincident_segments(self, geom):
+        """The direct-field fill's refusal of two segments on one path
+        (momwire#1344); a no-op on every deck without such a pair."""
+        pair = _coincident_segments(geom["seg_l"], geom["seg_r"])
+        if pair is not None:
+            raise ValueError(
+                f"{type(self).__name__}: segments {pair[0]} and {pair[1]} "
+                "coincide, end for end -- two conductors written on one path "
+                f"-- and {_DIRECT_FILL_COINCIDENT_REFUSAL} - momwire#1344"
+            )
 
     def _mp_serves(self, geom):
         """Whether `fill="mixed-potential"` fills THIS deck; the rest take
@@ -6238,12 +6318,23 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
 
         Junction port p: the source is an EMF in the infinitesimal lead
         between the port terminal and the node, so testing it against basis
-        w gives -1 × (w's net current THROUGH that lead) = -1 × (w's net
-        inflow at the node). Every ordinary basis has zero net inflow there
-        — that is #177's KCL identity, the very property that makes the port
-        impossible in the point-matched solver — and `g_q` has δ_pq by
-        construction. So the whole column is a single -1 at row N+p: the
-        port's excitation touches exactly the port's own row, exactly.
+        w gives -1 × (w's net current THROUGH that lead, terminal to node).
+        What flows through the lead into the node leaves it along the wires,
+        so that is MINUS w's net inflow at the node from its members: the
+        column entry is +1 × (w's net inflow at the node). Every ordinary
+        basis has zero net inflow there — that is #177's KCL identity, the
+        very property that makes the port impossible in the point-matched
+        solver — and `g_q` has δ_pq by construction. So the whole column is
+        a single +1 at row N+p: the port's excitation touches exactly the
+        port's own row, exactly.
+
+        The sign is momwire#1165's. It was -1, which is the same EMF with
+        the lead read from the node to the terminal: every junction port's
+        (V, I) was reversed against `BSplineSolver`'s. That cancels in the
+        port's own Y and between two junction ports, so no driving-point
+        impedance moved; it showed only where a junction port met a gap
+        feed, as the opposite sign of their mutual admittance, and as wire
+        currents of the wrong sign under a junction-port drive.
 
         Node port p (M5b formulation (a)): the source is a ZERO-width delta
         gap sitting exactly at the junction node, E^app = V·δ(s − s_node)
@@ -6299,7 +6390,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 col = -int_f / hm
             np.add.at(U[:, j], seg_view["jbasis"][s:e], col)
         for p in range(len(self.junction_ports)):
-            U[N + p, len(self.feeds) + p] = -1.0
+            U[N + p, len(self.feeds) + p] = 1.0
         if self.node_ports:
             n0 = len(self.feeds) + len(self.junction_ports)
             U[:, n0:] = -self._node_cut_vectors(geom, seg_view, k)
@@ -6336,10 +6427,13 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         """Per-port current readout, ordered [gap feeds…, junction ports…,
         node ports…].
 
-        A junction port's readout is `α_{N+p}` — its own basis amplitude,
-        which by construction IS the current injected at the node — and that
-        equals -U[:, port]·α exactly, so the port block of Y is symmetric to
-        machine precision whichever branch below runs.
+        A junction port's readout is `-α_{N+p}`. Its basis carries unit
+        current from the members INTO the node, so its amplitude is the
+        current the wires deliver to the node and the current the port puts
+        into the wires is minus that (momwire#1165; `BSplineSolver`'s
+        reference direction). It equals -U[:, port]·α exactly, so the port
+        block of Y is symmetric to machine precision whichever branch below
+        runs.
 
         A NODE port's readout is the current through the node, -U[:, port]·α,
         which is likewise the exact dual of its drive: the drive column IS the
@@ -6361,7 +6455,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         """
         N = geom["n_segs"]
         if self.feed_readout == "variational":
-            return -(U.T @ alpha)
+            return -_lapack.matmul(U.T, alpha)
         n0 = len(self.feeds) + len(self.junction_ports)
         return np.array(
             [
@@ -6378,8 +6472,11 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 )
                 for j, fi in enumerate(geom["feed_segs"])
             ]
-            + [alpha[N + p] for p in range(len(self.junction_ports))]
-            + [-(U[:, n0 + p] @ alpha) for p in range(len(self.node_ports))],
+            + [-alpha[N + p] for p in range(len(self.junction_ports))]
+            + [
+                -_lapack.matmul(U[:, n0 + p], alpha)
+                for p in range(len(self.node_ports))
+            ],
             dtype=np.complex128,
         )
 

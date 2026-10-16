@@ -41,22 +41,18 @@ OIIO_NAMESPACE_3_1_BEGIN
 
 
 /// Return pixel data window for this ImageSpec as a ROI.
-OIIO_API ROI
-get_roi(const ImageSpec& spec);
+OIIO_API ROI get_roi(const ImageSpec& spec);
 
 /// Return full/display window for this ImageSpec as a ROI.
-OIIO_API ROI
-get_roi_full(const ImageSpec& spec);
+OIIO_API ROI get_roi_full(const ImageSpec& spec);
 
 /// Set pixel data window for this ImageSpec to a ROI.
 /// Does NOT change the channels of the spec, regardless of newroi.
-OIIO_API void
-set_roi(ImageSpec& spec, const ROI& newroi);
+OIIO_API void set_roi(ImageSpec& spec, const ROI& newroi);
 
 /// Set full/display window for this ImageSpec to a ROI.
 /// Does NOT change the channels of the spec, regardless of newroi.
-OIIO_API void
-set_roi_full(ImageSpec& spec, const ROI& newroi);
+OIIO_API void set_roi_full(ImageSpec& spec, const ROI& newroi);
 
 
 enum class InitializePixels { No = 0, Yes = 1 };
@@ -1386,13 +1382,22 @@ public:
     /// Z plane stride within the localpixels memory.
     stride_t z_stride() const;
 
-    /// Is this an in-memory buffer with the data layout "contiguous", i.e.,
+    /// Is this an in-memory buffer with the data layout "fully contiguous",
+    /// i.e.,
     /// ```
     ///     pixel_stride == nchannels * pixeltype().size()
     ///     scanline_stride == pixel_stride * spec().width
     ///     z_stride == scanline_stride * spec().height
     /// ```
     bool contiguous() const;
+
+    /// Is this an in-memory buffer with the data layout "contiguous" for
+    /// each scanline (but not considering whether adjacent scanlines or
+    /// image planes are fully contiguous), i.e.,
+    /// ```
+    ///     pixel_stride == nchannels * pixeltype().size()
+    /// ```
+    bool contiguous_scanline() const;
 
     /// Are the pixels backed by an ImageCache, rather than the whole
     /// image being in RAM somewhere?
@@ -2047,3 +2052,13 @@ protected:
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+using v3_1::get_roi;
+using v3_1::get_roi_full;
+using v3_1::InitializePixels;
+using v3_1::set_roi;
+using v3_1::set_roi_full;
+OIIO_NAMESPACE_END

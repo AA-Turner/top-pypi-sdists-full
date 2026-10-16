@@ -803,7 +803,6 @@ def test_pis_session_start_applies_an_update_off_a_terminal(spawns, no_network, 
     from probe.cli import run_lock
 
     monkeypatch.setattr(run_lock, "any_live", lambda: False)
-    monkeypatch.setattr(cli_main, "_spawn_harness_update", lambda: spawns.append(["harness"]))
     monkeypatch.setattr(
         cli_main, "_spawn_session_start_update", lambda: spawns.append(["session-start"])
     )
@@ -815,130 +814,20 @@ def test_pis_session_start_applies_an_update_off_a_terminal(spawns, no_network, 
 
 
 def test_pis_session_start_updates_now_without_waiting_for_pi(monkeypatch):
-    """The CLI does not wait for pi to exit any more: a pi process lives for
-    days, the wait gave up after 12 hours, and strand-ai's pi-only laptop sat
-    on CLI 0.219.0 through a day of pi session starts (2026-10-07). Only pi's
-    own package waits (the pi step defers while pi runs, and the owed update
-    retries at the next start: `_spawn_harness_update`)."""
+    """Nothing waits for pi to exit: a pi process lives for days. Waiting held
+    the CLI back (strand-ai's pi-only laptop sat on CLI 0.219.0 through a day
+    of pi session starts, 2026-10-07), then pi's own package (pi agents
+    running around the clock, 2026-10-15)."""
     spawned = {}
     monkeypatch.setattr(
         cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env)
     )
-    monkeypatch.delenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, raising=False)
 
     cli_main._spawn_session_start_update()
 
     assert spawned["argv"][-1] == "--apply-if-newer", "it still re-checks under the update lock"
-    assert autoupdate.WAIT_FOR_HARNESS_PID_ENV not in spawned["env"], "no wait for pi"
     assert spawned["env"][autoupdate.WAIT_FOR_PID_ENV] == str(cli_main.os.getpid())
     assert spawned["env"][autoupdate.TRIGGER_ENV] == autoupdate.Trigger.SESSION_START.value
-    # Our parent IS that pi: the update defers `pi update` while it lives.
-    assert spawned["env"][autoupdate.PI_PID_ENV] == str(cli_main.os.getppid())
-
-
-def test_only_the_spawn_that_names_a_pi_carries_one(monkeypatch):
-    spawned = {}
-    monkeypatch.setattr(
-        cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env)
-    )
-    monkeypatch.setenv(autoupdate.PI_PID_ENV, "4242")
-    cli_main._spawn_update("--apply")
-    assert autoupdate.PI_PID_ENV not in spawned["env"]
-
-
-def test_the_harness_restart_drops_the_pi_pid(monkeypatch):
-    """Hours later that pid may be anyone's."""
-    from probe.cli import version_refresh
-
-    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
-    monkeypatch.setenv(autoupdate.PI_PID_ENV, "4243")
-    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: True)
-    restarted = {}
-
-    def execve(path, argv, env):
-        restarted.update(env=env)
-        raise _Restarted
-
-    monkeypatch.setattr(version_refresh.os, "execve", execve)
-    with pytest.raises(_Restarted):
-        version_refresh._apply_if_newer()
-    assert autoupdate.PI_PID_ENV not in restarted["env"]
-
-
-def test_the_harness_update_waits_for_pi_before_taking_the_lock(monkeypatch):
-    """pi runs `probe session initialize` itself, so our parent IS pi: the child
-    waits for it, and takes the update lock only after."""
-    from probe.cli import version_refresh
-
-    spawned = {}
-    monkeypatch.setattr(cli_main, "_spawn_detached", lambda argv, env: spawned.update(argv=argv, env=env))
-    cli_main._spawn_harness_update()
-    assert spawned["argv"][-1] == "--apply-if-newer"
-    assert spawned["env"][autoupdate.WAIT_FOR_HARNESS_PID_ENV] == str(cli_main.os.getppid())
-
-    order = []
-    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
-    monkeypatch.setenv(autoupdate.WAIT_FOR_PID_ENV, "4243")
-    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: order.append(("wait", pid)) or True)
-    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: order.append(("lock",)) or False)
-    restarted = {}
-
-    def execve(path, argv, env):
-        order.append(("restart",))
-        restarted.update(argv=argv, env=env)
-        raise _Restarted
-
-    monkeypatch.setattr(version_refresh.os, "execve", execve)
-    with pytest.raises(_Restarted):
-        version_refresh._apply_if_newer()
-    assert order == [("wait", 4242), ("restart",)], "no lock before the restart"
-    assert restarted["argv"][-2:] == ["--apply-if-newer", "--no-daemon"]
-    assert autoupdate.WAIT_FOR_HARNESS_PID_ENV not in restarted["env"]
-    assert autoupdate.WAIT_FOR_PID_ENV not in restarted["env"], "hours later that pid may be anyone's"
-
-    # The restarted process: no pid to wait for, so straight to the lock.
-    monkeypatch.delenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV)
-    version_refresh._apply_if_newer()
-    assert order[-1] == ("lock",)
-
-
-class _Restarted(Exception):
-    """Stands in for `os.execve` replacing the process."""
-
-
-def test_a_pi_that_outlives_the_wait_updates_nothing(monkeypatch):
-    from probe.cli import version_refresh
-
-    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
-    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: False)
-    monkeypatch.setattr(version_refresh.os, "execve", lambda *a: pytest.fail("no restart on a timeout"))
-    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: pytest.fail("no update on a timeout"))
-
-    version_refresh._apply_if_newer()
-
-
-def test_a_restart_that_fails_updates_nothing(monkeypatch):
-    """The interpreter went with the old install: carrying on would run the
-    very stale process the restart exists to replace."""
-    from probe.cli import version_refresh
-
-    def gone(*_args):
-        raise FileNotFoundError("python")
-
-    monkeypatch.setenv(autoupdate.WAIT_FOR_HARNESS_PID_ENV, "4242")
-    monkeypatch.setattr(autoupdate, "wait_for_pid_exit", lambda pid, timeout=None: True)
-    monkeypatch.setattr(version_refresh.os, "execve", gone)
-    monkeypatch.setattr(autoupdate, "acquire_lock", lambda: pytest.fail("no update without the restart"))
-
-    version_refresh._apply_if_newer()
-
-
-def test_an_orphaned_session_start_waits_for_no_one(monkeypatch):
-    """Parent already gone (reparented to init): waiting on init would hold
-    the update for the whole timeout."""
-    monkeypatch.setattr(cli_main.os, "getppid", lambda: 1)
-    monkeypatch.setattr(cli_main, "_spawn_detached", lambda *a: pytest.fail("nothing to wait for"))
-    cli_main._spawn_harness_update()
 
 
 def _pi_session_start(monkeypatch, spawns):
@@ -946,35 +835,77 @@ def _pi_session_start(monkeypatch, spawns):
     _as_tty(monkeypatch, False)
     monkeypatch.setenv("PROBE_AGENT", "pi")
     monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "initialize", "--session", "s1"])
-    monkeypatch.setattr(cli_main, "_spawn_harness_update", lambda: spawns.append(["harness"]))
+    monkeypatch.setattr(
+        cli_main, "_spawn_session_start_update", lambda: spawns.append(["session-start"])
+    )
+
+
+def _owe_pi_update(*, failed_ago: float) -> None:
+    """A `pi update` that failed `failed_ago` seconds ago (the marker's mtime)."""
+    import os
+    import time
+
+    autoupdate.mark_pi_update_pending(True)
+    marker = autoupdate.version_policy.state_dir() / autoupdate.PI_UPDATE_PENDING_FILENAME
+    then = time.time() - failed_ago
+    os.utime(marker, (then, then))
 
 
 @pytest.mark.parametrize("cache", ["current", "cold"])
 def test_pis_session_start_retries_an_owed_pi_update_with_the_cli_current(spawns, no_network, monkeypatch, cache):
-    """The update that skipped pi's package because pi was running owes it:
-    with the CLI current nothing else would ever retry it before the next
-    release."""
+    """An update whose `pi update` failed owes it: with the CLI current nothing
+    else would ever retry it before the next release."""
     _pi_session_start(monkeypatch, spawns)
     if cache == "current":
         _cache("0.0.1", age=10)
 
     cli_main._version_notice()
-    assert ["harness"] not in spawns, "nothing owed, nothing spawned"
+    assert ["session-start"] not in spawns, "nothing owed, nothing spawned"
+
+    _owe_pi_update(failed_ago=autoupdate.PI_UPDATE_RETRY_S + 1)
+    cli_main._version_notice()
+    assert spawns[-1] == ["session-start"]
+
+
+def test_an_older_clis_held_back_update_is_due_at_once():
+    """Older CLIs touched an EMPTY marker each time they held the update back
+    for a running pi: that was never a failure, so nothing waits it out."""
+    marker = autoupdate.version_policy.state_dir() / autoupdate.PI_UPDATE_PENDING_FILENAME
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.touch()
+    assert autoupdate.pi_update_due()
 
     autoupdate.mark_pi_update_pending(True)
+    assert not autoupdate.pi_update_due(), "this CLI's own attempt, a moment ago"
+
+
+def test_an_attempt_dated_in_the_future_is_due():
+    """A clock that moved back must not hold the retry until it catches up."""
+    _owe_pi_update(failed_ago=-3600)
+    assert autoupdate.pi_update_due()
+
+
+def test_a_pi_update_that_just_failed_waits_before_the_next_try(spawns, no_network, monkeypatch):
+    """Every pi session start and every run end asks: a `pi update` that keeps
+    failing (offline, an npm timeout) would otherwise run on each one."""
+    _pi_session_start(monkeypatch, spawns)
+    _cache("0.0.1", age=10)
+    _owe_pi_update(failed_ago=60)
+
     cli_main._version_notice()
-    assert spawns[-1] == ["harness"]
+
+    assert ["session-start"] not in spawns
 
 
 def test_only_pis_session_start_retries_an_owed_pi_update(spawns, no_network, monkeypatch):
     _pi_session_start(monkeypatch, spawns)
     _cache("0.0.1", age=10)
-    autoupdate.mark_pi_update_pending(True)
+    _owe_pi_update(failed_ago=autoupdate.PI_UPDATE_RETRY_S + 1)
     monkeypatch.setattr(cli_main.sys, "argv", ["probe", "session", "status"])
 
     cli_main._version_notice()
 
-    assert ["harness"] not in spawns
+    assert ["session-start"] not in spawns
 
 
 def test_apply_if_newer_runs_only_the_owed_pi_step_when_the_cli_is_current(applied, monkeypatch, isolate):
@@ -987,7 +918,11 @@ def test_apply_if_newer_runs_only_the_owed_pi_step_when_the_cli_is_current(appli
     version_refresh._apply_if_newer()
     assert owed == [], "nothing owed"
 
-    autoupdate.mark_pi_update_pending(True)
+    _owe_pi_update(failed_ago=60)
+    version_refresh._apply_if_newer()
+    assert owed == [], "a failure a minute ago waits for PI_UPDATE_RETRY_S"
+
+    _owe_pi_update(failed_ago=autoupdate.PI_UPDATE_RETRY_S + 1)
     version_refresh._apply_if_newer()
     assert owed == [1] and applied == [], "the pi step alone, never the CLI and plugins"
 

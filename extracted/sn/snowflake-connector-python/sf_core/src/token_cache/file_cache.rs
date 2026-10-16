@@ -1,0 +1,1221 @@
+use std::any::Any;
+use std::collections::HashMap;
+use std::fs;
+#[cfg(unix)]
+use std::io::{Read, Seek, Write};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+use fs2::FileExt;
+use rand::Rng;
+
+use keyring::credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence};
+use serde::{Deserialize, Serialize};
+use snafu::{ResultExt, ensure};
+
+use crate::env_vars;
+use crate::log_foreign_error;
+use crate::sensitive::SensitiveString;
+
+use super::{
+    CacheDirectoryResolutionSnafu, LockAcquisitionSnafu, LockExhaustedSnafu, TokenCacheError,
+    TokenRetrievalSnafu, TokenStorageSnafu,
+};
+#[cfg(unix)]
+use super::{FileNotOwnedByCurrentUserSnafu, InsufficientPermissionsSnafu, IrregularFileTypeSnafu};
+
+const DEFAULT_CACHE_FILE_NAME: &str = "credential_cache_v2.json";
+const DEFAULT_RETRY_COUNT: u32 = 20;
+const DEFAULT_RETRY_DELAY: Duration = Duration::from_millis(100);
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CacheFileContent {
+    tokens: HashMap<String, SensitiveString>,
+}
+
+/// Creates a single directory with mode `0o700` on Unix, ignoring `AlreadyExists`.
+fn create_subdir(path: &Path) -> Result<(), TokenCacheError> {
+    #[cfg(unix)]
+    let result = {
+        use std::os::unix::fs::DirBuilderExt;
+        fs::DirBuilder::new().mode(0o700).create(path)
+    };
+    #[cfg(not(unix))]
+    let result = fs::create_dir(path);
+
+    match result {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
+        Err(e) => Err(e).boxed().context(TokenStorageSnafu),
+    }
+}
+
+/// Resolves the cache directory from environment variables in priority order,
+/// validates that the root folder exists, and creates any needed subdirectories
+/// with `0o700` permissions:
+///
+/// 1. `$SF_TEMPORARY_CREDENTIAL_CACHE_DIR` — used as-is, must already exist
+/// 2. `$XDG_CACHE_HOME/snowflake` — `$XDG_CACHE_HOME` must exist, `snowflake` is created
+/// 3. `$HOME/.cache/snowflake` — `$HOME` must exist, `.cache` and `snowflake` are created
+fn ensure_cache_dir() -> Result<PathBuf, TokenCacheError> {
+    if let Ok(dir) = std::env::var(env_vars::SF_TEMPORARY_CREDENTIAL_CACHE_DIR)
+        && !dir.is_empty()
+    {
+        let path = PathBuf::from(dir);
+        ensure!(path.is_dir(), CacheDirectoryResolutionSnafu);
+        return Ok(path);
+    }
+
+    if let Ok(dir) = std::env::var(env_vars::XDG_CACHE_HOME)
+        && !dir.is_empty()
+    {
+        let root = PathBuf::from(dir);
+        ensure!(root.is_dir(), CacheDirectoryResolutionSnafu);
+        let cache_dir = root.join("snowflake");
+        create_subdir(&cache_dir)?;
+        return Ok(cache_dir);
+    }
+
+    if let Ok(home) = std::env::var(env_vars::HOME)
+        && !home.is_empty()
+    {
+        let root = PathBuf::from(home);
+        ensure!(root.is_dir(), CacheDirectoryResolutionSnafu);
+        let dot_cache = root.join(".cache");
+        create_subdir(&dot_cache)?;
+        let cache_dir = dot_cache.join("snowflake");
+        create_subdir(&cache_dir)?;
+        return Ok(cache_dir);
+    }
+
+    CacheDirectoryResolutionSnafu.fail()
+}
+
+/// Resolves the cache file name from `$SF_TEMPORARY_CREDENTIAL_CACHE_FILE_NAME`,
+/// falling back to [`DEFAULT_CACHE_FILE_NAME`].
+fn resolve_cache_file_name() -> String {
+    std::env::var(env_vars::SF_TEMPORARY_CREDENTIAL_CACHE_FILE_NAME)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| DEFAULT_CACHE_FILE_NAME.to_string())
+}
+
+/// RAII file lock guard using OS-level file locking (`flock` on Unix,
+/// `LockFileEx` on Windows) via the `fs2` crate.
+///
+/// The lock is released when the guard is dropped (closing the file
+/// descriptor). The `.lck` file persists on disk but holds no lock once
+/// the handle is closed — this is harmless and avoids the
+/// `RemoveDirectory` pending-delete race that plagued the old
+/// `create_dir`/`remove_dir` approach on Windows.
+struct FileLock {
+    _file: fs::File,
+}
+
+impl FileLock {
+    /// Derives the lock file path by appending `.lck` to the cache path.
+    fn lock_path(cache_path: &Path) -> PathBuf {
+        let mut p = cache_path.as_os_str().to_os_string();
+        p.push(".lck");
+        PathBuf::from(p)
+    }
+
+    fn acquire(
+        cache_path: &Path,
+        retry_count: u32,
+        retry_delay: Duration,
+    ) -> Result<Self, TokenCacheError> {
+        let lock_path = Self::lock_path(cache_path);
+
+        let file = Self::open_lock_file(&lock_path)?;
+
+        let base_ms = retry_delay.as_millis() as f64;
+        let mut sleep_ms = base_ms;
+
+        for attempt in 0..retry_count {
+            match file.try_lock_exclusive() {
+                Ok(()) => return Ok(FileLock { _file: file }),
+                Err(ref e) if crate::fs_lock::is_lock_contention(e) => {
+                    if attempt < retry_count - 1 {
+                        // Decorrelated jitter: sleep ∈ [base, min(3×prev, 16×base)]
+                        let upper = (sleep_ms * 3.0).min(base_ms * 16.0);
+                        sleep_ms = rand::rng().random_range(base_ms..=upper);
+                        std::thread::sleep(Duration::from_millis(sleep_ms as u64));
+                    }
+                }
+                Err(e) => return Err(e).context(LockAcquisitionSnafu),
+            }
+        }
+
+        LockExhaustedSnafu.fail()
+    }
+
+    fn open_lock_file(lock_path: &Path) -> Result<fs::File, TokenCacheError> {
+        crate::fs_lock::open_lock_file(lock_path, Some(0o600)).context(LockAcquisitionSnafu)
+    }
+}
+
+/// Validates an already-open file descriptor for ownership, permissions, and file type.
+///
+/// Uses `fstat` on the fd (via `file.metadata()`) rather than `stat` on the path,
+/// which eliminates TOCTOU races between validation and subsequent I/O on the same fd.
+#[cfg(unix)]
+fn validate_file_fd(file: &fs::File, path: &Path) -> Result<(), TokenCacheError> {
+    use std::os::unix::fs::MetadataExt;
+    use std::os::unix::fs::PermissionsExt;
+
+    let metadata = file.metadata().boxed().context(TokenRetrievalSnafu)?;
+
+    ensure!(
+        metadata.is_file(),
+        IrregularFileTypeSnafu {
+            path: path.to_path_buf()
+        }
+    );
+
+    let file_uid = metadata.uid();
+    // SAFETY: getuid is always safe to call.
+    let current_uid = unsafe { libc::getuid() };
+    ensure!(
+        file_uid == current_uid,
+        FileNotOwnedByCurrentUserSnafu {
+            path: path.to_path_buf(),
+            file_uid,
+            current_uid,
+        }
+    );
+
+    let mode = metadata.permissions().mode() & 0o777;
+    if mode != 0o600 {
+        tracing::warn!(
+            path = %path.display(),
+            "Refusing to use credential cache file: file mode is {mode:04o}, expected 0600"
+        );
+        return InsufficientPermissionsSnafu {
+            path: path.to_path_buf(),
+            mode,
+        }
+        .fail();
+    }
+
+    Ok(())
+}
+
+/// Opens an existing file with `O_NOFOLLOW` and validates ownership, permissions, and file type
+/// via `fstat` on the fd.
+///
+/// Pass `read` and/or `write` to select the access mode (`O_RDONLY`, `O_WRONLY`, or `O_RDWR`).
+///
+/// Returns `Ok(None)` if the file does not exist. Rejects symlinks (`ELOOP` from `O_NOFOLLOW`)
+/// by mapping them to [`IrregularFileType`](super::TokenCacheError::IrregularFileType).
+#[cfg(unix)]
+fn open_existing(
+    path: &Path,
+    read: bool,
+    write: bool,
+) -> Result<Option<fs::File>, TokenCacheError> {
+    match crate::fs_lock::open_existing_nofollow(path, read, write) {
+        Ok(file) => {
+            validate_file_fd(&file, path)?;
+            Ok(Some(file))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) if e.raw_os_error() == Some(libc::ELOOP) => IrregularFileTypeSnafu {
+            path: path.to_path_buf(),
+        }
+        .fail(),
+        Err(e) => Err(e).boxed().context(TokenRetrievalSnafu),
+    }
+}
+
+/// Creates a new cache file atomically with mode `0o600`.
+///
+/// Uses `O_EXCL` to guarantee atomic create-if-not-exists and `O_NOFOLLOW`
+/// to reject symlinks at the target path.
+#[cfg(unix)]
+fn create_exclusive(path: &Path) -> Result<fs::File, TokenCacheError> {
+    crate::fs_lock::create_new_nofollow(path, Some(0o600))
+        .boxed()
+        .context(TokenStorageSnafu)
+}
+
+/// Serializes cache content back to an already-open file descriptor.
+///
+/// Seeks to the beginning, truncates, writes the JSON, and flushes — all on
+/// the same fd to avoid TOCTOU gaps.
+#[cfg(unix)]
+fn flush_to_fd(file: &mut fs::File, cache: &CacheFileContent) -> Result<(), TokenCacheError> {
+    let content = serde_json::to_string_pretty(cache)
+        .boxed()
+        .context(TokenStorageSnafu)?;
+    file.seek(std::io::SeekFrom::Start(0))
+        .boxed()
+        .context(TokenStorageSnafu)?;
+    file.set_len(0).boxed().context(TokenStorageSnafu)?;
+    file.write_all(content.as_bytes())
+        .boxed()
+        .context(TokenStorageSnafu)?;
+    file.flush().boxed().context(TokenStorageSnafu)?;
+    Ok(())
+}
+
+/// Reads the entire contents of an open file into a string.
+#[cfg(unix)]
+fn read_file_to_string(file: &mut fs::File) -> Result<String, TokenCacheError> {
+    let mut buf = String::new();
+    file.read_to_string(&mut buf)
+        .boxed()
+        .context(TokenRetrievalSnafu)?;
+    Ok(buf)
+}
+
+/// Parses JSON cache content, falling back to an empty cache on empty or invalid input.
+fn parse_cache_lenient(content: &str) -> CacheFileContent {
+    if content.trim().is_empty() {
+        return CacheFileContent {
+            tokens: HashMap::new(),
+        };
+    }
+    serde_json::from_str(content).unwrap_or_else(|err| {
+        log_foreign_error!(
+            warn,
+            err,
+            "Failed to parse credential cache file as JSON, starting fresh"
+        );
+        CacheFileContent {
+            tokens: HashMap::new(),
+        }
+    })
+}
+
+/// Parses JSON cache content strictly, returning `None` if the input is empty or invalid.
+fn parse_cache_strict(content: &str) -> Option<CacheFileContent> {
+    if content.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str(content)
+        .inspect_err(|err| {
+            log_foreign_error!(
+                warn,
+                err,
+                "Failed to parse credential cache file as JSON, treating as empty"
+            );
+        })
+        .ok()
+}
+
+/// Platform-abstracted handle to the cache file.
+///
+/// On Unix, carries the open file descriptor so that `write_cache` can
+/// reuse it (seek + truncate + write) without a TOCTOU gap.
+/// On non-Unix, this is a zero-sized type — writes go through `fs::write`.
+struct CacheFileHandle {
+    #[cfg(unix)]
+    file: fs::File,
+}
+
+/// A file-based credential store for environments where the OS keyring is unavailable.
+///
+/// Secrets are stored in a JSON file keyed verbatim by the credential name
+/// passed to each operation. Callers are responsible for supplying an already-
+/// normalized key (e.g., the output of [`build_cache_key`]); no additional
+/// hashing is applied here. The file is protected with mode 0o600 on Unix.
+///
+/// This struct provides low-level file operations (`set_secret`, `get_secret`,
+/// `delete_credential`) that mirror the keyring `CredentialApi` verbs, and is
+/// used as the backing store for [`FileTokenCacheEntry`] credentials.
+///
+/// [`build_cache_key`]: super::build_cache_key
+#[derive(Clone, Debug)]
+pub(super) struct FileTokenCache {
+    cache_file_path: PathBuf,
+    retry_count: u32,
+    retry_delay: Duration,
+}
+
+impl FileTokenCache {
+    /// Creates a new file-based credential store, resolving the cache directory
+    /// from environment variables.
+    pub fn new() -> Result<Self, TokenCacheError> {
+        let cache_dir = ensure_cache_dir()?;
+        let file_name = resolve_cache_file_name();
+        Ok(Self {
+            cache_file_path: cache_dir.join(file_name),
+            retry_count: DEFAULT_RETRY_COUNT,
+            retry_delay: DEFAULT_RETRY_DELAY,
+        })
+    }
+
+    /// Creates a file-based credential store using an explicit directory.
+    #[allow(dead_code)]
+    pub fn with_directory(cache_dir: PathBuf) -> Self {
+        let file_name = resolve_cache_file_name();
+        Self {
+            cache_file_path: cache_dir.join(file_name),
+            retry_count: DEFAULT_RETRY_COUNT,
+            retry_delay: DEFAULT_RETRY_DELAY,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn retry_count(mut self, count: u32) -> Self {
+        self.retry_count = count;
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn retry_delay(mut self, delay: Duration) -> Self {
+        self.retry_delay = delay;
+        self
+    }
+
+    /// Opens the existing cache file for read+write, returning the handle and
+    /// leniently-parsed content. Returns `Ok(None)` if the file does not exist.
+    fn open_existing_cache(
+        &self,
+    ) -> Result<Option<(CacheFileHandle, CacheFileContent)>, TokenCacheError> {
+        #[cfg(unix)]
+        {
+            match open_existing(&self.cache_file_path, true, true)? {
+                Some(mut file) => {
+                    let content = read_file_to_string(&mut file)?;
+                    let cache = parse_cache_lenient(&content);
+                    Ok(Some((CacheFileHandle { file }, cache)))
+                }
+                None => Ok(None),
+            }
+        }
+        #[cfg(not(unix))]
+        {
+            use std::io::Read;
+            match fs::File::open(&self.cache_file_path) {
+                Ok(mut f) => {
+                    let mut content = String::new();
+                    f.read_to_string(&mut content)
+                        .boxed()
+                        .context(TokenRetrievalSnafu)?;
+                    let cache = parse_cache_lenient(&content);
+                    Ok(Some((CacheFileHandle {}, cache)))
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                Err(e) => Err(e).boxed().context(TokenRetrievalSnafu),
+            }
+        }
+    }
+
+    /// Creates a new, empty cache file and returns a handle to it.
+    fn create_empty_cache(&self) -> Result<(CacheFileHandle, CacheFileContent), TokenCacheError> {
+        let cache = CacheFileContent {
+            tokens: HashMap::new(),
+        };
+        #[cfg(unix)]
+        {
+            let file = create_exclusive(&self.cache_file_path)?;
+            Ok((CacheFileHandle { file }, cache))
+        }
+        #[cfg(not(unix))]
+        {
+            Ok((CacheFileHandle {}, cache))
+        }
+    }
+
+    /// Opens the cache file read-only and parses strictly.
+    /// Returns `Ok(None)` if the file is missing, empty, or contains invalid JSON.
+    fn read_cache(&self) -> Result<Option<CacheFileContent>, TokenCacheError> {
+        #[cfg(unix)]
+        {
+            let mut file = match open_existing(&self.cache_file_path, true, false)? {
+                Some(f) => f,
+                None => return Ok(None),
+            };
+            let content = read_file_to_string(&mut file)?;
+            Ok(parse_cache_strict(&content))
+        }
+        #[cfg(not(unix))]
+        {
+            use std::io::Read;
+            match fs::File::open(&self.cache_file_path) {
+                Ok(mut f) => {
+                    let mut content = String::new();
+                    f.read_to_string(&mut content)
+                        .boxed()
+                        .context(TokenRetrievalSnafu)?;
+                    Ok(parse_cache_strict(&content))
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                Err(e) => Err(e).boxed().context(TokenRetrievalSnafu),
+            }
+        }
+    }
+
+    /// Serializes the cache content back through the given handle.
+    fn write_cache(
+        &self,
+        handle: &mut CacheFileHandle,
+        cache: &CacheFileContent,
+    ) -> Result<(), TokenCacheError> {
+        #[cfg(unix)]
+        {
+            flush_to_fd(&mut handle.file, cache)
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = handle;
+            let content = serde_json::to_string_pretty(cache)
+                .boxed()
+                .context(TokenStorageSnafu)?;
+            fs::write(&self.cache_file_path, content)
+                .boxed()
+                .context(TokenStorageSnafu)
+        }
+    }
+
+    /// Stores a secret under the given key verbatim. The secret bytes must be valid UTF-8.
+    pub fn set_secret(&self, key: &str, secret: &[u8]) -> Result<(), TokenCacheError> {
+        let value = String::from_utf8(secret.to_vec())
+            .boxed()
+            .context(TokenStorageSnafu)?;
+        let _lock = self.acquire_lock()?;
+        let (mut handle, mut cache) = match self.open_existing_cache()? {
+            Some(hc) => hc,
+            None => self.create_empty_cache()?,
+        };
+        cache
+            .tokens
+            .insert(key.to_string(), SensitiveString::from(value));
+        self.write_cache(&mut handle, &cache)
+    }
+
+    /// Retrieves a secret by key. Returns `None` if the key does not exist.
+    pub fn get_secret(&self, key: &str) -> Result<Option<Vec<u8>>, TokenCacheError> {
+        let _lock = self.acquire_lock()?;
+        let cache = match self.read_cache()? {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+        Ok(cache
+            .tokens
+            .get(key)
+            .map(|v| v.reveal().as_bytes().to_vec()))
+    }
+
+    /// Deletes a credential by key. Returns `true` if the key existed.
+    pub fn delete_credential(&self, key: &str) -> Result<bool, TokenCacheError> {
+        let _lock = self.acquire_lock()?;
+        let (mut handle, mut cache) = match self.open_existing_cache()? {
+            Some(hc) => hc,
+            None => return Ok(false),
+        };
+        let existed = cache.tokens.remove(key).is_some();
+        if existed {
+            self.write_cache(&mut handle, &cache)?;
+        }
+        Ok(existed)
+    }
+
+    fn acquire_lock(&self) -> Result<FileLock, TokenCacheError> {
+        FileLock::acquire(&self.cache_file_path, self.retry_count, self.retry_delay)
+    }
+}
+
+impl CredentialBuilderApi for FileTokenCache {
+    fn build(
+        &self,
+        _target: Option<&str>,
+        _service: &str,
+        user: &str,
+    ) -> keyring::Result<Box<keyring::credential::Credential>> {
+        Ok(Box::new(FileTokenCacheEntry {
+            user: user.to_string(),
+            cache: self.clone(),
+        }))
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn persistence(&self) -> CredentialPersistence {
+        CredentialPersistence::UntilDelete
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Keyring credential adapter
+// ---------------------------------------------------------------------------
+
+fn wrap_error(e: TokenCacheError) -> keyring::Error {
+    keyring::Error::PlatformFailure(Box::new(e))
+}
+
+/// A keyring credential backed by the file-based credential store.
+///
+/// Implements [`keyring::credential::CredentialApi`] by delegating storage
+/// operations to a cloned [`FileTokenCache`], preserving all file locking
+/// and permission enforcement logic.
+struct FileTokenCacheEntry {
+    user: String,
+    cache: FileTokenCache,
+}
+
+impl CredentialApi for FileTokenCacheEntry {
+    fn set_secret(&self, secret: &[u8]) -> keyring::Result<()> {
+        self.cache
+            .set_secret(&self.user, secret)
+            .map_err(wrap_error)
+    }
+
+    fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+        match self.cache.get_secret(&self.user) {
+            Ok(Some(secret)) => Ok(secret),
+            Ok(None) => Err(keyring::Error::NoEntry),
+            Err(e) => Err(wrap_error(e)),
+        }
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
+        match self.cache.delete_credential(&self.user) {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(keyring::Error::NoEntry),
+            Err(e) => Err(wrap_error(e)),
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn debug_fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "FileTokenCacheEntry {{ user: {:?} }}", self.user)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod file_token_cache_tests {
+        use super::*;
+
+        fn create_temp_cache() -> (tempfile::TempDir, FileTokenCache) {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let cache = FileTokenCache::with_directory(dir.path().to_path_buf());
+            (dir, cache)
+        }
+
+        #[test]
+        fn cache_file_uses_correct_name() {
+            let (_dir, cache) = create_temp_cache();
+
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            assert!(cache.cache_file_path.ends_with("credential_cache_v2.json"));
+            assert!(cache.cache_file_path.exists());
+        }
+
+        #[test]
+        fn cache_file_contains_valid_json() {
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            let content = fs::read_to_string(&cache.cache_file_path).expect("Failed to read file");
+
+            let parsed: serde_json::Value =
+                serde_json::from_str(&content).expect("Invalid JSON in cache file");
+            assert!(parsed.get("tokens").is_some());
+        }
+
+        #[test]
+        fn keys_are_stored_verbatim_in_file() {
+            let (_dir, cache) = create_temp_cache();
+            let raw_key = "SnowflakeTokenCache.v2.abc123";
+            cache
+                .set_secret(raw_key, b"val")
+                .expect("Failed to set secret");
+
+            let content = fs::read_to_string(&cache.cache_file_path).expect("Failed to read file");
+            let parsed: CacheFileContent =
+                serde_json::from_str(&content).expect("Invalid JSON in cache file");
+
+            assert!(parsed.tokens.contains_key(raw_key));
+            assert_eq!(parsed.tokens.get(raw_key).unwrap().reveal(), "val");
+        }
+
+        #[test]
+        fn stored_key_matches_build_cache_key_output() {
+            use crate::token_cache::{
+                CacheKey, TokenType, build_cache_key, normalize_identifier, normalize_url,
+            };
+
+            let (_dir, cache) = create_temp_cache();
+
+            // Build the key exactly as production code would: normalize inputs then hash.
+            let key = CacheKey {
+                token_type: TokenType::OAuthAccessToken,
+                idp: normalize_url("https://idp.example.com/oauth/token"),
+                snowflake: normalize_url("https://acct.snowflakecomputing.com"),
+                username: normalize_identifier("alice@example.com"),
+                role: normalize_identifier("analyst"),
+            };
+            let built_key = build_cache_key(&key);
+
+            // Store via the built key (single-hashing point lives in build_cache_key).
+            cache
+                .set_secret(&built_key, b"secret-value")
+                .expect("set_secret must succeed");
+
+            // The file must contain the built key verbatim — not a hash-of-hash.
+            let content = fs::read_to_string(&cache.cache_file_path).expect("read cache file");
+            let parsed: CacheFileContent =
+                serde_json::from_str(&content).expect("cache file must be valid JSON");
+
+            assert!(
+                parsed.tokens.contains_key(&built_key),
+                "file must contain the build_cache_key output verbatim; \
+                 expected key: {built_key}"
+            );
+            assert_eq!(
+                parsed.tokens.get(&built_key).unwrap().reveal(),
+                "secret-value"
+            );
+
+            // Round-trip: get_secret returns the value under the same key.
+            let retrieved = cache
+                .get_secret(&built_key)
+                .expect("get_secret must not error");
+            assert_eq!(
+                retrieved,
+                Some(b"secret-value".to_vec()),
+                "round-trip value must match"
+            );
+
+            // delete_credential removes it.
+            cache
+                .delete_credential(&built_key)
+                .expect("delete_credential must not error");
+            let after_delete = cache
+                .get_secret(&built_key)
+                .expect("get_secret after delete must not error");
+            assert_eq!(after_delete, None, "key must be gone after delete");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn cache_file_has_mode_600() {
+            use std::os::unix::fs::PermissionsExt;
+
+            let (_dir, cache) = create_temp_cache();
+
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            let metadata =
+                fs::metadata(&cache.cache_file_path).expect("Failed to read file metadata");
+            let mode = metadata.permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn rejects_read_of_file_with_wrong_permissions() {
+            use std::os::unix::fs::PermissionsExt;
+
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+            fs::set_permissions(&cache.cache_file_path, fs::Permissions::from_mode(0o644))
+                .expect("Failed to change permissions");
+
+            let err = cache
+                .get_secret("key")
+                .expect_err("Reading a cache file with wrong permissions must fail");
+
+            assert!(
+                matches!(
+                    err,
+                    TokenCacheError::InsufficientPermissions { mode: 0o644, .. }
+                ),
+                "Expected InsufficientPermissions for mode 0o644, got: {err}"
+            );
+            let metadata =
+                fs::metadata(&cache.cache_file_path).expect("Failed to read file metadata");
+            let mode = metadata.permissions().mode() & 0o777;
+            assert_eq!(mode, 0o644, "The rejected file's mode is left as found");
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn rejects_write_to_file_with_wrong_permissions() {
+            use std::os::unix::fs::PermissionsExt;
+
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+            fs::set_permissions(&cache.cache_file_path, fs::Permissions::from_mode(0o644))
+                .expect("Failed to change permissions");
+
+            let err = cache
+                .set_secret("other_key", b"other_val")
+                .expect_err("Writing to a cache file with wrong permissions must fail");
+
+            assert!(
+                matches!(
+                    err,
+                    TokenCacheError::InsufficientPermissions { mode: 0o644, .. }
+                ),
+                "Expected InsufficientPermissions for mode 0o644, got: {err}"
+            );
+            let content = fs::read_to_string(&cache.cache_file_path).expect("Failed to read file");
+            let parsed: CacheFileContent =
+                serde_json::from_str(&content).expect("Invalid JSON in cache file");
+            assert!(
+                !parsed.tokens.contains_key("other_key"),
+                "The rejected file must not be written to"
+            );
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn accepts_file_owned_by_current_user() {
+            // Given a cache file created by the current user
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            let result = cache.get_secret("key");
+
+            assert!(
+                result.is_ok(),
+                "File created by current user should pass ownership check"
+            );
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn rejects_file_not_owned_by_current_user() {
+            use std::os::unix::fs::MetadataExt;
+
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            let metadata = fs::metadata(&cache.cache_file_path).unwrap();
+            let current_uid = unsafe { libc::getuid() };
+            assert_eq!(
+                metadata.uid(),
+                current_uid,
+                "Temp file should be owned by current user — \
+                 negative ownership test requires root to chown and is skipped"
+            );
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn validate_file_fd_rejects_file_not_owned_by_current_user() {
+            use std::os::unix::fs::MetadataExt;
+
+            let current_uid = unsafe { libc::getuid() };
+
+            let (path, _dir) = if current_uid == 0 {
+                let dir = tempfile::tempdir().unwrap();
+                let p = dir.path().join("not_mine");
+                fs::write(&p, "test").unwrap();
+                let c_path = std::ffi::CString::new(p.to_str().unwrap()).unwrap();
+                let ret = unsafe { libc::chown(c_path.as_ptr(), 65534, 65534) };
+                assert_eq!(ret, 0, "chown failed");
+                assert_ne!(
+                    fs::metadata(&p).unwrap().uid(),
+                    current_uid,
+                    "File should be owned by a different user after chown"
+                );
+                (p, Some(dir))
+            } else {
+                (Path::new("/etc/hosts").to_path_buf(), None)
+            };
+
+            let file = fs::File::open(&path).expect("Should be able to open file");
+            let err = validate_file_fd(&file, &path)
+                .expect_err("Expected FileNotOwnedByCurrentUser for file owned by another user");
+            assert!(
+                matches!(err, TokenCacheError::FileNotOwnedByCurrentUser { .. }),
+                "Expected FileNotOwnedByCurrentUser, got: {err}"
+            );
+        }
+
+        #[test]
+        fn lock_released_after_operation() {
+            let (_dir, cache) = create_temp_cache();
+
+            cache
+                .set_secret("key", b"val")
+                .expect("Failed to set secret");
+
+            // The .lck file persists on disk but the OS-level lock must be
+            // released once the FileLock guard is dropped.
+            let lock_path = FileLock::lock_path(&cache.cache_file_path);
+            let file = fs::OpenOptions::new()
+                .create(true)
+                .truncate(false)
+                .write(true)
+                .open(&lock_path)
+                .expect("Failed to open lock file");
+            file.try_lock_exclusive()
+                .expect("Lock should be released after operation");
+        }
+
+        #[test]
+        fn configurable_retry_parameters() {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let cache = FileTokenCache::with_directory(dir.path().to_path_buf())
+                .retry_count(10)
+                .retry_delay(Duration::from_millis(50));
+
+            assert_eq!(cache.retry_count, 10);
+            assert_eq!(cache.retry_delay, Duration::from_millis(50));
+        }
+
+        #[cfg(not(unix))]
+        #[test]
+        fn should_treat_missing_cache_file_as_cache_miss() {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let cache = FileTokenCache::with_directory(dir.path().to_path_buf());
+            let result = cache
+                .open_existing_cache()
+                .expect("open_existing_cache must not error when file is absent");
+            assert!(
+                result.is_none(),
+                "missing file must be a cache miss, not an error"
+            );
+        }
+
+        #[cfg(not(unix))]
+        #[test]
+        fn should_open_and_read_existing_cache_file() {
+            let (_dir, cache) = create_temp_cache();
+            cache
+                .set_secret("key", b"value")
+                .expect("set_secret must succeed");
+            let result = cache
+                .open_existing_cache()
+                .expect("open_existing_cache must not error for an existing file");
+            assert!(result.is_some(), "existing cache file must return Some");
+        }
+    }
+
+    mod file_credential_adapter_tests {
+        use super::*;
+
+        fn create_cache(dir: &tempfile::TempDir) -> FileTokenCache {
+            FileTokenCache::with_directory(dir.path().to_path_buf())
+        }
+
+        #[test]
+        fn persistence_is_until_delete() {
+            let dir = tempfile::tempdir().unwrap();
+            let cache = create_cache(&dir);
+
+            assert!(matches!(
+                cache.persistence(),
+                CredentialPersistence::UntilDelete
+            ));
+        }
+
+        #[test]
+        fn credentials_share_same_backing_file() {
+            let dir = tempfile::tempdir().unwrap();
+            let cache = create_cache(&dir);
+
+            let key = "SnowflakeTokenCache.v2.abc123def456";
+            let cred_write = cache.build(None, "svc", key).unwrap();
+            cred_write.set_password("shared_val").unwrap();
+
+            let cred_read = cache.build(None, "svc", key).unwrap();
+            assert_eq!(cred_read.get_password().unwrap(), "shared_val");
+        }
+    }
+
+    mod concurrency_tests {
+        use super::*;
+        use std::sync::{Arc, Barrier};
+
+        const THREAD_COUNT: usize = 10;
+        const LOCK_RETRY_COUNT: u32 = 100;
+
+        fn create_shared_cache() -> (tempfile::TempDir, Arc<FileTokenCache>) {
+            let dir = tempfile::tempdir().expect("Failed to create temp dir");
+            let cache = Arc::new(
+                FileTokenCache::with_directory(dir.path().to_path_buf())
+                    .retry_count(LOCK_RETRY_COUNT)
+                    .retry_delay(Duration::from_millis(50)),
+            );
+            (dir, cache)
+        }
+
+        #[test]
+        fn concurrent_writes_do_not_corrupt() {
+            let (_dir, cache) = create_shared_cache();
+            let barrier = Arc::new(Barrier::new(THREAD_COUNT));
+
+            let handles: Vec<_> = (0..THREAD_COUNT)
+                .map(|i| {
+                    let cache = Arc::clone(&cache);
+                    let barrier = Arc::clone(&barrier);
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        let key = format!("key_{i}");
+                        let value = format!("value_{i}");
+                        cache
+                            .set_secret(&key, value.as_bytes())
+                            .expect("Failed to set secret in concurrent write");
+                    })
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().expect("Thread panicked");
+            }
+
+            for i in 0..THREAD_COUNT {
+                let key = format!("key_{i}");
+                let expected = format!("value_{i}");
+                let actual = cache
+                    .get_secret(&key)
+                    .expect("Failed to get secret after concurrent writes");
+                assert_eq!(
+                    actual,
+                    Some(expected.into_bytes()),
+                    "Mismatch for {key} after concurrent writes"
+                );
+            }
+        }
+
+        #[test]
+        fn concurrent_reads_during_writes() {
+            let (_dir, cache) = create_shared_cache();
+
+            for i in 0..THREAD_COUNT {
+                let key = format!("key_{i}");
+                let value = format!("old_{i}");
+                cache.set_secret(&key, value.as_bytes()).unwrap();
+            }
+
+            let total_threads = THREAD_COUNT * 2;
+            let barrier = Arc::new(Barrier::new(total_threads));
+
+            let handles: Vec<_> = (0..THREAD_COUNT)
+                .flat_map(|i| {
+                    let writer_cache = Arc::clone(&cache);
+                    let reader_cache = Arc::clone(&cache);
+                    let writer_barrier = Arc::clone(&barrier);
+                    let reader_barrier = Arc::clone(&barrier);
+
+                    let writer = std::thread::spawn(move || {
+                        writer_barrier.wait();
+                        let key = format!("key_{i}");
+                        let value = format!("new_{i}");
+                        writer_cache
+                            .set_secret(&key, value.as_bytes())
+                            .expect("Failed to set secret in writer thread");
+                    });
+
+                    let reader = std::thread::spawn(move || {
+                        reader_barrier.wait();
+                        let key = format!("key_{i}");
+                        let old_value = format!("old_{i}").into_bytes();
+                        let new_value = format!("new_{i}").into_bytes();
+
+                        let result = reader_cache
+                            .get_secret(&key)
+                            .expect("Failed to get secret in reader thread");
+                        let value = result.expect("Seeded key should always be present");
+                        assert!(
+                            value == old_value || value == new_value,
+                            "Read corrupt value for {key}: got {}, expected old or new",
+                            String::from_utf8_lossy(&value),
+                        );
+                    });
+
+                    [writer, reader]
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().expect("Thread panicked");
+            }
+
+            for i in 0..THREAD_COUNT {
+                let key = format!("key_{i}");
+                let old_value = format!("old_{i}").into_bytes();
+                let new_value = format!("new_{i}").into_bytes();
+                let actual = cache
+                    .get_secret(&key)
+                    .expect("Failed to verify final state")
+                    .expect("Key should still be present after concurrent access");
+                assert!(
+                    actual == old_value || actual == new_value,
+                    "Corrupt final value for {key}: got {}",
+                    String::from_utf8_lossy(&actual),
+                );
+            }
+        }
+
+        /// Stress test that deliberately uses a tight retry budget to expose
+        /// lock-acquisition reliability under heavy contention.
+        ///
+        /// With the old `create_dir`/`remove_dir` approach, all threads sleep
+        /// for the same fixed delay and wake up simultaneously (convoy effect),
+        /// wasting retry attempts.  With OS-level locking + jittered backoff,
+        /// threads spread out their retries and acquire the lock more
+        /// efficiently within the same budget.
+        ///
+        /// Run with:
+        ///   cargo test -p sf_core -- stress_concurrent_lock --ignored --nocapture
+        #[test]
+        // Slow — run manually to validate locking reliability. Deliberately NOT
+        // prefixed with `vpn_` so the Jenkins VPN-tests pipeline (which filters
+        // `--ignored vpn_`) does not pick it up. See sf_core/README.md.
+        #[ignore]
+        fn stress_concurrent_lock() {
+            const ITERATIONS: usize = 20;
+            const STRESS_THREADS: usize = 100;
+            // Tight budget: enough for OS-level locking with jitter,
+            // but causes convoy-driven exhaustion with fixed-delay retries.
+            // With 100 threads and 30 retries at fixed 2ms delay, the convoy
+            // effect caps success at ~31 threads per round. With jittered
+            // backoff, threads spread their wakeups and all 100 can succeed.
+            const STRESS_RETRY_COUNT: u32 = 30;
+            const STRESS_RETRY_DELAY: Duration = Duration::from_millis(2);
+
+            let mut failures = 0;
+
+            for round in 0..ITERATIONS {
+                let dir = tempfile::tempdir().expect("Failed to create temp dir");
+                let cache = Arc::new(
+                    FileTokenCache::with_directory(dir.path().to_path_buf())
+                        .retry_count(STRESS_RETRY_COUNT)
+                        .retry_delay(STRESS_RETRY_DELAY),
+                );
+                let barrier = Arc::new(Barrier::new(STRESS_THREADS));
+
+                let handles: Vec<_> = (0..STRESS_THREADS)
+                    .map(|i| {
+                        let cache = Arc::clone(&cache);
+                        let barrier = Arc::clone(&barrier);
+                        std::thread::spawn(move || {
+                            barrier.wait();
+                            let key = format!("key_{i}");
+                            let value = format!("value_{i}");
+                            cache.set_secret(&key, value.as_bytes())
+                        })
+                    })
+                    .collect();
+
+                let mut round_ok = true;
+                for handle in handles {
+                    match handle.join() {
+                        Ok(Err(e)) => {
+                            eprintln!("  round {round}: set_secret error: {e}");
+                            round_ok = false;
+                        }
+                        Err(_) => {
+                            eprintln!("  round {round}: thread panicked");
+                            round_ok = false;
+                        }
+                        Ok(Ok(())) => {}
+                    }
+                }
+
+                if round_ok {
+                    for i in 0..STRESS_THREADS {
+                        let key = format!("key_{i}");
+                        let expected = format!("value_{i}");
+                        match cache.get_secret(&key) {
+                            Ok(Some(v)) if v == expected.as_bytes() => {}
+                            other => {
+                                eprintln!("  round {round}: read mismatch for {key}: {other:?}");
+                                round_ok = false;
+                            }
+                        }
+                    }
+                }
+
+                if !round_ok {
+                    failures += 1;
+                }
+            }
+
+            eprintln!(
+                "\nStress test: {}/{ITERATIONS} rounds passed, {failures} failed  \
+                 (threads={STRESS_THREADS}, retries={STRESS_RETRY_COUNT}, \
+                 delay={}ms)",
+                ITERATIONS - failures,
+                STRESS_RETRY_DELAY.as_millis(),
+            );
+            assert_eq!(
+                failures, 0,
+                "{failures}/{ITERATIONS} rounds failed — lock acquisition is unreliable"
+            );
+        }
+
+        #[test]
+        fn concurrent_deletes_are_consistent() {
+            let (_dir, cache) = create_shared_cache();
+
+            let total_keys = THREAD_COUNT * 2;
+            for i in 0..total_keys {
+                let key = format!("key_{i}");
+                let value = format!("value_{i}");
+                cache.set_secret(&key, value.as_bytes()).unwrap();
+            }
+
+            let delete_count = total_keys / 2;
+            let barrier = Arc::new(Barrier::new(delete_count));
+
+            let handles: Vec<_> = (0..total_keys)
+                .filter(|i| i % 2 == 0)
+                .map(|i| {
+                    let cache = Arc::clone(&cache);
+                    let barrier = Arc::clone(&barrier);
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        let key = format!("key_{i}");
+                        let existed = cache
+                            .delete_credential(&key)
+                            .expect("Failed to delete in concurrent thread");
+                        assert!(existed, "Expected {key} to exist before deletion");
+                    })
+                })
+                .collect();
+
+            for handle in handles {
+                handle.join().expect("Thread panicked");
+            }
+
+            for i in 0..total_keys {
+                let key = format!("key_{i}");
+                let result = cache
+                    .get_secret(&key)
+                    .expect("Failed to read after deletes");
+                if i % 2 == 0 {
+                    assert_eq!(result, None, "Deleted {key} should be gone");
+                } else {
+                    let expected = format!("value_{i}");
+                    assert_eq!(
+                        result,
+                        Some(expected.into_bytes()),
+                        "Non-deleted {key} should still be present"
+                    );
+                }
+            }
+        }
+    }
+}

@@ -1,17 +1,68 @@
 // Optional browser UI metadata and latest-frame mailbox, owned by Chrome's
 // existing connection. No browser launch, per-request CDP probe, or frame queue.
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { writeFileAtomic } = require("../base/utils.js");
 const { getTargetIdFromTarget: idOf } = require("./chrome_utils.js");
 const { startPageScreencast } = require("../chrome_screencast/screencast.js");
 
-async function observeBrowser(browser, directory) {
+// tabs.json is rewritten on every tab title/focus/navigation event and frame
+// mailboxes up to 10x/second per viewed tab. Crawl/persona dirs may be slow
+// remote storage (e.g. rclone FUSE, where each write through a symlinked path
+// costs READLINK/CREATE/RENAME round trips), so this disposable live state
+// lives on local TMP_DIR. It is keyed by the browser's CDP endpoint, which
+// readers already get from the session dir's durable cdp_url.txt.
+function browserLiveDir(tmpDir, cdpUrl) {
+  return path.join(path.resolve(tmpDir || os.tmpdir()), "chrome_browser",
+    crypto.createHash("sha256").update(cdpUrl).digest("hex"));
+}
+
+// Readers of the old session-dir paths keep working through symlinks. They are
+// created once per observer start; every hot write goes straight to TMP_DIR.
+function linkLegacyPath(legacyPath, target) {
+  try {
+    if (fs.readlinkSync(legacyPath) === target) return;
+  } catch {}
+  fs.rmSync(legacyPath, { recursive: true, force: true });
+  fs.symlinkSync(target, legacyPath);
+}
+
+// Inventory readers scan every live dir under TMP_DIR/chrome_browser on each
+// poll, so ended browsers must not accumulate there (persona browsers share the
+// collection TMP_DIR across launches). Prune only state whose owner published a
+// disconnect or has exited; a dir without tabs.json may be an owner starting up.
+function pruneEndedBrowsers(root, ownDirectory) {
+  let entries = [];
+  try { entries = fs.readdirSync(root); } catch { return; }
+  for (const entry of entries) {
+    if (path.join(root, entry) === ownDirectory) continue;
+    const directory = path.join(root, entry);
+    try {
+      const state = JSON.parse(fs.readFileSync(path.join(directory, "tabs.json"), "utf8"));
+      if (state.connected) {
+        try { process.kill(state.owner_pid, 0); continue; } catch (error) { if (error.code !== "ESRCH") continue; }
+      }
+      fs.rmSync(directory, { recursive: true, force: true });
+    } catch {}
+  }
+}
+
+async function observeBrowser(browser, sessionDir, tmpDir) {
+  const directory = browserLiveDir(tmpDir, browser.wsEndpoint());
   const filename = path.join(directory, "tabs.json");
   const viewersDir = path.join(directory, "viewers");
   const framesDir = path.join(directory, "frames");
   fs.mkdirSync(viewersDir, { recursive: true });
   fs.mkdirSync(framesDir, { recursive: true });
+  for (const target of [filename, viewersDir, framesDir]) {
+    try {
+      linkLegacyPath(path.join(sessionDir, path.basename(target)), target);
+    } catch (error) {
+      console.error(`Browser observer legacy link unavailable: ${error.message}`);
+    }
+  }
   try {
     const previous = JSON.parse(fs.readFileSync(filename, "utf8"));
     if (previous.connected && previous.cdp_url === browser.wsEndpoint()) {
@@ -19,13 +70,20 @@ async function observeBrowser(browser, directory) {
       return;
     }
   } catch {}
+  pruneEndedBrowsers(path.dirname(directory), directory);
+  // The Agent panel polls the inventory every second. Publishing the owner's
+  // session dir and Chrome PID here lets it list browsers from local TMP_DIR
+  // alone, instead of probing every persona/crawl session dir on archive
+  // storage. chrome.pid is written before hydration starts this observer.
+  let chromePid = null;
+  try { chromePid = Number(fs.readFileSync(path.join(sessionDir, "chrome.pid"), "utf8")) || null; } catch {}
   const root = await browser.target().createCDPSession();
   const tabs = new Map(), watchers = new Map(), casts = new Map();
   let closed = false, busy = false, again = false;
   const publish = () => {
     try {
       writeFileAtomic(filename, JSON.stringify({ cdp_url: browser.wsEndpoint(), owner_pid: process.pid,
-        connected: !closed, tabs: [...tabs.values()] }));
+        session_dir: path.resolve(sessionDir), pid: chromePid, connected: !closed, tabs: [...tabs.values()] }));
     } catch (error) { console.error(`Browser inventory unavailable: ${error.message}`); }
   };
   const framePath = id => path.join(framesDir, `${id}.json`);

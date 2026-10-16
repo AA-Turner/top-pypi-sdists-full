@@ -297,6 +297,9 @@ class FeedbackManager:
     error_branch = error_message(
         "Branch {branch} not found. use '{cli} branch ls' to list your Branches, make sure you are authenticated using the right workspace token"
     )
+    error_branch_name_ambiguous = error_message(
+        "Branch name '{branch}' matches more than one Branch: {matches}. Use the Branch ID instead."
+    )
     error_not_a_branch = error_message(
         "To use this command you need to be authenticated on a Branch. Use '{cli} branch ls' and '{cli} branch use' and retry the command."
     )

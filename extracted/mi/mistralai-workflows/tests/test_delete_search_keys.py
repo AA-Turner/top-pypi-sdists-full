@@ -98,8 +98,9 @@ class TestValidateKeys:
 
         assert _validate_keys(Endless()) == [f"k{i}" for i in range(MAX_SEARCH_KEYS)]
 
-    def test_overlong_key_is_dropped_but_others_kept(self) -> None:
-        assert _validate_keys(["k" * (MAX_SEARCH_KEY_CHARS + 1), "ok"]) == ["ok"]
+    def test_overlong_key_raises(self) -> None:
+        with pytest.raises(ApplicationError, match="at most"):
+            _validate_keys(["k" * (MAX_SEARCH_KEY_CHARS + 1), "ok"])
 
     def test_more_than_max_keys_raises(self) -> None:
         with pytest.raises(ApplicationError, match="at most"):
@@ -108,6 +109,21 @@ class TestValidateKeys:
     def test_invalid_key_raises(self) -> None:
         with pytest.raises(ApplicationError, match="':'"):
             _validate_keys(["a:b"])
+
+    def test_key_ending_in_equals_raises(self) -> None:
+        with pytest.raises(ApplicationError, match=r"Search key `a=` must not end with '='"):
+            _validate_keys(["a="])
+
+    def test_error_message_names_the_offending_key(self) -> None:
+        with pytest.raises(ApplicationError, match=r"Search key `a:b` must not contain ':'"):
+            _validate_keys(["a:b"])
+
+    def test_collects_all_key_errors_before_raising(self) -> None:
+        with pytest.raises(ApplicationError) as exc_info:
+            _validate_keys(["a:b", "ok", "c:d"])
+        message = str(exc_info.value)
+        assert "Search key `a:b` must not contain ':'" in message
+        assert "Search key `c:d` must not contain ':'" in message
 
     def test_reserved_prefix_allowed_for_sdk(self) -> None:
         assert _validate_keys(["internal.execution.state"], allow_reserved=True) == ["internal.execution.state"]

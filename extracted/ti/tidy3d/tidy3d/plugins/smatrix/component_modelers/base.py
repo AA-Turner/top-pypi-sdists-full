@@ -387,6 +387,3 @@ class AbstractComponentModeler(ABC, Tidy3dBaseModel):
     def validate_pre_upload(self: Self) -> None:
         """Validate the modeler before upload."""
         self.base_sim.validate_pre_upload(source_required=False)
-
-
-AbstractComponentModeler.model_rebuild()

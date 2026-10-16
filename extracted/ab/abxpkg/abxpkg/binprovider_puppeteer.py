@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 from typing import ClassVar, Self
 from collections.abc import Iterable
+from contextlib import nullcontext
 
 from pydantic import Field, TypeAdapter, computed_field, model_validator
 
@@ -32,6 +33,7 @@ from .binprovider import (
     remap_kwargs,
 )
 from .binprovider_pnpm import PnpmProvider
+from .binprovider_apt import AptProvider
 from .logging import (
     format_command,
     format_subprocess_output,
@@ -268,13 +270,7 @@ class PuppeteerProvider(BinProvider):
             self.INSTALLER_BIN,
         )
 
-    def _cli_binary(
-        self,
-        *,
-        postinstall_scripts: bool,
-        min_release_age: float,
-        no_cache: bool = False,
-    ) -> Binary:
+    def _cli_provider(self) -> PnpmProvider:
         lib_dir = os.environ.get("ABXPKG_LIB_DIR")
         if (
             self.install_root is not None
@@ -286,8 +282,29 @@ class PuppeteerProvider(BinProvider):
             pnpm_install_root = self.install_root / "pnpm"
         else:
             pnpm_install_root = None
-        cli_provider = PnpmProvider(
+        return PnpmProvider(
             install_root=pnpm_install_root,
+            postinstall_scripts=self.postinstall_scripts,
+            min_release_age=self.min_release_age,
+        )
+
+    def exec_env_providers(self) -> list[BinProvider]:
+        providers = super().exec_env_providers()
+        if self.install_root is not None:
+            # A cached browsers CLI can be rediscovered through EnvProvider.
+            # Its pnpm-owned Node runtime must remain available after reload.
+            for provider in self._cli_provider().exec_env_providers():
+                self._append_unique_provider(providers, provider)
+        return providers
+
+    def _cli_binary(
+        self,
+        *,
+        postinstall_scripts: bool,
+        min_release_age: float,
+        no_cache: bool = False,
+    ) -> Binary:
+        cli_provider = self._cli_provider().get_provider_with_overrides(
             postinstall_scripts=postinstall_scripts,
             min_release_age=min_release_age,
         )
@@ -781,9 +798,19 @@ class PuppeteerProvider(BinProvider):
         if sudo_binary is None or sudo_binary.loaded_abspath is None:
             return None
 
+        # sudo's secure_path replaces PATH even with -E. Preserve the already
+        # resolved installer dependencies so its node shebang cannot select an
+        # older system Node than the one that bootstrapped Puppeteer.
+        installer_env = self.build_exec_env(providers=self.exec_env_providers())
         proc = self.exec(
             bin_name=sudo_binary.loaded_abspath,
-            cmd=["-E", str(installer_bin), "install", *install_args],
+            cmd=[
+                "-E",
+                f"PATH={installer_env['PATH']}",
+                str(installer_bin),
+                "install",
+                *install_args,
+            ],
             cwd=self.install_root or ".",
             timeout=self.install_timeout,
         )
@@ -914,69 +941,93 @@ class PuppeteerProvider(BinProvider):
             installer_binary = self.INSTALLER_BINARY(no_cache=no_cache)
         installer_bin = installer_binary.loaded_abspath
         assert installer_bin
-        self._install_chromium_system_deps(
-            installer_bin,
-            normalized_install_args,
-            timeout if timeout is not None else self.install_timeout,
-        )
-        proc = self.exec(
-            bin_name=installer_bin,
-            cmd=["install", *normalized_install_args],
-            cwd=self.install_root or ".",
-            timeout=timeout if timeout is not None else self.install_timeout,
-        )
-
-        install_output = f"{proc.stdout}\n{proc.stderr}"
+        # Puppeteer runs apt-get satisfy directly. Share the APT lock for
+        # the entire system-dependency installation, not just index refresh.
+        apt = None
+        apt_binary = None
         if (
-            proc.returncode != 0
+            sys.platform.startswith("linux")
             and "--install-deps" in normalized_install_args
-            and "requires root privileges" in install_output
-            and os.geteuid() != 0
-            and self._has_sudo()
         ):
-            sudo_proc = self._run_install_with_sudo(
+            apt_binary = EnvProvider().load("apt-get")
+            if apt_binary and apt_binary.loaded_abspath:
+                apt = AptProvider()
+        with apt.apt_lock() if apt is not None else nullcontext():
+            if apt is not None and not apt.apt_lists_recent():
+                assert apt_binary and apt_binary.loaded_abspath
+                update = apt.exec(
+                    bin_name=apt_binary.loaded_abspath,
+                    cmd=["update", "-qq"],
+                    timeout=timeout if timeout is not None else self.install_timeout,
+                )
+                if update.returncode != 0:
+                    apt._raise_proc_error("update", "package indexes", update)
+            self._install_chromium_system_deps(
+                installer_bin,
                 normalized_install_args,
-                no_cache=no_cache,
+                timeout if timeout is not None else self.install_timeout,
             )
-            if sudo_proc is not None:
-                proc = sudo_proc
+            proc = self.exec(
+                bin_name=installer_bin,
+                cmd=["install", *normalized_install_args],
+                cwd=self.install_root or ".",
+                timeout=timeout if timeout is not None else self.install_timeout,
+            )
+
+            install_output = f"{proc.stdout}\n{proc.stderr}"
+            if (
+                proc.returncode != 0
+                and "--install-deps" in normalized_install_args
+                and "requires root privileges" in install_output
+                and os.geteuid() != 0
+                and self._has_sudo()
+            ):
+                sudo_proc = self._run_install_with_sudo(
+                    normalized_install_args,
+                    no_cache=no_cache,
+                )
+                if sudo_proc is not None:
+                    proc = sudo_proc
+                    install_output = f"{proc.stdout}\n{proc.stderr}"
+
+            if proc.returncode != 0 and self._should_repair_cli_install(install_output):
+                cli_binary = self._cli_binary(
+                    postinstall_scripts=True,
+                    min_release_age=0,
+                )
+                self._INSTALLER_BINARY = (
+                    cli_binary  # bootstrap: seed cache after pnpm install
+                )
+                installer_binary = self._INSTALLER_BINARY
+                if installer_binary is None or installer_binary.loaded_abspath is None:
+                    installer_binary = self.INSTALLER_BINARY(no_cache=no_cache)
+                installer_bin = installer_binary.loaded_abspath
+                assert installer_bin
+                proc = self.exec(
+                    bin_name=installer_bin,
+                    cmd=["install", *normalized_install_args],
+                    cwd=self.install_root or ".",
+                    timeout=timeout if timeout is not None else self.install_timeout,
+                )
                 install_output = f"{proc.stdout}\n{proc.stderr}"
 
-        if proc.returncode != 0 and self._should_repair_cli_install(install_output):
-            cli_binary = self._cli_binary(postinstall_scripts=True, min_release_age=0)
-            self._INSTALLER_BINARY = (
-                cli_binary  # bootstrap: seed cache after pnpm install
-            )
-            installer_binary = self._INSTALLER_BINARY
-            if installer_binary is None or installer_binary.loaded_abspath is None:
-                installer_binary = self.INSTALLER_BINARY(no_cache=no_cache)
-            installer_bin = installer_binary.loaded_abspath
-            assert installer_bin
-            proc = self.exec(
-                bin_name=installer_bin,
-                cmd=["install", *normalized_install_args],
-                cwd=self.install_root or ".",
-                timeout=timeout if timeout is not None else self.install_timeout,
-            )
-            install_output = f"{proc.stdout}\n{proc.stderr}"
+            if proc.returncode != 0 and self._cleanup_partial_browser_cache(
+                install_output,
+                browser_name,
+            ):
+                proc = self.exec(
+                    bin_name=installer_bin,
+                    cmd=["install", *normalized_install_args],
+                    cwd=self.install_root or ".",
+                    timeout=timeout if timeout is not None else self.install_timeout,
+                )
+                install_output = f"{proc.stdout}\n{proc.stderr}"
 
-        if proc.returncode != 0 and self._cleanup_partial_browser_cache(
-            install_output,
-            browser_name,
-        ):
-            proc = self.exec(
-                bin_name=installer_bin,
-                cmd=["install", *normalized_install_args],
-                cwd=self.install_root or ".",
-                timeout=timeout if timeout is not None else self.install_timeout,
-            )
-            install_output = f"{proc.stdout}\n{proc.stderr}"
-
-        if proc.returncode != 0:
-            install_hint = self._get_install_failure_hint(install_output)
-            if install_hint:
-                raise RuntimeError(install_hint) from None
-            self._raise_proc_error("install", bin_name, proc)
+            if proc.returncode != 0:
+                install_hint = self._get_install_failure_hint(install_output)
+                if install_hint:
+                    raise RuntimeError(install_hint) from None
+                self._raise_proc_error("install", bin_name, proc)
 
         installed_path = self._parse_installed_browser_path(
             install_output,

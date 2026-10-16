@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zlib-state
-Version: 0.1.12
+Version: 0.1.13
 Summary: Low-level interface to the zlib library that enables capturing the decoding state
 Home-page: https://github.com/seanmacavaney/zlib-state
 Author: Sean MacAvaney

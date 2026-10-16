@@ -1,4 +1,5 @@
 import time
+from collections.abc import Callable
 from enum import StrEnum
 from typing import Annotated, Any, Literal, TypedDict
 
@@ -112,21 +113,27 @@ def json_patch(op: str, path: str, value: Any) -> JSONPatch:
         raise ValueError(f"Unknown operation: {op}")
 
 
-def _make_encoding_options_optional(schema: dict[str, Any]) -> None:
-    """Remove encoding_options from required fields in the JSON schema.
+def _make_fields_optional_in_schema(*field_names: str) -> Callable[[dict[str, Any]], None]:
+    def make_optional(schema: dict[str, Any]) -> None:
+        required = schema.get("required")
+        if required is not None:
+            schema["required"] = [field_name for field_name in required if field_name not in field_names]
 
-    json_schema_serialization_defaults_required makes all fields with defaults (e.g. type)
-    required in the serialization schema. encoding_options must stay optional for backward
-    compatibility since it only exists when encryption is active.
-    """
-    required = schema.get("required", [])
-    if "encoding_options" in required:
-        required.remove("encoding_options")
+    return make_optional
 
 
 _PAYLOAD_MODEL_CONFIG = ConfigDict(
     json_schema_serialization_defaults_required=True,
-    json_schema_extra=_make_encoding_options_optional,
+    json_schema_extra=_make_fields_optional_in_schema("encoding_options"),
+)
+_EVENT_MODEL_CONFIG = ConfigDict(
+    json_schema_serialization_defaults_required=True,
+    json_schema_extra=_make_fields_optional_in_schema(
+        "continued_run_id",
+        "first_execution_run_id",
+        "chain_run_id",
+        "schedule_id",
+    ),
 )
 
 _ENCODING_OPTIONS_FIELD = Field(
@@ -244,7 +251,7 @@ class BaseEvent(BaseModel):
     )
     workflow_name: str = Field(description="The registered name of the workflow that emitted this event.")
 
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class BaseTaskAttributes(BaseModel):
@@ -422,7 +429,7 @@ class WorkflowExecutionStarted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowExecutionStartedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowExecutionCompleted(BaseEvent):
@@ -437,7 +444,7 @@ class WorkflowExecutionCompleted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowExecutionCompletedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowExecutionFailed(BaseEvent):
@@ -452,7 +459,7 @@ class WorkflowExecutionFailed(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowExecutionFailedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowExecutionCanceled(BaseEvent):
@@ -467,7 +474,7 @@ class WorkflowExecutionCanceled(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowExecutionCanceledAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowExecutionContinuedAsNew(BaseEvent):
@@ -483,7 +490,7 @@ class WorkflowExecutionContinuedAsNew(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowExecutionContinuedAsNewAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowTaskTimedOut(BaseEvent):
@@ -499,7 +506,7 @@ class WorkflowTaskTimedOut(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowTaskTimedOutAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class WorkflowTaskFailed(BaseEvent):
@@ -515,7 +522,7 @@ class WorkflowTaskFailed(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: WorkflowTaskFailedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskStarted(BaseEvent):
@@ -531,7 +538,7 @@ class CustomTaskStarted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskStartedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskInProgress(BaseEvent):
@@ -547,7 +554,7 @@ class CustomTaskInProgress(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskInProgressAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskCompleted(BaseEvent):
@@ -562,7 +569,7 @@ class CustomTaskCompleted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskCompletedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskFailed(BaseEvent):
@@ -577,7 +584,7 @@ class CustomTaskFailed(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskFailedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskTimedOut(BaseEvent):
@@ -592,7 +599,7 @@ class CustomTaskTimedOut(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskTimedOutAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class CustomTaskCanceled(BaseEvent):
@@ -607,7 +614,7 @@ class CustomTaskCanceled(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: CustomTaskCanceledAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class ActivityTaskStarted(BaseEvent):
@@ -623,7 +630,7 @@ class ActivityTaskStarted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: ActivityTaskStartedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class ActivityTaskCompleted(BaseEvent):
@@ -638,7 +645,7 @@ class ActivityTaskCompleted(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: ActivityTaskCompletedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class ActivityTaskRetrying(BaseEvent):
@@ -653,7 +660,7 @@ class ActivityTaskRetrying(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: ActivityTaskRetryingAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 class ActivityTaskFailed(BaseEvent):
@@ -668,7 +675,7 @@ class ActivityTaskFailed(BaseEvent):
         description="Event type discriminator.",
     )
     attributes: ActivityTaskFailedAttributes = Field(description="Event-specific attributes.")
-    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+    model_config = _EVENT_MODEL_CONFIG
 
 
 def _get_event_type_discriminator(v: Any) -> str:

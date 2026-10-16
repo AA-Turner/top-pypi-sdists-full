@@ -67,6 +67,9 @@ class ActionTypeClient:
         """
         Gets a specific action type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the action type.
         :type ontology_rid: OntologyRid
         :param action_type_api_name: The name of the action type in the API.
@@ -114,6 +117,9 @@ class ActionTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the action types. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid
@@ -211,6 +217,9 @@ class AsyncActionTypeClient:
         """
         Gets a specific action type with the given API name.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the action type.
         :type ontology_rid: OntologyRid
         :param action_type_api_name: The name of the action type in the API.
@@ -258,6 +267,9 @@ class AsyncActionTypeClient:
 
         Each page may be smaller than the requested page size. However, it is guaranteed that if there are more
         results available, at least one result will be present in the response.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology_rid: The unique Resource Identifier (RID) of the Ontology that contains the action types. To look up your Ontology RID, please use the **List ontologies** endpoint or check the **Ontology Manager**.
         :type ontology_rid: OntologyRid

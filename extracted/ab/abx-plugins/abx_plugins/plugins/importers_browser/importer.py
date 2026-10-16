@@ -44,7 +44,13 @@ def task_tab(env, run_dir):
             )
             env["IMPORTERS_TAB_ID"] = json.loads(process.stdout)
             env["BH_REQUIRE_EXISTING_DAEMON"] = "1"
-            yield
+            try:
+                yield
+            except BaseException:
+                # Cancellation and shutdown still need the last visible screen
+                # before the harness closes this run's dedicated tab.
+                capture_failure(env, run_dir)
+                raise
         finally:
             # Browser Harness owns both its daemon and dedicated tab.
             subprocess.run(
@@ -58,9 +64,11 @@ def task_tab(env, run_dir):
 
 
 def capture_failure(env, run_dir, attempt=0):
-    """Keep the failing viewport private before learning or tab cleanup changes it."""
+    """Keep each attempt's first failing viewport private through tab cleanup."""
     path = run_dir / f"failure-{attempt}.png"
     try:
+        if path.exists():
+            return
         subprocess.run(
             ["browser-harness"],
             input=f"capture_screenshot(path={str(path)!r})\n",
@@ -93,7 +101,10 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
     try:
         process = subprocess.run(
             ["browser-harness"],
-            input=script.read_text(),
+            input=(
+                "import runpy\n"
+                f"runpy.run_path({str(script.resolve())!r}, init_globals=globals(), run_name='__main__')\n"
+            ),
             cwd=workspace,
             env=env,
             text=True,
@@ -101,21 +112,66 @@ def replay(workspace, request, env, run_dir, attempt, deadline):
             timeout=remaining(deadline, 120),
             check=False,
         )
-        (run_dir / f"replay-{attempt}.log").write_text(process.stderr)
+        with (run_dir / f"replay-{attempt}.log").open(
+            "a" if request.get("delivered_ids") else "w",
+        ) as log:
+            if request.get("delivered_ids"):
+                log.write("\nContinuation validation with the returned checkpoint:\n")
+            log.write(process.stderr)
         if process.returncode:
-            return None, (process.stderr or process.stdout)[-12000:]
+            raise ValueError((process.stderr or process.stdout)[-12000:])
         records = list(read_records(process.stdout.splitlines(), request))
         result = records[-1]
         if result["status"] == "failed":
-            return None, str(result.get("message", "Discovery failed."))
+            raise ValueError(str(result.get("message", "Discovery failed.")))
         if result["status"] == "succeeded" and not result.get("account", {}).get("id"):
             raise ValueError("Identify the signed-in account before returning success.")
+        if (
+            result["status"] == "succeeded"
+            and request["action"] == "import"
+            and not request.get("delivered_ids")
+        ):
+            delivered = [
+                record["id"] for record in records if record["type"] == "ImporterItem"
+            ]
+            if delivered:
+                # Discovery is read-only. Probe one continuation before accepting
+                # the batch, so cursor defects reach the existing repair loop.
+                # Only the original batch is emitted/committed by the host.
+                continuation = {
+                    **request,
+                    "checkpoint": result.get("checkpoint", {}),
+                    "delivered_ids": delivered,
+                }
+                continuation_file = run_dir / "continuation-request.json"
+                continuation_file.write_text(json.dumps(continuation))
+                continuation_file.chmod(0o600)
+                following, error = replay(
+                    workspace,
+                    continuation,
+                    {**env, "IMPORTERS_REQUEST_FILE": str(continuation_file)},
+                    run_dir,
+                    attempt,
+                    deadline,
+                )
+                if following is None:
+                    return None, error + " Continuation request: " + str(
+                        continuation_file,
+                    )
+                if following[-1]["status"] != "succeeded":
+                    return following, ""
         succeeded = result["status"] == "succeeded"
         return records, ""
     except (TypeError, ValueError, OSError, subprocess.TimeoutExpired) as error:
-        return None, f"{type(error).__name__}: {error}"
+        message = f"{type(error).__name__}: {error}"
+        try:
+            with (run_dir / f"replay-{attempt}.log").open("a") as log:
+                log.write("\nReplay rejected: " + message + "\n")
+        except OSError:
+            pass  # Preserve the actual replay error if evidence cannot be saved.
+        return None, message
     finally:
-        if not succeeded:
+        if not succeeded and not request.get("delivered_ids"):
             capture_failure(env, run_dir, attempt)
 
 
@@ -143,10 +199,7 @@ def learn(binary, task, env, workspace, run_dir, error, attempt, deadline):
         try:
             if process.wait(timeout=remaining(deadline - 120, 300)):
                 raise RuntimeError("OpenCode failed; see the private learning log.")
-        except subprocess.TimeoutExpired:
-            # Replay whatever the agent saved before its budget expired.
-            pass
-        except (OSError, RuntimeError, TimeoutError):
+        except (OSError, RuntimeError, TimeoutError, subprocess.TimeoutExpired):
             capture_failure(env, run_dir, attempt)
             raise
         finally:
@@ -182,6 +235,9 @@ def main():
     agent_config = json.loads(env.get("OPENCODE_CONFIG_CONTENT") or "{}")
     agent_config["instructions"] = []
     agent_config["permission"] = {
+        # Global Agent UI skills assume a collection cwd and own browser setup.
+        # This standalone task already has its connection and Harness knowledge.
+        "skill": "deny",
         "external_directory": {
             "*": "deny",
             str(state / "*"): "allow",
@@ -208,7 +264,7 @@ def main():
                 run_dir,
                 error,
                 attempt,
-                deadline,
+                deadline - (120 if request["action"] == "import" else 0),
             )
             records, error = replay(workspace, request, env, run_dir, attempt, deadline)
         if records is None:

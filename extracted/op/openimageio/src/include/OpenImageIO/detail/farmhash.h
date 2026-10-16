@@ -2190,3 +2190,11 @@ STATIC_INLINE uint128_t Fingerprint128(const char* s, size_t len) {
 OIIO_NAMESPACE_3_1_END
 
 
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+namespace farmhash {
+using namespace OIIO::v3_1::farmhash;
+}  // namespace farmhash
+#endif
+OIIO_NAMESPACE_END

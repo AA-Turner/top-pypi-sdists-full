@@ -1,636 +1,354 @@
-#!/usr/bin/env python
+"""
+PEP 249 Database API 2.0 Exception Classes
+
+This module defines the exception hierarchy for the Snowflake connector.
+
+The **active** exceptions (raised at runtime) are the PEP 249 hierarchy plus a
+handful of driver-specific types (``MissingDependencyError``, config errors,
+``ReauthenticationRequest``). These are what ``sf_core`` error kinds map to via
+``KIND_TO_EXCEPTION``.
+
+Everything after the "Backward compatibility" section below exists solely so
+that ``from snowflake.connector.errors import BadGatewayError`` (etc.) does not
+break user code written against the old ``snowflake-connector-python`` driver.
+None of these classes are raised by the universal core at runtime:
+
+  - **HTTP exceptions** (``BadRequest``, ``ServiceUnavailableError``, ...):
+    In the old driver, Python's ``requests`` library returned HTTP status codes
+    that were wrapped into typed exceptions and used as internal retry-loop
+    control flow signals.  They leaked to users only when retries were
+    exhausted.  In the universal core, the Rust core handles HTTP retries
+    internally; by the time an error reaches Python it is already mapped to a
+    PEP 249 type via ``ErrorKind``.
+
+  - **Auth / token exceptions** (``RefreshTokenError``, ``TokenExpiredError``):
+    Used in the old driver as internal signals between the OKTA authenticator
+    and the retry loop. The universal core handles token refresh in Rust.
+
+  - **TLS exception** (``RevocationCheckError``):
+    OCSP/CRL verification runs inside the Rust TLS layer.
+
+  - **File-transfer exceptions** (``BindUploadError``, ``RequestExceedMaxRetryError``,
+    ``PresignedUrlExpiredError``):
+    Stage upload/download retry logic is internal to the Rust core.
+
+All backward-compatibility classes are marked with ``@backward_compatibility``.
+"""
+
 from __future__ import annotations
 
-import inspect
-import logging
-import os
-import re
-import traceback
-from logging import getLogger
+import warnings
+
 from typing import TYPE_CHECKING, Any
 
-from .errorcode import ER_HTTP_GENERAL_ERROR
-from .secret_detector import SecretDetector
-from .telemetry import TelemetryData, TelemetryField
-from .time_util import get_time_millis
-
-if TYPE_CHECKING:  # pragma: no cover
-    from .aio._connection import SnowflakeConnection as AsyncSnowflakeConnection
-    from .aio._cursor import SnowflakeCursor as AsyncSnowflakeCursor
-    from .connection import SnowflakeConnection
-    from .cursor import SnowflakeCursor
-
-logger = getLogger(__name__)
-connector_base_path = os.path.join("snowflake", "connector")
+from ._internal.backward_compatibility import install_backward_compatibility_getattr
+from ._internal.decorators import backward_compatibility
 
 
-RE_FORMATTED_ERROR = re.compile(r"^(\d{6,})(?: \((\S+)\))?:")
+if TYPE_CHECKING:
+    from .aio.connection import Connection as AsyncConnection
+    from .aio.cursor import SnowflakeCursorBase as AsyncSnowflakeCursorBase
+    from .connection import Connection
+    from .cursor import SnowflakeCursorBase
+
+ErrorValue = dict[str, Any]
+
+# ---------------------------------------------------------------------------
+# PEP 249 exception hierarchy (active — raised at runtime)
+# ---------------------------------------------------------------------------
+
+
+class Warning(Warning):  # type: ignore[misc]
+    """Exception raised for important warnings like data truncations while inserting, etc."""
+
+    pass
 
 
 class Error(Exception):
-    """Base Snowflake exception class."""
+    """Exception that is the base class of all other error exceptions.
+
+    In addition to being a standard PEP 249 exception base, this class provides
+    the **error-handler protocol** used throughout the driver to raise errors in
+    a way that is consistent with PEP 249 and backward-compatible with the old
+    ``snowflake-connector-python`` driver.
+    """
 
     def __init__(
         self,
-        msg: str | None = None,
-        errno: int | None = None,
+        msg: str = "",
+        errno: int = -1,
         sqlstate: str | None = None,
         sfqid: str | None = None,
         query: str | None = None,
-        done_format_msg: bool | None = None,
-        connection: SnowflakeConnection | AsyncSnowflakeConnection | None = None,
-        cursor: SnowflakeCursor | AsyncSnowflakeCursor | None = None,
-        errtype: TelemetryField = TelemetryField.SQL_EXCEPTION,
-        send_telemetry: bool = True,
+        request_id: str | None = None,
+        parameter: str | None = None,
+        validation_code: int | None = None,
+        **kwargs: Any,  # absorbs extra keys for backward compatibility with old driver code
     ) -> None:
-        super().__init__(msg)
-        self.msg = msg
-        self.raw_msg = msg
-        self.errno = errno or -1
-        self.sqlstate = sqlstate or "n/a"
+        self.errno = errno
+        self.sqlstate = sqlstate
         self.sfqid = sfqid
         self.query = query
-        self.errtype = errtype
-        self.send_telemetry = send_telemetry
-
-        if self.msg:
-            # TODO: If there's a message then check to see if errno (and maybe sqlstate)
-            #  and if so then don't insert them again, this should eventually be removed
-            #  and we should be explicitly set this at every call to create these
-            #  Exceptions.
-            #  However we shouldn't be creating them during normal execution so
-            #  this should not affect performance to users and will make our error
-            #  messages consistent.
-            already_formatted_msg = RE_FORMATTED_ERROR.match(msg)
-        else:
-            self.msg = "Unknown error"
-            already_formatted_msg = None
-
-        if self.errno != -1 and not done_format_msg:
-            if self.sqlstate != "n/a":
-                if not already_formatted_msg:
-                    if logger.getEffectiveLevel() in (logging.INFO, logging.DEBUG):
-                        self.msg = f"{self.errno:06d} ({self.sqlstate}): {self.sfqid}: {self.msg}"
-                    else:
-                        self.msg = f"{self.errno:06d} ({self.sqlstate}): {self.msg}"
-            else:
-                if not already_formatted_msg:
-                    if logger.getEffectiveLevel() in (logging.INFO, logging.DEBUG):
-                        self.msg = f"{self.errno:06d}: {self.errno}: {self.msg}"
-                    else:
-                        self.msg = f"{self.errno:06d}: {self.msg}"
-
-        # We want to skip the last frame/line in the traceback since it is the current frame
-        self.telemetry_traceback = self.generate_telemetry_stacktrace()
-
-        if self.send_telemetry:
-            self.exception_telemetry(msg, cursor, connection)
+        # Client-generated ``requestId`` sent on the query submission request.
+        # Populated for errors that originate from a query execution attempt;
+        # ``None`` for non-query errors (auth, config, transport).
+        self.request_id = request_id
+        self.raw_msg = msg
+        self.msg = self._format_message(msg)
+        # The offending config parameter and structured sf_core ValidationCode
+        # (see protobuf_gen's ValidationCode enum), when the error originated
+        # from a connection-config validation failure. None otherwise.
+        self.parameter = parameter
+        self.validation_code = validation_code
+        super().__init__(self.msg)
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def __str__(self) -> str:
-        return self.msg
-
-    @staticmethod
-    def generate_telemetry_stacktrace() -> str:
-        # Get the current stack minus this function and the Error init function
-        stack_frames = traceback.extract_stack()[:-2]
-        filtered_frames = list()
-        for frame in stack_frames:
-            # Only add frames associated with the snowflake python connector to the telemetry stacktrace
-            if connector_base_path in frame.filename:
-                # Get the index to truncate the file path to hide any user path
-                safe_path_index = frame.filename.find(connector_base_path)
-                # Create a new frame with the truncated file name and without the line argument since that can
-                # output sensitive data
-                filtered_frames.append(
-                    traceback.FrameSummary(
-                        frame.filename[safe_path_index:],
-                        frame.lineno,
-                        frame.name,
-                        line="",
-                    )
-                )
-
-        return "".join(traceback.format_list(filtered_frames))
-
-    def telemetry_msg(self) -> str | None:
-        if self.sqlstate != "n/a":
-            return f"{self.errno:06d} ({self.sqlstate})"
-        elif self.errno != -1:
-            return f"{self.errno:06d}"
-        else:
-            return None
-
-    def generate_telemetry_exception_data(
-        self,
-    ) -> dict[str, tuple[bool, str, str] | str]:
-        """Generate the data to send through telemetry."""
-        telemetry_data_dict: dict[str, tuple[bool, str, str] | str] = {
-            TelemetryField.KEY_STACKTRACE.value: SecretDetector.mask_secrets(
-                self.telemetry_traceback
-            )
-        }
-        telemetry_msg = self.telemetry_msg()
+        if not self.msg:
+            return self.msg
+        ids = []
+        if self.request_id:
+            ids.append(f"request_id={self.request_id}")
         if self.sfqid:
-            telemetry_data_dict[TelemetryField.KEY_SFQID.value] = self.sfqid
-        if self.sqlstate:
-            telemetry_data_dict[TelemetryField.KEY_SQLSTATE.value] = self.sqlstate
-        if telemetry_msg:
-            telemetry_data_dict[TelemetryField.KEY_REASON.value] = telemetry_msg
-        if self.errno:
-            telemetry_data_dict[TelemetryField.KEY_ERROR_NUMBER.value] = str(self.errno)
-        if self.msg:
-            telemetry_data_dict[TelemetryField.KEY_ERROR_MESSAGE.value] = self.msg
+            ids.append(f"sfqid={self.sfqid}")
+        return f"{self.msg} ({', '.join(ids)})" if ids else self.msg
 
-        return telemetry_data_dict
+    def _format_message(self, msg: str) -> str:
+        code_str = f"{self.errno:06d}" if isinstance(self.errno, int) and self.errno >= 0 else "------"
+        sqlstate_str = f" ({self.sqlstate})" if self.sqlstate else ""
+        return f"{code_str}{sqlstate_str}: {msg}" if msg else ""
 
-    def send_exception_telemetry(
-        self,
-        connection: SnowflakeConnection | AsyncSnowflakeConnection | None,
-        telemetry_data: dict[str, Any],
-    ) -> None:
-        """Send telemetry data by in-band telemetry if it is enabled, otherwise send through out-of-band telemetry."""
-        if (
-            connection is not None
-            and connection.telemetry_enabled
-            and not connection._telemetry.is_closed
-        ):
-            # Send with in-band telemetry
-            telemetry_data[TelemetryField.KEY_TYPE.value] = self.errtype.value
-            telemetry_data[TelemetryField.KEY_SOURCE.value] = connection.application
-            telemetry_data[TelemetryField.KEY_EXCEPTION.value] = self.__class__.__name__
-            ts = get_time_millis()
-            try:
-                result = connection._log_telemetry(
-                    TelemetryData.from_telemetry_data_dict(
-                        from_dict=telemetry_data, timestamp=ts, connection=connection
-                    )
-                )
-                if inspect.isawaitable(result):
-                    try:
-                        import asyncio
-
-                        asyncio.get_running_loop().run_until_complete(result)
-                    except Exception:
-                        logger.debug(
-                            "Failed to schedule async telemetry logging.",
-                            exc_info=True,
-                        )
-            except AttributeError:
-                logger.debug("Cursor failed to log to telemetry.", exc_info=True)
-
-    def exception_telemetry(
-        self,
-        msg: str,
-        cursor: SnowflakeCursor | AsyncSnowflakeCursor | None,
-        connection: SnowflakeConnection | AsyncSnowflakeConnection | None,
-    ) -> None:
-        """Main method to generate and send telemetry data for exceptions."""
-        try:
-            telemetry_data_dict = self.generate_telemetry_exception_data()
-            if cursor is not None:
-                self.send_exception_telemetry(
-                    cursor.connection,
-                    telemetry_data_dict,
-                )
-            elif connection is not None:
-                self.send_exception_telemetry(
-                    connection,
-                    telemetry_data_dict,
-                )
-            else:
-                self.send_exception_telemetry(None, telemetry_data_dict)
-        except Exception:
-            # Do nothing but log if sending telemetry fails
-            logger.debug("Sending exception telemetry failed")
-
-    @staticmethod
-    def default_errorhandler(
-        connection: SnowflakeConnection,
-        cursor: SnowflakeCursor,
-        error_class: type[Error],
-        error_value: dict[str, str],
-    ) -> None:
-        """Default error handler that raises an error.
-
-        Args:
-            connection: Connections in which the error happened.
-            cursor: Cursor in which the error happened.
-            error_class: Class of error that needs handling.
-            error_value: A dictionary of the error details.
-
-        Raises:
-            A Snowflake error.
-        """
-        errno = error_value.get("errno")
-        done_format_msg = error_value.get("done_format_msg")
-        raise error_class(
-            msg=error_value.get("msg"),
-            errno=None if errno is None else int(errno),
-            sqlstate=error_value.get("sqlstate"),
-            sfqid=error_value.get("sfqid"),
-            query=error_value.get("query"),
-            done_format_msg=(
-                None if done_format_msg is None else bool(done_format_msg)
-            ),
-            connection=connection,
-            cursor=cursor,
-        )
-
-    @staticmethod
-    def errorhandler_wrapper_from_cause(
-        connection: SnowflakeConnection,
-        cause: Error | Exception,
-        cursor: SnowflakeCursor | None = None,
-    ) -> None:
-        """Wrapper for errorhandler_wrapper, it is called with a cause instead of a dictionary.
-
-        The dictionary is first extracted from the cause and then it's given to errorhandler_wrapper
-
-        Args:
-            connection: Connections in which the error happened.
-            cursor: Cursor in which the error happened.
-            cause: Error instance that we want to handle.
-
-        Returns:
-            None if no exceptions are raised by the connection's and cursor's error handlers.
-
-        Raises:
-            A Snowflake error if connection and cursor are None.
-        """
-        return Error.errorhandler_wrapper(
-            connection,
-            cursor,
-            type(cause),
-            {
-                "msg": cause.msg,
-                "errno": cause.errno,
-                "sqlstate": cause.sqlstate,
-                "done_format_msg": True,
-            },
-        )
+    # ------------------------------------------------------------------
+    # Error-handler protocol (PEP 249 / backward compatible)
+    # ------------------------------------------------------------------
 
     @staticmethod
     def errorhandler_wrapper(
-        connection: SnowflakeConnection | None,
-        cursor: SnowflakeCursor | None,
+        connection: Connection | None,
+        cursor: SnowflakeCursorBase | AsyncSnowflakeCursorBase | None,
         error_class: type[Error] | type[Exception],
-        error_value: dict[str, Any],
+        error_value: ErrorValue,
     ) -> None:
-        """Error handler wrapper that calls the errorhandler method.
+        """Raise an error through the error-handler chain.
 
-        Args:
-            connection: Connections in which the error happened.
-            cursor: Cursor in which the error happened.
-            error_class: Class of error that needs handling.
-            error_value: An optional dictionary of the error details.
+        This is the **single entry point** that all driver code should use to
+        report errors originating from connection or cursor operations.
 
-        Returns:
-            None if no exceptions are raised by the connection's and cursor's error handlers.
-
-        Raises:
-            A Snowflake error if connection, or cursor are None. Otherwise it gives the
-            exception to the first handler in that order.
+        The method first tries to hand the error to a user-supplied handler via
+        :pyfunc:`hand_to_other_handler`.  If no handler was available (both
+        *connection* and *cursor* are ``None``), it falls back to creating and
+        raising the exception directly.
         """
-
-        handed_over = Error.hand_to_other_handler(
-            connection,
-            cursor,
-            error_class,
-            error_value,
-        )
+        handed_over = Error.hand_to_other_handler(connection, cursor, error_class, error_value)
         if not handed_over:
-            raise Error.errorhandler_make_exception(
-                error_class,
-                error_value,
-            )
-
-    @staticmethod
-    def errorhandler_wrapper_from_ready_exception(
-        connection: SnowflakeConnection | None,
-        cursor: SnowflakeCursor | None,
-        error_exc: Error | Exception,
-    ) -> None:
-        """Like errorhandler_wrapper, but it takes a ready to go Exception."""
-        if isinstance(error_exc, Error):
-            error_value = {
-                "msg": error_exc.msg,
-                "errno": error_exc.errno,
-                "sqlstate": error_exc.sqlstate,
-                "sfqid": error_exc.sfqid,
-            }
-        else:
-            error_value = error_exc.args
-
-        handed_over = Error.hand_to_other_handler(
-            connection,
-            cursor,
-            type(error_exc),
-            error_value,
-        )
-        if not handed_over:
-            raise error_exc
+            raise Error.errorhandler_make_exception(error_class, error_value)
 
     @staticmethod
     def hand_to_other_handler(
-        connection: SnowflakeConnection | None,
-        cursor: SnowflakeCursor | None,
+        connection: Connection | AsyncConnection | None,
+        cursor: SnowflakeCursorBase | AsyncSnowflakeCursorBase | None,
         error_class: type[Error] | type[Exception],
-        error_value: dict[str, str | bool],
+        error_value: ErrorValue,
     ) -> bool:
-        """If possible give error to a higher error handler in connection, or cursor.
+        """Try to delegate the error to a connection's or cursor's error handler.
+
+        Records the error in the ``messages`` list of both the connection and
+        the cursor (when present), then invokes the first available handler.
 
         Returns:
-            Whether it error was successfully given to a handler.
+            ``True`` if a handler was invoked, ``False`` if both *connection*
+            and *cursor* were ``None``.
         """
-        error_value.setdefault("done_format_msg", False)
         if connection is not None:
             connection.messages.append((error_class, error_value))
         if cursor is not None:
             cursor.messages.append((error_class, error_value))
-            try:
-                cursor.errorhandler(connection, cursor, error_class, error_value)
-            except NotImplementedError:
-                # for async compatibility, check SNOW-1763096 and SNOW-1763103
-                cursor._errorhandler(connection, cursor, error_class, error_value)
+            cursor.errorhandler(connection, cursor, error_class, error_value)
             return True
         elif connection is not None:
-            try:
-                connection.errorhandler(connection, cursor, error_class, error_value)
-            except NotImplementedError:
-                # for async compatibility, check SNOW-1763096 and SNOW-1763103
-                connection._errorhandler(connection, cursor, error_class, error_value)
+            connection.errorhandler(connection, cursor, error_class, error_value)
             return True
         return False
 
     @staticmethod
     def errorhandler_make_exception(
         error_class: type[Error] | type[Exception],
-        error_value: dict[str, str | bool],
+        error_value: ErrorValue,
     ) -> Error | Exception:
-        """Helper function to errorhandler_wrapper that creates the exception."""
-        error_value.setdefault("done_format_msg", False)
+        """Create an exception instance from *error_class* and *error_value*.
 
+        Used as a fallback when no connection/cursor handler is available.
+        """
         if issubclass(error_class, Error):
             return error_class(
-                msg=error_value["msg"],
-                errno=error_value.get("errno"),
+                msg=error_value.get("msg", ""),
+                errno=error_value.get("errno", -1),
                 sqlstate=error_value.get("sqlstate"),
                 sfqid=error_value.get("sfqid"),
+                query=error_value.get("query"),
+                request_id=error_value.get("request_id"),
+                parameter=error_value.get("parameter"),
+                validation_code=error_value.get("validation_code"),
             )
         return error_class(error_value)
 
+    @staticmethod
+    def default_errorhandler(
+        connection: Connection | None,
+        cursor: SnowflakeCursorBase | AsyncSnowflakeCursorBase | None,
+        error_class: type[Error] | type[Exception],
+        error_value: ErrorValue,
+    ) -> None:
+        """Default error handler that simply raises the error.
 
-class _Warning(Exception):
-    """Exception for important warnings."""
+        This is the handler installed on every new ``Connection`` and ``Cursor``
+        unless the user overrides ``errorhandler``.
+        """
+        # circular-import: errorhandler.py imports Error from this module at top
+        # level, so this helper is imported at call time to avoid the cycle.
+        from ._internal.errorhandler import _mark_errorhandler_routed
 
-    pass
+        new_exc = Error.errorhandler_make_exception(error_class, error_value)
+        # The reconstructed exception must carry the routed flag so a
+        # @simplified_error_handling caller does not PEP route twice
+        _mark_errorhandler_routed(new_exc)
+        raise new_exc
 
 
 class InterfaceError(Error):
-    """Exception for errors related to the interface."""
+    """
+    Exception raised for errors that are related to the database interface
+    rather than the database itself.
+    """
 
     pass
-
-
-class HttpError(Error):
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            **kwargs,
-        )
 
 
 class DatabaseError(Error):
-    """Exception for errors related to the database."""
-
-    pass
-
-
-class InternalError(DatabaseError):
-    """Exception for errors internal database errors."""
-
-    pass
-
-
-class OperationalError(DatabaseError):
-    """Exception for errors related to the database's operation."""
-
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    """Exception for errors programming errors."""
-
-    pass
-
-
-class IntegrityError(DatabaseError):
-    """Exception for errors regarding relational integrity."""
+    """Exception raised for errors that are related to the database."""
 
     pass
 
 
 class DataError(DatabaseError):
-    """Exception for errors reporting problems with processed data."""
+    """
+    Exception raised for errors that are due to problems with the processed data
+    like division by zero, numeric value out of range, etc.
+    """
+
+    pass
+
+
+class OperationalError(DatabaseError):
+    """
+    Exception raised for errors that are related to the database's operation
+    and not necessarily under the control of the programmer.
+    """
+
+    #: HTTP status code, set when this error represents a raw HTTP failure
+    #: surfaced by ``SnowflakeRestful.fetch(..., raise_raw_http_failure=True)``.
+    #: ``None`` for operational errors that are not HTTP failures.
+    http_status: int | None = None
+
+    @classmethod
+    def from_http_response(cls, status_code: int, response_body: bytes) -> OperationalError:
+        """Build an error representing a raw HTTP failure (status >= 400).
+
+        The HTTP status is attached as :attr:`http_status` so consumers can
+        branch on it without parsing the message string. (The old driver raised
+        a vendored ``requests`` ``HTTPError`` carrying ``.response.status_code``;
+        this is the universal-driver equivalent.)
+        """
+        # Truncate body to avoid flooding error messages with large payloads.
+        error = cls(msg=f"HTTP {status_code}: {response_body[:200]!r}")
+        error.http_status = status_code
+        return error
+
+
+class IntegrityError(DatabaseError):
+    """
+    Exception raised when the relational integrity of the database is affected,
+    e.g. a foreign key check fails.
+    """
+
+    pass
+
+
+class InternalError(DatabaseError):
+    """Exception raised when the database encounters an internal error."""
+
+    pass
+
+
+class ProgrammingError(DatabaseError):
+    """
+    Exception raised for programming errors, e.g. table not found or already exists,
+    syntax error in the SQL statement, wrong number of parameters specified, etc.
+    """
 
     pass
 
 
 class NotSupportedError(DatabaseError):
-    """Exception for errors when an unsupported database feature was used."""
-
-    # Not supported errors do not have any PII in their
-    def telemetry_msg(self) -> str:
-        return self.msg
-
-
-class RevocationCheckError(OperationalError):
-    """Exception for errors during certificate revocation check."""
-
-    def __init__(self, **kwargs) -> None:
-        send_telemetry = kwargs.pop("send_telemetry", False)
-        Error.__init__(
-            self,
-            errtype=TelemetryField.OCSP_EXCEPTION,
-            send_telemetry=send_telemetry,
-            **kwargs,
-        )
-
-
-class NonRetryableTlsError(OperationalError):
-    """A TLS failure that cannot succeed on a retry.
-
-    Raised for handshake failures whose cause is a property of the endpoint or of
-    the local configuration rather than a transient network fault -- a protocol
-    version floor the peer cannot meet, an untrusted certificate, a hostname
-    mismatch. Retrying cannot change the outcome.
-
-    It exists as its own type so the authentication layer can re-raise it
-    directly instead of feeding it into its retry-until-timeout loop, which would
-    otherwise replace this error's diagnosis with a generic "could not connect"
-    message. Transient handshake faults (ECONNRESET, unexpected EOF) are *not*
-    raised as this type and remain retryable.
-
-    Still an ``OperationalError`` carrying the same errno, so existing handlers
-    keep working.
+    """
+    Exception raised in case a method or database API was used which is not
+    supported by the database.
     """
 
+    pass
 
-# internal errors
-class InternalServerError(Error):
-    """Exception for 500 HTTP code for retry."""
 
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 500: Internal Server Error",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
+# ---------------------------------------------------------------------------
+# Driver-specific exceptions (active — raised at runtime)
+# ---------------------------------------------------------------------------
+
+_FUTURE_BASE_CHANGE_WARNED = False
+
+
+def _warn_future_base_change() -> None:
+    """Advise callers that ``ReauthenticationRequest``'s base will change.
+
+    An advisory must never shadow the failure it is advising about: wrapped in
+    try/except so a caller's ``filterwarnings("error")`` can't turn this into
+    the exception the caller receives instead of ``ReauthenticationRequest``.
+    Deduped once per process so a retry loop doesn't flood stderr.
+    """
+    global _FUTURE_BASE_CHANGE_WARNED
+    if _FUTURE_BASE_CHANGE_WARNED:
+        return
+    _FUTURE_BASE_CHANGE_WARNED = True
+    try:
+        warnings.warn(
+            "`ReauthenticationRequest` currently subclasses `ProgrammingError` for "
+            "compatibility with `snowflake-connector-python`. In a future major "
+            "release its base will change to `OperationalError`. If you catch this "
+            "via `except ProgrammingError`, switch to `except ReauthenticationRequest` "
+            "(or `except DatabaseError`) to stay correct across that change.",
+            FutureWarning,
+            stacklevel=3,
         )
+    except Exception:
+        pass
 
 
-class ServiceUnavailableError(Error):
-    """Exception for 503 HTTP code for retry."""
+# `ProgrammingError` isn't the PEP 249-correct base for token expiry (that's
+# `OperationalError`), but it's what legacy raised, and `except ProgrammingError`
+# is how existing callers catch this. Base changes to `OperationalError` in a
+# future major release: TODO(SNOW-3965765).
+class ReauthenticationRequest(ProgrammingError):
+    """Raised when the session cannot be renewed; open a new connection.
 
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 503: Service Unavailable",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
+    Catch this class directly, or `DatabaseError`, to stay correct once the
+    base changes to `OperationalError`.
+    """
 
-
-class GatewayTimeoutError(Error):
-    """Exception for 504 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 504: Gateway Timeout",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class ForbiddenError(Error):
-    """Exception for 403 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 403: Forbidden",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class RequestTimeoutError(Error):
-    """Exception for 408 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 408: Request Timeout",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class BadRequest(Error):
-    """Exception for 400 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 400: Bad Request",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class BadGatewayError(Error):
-    """Exception for 502 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 502: Bad Gateway",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class MethodNotAllowed(Error):
-    """Exception for 405 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 405: Method not allowed",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class TooManyRequests(Error):
-    """Exception for 429 HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "HTTP 429: Too Many Requests",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class RefreshTokenError(Error):
-    def __init__(self, **kwargs) -> None:
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or "Token Refresh Required",
-            errno=kwargs.get("errno"),
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
-
-
-class OtherHTTPRetryableError(Error):
-    """Exception for other HTTP error for retry."""
-
-    def __init__(self, **kwargs) -> None:
-        code = kwargs.get("code", "n/a")
-        Error.__init__(
-            self,
-            msg=kwargs.get("msg") or f"HTTP {code}",
-            errno=ER_HTTP_GENERAL_ERROR + kwargs.get("errno", 0),
-            errtype=TelemetryField.HTTP_EXCEPTION,
-            sqlstate=kwargs.get("sqlstate"),
-            sfqid=kwargs.get("sfqid"),
-        )
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Snowpark reads ``ex.cause``; the old driver stored a ProgrammingError.
+        self.cause = ProgrammingError(*args, **kwargs)
+        _warn_future_base_change()
 
 
 class MissingDependencyError(Error):
@@ -640,46 +358,115 @@ class MissingDependencyError(Error):
         super().__init__(msg=f"Missing optional dependency: {dependency}")
 
 
-class BindUploadError(Error):
-    """Exception for bulk array binding stage optimization fails."""
-
-    pass
-
-
-class RequestExceedMaxRetryError(Error):
-    """Exception for REST call to remote storage API exceeding maximum retries with transient errors."""
-
-    pass
-
-
-class TokenExpiredError(Error):
-    """Exception for REST call to remote storage API failed because of expired authentication token."""
-
-    pass
-
-
-class PresignedUrlExpiredError(Error):
-    """Exception for REST call to remote storage API failed because of expired presigned URL."""
+class ConfigManagerError(Error):
+    """Exception raised for configuration manager errors."""
 
     pass
 
 
 class ConfigSourceError(Error):
-    """Configuration source related errors.
+    """Exception raised when a configuration source has invalid values."""
 
-    Examples are environmental variable and configuration file.
-    """
+    pass
 
 
 class MissingConfigOptionError(ConfigSourceError):
-    """When a configuration option is missing from the final, resolved configurations.
+    """Exception raised when a required configuration option is missing."""
 
-    This is a special-case of ConfigSourceError.
-    """
+    pass
 
 
-class ConfigManagerError(Error):
-    """Configuration manager related errors.
+# ---------------------------------------------------------------------------
+# Backward compatibility (importable, never raised by the universal core)
+#
+# See module docstring for rationale.
+# ---------------------------------------------------------------------------
 
-    This means that ConfigManager is misused by a developer.
-    """
+
+@backward_compatibility
+class HttpError(Error):
+    """Old-driver general HTTP exception."""
+
+
+@backward_compatibility
+class BadRequest(Error):
+    """Old-driver exception for HTTP 400."""
+
+
+@backward_compatibility
+class ForbiddenError(Error):
+    """Old-driver exception for HTTP 403."""
+
+
+@backward_compatibility
+class MethodNotAllowed(Error):
+    """Old-driver exception for HTTP 405."""
+
+
+@backward_compatibility
+class RequestTimeoutError(Error):
+    """Old-driver exception for HTTP 408."""
+
+
+@backward_compatibility
+class TooManyRequests(Error):
+    """Old-driver exception for HTTP 429."""
+
+
+@backward_compatibility
+class InternalServerError(Error):
+    """Old-driver exception for HTTP 500."""
+
+
+@backward_compatibility
+class BadGatewayError(Error):
+    """Old-driver exception for HTTP 502."""
+
+
+@backward_compatibility
+class ServiceUnavailableError(Error):
+    """Old-driver exception for HTTP 503."""
+
+
+@backward_compatibility
+class GatewayTimeoutError(Error):
+    """Old-driver exception for HTTP 504."""
+
+
+@backward_compatibility
+class OtherHTTPRetryableError(Error):
+    """Old-driver exception for unclassified retryable HTTP errors."""
+
+
+@backward_compatibility
+class RefreshTokenError(Error):
+    """Old-driver internal signal for OAuth token refresh."""
+
+
+@backward_compatibility
+class TokenExpiredError(Error):
+    """Old-driver internal signal for expired session tokens."""
+
+
+@backward_compatibility
+class RevocationCheckError(OperationalError):
+    """Old-driver exception for OCSP/CRL revocation check failures."""
+
+
+@backward_compatibility
+class BindUploadError(Error):
+    """Old-driver exception for stage upload failures during array binding."""
+
+
+@backward_compatibility
+class RequestExceedMaxRetryError(Error):
+    """Old-driver exception for cloud storage REST calls exceeding max retries."""
+
+
+@backward_compatibility
+class PresignedUrlExpiredError(Error):
+    """Old-driver exception for expired cloud storage presigned URLs."""
+
+
+# Must be the last statement; see ``install_backward_compatibility_getattr``.
+install_backward_compatibility_getattr(__name__)

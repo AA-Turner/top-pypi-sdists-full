@@ -16,39 +16,23 @@ try:
 except ImportError:
     _HAS_AIOHTTP_INSTRUMENTATION = False
 
-from mistralai.workflows.core.auth import TokenProvider, get_token_provider
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.temporal.runtime_metrics import build_temporal_metric_views
 from mistralai.workflows.core.tracing._otel_config import (
     WORKER_SERVICE_NAME,
-    OtelExportOptions,
     build_runtime_metrics_meter_provider,
     config_otel,
     config_otel_local,
 )
+from mistralai.workflows.core.tracing.exporters import OtelExportOptions, resolve_otlp_export_options
 
 logger = structlog.getLogger(__name__)
 
 
-def _build_export_options(
-    endpoint_override: str | None,
-    default_endpoint: str | None,
-    enabled: bool,
-) -> OtelExportOptions:
-    # Authenticate with the Mistral API key only when falling back to the default endpoint.
-    # Explicitly configured endpoints handle auth themselves via the conventional OTLP
-    # environment variables (e.g. OTEL_EXPORTER_OTLP_HEADERS).
-    return OtelExportOptions(
-        endpoint=endpoint_override or default_endpoint,
-        enabled=enabled,
-        use_api_key=not endpoint_override,
-    )
-
-
-def _signal_log_field(export_config: OtelExportOptions, endpoint_override: str | None) -> dict[str, object]:
-    # A per-signal override (or the deprecated otel_endpoint) means a custom destination;
-    # otherwise the signal exports to Mistral's hosted /telemetry endpoint.
-    mode = "custom" if endpoint_override else "mistral"
+def _signal_log_field(export_config: OtelExportOptions) -> dict[str, object]:
+    # A custom destination (deprecated otel_endpoint or a per-signal override) brings its own auth,
+    # so use_api_key is False; the default Mistral /telemetry ingest uses the service-account bearer.
+    mode = "custom" if not export_config.use_api_key else "mistral"
     return {"mode": mode, "endpoint": export_config.endpoint, "enabled": export_config.enabled}
 
 
@@ -102,39 +86,14 @@ def init_tracing(
         # Local/console dev: the pump reuses this provider (worker_id churn is a prod-mimir concern only).
         runtime_metrics_meter_provider = meter_provider if component == "worker" else None
     else:
-        common = config.common
-        if common.otel_endpoint:
-            logger.warning(
-                "otel_endpoint is deprecated, use otel_traces_endpoint and otel_metrics_endpoint instead",
-            )
-            token_provider: TokenProvider | None = None
-            # The deprecated single endpoint applies to every signal and never carries auth.
-            trace_endpoint: str | None = common.otel_endpoint
-            metric_endpoint: str | None = common.otel_endpoint
-            log_endpoint: str | None = common.otel_endpoint
-            default_endpoint: str | None = None
-        else:
-            assert config.worker.agent.mistral_client_server_url is not None  # guaranteed by WorkerConfig validator
-            default_endpoint = f"{config.worker.agent.mistral_client_server_url.rstrip('/')}/telemetry"
-            token_provider = get_token_provider(config.worker.agent.mistral_client_api_key)
-            trace_endpoint = common.otel_traces_endpoint
-            metric_endpoint = common.otel_metrics_endpoint
-            log_endpoint = common.otel_logs_endpoint
-
-        trace_config = _build_export_options(
-            trace_endpoint, default_endpoint, common.mistral_workflows_otel_traces_export
-        )
-        metric_config = _build_export_options(
-            metric_endpoint, default_endpoint, common.mistral_workflows_otel_metrics_export
-        )
-        log_config = _build_export_options(log_endpoint, default_endpoint, common.mistral_workflows_otel_logs_export)
+        otlp_exports = resolve_otlp_export_options()
 
         logger.info(
             "Telemetry enabled",
             service=service_name,
-            traces=_signal_log_field(trace_config, trace_endpoint),
-            metrics=_signal_log_field(metric_config, metric_endpoint),
-            logs=_signal_log_field(log_config, log_endpoint),
+            traces=_signal_log_field(otlp_exports.trace),
+            metrics=_signal_log_field(otlp_exports.metric),
+            logs=_signal_log_field(otlp_exports.log),
         )
 
         meter_provider, tracer_provider, logger_provider = config_otel(
@@ -143,10 +102,10 @@ def init_tracing(
             sample_rate=config.common.otel_sample_rate,
             export_otlp_interval_ms=config.common.otel_export_interval_ms,
             component=component,
-            token_provider=token_provider,
-            trace_config=trace_config,
-            metric_config=metric_config,
-            log_config=log_config,
+            token_provider=otlp_exports.token_provider,
+            trace_config=otlp_exports.trace,
+            metric_config=otlp_exports.metric,
+            log_config=otlp_exports.log,
             deployment_name=deployment_name,
             worker_name=worker_name,
             redaction=config.common.otel_redaction,
@@ -158,8 +117,8 @@ def init_tracing(
             build_runtime_metrics_meter_provider(
                 service_name,
                 config.common.app_version,
-                token_provider=token_provider,
-                metric_config=metric_config,
+                token_provider=otlp_exports.token_provider,
+                metric_config=otlp_exports.metric,
                 export_otlp_interval_ms=config.common.otel_export_interval_ms,
                 views=build_temporal_metric_views(),
             )

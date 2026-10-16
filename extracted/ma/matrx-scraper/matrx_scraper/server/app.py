@@ -296,9 +296,11 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
 # CAPS constant — a code push to change, never an env var.
 WORK_ITEM_REAPER_INTERVAL_SECONDS: float = 60.0
 
-# Max crawl sessions each crash-resume sweep continues (sequentially).
-# CAPS constant — bound the recovery work, never stampede.
-CRASH_RESUME_SWEEP_LIMIT: int = 5
+# Max crash-resumed crawl runs this process holds at once. Each sweep detaches a
+# run per crashed session up to this cap; later sweeps fill slots as runs end.
+# Ten: one container ran ten concurrent crawls when a 2026-10-15 restart killed
+# them all (MKT-156). CAPS constant — bound the recovery work, never stampede.
+CRASH_RESUME_SWEEP_LIMIT: int = 10
 # Sweep cadence. A crashed run only becomes reapable after STALE_SESSION_AFTER
 # (30 min of silence), so a boot-only sweep would miss any session that goes
 # stale AFTER boot — the loop is the reconciliation the durable-work-queue
@@ -306,7 +308,7 @@ CRASH_RESUME_SWEEP_LIMIT: int = 5
 CRASH_RESUME_INTERVAL_SECONDS: float = 600.0
 
 # Cadence of the stale-session reaper. It runs in its OWN loop, never behind the
-# resumer: `resume_crashed_sessions` AWAITS each continued crawl to completion,
+# resumer: `resume_crashed_sessions` once AWAITED each continued crawl to completion,
 # and a full-site crawl legitimately takes hours. While one was in flight the
 # reaper did not run at all, so the "reap after 30 minutes of silence" promise
 # silently degraded to "reap whenever the last resume finishes, or at the next
@@ -371,9 +373,8 @@ async def _run_crash_resume_loop(service) -> None:
 
     The reap here keeps `fail_stale_sessions` immediately BEFORE the resume
     candidate read (a session is only resumable once it has been marked failed),
-    and is cheap + idempotent. The standalone `_run_stale_session_reaper` is what
-    guarantees the reap still happens on cadence while this sweep is inside a
-    multi-hour resumed crawl.
+    and is cheap + idempotent. Resumed runs are detached, so a sweep returns at
+    once and every crawl a restart killed is running again by the first sweep.
     """
     from matrx_scraper.web_crawl import lease_reaper
     from matrx_scraper.web_crawl.persistence import WebCrawlRepository
@@ -883,7 +884,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     crash_resume = asyncio.create_task(_run_crash_resume_loop(get_web_crawl_service()))
 
-    # Stale-session reaper, in its OWN task: the crash-resume loop above awaits
+    # Stale-session reaper, in its OWN task: the crash-resume loop above once awaited
     # each continued crawl (hours), and while it does, nothing else was marking
     # orphaned queued/running sessions failed. This loop cannot be starved.
     stale_session_reaper = asyncio.create_task(_run_stale_session_reaper())
@@ -893,6 +894,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     crash_resume.cancel()
     await asyncio.gather(crash_resume, return_exceptions=True)
+    from matrx_scraper.web_crawl.service import stop_crash_resumed_runs
+
+    await stop_crash_resumed_runs()
     stale_session_reaper.cancel()
     await asyncio.gather(stale_session_reaper, return_exceptions=True)
     if work_item_reaper is not None:

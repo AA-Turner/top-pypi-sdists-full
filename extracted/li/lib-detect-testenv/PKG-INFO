@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lib_detect_testenv
-Version: 3.0.4
+Version: 3.0.6
 Summary: Detect test environment - pytest, doctest, unittest, or regular execution
 Project-URL: Homepage, https://github.com/bitranox/lib_detect_testenv
 Project-URL: Repository, https://github.com/bitranox/lib_detect_testenv.git
@@ -18,24 +18,27 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: rich-click>=1.9.8
+Requires-Dist: rich-click>=1.9.9
 Provides-Extra: dev
 Requires-Dist: bandit<1.9,>=1.8.6; (python_version < '3.10') and extra == 'dev'
 Requires-Dist: bandit>=1.9.4; (python_version >= '3.10') and extra == 'dev'
-Requires-Dist: build>=1.5.0; extra == 'dev'
-Requires-Dist: click>=8.4.2; extra == 'dev'
+Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: click>=8.5.0; extra == 'dev'
+Requires-Dist: hatchling>=1.32.4; extra == 'dev'
 Requires-Dist: import-linter<2.6,>=2.5.2; (python_version < '3.10') and extra == 'dev'
-Requires-Dist: import-linter>=2.13; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: import-linter>=2.15; (python_version >= '3.10') and extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
-Requires-Dist: pyright[nodejs]>=1.1.411; extra == 'dev'
+Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest<9,>=8.4.2; (python_version < '3.10') and extra == 'dev'
 Requires-Dist: pytest>=9.1.1; (python_version >= '3.10') and extra == 'dev'
-Requires-Dist: rtoml>=0.13.0; extra == 'dev'
-Requires-Dist: ruff>=0.16.1; extra == 'dev'
-Requires-Dist: setuptools>=83.0.0; extra == 'dev'
+Requires-Dist: rtoml>=0.14.0; extra == 'dev'
+Requires-Dist: ruff>=0.17.0; extra == 'dev'
+Requires-Dist: setuptools>=84.0.0; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -72,7 +75,7 @@ This library provides utility functions to detect whether your code is running i
 
 ### Recommended: Install via UV
 
-UV is an ultrafast Python package installer written in Rust (10–20× faster than pip/poetry):
+UV is an ultrafast Python package installer written in Rust (10-20× faster than pip/poetry):
 
 ```bash
 # Install uv
@@ -107,9 +110,39 @@ For more installation methods (pipx, source builds, etc.), see [INSTALL.md](INST
 
 ### Python Version Requirements
 
-- **Python 3.9+** is required
+- **Python 3.10+** is required
 - Tested on Linux, macOS, and Windows
-- CI runs on CPython 3.9+ and PyPy
+- CI runs on CPython 3.10 to 3.15
+
+### Why we recommend uv: supply-chain protection
+
+This repository commits a `uv.lock`. It pins every package the project needs, transitive
+dependencies included, to an exact version and to the hashes of that version's files. The
+`exclude-newer` setting under `[tool.uv]` in `pyproject.toml` adds a cooldown: uv leaves any
+release younger than that out of the lock. CI installs from the lock, so a hijacked release that
+gets pulled again within the cooldown never reaches our builds, and a file whose hash does not
+match is refused.
+
+That protection stays in this repository. The installable package declares only lower bounds
+(`>=`) for its dependencies, so a plain `pip install` takes the newest release of every transitive
+dependency at the moment you run it. If one of them was hijacked an hour earlier, you get the
+hijacked version. `pipx install` and `uv tool install` without options do the same.
+
+To install the command line tool with a cooldown of your own (uv then skips any release younger
+than 7 days, transitive ones included), or to run the exact tree our CI tests:
+
+```bash
+uv tool install --exclude-newer "7 days" lib_detect_testenv
+git clone https://github.com/bitranox/lib_detect_testenv.git && cd lib_detect_testenv && uv sync --locked && uv run lib_detect_testenv --help
+```
+
+If you depend on lib_detect_testenv in your own project, give that project the same cooldown (7 days here, as
+an example) and commit the `uv.lock` that `uv add lib_detect_testenv` writes:
+
+```toml
+[tool.uv]
+exclude-newer = "7 days"
+```
 
 ## Usage
 
@@ -121,11 +154,11 @@ The package provides a CLI for shell scripting and CI/CD integration. All comman
 
 All detection commands use a **3-level exit code system**:
 
-| Code | Meaning | Use Case |
-|------|---------|----------|
-| **0** | Test environment **detected** | Success - test env found |
-| **1** | Test environment **not detected** | Normal negative result (not an error) |
-| **2** | **Error occurred** | Command failed (bad arguments, exception) |
+| Code  | Meaning                           | Use Case                                  |
+|-------|-----------------------------------|-------------------------------------------|
+| **0** | Test environment **detected**     | Success - test env found                  |
+| **1** | Test environment **not detected** | Normal negative result (not an error)     |
+| **2** | **Error occurred**                | Command failed (bad arguments, exception) |
 
 This design follows Unix conventions and makes shell scripting intuitive:
 

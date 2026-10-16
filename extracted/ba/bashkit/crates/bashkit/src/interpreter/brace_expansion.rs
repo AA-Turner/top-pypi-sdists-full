@@ -81,6 +81,18 @@ impl Interpreter {
         // No valid brace pattern found
         let (start, end) = match (brace_start, brace_end) {
             (Some(s), Some(e)) => (s, e),
+            // An unclosed `{` is literal; a later group may still close
+            // (`{{a,b}` -> `{a {b`).
+            (Some(open), None) => {
+                return self.expand_after_literal_brace(
+                    &chars,
+                    open,
+                    count,
+                    bytes,
+                    max,
+                    recursion_depth,
+                );
+            }
             _ => return vec![s.to_string()],
         };
 
@@ -90,7 +102,14 @@ impl Interpreter {
 
         // Brace content with leading/trailing space is not expanded
         if brace_content.starts_with(' ') || brace_content.ends_with(' ') {
-            return vec![s.to_string()];
+            return self.expand_after_literal_brace(
+                &chars,
+                start,
+                count,
+                bytes,
+                max,
+                recursion_depth,
+            );
         }
 
         // Check for range expansion like {1..5} or {a..z}
@@ -113,9 +132,17 @@ impl Interpreter {
         // List expansion like {a,b,c}
         // Need to split by comma, but respect nested braces
         let items = self.split_brace_items(&brace_content);
-        if items.len() <= 1 && !brace_content.contains(',') {
-            // Not a valid brace expansion (e.g., just {foo})
-            return vec![s.to_string()];
+        if items.len() <= 1 {
+            // Not a valid brace expansion (e.g., just {foo}): the `{` stays
+            // literal and later groups still expand (`{x}{a,b}` -> `{x}a {x}b`).
+            return self.expand_after_literal_brace(
+                &chars,
+                start,
+                count,
+                bytes,
+                max,
+                recursion_depth,
+            );
         }
 
         let mut results = Vec::new();
@@ -131,6 +158,105 @@ impl Interpreter {
         }
 
         results
+    }
+
+    /// The group opening at `start` is not a brace expansion: keep text up to
+    /// and including that `{` and expand whatever follows it.
+    fn expand_after_literal_brace(
+        &self,
+        chars: &[char],
+        start: usize,
+        count: &mut usize,
+        bytes: &mut usize,
+        max: usize,
+        recursion_depth: usize,
+    ) -> Vec<String> {
+        let head: String = chars[..=start].iter().collect();
+        let rest: String = chars[start + 1..].iter().collect();
+        self.expand_braces_capped(&rest, count, bytes, max, recursion_depth + 1)
+            .into_iter()
+            .map(|tail| format!("{head}{tail}"))
+            .collect()
+    }
+
+    /// Brace-expand a word before any other expansion, as bash does.
+    ///
+    /// Only unquoted literal text takes part: every other part (variables,
+    /// command substitutions, quoted segments) is an opaque atom, so text an
+    /// expansion produces is never brace-expanded (`y='{a,b}'; echo $y`
+    /// prints `{a,b}`) and `{1..$n}` stays literal. Atoms are carried through
+    /// the string-based expander as private-use placeholder characters and
+    /// mapped back to the original parts afterwards.
+    ///
+    /// Backslashes stay escapes, as in the lexer's quoted-glob convention
+    /// (`a"{"b,c}{1,2}` arrives as `a\{b,c}{1,2}`). Fully quoted words never
+    /// brace-expand.
+    pub(super) fn brace_expand_word(&self, word: &Word) -> Option<Vec<Word>> {
+        if word.quoted && !word.has_unquoted_glob {
+            return None;
+        }
+        let quoted_at = |i: usize| word.part_quoted.get(i).copied().unwrap_or(word.quoted);
+        let has_brace =
+            word.parts.iter().enumerate().any(
+                |(i, p)| matches!(p, WordPart::Literal(t) if !quoted_at(i) && t.contains('{')),
+            );
+        if !has_brace {
+            return None;
+        }
+        let mut text = String::new();
+        for (i, part) in word.parts.iter().enumerate() {
+            match part {
+                WordPart::Literal(t) if !quoted_at(i) => {
+                    for ch in t.chars() {
+                        if is_brace_placeholder(ch) {
+                            // Cannot encode this word; leave it unexpanded.
+                            return None;
+                        }
+                        text.push(ch);
+                    }
+                }
+                _ => text.push(placeholder_for(i)?),
+            }
+        }
+        let expanded = self.expand_braces(&text);
+        if expanded.len() == 1 && expanded[0] == text {
+            return None;
+        }
+        let mut words = Vec::with_capacity(expanded.len());
+        for item in expanded {
+            // An unquoted brace item that expands to nothing is dropped
+            // (`echo {,a}` prints `a`).
+            if item.is_empty() {
+                continue;
+            }
+            let mut parts = Vec::new();
+            let mut part_quoted = Vec::new();
+            let mut lit = String::new();
+            for ch in item.chars() {
+                if let Some(i) = placeholder_index(ch) {
+                    if !lit.is_empty() {
+                        parts.push(WordPart::Literal(std::mem::take(&mut lit)));
+                        part_quoted.push(false);
+                    }
+                    parts.push(word.parts[i].clone());
+                    part_quoted.push(quoted_at(i));
+                } else {
+                    lit.push(ch);
+                }
+            }
+            if !lit.is_empty() {
+                parts.push(WordPart::Literal(lit));
+                part_quoted.push(false);
+            }
+            words.push(Word {
+                parts,
+                quoted: word.quoted,
+                has_unquoted_glob: word.has_unquoted_glob,
+                part_quoted,
+                raw: None,
+            });
+        }
+        Some(words)
     }
 
     /// Try to expand a range like 1..5, a..z, or 1..10..2
@@ -153,7 +279,8 @@ impl Interpreter {
             // Parse optional step (default: 1 or -1 based on direction)
             let step: i64 = if parts.len() == 3 {
                 match parts[2].parse::<i64>() {
-                    Ok(0) => return None, // step=0 is invalid
+                    // bash treats a zero step as 1.
+                    Ok(0) => 1,
                     Ok(s) => s,
                     Err(_) => return None,
                 }
@@ -180,16 +307,27 @@ impl Interpreter {
                 -step_magnitude
             };
 
+            // `{01..10}`: a leading zero on either end pads every item to the
+            // wider end's length (the `-` counts toward the width).
+            let zero_padded = |n: &str| {
+                let digits = n.strip_prefix('-').unwrap_or(n);
+                digits.len() > 1 && digits.starts_with('0')
+            };
+            let width = if zero_padded(start) || zero_padded(end) {
+                start.len().max(end.len())
+            } else {
+                0
+            };
             let mut i = start_num as i128;
             let end = end_num as i128;
             if effective_step > 0 {
                 while i <= end {
-                    results.push(i.to_string());
+                    results.push(format!("{i:0width$}"));
                     i += effective_step;
                 }
             } else {
                 while i >= end {
-                    results.push(i.to_string());
+                    results.push(format!("{i:0width$}"));
                     i += effective_step;
                 }
             }
@@ -204,7 +342,7 @@ impl Interpreter {
             if start_char.is_ascii_alphabetic() && end_char.is_ascii_alphabetic() {
                 let step: i64 = if parts.len() == 3 {
                     match parts[2].parse::<i64>() {
-                        Ok(0) => return None,
+                        Ok(0) => 1,
                         Ok(s) => s,
                         Err(_) => return None,
                     }
@@ -248,9 +386,19 @@ impl Interpreter {
         let mut items = Vec::new();
         let mut current = String::new();
         let mut depth = 0;
+        let mut escaped = false;
 
         for ch in content.chars() {
+            if escaped {
+                escaped = false;
+                current.push(ch);
+                continue;
+            }
             match ch {
+                '\\' => {
+                    escaped = true;
+                    current.push(ch);
+                }
                 '{' => {
                     depth += 1;
                     current.push(ch);
@@ -272,4 +420,24 @@ impl Interpreter {
 
         items
     }
+}
+
+/// Opaque word part `i` is carried as `BASE + 1 + i`.
+const BRACE_PLACEHOLDER_BASE: u32 = 0xF0000;
+/// Words with more parts than this are not brace-expanded.
+const BRACE_MAX_PARTS: u32 = 0xFFF0;
+
+fn is_brace_placeholder(ch: char) -> bool {
+    (BRACE_PLACEHOLDER_BASE..=BRACE_PLACEHOLDER_BASE + BRACE_MAX_PARTS).contains(&(ch as u32))
+}
+
+fn placeholder_for(i: usize) -> Option<char> {
+    let i = u32::try_from(i).ok().filter(|i| *i < BRACE_MAX_PARTS)?;
+    char::from_u32(BRACE_PLACEHOLDER_BASE + 1 + i)
+}
+
+fn placeholder_index(ch: char) -> Option<usize> {
+    let c = ch as u32;
+    (c > BRACE_PLACEHOLDER_BASE && c <= BRACE_PLACEHOLDER_BASE + BRACE_MAX_PARTS)
+        .then(|| (c - BRACE_PLACEHOLDER_BASE - 1) as usize)
 }

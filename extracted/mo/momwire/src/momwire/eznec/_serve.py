@@ -90,7 +90,9 @@ The basis, and why it is the one
 portal solves every NEC-2 deck with, plus the EXTENDED KERNEL (momwire#1326):
 NEC-5's own kernel behaves as EK-on and this dialect has no card to say
 otherwise, so every basis here takes it unless it or the deck cannot, and
-then solves reduced with an ``ExtendedKernelDefault`` advisory.
+then solves reduced with an ``ExtendedKernelDefault`` advisory.  A deck with
+buried wires keeps it above ground on ``bspline`` (momwire#1170 stage 0): the
+buried wires solve reduced, and the same advisory says which.
 
 The family used to be no choice at all, and that claim was wrong.  NEC-5
 addresses NODES and ``node_gaps`` (momwire#305, the apex-feed arc) is the only
@@ -478,6 +480,7 @@ import numpy as np
 from ..bspline import BSplineSolver
 from ..deck._cards import tokenize
 from .. import _ground_spec, _medium_spec
+from .. import _cmul, _lapack
 from ..deck._nec5 import (
     Nec5Conductivity,
     Nec5Deck,
@@ -556,6 +559,7 @@ from ._printout import (
     RunData,
     WireCurrentRow,
 )
+from .._vec3 import norm3
 
 # The printed-dust floor for THIS seam, and its own number — the portal's
 # ``_PRINTED_DUST_FLOOR2`` is not imported on purpose (momwire#578). That
@@ -1903,7 +1907,7 @@ class _Piece:
 
     @property
     def length(self) -> float:
-        return float(np.linalg.norm(self.points[1] - self.points[0]))
+        return float(norm3(self.points[1] - self.points[0]))
 
 
 @dataclass
@@ -2177,7 +2181,7 @@ def build_mesh(
                     inside_piece[(wire.tag, k)] = (
                         index,
                         float(
-                            np.linalg.norm(
+                            norm3(
                                 np.asarray(points[k], dtype=float)
                                 - mesh.pieces[index].points[0]
                             )
@@ -2318,13 +2322,11 @@ def _split_element(mesh: _Mesh, points, lower: int, upper: int) -> _SplitElement
     a = np.asarray(points[first.first_node], dtype=float)
     b = np.asarray(points[first.last_node], dtype=float)
     centre = 0.5 * (a + b)
-    s = float(np.linalg.norm(centre - first.points[0]))
+    s = float(norm3(centre - first.points[0]))
     if s <= first.length:
         return _SplitElement(lower, upper, lower, s)
     second = mesh.pieces[upper]
-    return _SplitElement(
-        lower, upper, upper, float(np.linalg.norm(centre - second.points[0]))
-    )
+    return _SplitElement(lower, upper, upper, float(norm3(centre - second.points[0])))
 
 
 def _canonical_end(end: tuple[int, str]) -> tuple[int, int]:
@@ -2956,9 +2958,7 @@ def _line_card(
     different numbers, so the captured column is what picks the reading.
     """
     length = line.length_m or float(
-        np.linalg.norm(
-            _node_point(structure, line.end_a) - _node_point(structure, line.end_b)
-        )
+        norm3(_node_point(structure, line.end_a) - _node_point(structure, line.end_b))
     )
     if length == 0.0:
         raise ServeRefusal(
@@ -3284,7 +3284,7 @@ def _port_state(
     identical in its last bits.
     """
     t = _transform(mesh)
-    y = t.T @ y_solver @ t
+    y = _lapack.matmul(_lapack.matmul(t.T, y_solver), t)
     n = len(mesh.sites)
     z_load = np.array([site.load for site in mesh.sites], dtype=np.complex128)
     # Two load vectors from here down, and they differ only at a VIRTUAL site
@@ -3298,23 +3298,23 @@ def _port_state(
     (driven,) = [site.index for site in mesh.sites if site.driven]
     probe = np.zeros(n, dtype=np.complex128)
     probe[driven] = 1.0
-    loaded = np.eye(n, dtype=np.complex128) + z_series[:, None] * y
+    loaded = np.eye(n, dtype=np.complex128) + _cmul.cmul(z_series[:, None], y)
 
     if not cards:
         # No network reaches this deck, so the source current IS the port
         # current and the applied voltage is the gap's plus the load drop.
         # This branch is U4's arithmetic, conjugated by T and no more, which
         # is what keeps every bare capture's printout where it was.
-        v_gap = np.linalg.solve(loaded, probe)
-        i_port = y @ v_gap
+        v_gap = _lapack.solve_stacked(loaded, probe)
+        i_port = _lapack.matmul(y, v_gap)
         i_source = i_port
-        v_applied = v_gap + z_series * i_port
+        v_applied = v_gap + _cmul.cmul(z_series, i_port)
     else:
-        y_eff = y if not np.any(z_series) else np.linalg.solve(loaded.T, y.T).T
+        y_eff = y if not np.any(z_series) else _lapack.solve_stacked(loaded.T, y.T).T
         v_applied, i_port, i_source = _reduced_state(
             cards, n, probe, (driven,), y_eff, wavelength
         )
-        v_gap = v_applied - z_series * i_port
+        v_gap = v_applied - _cmul.cmul(z_series, i_port)
 
     scale = (
         source.drive
@@ -3322,10 +3322,10 @@ def _port_state(
         else source.drive / complex(i_source[driven])  # EX 4: the current is set
     )
     return _PortState(
-        v_applied=v_applied * scale,
-        v_gap=v_gap * scale,
-        i_port=i_port * scale,
-        i_source=i_source * scale,
+        v_applied=_cmul.cmul(v_applied, scale),
+        v_gap=_cmul.cmul(v_gap, scale),
+        i_port=_cmul.cmul(i_port, scale),
+        i_source=_cmul.cmul(i_source, scale),
         z_load=z_load,
     )
 
@@ -3429,8 +3429,8 @@ def _multi_drive_state(
     """
     n = len(mesh.sites)
     driven = [site.index for site in mesh.sites if site.driven]
-    loaded = np.eye(n, dtype=np.complex128) + z_series[:, None] * y
-    y_eff = y if not np.any(z_series) else np.linalg.solve(loaded.T, y.T).T
+    loaded = np.eye(n, dtype=np.complex128) + _cmul.cmul(z_series[:, None], y)
+    y_eff = y if not np.any(z_series) else _lapack.solve_stacked(loaded.T, y.T).T
 
     site_of = {site.at: site.index for site in mesh.sites}
     row_of = {index: k for k, index in enumerate(driven)}
@@ -3474,8 +3474,8 @@ def _multi_drive_state(
         # unrounded, or a byte-gated printout could move in its last digit.
         rhs = spec[i_rows]
         if v_sites:
-            rhs = rhs - m[np.ix_(i_rows, v_rows)] @ spec[v_rows]
-        volts[i_sites] = np.linalg.solve(m[np.ix_(i_rows, i_rows)], rhs)
+            rhs = rhs - _lapack.matmul(m[np.ix_(i_rows, v_rows)], spec[v_rows])
+        volts[i_sites] = _lapack.solve_stacked(m[np.ix_(i_rows, i_rows)], rhs)
     # With no I-set (momwire#1099, momwire#1105) `volts` above IS the answer -
     # there is no map to measure and nothing to invert, network or none: the
     # applied voltages are the deck's own set quantity, not a current a map
@@ -3483,7 +3483,7 @@ def _multi_drive_state(
 
     if not cards:
         v_applied = volts
-        i_port = y_eff @ v_applied
+        i_port = _lapack.matmul(y_eff, v_applied)
         i_source = i_port.copy()
     else:
         v_applied, i_port, i_source = _reduced_state(
@@ -3509,7 +3509,7 @@ def _multi_drive_state(
         v_applied[v_sites] = spec[v_rows]
     return _PortState(
         v_applied=v_applied,
-        v_gap=v_applied - z_series * i_port,
+        v_gap=v_applied - _cmul.cmul(z_series, i_port),
         i_port=i_port,
         i_source=i_source,
         z_load=z_load,
@@ -3835,18 +3835,15 @@ def _element_geometry(structure: Structure, wavelength: float):
             continue
         # momwire#1420: one array per wire rather than two per element. The
         # centre is the same elementwise ``0.5 * (a + b) / wavelength``, and
-        # the length keeps ``np.linalg.norm``'s own arithmetic for a vector,
-        # ``sqrt(d.dot(d))``, row by row — so both columns are bit-identical
-        # to the per-element walk this replaced.
+        # the length is `norm3`'s, row by row: the per-element walk this
+        # replaced took ``sqrt(d.dot(d))``, BLAS ``ddot``, which is `norm3`'s
+        # order on the reference machines and fused on AVX-512 ones.
         p = np.asarray(points[: n + 1], dtype=float)
         a, b = p[:-1], p[1:]
         centres.extend(0.5 * (a + b) / wavelength)
-        lengths.extend(float(_sqrt(d.dot(d))) / wavelength for d in b - a)
+        lengths.extend(float(length) / wavelength for length in norm3(b - a))
         tags.extend([wire.tag] * n)
     return centres, lengths, tags
-
-
-_sqrt = np.sqrt
 
 
 def _element_currents_and_charges(
@@ -4059,6 +4056,7 @@ def _pattern(
     *,
     ground_z: float = 0.0,
     cliff=None,
+    p_radiated: float | None = None,
 ) -> PatternBlock:
     """One ``RP 0`` card's answer.
 
@@ -4143,13 +4141,24 @@ def _pattern(
     else:
         range_phase_deg = None
 
+    # XNDA's D digit (momwire#1503): 1 asks for DIRECTIVE gains in the rows,
+    # the same pattern normalised to the RADIATED power rather than the input
+    # power -- measured black-box on the NEC-5 engine with a 40 ohm load in
+    # the wire (76.9 % efficiency): every row moves by 10*log10(Pin/Prad) and
+    # the average-gain trailer does not move (it stays a power gain). Only a
+    # caller that passes the budget's radiated power can ask for it.
+    directive = p_radiated is not None and request.xnda // 10 % 10 == 1
+    g_v_rows, g_h_rows = g_v, g_h
+    if directive:
+        scale = p_in / p_radiated if p_radiated > 0 else 0.0
+        g_v_rows, g_h_rows = g_v * scale, g_h * scale
     rows = _pattern_rows(
         thetas,
         phis,
         e_theta,
         e_phi,
-        g_v,
-        g_h,
+        g_v_rows,
+        g_h_rows,
         below_horizon,
         floor_scale,
         range_m,
@@ -4157,6 +4166,8 @@ def _pattern(
     )
 
     ranged = {"range_m": range_m, "range_phase_deg": range_phase_deg} if range_m else {}
+    if directive:
+        ranged["directive"] = True
     if range_m and lower_k is not None:
         # Over a finite ground the range form adds the LOWER medium's
         # exp(-j k_m R)/R (momwire#1237, captured over GN 0, GN 2 and GD; a
@@ -4168,8 +4179,12 @@ def _pattern(
         )
     if request.xnda % 10 == 0:
         # XNDA's A digit asks for the average gain; 1000 (0010, 0044) does
-        # not and 1001 (0013, 0035) does.
+        # not and 1001 (0013, 0035) does.  So do 1003 (4nec2's default, the
+        # same printout as 1001) and 1002, which prints the trailer with no
+        # rows (momwire#1503, measured black-box on the NEC-5 engine).
         return PatternBlock(rows=rows, **ranged)
+    if request.xnda % 10 == 2:
+        rows = ()
     average, solid = average_gain(
         g_v + g_h, thetas, request.d_theta_deg, request.d_phi_deg, request.n_phi
     )
@@ -4399,7 +4414,7 @@ def _check_basis_can_host(
     if inert and issubclass(solver_class, _NATIVE_LOADING):
         raise ServeRefusal(
             f"wire {mesh.pieces[inert[0]].tag} is one segment long and meets "
-            f"no other wire at either end, so basis {basis!r} has no basis "
+            f"no other wire at either end, so basis {basis} has no basis "
             f"function to put on it and it would scatter nothing "
             f"(momwire#608); this deck declares {len(inert)} such GW card"
             f"{'s' if len(inert) > 1 else ''}"
@@ -4642,6 +4657,8 @@ def _prepare(deck: Nec5Deck, *, basis: str = BASIS) -> _Prepared:
     # EK-on and the dialect has no card for it, so this seam solves EK-on
     # unless the basis or the deck cannot take it, and then falls back to the
     # reduced kernel with an `ExtendedKernelDefault` advisory, not a refusal.
+    # Buried wires on a B-spline basis: extended above ground, reduced on the
+    # buried wires, same advisory (momwire#1170 stage 0).
     try:
         solver = _solver_for(
             deck,
@@ -4692,7 +4709,9 @@ def _finish(deck: Nec5Deck, prepared: _Prepared) -> RunData:
     state = _port_state(deck, mesh, cards, solution.y, wavelength)
     # Back across T: the structure is driven by the SOLVER's gap EMFs, which
     # is the one place besides the admittance that the two conventions meet.
-    coeffs = solution.coeffs @ (_transform(mesh) @ state.v_gap)
+    coeffs = _lapack.matmul(
+        solution.coeffs, _lapack.matmul(_transform(mesh), state.v_gap)
+    )
 
     # One row per EX card, in DECK order — which is the order 0031 prints its
     # four in, and which is not the order the sites were built in (those are
@@ -4824,6 +4843,7 @@ def _finish(deck: Nec5Deck, prepared: _Prepared) -> RunData:
                 lower_k=None
                 if medium is None
                 else (2.0 * math.pi / wavelength) * cmath.sqrt(medium.eps_c),
+                p_radiated=p_radiated,
             )
             for request in deck.requests
             if isinstance(request, Nec5FarFieldRequest)

@@ -117,7 +117,7 @@ async def fake_connector_list_user_credentials(connector_id_or_name: str, run_as
         return CredentialsResponse.model_validate(_fake_poll_credentials[connector_id_or_name])
     data = _fake_user_credentials.get(
         connector_id_or_name,
-        {"credentials": [], "connector_preset_credentials_for_auth": []},
+        {"credentials": []},
     )
     return CredentialsResponse.model_validate(data)
 
@@ -339,14 +339,6 @@ class McpAppConnectorWorkflow:
         return ctx.trusted_extensions.get(MISTRALAI_PLUGIN_KEY, {}).get(RESOLVED_CONNECTORS_KEY, {})
 
 
-@workflow.define(name="test-preset-creds-wf")
-@uses_connectors(slack)
-class PresetCredsWorkflow:
-    @workflow.entrypoint
-    async def run(self) -> str:
-        return "preset-done"
-
-
 @workflow.define(name="test-bearer-no-oauth2-wf")
 @uses_connectors(connector("bearer-only"))
 class BearerOnlyNoCredsWorkflow:
@@ -475,7 +467,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         captured_events: list[Any] = []
@@ -570,7 +561,6 @@ class TestConnectorInterceptorIntegration:
                 "credentials": [
                     {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
                 ],
-                "connector_preset_credentials_for_auth": [],
             }
         interceptor = ConnectorAuthInterceptor(workflows=[MultiConnectorWorkflow])
         captured_events: list[Any] = []
@@ -606,7 +596,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[MixedConnectorsWorkflow])
         captured_events: list[Any] = []
@@ -633,7 +622,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         async with create_test_worker(
@@ -712,7 +700,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_auth_methods["conn-bearer-svc"] = [
             {"method_type": "oauth2", "headers": None, "has_default_credentials": False},
@@ -739,7 +726,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = True
         interceptor = ConnectorAuthInterceptor(workflows=[OAuth2WithExistingCredsWorkflow])
@@ -763,7 +749,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = True
         _fake_mcp_app_resource_uris["conn-slack"] = {"debug-tool": "ui://debug/app"}
@@ -794,7 +779,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_mcp_app_resource_uris["conn-mcp-apps"] = {
             "debug-tool": "ui://debug/app",
@@ -847,7 +831,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = False
         _fake_auth_methods["conn-slack"] = [
@@ -857,7 +840,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "refreshed-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[OAuth2WithExistingCredsWorkflow])
         async with create_test_worker(
@@ -872,33 +854,6 @@ class TestConnectorInterceptorIntegration:
                 task_queue="test-task-queue",
             )
             assert _unwrap_result(await handle.result()) == "oauth2-existing-done"
-
-    @pytest.mark.asyncio
-    async def test_preset_oauth2_no_user_creds_requires_auth(self, temporal_env: WorkflowEnvironment) -> None:
-        _reset_fake_state()
-        _fake_user_credentials["conn-slack"] = {
-            "credentials": [],
-            "connector_preset_credentials_for_auth": ["oauth2"],
-        }
-        _fake_poll_credentials["conn-slack"] = {
-            "credentials": [
-                {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
-            ],
-            "connector_preset_credentials_for_auth": [],
-        }
-        interceptor = ConnectorAuthInterceptor(workflows=[PresetCredsWorkflow])
-        async with create_test_worker(
-            temporal_env,
-            workflows=[PresetCredsWorkflow],
-            activities=CONNECTOR_ACTIVITIES,
-            interceptors=[interceptor, EventInterceptor()],
-        ):
-            handle = await temporal_env.client.start_workflow(
-                "test-preset-creds-wf",
-                id="test-preset-creds-needs-auth",
-                task_queue="test-task-queue",
-            )
-            assert _unwrap_result(await handle.result()) == "preset-done"
 
     @pytest.mark.asyncio
     async def test_bearer_only_no_creds_raises_error(self, temporal_env: WorkflowEnvironment) -> None:
@@ -974,7 +929,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-token", "authentication_type": "bearer", "scope": "deployment", "is_default": False}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         connector_interceptor = ConnectorAuthInterceptor(workflows=[WorkerIdentityWorkflow])
         dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
@@ -1016,7 +970,6 @@ class TestConnectorInterceptorIntegration:
         _reset_fake_state()
         _fake_user_credentials["conn-bearer-svc"] = {
             "credentials": [],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
         async with Worker(
@@ -1044,7 +997,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-bearer-svc"] = False
         _fake_auth_methods["conn-bearer-svc"] = [
@@ -1054,7 +1006,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
         async with create_test_worker(
@@ -1078,7 +1029,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-bearer-svc"] = False
         _fake_auth_methods["conn-bearer-svc"] = [
@@ -1089,7 +1039,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "other-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
         async with Worker(
@@ -1118,7 +1067,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         # list_tools returns True by default → workflow skips auth
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
@@ -1145,7 +1093,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         # list_tools returns True by default → workflow skips auth
         interceptor = ConnectorAuthInterceptor(workflows=[OAuth2WithExistingCredsWorkflow])
@@ -1174,7 +1121,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-bearer-svc"] = False
         _fake_auth_methods["conn-bearer-svc"] = [
@@ -1184,7 +1130,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "my-bearer-token", "authentication_type": "bearer", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[BearerWithCredsWorkflow])
         captured_events: list[Any] = []
@@ -1223,7 +1168,6 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         interceptor = ConnectorAuthInterceptor(workflows=[SingleConnectorWorkflow])
         captured_events: list[Any] = []
@@ -1253,7 +1197,6 @@ class TestConnectorInterceptorIntegration:
         _reset_fake_state()
         _fake_user_credentials["conn-github"] = {
             "credentials": [{"name": "my-pat", "authentication_type": "bearer", "scope": "user", "is_default": False}],
-            "connector_preset_credentials_for_auth": [],
         }
         connector_interceptor = ConnectorAuthInterceptor(workflows=[OboSingleConnectorGithubWorkflow])
         dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
@@ -1297,13 +1240,11 @@ class TestConnectorInterceptorIntegration:
             "credentials": [
                 {"name": "github-pat", "authentication_type": "bearer", "scope": "user", "is_default": False}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_user_credentials["conn-slack"] = {
             "credentials": [
                 {"name": "slack-token", "authentication_type": "bearer", "scope": "user", "is_default": False}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         connector_interceptor = ConnectorAuthInterceptor(workflows=[OboMultiConnectorWorkflow])
         dc = DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter)
@@ -1876,7 +1817,6 @@ class TestConnectorWorkflowContinueAsNew:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = True
 
@@ -1941,7 +1881,6 @@ class TestTrustedContextInheritance:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = True
 
@@ -1990,7 +1929,6 @@ class TestTrustedContextInheritance:
             "credentials": [
                 {"name": "my-oauth-cred", "authentication_type": "oauth2", "scope": "user", "is_default": True}
             ],
-            "connector_preset_credentials_for_auth": [],
         }
         _fake_list_tools_results["conn-slack"] = True
 

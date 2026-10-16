@@ -1,0 +1,266 @@
+use super::{ConfigError, ConfigFileReadSnafu, TomlParseSnafu};
+#[cfg(unix)]
+use crate::env_vars;
+use snafu::ResultExt;
+use std::fs;
+use std::path::Path;
+
+/// Controls whether file-permission safety checks are performed when reading
+/// config files.
+///
+/// Pass `UnsafeDisabled` only when the `unsafe_skip_file_permissions_check`
+/// connection parameter is explicitly set by the caller.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FilePermissionCheck {
+    Enabled,
+    UnsafeDisabled,
+}
+
+/// Load a TOML file from disk and parse it.
+///
+/// When `permission_check` is `UnsafeDisabled`, the file-permission safety check is
+/// bypassed (mirrors the `unsafe_skip_file_permissions_check` connection
+/// parameter).
+pub fn load_toml_file(
+    path: &Path,
+    permission_check: FilePermissionCheck,
+) -> Result<toml::Value, ConfigError> {
+    match path.try_exists() {
+        Ok(false) => return Ok(toml::Value::Table(toml::map::Map::new())),
+        Err(e) => {
+            return Err(ConfigError::ConfigFileRead {
+                path: path.display().to_string(),
+                source: e,
+                location: snafu::Location::new(file!(), line!(), 0),
+            });
+        }
+        Ok(true) => {}
+    }
+
+    check_file_permissions(path, permission_check)?;
+
+    let contents = fs::read_to_string(path).context(ConfigFileReadSnafu {
+        path: path.display().to_string(),
+    })?;
+
+    let value = toml::from_str(&contents).context(TomlParseSnafu {
+        path: path.display().to_string(),
+    })?;
+
+    Ok(value)
+}
+
+/// Check file permissions for security (Unix only).
+///
+/// When `permission_check` is `Disabled`, all checks are bypassed and a
+/// security-relevant info log is emitted so that the skip is auditable.
+#[allow(unused_variables)]
+pub fn check_file_permissions(
+    path: &Path,
+    permission_check: FilePermissionCheck,
+) -> Result<(), ConfigError> {
+    #[cfg(unix)]
+    {
+        if permission_check == FilePermissionCheck::UnsafeDisabled {
+            tracing::info!(
+                path = %path.display(),
+                "skipping file permission check (unsafe_skip_file_permissions_check=true)"
+            );
+            return Ok(());
+        }
+
+        use super::InsecurePermissionsSnafu;
+        use std::os::unix::fs::PermissionsExt;
+
+        let metadata = fs::metadata(path).context(ConfigFileReadSnafu {
+            path: path.display().to_string(),
+        })?;
+        let permissions = metadata.permissions();
+        let mode = permissions.mode();
+
+        if mode & 0o022 != 0 {
+            return InsecurePermissionsSnafu {
+                path: path.display().to_string(),
+                reason: "File is writable by group or others",
+            }
+            .fail();
+        }
+
+        if mode & 0o044 != 0
+            && std::env::var(env_vars::SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE).is_err()
+        {
+            tracing::warn!(
+                "Config file {} is readable by group or others",
+                path.display()
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_load_toml_file_not_exists() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("nonexistent.toml");
+
+        let result = load_toml_file(&file_path, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        // Should return empty table for non-existent file
+        let value = result.unwrap();
+        assert!(value.as_table().is_some());
+        assert!(value.as_table().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_load_toml_file_valid() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.toml");
+        let content = r#"
+[section]
+key = "value"
+number = 42
+"#;
+        fs::write(&file_path, content).unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&file_path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+
+        let result = load_toml_file(&file_path, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        let value = result.unwrap();
+        let table = value.as_table().unwrap();
+        assert!(table.contains_key("section"));
+
+        let section = table.get("section").unwrap().as_table().unwrap();
+        assert_eq!(section.get("key").unwrap().as_str().unwrap(), "value");
+        assert_eq!(section.get("number").unwrap().as_integer().unwrap(), 42);
+    }
+
+    #[test]
+    fn test_load_toml_file_invalid() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("invalid.toml");
+        let content = "This is not valid TOML {][@#";
+        fs::write(&file_path, content).unwrap();
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&file_path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+
+        let result = load_toml_file(&file_path, FilePermissionCheck::Enabled);
+        assert!(result.is_err());
+        // Should be a parse error
+        assert!(result.unwrap_err().to_string().contains("parse TOML"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_check_file_permissions_writable_by_others() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("insecure.toml");
+        fs::write(&file_path, "").unwrap();
+
+        // Set writable by others
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o666)).unwrap();
+
+        let result = check_file_permissions(&file_path, FilePermissionCheck::Enabled);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Insecure file permissions")
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn check_file_permissions_matches_old_driver_permission_matrix() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let cases: &[(u32, bool)] = &[
+            (0o740, true),  // group-read, no group-write
+            (0o720, false), // group-write, no group-read
+            (0o711, true),  // group/others execute bits do not matter
+        ];
+
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("permission_matrix.toml");
+        fs::write(&file_path, "").unwrap();
+
+        for (mode, expect_allowed) in cases {
+            fs::set_permissions(&file_path, fs::Permissions::from_mode(*mode)).unwrap();
+            let result = check_file_permissions(&file_path, FilePermissionCheck::Enabled);
+            assert_eq!(
+                result.is_ok(),
+                *expect_allowed,
+                "mode {mode:o}: expected allowed={expect_allowed}, got {result:?}"
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_check_file_permissions_skipped_when_skip_is_true() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("insecure.toml");
+        fs::write(&file_path, "key = \"value\"\n").unwrap();
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o666)).unwrap();
+
+        assert!(check_file_permissions(&file_path, FilePermissionCheck::UnsafeDisabled).is_ok());
+        let result = load_toml_file(&file_path, FilePermissionCheck::UnsafeDisabled);
+        assert!(
+            result.is_ok(),
+            "world-writable file should load when skip=true"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_skip_warning_env_var() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("readable.toml");
+        fs::write(&file_path, "").unwrap();
+
+        // Set readable by others
+        fs::set_permissions(&file_path, fs::Permissions::from_mode(0o644)).unwrap();
+
+        // Set env var to skip warning
+        // SAFETY: Test-only, not run in parallel.
+        unsafe {
+            std::env::set_var(
+                env_vars::SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE,
+                "1",
+            )
+        };
+
+        // Should not print warning (we can't easily test stderr output,
+        // but at least verify it doesn't error)
+        let result = check_file_permissions(&file_path, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        // SAFETY: Test-only, not run in parallel.
+        unsafe {
+            std::env::remove_var(env_vars::SF_SKIP_WARNING_FOR_READ_PERMISSIONS_ON_CONFIG_FILE)
+        };
+    }
+}

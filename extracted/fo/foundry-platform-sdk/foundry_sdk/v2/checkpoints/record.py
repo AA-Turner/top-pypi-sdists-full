@@ -68,6 +68,9 @@ class RecordClient:
     ) -> checkpoints_models.Record:
         """
         Retrieve a single checkpoint record by id.
+
+        Required scopes: [api:checkpoints-read]
+
         :param record_rid:
         :type record_rid: RecordRid
         :param preview: Enables the use of preview functionality.
@@ -127,6 +130,9 @@ class RecordClient:
 
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:checkpoints-read]
+
         :param body: Body of the request
         :type body: List[GetRecordsBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -173,6 +179,9 @@ class RecordClient:
     ) -> checkpoints_models.SearchCheckpointRecordsResponse:
         """
         Search for checkpoint records.
+
+        Required scopes: [api:checkpoints-read]
+
         :param where:
         :type where: SearchCheckpointRecordsRequest
         :param page_size: The page size for the search request. If no value is provided, a default of `100` will be used.
@@ -283,6 +292,9 @@ class AsyncRecordClient:
     ) -> typing.Awaitable[checkpoints_models.Record]:
         """
         Retrieve a single checkpoint record by id.
+
+        Required scopes: [api:checkpoints-read]
+
         :param record_rid:
         :type record_rid: RecordRid
         :param preview: Enables the use of preview functionality.
@@ -342,6 +354,9 @@ class AsyncRecordClient:
 
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:checkpoints-read]
+
         :param body: Body of the request
         :type body: List[GetRecordsBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -388,6 +403,9 @@ class AsyncRecordClient:
     ) -> typing.Awaitable[checkpoints_models.SearchCheckpointRecordsResponse]:
         """
         Search for checkpoint records.
+
+        Required scopes: [api:checkpoints-read]
+
         :param where:
         :type where: SearchCheckpointRecordsRequest
         :param page_size: The page size for the search request. If no value is provided, a default of `100` will be used.

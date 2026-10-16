@@ -6,33 +6,25 @@
 #define OIIO_FMT_H
 
 #include <OpenImageIO/dassert.h>
+#include <OpenImageIO/oiioversion.h>
 #include <OpenImageIO/platform.h>
 #include <OpenImageIO/type_traits.h>
 
-// We want the header-only implementation of fmt
-#ifndef FMT_HEADER_ONLY
-#    define FMT_HEADER_ONLY
-#endif
-
-// Disable fmt exceptions
-#ifndef FMT_EXCEPTIONS
-#    define FMT_EXCEPTIONS 0
+// By default OIIO uses the header-only implementation of fmt. Builds that opt
+// into compiled external fmt must use the same mode in OIIO and consumers.
+#if !OIIO_USE_COMPILED_FMT
+#    ifndef FMT_HEADER_ONLY
+#        define FMT_HEADER_ONLY
+#    endif
 #endif
 
 #if OIIO_VERSION_LESS(3, 1, 2)
 /* DEPRECATED -- remove at next ABI compatibility boundary */
 OIIO_NAMESPACE_3_1_BEGIN
 namespace pvt {
-OIIO_UTIL_API void
-log_fmt_error(const char* message);
+OIIO_UTIL_API void log_fmt_error(const char* message);
 };
 OIIO_NAMESPACE_3_1_END
-#endif
-
-// Use the grisu fast floating point formatting for old fmt versions
-// (irrelevant for >= 7.1).
-#ifndef FMT_USE_GRISU
-#    define FMT_USE_GRISU 1
 #endif
 
 // fmt 8.1 stopped automatically enabling formatting of anything that supports
@@ -75,12 +67,9 @@ OIIO_PRAGMA_WARNING_PUSH
 
 OIIO_PRAGMA_WARNING_POP
 
-// At some point a method signature changed
-#if FMT_VERSION >= 90000
-#    define OIIO_FMT_CUSTOM_FORMATTER_CONST const
-#else
-#    define OIIO_FMT_CUSTOM_FORMATTER_CONST
-#endif
+// DEPRECATED(3.2): This definition is obsolete and should be removed at the
+// next ABI compatibility boundary.
+#define OIIO_FMT_CUSTOM_FORMATTER_CONST const
 
 
 OIIO_NAMESPACE_3_1_BEGIN
@@ -137,18 +126,14 @@ template<typename T,
 struct index_formatter : format_parser_with_separator {
     // inherits parse() from format_parser_with_separator
     template<typename FormatContext>
-    auto format(const T& v, FormatContext& ctx) OIIO_FMT_CUSTOM_FORMATTER_CONST
+    auto format(const T& v, FormatContext& ctx) const
     {
         std::string vspec = elem_fmt.size() ? fmt::format("{{:{}}}", elem_fmt)
                                             : std::string("{}");
         for (size_t i = 0; i < size_t(v.size()); ++i) {
             if (i)
                 fmt::format_to(ctx.out(), "{}", sep == ',' ? ", " : " ");
-#if FMT_VERSION >= 80000
             fmt::format_to(ctx.out(), fmt::runtime(vspec), v[i]);
-#else
-            fmt::format_to(ctx.out(), vspec, v[i]);
-#endif
         }
         return ctx.out();
     }
@@ -182,19 +167,15 @@ template<typename T, typename Elem, int Size>
 struct array_formatter : format_parser_with_separator {
     // inherits parse() from format_parser_with_separator
     template<typename FormatContext>
-    auto format(const T& v, FormatContext& ctx) OIIO_FMT_CUSTOM_FORMATTER_CONST
+    auto format(const T& v, FormatContext& ctx) const
     {
         std::string vspec = elem_fmt.size() ? fmt::format("{{:{}}}", elem_fmt)
                                             : std::string("{}");
         for (int i = 0; i < Size; ++i) {
             if (i)
                 fmt::format_to(ctx.out(), "{}", sep == ',' ? ", " : " ");
-#if FMT_VERSION >= 80000
             fmt::format_to(ctx.out(), fmt::runtime(vspec),
                            ((const Elem*)&v)[i]);
-#else
-            fmt::format_to(ctx.out(), vspec, ((const Elem*)&v)[i]);
-#endif
         }
         return ctx.out();
     }
@@ -203,3 +184,14 @@ struct array_formatter : format_parser_with_separator {
 
 }  // namespace pvt
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+namespace pvt {
+using v3_1::pvt::array_formatter;
+using v3_1::pvt::index_formatter;
+}  // namespace pvt
+#endif
+OIIO_NAMESPACE_END

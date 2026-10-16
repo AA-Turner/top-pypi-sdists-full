@@ -7,11 +7,11 @@ from ..._models import BaseModel
 from .conditional_value import ConditionalValue
 from .conditional_operation import ConditionalOperation
 
-__all__ = ["ConditionalAuthorizationAdjustmentParameters", "Adjustment", "Condition", "ConditionParameters"]
+__all__ = ["ConditionalAuthorizationAdjustmentParameters", "Action", "Condition", "ConditionParameters"]
 
 
-class Adjustment(BaseModel):
-    """The hold adjustment to apply if the conditions are met"""
+class Action(BaseModel):
+    """The hold adjustment to apply if the conditions are met."""
 
     mode: Literal["REPLACE_WITH_AMOUNT", "ADD_PERCENTAGE", "ADD_AMOUNT"]
     """The mode of the hold adjustment, determining how the value is interpreted:
@@ -88,6 +88,7 @@ class Condition(BaseModel):
         "SERVICE_LOCATION_STATE",
         "SERVICE_LOCATION_POSTAL_CODE",
         "CARD_AGE",
+        "IS_DOMESTIC",
         "ACCOUNT_AGE",
         "AMOUNT_Z_SCORE",
         "AVG_TRANSACTION_AMOUNT",
@@ -174,6 +175,9 @@ class Condition(BaseModel):
       card acceptor postal code.
     - `CARD_AGE`: The age of the card in seconds at the time of the authorization.
       Use an integer value.
+    - `IS_DOMESTIC`: Whether the merchant's country matches the card program's
+      issuing country. Valid values are `TRUE`, `FALSE`. For programs with no
+      issuing country configured, this attribute does not evaluate.
     - `ACCOUNT_AGE`: The age of the account holder's account in seconds at the time
       of the authorization. Use an integer value. For programs where Lithic does not
       manage or retain account holder data, this attribute does not evaluate.
@@ -244,7 +248,7 @@ class Condition(BaseModel):
 
 
 class ConditionalAuthorizationAdjustmentParameters(BaseModel):
-    adjustment: Adjustment
-    """The hold adjustment to apply if the conditions are met"""
+    action: Action
+    """The hold adjustment to apply if the conditions are met."""
 
     conditions: List[Condition]

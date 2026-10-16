@@ -69,6 +69,9 @@ class TransactionClient:
         Aborts an open Transaction. File modifications made on this Transaction are not preserved and the Branch is
         not updated.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -125,6 +128,9 @@ class TransactionClient:
         Get the [Build](https://palantir.com/docs/foundry/data-integration/builds#builds) that computed the
         given Transaction. Not all Transactions have an associated Build. For example, if a Dataset
         is updated by a User uploading a CSV file into the browser, no Build will be tied to the Transaction.
+
+
+        Required scopes: [api:datasets-read, api:orchestration-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -183,6 +189,9 @@ class TransactionClient:
         Commits an open Transaction. File modifications made on this Transaction are preserved and the Branch is
         updated to point to the Transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -237,6 +246,9 @@ class TransactionClient:
     ) -> datasets_models.Transaction:
         """
         Creates a Transaction on a Branch of a Dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -300,6 +312,9 @@ class TransactionClient:
         """
         Gets a Transaction of a Dataset.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -352,6 +367,9 @@ class TransactionClient:
         Get the [Job](https://palantir.com/docs/foundry/data-integration/builds#jobs-and-jobspecs) that computed the
         given Transaction. Not all Transactions have an associated Job. For example, if a Dataset
         is updated by a User uploading a CSV file into the browser, no Job will be tied to the Transaction.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -474,6 +492,9 @@ class AsyncTransactionClient:
         Aborts an open Transaction. File modifications made on this Transaction are not preserved and the Branch is
         not updated.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -530,6 +551,9 @@ class AsyncTransactionClient:
         Get the [Build](https://palantir.com/docs/foundry/data-integration/builds#builds) that computed the
         given Transaction. Not all Transactions have an associated Build. For example, if a Dataset
         is updated by a User uploading a CSV file into the browser, no Build will be tied to the Transaction.
+
+
+        Required scopes: [api:datasets-read, api:orchestration-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -588,6 +612,9 @@ class AsyncTransactionClient:
         Commits an open Transaction. File modifications made on this Transaction are preserved and the Branch is
         updated to point to the Transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -642,6 +669,9 @@ class AsyncTransactionClient:
     ) -> typing.Awaitable[datasets_models.Transaction]:
         """
         Creates a Transaction on a Branch of a Dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -705,6 +735,9 @@ class AsyncTransactionClient:
         """
         Gets a Transaction of a Dataset.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param transaction_rid:
@@ -757,6 +790,9 @@ class AsyncTransactionClient:
         Get the [Job](https://palantir.com/docs/foundry/data-integration/builds#jobs-and-jobspecs) that computed the
         given Transaction. Not all Transactions have an associated Job. For example, if a Dataset
         is updated by a User uploading a CSV file into the browser, no Job will be tied to the Transaction.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid

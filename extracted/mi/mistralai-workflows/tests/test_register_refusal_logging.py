@@ -23,6 +23,14 @@ async def _refuse(body: dict, caplog: pytest.LogCaptureFixture) -> None:
         await _register_workflow_specs(client, [], "dep", "worker", None)
 
 
+_DEPLOYMENT_URL = (
+    "https://console.example/build/workflows/deployments/dep"
+    "?shareContext=%7B%22organizationId%22%3A%2200000000-0000-4000-8000-000000000001%22%2C"
+    "%22workspaceId%22%3A%2200000000-0000-4000-8000-000000000002%22%7D&tab=settings"
+)
+_ADMIN_URL = "https://admin.example/hardened-deployments?deployment_name=dep"
+
+
 @pytest.mark.asyncio
 async def test_refusal_relays_the_server_reason(caplog: pytest.LogCaptureFixture) -> None:
     """The server owns this wording, so it can change without shipping an SDK release.
@@ -33,18 +41,50 @@ async def test_refusal_relays_the_server_reason(caplog: pytest.LogCaptureFixture
     await _refuse(
         {
             "detail": "Deployment 'dep' is hardened and this principal is not authorized to register on it.",
-            "admin_panel_url": "https://admin.example/hardened-deployments?deployment_name=dep",
+            "code": "WF_1104",
+            "admin_panel_url": _ADMIN_URL,
         },
         caplog,
     )
 
     assert "is hardened" in caplog.text
-    assert "https://admin.example/hardened-deployments?deployment_name=dep" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_refusal_without_a_remediation_url_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
-    """A 403 from anywhere else in the stack carries no link and is not a registration refusal."""
+@pytest.mark.parametrize(
+    ("urls", "expected", "absent"),
+    [
+        pytest.param(
+            {"deployment_url": _DEPLOYMENT_URL, "admin_panel_url": _ADMIN_URL},
+            _DEPLOYMENT_URL,
+            _ADMIN_URL,
+            id="prefers_the_deployment_page",
+        ),
+        pytest.param({"admin_panel_url": _ADMIN_URL}, _ADMIN_URL, None, id="falls_back_to_the_admin_panel"),
+    ],
+)
+async def test_refusal_logs_the_deployment_page_when_the_server_sends_one(
+    urls: dict[str, str], expected: str, absent: str | None, caplog: pytest.LogCaptureFixture
+) -> None:
+    await _refuse({"detail": "Deployment 'dep' is hardened.", "code": "WF_1104", **urls}, caplog)
+
+    assert expected in caplog.text
+    if absent is not None:
+        assert absent not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_refusal_without_a_remediation_url_relays_the_server_reason(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    reason = "The user associated with this worker credential cannot use Workflows."
+    await _refuse({"detail": reason, "code": "WF_1104"}, caplog)
+
+    assert reason in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_unrelated_forbidden_response_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
     await _refuse({"detail": "Some other forbidden thing"}, caplog)
 
     assert "Workflow registration refused" not in caplog.text

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // https://github.com/AcademySoftwareFoundation/OpenImageIO
 
+#include <limits>
+
 #include <OpenImageIO/Imath.h>
 #include <OpenImageIO/dassert.h>
 #include <OpenImageIO/filesystem.h>
@@ -164,6 +166,17 @@ OpenVDBInput::seek_subimage_nolock(int subimage, int miplevel)
 
 namespace {
 
+// OpenVDB builds exception text out of strings whose lengths came straight
+// from the file, so a corrupt input can hand back a message of essentially
+// arbitrary size. Clamp it before it reaches the error log.
+inline string_view
+clamped_what(const std::exception& e)
+{
+    return string_view(e.what()).substr(0, 1024);
+}
+
+
+
 CoordBBox
 getBoundingBox(const GridBase& grid)
 {
@@ -188,6 +201,13 @@ template<typename GridType> struct VDBReader {
     using ValueType = typename GridType::ValueType;
     using LeafType  = typename TreeType::LeafNodeType;
     typedef openvdb::tools::Dense<ValueType, openvdb::tools::LayoutXYZ> DenseT;
+
+    // Both fill paths below write exactly LeafType::SIZE values into the
+    // caller's tile buffer, which is sized from the tile dimensions that
+    // fillSpec() publishes. Keep the two in agreement.
+    static_assert(LeafType::SIZE
+                      == LeafType::DIM * LeafType::DIM * LeafType::DIM,
+                  "Leaf node size does not match the published tile size");
 
     static void setTile(ValueType* data, const ValueType value)
     {
@@ -219,37 +239,54 @@ template<typename GridType> struct VDBReader {
         return true;
     }
 
-    static void fillSpec(const CoordBBox& bounds, const Coord& dim,
-                         ImageSpec& spec)
+    // Fill in the spec's geometry from the grid bounds. The bounds may come
+    // straight from untrusted file metadata, so every extent is computed in
+    // 64 bits and range-checked before it is narrowed to the int fields of
+    // ImageSpec. Return false if the bounds can't be represented; the caller
+    // reports the error. check_open() applies the size policy afterwards.
+    static bool fillSpec(const CoordBBox& bounds, ImageSpec& spec)
     {
-        Vec3i data_min, data_max;
+        // Round the bounds outward to encompass the leaf-node dimension
+        // (generally 8), so a box spanning [-2, -2, -2] -> [2, 2, 2]
+        // is expanded to [-8, -8, -8] -> [8, 8, 8]. LeafType::DIM is a power
+        // of two, so masking rounds down correctly for negative coordinates.
+        static_assert((LeafType::DIM & (LeafType::DIM - 1)) == 0,
+                      "Leaf node dimension is not a power of two");
+        const int64_t mask = int64_t(LeafType::DIM) - 1;
+        int64_t data_min[3], data_max[3], dim[3];
         for (int i = 0; i < 3; ++i) {
-            // Round the block_bounds up to encompass the leaf-node dimension (generally 8)
-            // So a box spanning [-2, -2, -2] -> [2, 2, 2]
-            // is expanded to    [-8, -8, -8] -> [8, 8, 8]
-            data_min[i] = bounds.min()[i] - (bounds.min()[i] % LeafType::DIM);
-            data_max[i] = bounds.max()[i]
-                          + (LeafType::DIM - (bounds.max()[i] % LeafType::DIM));
+            const int64_t bmin = bounds.min()[i];
+            const int64_t bmax = bounds.max()[i];
+            data_min[i]        = bmin & ~mask;
+            data_max[i] = bmax + (int64_t(LeafType::DIM) - (bmax & mask));
+            dim[i]      = bmax - bmin + 1;
+            if (dim[i] < 1 || dim[i] > std::numeric_limits<int>::max()
+                || data_min[i] < std::numeric_limits<int>::min()
+                || data_max[i] > std::numeric_limits<int>::max()
+                || data_max[i] - data_min[i] + 1
+                       > std::numeric_limits<int>::max())
+                return false;
         }
-        spec.x = data_min.x();
-        spec.y = data_min.y();
-        spec.z = data_min.z();
+        spec.x = int(data_min[0]);
+        spec.y = int(data_min[1]);
+        spec.z = int(data_min[2]);
 
-        spec.width  = data_max.x() - data_min.x() + 1;
-        spec.height = data_max.y() - data_min.y() + 1;
-        spec.depth  = data_max.z() - data_min.z() + 1;
+        spec.width  = int(data_max[0] - data_min[0] + 1);
+        spec.height = int(data_max[1] - data_min[1] + 1);
+        spec.depth  = int(data_max[2] - data_min[2] + 1);
 
         spec.full_x = bounds.min().x();
         spec.full_y = bounds.min().y();
         spec.full_z = bounds.min().z();
 
-        spec.full_width  = dim.x();
-        spec.full_height = dim.y();
-        spec.full_depth  = dim.z();
+        spec.full_width  = int(dim[0]);
+        spec.full_height = int(dim[1]);
+        spec.full_depth  = int(dim[2]);
 
         spec.tile_width  = LeafType::DIM;
         spec.tile_height = LeafType::DIM;
         spec.tile_depth  = LeafType::DIM;
+        return true;
     }
 };
 
@@ -285,7 +322,7 @@ openVDB(const std::string& filename, const ImageInput* errReport)
     if (!Filesystem::is_regular(filename))
         return nullptr;
 
-    FILE* f = Filesystem::fopen(filename, "r");
+    FILE* f = Filesystem::fopen(filename, "rb");
     if (!f)
         return nullptr;
 
@@ -314,7 +351,8 @@ openVDB(const std::string& filename, const ImageInput* errReport)
             return file;
 
     } catch (const std::exception& e) {
-        errReport->errorfmt("Could not open '{}': {}", filename, e.what());
+        errReport->errorfmt("Could not open '{}': {}", filename,
+                            clamped_what(e));
         return nullptr;
     } catch (...) {
         errhint = "Unknown exception thrown";
@@ -419,17 +457,13 @@ OpenVDBInput::readMetaData(const openvdb::GridBase& grid,
         } else if (type == FloatMetadata::staticTypeName()) {
             spec.attribute(mdPrefix(name),
                            static_cast<FloatMetadata&>(*value).value());
-        }
-
-        else if (type == Int32Metadata::staticTypeName()) {
+        } else if (type == Int32Metadata::staticTypeName()) {
             spec.attribute(mdPrefix(name),
                            static_cast<Int32Metadata&>(*value).value());
         } else if (type == DoubleMetadata::staticTypeName()) {
             const auto v = static_cast<DoubleMetadata&>(*value).value();
             spec.attribute(mdPrefix(name), TypeDesc::DOUBLE, &v);
-        }
-
-        else if (type == Vec3IMetadata::staticTypeName()) {
+        } else if (type == Vec3IMetadata::staticTypeName()) {
             const auto v = static_cast<Vec3IMetadata&>(*value).value();
             spec.attribute(mdPrefix(name),
                            TypeDesc(TypeDesc::INT, TypeDesc::VEC3), &v);
@@ -437,9 +471,7 @@ OpenVDBInput::readMetaData(const openvdb::GridBase& grid,
             const auto v = static_cast<Vec3DMetadata&>(*value).value();
             spec.attribute(mdPrefix(name),
                            TypeDesc(TypeDesc::DOUBLE, TypeDesc::VEC3), &v);
-        }
-
-        else if (type == Vec2SMetadata::staticTypeName()) {
+        } else if (type == Vec2SMetadata::staticTypeName()) {
             const auto v = static_cast<Vec2SMetadata&>(*value).value();
             spec.attribute(mdPrefix(name),
                            TypeDesc(TypeDesc::FLOAT, TypeDesc::VEC2), &v);
@@ -451,9 +483,7 @@ OpenVDBInput::readMetaData(const openvdb::GridBase& grid,
             const auto v = static_cast<Vec2DMetadata&>(*value).value();
             spec.attribute(mdPrefix(name),
                            TypeDesc(TypeDesc::DOUBLE, TypeDesc::VEC2), &v);
-        }
-
-        else if (type == Mat4SMetadata::staticTypeName()) {
+        } else if (type == Mat4SMetadata::staticTypeName()) {
             const auto v = static_cast<Mat4SMetadata&>(*value).value();
             spec.attribute(mdPrefix(name), TypeMatrix44, &v);
         } else if (type == Mat4DMetadata::staticTypeName()) {
@@ -469,33 +499,63 @@ OpenVDBInput::readMetaData(const openvdb::GridBase& grid,
 bool
 OpenVDBInput::open(const std::string& filename, ImageSpec& newspec)
 {
-    if (m_input)
-        close();
+    close();  // Reset any prior state; open() may be called more than once
 
     auto file = openVDB(filename, this);
     if (!file)
         return false;
 
+    // The grid bounds can come from file metadata that nothing has vetted,
+    // so the resulting spec is run through check_open() before any caller
+    // gets a chance to size an allocation from it. The absolute limits it
+    // applies (including "limits:imagesize_MB") are the guard here. There is
+    // deliberately no check_compression_ratio() call: VDB is a sparse format
+    // and a single constant-value tile can legitimately describe a huge dense
+    // region from a tiny file, so no declared:file size ratio distinguishes a
+    // genuine volume from a hostile one.
+    const ROI range(0, 1 << 20, 0, 1 << 20, 0, 1 << 20, 0, 4);
+
     try {
         for (io::File::NameIterator name = file->beginName(),
                                     end  = file->endName();
              name != end; ++name) {
-            std::string gridName   = name.gridName();
-            GridBase::Ptr gridPtr  = file->readGrid(gridName, BBoxd());
+            std::string gridName  = name.gridName();
+            GridBase::Ptr gridPtr = file->readGrid(gridName, BBoxd());
+            if (!gridPtr) {
+                init();  // Reset to initial state
+                errorfmt("Could not read grid '{}' of '{}'", gridName,
+                         filename);
+                return false;
+            }
             const CoordBBox bounds = getBoundingBox(*gridPtr);
-            const Coord dim        = bounds.dim();
+            if (bounds.empty())
+                continue;  // no representable extent; skip this grid
 
             ImageSpec spec;
+            bool specok = false;
             ScalarGrid::Ptr fPtr;
             Vec3fGrid::Ptr v3Ptr;
             if ((fPtr = gridPtrCast<ScalarGrid>(gridPtr))) {
-                spec = ImageSpec(dim.x(), dim.y(), 1, TypeFloat);
-                VDBReader<ScalarGrid>::fillSpec(bounds, dim, spec);
+                spec   = ImageSpec(1, 1, 1, TypeFloat);
+                specok = VDBReader<ScalarGrid>::fillSpec(bounds, spec);
             } else if ((v3Ptr = gridPtrCast<Vec3fGrid>(gridPtr))) {
-                spec = ImageSpec(dim.x(), dim.y(), 3, TypeFloat);
-                VDBReader<Vec3fGrid>::fillSpec(bounds, dim, spec);
+                spec   = ImageSpec(1, 1, 3, TypeFloat);
+                specok = VDBReader<Vec3fGrid>::fillSpec(bounds, spec);
             } else
                 continue;
+            if (!specok) {
+                init();  // Reset to initial state
+                errorfmt(
+                    "Grid '{}' of '{}' has an out-of-range bounding box [{},{},{}]-[{},{},{}]. Possible corrupt input?",
+                    gridName, filename, bounds.min().x(), bounds.min().y(),
+                    bounds.min().z(), bounds.max().x(), bounds.max().y(),
+                    bounds.max().z());
+                return false;
+            }
+            if (!check_open(spec, range)) {
+                init();  // Reset to initial state
+                return false;
+            }
 
             // gridName will now be moved/invalid
             m_layers.emplace_back(std::move(gridName), gridPtr->getName(),
@@ -508,11 +568,12 @@ OpenVDBInput::open(const std::string& filename, ImageSpec& newspec)
             channelnames.resize(layerspec.nchannels);
             if (layerspec.nchannels > 1) {
                 OIIO_DASSERT(layerspec.nchannels <= 4);
-                const bool iscolor = layer.name == "Cd"
-                                     || layer.name == "color";
-                const char kChanName[4]
-                    = { iscolor ? 'r' : 'x', iscolor ? 'g' : 'y',
-                        iscolor ? 'b' : 'z', iscolor ? 'a' : 'w' };
+                const bool iscolor      = layer.name == "Cd"
+                                          || layer.name == "color";
+                const char kChanName[4] = { iscolor ? 'r' : 'x',
+                                            iscolor ? 'g' : 'y',
+                                            iscolor ? 'b' : 'z',
+                                            iscolor ? 'a' : 'w' };
                 for (int c = 0; c < layerspec.nchannels; ++c)
                     channelnames[c] = layer.name + "."
                                       + std::string(&kChanName[c], 1);
@@ -522,8 +583,17 @@ OpenVDBInput::open(const std::string& filename, ImageSpec& newspec)
             readMetaData(*layer.grid, layer, layerspec);
         }
     } catch (const std::exception& e) {
-        init();  // Reset to initial state
-        errorfmt("Could not open '{}': {}", filename, e.what());
+        close();  // Reset to initial state
+        errorfmt("Could not open '{}': {}", filename, clamped_what(e));
+        return false;
+    } catch (...) {
+        close();  // Reset to initial state
+        errorfmt("Could not open '{}': unknown exception thrown", filename);
+        return false;
+    }
+    if (m_layers.empty()) {
+        close();  // Reset to initial state
+        errorfmt("'{}' contains no readable grids", filename);
         return false;
     }
     m_name       = filename;
@@ -534,6 +604,8 @@ OpenVDBInput::open(const std::string& filename, ImageSpec& newspec)
 
     bool ok = seek_subimage(0, 0);
     newspec = ImageInput::spec();
+    if (!ok)
+        close();
     return ok;
 }
 
@@ -543,7 +615,7 @@ bool
 OpenVDBInput::read_native_scanline(int /*subimage*/, int /*miplevel*/,
                                    int /*y*/, int /*z*/, void* /*data*/)
 {
-    // scanlines not supported
+    errorfmt("openvdb images are tiled; scanline reads are not supported");
     return false;
 }
 
@@ -561,18 +633,36 @@ OpenVDBInput::read_native_tile(int subimage, int miplevel, int x, int y, int z,
     if (!seek_subimage_nolock(subimage, miplevel))
         return false;
 
+    // The tree walk below runs on data decoded by OpenVDB from an untrusted
+    // file; anything it throws has to become a clean error rather than
+    // escape through the ImageInput API.
     const layerrecord& lay = m_layers[m_subimage];
-    switch (lay.spec.nchannels) {
-    case 1:
-        return VDBReader<FloatGrid>::readTile(*gridPtrCast<ScalarGrid>(lay.grid),
-                                              x, y, z,
-                                              reinterpret_cast<float*>(data));
-    case 3:
-        return VDBReader<Vec3fGrid>::readTile(*gridPtrCast<Vec3fGrid>(lay.grid),
-                                              x, y, z,
-                                              reinterpret_cast<Vec3f*>(data));
-    default: break;
+    try {
+        switch (lay.spec.nchannels) {
+        case 1:
+            if (auto grid = gridPtrCast<ScalarGrid>(lay.grid)) {
+                auto* values = reinterpret_cast<float*>(data);
+                return VDBReader<FloatGrid>::readTile(*grid, x, y, z, values);
+            }
+            break;
+        case 3:
+            if (auto grid = gridPtrCast<Vec3fGrid>(lay.grid)) {
+                auto* values = reinterpret_cast<Vec3f*>(data);
+                return VDBReader<Vec3fGrid>::readTile(*grid, x, y, z, values);
+            }
+            break;
+        default: break;
+        }
+    } catch (const std::exception& e) {
+        errorfmt("Could not read tile {},{},{} of '{}': {}", x, y, z, m_name,
+                 clamped_what(e));
+        return false;
+    } catch (...) {
+        errorfmt("Could not read tile {},{},{} of '{}': unknown exception", x,
+                 y, z, m_name);
+        return false;
     }
+    errorfmt("Could not read tile {},{},{} of '{}'", x, y, z, m_name);
     return false;
     OIIO_PRAGMA_WARNING_POP
 }

@@ -29,7 +29,7 @@ from tensorfs.derived import Derivation, Part, Target, Tensor  # noqa: E402
 from cozy_runtime.author._activity import asides  # noqa: E402
 from cozy_runtime.author._loader import census  # noqa: E402
 from cozy_runtime.author.kernels import rms_rope_split_half  # noqa: E402
-from cozy_runtime.internal import accel, paging, plane, weight_policy  # noqa: E402
+from cozy_runtime.internal import accel, paging, plane, spill, weight_policy  # noqa: E402
 from cozy_runtime.internal import weights as weights_module  # noqa: E402
 from cozy_runtime.internal.derive import Observations, serving_substrate  # noqa: E402
 from cozy_runtime.internal.encoding import SPEC_PLAIN  # noqa: E402
@@ -37,6 +37,7 @@ from cozy_runtime.internal.fill import Checkpoint  # noqa: E402
 from cozy_runtime.internal.weights import (  # noqa: E402
     INDIVISIBLE,
     HostTiers,
+    Journal,
     PlaneBackend,
     ResidencyRefusal,
     WeightResidency,
@@ -847,11 +848,15 @@ def test_an_op_with_no_room_left_moves_the_tensors_the_process_holds_to_host(car
     convolution's input in its feature cache, 6.6 GiB of torch's own tensors, and a
     convolution was refused with the plane already down to 6 MB. Tensors an op does not read
     move to page-locked host memory in place: the stage computes the same bits, and each held
-    tensor is still the same CUDA tensor with the same values, read over the bus."""
+    tensor is still the same CUDA tensor with the same values, read over the bus. Ops note
+    what they read for the spill's order only under pressure: a run with room pays nothing."""
     weights = card.weights
     model = load(weights, card.checkpoint, "spill")
     x = torch.randn(1 << 15, HIDDEN, device="cuda", dtype=torch.float16)  # 128 MiB
-    reference = run(model, x, passes=1)
+    spill.release(torch)
+    with weights.recovering():
+        reference = run(model, x, passes=1)
+    assert not spill.PRESSED[0] and not spill.USED, "a run with room notes no op"
     model.residency.unpark()
     weights.set_budget(0)
     held = [torch.full((32 << 20,), float(i), device="cuda") for i in range(8)]  # 1 GiB
@@ -871,6 +876,12 @@ def test_an_op_with_no_room_left_moves_the_tensors_the_process_holds_to_host(car
     assert same(reference, capped)
     assert facts.spilled_bytes - moved >= 128 << 20
     assert all(t.is_cuda and bool((t == i).all()) for i, t in enumerate(held))
+    assert spill.PRESSED[0] and spill.USED, "after a spill, ops are noted for the next one"
+    del held, capped, reference
+    gc.collect()
+    spill.release(torch)
+    assert not spill.HELD, "every moved tensor is gone"
+    assert not spill.PRESSED[0] and not spill.USED, "no host block left: no op is noted"
 
 
 def test_decoded_copies_count_in_a_stages_budget(tmp_path: Path) -> None:
@@ -2020,9 +2031,10 @@ def room(weights: Weights, nbytes: int) -> int:
 def test_an_image_decode_short_of_memory_is_still_the_untiled_image(tmp_path: Path) -> None:
     """Run 4281 (SDXL in 1.5 GiB) fell back to a blended tiled decode 30 dB from its control.
     Diffusers' own decode runs as it is: with room, untouched; under a cap too small for its
-    maps, an op that runs out runs in bands of rows with its result in host memory, and the
-    ops after it read those rows over the bus once each. Either way the image is the untiled
-    one to fp16 rounding. The cap is the process's own: the card is never filled."""
+    maps, an op that runs out runs in bands of rows, its result on the card when the tensors
+    used least recently can move to host memory, else in host memory, and the ops after it
+    read host rows over the bus once each. Either way the image is the untiled one to fp16
+    rounding. The cap is the process's own: the card is never filled."""
     weights = Weights(torch, torch.device("cuda", 0), "cuda")
     weights.set_budget(-1, pinned=1 << 30)
     model, plain = plane_vae(weights, tmp_path / "vae", kl_vae)
@@ -2033,9 +2045,39 @@ def test_an_image_decode_short_of_memory_is_still_the_untiled_image(tmp_path: Pa
     roomy = decode(model, z)
     assert "bands" not in weights.modes
     short = decode(model, z, room(weights, 96 << 20))
-    assert "host memory" in weights.modes["bands"]
+    assert "bands" in weights.modes  # it ran out, and ops ran in bands
     for image in (roomy, short):
         torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
+
+
+@on_gpu
+def test_a_banded_result_out_of_memory_inside_a_nested_recovery_lives_in_host_memory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run 6191 (qwen-image-2 at 4 MP): a block's recovery runs inside the call's. A banded
+    op's result, which the room said would fit, ran out of memory, and the call's recovery,
+    taking the bands' own allocation for the package's op, refused it. The bands' ops reach
+    no mode: the result goes to host memory and the image is the untiled one."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    model, plain = plane_vae(weights, tmp_path / "vae", kl_vae)
+    z = torch.randn(1, 4, 256, 256, device="cuda", dtype=torch.float16)
+    with torch.inference_mode():
+        reference = plain.decode(z).sample
+    del plain
+    monkeypatch.setattr(weights, "activation_room", lambda: (1 << 40, 0))  # every result fits
+    weights.modes.clear()
+    weights.set_cap(room(weights, 96 << 20))
+    model.residency.admit("run", ("vae",))
+    try:
+        with weights.recovering(), weights.recovering(Journal()), torch.inference_mode():
+            image = model.stack.decode(z).sample
+    finally:
+        model.residency.release("run", ("vae",))
+        weights.set_cap(-1)
+        torch.cuda.empty_cache()
+    assert "host memory" in weights.modes["bands"]
+    torch.testing.assert_close(image, reference, atol=1e-2, rtol=0)
 
 
 @on_gpu

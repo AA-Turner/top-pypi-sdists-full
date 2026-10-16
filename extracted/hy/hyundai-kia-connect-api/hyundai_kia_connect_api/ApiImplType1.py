@@ -16,6 +16,7 @@ from .ApiImpl import (
     ApiImpl,
     ApiImplSession,
     ClimateRequestOptions,
+    OTPRequest,
     POIInfo,
     ScheduleChargingClimateRequestOptions,
     WindowRequestOptions,
@@ -30,6 +31,7 @@ from .const import (
     ENGINE_TYPES,
     ORDER_STATUS,
     PRESSURE_SCALES,
+    SEAT_LOCATION,
     SEAT_STATUS,
     TEMPERATURE_UNITS,
     VALET_MODE_ACTION,
@@ -244,7 +246,9 @@ class ApiImplType1(ApiImpl):
                 VIN=entry["vin"],
                 timezone=self.data_timezone,
                 engine_type=entry_engine_type,
-                ccu_ccs2_protocol_support=entry["ccuCCS2ProtocolSupport"],
+                # The China vehicle list omits ccuCCS2ProtocolSupport; 0 keeps
+                # those vehicles on the legacy status path.
+                ccu_ccs2_protocol_support=entry.get("ccuCCS2ProtocolSupport", 0),
             )
             result.append(vehicle)
         return result
@@ -1781,7 +1785,7 @@ class ApiImplType1(ApiImpl):
             # For RHD vehicles the driver sits on the right, so the front
             # physical seats map to passenger/driver respectively.
             drv_seat_loc = self._get_drv_seat_loc(vehicle)
-            if drv_seat_loc == "R":
+            if drv_seat_loc == SEAT_LOCATION.RIGHT:
                 drv_seat, psg_seat = options.front_right_seat, options.front_left_seat
             else:
                 drv_seat, psg_seat = options.front_left_seat, options.front_right_seat
@@ -1931,7 +1935,7 @@ class ApiImplType1(ApiImpl):
         """
         return {}
 
-    def refresh_access_token(self, token: Token) -> Token:
+    def refresh_access_token(self, token: Token) -> Token | OTPRequest:
         """Refresh access token using the stored refresh token.
 
         Uses the OAuth2 refresh_token grant to get a new access token
@@ -2001,7 +2005,7 @@ class ApiImplType1(ApiImpl):
                 )
         return self.login(token.username, token.password, token.pin)
 
-    def _get_control_token(self, token: Token) -> Token:
+    def _get_control_token(self, token: Token) -> tuple[str, float]:
         # Return cached control token if still valid
         if token.control_token is not None and token.control_token_expiry > time.time():
             return token.control_token, token.control_token_expiry
@@ -2042,7 +2046,7 @@ class ApiImplType1(ApiImpl):
         result = bytes(b1 ^ b2 for b1, b2 in zip(self.CFB, raw_data))
         return base64.b64encode(result).decode("utf-8")
 
-    def _get_device_id(self, stamp: str):
+    def _get_device_id(self, stamp: str) -> str:
         my_hex = f"{random.randrange(10**80):064x}"
         registration_id = my_hex[:64]
         url = self.SPA_API_URL + "notifications/register"
@@ -2097,7 +2101,7 @@ class ApiImplType1(ApiImpl):
         mapped_response["vehicleStatus"] = response["resMsg"]
         return mapped_response
 
-    def _get_charge_limits(self, token: Token, vehicle: Vehicle) -> dict:
+    def _get_charge_limits(self, token: Token, vehicle: Vehicle) -> dict | None:
         # Not currently used as value is in the general get.
         # Most likely this forces the car the update it.
         url = f"{self.SPA_API_URL}vehicles/{vehicle.id}/charge/target"
@@ -2113,6 +2117,7 @@ class ApiImplType1(ApiImpl):
         # (EU Ioniq Electric Facelift MY 2019)
         if response["resMsg"] is not None:
             return response["resMsg"]
+        return None
 
     @_retry_on_device_id_error
     def valet_mode_action(
@@ -2175,7 +2180,7 @@ class ApiImplType1(ApiImpl):
             0,  # month trip info
         )
         msg = json_result["resMsg"]
-        if msg["monthTripDayCnt"] > 0:
+        if msg.get("monthTripDayCnt", 0) > 0 or len(msg.get("tripDayList", [])) > 0:
             result = MonthTripInfo(
                 yyyymm=yyyymm_string,
                 day_list=[],
@@ -2199,7 +2204,7 @@ class ApiImplType1(ApiImpl):
 
     def _parse_day_trip(
         self, token: Token, vehicle: Vehicle, yyyymmdd_string: str, trip: dict
-    ) -> TripInfo:
+    ) -> TripInfo | None:
         """Build a TripInfo from one entry of a day's tripList.
 
         IN overrides this to fetch /tripinfo/detail for entries that lack
@@ -2257,7 +2262,8 @@ class ApiImplType1(ApiImpl):
 
             vehicle.day_trip_info = result
 
-    def _get_driving_info(self, token: Token, vehicle: Vehicle) -> dict:
+    @_retry_on_device_id_error
+    def _get_driving_info(self, token: Token, vehicle: Vehicle) -> dict | None:
         url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/drvhistory"
 
         responseAlltime = self.session.post(

@@ -35,6 +35,9 @@ class EvalRun(BaseModel):
   status: EvalRunLifecycleStatus | None
   """Current evaluation lifecycle status; null for legacy rows."""
 
+  deployment_id: str | None = None
+  """Hosted deployment snapshotted at launch."""
+
   parent_checkpoint_id: str | None = None
   """Checkpoint evaluated by this run, when applicable."""
 

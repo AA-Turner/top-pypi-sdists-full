@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openfeature-flagd-core
-Version: 1.0.0
+Version: 2.0.0
 Summary: OpenFeature flagd evaluator core implementation
 Keywords: 
 Author: OpenFeature
@@ -214,6 +214,7 @@ Requires-Dist: openfeature-sdk>=0.8.2
 Requires-Dist: mmh3>=5.0.0,<6.0.0
 Requires-Dist: panzi-json-logic==1.0.1
 Requires-Dist: semver>=3,<4
+Requires-Dist: cbor2>=5.6.5,<6.0.0
 Requires-Python: >=3.10
 Project-URL: Homepage, https://github.com/open-feature/python-sdk-contrib
 Description-Content-Type: text/markdown
@@ -236,7 +237,9 @@ pip install openfeature-flagd-core
 from openfeature.contrib.tools.flagd.core import FlagdCore
 
 core = FlagdCore()
-core.set_flags('{"flags": {"my-flag": {"state": "ENABLED", "variants": {"on": true}, "defaultVariant": "on"}}}')
+core.set_flags(
+    '{"flags": {"my-flag": {"state": "ENABLED", "variants": {"on": true}, "defaultVariant": "on"}}}'
+)
 result = core.resolve_boolean_value("my-flag", False)
 ```
 

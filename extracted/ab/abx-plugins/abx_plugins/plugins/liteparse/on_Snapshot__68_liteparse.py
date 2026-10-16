@@ -21,6 +21,10 @@ source documents. Feeding them back into LiteParse duplicates existing HTML
 text extraction and makes all-plugin crawls spend minutes parsing generated
 PDFs for ordinary webpages.
 
+Disposable batch outputs, OCR rasters, and embedded-image staging use local
+``TMP_DIR`` (or the host temporary directory). Only completed extracted outputs
+are written to the snapshot archive. Each invocation and batch is isolated.
+
 Tiny images (favicons, sprite thumbnails, etc.) are filtered out by
 ``LITEPARSE_MIN_IMAGE_DIMENSION`` so we don't waste OCR time on them.
 
@@ -37,9 +41,11 @@ import os
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 import threading
+import time
 import zipfile
 from pathlib import Path
 
@@ -92,6 +98,7 @@ IMAGE_EXTENSIONS = {
     ".tiff",
     ".tif",
     ".webp",
+    ".avif",
 }
 SUPPORTED_EXTENSIONS = PDF_EXTENSIONS | OFFICE_EXTENSIONS | IMAGE_EXTENSIONS
 
@@ -184,7 +191,10 @@ def find_document_sources(
     warned_limit = False
 
     def consider(match: Path) -> None:
-        if not match.is_file() or match.stat().st_size == 0:
+        # is_file() suppresses filesystem errors on Python 3.14. A failed
+        # source read is a failed capture, not evidence that no source exists.
+        source_stat = match.stat()
+        if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
             return
         resolved = str(match.resolve())
         if resolved in seen_paths:
@@ -194,10 +204,7 @@ def find_document_sources(
             return
         if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
             return
-        try:
-            digest = _content_digest(match)
-        except OSError:
-            return
+        digest = _content_digest(match)
         if digest in seen_digests:
             return
         seen_digests[digest] = match
@@ -219,7 +226,6 @@ def find_document_sources(
                     if not (
                         include_images
                         and archive_dir
-                        and match.is_file()
                         and suffix
                         in {
                             ".zip",
@@ -234,6 +240,7 @@ def find_document_sources(
                             ".odp",
                             ".epub",
                         }
+                        and stat.S_ISREG(match.stat().st_mode)
                     ):
                         continue
                     resolved = match.resolve()
@@ -280,7 +287,6 @@ def find_document_sources(
                                 except (
                                     zipfile.BadZipFile,
                                     RuntimeError,
-                                    OSError,
                                     ValueError,
                                 ) as error:
                                     image.unlink(missing_ok=True)
@@ -294,7 +300,6 @@ def find_document_sources(
                     except (
                         zipfile.BadZipFile,
                         RuntimeError,
-                        OSError,
                         ValueError,
                     ) as error:
                         print(
@@ -482,21 +487,23 @@ def _process_batch(
     timeout: int,
     args: list[str],
     env: dict[str, str],
-) -> list[tuple[int, Path, str, str]]:
+    scratch_dir: Path,
+    imagemagick_binary: str,
+) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
     """Run ``lit batch-parse`` once per requested format over one batch.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
-    per source.
+    per source, plus parser failures. Read outputs before deleting scratch even
+    when a later document fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
-    # Scratch dir lives under the plugin output dir so all working state is
-    # visible in the snapshot tree; ``TemporaryDirectory.__exit__`` deletes
-    # it once the batch returns (success or exception). We also point
-    # ``TMPDIR`` at this dir so lit's tesseract-rs internal scratch files
-    # (it writes fixed-name ``page_<n>_ocr.png`` to $TMPDIR) land here too —
-    # otherwise two concurrent batches collide on the system $TMPDIR.
-    with tempfile.TemporaryDirectory(dir=str(OUTPUT_DIR), prefix=".batch_") as tmpdir:
+    errors: list[str] = []
+    deadline = time.monotonic() + timeout
+    # Disposable parser output and OCR rasterization belong on local runtime
+    # storage, not the snapshot's potentially remote archive filesystem.
+    # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
+    with tempfile.TemporaryDirectory(dir=scratch_dir, prefix=".batch_") as tmpdir:
         tmp = Path(tmpdir)
         input_dir = tmp / "in"
         text_out = tmp / "text"
@@ -508,12 +515,54 @@ def _process_batch(
         link_names: list[str] = []
         for idx, src, digest in batch:
             link_name = _safe_link_name(idx, src, digest)
-            (input_dir / link_name).symlink_to(src.resolve())
+            # Servers commonly return AVIF bytes behind a .jpg URL. LiteParse's
+            # native decoder rejects those bytes even with the correct suffix.
+            # Normalize only the disposable OCR input, preserving the archive.
+            with src.open("rb") as source:
+                header = source.read(32)
+            if header[4:8] == b"ftyp" and b"avif" in header[8:]:
+                link_name = str(Path(link_name).with_suffix(".png"))
+                converted_dir = tmp / f"convert_{idx}"
+                converted_dir.mkdir()
+                converted = converted_dir / link_name
+                try:
+                    conversion = subprocess.run(
+                        [
+                            imagemagick_binary,
+                            str(src.resolve()),
+                            # These lossless PNGs are disposable OCR inputs.
+                            # Avoid spending the parsing deadline compressing them.
+                            "-define",
+                            "png:compression-level=1",
+                            str(converted),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        env=batch_env,
+                        timeout=max(0.001, deadline - time.monotonic()),
+                    )
+                    # Multi-frame conversions produce numbered files. Never
+                    # silently OCR only one frame and claim complete extraction.
+                    if conversion.returncode or not converted.is_file():
+                        errors.append(
+                            f"{src.name}: AVIF conversion failed or produced multiple frames: "
+                            f"{conversion.stderr.strip()}",
+                        )
+                    else:
+                        converted.rename(input_dir / link_name)
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    errors.append(f"{src.name}: AVIF conversion failed: {exc}")
+            else:
+                (input_dir / link_name).symlink_to(src.resolve())
             link_names.append(link_name)
 
         for fmt, out_dir in (("text", text_out), ("json", json_out)):
             if fmt not in formats:
                 continue
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                errors.append(f"batch timed out after {timeout}s")
+                break
             cmd = [
                 binary,
                 "batch-parse",
@@ -523,15 +572,28 @@ def _process_batch(
                 fmt,
                 *args,
             ]
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=timeout,
-                text=True,
-                env=batch_env,
-            )
-            if result.stderr.strip():
-                print(result.stderr, file=sys.stderr, end="")
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    timeout=remaining,
+                    text=True,
+                    env=batch_env,
+                )
+                if result.stderr.strip():
+                    print(result.stderr, file=sys.stderr, end="")
+                if result.returncode:
+                    errors.append(f"{fmt} parser exited with code {result.returncode}")
+            except subprocess.TimeoutExpired as exc:
+                if exc.stderr:
+                    stderr = (
+                        exc.stderr.decode(errors="replace")
+                        if isinstance(exc.stderr, bytes)
+                        else exc.stderr
+                    )
+                    print(stderr, file=sys.stderr, end="")
+                errors.append(f"{fmt} parser timed out after {timeout}s")
+                break
 
         for (idx, src, _digest), link_name in zip(batch, link_names, strict=True):
             stem = Path(link_name).stem
@@ -543,10 +605,10 @@ def _process_batch(
             )
             results.append((idx, src, text, json_text))
 
-    return results
+    return results, errors
 
 
-def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, str]:
+def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
     """Run lit on every document found in the snapshot dir.
 
     Returns: (status, output_str)
@@ -559,6 +621,8 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     if not formats:
         return "failed", "LITEPARSE_FORMATS must contain at least one of: text, json"
 
+    archive_dir = scratch_dir / "images"
+    archive_dir.mkdir()
     min_image_dim = int(config.LITEPARSE_MIN_IMAGE_DIMENSION or 0)
     sources = find_document_sources(
         min_image_dim=min_image_dim,
@@ -620,20 +684,18 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     output_dir = Path(OUTPUT_DIR)
 
     def _wipe_batch_scratch() -> None:
-        """Remove every ``.batch_*`` scratch dir under OUTPUT_DIR.
+        """Remove only this invocation's local batch scratch directories.
 
-        Called at hook entry (cleans leftovers from a prior killed run),
-        on SIGTERM/SIGINT (cleans the in-flight batch dirs before the
+        Called on SIGTERM/SIGINT (cleans the in-flight batch dirs before the
         orchestrator escalates to SIGKILL), and via ``atexit`` (covers
         normal exit + uncaught exceptions). Each lit batch creates its
         own ``TemporaryDirectory`` whose ``__exit__`` *also* cleans, so
         these belt-and-suspenders runs are usually no-ops.
         """
-        for stale in output_dir.glob(".batch_*"):
+        for stale in scratch_dir.glob(".batch_*"):
             if stale.is_dir():
                 shutil.rmtree(stale, ignore_errors=True)
 
-    _wipe_batch_scratch()
     atexit.register(_wipe_batch_scratch)
 
     def _on_signal(signum, _frame):
@@ -649,8 +711,12 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     indexed: list[tuple[int, Path, str]] = [
         (idx, path, digest) for idx, (path, digest) in enumerate(sources)
     ]
+    batch_count = (len(indexed) + batch_size - 1) // batch_size
+    # Spread the size-sorted inputs across batches instead of concentrating
+    # every large document in the first batch's fixed time budget. Keep the
+    # same batch count, worker count, per-batch deadline, and source indexes.
     batches: list[list[tuple[int, Path, str]]] = [
-        indexed[i : i + batch_size] for i in range(0, len(indexed), batch_size)
+        indexed[i::batch_count] for i in range(batch_count)
     ]
 
     # Pre-compute the per-source output basename for every source. The
@@ -666,7 +732,7 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
     largest_text_output: dict[int, str] = {}
     sources_completed: set[int] = set()
     write_lock = threading.Lock()
-    binary_failed = False
+    batch_errors: list[str] = []
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
     batch_waves = max(1, (len(batches) + workers - 1) // workers)
@@ -721,6 +787,8 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
                 batch_timeout,
                 base_args,
                 env,
+                scratch_dir,
+                str(config.LITEPARSE_IMAGEMAGICK_BINARY),
             ): batch
             for batch in batches
         }
@@ -728,30 +796,34 @@ def extract_liteparse(url: str, archive_dir: Path | None = None) -> tuple[str, s
             batch = future_to_batch[future]
             first_name = batch[0][1].name if batch else "<empty>"
             try:
-                results = future.result()
-            except subprocess.TimeoutExpired:
-                print(
-                    f"[liteparse] Batch starting at {first_name} timed out after {batch_timeout}s",
-                    file=sys.stderr,
-                )
-                continue
+                results, errors = future.result()
             except (FileNotFoundError, PermissionError, OSError) as e:
                 print(
                     f"[liteparse] Binary execution failed: {type(e).__name__}: {e}",
                     file=sys.stderr,
                 )
-                binary_failed = True
+                batch_errors.append(f"Binary execution failed: {type(e).__name__}: {e}")
                 continue
             except Exception as e:
+                batch_errors.append(f"{type(e).__name__}: {e}")
                 print(
                     f"[liteparse] Batch starting at {first_name}: {type(e).__name__}: {e}",
                     file=sys.stderr,
                 )
                 continue
             _absorb_batch_results(results)
+            for error in errors:
+                batch_errors.append(error)
+                print(
+                    f"[liteparse] Batch starting at {first_name}: {error}",
+                    file=sys.stderr,
+                )
 
-    if binary_failed and not sources_completed:
-        return "failed", f"Binary '{binary}' could not be executed"
+    if batch_errors:
+        return "failed", (
+            f"{len(batch_errors)} batch error(s), {len(sources_completed)} sources retained: "
+            f"{batch_errors[0]}"
+        )
 
     if not sources_completed:
         return "noresults", "No content extracted from sources"
@@ -780,11 +852,14 @@ def main(url: str):
             sys.exit(0)
 
         print("LiteParse extraction started", flush=True)
+        runtime_tmp = Path(config.TMP_DIR).expanduser() if config.TMP_DIR else None
+        if runtime_tmp is not None:
+            runtime_tmp.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(
-            prefix=".images_",
-            dir=OUTPUT_DIR,
-        ) as archive_dir:
-            status, output = extract_liteparse(url, Path(archive_dir))
+            prefix="abx-liteparse-",
+            dir=runtime_tmp,
+        ) as scratch_dir:
+            status, output = extract_liteparse(url, Path(scratch_dir))
         if status == "failed":
             print(f"ERROR: {output}", file=sys.stderr)
         emit_archive_result_record(status, output)

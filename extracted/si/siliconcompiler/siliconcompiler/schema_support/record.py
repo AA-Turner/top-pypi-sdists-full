@@ -14,9 +14,14 @@ from enum import Enum
 from siliconcompiler.schema import BaseSchema, LazyLoad
 from siliconcompiler.schema import EditableSchema, Parameter, PerNode, Scope
 from siliconcompiler.schema.utils import trim
-from siliconcompiler.utils.multiprocessing import MPManager
+from siliconcompiler.utils.settings import Setting, SettingsCategory
 
 from siliconcompiler import _metadata
+
+
+REGION = Setting("record", "region", "str", "local",
+                 "the region recorded in every run's manifest")
+RECORD_SETTINGS = SettingsCategory("record", REGION)
 
 
 class RecordTime(Enum):
@@ -142,8 +147,7 @@ class RecordSchema(BaseSchema):
             }
         '''
 
-        region = MPManager().get_settings().get("record", "region", default="local")
-        return {"region": region}
+        return {"region": REGION.get()}
 
     @staticmethod
     def get_ip_information() -> Dict[str, Optional[str]]:
@@ -289,7 +293,8 @@ class RecordSchema(BaseSchema):
         if ip_information['mac']:
             self.set('macaddr', ip_information['mac'], step=step, index=index)
 
-    def record_time(self, step: str, index: Union[str, int], type: RecordTime) -> float:
+    def record_time(self, step: str, index: Union[str, int], type: RecordTime,
+                    timestamp: Optional[float] = None) -> float:
         '''
         Record the time of the record.
 
@@ -300,10 +305,14 @@ class RecordSchema(BaseSchema):
             step (str): Step name to associate.
             index (str or int): Index name to associate.
             type (:class:`RecordTime`): type of time to record
+            timestamp (float): seconds since the epoch to record, if not now
         '''
         type = RecordTime(type)
 
-        now = datetime.now(timezone.utc)
+        if timestamp is None:
+            now = datetime.now(timezone.utc)
+        else:
+            now = datetime.fromtimestamp(timestamp, timezone.utc)
 
         self.set(type.value,
                  now.strftime(RecordSchema.__TIMEFORMAT),

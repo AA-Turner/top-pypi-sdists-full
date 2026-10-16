@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vermin
-Version: 1.8.0
+Version: 1.9.1
 Summary: Concurrently detect the minimum Python versions needed to run code
 Author-email: Morten Kristensen <me@mortens.dev>
 License-Expression: MIT
@@ -55,21 +55,24 @@ vanilla Python, and it doesn't have any external dependencies, it can be run wit
 includes detection of v2.x functionality.
 
 It functions by parsing Python code into an abstract syntax tree (AST), which it traverses and
-matches against internal dictionaries with **4140** rules, covering v2.0-2.7 and v3.0-3.14, divided
-into **190** modules, **2888** classes/functions/constants members of modules, **932** kwargs of
-functions, **4** strftime directives, **3** bytes format directives, **3** array typecodes, **3**
-codecs error handler names, **20** codecs encodings, **78** builtin generic annotation types, **9**
+matches against internal dictionaries with **4312** rules, covering v2.0-2.7 and v3.0-3.15, divided
+into **194** modules, **2995** classes/functions/constants members of modules, **991** kwargs of
+functions, **4** strftime directives, **3** bytes format directives, **6** array typecodes, **3**
+codecs error handler names, **19** codecs encodings, **78** builtin generic annotation types, **9**
 builtin dict union (``|``) types, **8** builtin dict union merge (``|=``) types, and **2** user
 function decorators.
 
 Backports of the standard library, like ``typing``, can be enabled for better results. Get full list
 of backports via ``--help``.
 
-The project is fairly well-tested with **4362** unit and integration tests that are executed on
+The project is fairly well-tested with **4605** unit and integration tests that are executed on
 Linux, macOS, and Windows.
 
 It is recommended to use the most recent Python version to run Vermin on projects since Python's own
 language parser is used to detect language features, like f-strings since Python 3.6 etc.
+
+As it parses each file, it reports Python syntax errors and warnings with full context, making it
+easy to fix them in addition to the minimum versions detected.
 
 
 Table of Contents
@@ -154,12 +157,14 @@ on how to get hooks set up on your project.
 Features
 ========
 
-Features detected include v2/v3 ``print expr`` and ``print(expr)``, ``long``, f-strings, coroutines
-(``async`` and ``await``), asynchronous generators (``await`` and ``yield`` in same function),
-asynchronous comprehensions, ``await`` in comprehensions, asynchronous ``for``-loops, boolean
-constants, named expressions, keyword-only parameters, positional-only parameters, ``nonlocal``,
-``yield from``, exception context cause (``raise .. from ..``), ``except*``, ``set`` literals,
-``set`` comprehensions, ``dict`` comprehensions, infix matrix multiplication, ``"..".format(..)``,
+Features detected include v2/v3 ``print expr`` and ``print(expr)``, ``long``, f-strings,
+self-documenting f-strings (``f'{a=}'``), PEP 701 f-strings (3.12+), ``await`` in f-strings,
+coroutines (``async`` and ``await``), asynchronous generators (``await`` and ``yield`` in same
+function), asynchronous comprehensions, ``await`` in comprehensions, asynchronous ``for``-loops,
+boolean constants, named expressions, keyword-only parameters, positional-only parameters,
+``nonlocal``, ``yield from``, exception context cause (``raise .. from ..``), ``except*``, ``set``
+literals, ``set`` comprehensions, ``dict`` comprehensions, unpacking in comprehension value
+expressions (``[*x for x in range(10)]``), infix matrix multiplication, ``"..".format(..)``,
 imports (``import X``, ``from X import Y``, ``from X import *``), function calls wrt. name and
 kwargs, ``strftime`` + ``strptime`` directives used, function and variable annotations (also
 ``Final`` and ``Literal``), ``continue`` in ``finally`` block, modular inverse ``pow()``, array
@@ -171,9 +176,10 @@ union (``{..}  | {..}``), dictionary union merge (``a = {..}; a |= {..}``), buil
 annotations (``list[str]``), function decorators, class decorators, relaxed decorators,
 ``metaclass`` class keyword, pattern matching with ``match``, union types written as ``X | Y``, type
 alias statements (``type X = SomeType``), type alias statements with lambdas/comprehensions in class
-scopes, generic classes (``class C[T]: ...``), and template string literals (``t'{var}'``). It tries
-to detect and ignore user-defined functions, classes, arguments, and variables with names that clash
-with library-defined symbols.
+scopes, generic classes (``class C[T]: ...``), template string literals (``t'{var}'``), lazy imports
+(``lazy import``, ``lazy from ... import``), special module attributes like ``__lazy_modules__``, and
+slice type subscription (``slice[1:2:3]``). It tries to detect and ignore user-defined functions,
+classes, arguments, and variables with names that clash with library-defined symbols.
 
 Caveats
 =======
@@ -181,11 +187,16 @@ Caveats
 For frequently asked questions, check out the `FAQ discussions
 <https://github.com/netromdk/vermin/discussions/categories/faq>`__.
 
-Self-documenting fstrings detection has been disabled by default because the built-in AST cannot
-distinguish ``f'{a=}'`` from ``f'a={a}'``, for instance, since it optimizes some information away
-(`#39 <https://github.com/netromdk/vermin/issues/39>`__). And this incorrectly marks some source
-code as using fstring self-doc when only using general fstring. To enable (unstable) fstring
-self-doc detection, use ``--feature fstring-self-doc``.
+Self-documenting f-strings (``f'{a=}'``) cannot be distinguished from plain f-strings such as
+``f'a={a}'`` by the AST alone, because the parser optimizes some information away (`#39
+<https://github.com/netromdk/vermin/issues/39>`__). Vermin therefore also verifies against the
+source code. This detection is enabled by default, but can be disabled with ``--no-feature``. Note
+that this also disables all other features.
+
+PEP 701 f-string features require Python 3.12+. Vermin detects these using AST analysis combined
+with source code heuristics, enabled by default, which requires Vermin to parse the syntax on Python
+3.12+ (`#264 <https://github.com/netromdk/vermin/issues/264>`__). Use ``--no-feature`` to disable
+this detection.
 
 Detecting union types (``X | Y`` `PEP 604 <https://www.python.org/dev/peps/pep-0604/>`__) can be
 tricky because Vermin doesn't know all underlying details of constants and types since it parses and

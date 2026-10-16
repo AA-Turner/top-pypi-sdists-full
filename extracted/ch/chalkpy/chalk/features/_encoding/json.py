@@ -8,19 +8,14 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from typing import List, Type, Union, cast, get_args, get_origin
 
+from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
+from chalk.utils.json import TJSON
+from chalk.utils.pydanticutil.sdk import BaseModel
 from chalk_rs import duration_isoformat as _duration_isoformat
 from chalk_rs import parse_datetime as _parse_datetime
 from chalk_rs import parse_iso_date as _parse_iso_date
 from chalk_rs import parse_iso_duration as _parse_iso_duration
 from chalk_rs import parse_iso_time as _parse_iso_time
-
-try:
-    from pydantic.v1 import BaseModel
-except ImportError:
-    from pydantic import BaseModel  # type: ignore[assignment]
-
-from chalk.features._encoding.primitive import ChalkStructType, TPrimitive
-from chalk.utils.json import TJSON
 
 __all__ = ["unstructure_primitive_to_json", "structure_json_to_primitive"]
 

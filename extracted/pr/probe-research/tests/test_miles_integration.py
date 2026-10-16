@@ -549,3 +549,20 @@ def test_repair_drain_cannot_race_live_exporter(tmp_path):
             probe_utils.drain_metric_queue(queue.root, run_id=run.id, timeout=0)
     finally:
         exporter.drain_and_close(0)
+
+
+def test_dashboard_setup_failure_keeps_metric_exporter_alive(tmp_path, monkeypatch):
+    from probe.integrations import miles_dashboard
+
+    def broken_capture(*args):
+        raise OSError("cannot start capture worker")
+
+    monkeypatch.setattr(probe_utils, "_load_sdk", lambda: (FakeClient, FakeRun))
+    monkeypatch.setattr(miles_dashboard, "start_capture", broken_capture)
+    tracker = probe_utils.ProbeTracker()
+    tracker.init(_args(tmp_path), primary=True)
+    tracker.log({"train/loss": 0.75}, step=2)
+    tracker.finish()
+    client = FakeClient.instances[-1]
+    assert client.created_run.logs[0][0] == {"train/loss": 0.75}
+    assert "dashboard_export_initialization" in client.created_run.finishes[0][1]["summary"]["capture_missing"]

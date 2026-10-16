@@ -12,7 +12,7 @@
 
 use crate::interpreter::ExecResult;
 
-use super::convert::{MAX_JQ_JSON_DEPTH, check_json_depth};
+use super::convert::{JqJson, JsonParseError, parse_json_value};
 use super::format::Indent;
 
 /// Maximum number of positional `--args` / `--jsonargs` values per call.
@@ -35,6 +35,9 @@ pub(super) const MAX_FILE_VAR_BYTES: usize = 16 * 1024 * 1024;
 /// the few we explicitly do not implement (`--seq`, `--stream`, color flags).
 pub(super) struct JqArgs<'a> {
     pub filter: &'a str,
+    /// `-f FILE` / `--from-file FILE`: read the filter from FILE; every
+    /// positional argument is then an input file.
+    pub filter_file: Option<&'a str>,
     pub raw_input: bool,
     pub raw_output: bool,
     pub join_output: bool,
@@ -42,16 +45,24 @@ pub(super) struct JqArgs<'a> {
     pub null_input: bool,
     pub slurp: bool,
     pub sort_keys: bool,
+    /// `-a`: escape non-ASCII characters as `\uXXXX`.
+    pub ascii_output: bool,
+    /// `--raw-output0`: like `-r`, but a NUL after each output.
+    pub raw_output0: bool,
+    /// `--seq`: RS (0x1e) before each output; RS separates inputs.
+    pub seq: bool,
+    /// `--stream`: feed each input as `[path, leaf]` / `[path]` events.
+    pub stream: bool,
     /// `-e` flag — set exit status from output.
     pub exit_status: bool,
     pub indent: Indent,
     pub file_args: Vec<&'a str>,
     /// Named string/JSON variables: `(name_with_$, value)`.
-    pub var_bindings: Vec<(String, serde_json::Value)>,
+    pub var_bindings: Vec<(String, JqJson)>,
     /// `--args` positional (string) / `--jsonargs` positional (json).
-    pub positional_args: Vec<serde_json::Value>,
+    pub positional_args: Vec<JqJson>,
     /// Named args from `--arg`/`--argjson`, exposed via `$ARGS.named`.
-    pub named_args: Vec<(String, serde_json::Value)>,
+    pub named_args: Vec<(String, JqJson)>,
     /// `--slurpfile name file` and `--rawfile name file` requests, resolved
     /// after parsing.
     pub file_var_requests: Vec<FileVarRequest<'a>>,
@@ -96,12 +107,17 @@ const HELP_TEXT: &str = "Usage: jq [OPTIONS...] FILTER [FILE...]\n\n\
     \t-e, --exit-status\tset exit status code based on output\n\
     \t-S, --sort-keys\t\tsort object keys in output\n\
     \t-j, --join-output\tlike -r without trailing newline\n\
+    \t-a, --ascii-output\toutput strings by only ASCII characters using escape sequences\n\
+    \t--raw-output0\t\timplies -r and output NUL after each output\n\
+    \t--seq\t\t\tparse input/output as application/json-seq\n\
+    \t--stream\t\tparse the input value in streaming fashion\n\
     \t--tab\t\t\tuse tabs for indentation\n\
     \t--indent N\t\tuse N spaces for indentation (0..7, default 2)\n\
     \t--arg name value\tset variable $name to string value\n\
     \t--argjson name value\tset variable $name to JSON value\n\
     \t--slurpfile name file\tbind $name to JSON values parsed from file\n\
     \t--rawfile name file\tbind $name to raw string contents of file\n\
+    \t-f, --from-file file\tread the filter from file\n\
     \t--args\t\t\tremaining args populate $ARGS.positional as strings\n\
     \t--jsonargs\t\tremaining args populate $ARGS.positional as JSON values\n\
     \t-V, --version\t\toutput version information and exit\n\
@@ -127,12 +143,17 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
 
     let mut out = JqArgs {
         filter: ".",
+        filter_file: None,
         raw_input: false,
         raw_output: false,
         join_output: false,
         compact_output: false,
         null_input: false,
         slurp: false,
+        ascii_output: false,
+        raw_output0: false,
+        seq: false,
+        stream: false,
         sort_keys: false,
         exit_status: false,
         indent: Indent::Spaces(2),
@@ -198,15 +219,13 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
             "--exit-status" => out.exit_status = true,
             "--tab" => out.indent = Indent::Tab,
             "--join-output" => out.join_output = true,
-            "--ascii-output"
-            | "-a"
-            | "-C"
-            | "-M"
-            | "--color-output"
-            | "--monochrome-output"
-            | "--unbuffered" => {
+            "--ascii-output" | "-a" => out.ascii_output = true,
+            "--raw-output0" => out.raw_output0 = true,
+            "--seq" => out.seq = true,
+            "--stream" => out.stream = true,
+            "-C" | "--color-output" | "--monochrome-output" | "-M" | "--unbuffered" => {
                 // Recognised but no-op: rendering is not TTY-aware in this
-                // sandbox, and ASCII-only output isn't implemented yet.
+                // sandbox.
             }
             "--indent" => match args.get(i + 1) {
                 Some(n) => match n.parse::<u8>() {
@@ -238,19 +257,14 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
                 (Some(name), Some(value)) => {
                     let var = format!("${name}");
                     let v = if arg == "--arg" {
-                        serde_json::Value::String(value.clone())
+                        JqJson::String(value.clone())
                     } else {
-                        match serde_json::from_str::<serde_json::Value>(value) {
-                            Ok(v) => {
-                                if let Err(e) = check_json_depth(&v, MAX_JQ_JSON_DEPTH) {
-                                    return ParseOutcome::Done(ExecResult::err(
-                                        format!("{e}\n"),
-                                        2,
-                                    ));
-                                }
-                                v
+                        match parse_json_value(value) {
+                            Ok(v) => v,
+                            Err(JsonParseError::TooDeep(e)) => {
+                                return ParseOutcome::Done(ExecResult::err(format!("{e}\n"), 2));
                             }
-                            Err(e) => {
+                            Err(JsonParseError::Invalid(e)) => {
                                 return ParseOutcome::Done(usage_error(format!(
                                     "jq: invalid JSON for --argjson: {e}"
                                 )));
@@ -294,6 +308,18 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
                     )));
                 }
             },
+            "--from-file" => match args.get(i + 1) {
+                Some(path) => {
+                    out.filter_file = Some(path.as_str());
+                    i += 2;
+                    continue;
+                }
+                None => {
+                    return ParseOutcome::Done(usage_error(
+                        "jq: --from-file takes a parameter".into(),
+                    ));
+                }
+            },
             "--args" => {
                 positional_mode = Some(PositionalMode::Strings);
             }
@@ -306,8 +332,10 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
             }
             // Short flag(s): may be combined like -rn, -sc, -snr.
             s if s.starts_with('-') && s.len() > 1 => {
+                let mut takes_file = false;
                 for ch in s[1..].chars() {
                     match ch {
+                        'f' => takes_file = true,
                         'r' => out.raw_output = true,
                         'R' => out.raw_input = true,
                         'c' => out.compact_output = true,
@@ -316,9 +344,24 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
                         's' => out.slurp = true,
                         'e' => out.exit_status = true,
                         'j' => out.join_output = true,
-                        'a' | 'C' | 'M' => {} // ASCII / color / monochrome — accept silently
+                        'a' => out.ascii_output = true,
+                        'C' | 'M' => {} // color / monochrome — accept silently
                         unknown => {
                             return ParseOutcome::Done(unknown_option(&format!("-{unknown}")));
+                        }
+                    }
+                }
+                if takes_file {
+                    match args.get(i + 1) {
+                        Some(path) => {
+                            out.filter_file = Some(path.as_str());
+                            i += 2;
+                            continue;
+                        }
+                        None => {
+                            return ParseOutcome::Done(usage_error(
+                                "jq: -f takes a parameter".into(),
+                            ));
                         }
                     }
                 }
@@ -336,6 +379,12 @@ pub(super) fn parse<'a>(args: &'a [String]) -> ParseOutcome<'a> {
             }
         }
         i += 1;
+    }
+
+    // With a filter file, the positional taken as the filter is an input.
+    if out.filter_file.is_some() && found_filter {
+        out.file_args.insert(0, out.filter);
+        out.filter = ".";
     }
 
     ParseOutcome::Args(out)
@@ -357,17 +406,14 @@ fn push_positional(
     }
     match mode {
         PositionalMode::Strings => {
-            out.positional_args
-                .push(serde_json::Value::String(arg.to_owned()));
+            out.positional_args.push(JqJson::String(arg.to_owned()));
         }
-        PositionalMode::Json => match serde_json::from_str::<serde_json::Value>(arg) {
-            Ok(v) => {
-                if let Err(e) = check_json_depth(&v, MAX_JQ_JSON_DEPTH) {
-                    return Err(Box::new(ExecResult::err(format!("{e}\n"), 2)));
-                }
-                out.positional_args.push(v);
+        PositionalMode::Json => match parse_json_value(arg) {
+            Ok(v) => out.positional_args.push(v),
+            Err(JsonParseError::TooDeep(e)) => {
+                return Err(Box::new(ExecResult::err(format!("{e}\n"), 2)));
             }
-            Err(e) => {
+            Err(JsonParseError::Invalid(e)) => {
                 return Err(Box::new(usage_error(format!(
                     "jq: invalid JSON for --jsonargs: {e}"
                 ))));
@@ -397,6 +443,10 @@ fn unknown_option(opt: &str) -> ExecResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn json(s: &str) -> JqJson {
+        parse_json_value(s).unwrap()
+    }
 
     fn parse_strs(args: &[&str]) -> ParseOutcome<'static> {
         let v: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
@@ -498,7 +548,7 @@ mod tests {
             ParseOutcome::Args(a) => {
                 assert_eq!(a.var_bindings.len(), 1);
                 assert_eq!(a.var_bindings[0].0, "$x");
-                assert_eq!(a.var_bindings[0].1, serde_json::Value::String("hi".into()));
+                assert_eq!(a.var_bindings[0].1, JqJson::String("hi".into()));
             }
             _ => panic!("expected Args"),
         }
@@ -509,7 +559,7 @@ mod tests {
         match parse_strs(&["--argjson", "n", "42", "."]) {
             ParseOutcome::Args(a) => {
                 assert_eq!(a.var_bindings[0].0, "$n");
-                assert_eq!(a.var_bindings[0].1, serde_json::json!(42));
+                assert_eq!(a.var_bindings[0].1, json("42"));
             }
             _ => panic!("expected Args"),
         }
@@ -577,8 +627,8 @@ mod tests {
             ParseOutcome::Args(a) => {
                 assert!(a.null_input);
                 assert_eq!(a.positional_args.len(), 3);
-                assert_eq!(a.positional_args[0], serde_json::json!("a"));
-                assert_eq!(a.positional_args[2], serde_json::json!("c"));
+                assert_eq!(a.positional_args[0], json(r#""a""#));
+                assert_eq!(a.positional_args[2], json(r#""c""#));
                 assert!(a.file_args.is_empty());
             }
             _ => panic!("expected Args"),
@@ -589,9 +639,9 @@ mod tests {
     fn jsonargs_become_positional_json() {
         match parse_strs(&["-n", ".", "--jsonargs", "1", "true", r#"{"a":1}"#]) {
             ParseOutcome::Args(a) => {
-                assert_eq!(a.positional_args[0], serde_json::json!(1));
-                assert_eq!(a.positional_args[1], serde_json::json!(true));
-                assert_eq!(a.positional_args[2], serde_json::json!({"a":1}));
+                assert_eq!(a.positional_args[0], json("1"));
+                assert_eq!(a.positional_args[1], json("true"));
+                assert_eq!(a.positional_args[2], json(r#"{"a":1}"#));
             }
             _ => panic!("expected Args"),
         }
@@ -631,10 +681,13 @@ mod tests {
     }
 
     #[test]
-    fn ascii_output_silently_accepted() {
-        match parse_strs(&["-a", "."]) {
-            ParseOutcome::Args(a) => assert_eq!(a.filter, "."),
-            _ => panic!("expected Args (-a should be accepted)"),
+    fn output_mode_flags_parse() {
+        match parse_strs(&["-a", "--raw-output0", "--seq", "--stream", "."]) {
+            ParseOutcome::Args(a) => {
+                assert_eq!(a.filter, ".");
+                assert!(a.ascii_output && a.raw_output0 && a.seq && a.stream);
+            }
+            _ => panic!("expected Args"),
         }
     }
 

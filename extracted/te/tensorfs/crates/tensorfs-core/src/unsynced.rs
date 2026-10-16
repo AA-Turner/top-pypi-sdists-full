@@ -167,24 +167,29 @@ fn dead(markers: Vec<Found>) -> Vec<(Found, File)> {
 fn sync_files(paths: &[PathBuf]) -> Result<()> {
     let next = AtomicUsize::new(0);
     let failed: Mutex<Option<Refusal>> = Mutex::new(None);
-    std::thread::scope(|scope| {
-        for _ in 0..SYNC_THREADS.min(paths.len()) {
-            scope.spawn(|| {
-                while let Some(path) = paths.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    match File::open(path).and_then(|file| file.sync_data()) {
-                        Ok(()) => {}
-                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                        Err(error) => {
-                            failed
-                                .lock()
-                                .unwrap_or_else(|error| error.into_inner())
-                                .get_or_insert(io(format!("sync {}", path.display()), error));
-                            return;
-                        }
-                    }
+    let sync = || {
+        while let Some(path) = paths.get(next.fetch_add(1, Ordering::Relaxed)) {
+            match File::open(path).and_then(|file| file.sync_data()) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    failed
+                        .lock()
+                        .unwrap_or_else(|error| error.into_inner())
+                        .get_or_insert(io(format!("sync {}", path.display()), error));
+                    return;
                 }
-            });
+            }
         }
+    };
+    // This thread syncs too, so a thread the container refuses only slows the batch.
+    std::thread::scope(|scope| {
+        for _ in 1..SYNC_THREADS.min(paths.len()) {
+            if std::thread::Builder::new().spawn_scoped(scope, sync).is_err() {
+                break;
+            }
+        }
+        sync();
     });
     match failed
         .into_inner()

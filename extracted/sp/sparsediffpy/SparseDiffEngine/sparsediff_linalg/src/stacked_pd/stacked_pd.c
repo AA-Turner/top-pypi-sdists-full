@@ -1,0 +1,339 @@
+/*
+ * Copyright 2026 Daniel Cederberg and William Zhang
+ *
+ * This file is part of the SparseDiffEngine project.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "internal/stacked_pd.h"
+
+#include "internal/stacked_pd_linalg.h"
+#include "sparsediff_linalg/matrix.h"
+#include "sparsediff_linalg/tracked_alloc.h"
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
+
+void stacked_pd_free(matrix *self)
+{
+    stacked_pd *spd = (stacked_pd *) self;
+    for (int k = 0; k < spd->n_blocks; k++)
+    {
+        /* spd owns the blocks */
+        free_matrix((matrix *) spd->blocks[k]);
+    }
+
+    sp_free(spd->blocks);
+    sp_free(spd->src_block_idx_p);
+    sp_free(spd->src_block_idx);
+
+    if (spd->pre_coalesce != NULL)
+    {
+        free_matrix((matrix *) spd->pre_coalesce);
+    }
+
+    if (spd->kernel_pd_scratch != NULL)
+    {
+        free_matrix(&spd->kernel_pd_scratch->base);
+    }
+
+    free_CSR_matrix(spd->csr_cache);
+    sp_free(spd->base.x);
+    sp_free(spd);
+}
+
+/* Vtable adapters — each downcasts matrix * to stacked_pd * and
+   delegates to the corresponding public spd kernel. */
+
+static CSR_matrix *stacked_pd_to_csr_alloc(const stacked_pd *spd)
+{
+    CSR_matrix *C = new_CSR_matrix(spd->base.m, spd->base.n, spd->base.nnz);
+    pd_blocks_csr_pattern(spd->blocks, spd->n_blocks, spd->base.m, C->p, C->i);
+    return C;
+}
+
+static CSR_matrix *stacked_pd_to_csr(matrix *self)
+{
+    stacked_pd *spd = (stacked_pd *) self;
+
+    if (spd->csr_cache == NULL)
+    {
+        spd->csr_cache = stacked_pd_to_csr_alloc(spd);
+
+        /* Deliberately stale: force the first call to copy the values. */
+        spd->csr_seen = spd->base.values_version - 1;
+    }
+
+    /* refresh values iff the block X buffers changed since the last call */
+    if (spd->csr_seen == spd->base.values_version)
+    {
+        return spd->csr_cache;
+    }
+    spd->csr_seen = spd->base.values_version;
+    pd_blocks_csr_fill_values(spd->blocks, spd->n_blocks, spd->csr_cache->p,
+                              spd->csr_cache->x);
+    return spd->csr_cache;
+}
+
+matrix *spd_map_filter_blocks(const stacked_pd *B, int Cm, int Cn, spd_block_op op,
+                              const void *ctx)
+{
+    if (B->n_blocks == 0)
+    {
+        return new_stacked_pd(Cm, Cn, 0, NULL, NULL, NULL);
+    }
+
+    permuted_dense **C_blocks =
+        (permuted_dense **) sp_malloc(B->n_blocks * sizeof(permuted_dense *));
+    int *C_src = (int *) sp_malloc(B->n_blocks * sizeof(int));
+
+    int out_nb = 0;
+    for (int k = 0; k < B->n_blocks; k++)
+    {
+        matrix *Ck = op(B->blocks[k], ctx);
+        if (Ck->nnz == 0)
+        {
+            free_matrix(Ck);
+        }
+        else
+        {
+            C_blocks[out_nb] = (permuted_dense *) Ck;
+            C_src[out_nb] = k;
+            out_nb++;
+        }
+    }
+
+    int *C_src_p = (int *) sp_malloc((out_nb + 1) * sizeof(int));
+    for (int k = 0; k <= out_nb; k++)
+    {
+        C_src_p[k] = k;
+    }
+
+    matrix *C = new_stacked_pd(Cm, Cn, out_nb, C_blocks, C_src_p, C_src);
+    sp_free(C_blocks);
+    sp_free(C_src);
+    sp_free(C_src_p);
+    return C;
+}
+
+void compose_csr_idx_map_for_spd(const matrix *spd_m, const CSR_matrix *csr,
+                                 int *idx_map)
+{
+    assert(spd_m->kind == MATRIX_STACKED_PD);
+    const stacked_pd *spd = (const stacked_pd *) spd_m;
+    /* spd's base.x is block-major (block 0's m0*n0 values, then block 1's,
+       ...); csr->x is row-major sorted. Because spd blocks have pairwise-
+       disjoint row perms and stacked_pd_to_csr_alloc memcpys each block's
+       col_perm straight into csr->i, the n0 CSR entries for any row are
+       exactly that block's columns in order — CSR position is just
+       csr->p[row] + jj. */
+    int *scratch = (int *) sp_malloc(spd->base.nnz * sizeof(int));
+    int native = 0;
+    for (int k = 0; k < spd->n_blocks; k++)
+    {
+        permuted_dense *blk = spd->blocks[k];
+        for (int ii = 0; ii < blk->m0; ii++)
+        {
+            int row_start = csr->p[blk->row_perm[ii]];
+            for (int jj = 0; jj < blk->n0; jj++)
+            {
+                scratch[native++] = idx_map[row_start + jj];
+            }
+        }
+    }
+    memcpy(idx_map, scratch, spd->base.nnz * sizeof(int));
+    sp_free(scratch);
+}
+
+// -----------------------------------------------------------------------------
+//        row gather of stacked_pd: C = A[map, :] where A is stacked_pd
+// -----------------------------------------------------------------------------
+typedef struct
+{
+    const int *map;
+    int m_out;
+} pd_row_gather_ctx;
+
+static matrix *wrapper_pd_row_gather(permuted_dense *Bk, const void *ctx)
+{
+    const pd_row_gather_ctx *c = (const pd_row_gather_ctx *) ctx;
+    return row_gather_pd_alloc(Bk, c->map, c->m_out);
+}
+
+/* Every output row has exactly one source row, which lives in exactly one
+   block, so the per-block results stay row-disjoint even when map repeats. */
+static matrix *stacked_pd_vtable_row_gather_alloc(const matrix *self, const int *map,
+                                                  int m_out)
+{
+    const stacked_pd *src = (const stacked_pd *) self;
+    pd_row_gather_ctx ctx = {map, m_out};
+    return spd_map_filter_blocks(src, m_out, src->base.n, wrapper_pd_row_gather,
+                                 &ctx);
+}
+
+static void stacked_pd_vtable_row_gather_fill_values(const matrix *self, matrix *out)
+{
+    const stacked_pd *src = (const stacked_pd *) self;
+    stacked_pd *out_spd = (stacked_pd *) out;
+    for (int k = 0; k < out_spd->n_blocks; k++)
+    {
+        int sk = out_spd->src_block_idx[k];
+        row_gather_pd_fill_values(src->blocks[sk], out_spd->blocks[k]);
+    }
+    matrix_values_changed(out);
+}
+
+// --------------------------------------------------------------------------------
+//                          Constructor below
+// --------------------------------------------------------------------------------
+#ifndef NDEBUG
+/* Pairwise verify that block row permutations are disjoint via a
+   two-pointer merge over the sorted arrays. */
+static void assert_disjoint_row_perms(int n_blocks, permuted_dense *const *blocks)
+{
+    for (int a = 0; a < n_blocks; a++)
+    {
+        for (int b = a + 1; b < n_blocks; b++)
+        {
+            const int *ra = blocks[a]->row_perm;
+            int la = blocks[a]->m0;
+            const int *rb = blocks[b]->row_perm;
+            int lb = blocks[b]->m0;
+            int i = 0;
+            int j = 0;
+            while (i < la && j < lb)
+            {
+                assert(ra[i] != rb[j] && "stacked_pd: block row_perms overlap");
+                if (ra[i] < rb[j])
+                {
+                    i++;
+                }
+                else
+                {
+                    j++;
+                }
+            }
+        }
+    }
+}
+#endif
+
+static matrix *stacked_pd_vtable_row_reduce_alloc(const matrix *self,
+                                                  const int *group, int m_out)
+{
+    return row_reduce_spd_alloc((const stacked_pd *) self, group, m_out);
+}
+
+static void stacked_pd_vtable_row_reduce_fill_values(const matrix *self, matrix *out)
+{
+    row_reduce_spd_fill_values((const stacked_pd *) self, (stacked_pd *) out);
+    matrix_values_changed(out);
+}
+
+static void wire_vtable(stacked_pd *spd)
+{
+    spd->base.kind = MATRIX_STACKED_PD;
+    spd->base.to_csr = stacked_pd_to_csr;
+    spd->base.row_gather_alloc = stacked_pd_vtable_row_gather_alloc;
+    spd->base.row_gather_fill_values = stacked_pd_vtable_row_gather_fill_values;
+    spd->base.row_reduce_alloc = stacked_pd_vtable_row_reduce_alloc;
+    spd->base.row_reduce_fill_values = stacked_pd_vtable_row_reduce_fill_values;
+}
+
+matrix *new_stacked_pd_unchecked(int m, int n, int n_blocks, permuted_dense **blocks,
+                                 const int *src_block_idx_p,
+                                 const int *src_block_idx)
+{
+    assert((src_block_idx_p == NULL) == (src_block_idx == NULL));
+
+    // --------------------------------------------------------------------------------
+    //                          Set up basic fields
+    // --------------------------------------------------------------------------------
+    stacked_pd *spd = (stacked_pd *) sp_calloc(1, sizeof(stacked_pd));
+    spd->base.m = m;
+    spd->base.n = n;
+    int nnz = 0;
+    for (int k = 0; k < n_blocks; k++)
+    {
+        nnz += blocks[k]->base.nnz;
+    }
+    spd->base.nnz = nnz;
+    wire_vtable(spd);
+
+    spd->n_blocks = n_blocks;
+    spd->blocks = (permuted_dense **) sp_malloc(n_blocks * sizeof(permuted_dense *));
+    spd->src_block_idx_p = (int *) sp_malloc((n_blocks + 1) * sizeof(int));
+    spd->src_block_idx_p[0] = 0;
+    if (n_blocks > 0)
+    {
+        memcpy(spd->blocks, blocks, n_blocks * sizeof(permuted_dense *));
+    }
+
+    // --------------------------------------------------------------------------------
+    //                         Set up source block index mapping
+    // --------------------------------------------------------------------------------
+    if (src_block_idx_p == NULL)
+    {
+        /* identity: each output block has itself as its one source */
+        spd->src_block_idx = (int *) sp_malloc(n_blocks * sizeof(int));
+        for (int k = 0; k < n_blocks; k++)
+        {
+            spd->src_block_idx_p[k + 1] = k + 1;
+            spd->src_block_idx[k] = k;
+        }
+    }
+    else
+    {
+        int total = src_block_idx_p[n_blocks];
+        memcpy(spd->src_block_idx_p, src_block_idx_p, (n_blocks + 1) * sizeof(int));
+        spd->src_block_idx = (int *) sp_malloc(total * sizeof(int));
+        if (total > 0)
+        {
+            memcpy(spd->src_block_idx, src_block_idx, total * sizeof(int));
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Absorb each block's X into a single shared values buffer owned by this spd.
+    // ----------------------------------------------------------------------------
+    spd->base.x = (double *) sp_malloc(spd->base.nnz * sizeof(double));
+    int offset = 0;
+    for (int k = 0; k < n_blocks; k++)
+    {
+        int nnz_block = spd->blocks[k]->base.nnz;
+        if (nnz_block == 0)
+        {
+            continue;
+        }
+
+        memcpy(spd->base.x + offset, spd->blocks[k]->X, nnz_block * sizeof(double));
+        sp_free(spd->blocks[k]->X);
+        spd->blocks[k]->X = spd->base.x + offset;
+        spd->blocks[k]->base.x = spd->blocks[k]->X;
+        spd->blocks[k]->owns_X = false;
+        offset += nnz_block;
+    }
+
+    return &spd->base;
+}
+
+matrix *new_stacked_pd(int m, int n, int n_blocks, permuted_dense **blocks,
+                       const int *src_block_idx_p, const int *src_block_idx)
+{
+    matrix *out = new_stacked_pd_unchecked(m, n, n_blocks, blocks, src_block_idx_p,
+                                           src_block_idx);
+#ifndef NDEBUG
+    assert_disjoint_row_perms(n_blocks, blocks);
+#endif
+    return out;
+}

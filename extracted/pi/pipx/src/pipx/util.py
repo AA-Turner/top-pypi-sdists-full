@@ -1,5 +1,24 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "concurrent.futures",
+    "fcntl",
+    "itertools",
+    "pathlib",
+    "pipx",
+    "pipx.fanout",
+    "pipx.wrap",
+    "pty",
+    "random",
+    "re",
+    "select",
+    "shutil",
+    "string",
+    "struct",
+    "subprocess",
+    "termios",
+]
+
 import codecs
 import errno
 import logging
@@ -10,8 +29,10 @@ import shutil
 import string
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import suppress
+from contextlib import contextmanager, suppress
+from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
 from itertools import chain
 from pathlib import Path
@@ -27,28 +48,40 @@ from typing import (
 from pipx import paths
 from pipx.animate import show_cursor
 from pipx.constants import MINGW, WINDOWS
+from pipx.fanout import output_is_held, stop_process_group, stopped_on_interrupt
 from pipx.wrap import pipx_wrap
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Generator, Sequence
+    from concurrent.futures import Future
 
 if not WINDOWS:
     import fcntl
     import pty
+    import select
     import struct
     import termios
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _SUBPROCESS_STREAM_READ_SIZE: Final[int] = 8 * 1024
+_STREAM_STDOUT_TO_STDERR: Final[ContextVar[bool]] = ContextVar("stream_stdout_to_stderr", default=False)
 
 
 class PipxError(Exception):
-    def __init__(self, message: str, *, wrap_message: bool = True) -> None:
+    def __init__(self, message: str, *, wrap_message: bool = True, backend_output: str = "") -> None:
         self.raw_message: Final[str] = message
+        # what pip or uv said, for a result envelope to carry when the terminal already showed it live
+        self.backend_output: Final[str] = backend_output
         if wrap_message:
             super().__init__(pipx_wrap(message))
         else:
             super().__init__(message)
+
+
+class InstalledNameMismatchError(PipxError):
+    def __init__(self, installed_name: str) -> None:
+        self.installed_name: Final[str] = installed_name
+        super().__init__(f"The package spec installed {installed_name!r}, a different name than expected.")
 
 
 @dataclass(frozen=True)
@@ -150,6 +183,8 @@ else:
 
 def get_site_packages(python: Path) -> list[Path]:
     """Return the interpreter's purelib first, then its platlib when that is a second directory."""
+    if (site_packages := _site_packages_from_layout(python.parent.parent)) is not None:
+        return site_packages
     output = run_subprocess(
         [
             python,
@@ -165,6 +200,18 @@ def get_site_packages(python: Path) -> list[Path]:
     if (platlib_path := Path(platlib)).resolve() == purelib_path.resolve():
         return [purelib_path]
     return [purelib_path, platlib_path]
+
+
+def _site_packages_from_layout(venv: Path) -> list[Path] | None:
+    # reading the directories a CPython venv creates spares starting its interpreter; any other layout asks sysconfig
+    if (windows_site_packages := venv / "Lib" / "site-packages").is_dir():
+        return [windows_site_packages]
+    match list(venv.glob("lib/python3*/site-packages")):
+        case [purelib]:
+            platlib: Final[Path] = venv / "lib64" / purelib.parent.name / "site-packages"
+            return [purelib, platlib] if platlib.is_dir() and not platlib.samefile(purelib) else [purelib]
+        case _:
+            return None
 
 
 def _fix_subprocess_env(env: dict[str, str], *, force_utf8: bool = True) -> dict[str, str]:
@@ -188,6 +235,15 @@ def _fix_subprocess_env(env: dict[str, str], *, force_utf8: bool = True) -> dict
     return env
 
 
+@contextmanager
+def stream_subprocess_stdout_to_stderr(*, enabled: bool) -> Generator[None, None, None]:
+    token: Final = _STREAM_STDOUT_TO_STDERR.set(enabled)
+    try:
+        yield
+    finally:
+        _STREAM_STDOUT_TO_STDERR.reset(token)
+
+
 def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subprocess.run exposing its capture and logging switches
     cmd: Sequence[str | Path],
     *,
@@ -199,10 +255,12 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
     run_dir: str | None = None,
     env_overrides: dict[str, str | None] | None = None,
     stream_output: bool = False,
+    interactive: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """Run a command as a subprocess, capturing stderr and stdout.
 
-    ``env_overrides`` keys map to a string (set/replace) or ``None`` (delete).
+    ``env_overrides`` keys map to a string (set/replace) or ``None`` (delete). Unless ``interactive``, the child reads
+    no input and runs in a process group of its own, which pipx stops as a whole when it is interrupted.
     """
     env = dict(os.environ)
     env = _fix_subprocess_env(env)
@@ -212,9 +270,7 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
         else:
             env[key] = value
 
-    if log_cmd_str is None:
-        log_cmd_str = " ".join(str(c) for c in cmd)
-    _LOGGER.info("running %s", log_cmd_str)
+    _LOGGER.info("running %s", _command_line(cmd) if log_cmd_str is None else log_cmd_str)
     if run_dir:
         Path(run_dir).mkdir(parents=True, exist_ok=True)
     # windows cannot take Path objects, only strings
@@ -228,11 +284,6 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
         env.setdefault("PYTHONSAFEPATH", "1")
 
     if stream_output:
-        # Windows has no pseudo-terminal to hand the child, so it reads a pipe and rich, which pip draws its bar with,
-        # takes TTY_COMPATIBLE for the terminal we forward the output to and COLUMNS for a width it cannot measure.
-        if sys.stdout.isatty():
-            env.setdefault("TTY_COMPATIBLE", "1")
-            env.setdefault("COLUMNS", str(shutil.get_terminal_size().columns))
         completed_process = _run_streaming_subprocess(
             cmd_str_list,
             capture_stdout=capture_stdout,
@@ -240,16 +291,51 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
             cwd=run_dir,
             env=env,
         )
-    else:
+    elif interactive:
         completed_process = subprocess.run(
             cmd_str_list,
             env=env,
             stdout=subprocess.PIPE if capture_stdout else None,
             stderr=subprocess.PIPE if capture_stderr else None,
             encoding="utf-8",
-            text=True,
+            errors="replace",
             check=False,
             cwd=run_dir,
+        )
+    else:
+        # a child writing straight to the terminal would cut into the output of the fan-out task whose turn it is
+        hold_stderr: Final[bool] = not capture_stderr and output_is_held()
+        with (
+            subprocess.Popen(
+                cmd_str_list,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE if capture_stdout else None,
+                stderr=subprocess.PIPE if capture_stderr or hold_stderr else None,
+                encoding="utf-8",
+                errors="replace",
+                text=True,
+                cwd=run_dir,
+                # a terminal's Ctrl-C then reaches pipx alone, which decides whether the child finishes; a new session
+                # rather than just a new group, as the terminal stops a background group reading or writing it
+                start_new_session=True,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            ) as process,
+            stopped_on_interrupt(process),
+        ):
+            try:
+                stdout, stderr = process.communicate()
+            except BaseException:
+                # like subprocess.run, so an interrupt does not leave the child running
+                process.kill()
+                raise
+        if hold_stderr:
+            sys.stderr.write(stderr)
+        completed_process = subprocess.CompletedProcess(
+            process.args,
+            process.returncode,
+            _without_terminal_escapes(stdout),
+            None if hold_stderr else _without_terminal_escapes(stderr),
         )
 
     if capture_stdout and log_stdout and not stream_output:
@@ -261,6 +347,29 @@ def run_subprocess(  # ruff:ignore[too-many-arguments]  # thin wrapper over subp
     return completed_process
 
 
+def _without_terminal_escapes(output: str | None) -> str | None:
+    # a child colours what it writes to a terminal, or to a pipe under FORCE_COLOR, and the escapes split the words pipx
+    # reads out of the captured copy
+    if output is None:
+        return None
+    return re.sub(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])", "", output)
+
+
+def _command_line(cmd: Sequence[str | Path]) -> str:
+    return redact_url_credentials(" ".join(str(c) for c in cmd))
+
+
+def redact_url_credentials(text: str) -> str:
+    # index and package URLs can carry credentials, which must not reach the log file or the verbose output; masked the
+    # way pip masks them in its own messages, which also hides a bare user such as git@ since it may be a token. The
+    # authority ends at the first /, ? or #, and its userinfo runs to the last @ before that.
+    return re.sub(
+        r"(?<=://)([^\s/?#]*)@",
+        lambda match: f"{userinfo[0]}:****@" if (userinfo := match[1].partition(":"))[1] else "****@",
+        text,
+    )
+
+
 def _run_streaming_subprocess(
     cmd: list[str],
     *,
@@ -269,12 +378,18 @@ def _run_streaming_subprocess(
     cwd: str | None,
     env: dict[str, str],
 ) -> subprocess.CompletedProcess[str]:
+    stdout_destination: Final[TextIO] = sys.stderr if _STREAM_STDOUT_TO_STDERR.get() else sys.stdout
+    # Windows has no pseudo-terminal to hand the child, so it reads a pipe and rich, which pip draws its bar with,
+    # takes TTY_COMPATIBLE for the terminal we forward the output to and COLUMNS for a width it cannot measure.
+    if stdout_destination.isatty():
+        env.setdefault("TTY_COMPATIBLE", "1")
+        env.setdefault("COLUMNS", str(shutil.get_terminal_size().columns))
     stdout_chunks: Final[list[str]] = []
     stderr_chunks: Final[list[str]] = []
     channels: Final[dict[str, _StreamChannel]] = {
         name: _open_stream_channel(destination)
         for name, destination, capture in (
-            ("stdout", sys.stdout, capture_stdout),
+            ("stdout", stdout_destination, capture_stdout),
             ("stderr", sys.stderr, capture_stderr),
         )
         if capture
@@ -284,32 +399,53 @@ def _run_streaming_subprocess(
             subprocess.Popen(
                 cmd,
                 env=env,
+                stdin=subprocess.DEVNULL,
                 stdout=channels["stdout"].child if capture_stdout else None,
                 stderr=channels["stderr"].child if capture_stderr else None,
                 cwd=cwd,
+                start_new_session=True,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
             ) as process,
+            stopped_on_interrupt(process),
             ThreadPoolExecutor(max_workers=2) as executor,
         ):
             for channel in channels.values():
-                channel.close_child()
-            for future in [
-                executor.submit(_tee_subprocess_output, channels[name].reader, destination, chunks)
-                for name, destination, chunks in (
-                    ("stdout", sys.stdout, stdout_chunks),
-                    ("stderr", sys.stderr, stderr_chunks),
-                )
-                if name in channels
-            ]:
+                if not channel.terminal:
+                    channel.close_child()
+            sinks: Final = {"stdout": (stdout_destination, stdout_chunks), "stderr": (sys.stderr, stderr_chunks)}
+            futures: dict[str, Future[None]] = {}
+            try:
+                futures = {
+                    # each reader needs the caller's context to buffer the output of a fan-out task waiting its turn
+                    name: executor.submit(copy_context().run, _tee_subprocess_output, channel.reader, *sinks[name])
+                    for name, channel in channels.items()
+                }
+                returncode: Final[int] = process.wait()
+                for name, channel in channels.items():
+                    if channel.terminal:
+                        # macOS discards what a pseudo-terminal still queues once its last child end closes, so hold
+                        # ours open until the reader has taken everything the exited child wrote
+                        _wait_until_drained(channel.reader, futures[name])
+            except BaseException:
+                # the readers return only once nothing holds the child's ends, a build backend the child started
+                # included, so the whole group must go before the executor joins them
+                stop_process_group(process)
+                raise
+            finally:
+                # a pseudo-terminal reader returns only once every child end is closed, so ours must close before the
+                # executor joins the readers, also when Ctrl-C lands while the readers start or the child runs
+                for channel in channels.values():
+                    channel.close_child()
+            for future in futures.values():
                 future.result()
-            returncode: Final[int] = process.wait()
     finally:
         for channel in channels.values():
             channel.close()
     return subprocess.CompletedProcess(
         cmd,
         returncode,
-        "".join(stdout_chunks) if capture_stdout else None,
-        "".join(stderr_chunks) if capture_stderr else None,
+        _without_terminal_escapes("".join(stdout_chunks) if capture_stdout else None),
+        _without_terminal_escapes("".join(stderr_chunks) if capture_stderr else None),
     )
 
 
@@ -317,6 +453,7 @@ def _run_streaming_subprocess(
 class _StreamChannel:
     reader: int
     child: int
+    terminal: bool
 
     def close_child(self) -> None:
         if self.child != -1:
@@ -336,15 +473,21 @@ def _open_stream_channel(destination: TextIO) -> _StreamChannel:
     if not WINDOWS and destination.isatty():
         reader, child = pty.openpty()
         _match_terminal_size(child)
-        return _StreamChannel(reader, child)
+        return _StreamChannel(reader, child, terminal=True)
     reader, child = os.pipe()
-    return _StreamChannel(reader, child)
+    return _StreamChannel(reader, child, terminal=False)
 
 
 def _match_terminal_size(child: int) -> None:
     size: Final[os.terminal_size] = shutil.get_terminal_size()
     with suppress(OSError):
         fcntl.ioctl(child, termios.TIOCSWINSZ, struct.pack("HHHH", size.lines, size.columns, 0, 0))
+
+
+def _wait_until_drained(reader: int, reading: Future[None]) -> None:
+    poll_seconds: Final[float] = 0.01
+    while not reading.done() and select.select([reader], [], [], poll_seconds)[0]:
+        time.sleep(poll_seconds)
 
 
 def _read_stream(source: int) -> bytes:
@@ -361,7 +504,7 @@ def _tee_subprocess_output(source: int, destination: TextIO, chunks: list[str]) 
     write_error: OSError | UnicodeError | None = None
     pending_carriage_return: bool = False
     for decoded in chain(
-        codecs.iterdecode(iter(lambda: _read_stream(source), b""), "utf-8"),
+        codecs.iterdecode(iter(lambda: _read_stream(source), b""), "utf-8", errors="replace"),
         (None,),
     ):
         if decoded is None:
@@ -392,9 +535,9 @@ def subprocess_post_check(completed_process: subprocess.CompletedProcess[str], *
         if completed_process.stderr is not None:
             print(completed_process.stderr, file=sys.stderr, end="")  # ruff:ignore[print]  # relays subprocess output to the user
         if raise_error:
-            msg = f"{' '.join([str(x) for x in completed_process.args])!r} failed"
+            msg = f"{_command_line(completed_process.args)!r} failed"
             raise PipxError(msg)
-        _LOGGER.info("%r failed", " ".join(completed_process.args))
+        _LOGGER.info("%r failed", _command_line(completed_process.args))
 
 
 def dedup_ordered(input_list: list[tuple[str, Any]]) -> list[tuple[str, Any]]:
@@ -521,36 +664,42 @@ def _log_failed_builds(
 def subprocess_post_check_handle_pip_error(
     completed_process: subprocess.CompletedProcess[str],
     tool_name: str = "pip",
+    *,
+    streamed: bool = False,
 ) -> None:
     """Persist subprocess output; run pip-specific heuristics for the pip path.
 
     ``tool_name="pip"`` keeps the historical wording that log-scrapers /
     tests built around. uv writes a uv-labelled log and skips the pip output
-    analyser, whose regexes don't match uv's error format.
+    analyser, whose regexes don't match uv's error format; its stderr is
+    printed as is instead, unless ``streamed`` says the user already saw it live.
     """
     if not completed_process.returncode:
         return
-    _LOGGER.info("%r failed", " ".join(completed_process.args))
+    _LOGGER.info("%r failed", _command_line(completed_process.args))
     if paths.ctx.log_file is None:
         msg = "Pipx internal error: No log_file present."
         raise PipxError(msg)
     error_file = paths.ctx.log_file.parent / f"{paths.ctx.log_file.stem}_{tool_name}_errors.log"
     upper_label = tool_name.upper()
+    # one write per block, as the fan-out tasks of an -all command append their failures to the same file at once
     with error_file.open("a", encoding="utf-8") as error_fh:
-        print(f"{upper_label} STDOUT", file=error_fh)
-        print("----------", file=error_fh)
-        if completed_process.stdout is not None:
-            print(completed_process.stdout, file=error_fh, end="")
-        print(f"\n{upper_label} STDERR", file=error_fh)
-        print("----------", file=error_fh)
-        if completed_process.stderr is not None:
-            print(completed_process.stderr, file=error_fh, end="")
+        error_fh.write(
+            f"{upper_label} STDOUT\n----------\n{completed_process.stdout or ''}"
+            f"\n{upper_label} STDERR\n----------\n{completed_process.stderr or ''}"
+        )
 
     _LOGGER.error(
         "Fatal error from %s prevented installation. Full %s output in file:\n    %s", tool_name, tool_name, error_file
     )
     if tool_name == "pip":
         analyze_pip_output(completed_process.stdout, completed_process.stderr)
+    elif not streamed and (
+        uv_errors := [line for line in (completed_process.stderr or "").splitlines() if line.strip()]
+    ):
+        print("\nSome possibly relevant errors from uv install:", file=sys.stderr)  # ruff:ignore[print]  # user-facing CLI output
+        for line in uv_errors:
+            print(f"    {line}", file=sys.stderr)  # ruff:ignore[print]  # user-facing CLI output
 
 
 def exec_app(
@@ -576,7 +725,7 @@ def exec_app(
     # make sure we show cursor again before handing over control
     show_cursor()
 
-    _LOGGER.info("exec_app: %s", " ".join(str(c) for c in cmd))
+    _LOGGER.info("exec_app: %s", _command_line(cmd))
 
     if WINDOWS:
         sys.exit(subprocess.run(cmd, env=env, check=False).returncode)
@@ -586,7 +735,7 @@ def exec_app(
 def full_package_description(package_name: str, package_spec: str) -> str:
     if package_name == package_spec:
         return package_name
-    return f"{package_name} from spec {package_spec!r}"
+    return f"{package_name} from spec {redact_url_credentials(package_spec)!r}"
 
 
 def is_paths_relative(path: Path, parent: Path) -> bool:
@@ -594,6 +743,7 @@ def is_paths_relative(path: Path, parent: Path) -> bool:
 
 
 __all__ = [
+    "InstalledNameMismatchError",
     "PipxError",
     "RelevantSearch",
     "analyze_pip_output",
@@ -606,10 +756,12 @@ __all__ = [
     "is_paths_relative",
     "mkdir",
     "pipx_wrap",
+    "redact_url_credentials",
     "rmdir",
     "run_pypackage_bin",
     "run_subprocess",
     "safe_unlink",
+    "stream_subprocess_stdout_to_stderr",
     "subprocess_post_check",
     "subprocess_post_check_handle_pip_error",
 ]

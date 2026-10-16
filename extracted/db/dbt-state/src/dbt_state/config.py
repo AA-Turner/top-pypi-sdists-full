@@ -12,8 +12,16 @@ import yaml
 
 try:
     from dbt.artifacts.resources.v1.config import TestConfig
+    from dbt.artifacts.resources.v1.model import ModelConfig
+    from dbt.artifacts.resources.v1.snapshot import SnapshotConfig
 except ImportError:
-    from dbt.contracts.graph.model_config import TestConfig
+    from dbt.contracts.graph.model_config import (  # type: ignore[no-redef]
+        NodeConfig as ModelConfig,
+    )
+    from dbt.contracts.graph.model_config import (
+        SnapshotConfig,
+        TestConfig,
+    )
 
 from dbt.config.profile import read_profile
 from dbt.config.runtime import RuntimeConfig

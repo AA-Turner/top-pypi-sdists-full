@@ -79,6 +79,9 @@ class ValueTypeClient:
         """
         Gets a specific value type with the given RID. The latest version is returned.
 
+
+        Required scopes: [api:functions-read]
+
         :param value_type_rid:
         :type value_type_rid: ValueTypeRid
         :param preview: Enables the use of preview functionality.
@@ -181,6 +184,9 @@ class AsyncValueTypeClient:
     ) -> typing.Awaitable[functions_models.ValueType]:
         """
         Gets a specific value type with the given RID. The latest version is returned.
+
+
+        Required scopes: [api:functions-read]
 
         :param value_type_rid:
         :type value_type_rid: ValueTypeRid

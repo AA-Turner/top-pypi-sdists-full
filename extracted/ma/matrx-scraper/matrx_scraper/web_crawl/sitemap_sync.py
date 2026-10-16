@@ -356,6 +356,7 @@ async def sync_site_sitemaps(
         summary,
     )
 
+    pass_started = utcnow()
     revived: list[RevivedDismissal] = []
     sitemap_ids = await _upsert_sitemap_documents(
         site_id=site_id,
@@ -377,6 +378,13 @@ async def sync_site_sitemaps(
         session_id=session_id,
         revived=revived,
     )
+    retired = await retire_gone_sitemaps_and_memberships(
+        site_id=site_id,
+        crawl=crawl,
+        sitemap_ids=sitemap_ids,
+        pass_started=pass_started,
+    )
+    errors.extend(retired.notes)
     # Dismissal memory is NEVER silent: each revive rides the durable errors
     # list (summary lines shown in the live feed and persisted with the run).
     for entry in revived:
@@ -393,7 +401,134 @@ async def sync_site_sitemaps(
     return SitemapSyncResult(summary, errors, revived_after_dismissal=revived)
 
 
+GONE_STATUS_CODES = frozenset({404, 410})
+
+
+class RetiredSitemaps:
+    """What one pass took out of the live sitemap picture — always reported."""
+
+    def __init__(self) -> None:
+        self.inactive_sitemap_urls: list[str] = []
+        self.retired_memberships = 0
+        self.notes: list[str] = []
+
+
+async def _probe_status(url: str) -> int | None:
+    """Status of a previously-known sitemap the discovery walk did not reach.
+    None = could not tell (network error) — never treated as gone."""
+    from matrx_scraper.sitemaps import _safe_get
+    from matrx_scraper.utils.url import public_http_client
+
+    try:
+        async with public_http_client(
+            timeout=15.0,
+            follow_redirects=False,
+            headers={"User-Agent": "MatrxScraperBot/0.1 (+https://aimatrx.com)"},
+        ) as client:
+            _, response = await _safe_get(client, url)
+            return int(response.status_code)
+    except Exception as exc:  # noqa: BLE001 — unknown is not gone
+        logger.warning("sitemap probe %s failed: %s", redact_url_secrets(url), redact_url_secrets(exc))
+        return None
+
+
+async def retire_gone_sitemaps_and_memberships(
+    *,
+    site_id: str,
+    crawl: SitemapCrawl,
+    sitemap_ids: dict[str, str],
+    pass_started: Any,
+    probe: Callable[[str], Awaitable[int | None]] | None = None,
+) -> RetiredSitemaps:
+    """Make the stored sitemap picture match what the site serves NOW.
+
+    * A sitemap we knew that now answers 404/410 (re-probed when the discovery
+      walk no longer reaches it — a rebuilt site stops declaring it) becomes
+      ``is_active = false`` and its memberships stop counting.
+    * A sitemap re-read in full this pass keeps only the memberships it still
+      lists: rows whose ``last_seen`` did not advance this pass are
+      soft-deleted (a later re-listing revives them through the upsert).
+    * A truncated walk retires no membership — an incomplete listing proves
+      nothing about what is missing. A network failure is never "gone".
+    """
+    probe = probe or _probe_status
+    out = RetiredSitemaps()
+    now = utcnow()
+    fetched_ok = {
+        sitemap_ids[doc.url]
+        for doc in crawl.documents
+        if doc.fetch_error is None and doc.url in sitemap_ids
+    }
+    crawled_urls = {doc.url for doc in crawl.documents}
+
+    known = await WebSitemap.filter(
+        site_id=site_id, deleted_at__isnull=True, is_active=True
+    ).values("id", "url")
+    gone_ids: list[str] = []
+    for row in known:
+        url = str(row["url"])
+        if str(row["id"]) in fetched_ok:
+            continue
+        status = None
+        if url in crawled_urls:
+            doc = next(d for d in crawl.documents if d.url == url)
+            status = doc.status_code
+        else:
+            status = await probe(url)
+        if status in GONE_STATUS_CODES:
+            gone_ids.append(str(row["id"]))
+            out.inactive_sitemap_urls.append(url)
+            async with transaction(WEB_DB_NAME):
+                await WebSitemap.update_where(
+                    {"id": str(row["id"])},
+                    is_active=False,
+                    status_code=status,
+                    last_fetched_at=now,
+                )
+        elif url not in crawled_urls:
+            # Still served (or unknown): record that we looked.
+            async with transaction(WEB_DB_NAME):
+                await WebSitemap.update_where(
+                    {"id": str(row["id"])},
+                    **({"status_code": status} if status is not None else {}),
+                    last_fetched_at=now,
+                )
+    if gone_ids:
+        async with transaction(WEB_DB_NAME):
+            result = await WebPageSitemap.update_where(
+                {"sitemap_id__in": gone_ids, "deleted_at__isnull": True}, deleted_at=now
+            )
+        out.retired_memberships += int(getattr(result, "rows_affected", 0) or 0)
+        out.notes.append(
+            f"{len(gone_ids)} sitemap(s) no longer served (404/410), marked inactive: "
+            + ", ".join(redact_url_secrets(u) for u in out.inactive_sitemap_urls[:10])
+        )
+    if crawl.truncated:
+        if fetched_ok:
+            out.notes.append(
+                "sitemap walk was truncated — memberships no longer listed were NOT retired"
+            )
+    elif fetched_ok:
+        async with transaction(WEB_DB_NAME):
+            result = await WebPageSitemap.update_where(
+                {
+                    "site_id": site_id,
+                    "sitemap_id__in": sorted(fetched_ok),
+                    "deleted_at__isnull": True,
+                    "last_seen__lt": pass_started,
+                },
+                deleted_at=now,
+            )
+        dropped = int(getattr(result, "rows_affected", 0) or 0)
+        out.retired_memberships += dropped
+        if dropped:
+            out.notes.append(f"{dropped} page(s) no longer listed by a re-read sitemap")
+    return out
+
+
 __all__ = [
+    "GONE_STATUS_CODES",
+    "retire_gone_sitemaps_and_memberships",
     "ProgressCallback",
     "SitemapSyncResult",
     "sync_site_sitemaps",

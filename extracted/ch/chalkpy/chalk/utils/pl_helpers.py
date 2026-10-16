@@ -54,6 +54,7 @@ try:
     polars_lazy_frame_collect_schema = is_version_gte(polars_version, "1.0.0")
     polars_allow_lit_empty_struct = is_version_gte(polars_version, "1.0.0")
     polars_csv_uses_include_header = is_version_gte(polars_version, "1.0.0")
+    polars_csv_renames_before_selection = is_version_gte(polars_version, "2.0.0")
     polars_uses_total_microseconds = is_version_gte(polars_version, "1.0.0")
     polars_hist_column_is_breakpoint = is_version_gte(polars_version, "1.0.0")
 except PackageNotFoundError:
@@ -68,6 +69,7 @@ except PackageNotFoundError:
     polars_lazy_frame_collect_schema = False
     polars_allow_lit_empty_struct = False
     polars_csv_uses_include_header = False
+    polars_csv_renames_before_selection = False
     polars_uses_total_microseconds = False
     polars_hist_column_is_breakpoint = False
 
@@ -491,13 +493,12 @@ def _json_encode_inner(expr: pl.Expr, dtype: PolarsDataType) -> pl.Expr:
         )
     if isinstance(dtype, pl.Struct):
         fields_encoded = [
-            pl.format((f'"{_py_escape_str(f.name)}":' "{}"), pl_json_encode(expr.struct.field(f.name), f.dtype))
+            pl.concat_str([pl.lit(f'"{_py_escape_str(f.name)}":'), pl_json_encode(expr.struct.field(f.name), f.dtype)])
             for f in sorted(dtype.fields, key=lambda x: x.name)
         ]
-        format_str = "{" + ",".join(["{}"] * len(fields_encoded)) + "}"
         if len(fields_encoded) == 0:
             return pl.lit("{}")
-        return pl.format(format_str, *fields_encoded)
+        return pl.concat_str([pl.lit("{"), pl.concat_str(fields_encoded, separator=","), pl.lit("}")])
 
     if dtype == pl.Binary:  # pyright: ignore[reportUnnecessaryComparison]
         return pl_json_encode(expr.bin.encode("base64"), pl.Utf8)

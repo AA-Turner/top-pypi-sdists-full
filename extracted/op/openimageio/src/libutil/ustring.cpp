@@ -57,7 +57,7 @@ template<unsigned BASE_CAPACITY, unsigned POOL_SIZE> struct TableRepMap {
 
     TableRepMap()
         : entries(static_cast<ustring::TableRep**>(
-            calloc(BASE_CAPACITY, sizeof(ustring::TableRep*))))
+              calloc(BASE_CAPACITY, sizeof(ustring::TableRep*))))
         , pool(static_cast<char*>(malloc(POOL_SIZE)))
         , memory_usage(sizeof(*this) + POOL_SIZE
                        + sizeof(ustring::TableRep*) * BASE_CAPACITY)
@@ -459,8 +459,8 @@ ustring::TableRep::TableRep(string_view strref, ustring::hash_t hash)
     // the length), we construct it ourselves, forcing the pointer to point
     // to the characters in the TableRep we allocated.
     if (length >= libcpp_string__min_cap /* it'll be a "long string" */) {
-        ((libcpp_string__long*)&str)->__cap_ = libcpp_string__long_mask
-                                               | (length + 1);
+        ((libcpp_string__long*)&str)->__cap_  = libcpp_string__long_mask
+                                                | (length + 1);
         ((libcpp_string__long*)&str)->__size_ = length;
         ((libcpp_string__long*)&str)->__data_ = (char*)c_str();
         OIIO_DASSERT(str.c_str() == c_str() && str.size() == length);
@@ -560,7 +560,7 @@ ustring::make_unique(string_view strref)
     size_t bin = rm.lock_bin(hash);
 
     hash_t orighash     = hash;
-    size_t binmask      = orighash & (~rm.nobin_mask());
+    size_t binbits      = orighash & (~rm.nobin_mask());
     size_t num_rehashes = 0;
 
     while (1) {
@@ -584,9 +584,23 @@ ustring::make_unique(string_view strref)
             break;
         }
         // Rehash, but keep the bin bits identical so we always rehash into
-        // the same (locked) bin.
-        hash = (hash & binmask)
-               | (farmhash::Fingerprint(hash) & rm.nobin_mask());
+        // the same (locked) bin. But watch out for rehashing that returns the
+        // identical non-bin part as before -- that will enter an infinite
+        // loop if we're not careful!
+        hash_t old_nonbin_bits = hash & rm.nobin_mask();
+        hash_t new_nonbin_bits = farmhash::Fingerprint(hash) & rm.nobin_mask();
+        if (OIIO_UNLIKELY(old_nonbin_bits == new_nonbin_bits)) {
+            new_nonbin_bits = (new_nonbin_bits + 7) & rm.nobin_mask();
+#    ifndef NDEBUG
+            std::string s = Strutil::escape_chars(strref);
+            print(stderr, "IDEMPOTENT RE-HASH! |{}|\n", s);
+            for (auto c : s)
+                print(stderr, fmt::runtime(c > 0 ? "{:c}" : "\\{:03o}"),
+                      static_cast<unsigned char>(c));
+            print(stderr, "\n");
+#    endif
+        }
+        hash = binbits | new_nonbin_bits;
         ++num_rehashes;
         // Strutil::print("COLLISION \"{}\" {:08x} vs \"{}\"\n",
         //                strref, orighash, rev->second);
@@ -594,6 +608,7 @@ ustring::make_unique(string_view strref)
             std::lock_guard<std::mutex> lock(collision_mutex);
             all_hash_collisions.emplace_back(rev->second, rev->first);
         }
+        OIIO_ASSERT(num_rehashes < 100000);  // Something is very wrong
     }
     rm.unlock_bin(bin);
 

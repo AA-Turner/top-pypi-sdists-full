@@ -403,7 +403,11 @@ class DAVClient(BaseDAVClient):
         ## for now we're just treating it in the same way as 4xx and 5xx -
         ## probably the server did not support the operation
         if response.status >= 300:
-            raise error.ReportError(f"{response.status} {response.reason} - {response.raw}")
+            raise error.error_from_response(
+                error.ReportError,
+                response,
+                f"{response.status} {response.reason} - {response.raw}",
+            )
         return self._parse_principal_search_response(response._find_objects_and_props())
 
     def principals(self, name=None):
@@ -480,16 +484,27 @@ class DAVClient(BaseDAVClient):
             props=self.CALENDAR_HOME_SET_PROPS,
             depth=0,
         )
-        calendar_home_url = self._calendar_home_url(response, principal)
-
-        # Fetch calendars via PROPFIND
-        response = self.propfind(
-            calendar_home_url,
-            props=self.CALENDAR_LIST_PROPS,
-            depth=1,
-        )
-
-        return self._build_calendars_from_propfind(response)
+        # Fetch calendars via PROPFIND, from the first URL that has any
+        calendars = []
+        for n, calendar_home_url in enumerate(self._calendar_home_urls(response, principal)):
+            auth = (self.auth, self.auth_type)
+            try:
+                response = self.propfind(
+                    calendar_home_url,
+                    props=self.CALENDAR_LIST_PROPS,
+                    depth=1,
+                )
+            except error.AuthorizationError:
+                # a refused guess means no calendars there; keep the auth
+                # that worked so far, which the refusal may have unwound
+                if not n:
+                    raise
+                self.auth, self.auth_type = auth
+                break
+            calendars = self._build_calendars_from_propfind(response, guess=n > 0)
+            if calendars:
+                break
+        return calendars
 
     def search_calendar(
         self,
@@ -747,11 +762,11 @@ class DAVClient(BaseDAVClient):
         """
         return self.request(url, "POST", body, headers)
 
-    def delete(self, url: str) -> DAVResponse:
+    def delete(self, url: str, headers: Mapping[str, str] | None = None) -> DAVResponse:
         """
         Send a delete request.
         """
-        return self.request(url, "DELETE", "")
+        return self.request(url, "DELETE", "", headers)
 
     def options(self, url: str) -> DAVResponse:
         """

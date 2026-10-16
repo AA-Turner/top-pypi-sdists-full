@@ -15,8 +15,10 @@ const {
   openExportPage,
   closeExportPage,
   waitForNavigationComplete,
+  readNavigatedUrls,
   captureBrowserDownloads,
   resolveChromeLaunchOptions,
+  withTimeout,
 } = require("../chrome/chrome_utils.js");
 const { saveDownloads } = require("../base/downloads.js");
 
@@ -36,6 +38,25 @@ async function main() {
     return ms;
   };
   const snapshotDir = path.resolve(config.SNAP_DIR || ".");
+  const isTransfer = (candidate) =>
+    candidate.protocol === "https:" &&
+    /(^|\.)wetransfer\.com$/.test(candidate.hostname) &&
+    (candidate.pathname.startsWith("/downloads/") ||
+      /^\/previews\/[a-f0-9]+\/[a-f0-9]+\/?$/.test(candidate.pathname));
+  const original = new URL(url);
+  const shortLink =
+    original.protocol === "https:" &&
+    original.hostname === "we.tl" &&
+    /^\/t-[A-Za-z0-9]+\/?$/.test(original.pathname);
+  const navigatedUrls = readNavigatedUrls(path.join(snapshotDir, "chrome"));
+  if (
+    navigatedUrls &&
+    !shortLink &&
+    ![url, ...navigatedUrls].some((value) => isTransfer(new URL(value)))
+  ) {
+    console.error("Not a WeTransfer download");
+    return emitArchiveResultRecord("noresults", "Not a WeTransfer download");
+  }
   const { browser, page: sourcePage } = await connectToPage({
     chromeSessionDir: path.join(snapshotDir, "chrome"),
     timeoutMs,
@@ -43,16 +64,6 @@ async function main() {
   let page = sourcePage;
   let downloads = [];
   try {
-    const isTransfer = (candidate) =>
-      candidate.protocol === "https:" &&
-      /(^|\.)wetransfer\.com$/.test(candidate.hostname) &&
-      (candidate.pathname.startsWith("/downloads/") ||
-        /^\/previews\/[a-f0-9]+\/[a-f0-9]+\/?$/.test(candidate.pathname));
-    const original = new URL(url);
-    const shortLink =
-      original.protocol === "https:" &&
-      original.hostname === "we.tl" &&
-      /^\/t-[A-Za-z0-9]+\/?$/.test(original.pathname);
     if (
       !shortLink &&
       !isTransfer(original) &&
@@ -97,10 +108,65 @@ async function main() {
     );
     if (terms) {
       console.error("Accepting WeTransfer terms");
-      await page
-        .locator('::-p-aria([name="I agree"][role="button"])')
-        .setTimeout(remaining())
-        .click();
+      while (true) {
+        // A survey can cover the consent button after navigation. Like other
+        // provider exports, act on the topmost control: a covered click merely
+        // dismisses the survey backdrop without accepting the transfer terms.
+        const control = await page.waitForFunction(() => {
+          return [...document.querySelectorAll("button")].find(button => {
+            const label = (button.getAttribute("aria-label") || button.textContent).trim();
+            if (label !== "I agree" && !(button.closest('[role="dialog"]') && /^(skip(?:\s|$)|close$)/i.test(label))) return false;
+            if (button.disabled) return false;
+            const box = button.getBoundingClientRect();
+            return box.width && box.height && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+          });
+        }, { timeout: remaining(), polling: 100 });
+        try {
+          const button = control.asElement();
+          const label = await button.evaluate(element => (element.getAttribute("aria-label") || element.textContent).trim());
+          const selector = `::-p-aria([name=${JSON.stringify(label)}][role="button"])`;
+          // React can replace the button after observation. Resolve the live
+          // control for the click, just as we do for the Download button.
+          // A survey can also appear between that observation and mouseup.
+          // Advance only when the native click actually reaches this control.
+          const receipt = await page.evaluateHandle(() => {
+            const controller = new AbortController();
+            const result = new Promise(resolve => {
+              document.addEventListener("click", event => {
+                if (!event.isTrusted) return;
+                controller.abort();
+                const button = event.composedPath().find(node => node instanceof HTMLButtonElement);
+                const target = event.target instanceof Element ? event.target : null;
+                resolve({
+                  label: button ? (button.getAttribute("aria-label") || button.textContent).trim() : null,
+                  overlay: Boolean(target?.closest('[role="dialog"]') || target?.querySelector('[role="dialog"]')),
+                });
+              }, {capture: true, signal: controller.signal});
+            });
+            return {result, controller};
+          });
+          let delivered;
+          try {
+            [delivered] = await withTimeout(() => Promise.all([
+              receipt.evaluate(({result}) => result),
+              page.locator(selector).setTimeout(remaining()).click(),
+            ]), remaining(), "WeTransfer click delivery timed out");
+          } finally {
+            // Navigation destroys the listener too; cleanup must not replace
+            // the original click error if its execution context has gone away.
+            if (!delivered) await receipt.evaluate(({controller}) => controller.abort()).catch(() => {});
+            await receipt.dispose();
+          }
+          if (delivered.label !== label) {
+            if (!delivered.overlay) throw new Error("WeTransfer click reached an unexpected control");
+            console.error("Dismissed WeTransfer overlay before accepting terms");
+            continue;
+          }
+          if (label === "I agree") break;
+          console.error("Dismissed optional WeTransfer dialog");
+          await page.waitForSelector(selector, { hidden: true, timeout: remaining() });
+        } finally { await control.dispose(); }
+      }
       console.error("WeTransfer agreement clicked; waiting for transfer status");
       await page.waitForFunction(
         () =>

@@ -68,6 +68,9 @@ class BuildClient:
         """
         Request a cancellation for all unfinished jobs in a build. The build's status will not update immediately. This endpoint is asynchronous and a success response indicates that the cancellation request has been acknowledged and the build is expected to be canceled soon. If the build has already finished or finishes shortly after the request and before the cancellation, the build will not change.
 
+
+        Required scopes: [api:orchestration-write]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -115,6 +118,9 @@ class BuildClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> orchestration_models.Build:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param fallback_branches:
         :type fallback_branches: FallbackBranches
@@ -184,6 +190,9 @@ class BuildClient:
 
         Users are allowed to make a maximum of **4 requests per second** and **25 concurrent requests**.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -235,6 +244,9 @@ class BuildClient:
 
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetBuildsBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -275,6 +287,9 @@ class BuildClient:
     ) -> core.ResourceIterator[orchestration_models.Job]:
         """
         Get the Jobs in the Build.
+
+        Required scopes: [api:orchestration-read]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param page_size: The page size to use for the endpoint.
@@ -325,6 +340,9 @@ class BuildClient:
     ) -> orchestration_models.SearchBuildsResponse:
         """
         Search for Builds.
+
+        Required scopes: [api:orchestration-read]
+
         :param where:
         :type where: SearchBuildsFilter
         :param order_by:
@@ -445,6 +463,9 @@ class AsyncBuildClient:
         """
         Request a cancellation for all unfinished jobs in a build. The build's status will not update immediately. This endpoint is asynchronous and a success response indicates that the cancellation request has been acknowledged and the build is expected to be canceled soon. If the build has already finished or finishes shortly after the request and before the cancellation, the build will not change.
 
+
+        Required scopes: [api:orchestration-write]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -492,6 +513,9 @@ class AsyncBuildClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[orchestration_models.Build]:
         """
+
+
+        Required scopes: [api:orchestration-write]
 
         :param fallback_branches:
         :type fallback_branches: FallbackBranches
@@ -561,6 +585,9 @@ class AsyncBuildClient:
 
         Users are allowed to make a maximum of **4 requests per second** and **25 concurrent requests**.
 
+
+        Required scopes: [api:orchestration-read]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -612,6 +639,9 @@ class AsyncBuildClient:
 
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:orchestration-read]
+
         :param body: Body of the request
         :type body: List[GetBuildsBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -652,6 +682,9 @@ class AsyncBuildClient:
     ) -> core.AsyncResourceIterator[orchestration_models.Job]:
         """
         Get the Jobs in the Build.
+
+        Required scopes: [api:orchestration-read]
+
         :param build_rid: The RID of a Build.
         :type build_rid: BuildRid
         :param page_size: The page size to use for the endpoint.
@@ -702,6 +735,9 @@ class AsyncBuildClient:
     ) -> typing.Awaitable[orchestration_models.SearchBuildsResponse]:
         """
         Search for Builds.
+
+        Required scopes: [api:orchestration-read]
+
         :param where:
         :type where: SearchBuildsFilter
         :param order_by:

@@ -1,0 +1,111 @@
+"""
+Proto ErrorKind → PEP 249 exception class / errno mappings.
+
+ERROR_KIND_* values are imported from the generated pb2 module so they
+stay in sync with the Rust core automatically.
+"""
+
+from __future__ import annotations
+
+from ..errors import (
+    DatabaseError,
+    Error,
+    IntegrityError,
+    InternalError,
+    NotSupportedError,
+    OperationalError,
+    ProgrammingError,
+)
+from .errorcode import (
+    ER_COMPRESSION_NOT_SUPPORTED,
+    ER_FAILED_TO_CONNECT_TO_DB,
+    ER_FILE_NOT_EXISTS,
+    ER_INVALID_VALUE,
+)
+from .protobuf_gen.database_driver_v1_pb2 import (
+    ERROR_KIND_AUTHENTICATION_ERROR,
+    ERROR_KIND_CANCELLED,
+    ERROR_KIND_INTERNAL_ERROR,
+    ERROR_KIND_INVALID_ARGUMENT,
+    ERROR_KIND_INVALID_PARAMETER_VALUE,
+    ERROR_KIND_IO,
+    ERROR_KIND_LOCAL_FILE_NOT_FOUND,
+    ERROR_KIND_LOGIN_ERROR,
+    ERROR_KIND_MISSING_PARAMETER,
+    ERROR_KIND_NOT_IMPLEMENTED,
+    ERROR_KIND_QUERY_FAILED,
+    ERROR_KIND_REMOTE_FILE_NOT_FOUND,
+    ERROR_KIND_STAGE_BINDING,
+    ERROR_KIND_TIMEOUT,
+    ERROR_KIND_UNSUPPORTED_COMPRESSION,
+)
+
+
+ERROR_KIND_LABELS: dict[int, str] = {
+    ERROR_KIND_AUTHENTICATION_ERROR: "Authentication error",
+    ERROR_KIND_NOT_IMPLEMENTED: "Not implemented",
+    ERROR_KIND_INVALID_ARGUMENT: "Invalid argument",
+    ERROR_KIND_IO: "I/O error",
+    ERROR_KIND_CANCELLED: "Cancelled",
+    ERROR_KIND_INTERNAL_ERROR: "Internal error",
+    ERROR_KIND_MISSING_PARAMETER: "Missing parameter",
+    ERROR_KIND_INVALID_PARAMETER_VALUE: "Invalid parameter value",
+    ERROR_KIND_LOGIN_ERROR: "Login error",
+    ERROR_KIND_LOCAL_FILE_NOT_FOUND: "Local file not found",
+    ERROR_KIND_REMOTE_FILE_NOT_FOUND: "Remote file not found",
+    ERROR_KIND_UNSUPPORTED_COMPRESSION: "Unsupported compression type",
+    ERROR_KIND_QUERY_FAILED: "Query failed",
+    ERROR_KIND_TIMEOUT: "Timeout",
+    ERROR_KIND_STAGE_BINDING: "Stage binding",
+}
+
+KIND_TO_EXCEPTION: dict[int, type[Error]] = {
+    ERROR_KIND_AUTHENTICATION_ERROR: DatabaseError,
+    ERROR_KIND_NOT_IMPLEMENTED: NotSupportedError,
+    ERROR_KIND_INVALID_ARGUMENT: ProgrammingError,
+    ERROR_KIND_IO: OperationalError,
+    ERROR_KIND_CANCELLED: OperationalError,
+    # Leftover driver faults (locks, parse, spool). Query failures use QUERY_FAILED.
+    ERROR_KIND_INTERNAL_ERROR: InternalError,
+    ERROR_KIND_MISSING_PARAMETER: ProgrammingError,
+    ERROR_KIND_INVALID_PARAMETER_VALUE: ProgrammingError,
+    ERROR_KIND_LOGIN_ERROR: DatabaseError,
+    ERROR_KIND_LOCAL_FILE_NOT_FOUND: ProgrammingError,
+    ERROR_KIND_REMOTE_FILE_NOT_FOUND: OperationalError,
+    ERROR_KIND_UNSUPPORTED_COMPRESSION: ProgrammingError,
+    ERROR_KIND_QUERY_FAILED: ProgrammingError,
+    ERROR_KIND_TIMEOUT: OperationalError,
+    # CSV bind-upload to SYSTEM$BIND failed. Same class as other transfer I/O.
+    ERROR_KIND_STAGE_BINDING: OperationalError,
+}
+
+# Snowflake vendor_code → exception overrides.
+#
+# KIND_TO_EXCEPTION maps the proto ErrorKind (a broad category) to a default PEP 249 class.
+# Some Snowflake server errors share the same ErrorKind (e.g. ERROR_KIND_QUERY_FAILED)
+# but carry a vendor_code that warrants a more specific exception.
+# Entries here take precedence over KIND_TO_EXCEPTION when a vendor_code is present.
+VENDOR_CODE_TO_EXCEPTION: dict[int, type[Error]] = {
+    100072: IntegrityError,  # NULL result in a non-nullable column
+}
+
+
+def is_stage_binding_disabled(exc: Exception) -> bool:
+    """Whether *exc* came from a disabled ``SYSTEM$BIND`` stage.
+
+    ``errno`` falls back to the raw ``kind`` when no vendor_code or
+    KIND_TO_ERRNO entry applies (see ``_convert_application_error``), so
+    ``ERROR_KIND_STAGE_BINDING`` survives unchanged onto the exception.
+    """
+    return isinstance(exc, OperationalError) and getattr(exc, "errno", None) == ERROR_KIND_STAGE_BINDING
+
+
+# Prefer the Snowflake server vendor_code when the core driver provides it, fallback to this mapping if not present.
+KIND_TO_ERRNO: dict[int, int] = {
+    ERROR_KIND_AUTHENTICATION_ERROR: ER_FAILED_TO_CONNECT_TO_DB,
+    ERROR_KIND_LOGIN_ERROR: ER_FAILED_TO_CONNECT_TO_DB,
+    ERROR_KIND_INVALID_PARAMETER_VALUE: ER_INVALID_VALUE,
+    ERROR_KIND_LOCAL_FILE_NOT_FOUND: ER_FILE_NOT_EXISTS,
+    ERROR_KIND_REMOTE_FILE_NOT_FOUND: ER_FILE_NOT_EXISTS,
+    ERROR_KIND_UNSUPPORTED_COMPRESSION: ER_COMPRESSION_NOT_SUPPORTED,
+}

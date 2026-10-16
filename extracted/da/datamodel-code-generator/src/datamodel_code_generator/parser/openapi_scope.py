@@ -7,7 +7,7 @@ from collections.abc import Generator, Sequence  # noqa: TC003 - Public annotati
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path  # noqa: TC003 - Public annotations support get_type_hints().
-from typing import ClassVar, Literal, Protocol, TypeAlias
+from typing import TYPE_CHECKING, ClassVar, Literal, Protocol, TypeAlias
 from urllib.parse import ParseResult  # noqa: TC003 - Public annotations support get_type_hints().
 
 from typing_extensions import Unpack
@@ -31,8 +31,11 @@ from datamodel_code_generator.parser.openapi_media import (
     MediaOwner,
     encoding_media,
 )
-from datamodel_code_generator.reference import ModelResolver
+from datamodel_code_generator.reference import _NON_IDENTIFIER_PATTERN, ModelResolver
 from datamodel_code_generator.types import DataType  # noqa: TC001 - Public annotations support get_type_hints().
+
+if TYPE_CHECKING:
+    from datamodel_code_generator.model import DataModel
 
 _FIXED_HTTP_METHODS = frozenset(method.upper() for method in (*OPERATION_NAMES, "query"))
 
@@ -175,6 +178,18 @@ class ApiOpenAPIParser(OpenAPIParser):
         if OpenAPIScope.Api not in self.open_api_scopes:
             msg = "ApiOpenAPIParser requires OpenAPIScope.Api"
             raise Error(msg)
+        self._schema_root_type = self.data_model_root_type
+        self._parameter_root_type = self.data_model_type.resolve_type_alias_model_type(
+            self.data_model_root_type, self.target_python_version
+        )
+        self._parameter_root_models: set[DataModel] = set()
+        self._claimed_models = 0
+
+    @classmethod
+    def _get_model_name(cls, path_name: str, method: str, suffix: str) -> str:
+        """Drop leading separators of a name part instead of prefixing ``Field``; ``/`` alone becomes ``Root``."""
+        stripped = _NON_IDENTIFIER_PATTERN.sub("_", path_name).lstrip("_") or "root"
+        return super()._get_model_name(stripped, method, suffix)
 
     def _declaration_id(self, path: Sequence[str]) -> ApiDeclarationId:
         ref = self.model_resolver.join_path(tuple(path))
@@ -214,11 +229,29 @@ class ApiOpenAPIParser(OpenAPIParser):
             validated_schema=validated_schema,
             projection=projection,
         )
+        self._claim_parameter_root_models()
         self.declaration_frames.append(frame)
+        previous = self.data_model_root_type
+        self.data_model_root_type = self._parameter_root_type if frame.role == "parameter" else self._schema_root_type
         try:
             yield frame
         finally:
+            self._claim_parameter_root_models()
             self.declaration_frames.pop()
+            self.data_model_root_type = previous
+
+    def _claim_parameter_root_models(self) -> None:
+        """Record the parameter aliases registered since the previous declaration frame boundary."""
+        models = self.generation_store.models
+        if self.data_model_root_type is not self._schema_root_type:
+            self._parameter_root_models.update(
+                model for model in models[self._claimed_models :] if isinstance(model, self.data_model_root_type)
+            )
+        self._claimed_models = len(models)
+
+    def _is_root_model(self, model: DataModel) -> bool:
+        """Treat parameter aliases as roots, as --use-type-alias does."""
+        return isinstance(model, self.data_model_root_type) or model in self._parameter_root_models
 
     def _parse_raw_or_validated_obj(
         self,
@@ -453,14 +486,25 @@ class ApiOpenAPIParser(OpenAPIParser):
                     self._discriminator_subtypes[resolved].append(self.model_resolver.resolve_ref(child))
 
     def _acquire_schema(self, name: str, raw: YamlValue, path: list[str], *, role: SchemaRole) -> None:
-        """Generate one declaration, retaining actual direct-reference use types."""
+        """Generate one declaration, retaining actual direct-reference use types.
+
+        A reference whose siblings are only annotations or extensions is used as the model it names, as a property is,
+        except that a reference beside only ``nullable: true`` keeps its derived model here instead of becoming
+        ``Optional``.
+        """
         declaration = self._declaration_id(path)
         if declaration in self._processed_declarations:
             return
         with self._schema_frame(name, path, self.raw_obj, raw_schema=raw, role=role):
-            if isinstance(raw, dict) and len(raw) == 1 and isinstance(raw.get("$ref"), str):
+            ref = raw.get("$ref") if isinstance(raw, dict) else None
+            validated = (
+                self._validate_schema_object(raw, path)
+                if isinstance(ref, str) and isinstance(raw, dict) and len(raw) > 1
+                else None
+            )
+            if isinstance(ref, str) and not (validated and validated.has_ref_with_schema_keywords):
                 self._declaration_types[declaration] = self._parse_schema_or_ref(
-                    name, ReferenceObject.model_validate(raw), path
+                    name, ReferenceObject.model_validate({"$ref": ref}), path
                 )
             elif declaration.document not in self._api_roots:
                 self._parse_file(
@@ -471,7 +515,7 @@ class ApiOpenAPIParser(OpenAPIParser):
                     ref=self.model_resolver.join_path(tuple(path)),
                 )
             else:
-                self.parse_raw_obj(name, raw, path)
+                self._parse_raw_or_validated_obj(name, raw, path, validated)
             self._processed_declarations.add(declaration)
 
     def _acquire_item_schema(
@@ -700,6 +744,8 @@ class ApiOpenAPIParser(OpenAPIParser):
             self._api_security = None
             self._active_api_objects.clear()
             self._completed_api_objects.clear()
+            self._parameter_root_models.clear()
+            self._claimed_models = 0
             self.model_resolver.original_refs.clear()
 
     def _walk_api_operation(  # noqa: PLR0914

@@ -434,6 +434,13 @@ class BaseApi(object):
                 if entity:
                     entities.append(entity)
 
+            skipped = len(entities_data) - len(entities)
+            if skipped:
+                logger.warning(
+                    f"Skipped {skipped} of {len(entities_data)} {entity_name} that"
+                    f" could not be parsed{context}."
+                )
+
             # Set pagination info and cache for iterator
             self.set_iterator_cache(entities)
             self.set_iterator_page_info(page_info)

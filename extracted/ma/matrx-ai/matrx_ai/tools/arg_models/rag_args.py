@@ -49,6 +49,8 @@ class RagSearchArgs(BaseModel):
             "web_page",
             "scrape_parsed_page",
             "inline",
+            "workbook",
+            "udt_document",
         ]
     ] | None = None
     data_store_id: str | None = None

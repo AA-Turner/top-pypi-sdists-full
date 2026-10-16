@@ -12,7 +12,7 @@ use tracing::Level;
 use crate::{
 	Input,
 	error::ParseError,
-	inline::{code, code_block, emoji, link, mention, timestamp},
+	node::inline::{code, code_block, emoji, link, mention, timestamp},
 	span::TraceOk,
 };
 

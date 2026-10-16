@@ -233,7 +233,16 @@ fn parse_v3000_coords(tokens: &[&str], line: usize) -> Result<(f64, f64, f64), M
                     })
             })
     };
-    Ok((parse(2, "x")?, parse(3, "y")?, parse(4, "z")?))
+    Ok((
+        parse(2, "x")?,
+        parse(3, "y")?,
+        // Common finite positive zeros need no general float parsing.
+        // Keep every other spelling, including negative zero, on that path.
+        match tokens[4] {
+            "0" | "0.0000" | "0.000000" => 0.0,
+            _ => parse(4, "z")?,
+        },
+    ))
 }
 
 fn v3000_atom_identity(
@@ -453,6 +462,9 @@ fn parse_v3000_bond_line(
             detail: e.to_string(),
         })?;
     bond_idx_map.push((v3k_idx, bidx));
+    if kv_tokens.is_empty() {
+        return Ok(());
+    }
     if btype_raw == 2 && parse_kv(kv_tokens, "CFG") == Some("2") {
         explicitly_unspecified_ez.insert(bidx);
     }
@@ -467,7 +479,7 @@ fn parse_v3000_bond_line(
         .copied()
         .collect::<Vec<_>>()
         .join(" ");
-    let opaque_properties = normalize_v3000_endpoints(&opaque_properties, atom_idx_map);
+    let opaque_properties = normalize_v3000_endpoints(opaque_properties, atom_idx_map);
     if !opaque_properties.is_empty() {
         // As with atom metadata, normalize a source bond id to the writer's
         // sequential id. V3000 permits non-contiguous ids, whereas the
@@ -481,26 +493,26 @@ fn parse_v3000_bond_line(
 /// sequential ids emitted by this writer. Leave malformed or unknown-shaped
 /// values unchanged: they remain opaque metadata rather than becoming a
 /// guessed semantic edit.
-fn normalize_v3000_endpoints(properties: &str, atom_idx_map: &[(u32, AtomIdx)]) -> String {
+fn normalize_v3000_endpoints(properties: String, atom_idx_map: &[(u32, AtomIdx)]) -> String {
     let Some(start) = properties.find("ENDPTS=(") else {
-        return properties.to_owned();
+        return properties;
     };
     let value_start = start + "ENDPTS=(".len();
     let Some(close_offset) = properties[value_start..].find(')') else {
-        return properties.to_owned();
+        return properties;
     };
     let value_end = value_start + close_offset;
     let values: Vec<&str> = properties[value_start..value_end]
         .split_whitespace()
         .collect();
     let Some((declared, atom_ids)) = values.split_first() else {
-        return properties.to_owned();
+        return properties;
     };
     let Ok(declared) = declared.parse::<usize>() else {
-        return properties.to_owned();
+        return properties;
     };
     if atom_ids.len() != declared {
-        return properties.to_owned();
+        return properties;
     }
     let Some(writer_ids) = atom_ids
         .iter()
@@ -512,7 +524,7 @@ fn normalize_v3000_endpoints(properties: &str, atom_idx_map: &[(u32, AtomIdx)]) 
         })
         .collect::<Option<Vec<_>>>()
     else {
-        return properties.to_owned();
+        return properties;
     };
     let normalized = format!("ENDPTS=({declared} {})", writer_ids.join(" "));
     format!(
@@ -543,6 +555,7 @@ struct V3000Parser {
     bond_idx_map: V3000IndexMap<BondIdx>,
     coords: Vec<(f64, f64)>,
     raw_z: Vec<f64>,
+    allocation_limit: usize,
     expected_atoms: usize,
     expected_bonds: usize,
     parsed_bonds: usize,
@@ -564,6 +577,7 @@ impl V3000Parser {
             bond_idx_map: V3000IndexMap::new(),
             coords: Vec::new(),
             raw_z: Vec::new(),
+            allocation_limit: 0,
             expected_atoms: 0,
             expected_bonds: 0,
             parsed_bonds: 0,
@@ -577,20 +591,19 @@ impl V3000Parser {
         }
     }
 
-    fn consume(&mut self, line: &LogicalLine) -> Result<(), MolParseError> {
-        let tokens = line.payload.split_whitespace().collect::<Vec<_>>();
+    fn consume(&mut self, line: &LogicalLine, tokens: &[&str]) -> Result<(), MolParseError> {
         if tokens.is_empty() {
             return Ok(());
         }
         match self.state {
-            V3000State::BeforeCtab => self.before_ctab(&tokens),
-            V3000State::InCtab => self.in_ctab(&tokens, line.line_num),
-            V3000State::InAtomBlock => self.in_atom_block(&tokens, line.line_num),
-            V3000State::AfterAtomBlock => self.after_atom_block(&tokens, line.line_num),
-            V3000State::InBondBlock => self.in_bond_block(&tokens, line.line_num),
-            V3000State::AfterBondBlock => self.after_bond_block(&tokens),
-            V3000State::InCollection => self.in_collection(&tokens, line),
-            V3000State::InSgroup => self.in_sgroup(&tokens, line),
+            V3000State::BeforeCtab => self.before_ctab(tokens),
+            V3000State::InCtab => self.in_ctab(tokens, line.line_num),
+            V3000State::InAtomBlock => self.in_atom_block(tokens, line.line_num),
+            V3000State::AfterAtomBlock => self.after_atom_block(tokens, line.line_num),
+            V3000State::InBondBlock => self.in_bond_block(tokens, line.line_num),
+            V3000State::AfterBondBlock => self.after_bond_block(tokens),
+            V3000State::InCollection => self.in_collection(tokens, line),
+            V3000State::InSgroup => self.in_sgroup(tokens, line),
             V3000State::Done => Ok(()),
         }
     }
@@ -611,6 +624,16 @@ impl V3000Parser {
             self.expected_bonds = parse_v3000_count(tokens[2], line, "bond")?;
             self.expected_sgroups = Some(parse_v3000_count(tokens[3], line, "SGROUP")?);
         } else if is_marker(tokens, "BEGIN", "ATOM") {
+            // Allocate once when entering ATOM, after the final COUNTS row.
+            // A declared count is only an allocation hint: bound it by the
+            // actual logical row count before trusting potentially huge input.
+            let atoms = v3000_storage_capacity(self.expected_atoms, self.allocation_limit);
+            let bonds = v3000_storage_capacity(self.expected_bonds, self.allocation_limit);
+            self.builder = MoleculeBuilder::with_capacity(atoms, bonds);
+            self.atom_idx_map.entries.reserve_exact(atoms);
+            self.bond_idx_map.entries.reserve_exact(bonds);
+            self.coords.reserve_exact(atoms);
+            self.raw_z.reserve_exact(atoms);
             self.state = V3000State::InAtomBlock;
         } else if is_marker(tokens, "END", "CTAB") {
             self.state = V3000State::Done;
@@ -749,6 +772,21 @@ impl V3000Parser {
     }
 }
 
+// Preserve normal Vec growth capacities where the real input budget allows.
+// Storage shape after parsing can affect subsequent prepared operations.
+fn v3000_storage_capacity(count: usize, limit: usize) -> usize {
+    let bounded = count.min(limit);
+    if bounded == 0 {
+        0
+    } else {
+        bounded
+            .checked_next_power_of_two()
+            .unwrap_or(limit)
+            .max(4)
+            .min(limit)
+    }
+}
+
 fn parse_v3000_count(raw: &str, line: usize, kind: &str) -> Result<usize, MolParseError> {
     raw.parse::<usize>()
         .map_err(|_| v3k_err(line, format!("cannot parse {kind} count from '{raw}'")))
@@ -868,6 +906,21 @@ fn v3000_geometry(
     (conformer, rank, diagnostics, square_planar)
 }
 
+/// Bond order spent at a V3000 atom's total-valence field. A coordinate
+/// bond spends valence at its acceptor, but not its donor.
+fn v3000_valence_bond_order_sum(mol: &Molecule, atom: AtomIdx) -> u8 {
+    mol.neighbors(atom)
+        .map(|(_, bond_idx)| {
+            let bond = mol.bond(bond_idx);
+            if bond.order == BondOrder::Dative && bond.atom1 == atom {
+                0
+            } else {
+                bond.order.order_int()
+            }
+        })
+        .fold(0u8, u8::saturating_add)
+}
+
 /// Apply supported CTfile total-valence overrides after bonds are known.
 /// VAL=0 leaves implicit hydrogen inference alone; -1 and the legacy zero
 /// sentinel 15 suppress hydrogens. Retain the source attribute for rewriting.
@@ -896,7 +949,7 @@ fn apply_v3000_valence_overrides(mol: &mut Molecule, properties: &[(u32, String)
         {
             continue;
         }
-        let drawn = chematic_core::valence::bond_order_sum(mol, atom);
+        let drawn = v3000_valence_bond_order_sum(mol, atom);
         mol.set_hydrogen_count(atom, Some(valence.saturating_sub(drawn)));
     }
 }
@@ -968,8 +1021,15 @@ pub fn read_mol_v3000_with_diagnostics(input: &str) -> Result<MolReadReport, Mol
     let (metadata, line2) = v3000_metadata(&lines)?;
     let logical_lines = collect_v30_lines(&lines);
     let mut parser = V3000Parser::new();
+    parser.allocation_limit = logical_lines.len();
+    // Logical payloads live until the entire parse ends, including owned
+    // continuation text. Reuse only the token vector's storage; clear every
+    // row before borrowing that row's exact Unicode-whitespace tokens.
+    let mut tokens = Vec::new();
     for line in &logical_lines {
-        parser.consume(line)?;
+        tokens.clear();
+        tokens.extend(line.payload.split_whitespace());
+        parser.consume(line, &tokens)?;
     }
     finish_v3000_report(parser, metadata, line2)
 }
@@ -1319,3 +1379,19 @@ mod tests;
 
 mod writer;
 pub use writer::*;
+
+#[cfg(test)]
+#[path = "mol3000/token_buffer_tests.rs"]
+mod token_buffer_tests;
+
+#[cfg(test)]
+#[path = "mol3000/zero_z_tests.rs"]
+mod zero_z_tests;
+
+#[cfg(test)]
+#[path = "mol3000/count_capacity_tests.rs"]
+mod count_capacity_tests;
+
+#[cfg(test)]
+#[path = "mol3000/attribute_tail_tests.rs"]
+mod attribute_tail_tests;

@@ -208,3 +208,12 @@ def test_analogue_docking_rejects_qvina(water: Molecule, gfp: str) -> None:
                 # qvina requires scoring_function="vina" to pass VinaSettings validation
                 docking_settings=VinaSettings(executable=bad_executable, scoring_function="vina"),
             )
+
+
+def test_heron_settings_roundtrip_and_scoring_validation() -> None:
+    """Preserve Heron selection through JSON and reject unsupported scoring."""
+    adapter = TypeAdapter(DockingSettingsUnion)
+    settings = adapter.validate_python({"settings_type": "vina", "executable": "heron", "scoring_function": "vinardo"})
+    assert adapter.validate_json(adapter.dump_json(settings)).executable == "heron"
+    with raises(ValueError):
+        VinaSettings(executable="heron", scoring_function="vina")

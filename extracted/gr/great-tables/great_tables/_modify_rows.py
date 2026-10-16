@@ -46,14 +46,16 @@ def _remove_from_group_styles(styles: Styles, column: str):
 
 
 def tab_stub(
-    self: GTSelf, rowname_col: str | None = None, groupname_col: str | None = None
+    self: GTSelf, rowname_col: str | list[str] | None = None, groupname_col: str | None = None
 ) -> GTSelf:
     """Add a table stub, to emphasize row and group information.
 
     Parameters
     ----------
     rowname_col:
-        The column to use for row names. By default, no row names added.
+        The column to use for row names. By default, no row names added. A list of columns
+        creates a hierarchical stub: the last column holds the row names, and the columns before
+        it are outer levels (outermost first), with repeated values merged across adjacent rows.
     groupname_col:
         The column to use for group names. By default no group names added.
 
@@ -80,6 +82,13 @@ def tab_stub(
     ```{python}
     GT(exibble).tab_stub(rowname_col="row", groupname_col="group")
     ```
+
+    Passing a list of columns to `rowname_col=` creates a hierarchical stub. Here, the rows are
+    labeled by `"group"` and then `"row"`, and the repeated group values are merged.
+
+    ```{python}
+    GT(exibble[["group", "row", "num", "char"]]).tab_stub(rowname_col=["group", "row"])
+    ```
     """
     # old columns ----
     _info = self._boxhead._get_row_group_column()
@@ -103,7 +112,9 @@ def tab_stub(
         self = self._replace(_spanners=self._spanners.remove_column(groupname_col))
 
     if rowname_col is not None:
-        self = self._replace(_spanners=self._spanners.remove_column(rowname_col))
+        cols_to_remove = rowname_col if isinstance(rowname_col, list) else [rowname_col]
+        for col in cols_to_remove:
+            self = self._replace(_spanners=self._spanners.remove_column(col))
 
     # set new row and group name cols ----
     stub, boxhead = self._stub._set_cols(self._tbl_data, self._boxhead, rowname_col, groupname_col)
@@ -114,9 +125,9 @@ def tab_stub(
 def with_locale(self: GTSelf, locale: str | None = None) -> GTSelf:
     """Set a column to be the default locale.
 
-    Setting a default locale affects formatters like `fmt_number()`, and `fmt_date()`,
-    by having them default to locale-specific features (e.g. representing one thousand
-    as 1.000,00)
+    Setting a default locale affects formatters like [`fmt_number()`](`great_tables.GT.fmt_number`),
+    and [`fmt_date()`](`great_tables.GT.fmt_date`), by having them default to locale-specific
+    features (e.g. representing one thousand as 1.000,00)
 
     Parameters
     ----------
@@ -132,9 +143,10 @@ def with_locale(self: GTSelf, locale: str | None = None) -> GTSelf:
 
     Examples
     --------
-    Let's create a table and set its `locale=` to `"ja"` for Japan. Then, we call `fmt_currency()`
-    to format the `"currency"` column. Since we didn't specify a `locale=` for `fmt_currency()`,
-    it will adopt the globally set `"ja"` locale.
+    Let's create a table and set its `locale=` to `"ja"` for Japan. Then, we call
+    [`fmt_currency()`](`great_tables.GT.fmt_currency`) to format the `"currency"` column. Since we
+    didn't specify a `locale=` for [`fmt_currency()`](`great_tables.GT.fmt_currency`), it will adopt
+    the globally set `"ja"` locale.
 
     ```{python}
     from great_tables import GT, exibble
@@ -432,7 +444,7 @@ def summary_rows(
 
         # Calculate summary for each function
         for label, fn in fns.items():
-            row_values_dict = _calculate_summary_row_from_subset(
+            row_values_dict, row_values_latex = _calculate_summary_row_from_subset(
                 group_df, fn, fmt, self._boxhead._get_columns(), missing_text
             )
 
@@ -441,6 +453,7 @@ def summary_rows(
                 label=label,
                 values=row_values_dict,
                 side=side,
+                values_latex=row_values_latex,
             )
 
             new_summary = new_summary.add_summary_row(
@@ -456,27 +469,61 @@ def _calculate_summary_row_from_subset(
     fmt: FormatFn | None,
     original_columns: list[str],
     missing_text: str,
-) -> dict[str, Any]:
-    """Calculate a summary row from a subset of data (for group summaries)."""
-    summary_row = {}
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Calculate a summary row from a subset of data (for group summaries).
+
+    Returns the values formatted for HTML and for LaTeX output.
+    """
 
     # Use eval_aggregate to apply the function/expression to the group subset
     result_df = eval_aggregate(group_df, fn)
 
-    # Extract results for each column
-    for col in original_columns:
+    return _format_summary_values(result_df, fmt, original_columns, missing_text)
+
+
+def _format_summary_values(
+    result_df: Any, fmt: FormatFn | None, columns: list[str], missing_text: str
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Format the aggregated values of a summary row for HTML and for LaTeX output."""
+
+    from ._text import _latex_escape
+
+    summary_row: dict[str, Any] = {}
+    summary_row_latex: dict[str, str] = {}
+
+    for col in columns:
         if col in result_df:
             res = result_df[col]
-
-            if fmt is not None:
-                formatted = fmt([res])
-                res = formatted[0]
-
-            summary_row[col] = res
+            summary_row[col] = fmt([res])[0] if fmt is not None else res
+            summary_row_latex[col] = _summary_value_latex(res, fmt)
         else:
             summary_row[col] = missing_text
+            summary_row_latex[col] = _latex_escape(missing_text)
 
-    return summary_row
+    return summary_row, summary_row_latex
+
+
+def _summary_value_latex(res: Any, fmt: FormatFn | None) -> str:
+    """Format a summary value for LaTeX output.
+
+    A `vals.fmt_*()` formatter is run for LaTeX (so that, e.g., `%` is escaped and a minus sign is
+    `-`); the output of any other formatter, or an unformatted value, is escaped as plain text.
+    """
+
+    from ._formats_vals import _VALS_CONTEXT, _is_vals_formatter
+    from ._text import _latex_escape
+
+    if fmt is None:
+        return _latex_escape(str(res))
+
+    if _is_vals_formatter(fmt):
+        token = _VALS_CONTEXT.set("latex")
+        try:
+            return str(fmt([res])[0])
+        finally:
+            _VALS_CONTEXT.reset(token)
+
+    return _latex_escape(str(fmt([res])[0]))
 
 
 def grand_summary_rows(
@@ -607,13 +654,14 @@ def grand_summary_rows(
 
     new_summary = self._summary_rows_grand
     for label, fn in fns.items():
-        row_values_dict = _calculate_summary_row(self, fn, fmt, missing_text)
+        row_values_dict, row_values_latex = _calculate_summary_row(self, fn, fmt, missing_text)
 
         summary_row_info = SummaryRowInfo(
             id=label,
             label=label,
             values=row_values_dict,
             side=side,
+            values_latex=row_values_latex,
         )
 
         new_summary = new_summary.add_summary_row(summary_row_info)
@@ -627,28 +675,17 @@ def _calculate_summary_row(
     fmt: FormatFn | None,
     # summary_col_names: list[str],
     missing_text: str,
-) -> dict[str, Any]:
-    """Calculate a summary row using eval_transform."""
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Calculate a summary row using eval_transform.
+
+    Returns the values formatted for HTML and for LaTeX output.
+    """
     original_columns = data._boxhead._get_columns()
-    summary_row = {}
 
     # Use eval_aggregate to apply the function/expression to the data
     result_df = eval_aggregate(data._tbl_data, fn)
 
-    # Extract results for each column
-    for col in original_columns:
-        if col in result_df:
-            res = result_df[col]
-
-            if fmt is not None:
-                formatted = fmt([res])
-                res = formatted[0]
-
-            summary_row[col] = res
-        else:
-            summary_row[col] = missing_text
-
-    return summary_row
+    return _format_summary_values(result_df, fmt, original_columns, missing_text)
 
 
 # TODO: delegate to group by agg instead (group_by for summary row case)

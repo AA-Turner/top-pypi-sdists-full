@@ -138,16 +138,30 @@ def serve_replay_asset_response(rel_path: str, config, response_factory):
     return response
 
 
+def _page_request_url(url: str) -> str:
+    """Drop the recorder's ``__wb_method=POST&<body>`` suffix from a page URL."""
+    for marker in ("?__wb_method=", "&__wb_method="):
+        if marker in url:
+            return url.split(marker, 1)[0]
+    return url
+
+
 def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
-    """Prefer the requested page when recorded, otherwise use the first page.
+    """Prefer the latest capture of the requested page, otherwise the first page.
 
     The snapshot's ``Snapshot.url`` is the URL the user *asked* to archive,
     but the WACZ records whatever URL the browser actually navigated to (e.g.
     the final URL after redirects). replayweb.page's ``url=`` param has to
     match a recorded page. Page index order is not navigation order: an
     incidental page can appear before the requested page.
+
+    One URL can be recorded more than once: a bot-check interstitial is the
+    first GET of it, and the page that cleared it may be a later form POST back
+    to it (listed with a ``__wb_method=POST`` suffix). Replay the latest capture,
+    the document the browser settled on.
     """
     first_url = ""
+    latest = None
     try:
         with zipfile.ZipFile(wacz_path) as zf:
             for name in ("pages/pages.jsonl", "pages/extraPages.jsonl"):
@@ -155,7 +169,9 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
                     raw = zf.read(name).decode("utf-8", errors="replace")
                 except KeyError:
                     continue
-                for line in raw.splitlines():
+                # JSONL records end at LF; Unicode separators can occur inside
+                # recorded page text and must not split an otherwise valid row.
+                for line in raw.split("\n"):
                     line = line.strip()
                     if not line or not line.startswith("{"):
                         continue
@@ -167,13 +183,15 @@ def _first_archived_url(wacz_path: Path, preferred_url: str = "") -> str:
                         continue  # header row, not a real page entry
                     url = record.get("url")
                     if url:
-                        if url == preferred_url:
-                            return url
+                        if preferred_url and _page_request_url(url) == preferred_url:
+                            ts = str(record.get("ts") or "")
+                            if latest is None or ts >= latest[0]:
+                                latest = (ts, url)
                         if not first_url:
                             first_url = url
     except (zipfile.BadZipFile, OSError):
         pass
-    return first_url
+    return latest[1] if latest else first_url
 
 
 def _replay_index(wacz_path: Path) -> dict:
@@ -189,6 +207,8 @@ def _replay_index(wacz_path: Path) -> dict:
         ranges = []
         with zipfile.ZipFile(wacz_path) as archive, wacz_path.open("rb") as source:
             for entry in archive.infolist():
+                if limit < 30:
+                    break  # No local header fits; do not read the remaining entries.
                 source.seek(entry.header_offset)
                 header = source.read(30)
                 if len(header) != 30 or header[:4] != b"PK\x03\x04":
@@ -202,7 +222,7 @@ def _replay_index(wacz_path: Path) -> dict:
                 if is_index and length + entry.compress_size <= limit:
                     length += entry.compress_size
                 if length > limit:
-                    continue
+                    break
                 source.seek(entry.header_offset)
                 data = source.read(length)
                 ranges.append(

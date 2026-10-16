@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rdt
-Version: 1.22.0
+Version: 2.0.0
 Summary: Reversible Data Transforms
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1
@@ -51,7 +51,8 @@ Provides-Extra: copulas
 Requires-Dist: copulas>=0.12.1; python_version < "3.14" and extra == "copulas"
 Requires-Dist: copulas>=0.14.0; python_version >= "3.14" and extra == "copulas"
 Provides-Extra: pyarrow
-Requires-Dist: pyarrow>=17.0.0; extra == "pyarrow"
+Requires-Dist: pyarrow>=18.0.0; python_version < "3.14" and extra == "pyarrow"
+Requires-Dist: pyarrow>=23.0.0; python_version >= "3.14" and extra == "pyarrow"
 Provides-Extra: test
 Requires-Dist: rdt[pyarrow]; extra == "test"
 Requires-Dist: rdt[copulas]; extra == "test"
@@ -189,7 +190,7 @@ Config:
     "transformers": {
         "last_login": "UnixTimestampEncoder()",
         "email_optin": "BinaryEncoder()",
-        "credit_card": "FrequencyEncoder()",
+        "credit_card": "UniformEncoder()",
         "age": "FloatFormatter()",
         "dollars_spent": "FloatFormatter()"
     }

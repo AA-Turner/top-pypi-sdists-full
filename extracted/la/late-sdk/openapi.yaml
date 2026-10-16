@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.281.0"
+  version: "1.285.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -486,7 +486,8 @@ tags:
       Pinterest `status`, X `entity_status`, ChatGPT (OpenAI) `status`, Reddit `configured_status`):
 
       - **Own switch** is what you set. Ads return it as `configuredStatus`, ad sets as
-        `platformAdSetStatus`, campaigns as `platformCampaignStatus`.
+        `platformAdSetStatus`, campaigns as `platformCampaignStatus`. Meta and Reddit ad sets
+        return their `effective_status` in `platformAdSetStatus` instead (e.g. `CAMPAIGN_PAUSED`).
       - **Delivery status** (`status`, and the raw `platformStatus` on ads) is derived: an object
         delivers only when its own switch AND every switch above it are on. An ad whose own switch
         is on under a paused campaign reads `configuredStatus: ACTIVE` with `status: paused`.
@@ -23416,7 +23417,7 @@ paths:
                 thumbnailUrl:
                   type: string
                   format: uri
-                  description: "Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails."
+                  description: "Public URL of a custom thumbnail image (JPEG, PNG, or GIF, max 50 MB, recommended 1280x720). Works on any video you own, including existing videos not published through Zernio. The channel must be verified (phone verification) to set custom thumbnails. If the thumbnail cannot be set (YouTube refuses it, for example a channel without the custom-thumbnail permission or a video not owned by the connected channel, or the image URL cannot be fetched or is not a supported format or size), the request answers 400 with the reason and no field is updated. A temporary YouTube or network failure answers 500 and can be retried."
                 madeForKids:
                   type: boolean
                   description: "COPPA compliance flag. Set true for child-directed content (restricts comments, notifications, ad targeting)."
@@ -23468,7 +23469,7 @@ paths:
                 message: "YouTube video metadata updated successfully"
                 updatedFields: ["title", "description", "tags"]
         '400':
-          description: "Invalid request: unsupported platform, post not published, missing fields, or validation error."
+          description: "Invalid request: unsupported platform, post not published, missing fields, validation error, or the thumbnail could not be set."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -26727,6 +26728,7 @@ paths:
                             id: { type: string, description: Instagram Business Account ID }
                             username: { type: string }
                             profile_picture_url: { type: string }
+                            followers_count: { type: integer, description: Followers of the Instagram account when Meta returns it }
               example:
                 pages:
                   - id: "811889972008357"
@@ -36554,6 +36556,46 @@ paths:
           description: Inbox addon required
         '404':
           description: Conversation not found (WhatsApp only; other platforms upsert)
+    delete:
+      x-resource-group: "messages"
+      operationId: deleteInboxConversation
+      summary: Delete conversation
+      description: 'Permanently deletes Zernio''s stored copy of one conversation and every message in it, in one transaction, and unlinks the contact channel that pointed at it. Nothing is deleted on the platform (the thread stays in WhatsApp, Messenger or Instagram), and the contact record is kept: call DELETE /v1/contacts/{contactId} to erase the person''s name and number as well. A platform re-sync can import the thread again: WhatsApp coexistence numbers receive their messaging history from Meta repeatedly, and a Facebook or Instagram account whose DM history walk has not finished imports it on that walk. Inbound media copies Zernio stored are removed on a best-effort basis.'
+      tags: [Messages]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string }
+          description: 'Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed.'
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+          description: Account ID
+      responses:
+        '200':
+          description: Conversation deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      accountId: { type: string }
+                      platform: { type: string }
+                      deletedMessages: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required
+        '404':
+          description: Account or conversation not found
 
   /v1/inbox/conversations/{conversationId}/messages:
     get:
@@ -37525,7 +37567,7 @@ paths:
                               fbtraceId: { type: string, description: "Meta fbtrace_id, quote this in a Meta bug report" }
                               type: { type: string, description: "Meta error type (e.g. OAuthException)" }
         '400':
-          description: 'Bad request (e.g., attachment not supported for platform, validation error, category combined with a template or attachment, category used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send). Meta rejections (e.g. sending outside the messaging window) arrive with code platform_api_error, type platform_error, and platform + platformError set.'
+          description: 'Bad request (e.g., attachment not supported for platform, validation error, category combined with a template or attachment, category used on a non-WhatsApp account, or the WhatsApp Business Account is not eligible for Direct Send). Meta rejections (e.g. sending outside the messaging window) and TikTok business-account rejections arrive with code platform_api_error, type platform_error, and platform + platformError set.'
           content:
             application/json:
               schema:
@@ -37534,23 +37576,25 @@ paths:
                   error: { type: string }
                   type:
                     type: string
-                    description: "Present on Meta pass-through rejections: platform_error when Meta rejected the send (see platform/platformError below), invalid_request_error for validation failures."
+                    description: "Present on Meta and TikTok pass-through rejections: platform_error when the platform rejected the send (see platform/platformError below), invalid_request_error for validation failures."
                     enum: [platform_error, invalid_request_error]
                   code:
                     type: string
-                    description: "Stable machine-readable reason. PLATFORM_LIMITATION covers a capability the platform does not offer (e.g. Bluesky and Reddit DMs reject media); MISSING_PARTICIPANT means the stored conversation has no recipient to send to; DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED mean the WhatsApp Business Account needs Meta to grant or restore Direct Send access; DIRECT_SEND_LIMITED is temporary, Meta lifts it on its own; platform_api_error means Meta itself rejected the send (see platformError)."
+                    description: "Stable machine-readable reason. PLATFORM_LIMITATION covers a capability the platform does not offer (e.g. Bluesky and Reddit DMs reject media); MISSING_PARTICIPANT means the stored conversation has no recipient to send to; DIRECT_SEND_NOT_ELIGIBLE and DIRECT_SEND_BLOCKED mean the WhatsApp Business Account needs Meta to grant or restore Direct Send access; DIRECT_SEND_LIMITED is temporary, Meta lifts it on its own; platform_api_error means the platform itself rejected the send (see platformError)."
                     enum: [PLATFORM_LIMITATION, MISSING_PARTICIPANT, INVALID_TEMPLATE_HEADER, DIRECT_SEND_NOT_ELIGIBLE, DIRECT_SEND_LIMITED, DIRECT_SEND_BLOCKED, platform_api_error]
                   platform:
                     type: string
-                    description: "Present alongside code platform_api_error. The platform that rejected the send (e.g. instagram, facebook, whatsapp)."
+                    description: "Present alongside code platform_api_error. The platform that rejected the send (e.g. instagram, facebook, whatsapp, tiktok)."
                   platformError:
                     type: object
-                    description: "Instagram, Facebook, or WhatsApp. Meta's diagnostic fields for the rejected send or template lookup. WhatsApp lookup errors retain only code, message, and error_data.details. Absent when the failure did not come from Meta."
+                    description: "Instagram, Facebook, WhatsApp, or TikTok. The platform's diagnostic fields for the rejected send or template lookup. WhatsApp lookup errors retain only code, message, and error_data.details. On TikTok only code, message, and request_id are set. Absent when the failure did not come from the platform."
                     properties:
-                      code: { type: integer, description: "Meta error code" }
+                      code: { type: integer, description: "Meta or TikTok error code" }
                       subcode: { type: integer, description: "Meta error_subcode" }
                       fbtraceId: { type: string, description: "Meta fbtrace_id, quote this in a Meta bug report" }
                       type: { type: string, description: "Meta error type (e.g. OAuthException)" }
+                      message: { type: string, description: "TikTok error message" }
+                      request_id: { type: string, description: "TikTok request_id, quote this in a TikTok support ticket" }
         '500':
           description: >-
             The platform rejected or failed the send. Zernio does NOT retry a
@@ -37577,7 +37621,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429':
-          description: 'Rate limited. Either the connected account''s upstream platform quota is exhausted (code rate_limited, see Retry-After; Reddit allows 1000 requests per 10 minutes per connected user), or Meta rejected the WhatsApp template-definition lookup (code platform_api_error). No message was sent.'
+          description: 'Rate limited. Either the connected account''s upstream platform quota is exhausted (code rate_limited, see Retry-After; Reddit allows 1000 requests per 10 minutes per connected user; TikTok code 40100 also lands here with platform and platformError set), or Meta rejected the WhatsApp template-definition lookup (code platform_api_error). No message was sent.'
           headers:
             Retry-After:
               description: 'Seconds until the upstream quota resets, when the platform reported it.'
@@ -55884,7 +55928,7 @@ paths:
                         platform: { type: string }
                         adSetName: { type: [string, "null"] }
                         status: { type: [string, "null"] }
-                        platformAdSetStatus: { type: [string, "null"], description: "Raw platform ad set status. On TikTok the ad group's own switch `operation_status` (ENABLE / DISABLE), independent of its campaign." }
+                        platformAdSetStatus: { type: [string, "null"], description: "Raw platform ad set status. On TikTok the ad group's own switch `operation_status` (ENABLE / DISABLE), independent of its campaign. On Meta and Reddit the ad set's `effective_status` (e.g. CAMPAIGN_PAUSED)." }
                         platformCampaignId: { type: [string, "null"] }
                         platformAdAccountId: { type: string }
                         accountId: { type: [string, "null"] }
@@ -56286,7 +56330,7 @@ paths:
                     amount: { type: number }
                     type: { type: string, enum: [daily, lifetime] }
                 status: { type: string, enum: [active, paused], description: "Writes the ad set's own on/off switch (Meta: `configured_status`; X: the line item's `entity_status` ACTIVE / PAUSED), whatever delivery status its ads report. Omit if not toggling delivery state." }
-                name: { type: string, maxLength: 255, description: "Rename the ad set (on X, the line item `name`). Platforms without a rename return 501. At least one of budget/status/bidStrategy/name is required." }
+                name: { type: string, maxLength: 255, description: "Rename the ad set on any supported platform: Meta, Google (the ad group), TikTok, LinkedIn (the campaign), Pinterest, X (the line item `name`), OpenAI and Reddit; platforms without a rename return 501. The new name is stored right away, so GET /v1/ads/ad-sets and GET /v1/ads/tree return it without a sync. At least one of budget/status/bidStrategy/name is required." }
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
                   description: |
@@ -56406,7 +56450,7 @@ paths:
                   budget: { $ref: '#/components/schemas/AdBudget' }
                   budgetLevel: { type: string, enum: [adset] }
                   status: { type: string, enum: [active, paused], description: 'As in PUT /v1/ads/ad-sets/{adSetId}/status: delivery derived from the switches read back.' }
-                  platformAdSetStatus: { type: [string, "null"], description: "The ad set's own switch read back from the platform; null when it could not be read." }
+                  platformAdSetStatus: { type: [string, "null"], description: "The ad set's status read back from the platform, as in PUT /v1/ads/ad-sets/{adSetId}/status (Meta and Reddit return the ad set's effective_status); null when it could not be read." }
                   platformCampaignStatus: { type: [string, "null"] }
                   statusReadAt: { type: [string, "null"], format: date-time }
                   statusUpdated: { type: integer, enum: [0, 1], description: "1 when the ad set's switch was written." }
@@ -56489,9 +56533,9 @@ paths:
         the delivery status of its ads (up to 20) is re-read and stored, so an
         immediate GET returns what the platform now reports. A stored switch
         never skips a write, and when the platform cannot be read the write
-        always goes out. On Meta the check reads the ad set's own `status`, so
-        a repeated request skips even while `platformAdSetStatus` reads
-        `CAMPAIGN_PAUSED`, `WITH_ISSUES` or `IN_PROCESS`.
+        always goes out. On Meta and Reddit the check reads the ad set's own
+        switch (`status` / `configured_status`), so a repeated request skips even
+        while `platformAdSetStatus` reads `CAMPAIGN_PAUSED`, `WITH_ISSUES` or `IN_PROCESS`.
       security:
         - bearerAuth: []
       parameters:
@@ -56515,7 +56559,7 @@ paths:
                 type: object
                 properties:
                   status: { type: string, enum: [active, paused], description: "The ad set's delivery status derived from the switches read back: `paused` when its own switch or its campaign's switch is off. Echoes the request when the platform could not be read." }
-                  platformAdSetStatus: { type: [string, "null"], description: "The ad set's own switch as read back from the platform, in the raw platform vocabulary (Meta effective_status, TikTok ENABLE / DISABLE, Google ENABLED / PAUSED, LinkedIn and Pinterest ACTIVE / PAUSED, ChatGPT (OpenAI) status, Reddit configured_status). Null when the platform could not be read, which is always the case on X." }
+                  platformAdSetStatus: { type: [string, "null"], description: "The ad set's own switch as read back from the platform, in the raw platform vocabulary (Meta effective_status, TikTok ENABLE / DISABLE, Google ENABLED / PAUSED, LinkedIn and Pinterest ACTIVE / PAUSED, ChatGPT (OpenAI) status, Reddit effective_status such as CAMPAIGN_PAUSED, as GET /v1/ads/ad-sets returns it). Null when the platform could not be read, which is always the case on X." }
                   platformCampaignStatus: { type: [string, "null"], description: "The parent campaign's switch, read in the same call where the platform returns it, otherwise the stored value." }
                   statusReadAt: { type: [string, "null"], format: date-time, description: 'When the ad set switch was read back. Null when it could not be read.' }
                   updated: { type: integer, enum: [0, 1], description: "1 when the ad set's switch was written." }

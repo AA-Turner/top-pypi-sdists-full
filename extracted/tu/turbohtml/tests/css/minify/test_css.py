@@ -28,6 +28,241 @@ _NEWLY = CSSMinify(baseline=2021)
 
 
 @pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        pytest.param("flex-direction:row", "flex-wrap:wrap", id="flex-flow"),
+        pytest.param("align-content:center", "justify-content:end", id="place-content"),
+        pytest.param("align-items:center", "justify-items:end", id="place-items"),
+        pytest.param("align-self:auto", "justify-self:stretch", id="place-self"),
+        pytest.param("overflow-x:hidden", "overflow-y:auto", id="overflow"),
+        pytest.param("row-gap:5px", "column-gap:6px", id="gap"),
+        pytest.param("margin-inline-start:5px", "margin-inline-end:6px", id="margin-inline"),
+        pytest.param("margin-block-start:5px", "margin-block-end:6px", id="margin-block"),
+        pytest.param("padding-inline-start:5px", "padding-inline-end:6px", id="padding-inline"),
+        pytest.param("padding-block-start:5px", "padding-block-end:6px", id="padding-block"),
+        pytest.param("inset-inline-start:5px", "inset-inline-end:6px", id="inset-inline"),
+        pytest.param("inset-block-start:5px", "inset-block-end:6px", id="inset-block"),
+    ],
+)
+@pytest.mark.parametrize("invalid_part", [pytest.param(0, id="first"), pytest.param(1, id="second")])
+def test_minify_css_invalid_longhand_blocks_pair_shorthand(first: str, second: str, invalid_part: int) -> None:
+    declarations = [first, second]
+    property_name = declarations[invalid_part].split(":", 1)[0]
+    declarations[invalid_part] = f"{property_name}:bad stuff"
+    source = f"a{{{';'.join(declarations)}}}"
+    assert minify_css(source, _NEWLY) == source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param("a{top:5px;right:bad stuff;bottom:5px;left:5px}", id="inset"),
+        pytest.param(
+            "a{border-top-left-radius:5px;border-top-right-radius:bad stuff;"
+            "border-bottom-right-radius:5px;border-bottom-left-radius:5px}",
+            id="border-radius",
+        ),
+        pytest.param("a{outline-width:2px;outline-style:solid;outline-color:bad stuff}", id="outline"),
+        pytest.param("a{outline-width:5%;outline-style:solid;outline-color:red}", id="outline-percentage"),
+        pytest.param("a{outline-width:2px;outline-style:hidden;outline-color:red}", id="outline-hidden"),
+        pytest.param("a{outline-width:2px;outline-style:solid;outline-color:#ggg}", id="outline-invalid-hex"),
+        pytest.param("a{outline-width:garbage;outline-style:solid;outline-color:red}", id="outline-invalid-width"),
+        pytest.param("a{outline-width:2px;outline-style:solid;outline-color:#12}", id="outline-short-hex"),
+        pytest.param("a{align-content:center;justify-content:baseline}", id="justify-content-baseline"),
+        pytest.param("a{align-self:center;justify-self:legacy}", id="justify-self-legacy"),
+    ],
+)
+def test_minify_css_invalid_longhand_blocks_box_or_outline_shorthand(source: str) -> None:
+    assert minify_css(source, _NEWLY) == source
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{row-gap:normal;column-gap:normal}", "a{gap:normal}", id="normal-gap"),
+        pytest.param("a{row-gap:normal;column-gap:5px}", "a{gap:normal 5px}", id="mixed-gap"),
+        pytest.param("a{align-items:center;justify-items:left}", "a{place-items:center left}", id="left-items"),
+        pytest.param("a{align-items:center;justify-items:right}", "a{place-items:center right}", id="right-items"),
+        pytest.param("a{align-items:center;justify-items:legacy}", "a{place-items:center legacy}", id="legacy-items"),
+        pytest.param(
+            "a{outline-width:thin;outline-style:solid;outline-color:red}",
+            "a{outline:thin solid red}",
+            id="thin-outline",
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:currentcolor}",
+            "a{outline:2px solid currentcolor}",
+            id="currentcolor-outline",
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:transparent}",
+            "a{outline:2px solid #0000}",
+            id="transparent-outline",
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:#123}", "a{outline:2px solid #123}", id="hex3"
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:#1234}", "a{outline:2px solid #1234}", id="hex4"
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:#123456}", "a{outline:2px solid #123456}", id="hex6"
+        ),
+        pytest.param(
+            "a{outline-width:2px;outline-style:solid;outline-color:#12345678}",
+            "a{outline:2px solid #12345678}",
+            id="hex8",
+        ),
+    ],
+)
+def test_minify_css_keeps_valid_shorthand_merges(source: str, expected: str) -> None:
+    assert minify_css(source, _NEWLY) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "a{outline-width:0;outline-width:2px;outline-color:blue;outline-style:dashed}",
+            "a{outline-width:0;outline-width:2px;outline-color:blue;outline-style:dashed}",
+            id="outline-width",
+        ),
+        pytest.param(
+            "a{outline-color:transparent;outline-color:blue;outline-style:dashed;outline-width:2px}",
+            "a{outline-color:#0000;outline-color:blue;outline-style:dashed;outline-width:2px}",
+            id="outline-color",
+        ),
+        pytest.param(
+            "a{margin-top:1px;margin-top:2px;margin-right:3px;margin-bottom:4px;margin-left:5px}",
+            "a{margin-top:1px;margin-top:2px;margin-right:3px;margin-bottom:4px;margin-left:5px}",
+            id="margin",
+        ),
+        pytest.param(
+            "a{flex-direction:row;flex-direction:column;flex-wrap:wrap}",
+            "a{flex-direction:row;flex-direction:column;flex-wrap:wrap}",
+            id="flex-flow",
+        ),
+        pytest.param(
+            "a{flex-direction:row;flex-wrap:nowrap;flex-wrap:wrap}",
+            "a{flex-direction:row;flex-wrap:nowrap;flex-wrap:wrap}",
+            id="flex-wrap",
+        ),
+        pytest.param(
+            "a{outline-width:1px;outline-style:solid;outline-color:red;outline-color:blue}",
+            "a{outline-width:1px;outline-style:solid;outline-color:red;outline-color:blue}",
+            id="outline-color-last",
+        ),
+        pytest.param(
+            "a{outline-width:1px;outline-style:solid;outline-style:dashed;outline-color:red}",
+            "a{outline-width:1px;outline-style:solid;outline-style:dashed;outline-color:red}",
+            id="outline-style-middle",
+        ),
+        pytest.param(
+            "a{outline-width:1px;outline-width:2px;outline-width:2px;outline-style:solid;outline-color:red}",
+            "a{outline-width:1px;outline-width:2px;outline-style:solid;outline-color:red}",
+            id="outline-duplicate-fallback",
+        ),
+        pytest.param(
+            "a{color:red;color:blue;margin-top:1px;margin-right:2px;margin-bottom:3px;margin-left:4px}",
+            "a{color:red;color:blue;margin:1px 2px 3px 4px}",
+            id="margin-unrelated-fallback",
+        ),
+        pytest.param(
+            "a{color:red;color:blue;flex-direction:row;flex-wrap:wrap}",
+            "a{color:red;color:blue;flex-flow:row wrap}",
+            id="flex-unrelated-fallback",
+        ),
+        pytest.param(
+            "a{color:red;color:blue;outline-width:1px;outline-style:solid;outline-color:red}",
+            "a{color:red;color:blue;outline:1px solid red}",
+            id="outline-unrelated-fallback",
+        ),
+    ],
+)
+def test_minify_css_repeated_longhand_blocks_shorthand(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
+@pytest.fixture
+def large_rule_prefix() -> str:
+    return ";".join(f"--x{index}:v" for index in range(33))
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "margin-top:1px;margin-right:2px;margin-bottom:3px;margin-left:4px",
+            "margin:1px 2px 3px 4px",
+            id="margin",
+        ),
+        pytest.param("flex-direction:row;flex-wrap:wrap", "flex-flow:row wrap", id="flex-flow"),
+    ],
+)
+def test_minify_css_large_rule_merges_unique_longhands(source: str, expected: str, large_rule_prefix: str) -> None:
+    assert minify_css(f"a{{{large_rule_prefix};{source}}}") == f"a{{{large_rule_prefix};{expected}}}"
+
+
+def test_minify_css_large_rules_keep_outline_fallback(large_rule_prefix: str) -> None:
+    source: Final = (
+        f"a{{{large_rule_prefix};outline-width:1px;outline-style:solid;outline-color:red}}"
+        f"b{{{large_rule_prefix};outline-width:0;outline-width:2px;outline-style:dashed;outline-color:blue}}"
+    )
+    expected: Final = (
+        f"a{{{large_rule_prefix};outline:1px solid red}}"
+        f"b{{{large_rule_prefix};outline-width:0;outline-width:2px;outline-style:dashed;outline-color:blue}}"
+    )
+    assert minify_css(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("shorthand", "longhand", "value"),
+    [
+        pytest.param("background", "background-color", "red", id="background"),
+        pytest.param("font", "font-style", "italic", id="font"),
+        pytest.param("border", "border-top-color", "red", id="border"),
+        pytest.param("border-width", "border-top-width", "2px", id="border-width"),
+        pytest.param("border-style", "border-top-style", "solid", id="border-style"),
+        pytest.param("border-color", "border-top-color", "red", id="border-color"),
+        pytest.param("border-top", "border-top-color", "red", id="border-top"),
+        pytest.param("border-right", "border-right-color", "red", id="border-right"),
+        pytest.param("border-bottom", "border-bottom-color", "red", id="border-bottom"),
+        pytest.param("border-left", "border-left-color", "red", id="border-left"),
+        pytest.param("margin", "margin-left", "5px", id="margin"),
+        pytest.param("padding", "padding-left", "5px", id="padding"),
+        pytest.param("column-rule", "column-rule-color", "red", id="column-rule"),
+        pytest.param("animation", "animation-duration", "1s", id="animation"),
+        pytest.param("columns", "column-width", "5px", id="columns"),
+        pytest.param("flex", "flex-basis", "5px", id="flex"),
+        pytest.param("flex-flow", "flex-direction", "row", id="flex-flow"),
+        pytest.param("grid", "grid-template-columns", "1fr", id="grid"),
+        pytest.param("grid-area", "grid-row-start", "2", id="grid-area"),
+        pytest.param("grid-row", "grid-row-start", "2", id="grid-row"),
+        pytest.param("grid-column", "grid-column-start", "2", id="grid-column"),
+        pytest.param("grid-template", "grid-template-columns", "1fr", id="grid-template"),
+        pytest.param("list-style", "list-style-position", "inside", id="list-style"),
+        pytest.param("offset", "offset-distance", "5px", id="offset"),
+        pytest.param("outline", "outline-color", "red", id="outline"),
+        pytest.param("overflow", "overflow-x", "hidden", id="overflow"),
+        pytest.param("place-content", "align-content", "center", id="place-content"),
+        pytest.param("place-items", "align-items", "center", id="place-items"),
+        pytest.param("place-self", "align-self", "center", id="place-self"),
+        pytest.param("text-decoration", "text-decoration-color", "red", id="text-decoration"),
+        pytest.param("transition", "transition-duration", "1s", id="transition"),
+    ],
+)
+@pytest.mark.parametrize("prefix_length", [pytest.param(0, id="pairwise"), pytest.param(33, id="hash")])
+def test_minify_css_invalid_shorthand_keeps_longhand(
+    shorthand: str, longhand: str, value: str, prefix_length: int
+) -> None:
+    prefix = ";".join(f"--x{index}:v" for index in range(prefix_length))
+    if prefix:
+        prefix += ";"
+    source = f"a{{{prefix}{longhand}:{value};{shorthand}:bad stuff}}"
+    assert minify_css(source) == source
+
+
+@pytest.mark.parametrize(
     ("source", "expected"),
     [
         pytest.param("a{color:#ffffff}", "a{color:#fff}", id="hex-shorten-6-to-3"),
@@ -125,8 +360,9 @@ _NEWLY = CSSMinify(baseline=2021)
         pytest.param(
             "a{border-top-left-radius:calc(100% - 1px);border-top-right-radius:calc(100% - 1px);"
             "border-bottom-right-radius:calc(100% - 1px);border-bottom-left-radius:calc(100% - 1px)}",
-            "a{border-radius:calc(100% - 1px)}",
-            id="merge-border-radius-calc-corner",
+            "a{border-top-left-radius:calc(100% - 1px);border-top-right-radius:calc(100% - 1px);"
+            "border-bottom-right-radius:calc(100% - 1px);border-bottom-left-radius:calc(100% - 1px)}",
+            id="keep-unvalidated-border-radius-calc-corner",
         ),
         pytest.param(
             "a{border-top-left-radius:1px 2px;border-top-right-radius:1px 2px;border-bottom-right-radius:1px 2px;"
@@ -166,8 +402,8 @@ _NEWLY = CSSMinify(baseline=2021)
             id="merge-nonadjacent-same-selector",
         ),
         pytest.param(
-            ".a{color:red}.c{margin:0}.b{color:red}",
-            ".a,.b{color:red}.c{margin:0}",
+            "a{color:red}c{margin:0}b{color:red}",
+            "a,b{color:red}c{margin:0}",
             id="merge-nonadjacent-identical-body",
         ),
         pytest.param("a{color:red}a{margin:0}a{padding:0}", "a{color:red;margin:0;padding:0}", id="merge-triple-run"),
@@ -182,48 +418,48 @@ _NEWLY = CSSMinify(baseline=2021)
             id="merge-nonadjacent-past-multi-declaration",
         ),
         pytest.param(
-            "a{color:red}b{color:blue}a{color:green}",
-            "a{color:red}b{color:blue}a{color:green}",
+            ".a{color:red}.b{color:blue}.a{color:green}",
+            ".a{color:red}.b{color:blue}.a{color:green}",
             id="no-merge-conflicting-property",
         ),
         pytest.param(
-            "a{color:red}b{margin:0}a{margin-top:1px}",
-            "a{color:red}b{margin:0}a{margin-top:1px}",
+            ".a{color:red}.b{margin:0}.a{margin-top:1px}",
+            ".a{color:red}.b{margin:0}.a{margin-top:1px}",
             id="no-merge-shorthand-blocks-longhand",
         ),
         pytest.param(
-            "a{color:red}b{margin-top:0}a{margin:1px}",
-            "a{color:red}b{margin-top:0}a{margin:1px}",
+            ".a{color:red}.b{margin-top:0}.a{margin:1px}",
+            ".a{color:red}.b{margin-top:0}.a{margin:1px}",
             id="no-merge-longhand-blocks-shorthand",
         ),
         pytest.param(
-            "a{margin:0}b{margin-top:1px}a{margin:2px}",
-            "a{margin:0}b{margin-top:1px}a{margin:2px}",
+            ".a{margin:0}.b{margin-top:1px}.a{margin:2px}",
+            ".a{margin:0}.b{margin-top:1px}.a{margin:2px}",
             id="no-merge-shorthand-vs-longhand-blocks",
         ),
         pytest.param(
-            "a{color:red}b{all:unset}a{font-size:2px}",
-            "a{color:red}b{all:unset}a{font-size:2px}",
+            ".a{color:red}.b{all:unset}.a{font-size:2px}",
+            ".a{color:red}.b{all:unset}.a{font-size:2px}",
             id="no-merge-across-all",
         ),
         pytest.param(
-            'a{color:red}x{content:"a;b"}a{font-size:2px}',
-            'a{color:red}x{content:"a;b"}a{font-size:2px}',
+            '.a{color:red}.x{content:"a;b"}.a{font-size:2px}',
+            '.a{color:red}.x{content:"a;b"}.a{font-size:2px}',
             id="no-merge-across-double-quoted-body",
         ),
         pytest.param(
-            "a{color:red}x{content:'a;b'}a{font-size:2px}",
-            "a{color:red}x{content:'a;b'}a{font-size:2px}",
+            ".a{color:red}.x{content:'a;b'}.a{font-size:2px}",
+            ".a{color:red}.x{content:'a;b'}.a{font-size:2px}",
             id="no-merge-across-single-quoted-body",
         ),
         pytest.param(
-            "a{color:red}b{c:d;& e{f:g}}a{margin:0}",
-            "a{color:red}b{c:d;& e{f:g}}a{margin:0}",
+            ".a{color:red}.b{c:d;& e{f:g}}.a{margin:0}",
+            ".a{color:red}.b{c:d;& e{f:g}}.a{margin:0}",
             id="no-merge-across-nested-rule",
         ),
         pytest.param(
-            'a{color:red}b{margin:0}a{content:"x;y"}',
-            'a{color:red}b{margin:0}a{content:"x;y"}',
+            '.a{color:red}.b{margin:0}.a{content:"x;y"}',
+            '.a{color:red}.b{margin:0}.a{content:"x;y"}',
             id="no-merge-when-moved-body-is-opaque",
         ),
         pytest.param(
@@ -267,6 +503,49 @@ def test_minify_css(source: str, expected: str) -> None:
 )
 def test_minify_css_hash_color_context(source: str, expected: str) -> None:
     assert minify_css(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{color:#ff000000}", "a{color:#f000}", id="transparent-red"),
+        pytest.param("a{color:#11223300}", "a{color:#1230}", id="four-digit-hex"),
+        pytest.param("a{color:#12345600}", "a{color:#12345600}", id="eight-digit-hex"),
+        pytest.param("a{color:#AABBCC00}", "a{color:#abc0}", id="uppercase-hex"),
+        pytest.param("a{color:#00000000}", "a{color:#0000}", id="transparent-black"),
+        pytest.param("a{color:#ff0000ff}", "a{color:red}", id="opaque-alpha"),
+        pytest.param("a{color:#ff0000f0}", "a{color:#ff0000f0}", id="nonopaque-alpha"),
+        pytest.param("a{background:#ff000000 url(x)}", "a{background:#f000 url(x)}", id="background"),
+        pytest.param("a{border-color:#ff000000}", "a{border-color:#f000}", id="border"),
+        pytest.param("a{outline-color:#ff000000}", "a{outline-color:#f000}", id="outline"),
+        pytest.param("a{box-shadow:0 0 #ff000000}", "a{box-shadow:0 0 #f000}", id="shadow"),
+        pytest.param("a{font-family:#ff000000}", "a{font-family:#ff000000}", id="non-color-hash"),
+    ],
+)
+def test_minify_css_transparent_hex_keeps_rgb(source: str, expected: str) -> None:
+    result: Final = minify_css(source)
+    assert (result, minify_css(result)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{color:rgb(19.999% 0% 0% / .5)}", "a{color:rgb(19.999% 0% 0%/.5)}", id="fractional"),
+        pytest.param("a{color:rgb(20.01% 0% 0% / .5)}", "a{color:rgb(20.01% 0% 0%/.5)}", id="above-step"),
+        pytest.param("a{color:rgb(20% 0% 0% / .5)}", "a{color:rgb(51 0 0/.5)}", id="exact-step"),
+        pytest.param("a{color:rgb(1e20% 0% 0% / .5)}", "a{color:rgb(255 0 0/.5)}", id="large-channel"),
+        pytest.param("a{color:rgb(-1e20% 0% 0% / .5)}", "a{color:rgb(0 0 0/.5)}", id="negative-channel"),
+        pytest.param("a{color:rgba(19.999%,0%,0%,.5)}", "a{color:rgb(19.999%,0%,0%,.5)}", id="legacy"),
+        pytest.param(
+            "a{color:color-mix(in srgb, rgb(19.999% 0% 0% / .5) 99%, white)}",
+            "a{color:color-mix(in srgb,rgb(19.999% 0% 0%/.5) 99%,white)}",
+            id="nested-color-mix",
+        ),
+    ],
+)
+def test_minify_css_translucent_rgb_percentage_preserves_precision(source: str, expected: str) -> None:
+    result: Final = minify_css(source)
+    assert (result, minify_css(result)) == (expected, expected)
 
 
 @pytest.mark.parametrize(
@@ -325,15 +604,15 @@ def test_minify_css_many_unique_rules(count: int) -> None:
 
 
 def test_minify_css_many_rules_merge_same_selector() -> None:
-    middle = "".join(f".c{index}{{--p{index}:{index + 1}px}}" for index in range(40))
-    assert minify_css(f".target{{color:red}}{middle}.target{{background:blue}}") == (
-        f".target{{color:red;background:blue}}{middle}"
+    middle = "".join(f"c{index}{{--p{index}:{index + 1}px}}" for index in range(40))
+    assert minify_css(f"target{{color:red}}{middle}target{{background:blue}}") == (
+        f"target{{color:red;background:blue}}{middle}"
     )
 
 
 def test_minify_css_many_rules_merge_same_body() -> None:
-    middle = "".join(f".c{index}{{--p{index}:{index + 1}px}}" for index in range(40))
-    assert minify_css(f".first{{color:red}}{middle}.last{{color:red}}") == f".first,.last{{color:red}}{middle}"
+    middle = "".join(f"c{index}{{--p{index}:{index + 1}px}}" for index in range(40))
+    assert minify_css(f"first{{color:red}}{middle}last{{color:red}}") == f"first,last{{color:red}}{middle}"
 
 
 def test_minify_css_many_rules_keep_blocked_merge() -> None:
@@ -343,107 +622,133 @@ def test_minify_css_many_rules_keep_blocked_merge() -> None:
 
 
 @pytest.mark.parametrize(
-    "body",
+    ("outer", "first", "inner", "middle", "last"),
     [
-        pytest.param("[:;a", id="unclosed-bracket"),
-        pytest.param("c:d[;e]", id="semicolon-in-bracket"),
-        pytest.param("c:d\\;e", id="escaped-semicolon"),
+        pytest.param("border", "1px solid red", side, "2px solid blue", "3px dashed green", id=f"border-{side}")
+        for side in ("border-top", "border-right", "border-bottom", "border-left")
+    ]
+    + [
+        pytest.param(outer, first, side, "2px solid blue", last, id=f"{outer}-{side}")
+        for outer, first, last in (
+            ("border-width", "1px", "3px"),
+            ("border-style", "solid", "dashed"),
+            ("border-color", "red", "green"),
+        )
+        for side in ("border-top", "border-right", "border-bottom", "border-left")
+    ]
+    + [
+        pytest.param("grid", "auto/auto", "grid-template", "1px/1px", "none", id="grid-template"),
+        pytest.param("grid-area", "1/1/2/2", "grid-row", "2/3", "3/3/4/4", id="grid-row"),
+        pytest.param("grid-area", "1/1/2/2", "grid-column", "2/3", "3/3/4/4", id="grid-column"),
+        pytest.param("background", "red 10px 20px", "background-position-x", "30px", "blue 40px 50px"),
+        pytest.param("border", "1px solid red", "border-image-source", "url(a)", "3px solid green"),
+        pytest.param("font", "italic 12px Arial", "font-variant-caps", "small-caps", "16px Arial"),
+        pytest.param("text-decoration", "underline red", "text-decoration-style", "dotted", "underline blue"),
+        pytest.param("animation", "foo 1s", "animation-timeline", "scroll()", "foo 2s"),
+        pytest.param("transition", "opacity 1s", "transition-behavior", "allow-discrete", "opacity 2s"),
+        pytest.param("border-radius", "1px", "border-top-left-radius", "2px", "3px"),
+        pytest.param("background-position", "10px 20px", "background-position-x", "30px", "40px 50px"),
     ],
 )
-def test_minify_css_merge_scan_stays_in_body(filler_rules: str, body: str) -> None:
-    # the last body piece the merge scan splits off holds no ':'; reading on for one ran past the end of the body
-    assert minify_css(f"b{{g:h}}{filler_rules}b{{{body}") == f"b{{g:h;{body}}}{filler_rules}"
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        pytest.param("c:d[;e];color:red", id="semicolon-in-bracket"),
-        pytest.param("c:d);color:red", id="stray-paren"),
-        pytest.param("c:d\\(;color:red", id="escaped-paren"),
-        pytest.param("c:url(x(y);color:red", id="paren-in-url"),
-        pytest.param("c:url(x;y);color:red", id="semicolon-in-url"),
-        pytest.param("c:url(x\\));color:red", id="escaped-paren-in-url"),
-        pytest.param("c:f(\\();color:red", id="escaped-paren-in-function"),
-        pytest.param("c:f(g(h);i);color:red", id="nested-functions"),
-        pytest.param("c\\:d:e;color:red", id="escaped-colon-in-name"),
-        pytest.param("--x:\\(;color:red", id="custom-property"),
-        pytest.param("c:d\\(!important;color:red", id="important-before"),
-        pytest.param("c:d\\(;color:red!important", id="important-conflict"),
-        pytest.param("c/*;(*/:d\\(;color:red", id="comment-in-name"),
-        pytest.param('c:"(;";color:red', id="string"),
-        pytest.param("c/*/;(*/:d\\(;color:red", id="comment-opening-with-slash"),
-        pytest.param("c/*\\([)]}:;/*/:d\\(;color:red", id="delimiters-in-comment"),
-        pytest.param("c:a/;color:red", id="slash"),
-        pytest.param("color:red;c:a/", id="slash-at-end"),
-        pytest.param("c:url(a[b);color:red", id="bracket-in-url"),
-        pytest.param("c:f(x});color:red", id="brace-closing-paren"),
-        pytest.param("c:a]b;color:red", id="stray-bracket"),
-        pytest.param("c:a:b;color:red", id="second-colon"),
-        pytest.param("c:xé;color:red", id="non-ascii"),
-        pytest.param("@x y;color:red", id="at-statement"),
-        pytest.param("color:red;@x y", id="at-statement-at-end"),
-        pytest.param("(a:b);color:red", id="paren-in-name"),
-        pytest.param("c:nil(x);color:red", id="function-ending-in-l"),
-        pytest.param(";".join(f"--p{index}:{index}" for index in range(40)) + ";color:red", id="many-properties"),
-    ],
-)
-def test_minify_css_merge_scan_sees_every_property(filler_rules: str, body: str) -> None:
-    # .u sets color, so folding the last .t back into the first would let .u's red win over green
-    source: Final = f".t{{color:blue}}{filler_rules}.u{{{body}}}.t{{color:green}}"
+def test_minify_css_keeps_overlapping_shorthands(outer: str, first: str, inner: str, middle: str, last: str) -> None:
+    source = f".a{{{outer}:{first}}}.b{{{inner}:{middle}}}.a{{{outer}:{last}}}"
     assert minify_css(source) == source
 
 
-def test_minify_css_merge_sees_property_after_comment(filler_rules: str) -> None:
-    source = f".t{{color:blue}}{filler_rules}.u{{c:d\\(/*;*/;color:red}}.t{{color:green}}"
-    assert minify_css(source) == f".t{{color:blue}}{filler_rules}.u{{c:d\\(;color:red}}.t{{color:green}}"
+def test_minify_css_many_rules_keep_overlapping_shorthands() -> None:
+    middle = "".join(f".c{index}{{--p{index}:{index}}}" for index in range(32))
+    source = f".a{{border-width:1px}}{middle}.b{{border-top:2px solid blue}}.a{{border-width:3px}}"
+    assert minify_css(source) == source
 
 
 @pytest.mark.parametrize(
-    "body",
+    ("first", "middle", "last", "expected"),
     [
-        pytest.param("c:d\\;color:red", id="escaped-semicolon"),
-        pytest.param("c:d[;color:red]", id="semicolon-in-bracket"),
-        pytest.param("c:url(x;color:red)", id="semicolon-in-url"),
-        pytest.param("c:f(\\;color:red)", id="escaped-semicolon-in-function"),
-        pytest.param("--color:red", id="custom-property"),
+        pytest.param("a", "b", "a", "a{x:1;y:2}b{z:3}", id="distinct-type"),
+        pytest.param("a.foo", "b.bar", "a.foo", "a.foo{x:1;y:2}b.bar{z:3}", id="qualified-type"),
+        pytest.param("a,b", "c", "a,b", "a,b{x:1;y:2}c{z:3}", id="selector-list"),
+        pytest.param("a", "A", "a", "a{x:1}A{z:3}a{y:2}", id="ascii-case"),
+        pytest.param("a", ".b", "a", "a{x:1}.b{z:3}a{y:2}", id="untyped-selector"),
+        pytest.param("a", "b:hover", "a", "a{x:1}b:hover{z:3}a{y:2}", id="pseudo-selector"),
+        pytest.param("a", "b c", "a", "a{x:1}b c{z:3}a{y:2}", id="compound-selector"),
+        pytest.param("a", "b[a]", "a", "a{x:1;y:2}b[a]{z:3}", id="attribute-presence"),
+        pytest.param("a", "B2", "a", "a{x:1;y:2}B2{z:3}", id="uppercase-and-digit-type"),
+        pytest.param("a", "b-x", "a", "a{x:1;y:2}b-x{z:3}", id="hyphenated-type"),
+        pytest.param("a", "b_x", "a", "a{x:1;y:2}b_x{z:3}", id="underscored-type"),
+        pytest.param("a", "b[a2]", "a", "a{x:1;y:2}b[a2]{z:3}", id="digit-in-attribute"),
+        pytest.param("a", "b#x", "a", "a{x:1;y:2}b#x{z:3}", id="id-qualifier"),
+        pytest.param("a", "b[a=x]", "a", "a{x:1}b[a=x]{z:3}a{y:2}", id="attribute-value"),
+        pytest.param("a", "b,c,a", "a", "a{x:1}b,c,a{z:3}a{y:2}", id="overlapping-list-arm"),
     ],
 )
-def test_minify_css_merge_passes_rule_without_property(filler_rules: str, body: str) -> None:
-    # `color:red` sits inside one declaration's value or custom property name, so .u leaves color alone
-    source = f".t{{color:blue}}{filler_rules}.u{{{body}}}.t{{color:green}}"
-    assert minify_css(source) == f".t{{color:blue;color:green}}{filler_rules}.u{{{body}}}"
+def test_minify_css_type_selector_merge(first: str, middle: str, last: str, expected: str) -> None:
+    assert minify_css(f"{first}{{x:1}}{middle}{{z:3}}{last}{{y:2}}") == expected
 
 
 @pytest.mark.parametrize(
-    ("first", "blocker", "decoded", "last"),
+    "source",
     [
-        pytest.param("color:blue", "colo\\r:red", "color:red", "color:green", id="escaped-letter"),
-        pytest.param("color:blue", "\\61ll:initial", "all:initial", "color:green", id="escaped-all"),
-        pytest.param("margin-top:1px", "marg\\in:0", "margin:0", "margin-top:2px", id="escaped-shorthand"),
-        pytest.param("margin:1px", "margin-t\\op:0", "margin-top:0", "margin:2px", id="escaped-longhand"),
-        pytest.param("--\u00e9:blue", "--\\e9:red", "--\u00e9:red", "--\u00e9:green", id="non-ascii-escape"),
+        pytest.param(
+            "a{:where(&) span{color:red}}span{color:blue}a{:where(&) span{color:green}}",
+            id="moved-nested-body",
+        ),
+        pytest.param(
+            "span{color:red}a{:where(&) span{color:blue}}span{color:green}",
+            id="crossed-nested-body",
+        ),
     ],
 )
-def test_minify_css_merge_reads_escaped_property_names(
-    filler_rules: str, first: str, blocker: str, decoded: str, last: str
-) -> None:
-    # .u sets the property .t sets, spelled through an escape, so the last .t cannot fold back past it
-    source: Final = f".t{{{first}}}{filler_rules}.u{{{blocker}}}.t{{{last}}}"
-    assert minify_css(source) == f".t{{{first}}}{filler_rules}.u{{{decoded}}}.t{{{last}}}"
+def test_minify_css_nested_rules_keep_cascade_order(source: str) -> None:
+    assert minify_css(source) == source
 
 
 @pytest.mark.parametrize(
-    ("body", "decoded"),
+    ("middle", "expected"),
     [
-        pytest.param("c\\olorr:red", "colorr:red", id="other-name"),
-        pytest.param("--\\e9:red", "--\u00e9:red", id="non-ascii-escape"),
-        pytest.param("\\31 color:red", "\\31 color:red", id="name-keeping-an-escape"),
+        pytest.param("--b:var(--a)", ".a{--a:1;--c:3}.b{--b:var(--a)}", id="distinct-names"),
+        pytest.param("--c:2", ".a{--a:1}.b{--c:2}.a{--c:3}", id="same-name"),
+        pytest.param("--A:2", ".a{--a:1;--c:3}.b{--A:2}", id="case-sensitive"),
+        pytest.param("--b2:2", ".a{--a:1;--c:3}.b{--b2:2}", id="digit-in-name"),
+        pytest.param("--b_x:2", ".a{--a:1;--c:3}.b{--b_x:2}", id="underscore-in-name"),
+        pytest.param("--b-x:2", ".a{--a:1;--c:3}.b{--b-x:2}", id="hyphen-in-name"),
+        pytest.param('--b:"x;y"', '.a{--a:1}.b{--b:"x;y"}.a{--c:3}', id="double-quoted-value"),
+        pytest.param("--\\63:2", ".a{--a:1}.b{--c:2}.a{--c:3}", id="escaped-name"),
+        pytest.param("color:red", ".a{--a:1}.b{color:red}.a{--c:3}", id="ordinary-property"),
+        pytest.param("--b:'x;y'", ".a{--a:1}.b{--b:'x;y'}.a{--c:3}", id="quoted-value"),
+        pytest.param("-x:2", ".a{--a:1}.b{-x:2}.a{--c:3}", id="vendor-property"),
     ],
 )
-def test_minify_css_merge_passes_escaped_property_name(filler_rules: str, body: str, decoded: str) -> None:
-    source: Final = f".t{{color:blue}}{filler_rules}.u{{{body}}}.t{{color:green}}"
-    assert minify_css(source) == f".t{{color:blue;color:green}}{filler_rules}.u{{{decoded}}}"
+def test_minify_css_custom_property_merge(middle: str, expected: str) -> None:
+    assert minify_css(f".a{{--a:1}}.b{{{middle}}}.a{{--c:3}}") == expected
+
+
+@pytest.mark.parametrize(
+    ("first", "middle"),
+    [
+        pytest.param("--sjiq8k", "--fq3dik", id="same-length-hash-collision"),
+        pytest.param("--lgyn6x", "--u04moxt3", id="different-length-hash-collision"),
+    ],
+)
+def test_minify_css_custom_property_hash_collision(first: str, middle: str) -> None:
+    assert minify_css(f".a{{{first}:1}}.b{{{middle}:2}}.a{{--last:3}}") == (f".a{{{first}:1;--last:3}}.b{{{middle}:2}}")
+
+
+def test_minify_css_many_custom_properties_merge() -> None:
+    first = ";".join(f"--a{index}:f(x)" for index in range(32))
+    middle = ";".join(f"--b{index}:f(y)" for index in range(32))
+    assert minify_css(f".a{{{first}}}.b{{{middle}}}.a{{--last:1}}") == (f".a{{{first};--last:1}}.b{{{middle}}}")
+
+
+def test_minify_css_custom_property_scan_is_bounded() -> None:
+    middle = ";".join(f"--b{index}:1" for index in range(65))
+    source = f".a{{--a:1}}.b{{{middle}}}.a{{--c:3}}"
+    assert minify_css(source) == source
+
+
+def test_minify_css_type_selector_scan_is_bounded() -> None:
+    middle = ",".join(f"b{index}" for index in range(33))
+    source = f"a{{x:1}}{middle}{{z:3}}a{{y:2}}"
+    assert minify_css(source) == source
 
 
 @pytest.mark.parametrize(
@@ -507,6 +812,41 @@ def test_minify_css_rgb_argument_shape(source: str, expected: str) -> None:
     # the alpha); an illegal shape is kept verbatim, never rebuilt into a valid color (#1033)
     assert minify_css(source) == expected
     assert minify_css(expected) == expected
+
+
+@pytest.mark.parametrize(
+    ("hue", "expected"),
+    [
+        pytest.param("1e20", "1e20", id="large-positive"),
+        pytest.param("-1e20", "-1e20", id="large-negative"),
+        pytest.param("+1e20", "1e20", id="large-plus-sign"),
+        pytest.param("1e309", "1e309", id="overflow-positive"),
+        pytest.param("-1e309", "-1e309", id="overflow-negative"),
+    ],
+)
+def test_minify_css_preserves_large_hsl_hue(hue: str, expected: str) -> None:
+    assert minify_css(f"a {{ color: hsl({hue} 100% 50%) }}") == f"a{{color:hsl({expected} 100% 50%)}}"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("hsl(0 120% 20%)", "hsl(0 120% 20%)", id="opaque-modern"),
+        pytest.param("hsl(0,120%,20%)", "hsl(0,120%,20%)", id="opaque-legacy"),
+        pytest.param("hsl(0 120% 20%/50%)", "hsl(0 120% 20%/50%)", id="percent-alpha"),
+        pytest.param("hsl(0 120% 20%/.5)", "hsl(0 120% 20%/.5)", id="number-alpha"),
+        pytest.param("hsl(0 120% 20%/100%)", "hsl(0 120% 20%/100%)", id="opaque-alpha"),
+        pytest.param("hsl(1e20 120% 20%/50%)", "hsl(1e20 120% 20%/50%)", id="large-hue"),
+        pytest.param("hsla(0 120% 20%/50%)", "hsl(0 120% 20%/50%)", id="hsla-modern"),
+        pytest.param("hsla(0,120%,20%,50%)", "hsl(0,120%,20%,50%)", id="hsla-legacy"),
+        pytest.param("hsl(0 100% 20%/50%)", "hsl(0 100% 20%/.5)", id="in-range-control"),
+        pytest.param("hsl(0 50% 150%)", "#fff", id="lightness-above-range"),
+        pytest.param("hsl(0 50% -50%)", "#000", id="lightness-below-range"),
+    ],
+)
+def test_minify_css_oversaturated_hsl(source: str, expected: str) -> None:
+    assert minify_css(f"a{{color:{source}}}") == f"a{{color:{expected}}}"
+    assert minify_css_inline(f"color:{source}") == f"color:{expected}"
 
 
 @pytest.mark.parametrize("unit", ["px", "em", "deg"])
@@ -595,7 +935,7 @@ _ESCAPED_NAME: Final[list[ParameterSet]] = [
     pytest.param("a{color:#\\66 00}", "a{color:red}", id="hash-color"),
     pytest.param(".\\61\\62{x:1}", ".ab{x:1}", id="class"),
     pytest.param("#\\66 00{x:1}", "#f00{x:1}", id="id"),
-    pytest.param("D\\49V{x:1}", "div{x:1}", id="type-selector"),
+    pytest.param("D\\49V{x:1}", "DIV{x:1}", id="type-selector"),
     pytest.param("[d\\61ta-x=\\61]{x:1}", "[data-x=a]{x:1}", id="attribute"),
     pytest.param("@m\\65 dia screen{a{x:1}}", "@media screen{a{x:1}}", id="at-keyword"),
     pytest.param("a{e:x !imp\\6frtant}", "a{e:x!important}", id="important"),
@@ -698,6 +1038,29 @@ def test_minify_css_keeps_invalid_background_position_order(property_name: str, 
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
+        pytest.param("red transparent", "red #0000", id="color-before-transparent"),
+        pytest.param("transparent red", "#0000 red", id="transparent-before-color"),
+        pytest.param("transparent center red", "#0000 center red", id="position-and-other-color"),
+        pytest.param("transparent transparent", "#0000 transparent", id="two-transparents"),
+        pytest.param("transparent #f00", "#0000 red", id="hash-color"),
+        pytest.param("transparent rgb(255,0,0)", "#0000 red", id="function-color"),
+        pytest.param("transparent fixed", "fixed", id="attachment"),
+        pytest.param("transparent url(x)", "url(x)", id="image"),
+        pytest.param("transparent var(--color)", "#0000 var(--color)", id="variable-color"),
+        pytest.param("transparent linear-gradient(red,blue)", "linear-gradient(red,blue)", id="gradient-image"),
+        pytest.param("transparent 0", "0", id="unitless-position"),
+        pytest.param("transparent 1px", "1px", id="length-position"),
+        pytest.param("transparent center/cover", "50%/cover", id="size-separator"),
+        pytest.param("50% transparent", "50%", id="position-before-transparent"),
+    ],
+)
+def test_minify_css_background_transparent_with_other_component(value: str, expected: str) -> None:
+    assert minify_css(f"a{{background:{value}}}") == f"a{{background:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
         pytest.param("scroll fixed top", "scroll fixed top", id="default-before-fixed"),
         pytest.param("fixed scroll", "fixed scroll", id="default-after-fixed"),
         pytest.param("scroll scroll", "scroll scroll", id="duplicate-default"),
@@ -706,6 +1069,59 @@ def test_minify_css_keeps_invalid_background_position_order(property_name: str, 
     ],
 )
 def test_minify_css_background_attachment_cardinality(value: str, expected: str) -> None:
+    assert minify_css(f"a{{background:{value}}}") == f"a{{background:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("none url(x)", "none url(x)", id="duplicate-image"),
+        pytest.param("none none", "none none", id="duplicate-none"),
+        pytest.param("initial scroll", "initial scroll", id="mixed-wide-keyword"),
+        pytest.param("inherit scroll", "inherit scroll", id="mixed-inherit"),
+        pytest.param("revert repeat", "revert repeat", id="mixed-revert"),
+        pytest.param("revert-layer none", "revert-layer none", id="mixed-revert-layer"),
+        pytest.param("unset fixed", "unset fixed", id="mixed-unset"),
+        pytest.param("repeat scroll repeat", "repeat scroll repeat", id="split-repeat"),
+        pytest.param("repeat none repeat", "repeat none repeat", id="triple-repeat"),
+        pytest.param("repeat repeat repeat", "repeat repeat repeat", id="three-repeat-keywords"),
+        pytest.param("repeat repeat-x", "repeat repeat-x", id="axis-repeat-pair"),
+        pytest.param("repeat-x repeat", "repeat-x repeat", id="axis-repeat-plus-repeat"),
+        pytest.param("border-box padding-box border-box", "border-box padding-box border-box", id="extra-box"),
+        pytest.param("/ auto", "/auto", id="size-without-position"),
+        pytest.param("left transparent top", "left transparent top", id="split-position"),
+        pytest.param("url(x) / auto", "url(x)/auto", id="size-after-image"),
+        pytest.param("unknown scroll", "unknown", id="unrecognized-keyword"),
+        pytest.param("nonsense scroll", "nonsense", id="unrecognized-n-keyword"),
+    ],
+)
+def test_minify_css_background_preserves_invalid_layers(value: str, expected: str) -> None:
+    assert minify_css(f"a{{background:{value}}}") == f"a{{background:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("left/0 0", "0/0 0", id="two-zero-size-components"),
+        pytest.param("url(x) 0 0/50% 50%", "url(x)0 0/50% 50%", id="equal-size-components"),
+    ],
+)
+def test_minify_css_background_keeps_two_size_components(value: str, expected: str) -> None:
+    assert minify_css(f"a{{background:{value}}}") == f"a{{background:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("content-box no-repeat", "content-box no-repeat", id="box-and-repeat"),
+        pytest.param("coral scroll", "coral", id="color-c-prefix"),
+        pytest.param("ivory scroll", "ivory", id="color-i-prefix"),
+        pytest.param("navy scroll", "navy", id="color-n-prefix"),
+        pytest.param("left/contain", "0/contain", id="contain-size"),
+        pytest.param("left/cover", "0/cover", id="cover-size"),
+    ],
+)
+def test_minify_css_background_valid_role_combinations(value: str, expected: str) -> None:
     assert minify_css(f"a{{background:{value}}}") == f"a{{background:{expected}}}"
 
 
@@ -801,12 +1217,6 @@ def test_minify_css_negative_after_number(source: str, expected: str) -> None:
 @pytest.mark.parametrize(("source", "expected"), _NEGATIVE_AFTER_NUMBER)
 def test_minify_css_negative_after_number_is_a_fixed_point(source: str, expected: str) -> None:
     assert minify_css(minify_css(source)) == expected
-
-
-# past 32 rules the merge pass finds repeated selectors and bodies through a hash table before scanning back
-@pytest.fixture(params=[pytest.param(1, id="short-list"), pytest.param(40, id="hashed-list")])
-def filler_rules(request: pytest.FixtureRequest) -> str:
-    return "".join(f".c{index}{{--p{index}:{index + 1}px}}" for index in range(request.param))
 
 
 @pytest.mark.parametrize(
@@ -1060,8 +1470,8 @@ def _max_decls_per_rule(rule_count: int) -> int:
         pytest.param("a{background:red;background:red}", "a{background:red}", id="dedup-drops-identical-shorthand"),
         pytest.param(
             "a{background-color:red;background:url(a.svg)}",
-            "a{background:url(a.svg)}",
-            id="dedup-drops-covered-longhand",
+            "a{background-color:red;background:url(a.svg)}",
+            id="dedup-keeps-unvalidated-shorthand-longhand",
         ),
         pytest.param(
             "@media screen and/*x*/(min-width:0){a{b:1}}",
@@ -1108,7 +1518,9 @@ def _max_decls_per_rule(rule_count: int) -> int:
             id="grid-does-not-reset-grid-row-gap",
         ),
         pytest.param(
-            "a{grid-template-rows:1px;grid:auto/auto}", "a{grid:auto/auto}", id="grid-resets-grid-template-rows"
+            "a{grid-template-rows:1px;grid:auto/auto}",
+            "a{grid-template-rows:1px;grid:auto/auto}",
+            id="grid-keeps-longhand",
         ),
         pytest.param(
             "a{margin-top:1px;margin-top:1px;margin-right:2px;margin-bottom:3px;margin-left:4px}",
@@ -1300,6 +1712,23 @@ def test_minify_css_closes_nested_blocks_at_eof(source: str, expected: str) -> N
     ],
 )
 def test_minify_css_selector_roles(source: str, expected: str) -> None:
+    result: Final = minify_css(source)
+    assert (result, minify_css(result)) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("linearGradient{color:red}", "linearGradient{color:red}", id="xml-type"),
+        pytest.param(":is(linearGradient){color:red}", ":is(linearGradient){color:red}", id="functional-type"),
+        pytest.param(
+            '@namespace SVG "http://www.w3.org/2000/svg";SVG|linearGradient{color:red}',
+            '@namespace SVG"http://www.w3.org/2000/svg";SVG|linearGradient{color:red}',
+            id="namespace-prefix-and-type",
+        ),
+    ],
+)
+def test_minify_css_selector_names_keep_case(source: str, expected: str) -> None:
     result: Final = minify_css(source)
     assert (result, minify_css(result)) == (expected, expected)
 
@@ -1667,6 +2096,45 @@ def test_minify_css_math_function_keeps_zero_unit(value: str) -> None:
     assert minify_css(f"a{{width:{value}}}") == f"a{{width:{value}}}"
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "a { width: calc(1px / sign(calc(-5 * 0))) }",
+            "a{width:calc(1px / sign(calc(-5 * 0)))}",
+            id="negative-zero-product",
+        ),
+        pytest.param(
+            "a { width: calc(1px / sign(calc(0 / -5))) }",
+            "a{width:calc(1px / sign(calc(0 / -5)))}",
+            id="negative-zero-quotient",
+        ),
+        pytest.param(
+            "a { width: calc(1px / sign(calc((1px - 2em) * 0))) }",
+            "a{width:calc(1px / sign(calc((1px - 2em) * 0)))}",
+            id="mixed-unit-zero-product",
+        ),
+        pytest.param(
+            "a{width:calc(1px / sign(calc(5 * 0)))}",
+            "a{width:calc(1px / sign(0))}",
+            id="positive-zero-product",
+        ),
+        pytest.param(
+            "a{width:calc(1px / sign(calc(5px * 0)))}",
+            "a{width:calc(1px / sign(calc(0px)))}",
+            id="typed-zero-product",
+        ),
+        pytest.param(
+            "a{width:calc(1px / sign(-0.0))}",
+            "a{width:calc(1px / sign(-0))}",
+            id="browser-signed-zero-literal",
+        ),
+    ],
+)
+def test_minify_css_math_preserves_signed_zero(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
 _HASH_FILLER = "".join(f"--v{index}:{index};" for index in range(40))
 
 
@@ -1684,13 +2152,44 @@ _HASH_FILLER = "".join(f"--v{index}:{index};" for index in range(40))
         ),
         pytest.param("background:red;background:red", "background:red", id="shorthand-identical-dropped"),
         pytest.param(
-            "background-color:red;background:url(a.svg)", "background:url(a.svg)", id="covered-longhand-dropped"
+            "background-color:red;background:url(a.svg)",
+            "background-color:red;background:url(a.svg)",
+            id="covered-longhand-kept",
+        ),
+        pytest.param("margin-left:5px;margin:initial", "margin:initial", id="wide-shorthand-drops-longhand"),
+        pytest.param("margin:1px;margin:initial", "margin:1px;margin:initial", id="wide-shorthand-keeps-fallback"),
+        pytest.param("margin:initial;margin:initial", "margin:initial", id="wide-shorthand-drops-identical"),
+        pytest.param("color:red;margin:initial", "color:red;margin:initial", id="wide-shorthand-keeps-unrelated"),
+        pytest.param(
+            "margin-left:5px;margin:initial;margin:initial",
+            "margin:initial",
+            id="wide-shorthand-skips-dropped-longhand",
+        ),
+        pytest.param("--0084:1;margin:initial", "--0084:1;margin:initial", id="wide-shorthand-hash-collision"),
+        pytest.param(
+            "margin:1px!important;margin:initial",
+            "margin:1px!important;margin:initial",
+            id="wide-shorthand-different-importance",
+        ),
+        pytest.param(
+            "margin-left:5px!important;margin:initial",
+            "margin-left:5px!important;margin:initial",
+            id="wide-shorthand-keeps-important-longhand",
+        ),
+        pytest.param(
+            "margin-left:5px;margin:initial;margin-left:5px",
+            "margin:initial;margin-left:5px",
+            id="longhand-after-wide-shorthand",
         ),
     ],
 )
 def test_minify_css_hash_dedup_is_value_safe(tail: str, kept: str) -> None:
     # more than 32 declarations force the hash-based dedup path, which must apply the same value-safety rule.
     assert minify_css(f"a{{{_HASH_FILLER}{tail}}}") == f"a{{{_HASH_FILLER}{kept}}}"
+
+
+def test_minify_css_wide_shorthand_keeps_unrelated_declaration() -> None:
+    assert minify_css("a{color:red;margin:initial}") == "a{color:red;margin:initial}"
 
 
 @pytest.mark.parametrize(
@@ -1760,6 +2259,37 @@ def test_minify_css_baseline_year_is_a_threshold() -> None:
     source = "a{top:0;right:0;bottom:0;left:0}"
     assert minify_css(source, CSSMinify(baseline=2020)) == source
     assert minify_css(source, CSSMinify(baseline=2021)) == "a{inset:0}"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "a{margin-top:1px;&{margin-top:2px}margin-right:1px;margin-bottom:1px;margin-left:1px}",
+            "a{margin-top:1px;&{margin-top:2px};margin-right:1px;margin-bottom:1px;margin-left:1px}",
+            id="nested-selector",
+        ),
+        pytest.param(
+            "a{padding-top:1px;@media (min-width:1px){padding-top:2px}padding-right:1px;"
+            "padding-bottom:1px;padding-left:1px}",
+            "a{padding-top:1px;@media(min-width:1px){padding-top:2px};padding-right:1px;"
+            "padding-bottom:1px;padding-left:1px}",
+            id="nested-at-rule",
+        ),
+        pytest.param(
+            "a{margin-top:1px;@apply x;margin-right:1px;margin-bottom:1px;margin-left:1px}",
+            "a{margin-top:1px;@apply x;margin-right:1px;margin-bottom:1px;margin-left:1px}",
+            id="bodyless-at-rule",
+        ),
+        pytest.param(
+            "a{&{margin-top:2px}margin-top:1px;margin-right:1px;margin-bottom:1px;margin-left:1px}",
+            "a{&{margin-top:2px};margin:1px}",
+            id="merge-within-run",
+        ),
+    ],
+)
+def test_minify_css_nested_rules_bound_shorthand_merges(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
 
 
 def test_logical_shorthand_kept_when_physical_alias_present() -> None:
@@ -1949,7 +2479,7 @@ _NUMBER_BOUNDARY: Final[list[ParameterSet]] = [
     pytest.param("@x 0px.5;", "@x 0 .5;", id="at-prelude-zero-unit-before-fraction"),
     pytest.param("@x a.-0;", "@x a. 0;", id="at-prelude-dot-before-signed-zero"),
     pytest.param("@x (a)0px.5{b:c}", "@x(a)0 .5{b:c}", id="at-prelude-with-block"),
-    pytest.param("a{width:calc(0-0)}", "a{width:calc(0 0)}", id="calc-minus-zero"),
+    pytest.param("a{width:calc(0-0)}", "a{width:calc(0-0)}", id="calc-minus-zero"),
     pytest.param("a{width:calc(0+0)}", "a{width:calc(0 0)}", id="calc-plus-zero"),
     pytest.param("a{width:calc(1px+2px)}", "a{width:calc(1px 2px)}", id="calc-dim-plus-dim"),
     pytest.param("a{width:calc(5-.5)}", "a{width:calc(5-.5)}", id="calc-digit-before-neg-fraction"),
@@ -2197,68 +2727,10 @@ def test_minify_css_merge_shared_inputs(case_index: int) -> None:
 @pytest.mark.parametrize(
     "case", [pytest.param(0, id="long-values"), pytest.param(1, id="short-values"), pytest.param(2, id="single-pair")]
 )
-def test_minify_css_disjoint_rule_benchmark(case: int) -> None:
+def test_minify_css_overlapping_rule_benchmark(case: int) -> None:
     source: Final = cast("str", INPUTS["minify-css-conflicts"]()[case][1])
     first_pair: Final = source[: source.index("}", source.index("}") + 1) + 1]
     assert minify_css(source) == first_pair
-
-
-@pytest.mark.parametrize(
-    ("source", "expected"),
-    [
-        pytest.param(
-            "a{color:red}b{margin:0}a{margin-left:1px}",
-            "a{color:red}b{margin:0}a{margin-left:1px}",
-            id="shorthand-barrier",
-        ),
-        pytest.param(
-            "a{color:red}b{margin-left:1px}a{margin:0}",
-            "a{color:red}b{margin-left:1px}a{margin:0}",
-            id="longhand-barrier",
-        ),
-        pytest.param(
-            "a{color:red}b{all:initial}a{width:1px}", "a{color:red}b{all:initial}a{width:1px}", id="all-barrier"
-        ),
-        pytest.param(
-            'a{color:red}b{content:";"}a{width:1px}', 'a{color:red}b{content:";"}a{width:1px}', id="string-barrier"
-        ),
-        pytest.param("a{--X:1}b{--x:2}a{height:3px}", "a{--X:1;height:3px}b{--x:2}", id="custom-case-sensitive"),
-        pytest.param(
-            'a{color:red}b{width:1px}a{content:";"}',
-            'a{color:red}b{width:1px}a{content:";"}',
-            id="incoming-string-barrier",
-        ),
-        pytest.param(
-            "a{color:red}b{width:1px}a{all:initial}", "a{color:red}b{width:1px}a{all:initial}", id="incoming-all"
-        ),
-        pytest.param(
-            "a{color:red}b{width:1px}a{width:2px}", "a{color:red}b{width:1px}a{width:2px}", id="same-property"
-        ),
-        pytest.param(
-            "a{color:red}b{margin:0}a{border-color:red}",
-            "a{color:red;border-color:red}b{margin:0}",
-            id="disjoint-shorthands",
-        ),
-        pytest.param(
-            "a{--first:1}b{--second:2}c{--third:3}a{--last:4}",
-            "a{--first:1;--last:4}b{--second:2}c{--third:3}",
-            id="reuse-across-two-barriers",
-        ),
-        pytest.param(
-            "a{--first:1}b{--other:url(data:image/png;base64,AAAA)}a{--mine:2}",
-            "a{--first:1;--mine:2}b{--other:url(data:image/png;base64,AAAA)}",
-            id="url-semicolon",
-        ),
-        pytest.param(
-            "a{color:red}b{width:1px}a{margin:0}",
-            "a{color:red;margin:0}b{width:1px}",
-            id="incoming-shorthand-unrelated-barrier",
-        ),
-    ],
-)
-def test_minify_css_large_rule_conflict_barriers(source: str, expected: str) -> None:
-    prefix: Final = "".join(f".pad{index}{{--pad{index}:{index}}}" for index in range(32))
-    assert minify_css(prefix + source) == prefix + expected
 
 
 @pytest.mark.oracle
@@ -2463,6 +2935,76 @@ def test_minify_css_preserves_duplicate_border_styles(property_name: str, value:
 
 
 @pytest.mark.parametrize(
+    ("property_name", "value"),
+    [
+        pytest.param("border", "medium thick", id="keyword-after"),
+        pytest.param("border", "thin medium", id="keyword-before"),
+        pytest.param("border", "medium medium", id="two-defaults"),
+        pytest.param("border-left", "medium 1px", id="border-side-length"),
+        pytest.param("border", "medium 0", id="unitless-zero"),
+        pytest.param("outline", "medium thick solid", id="outline"),
+        pytest.param("column-rule", "medium 1px solid", id="column-rule"),
+        pytest.param("border", "medium var(--width)", id="dynamic-width"),
+    ],
+)
+def test_minify_css_preserves_duplicate_border_widths(property_name: str, value: str) -> None:
+    source: Final = f"a{{{property_name}:{value}}}"
+    assert minify_css(source) == source
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("medium", "none", id="width-only"),
+        pytest.param("medium red", "red", id="short-color-name"),
+        pytest.param("medium magenta", "#f0f", id="long-color-name"),
+        pytest.param("medium rgb(1,2,3)", "#010203", id="color-function"),
+        pytest.param("medium color-mix(in srgb,red,blue)", "color-mix(in srgb,red,blue)", id="modern-color"),
+        pytest.param("medium #f00", "red", id="hash-color"),
+        pytest.param("medium solid red", "solid red", id="style-and-color"),
+    ],
+)
+def test_minify_css_drops_border_default_width_with_color(value: str, expected: str) -> None:
+    assert minify_css(f"a{{border:{value}}}") == f"a{{border:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("property_name", "value", "expected"),
+    [
+        pytest.param("border", "currentcolor red", "currentcolor red", id="named-color"),
+        pytest.param("border", "currentcolor black", "currentcolor #000", id="five-letter-color"),
+        pytest.param("border", "red currentcolor", "red currentcolor", id="reverse-order"),
+        pytest.param("border", "currentcolor currentcolor", "currentcolor currentcolor", id="two-defaults"),
+        pytest.param("border", "currentcolor solid red", "currentcolor solid red", id="style-and-other-color"),
+        pytest.param("border-top", "currentcolor #fff", "currentcolor #fff", id="side-hash"),
+        pytest.param("border", "currentcolor rgb(255,0,0)", "currentcolor red", id="color-function"),
+        pytest.param("column-rule", "currentcolor red", "currentcolor red", id="column-rule"),
+        pytest.param("border", "currentcolor var(--color)", "currentcolor var(--color)", id="substitution"),
+    ],
+)
+def test_minify_css_preserves_duplicate_border_colors(property_name: str, value: str, expected: str) -> None:
+    assert minify_css(f"a{{{property_name}:{value}}}") == f"a{{{property_name}:{expected}}}"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("currentcolor", "none", id="color-only"),
+        pytest.param("currentcolor solid", "solid", id="style"),
+        pytest.param("currentcolor 2px", "2px", id="width"),
+        pytest.param("currentcolor thin", "thin", id="named-width"),
+        pytest.param("currentcolor 2px solid", "2px solid", id="width-and-style"),
+        pytest.param("currentcolor 0", "0", id="zero-width"),
+        pytest.param("currentcolor calc(1px + 2px)", "3px", id="calculated-width"),
+        pytest.param("currentcolor calc(var(--x) + 1px)", "calc(var(--x) + 1px)", id="dynamic-width"),
+        pytest.param("currentcolor none", "none", id="default-style"),
+    ],
+)
+def test_minify_css_drops_single_border_color_default(value: str, expected: str) -> None:
+    assert minify_css(f"a{{border:{value}}}") == f"a{{border:{expected}}}"
+
+
+@pytest.mark.parametrize(
     ("property_name", "value", "expected"),
     [
         pytest.param("border", "none red", "red", id="border-color"),
@@ -2611,6 +3153,19 @@ _TYPE_CASES: Final[list[ParameterSet]] = [
     pytest.param("a{opacity:calc(1px - 1px)}", "a{opacity:calc(0px)}", id="length-zero-stays-length"),
     pytest.param("a{border-width:calc(1px + 0%)}", "a{border-width:calc(1px + 0%)}", id="zero-percent-keeps-type"),
     pytest.param("a{width:calc(1px + 0em)}", "a{width:calc(1px + 0em)}", id="mixed-length-zero-kept"),
+    pytest.param("a{rotate:calc(0 * 1deg)}", "a{rotate:0deg}", id="zero-times-angle"),
+    pytest.param("a{animation-duration:calc(1s * 0)}", "a{animation-duration:0s}", id="time-times-zero"),
+    pytest.param("a{font-stretch:calc(0 * 1%)}", "a{font-stretch:0%}", id="zero-times-percent"),
+    pytest.param("a{width:calc(0 * 1px)}", "a{width:calc(0px)}", id="zero-times-length"),
+    pytest.param("a{width:10px;width:calc(0 * 2)}", "a{width:10px;width:calc(0)}", id="number-zero-fallback"),
+    pytest.param("a{width:calc(0 * (1px + 1%))}", "a{width:calc(0 * (1px + 1%))}", id="zero-times-mixed"),
+    pytest.param("a{rotate:calc(0 * (1deg + 1s))}", "a{rotate:calc(0 * (1deg + 1s))}", id="zero-times-invalid"),
+    pytest.param("a{rotate:10deg;rotate:calc(0 * 1deg)}", "a{rotate:10deg;rotate:0deg}", id="angle-fallback"),
+    pytest.param(
+        "a{animation-duration:2s;animation-duration:calc(0 * 1s)}",
+        "a{animation-duration:2s;animation-duration:0s}",
+        id="time-fallback",
+    ),
     pytest.param("a{width:calc(2px + 1px)}", "a{width:3px}", id="nonzero-folds"),
 ]
 
@@ -3553,6 +4108,99 @@ def test_background_pairs(source: str, expected: str, *, repeat: bool) -> None:
     assert minify_css(minify_css(source) if repeat else source) == expected
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "@font-feature-values Foo { @styleset { nice: 12; } @stylistic { fancy: 1; } }",
+            "@font-feature-values Foo{@styleset{nice:12}@stylistic{fancy:1}}",
+            id="feature-blocks",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @styleset { Nice: 12; nice: 13; } }",
+            "@font-feature-values Foo{@styleset{Nice:12;nice:13}}",
+            id="case-sensitive-aliases",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @historical-forms { Name: 1; } }",
+            "@font-feature-values Foo{@historical-forms{Name:1}}",
+            id="historical-forms",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @character-variant { Name: 1 2; } }",
+            "@font-feature-values Foo{@character-variant{Name:1 2}}",
+            id="character-variant",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @swash { Name: 1; } }",
+            "@font-feature-values Foo{@swash{Name:1}}",
+            id="swash",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @ornaments { Name: 1; } }",
+            "@font-feature-values Foo{@ornaments{Name:1}}",
+            id="ornaments",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @annotation { Name: 1; } }",
+            "@font-feature-values Foo{@annotation{Name:1}}",
+            id="annotation",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @styleset { flex-direction: 1; flex-wrap: 2; } }",
+            "@font-feature-values Foo{@styleset{flex-direction:1;flex-wrap:2}}",
+            id="aliases-resembling-longhands",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { font-display: swap; @styleset { nice: 12; } }",
+            "@font-feature-values Foo{font-display:swap;@styleset{nice:12}}",
+            id="descriptor-and-feature-block",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @styleset { nice: 12; } font-display: swap; }",
+            "@font-feature-values Foo{@styleset{nice:12}font-display:swap}",
+            id="feature-block-and-descriptor",
+        ),
+        pytest.param(
+            "@font-feature-values Foo { @unknown x; @styleset { nice: 12; } }",
+            "@font-feature-values Foo{@unknown x;@styleset{nice:12}}",
+            id="unknown-statement-then-feature-block",
+        ),
+    ],
+)
+def test_minify_css_font_feature_values(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param(
+            "@starting-style { .a { color: red; } .b { color: blue; } }",
+            "@starting-style{.a{color:red}.b{color:blue}}",
+            id="top-level-rules",
+        ),
+        pytest.param(
+            "@media screen { @starting-style { .a { color: red; } .b { color: blue; } } }",
+            "@media screen{@starting-style{.a{color:red}.b{color:blue}}}",
+            id="nested-group-rules",
+        ),
+        pytest.param(
+            "a { @starting-style { opacity: 0; color: red; } }",
+            "a{@starting-style{opacity:0;color:red}}",
+            id="style-declarations",
+        ),
+        pytest.param(
+            "a { @starting-style { opacity: 0; & b { color: blue; } } }",
+            "a{@starting-style{opacity:0;& b{color:blue}}}",
+            id="style-declarations-and-rule",
+        ),
+    ],
+)
+def test_minify_css_starting_style_context(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
 _CASES: Final = [
     pytest.param(
         "@media screen { bad; .a { opacity: 0; } }",
@@ -4053,13 +4701,29 @@ def test_empty_inline_declarations(source: str, expected: str) -> None:
             "p{background-color:red;background:unknown-ident}",
             id="hyphenated-ident",
         ),
-        pytest.param("p{background-color:red;background:red}", "p{background:red}", id="named-color"),
-        pytest.param("p{background-color:red;background:blue}", "p{background:blue}", id="equal-length-color"),
-        pytest.param("p{background-color:red;background:green}", "p{background:green}", id="shorter-color-name"),
-        pytest.param("p{background-color:red;background:black}", "p{background:#000}", id="shortened-color"),
-        pytest.param("p{background-color:red;background:none}", "p{background:0 0}", id="none"),
+        pytest.param(
+            "p{background-color:red;background:red}", "p{background-color:red;background:red}", id="named-color"
+        ),
+        pytest.param(
+            "p{background-color:red;background:blue}",
+            "p{background-color:red;background:blue}",
+            id="equal-length-color",
+        ),
+        pytest.param(
+            "p{background-color:red;background:green}",
+            "p{background-color:red;background:green}",
+            id="shorter-color-name",
+        ),
+        pytest.param(
+            "p{background-color:red;background:black}", "p{background-color:red;background:#000}", id="shortened-color"
+        ),
+        pytest.param("p{background-color:red;background:none}", "p{background-color:red;background:0 0}", id="none"),
         pytest.param("p{background-color:red;background:inherit}", "p{background:inherit}", id="css-wide"),
-        pytest.param("p{background-color:red;background:url(a)}", "p{background:url(a)}", id="image-function"),
+        pytest.param(
+            "p{background-color:red;background:url(a)}",
+            "p{background-color:red;background:url(a)}",
+            id="image-function",
+        ),
     ],
 )
 def test_background_dedup_respects_identifier_validity(source: str, expected: str) -> None:
@@ -4144,6 +4808,11 @@ def test_background_invalid_identifier_hashed_dedup(tail: str, expected: str) ->
             "a{filter:drop-shadow(0 + 0 red)}",
             id="keep-delimiter-space",
         ),
+        pytest.param(
+            "a{filter:drop-shadow(var(--x ) 0 red)}",
+            "a{filter:drop-shadow(var(--x) 0 red)}",
+            id="trim-inner-call-space",
+        ),
     ],
 )
 def test_filter_drop_shadow_preserves_offsets(source: str, expected: str) -> None:
@@ -4152,16 +4821,16 @@ def test_filter_drop_shadow_preserves_offsets(source: str, expected: str) -> Non
 
 
 def test_filter_drop_shadow_unclosed_function_keeps_recovery() -> None:
-    assert minify_css("a{filter:drop-shadow(0 0 red") == "a{filter:drop-shadow(00red)}"
+    assert minify_css("a{filter:drop-shadow(0 0 red") == "a{filter:drop-shadow(0 0 red)}"
 
 
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
-        pytest.param("a{filter:foobar12345(0 0 red)}", "a{filter:foobar12345(00red)}", id="other-function"),
+        pytest.param("a{filter:foobar12345(0 0 red)}", "a{filter:foobar12345(0 0 red)}", id="other-function"),
         pytest.param("a{filter:drop-shadow}", "a{filter:drop-shadow}", id="no-call"),
-        pytest.param("a{filter:drop-shadow[0 0 red]}", "a{filter:drop-shadow[00red]}", id="other-delimiter"),
-        pytest.param("a{filter:drop-shadow/**/(0 0 red)}", "a{filter:drop-shadow(00red)}", id="comment-before-call"),
+        pytest.param("a{filter:drop-shadow[0 0 red]}", "a{filter:drop-shadow[0 0 red]}", id="other-delimiter"),
+        pytest.param("a{filter:drop-shadow/**/(0 0 red)}", "a{filter:drop-shadow (0 0 red)}", id="comment-before-call"),
     ],
 )
 def test_filter_drop_shadow_unrecognized_call_keeps_recovery(source: str, expected: str) -> None:
@@ -4169,7 +4838,86 @@ def test_filter_drop_shadow_unrecognized_call_keeps_recovery(source: str, expect
 
 
 def test_legacy_filter_drop_shadow_is_unchanged() -> None:
-    assert minify_css("a{-ms-filter:drop-shadow(0 0 red)}") == "a{-ms-filter:drop-shadow(00red)}"
+    assert minify_css("a{-ms-filter:drop-shadow(0 0 red)}") == "a{-ms-filter:drop-shadow(0 0 red)}"
+
+
+@pytest.mark.parametrize("value", ["none var(--x)", "inherit var(--x)"])
+def test_filter_preserves_variable_token_boundary(value: str) -> None:
+    assert minify_css(f"a{{filter:{value}}}") == f"a{{filter:{value}}}"
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{filter:blur(calc(1px + 2px))}", "a{filter:blur(3px)}", id="length-addition"),
+        pytest.param("a{filter:brightness(calc(1 + 1))}", "a{filter:brightness(2)}", id="number-addition"),
+        pytest.param(
+            "a{filter:hue-rotate(calc(30deg + 30deg))}",
+            "a{filter:hue-rotate(60deg)}",
+            id="angle-addition",
+        ),
+        pytest.param(
+            "a{filter:drop-shadow(calc(1px + 2px) 0 red)}",
+            "a{filter:drop-shadow(3px 0 red)}",
+            id="shadow-offset",
+        ),
+        pytest.param(
+            "a{filter:blur(min(calc(1px + 2px),4px))}",
+            "a{filter:blur(min(3px,4px))}",
+            id="nested-calculation",
+        ),
+    ],
+)
+def test_filter_math_folds_constant_calc(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{filter:blur(calc(1px - 2px))}", "a{filter:blur(calc(-1px))}", id="negative-blur"),
+        pytest.param(
+            "a{filter:blur(min(1px + 2px, 4px))}",
+            "a{filter:blur(min(1px + 2px,4px))}",
+            id="nested-math",
+        ),
+        pytest.param(
+            "a{filter:blur(calc(var(--x) + 1px))}",
+            "a{filter:blur(calc(var(--x) + 1px))}",
+            id="dynamic-value",
+        ),
+        pytest.param(
+            "a{filter:blur(calc(1px + 2em))}",
+            "a{filter:blur(calc(1px + 2em))}",
+            id="different-units",
+        ),
+        pytest.param("a{filter:blur(sqrt(4))}", "a{filter:blur(sqrt(4))}", id="other-four-letter-math"),
+    ],
+)
+def test_filter_math_keeps_unresolved_expression(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("a{filter:calc 2px}", "a{filter:calc 2px}", id="identifier"),
+        pytest.param("a{filter:calc}", "a{filter:calc}", id="last-identifier"),
+        pytest.param("a{filter:calc)}", "a{filter:calc)}", id="wrong-delimiter"),
+        pytest.param("a{filter:foo(1px + 2px)}", "a{filter:foo(1px+ 2px)}", id="unknown-function"),
+        pytest.param("a{filter:calc(1px + 2px}", "a{filter:calc(1px+ 2px})}", id="unclosed-function"),
+    ],
+)
+def test_filter_math_malformed_source(source: str, expected: str) -> None:
+    assert minify_css(source) == expected
+
+
+def test_filter_math_keeps_ordinary_function() -> None:
+    assert minify_css("a{filter:contrast(2)}") == "a{filter:contrast(2)}"
+
+
+def test_legacy_filter_math_is_unchanged() -> None:
+    assert minify_css("a{-ms-filter:blur(calc(1px + 2px))}") == "a{-ms-filter:blur(calc(1px+ 2px))}"
 
 
 @pytest.mark.parametrize(

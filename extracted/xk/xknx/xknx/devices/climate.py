@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from xknx.devices.fan import FanSpeedMode
+from xknx.dpt import DPTHumidity
 from xknx.remote_value import (
     GroupAddressesType,
     RemoteValue,
@@ -28,7 +29,7 @@ from .climate_mode import ClimateMode
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.telegram.address import DeviceGroupAddress
     from xknx.xknx import XKNX
 
@@ -46,7 +47,8 @@ class Climate(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_temperature: GroupAddressesType = None,
         group_address_target_temperature: GroupAddressesType = None,
         group_address_target_temperature_state: GroupAddressesType = None,
@@ -76,7 +78,7 @@ class Climate(Device):
         group_address_horizontal_swing_state: GroupAddressesType = None,
     ) -> None:
         """Initialize Climate class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self.min_temp = min_temp
         self.max_temp = max_temp
@@ -191,9 +193,9 @@ class Climate(Device):
 
         self.humidity = RemoteValueNumeric(
             xknx,
+            value_type=DPTHumidity,
             group_address_state=group_address_humidity_state,
             sync_state=sync_state,
-            value_type="humidity",
             device_name=self.name,
             feature_name="Current humidity",
             after_update_cb=self.after_update,
@@ -211,6 +213,12 @@ class Climate(Device):
         yield self.swing
         yield self.horizontal_swing
         yield self.humidity
+
+    def _update_device_name(self) -> None:
+        """Pass the current device name down to the RemoteValues and the mode device."""
+        super()._update_device_name()
+        if self.mode is not None:
+            self.mode.name = self.name
 
     def group_addresses(self) -> set[DeviceGroupAddress]:
         """Return all group addresses of this Device."""
@@ -363,7 +371,7 @@ class Climate(Device):
         """Return current horizontal swing state."""
         return self.horizontal_swing.value
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         for remote_value in self._iter_remote_values():
             remote_value.process(telegram)

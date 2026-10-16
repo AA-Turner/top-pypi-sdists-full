@@ -92,6 +92,16 @@ class GetBranchWithLatestDeploymentResponse(_message.Message):
         self, branch_with_latest_deployment: _Optional[_Union[BranchWithLatestDeployment, _Mapping]] = ...
     ) -> None: ...
 
+class DeleteBranchRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class DeleteBranchResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class ListBranchWithLatestDeploymentsRequest(_message.Message):
     __slots__ = ("cursor", "limit", "status", "deployed_by", "sort_ascending")
     CURSOR_FIELD_NUMBER: _ClassVar[int]

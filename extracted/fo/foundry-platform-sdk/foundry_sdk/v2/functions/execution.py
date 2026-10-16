@@ -68,6 +68,9 @@ class ExecutionClient:
         """
         Cancel a running async query execution. This endpoint is idempotent.
 
+
+        Required scopes: [api:functions-execute]
+
         :param execution_id:
         :type execution_id: ExecutionId
         :param preview: Enables the use of preview functionality.
@@ -128,6 +131,9 @@ class ExecutionClient:
         connection open for up to the specified number of seconds. If the
         execution completes within that window, the result is returned
         immediately. Otherwise, the running variant is returned.
+
+
+        Required scopes: [api:functions-execute]
 
         :param execution_id:
         :type execution_id: ExecutionId
@@ -231,6 +237,9 @@ class AsyncExecutionClient:
         """
         Cancel a running async query execution. This endpoint is idempotent.
 
+
+        Required scopes: [api:functions-execute]
+
         :param execution_id:
         :type execution_id: ExecutionId
         :param preview: Enables the use of preview functionality.
@@ -291,6 +300,9 @@ class AsyncExecutionClient:
         connection open for up to the specified number of seconds. If the
         execution completes within that window, the result is returned
         immediately. Otherwise, the running variant is returned.
+
+
+        Required scopes: [api:functions-execute]
 
         :param execution_id:
         :type execution_id: ExecutionId

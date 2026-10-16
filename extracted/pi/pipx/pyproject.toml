@@ -39,7 +39,7 @@ dynamic = [
 dependencies = [
   "argcomplete>=3.7.2",
   "colorama>=0.4.6; sys_platform=='win32'",
-  "filelock>=4.0.9",
+  "filelock>=4.2",
   "packaging>=26.3",
   "platformdirs>=4.12.2",
   "userpath!=1.9,>=1.9.2",
@@ -52,11 +52,11 @@ urls."Release Notes" = "https://pipx.pypa.io/latest/changelog.html"
 urls."Source Code" = "https://github.com/pypa/pipx"
 urls.Documentation = "https://pipx.pypa.io"
 urls.Homepage = "https://pipx.pypa.io"
-scripts.pipx = "pipx.main:cli"
+scripts.pipx = "pipx.__main__:cli"
 
 [dependency-groups]
 dev = [
-  { include-group = "docs" },
+  { include-group = "docs-live" },
   { include-group = "lint" },
   { include-group = "man" },
   { include-group = "test" },
@@ -64,11 +64,13 @@ dev = [
 ]
 test = [
   "docutils>=0.21.2",
+  "flit-core>=4.1",
   "pypiserver[cache,passlib]>=2.4.2",
   "pytest>=9.1.1",
   "pytest-cov>=7.1",
   "pytest-mock>=3.16",
   "pytest-subprocess>=1.6",
+  "pytest-timeout>=2.4",
   "pytest-xdist>=3.8",
   "setuptools>=84; python_version>='3.12'",
   "watchdog>=6",
@@ -99,6 +101,10 @@ docs = [
   "sphinxcontrib-towncrier>=0.5.0a0",  # render unreleased news fragments as a draft changelog section
   "sphinxext-opengraph>=0.13",         # OpenGraph tags for link previews
   "towncrier>=26.9",
+]
+docs-live = [
+  "sphinx-autobuild>=2025.8.25",
+  { include-group = "docs" },
 ]
 lint = [
   "pre-commit>=4.6.2",
@@ -151,6 +157,9 @@ lint.ignore = [
   "subprocess-without-shell-equals-true",      # using subprocess is alright
   "suspicious-subprocess-import",              # using subprocess is alright
 ]
+lint.per-file-ignores."src/pipx/main.py" = [
+  "import-outside-top-level", # each command loads its module on dispatch to keep CLI startup fast
+]
 lint.per-file-ignores."src/pipx/venv.py" = [
   "stdlib-module-shadowing", # module shadows the standard library
 ]
@@ -200,6 +209,8 @@ ini_options.filterwarnings = [
   "ignore:Implicit None on return values is deprecated:DeprecationWarning",
 ]
 ini_options.log_level = "INFO"
+# the limit itself comes from PYTEST_TIMEOUT in tox.toml; session fixtures that build shared libs stay outside it
+ini_options.timeout_func_only = true
 
 [tool.towncrier]
 package = "pipx"
@@ -222,4 +233,17 @@ type = [
   { directory = "doc", name = "Improved Documentation", showcontent = true },
   { directory = "removal", name = "Deprecations and Removals", showcontent = true },
   { directory = "misc", name = "Miscellaneous internal changes", showcontent = false },
+]
+
+[tool.flake8-lazy]
+standalone.line-length = 120
+standalone.lazy-exclude-modules = [
+  # records whether stderr is a terminal at startup, which decides if spinners animate
+  "pipx.animate",
+  # records whether stdout is a terminal at startup and runs colorama.init() on Windows before anything prints
+  "pipx.colors",
+  # reads PIPX_FETCH_PYTHON and PIPX_FETCH_MISSING_PYTHON at startup
+  "pipx.constants",
+  # reads PIPX_USE_EMOJI and USE_EMOJI at startup
+  "pipx.emojis",
 ]

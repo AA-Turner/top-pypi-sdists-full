@@ -47,6 +47,7 @@ class LifecycleTrigger(TypedDict, total=False):
     eventCount: int
     tokenCount: int
     idle: int
+    never: bool
 
 
 class LifecycleOpts(TypedDict, total=False):
@@ -451,7 +452,7 @@ class Session(APIObject):
           events and persist the resulting memories into the parent memory
           space when the trigger fires.
 
-    - ``trigger`` (``dict``, required) - exactly one key, all integer-valued:
+    - ``trigger`` (``dict``, required) - exactly one key:
 
         - ``{"ttl": <seconds>}`` - elapsed time since session creation.
           ``1 <= ttl <= 63_072_000`` (2 years).
@@ -462,6 +463,10 @@ class Session(APIObject):
         - ``{"idle": <seconds>}`` - time since the last event (falls back to
           session creation time when there are no events).
           ``1 <= idle <= 63_072_000``.
+        - ``{"never": True}`` - never fires; the session is retained until it
+          is explicitly deleted. Only accepted in environments where the
+          never-expire trigger is enabled; the server rejects it with ``422``
+          otherwise.
 
     - ``opts`` (``dict`` or ``None``, optional) - strategy-specific options:
 
@@ -498,6 +503,10 @@ class Session(APIObject):
             {"type": "extract_memories", "trigger": {"idle": 3600}},
             {"type": "soft_delete", "trigger": {"ttl": 2592000}},
         ]
+
+        # Retain the session indefinitely (requires the never-expire trigger
+        # to be enabled in the environment).
+        [{"type": "soft_delete", "trigger": {"never": True}}]
     """
 
     _path = "memory/{}/sessions/"
@@ -708,6 +717,7 @@ class Session(APIObject):
         self,
         description: object = _UNSET,
         metadata: object = _UNSET,
+        lifecycle_strategies: object = _UNSET,
         if_match: object = _UNSET,
     ) -> None:
         """
@@ -729,12 +739,32 @@ class Session(APIObject):
             The new description. Pass ``None`` to clear.
         metadata : dict or None
             The new metadata. Pass ``None`` to clear.
+        lifecycle_strategies : list of dict
+            When provided, replaces the session's lifecycle strategies entirely
+            (1 to 5 entries); omit to leave them unchanged. Strategies cannot be
+            cleared, so passing ``None`` raises ``ValueError``. See the *Notes*
+            section on :class:`Session` for the dict shape, allowed values, and
+            examples. A strategy type that has already executed for this
+            session can never run again, so changing its configuration is
+            rejected with ``409``; re-sending it unchanged is inert.
+
+            .. versionadded:: v3.19
         if_match : int or None
             Optimistic-concurrency precondition. When omitted, the SDK uses
             ``version`` automatically. Pass ``None`` to opt out (legacy
             last-writer-wins). Pass an integer to override the version.
         """
-        payload, keep_attrs = _build_patch_payload(description=description, metadata=metadata)
+        if lifecycle_strategies is None:
+            raise ValueError(
+                "lifecycle_strategies cannot be cleared; pass at least one strategy "
+                "or omit the argument to leave them unchanged."
+            )
+
+        payload, keep_attrs = _build_patch_payload(
+            description=description,
+            metadata=metadata,
+            lifecycle_strategies=lifecycle_strategies,
+        )
 
         if not payload:
             return
@@ -747,7 +777,7 @@ class Session(APIObject):
 
         updated = self.from_server_data(self._client.patch(self._self_url(), **kwargs).json())
 
-        _update_attrs(self, updated, ("description", "metadata", "version"))
+        _update_attrs(self, updated, ("description", "metadata", "lifecycle_strategies", "version"))
 
     def delete(self) -> None:
         """

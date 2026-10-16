@@ -1170,7 +1170,7 @@ class UnifiedConfig:
             return False
         for block in last.content:
             template = getattr(block, "_authored_template", None)
-            if template and "{{" in template and template != block.text:
+            if template and template != block.text:
                 return True
         return False
 
@@ -1228,13 +1228,22 @@ class UnifiedConfig:
         si.opening_turn = f"{si.opening_turn}\n\n{opening}" if si.opening_turn else opening
         return True
 
-    def replace_variables(self, variables: dict[str, Any]) -> None:
+    def replace_variables(
+        self,
+        variables: dict[str, Any],
+        *,
+        template_messages: list[Any] | None = None,
+    ) -> None:
         """
-        Replace variables throughout the config.
-        Handles both system_instruction and all messages.
+        Fill the AUTHORED template: the system instruction and the authored messages.
 
         Args:
             variables: dict mapping variable names to their values
+            template_messages: the authored messages (by identity). Everything else in
+                ``self.messages`` — client-carried history, the person's typed turn — is data
+                and is never filled, escaped or section-evaluated (THE USER-INPUT LAW).
+                ``None`` = every message is authored (a door that fills before any other
+                message joins the config, e.g. the saved-agent door).
         """
         # Tripwire: a picklist reference envelope must have been resolved to text by
         # resolve_picklist_references() upstream. If one reaches here, a code path skipped
@@ -1249,6 +1258,7 @@ class UnifiedConfig:
         # pre-substitution step: a named notice, never the envelope's JSON.
         variables = guard_unresolved_source_sets(variables)
         # THE ONE RULE (config/template_substitution.py): declared slots only, one pass.
+        from matrx_ai.config.prompt_values import prompt_safe_value
         from matrx_ai.config.template_substitution import substitute_authored
 
         # Prompt blocks: every DECLARED block must have been resolved (the async
@@ -1272,13 +1282,15 @@ class UnifiedConfig:
                 self.system_instruction.base_instruction or "",
                 system_template,
                 variables,
-                str,
+                # ONE render for system and messages (THE prompt door): None -> "",
+                # structured values -> JSON, never Python repr.
+                prompt_safe_value,
                 unescape=True,
                 blocks=blocks,
             )
 
-        # Replace in all messages
-        self.messages.replace_variables(variables, blocks=blocks)
+        # Replace in the authored messages only
+        self.messages.replace_variables(variables, blocks=blocks, only=template_messages)
 
     def apply_overrides(self, overrides: LLMParams) -> None:
         """Apply typed config overrides from the API layer.

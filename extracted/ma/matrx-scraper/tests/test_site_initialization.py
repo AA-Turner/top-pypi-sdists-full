@@ -972,3 +972,110 @@ async def test_prepare_initialize_fails_before_session_without_browser_pool(
         await service.prepare_initialize(SimpleNamespace(), "site-1")
 
     prepare_start.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_initialization_session_ends_with_its_stream_not_after_the_homepage_crawl(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MKT-132: the homepage crawl's terminal event (which stamps the session's
+    status + finished_at) used to land right after step 1 while screenshots,
+    sitemaps and reconciliation kept the stream open another minute. The
+    terminal event must land AFTER every step and just before the stream ends."""
+
+    from matrx_scraper.events import CrawlCompletedEvent
+
+    summary = PageSummary(
+        url="https://acme.example/", final_url="https://acme.example/", title="Acme"
+    )
+    state = CrawlPersistenceState(
+        site_id="site-1",
+        session_id="session-1",
+        user_id="user-1",
+        organization_id="org-1",
+        file_owner_id="user-1",
+        coverage_qualified=False,
+        site_initialization=True,
+        homepage_capture=HomepageCapture(
+            html="<html><title>Acme</title></html>",
+            summary=summary,
+            page_id="page-1",
+            snapshot_id="snapshot-1",
+            final_url="https://acme.example/",
+        ),
+    )
+    order: list[str] = []
+
+    async def persist_event(event, _state):
+        order.append(f"persist:{event.event_type}")
+
+    async def persist_command_event(payload, _state):
+        order.append(f"command:{payload.get('event_type')}:{payload.get('step')}:{payload.get('status')}")
+
+    async def send_end():
+        order.append("stream_end")
+
+    repository = SimpleNamespace(
+        persist_event=AsyncMock(side_effect=persist_event),
+        persist_command_event=AsyncMock(side_effect=persist_command_event),
+        update_initialization=AsyncMock(),
+        update_site_identity=AsyncMock(return_value={"written": [], "skipped_existing": []}),
+        persist_discovered_items=AsyncMock(return_value={}),
+        fail_session=AsyncMock(),
+    )
+    prepared = PreparedCrawl(
+        site_id="site-1",
+        session_id="session-1",
+        root_url="https://acme.example/",
+        request=CrawlStartRequest(
+            max_pages=1, max_depth=0, list_mode=True, capture_screenshots=False, screenshot_kinds=[]
+        ),
+        repository=repository,
+        state=state,
+        broker=CrawlEventBroker("session-1"),
+    )
+    service = WebCrawlService()
+    built: dict[str, object] = {}
+
+    async def build_crawler(prepared_arg, sink, **kwargs):
+        async def run():
+            # What SiteCrawler does when its single page is done.
+            await sink.emit(
+                CrawlCompletedEvent(
+                    run_id="session-1",
+                    pages_discovered=1,
+                    pages_fetched=1,
+                    pages_downloaded=1,
+                    pages_failed=0,
+                    issues_count=0,
+                    duration_ms=1,
+                    bytes_downloaded=1,
+                    status="completed",
+                    coverage_complete=False,
+                    limit_reached=False,
+                    remaining_queue_depth=0,
+                )
+            )
+
+        built["sink"] = sink
+        return SimpleNamespace(run=run), None
+
+    monkeypatch.setattr(service, "_build_crawler", build_crawler)
+    monkeypatch.setattr(service, "_watch_for_cancel", AsyncMock())
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.extract_homepage_candidates", lambda *a, **k: []
+    )
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.service.sync_site_sitemaps",
+        AsyncMock(side_effect=RuntimeError("sitemap service unavailable")),
+    )
+    monkeypatch.setattr("matrx_scraper.web_crawl.service.has_ext", lambda name: False)
+    emitter = SimpleNamespace(send_data=AsyncMock(), send_end=AsyncMock(side_effect=send_end))
+
+    await service.run_initialize(emitter, prepared)
+
+    completed_at = order.index("persist:crawl_completed")
+    last_step = max(i for i, item in enumerate(order) if item.startswith("command:"))
+    assert completed_at > last_step, order
+    assert order.index("stream_end") == completed_at + 1, order
+    assert order.count("persist:crawl_completed") == 1

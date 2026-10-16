@@ -1374,3 +1374,241 @@ def test_more_ways_to_print_a_piece_of_a_key_are_asked(box, command):
 ])
 def test_whole_line_reads_still_run_at_once(box, command):
     assert box.safe(command), command
+
+
+# --- digests and du (F3): read-only programs that print checksums or sizes -------------------
+#
+# 7 of the 74 commands held in the 14 days to 2026-10-15 were `shasum -a 256 FILE`, 1 was `du -sh
+# DIR`. They read only what they are named, under the file-argument checks `cat` gets. What reads
+# a LIST of names the check never sees (`-c`, `--files0-from`, `-X`) or follows symlinks out of
+# the folders (`du -L`) asks, in every spelling the programs accept.
+
+
+@pytest.mark.parametrize("command", [
+    "shasum -a 256 file.txt",
+    "shasum -a256 file.txt",
+    "shasum --algorithm=256 file.txt",
+    "shasum --al 256 file.txt",  # Getopt::Long abbreviation
+    "shasum -ba 256 file.txt",  # a cluster ending in the value letter
+    "shasum -a 256 -- file.txt",
+    "shasum -U file.txt",
+    "shasum -a 256 --tag file.txt",
+    "sha256sum file.txt data.json",
+    "sha1sum file.txt",
+    "sha224sum file.txt",
+    "sha384sum file.txt",
+    "sha512sum file.txt",
+    "md5sum file.txt",
+    "md5sum -b --tag file.txt",
+    "b2sum file.txt",
+    "b2sum -l 256 file.txt",
+    "cksum file.txt",
+    "cksum -a sha256 --untagged file.txt",
+    "cat file.txt | sha256sum",
+    "sha256sum < file.txt",
+    "cd nested && sha256sum ../file.txt",
+    "du -sh nested",
+    "du -s nested",
+    "du -sh .",
+    "du",  # the current folder, a working folder
+    "du -ah nested",
+    "du -d 1 nested",
+    "du -hd1 nested",
+    "du --max-depth=1 -h nested",
+    "du -sh --exclude .git .",  # a pattern, not a file (and not --exclude-from)
+    "du -sh --exclude=.git .",
+    "du -sh -- nested",
+    "du -sh nested file.txt",
+    "du -c -P -x nested",
+    "du -s --no-dereference nested",  # `--no`, not `--null`
+    "du -- -L",  # a file named -L: the `--` right after the program ends the options
+    "cd nested && du -sh",
+])
+def test_digests_and_du_run_at_once(box: Box, command: str) -> None:
+    verdict = box.verdict(command)
+    assert verdict == Verdict(True, ""), (command, verdict)
+
+
+_CHECK = "--check opens every file a checksum file names"
+_DIGEST_OPTION = "isn't on the safe list: of its options only"
+
+
+@pytest.mark.parametrize(
+    "command, why",
+    [
+        # -c / --check: alone, in a cluster, abbreviated, `=`, after a name (GNU and Perl read
+        # options anywhere), behind a `--` that may be an option's value, and in every program.
+        ("shasum -c sums", _CHECK),
+        ("shasum -ca 256 sums", _CHECK),
+        ("shasum -bc sums", _CHECK),
+        ("shasum -a 256 -c sums", _CHECK),
+        ("sha256sum --check sums", _CHECK),
+        ("sha256sum --che sums", _CHECK),
+        ("sha256sum --c sums", _CHECK),
+        ("sha256sum --check=sums", _CHECK),
+        ("sha256sum sums --check", _CHECK),
+        ("sha256sum sums -c", _CHECK),
+        ("sha256sum -b -- -c sums", _CHECK),
+        ("shasum -a -- -c sums", _CHECK),
+        ("sha256sum '-c' sums", _CHECK),
+        ("md5sum -c", _CHECK),  # the list from stdin
+        ("sha1sum -c sums", _CHECK),
+        ("sha224sum -c sums", _CHECK),
+        ("sha384sum -c sums", _CHECK),
+        ("sha512sum --check sums", _CHECK),
+        ("b2sum -c sums", _CHECK),
+        ("cksum --check sums", _CHECK),
+        ("cksum -c sums", _CHECK),
+        # shasum is Perl: Getopt::Long reads `+c` as -c, and long options in any case. A
+        # `sha256sum` may be a wrapper that runs it (`exec shasum -a 256 "$@"` on a Mac).
+        ("shasum +c sums", "as an option"),
+        ("shasum +check sums", "as an option"),
+        ("shasum -a 256 +c sums", "as an option"),
+        ("sha256sum +c sums", "when it runs shasum"),
+        ("md5sum file.txt +check", "when it runs shasum"),
+        ("shasum --CHECK sums", _DIGEST_OPTION),
+        ("shasum --Che sums", _DIGEST_OPTION),
+        # what only matters with --check, and what frames or encodes the lines differently
+        ("sha256sum --status sums", _DIGEST_OPTION),
+        ("sha256sum --quiet file.txt", _DIGEST_OPTION),
+        ("sha256sum --strict file.txt", _DIGEST_OPTION),
+        ("sha256sum --ignore-missing file.txt", _DIGEST_OPTION),
+        ("sha256sum -w file.txt", _DIGEST_OPTION),
+        ("shasum -s file.txt", _DIGEST_OPTION),
+        ("shasum -q file.txt", _DIGEST_OPTION),
+        ("sha256sum -z file.txt", _DIGEST_OPTION),
+        ("sha256sum --zero file.txt", _DIGEST_OPTION),
+        ("md5sum -bz file.txt", _DIGEST_OPTION),
+        ("shasum -0 file.txt", _DIGEST_OPTION),
+        ("shasum --01 file.txt", _DIGEST_OPTION),
+        ("cksum --raw file.txt", _DIGEST_OPTION),
+        ("cksum --base64 file.txt", _DIGEST_OPTION),
+        ("cksum -o 3 file.txt", _DIGEST_OPTION),  # BSD cksum
+        ("sha256sum ---check sums", _DIGEST_OPTION),
+        # du: names or patterns from a file
+        ("du --files0-from=x", "file the check never sees"),
+        ("du --files0-from x", "file the check never sees"),
+        ("du --files0=x", "file the check never sees"),
+        ("du --f=x", "file the check never sees"),
+        ("du nested --files0-from=x", "file the check never sees"),
+        ("du -s -- --files0-from=x", "file the check never sees"),  # `--` as -s's value too
+        ("du -X pats nested", "file the check never sees"),
+        ("du -Xpats nested", "file the check never sees"),
+        ("du -X=pats nested", "file the check never sees"),
+        ("du -sX pats nested", "file the check never sees"),
+        ("du nested -X pats", "file the check never sees"),
+        ("du --exclude-from=pats nested", "file the check never sees"),
+        ("du --exclude-from pats nested", "file the check never sees"),
+        ("du --exclude-f pats nested", "file the check never sees"),
+        ("du --exclude- pats nested", "file the check never sees"),
+        ("du --excl=pats nested", "file the check never sees"),  # --exclude or --exclude-from
+        ("du --e pats nested", "file the check never sees"),
+        ("du --exclude x --exclude-from=pats nested", "file the check never sees"),
+        # du: symlinks followed
+        ("du -L nested", "symlinks"),
+        ("du -sL nested", "symlinks"),
+        ("du -Ls nested", "symlinks"),
+        ("du nested -L", "symlinks"),
+        ("du --dereference nested", "symlinks"),
+        ("du --deref nested", "symlinks"),
+        ("du --d nested", "symlinks"),
+        ("du -H nested", "symlinks"),
+        ("du -shH nested", "symlinks"),
+        ("du -D nested", "symlinks"),
+        ("du --dereference-args nested", "symlinks"),
+        ("du --dereference-a nested", "symlinks"),
+        ("du -d -- -L nested", "symlinks"),
+        # du: NUL-separated lines
+        ("du -0 nested", "NUL"),
+        ("du -s0 nested", "NUL"),
+        ("du --null nested", "NUL"),
+        ("du --nu nested", "NUL"),
+        # the file-argument checks `cat` gets
+        ("shasum ../../outside/secret.txt", "outside the working folders"),
+        ("shasum -a 256 ../../outside/secret.txt", "outside the working folders"),
+        ("sha256sum file.txt ../../outside/secret.txt", "outside the working folders"),
+        ("sha256sum < ../../outside/secret.txt", "outside the working folders"),
+        ("shasum -a/etc/passwd file.txt", "outside the working folders"),
+        ("du ../../outside", "outside the working folders"),
+        ("du -sh ..", "outside the working folders"),
+        ("du -sh nested/../..", "outside the working folders"),
+        ("du -sh ~", "outside the working folders"),
+        ("du -sh /", "outside the working folders"),
+        ("du -d 1 nested ../../outside", "outside the working folders"),
+    ],
+)
+def test_digests_and_du_ask(box: Box, command: str, why: str) -> None:
+    verdict = box.verdict(command)
+    assert not verdict.safe and not verdict.refused, (command, verdict)
+    assert why in verdict.reason, (command, verdict.reason)
+
+
+def test_du_with_no_name_reads_the_current_folder(box: Box) -> None:
+    """As `ls`: with no name du walks the current folder, and $HOME is never a working folder."""
+    at_home = {"cwd": box.home}
+    for command in ["du", "du -sh", "du -d 1", "du -sh --exclude x", "du -s --", "du -c -x"]:
+        verdict = box.verdict(command, **at_home)
+        assert not verdict.safe and "current folder" in verdict.reason, (command, verdict.reason)
+    # An abbreviated value option (`--max` for --max-depth): its value is read as a name, in ~.
+    assert "outside" in box.verdict("du --max 1", **at_home).reason
+    for command in ["du -sh proj", "du -sh ~/proj", "cd proj && du -sh", "shasum -a 256 proj/file.txt"]:
+        verdict = box.verdict(command, **at_home)
+        assert verdict.safe, (command, verdict.reason)
+
+
+def test_digests_and_du_never_reach_credentials(box: Box) -> None:
+    (box.home / ".ssh").mkdir()
+    (box.home / ".ssh" / "id_rsa").write_text("k\n")
+    (box.work / "k").symlink_to(box.home / ".ssh" / "id_rsa")
+    (box.work / "keys").symlink_to(box.home / ".ssh")
+    for command in ["shasum ~/.ssh/id_rsa", "md5sum ~/.aws/credentials", "du ~/.ssh", "du -sh ~/.ssh",
+                    "sha256sum file.txt ~/.gnupg/x", "b2sum ~/.config/probe/config.json",
+                    # a name inside the folder that resolves into ~/.ssh: the path check, not the text
+                    "sha256sum k", "shasum -a 256 k", "du -sh keys", "du keys/"]:
+        verdict = box.verdict(command)
+        assert not verdict.safe and verdict.refused, (command, verdict.reason)
+
+
+def test_digests_and_du_ask_about_credential_shapes_and_hidden_folders_as_cat_does(box: Box) -> None:
+    for name in [".env", ".env.local", "server.pem", "tls.key", "id_ed25519", ".netrc"]:
+        (box.work / name).write_text("x\n")
+        cat = box.verdict(f"cat {name}")
+        assert not cat.safe and "credential" in cat.reason
+        for command in [f"sha256sum {name}", f"shasum -a 256 {name}", f"md5sum file.txt {name}", f"du {name}"]:
+            verdict = box.verdict(command)
+            assert (verdict.safe, verdict.refused) == (False, cat.refused), (command, verdict)
+            assert "credential" in verdict.reason, (command, verdict.reason)
+    (box.work / ".venv").mkdir()
+    (box.work / ".venv" / "pyvenv.cfg").write_text("x\n")
+    for command in ["shasum .venv/pyvenv.cfg", "du -sh .venv", "du -sh nested/../.venv"]:
+        verdict = box.verdict(command)
+        assert not verdict.safe and "hidden folder (.venv)" in verdict.reason, (command, verdict.reason)
+
+
+def test_digests_and_du_keep_off_what_a_probe_config_sets_off(box: Box) -> None:
+    (box.work / "off.txt").write_text("x\n")
+    for command in ["shasum -a 256 off.txt", "sha256sum file.txt off.txt", "cksum off.txt"]:
+        assert box.safe(command), command  # control
+        verdict = box.verdict(command, hidden=lambda path: os.path.basename(path) == "off.txt")
+        assert not verdict.safe and verdict.refused, (command, verdict.reason)
+    nested = box.work / "nested"
+
+    def holds_nested(tree: str) -> bool:
+        return nested == Path(tree) or nested.is_relative_to(tree)
+
+    for command in ["du -sh nested", "du", "du -sh .", "du -a"]:
+        assert box.safe(command), command  # control
+        verdict = box.verdict(command, off_inside=holds_nested)
+        assert not verdict.safe and verdict.refused, (command, verdict.reason)
+    assert box.safe("du -sh file.txt", off_inside=holds_nested)
+
+
+def test_a_digest_program_inside_the_folder_is_not_run(box: Box, monkeypatch) -> None:
+    fake = box.work / "bin" / "sha256sum"
+    fake.parent.mkdir()
+    fake.write_text("#!/bin/sh\necho pwned\n")
+    fake.chmod(0o755)
+    assert box.safe("sha256sum file.txt")
+    monkeypatch.setenv("PATH", f"{fake.parent}{os.pathsep}{os.environ['PATH']}")
+    verdict = box.verdict("sha256sum file.txt")
+    assert not verdict.safe and "inside the working folders" in verdict.reason

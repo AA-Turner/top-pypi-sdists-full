@@ -155,6 +155,38 @@ EGG_BG = {
     48: "seafloor",      # Infinite Tide Egg (VB DIM card; unlocks on the Seafloor Deep road)
     49: "factory",       # Nu Metal Empire Egg (VB DIM card; unlocks on the Factory road)
     50: "frozenpeak",    # Blizzard Fang Egg (VB DIM card; the genuinely cold line Frozen Peak waited for)
+    51: "jungle",        # Hermit in the Jungle Egg (VB DIM card; unlocks on the Jungle road)
+    52: "tealhollow",    # Mad Black Roar Egg (VB DIM card; unlocks on the Teal Hollow road)
+    53: "moonmeadow",    # True Shadow Howl Egg (VB DIM card; wolves howl on the Moonlit Meadow road)
+    54: "citysunset",    # Impulse City Egg (VB DIM card; unlocks on the City Sunset road)
+    55: "mountains",     # Gammamon Egg (VB DIM card; unlocks on the Mountains road, Wingdramon's)
+    56: "flowerfield", # Fairimon EX Egg (VB DIM card; unlocks on the Flower Field road)
+    57: "forestgate",  # Angoramon Egg (VB DIM card; unlocks on the Green Hollow road)
+    58: "underwater",  # Jellymon Egg (VB DIM card; unlocks on the Seafloor road)
+    59: "cityday",     # Agumon EX Egg (VB DIM card; unlocks on the White City road)
+    60: "lakeside",    # Gabumon EX Egg (VB DIM card; unlocks on the Lakeside road)
+    61: "cove",        # Dinosaur Roar Egg (VB DIM card; unlocks on the Beach road)
+    62: "boulevardusk", # Guilmon GP Egg (VB DIM card; unlocks on the Boulevard Dusk road)
+    63: "islandsea",   # Guilmon EX Egg (VB DIM card; unlocks on the Island Day road)
+    64: "goldenwood",  # Ryudamon Egg (VB DIM card; unlocks on the Golden Hollow road)
+    65: "factorynight", # Impmon GP Egg (VB DIM card; unlocks on the Factory Night road)
+    66: "bridgenight", # Black Roar Egg (VB DIM card; unlocks on the Bay Bridge Night road)
+    67: "fileisland",  # Shadow Howl Egg (VB DIM card; unlocks on the Island Sunset road)
+    68: "datatunnel",  # Louwemon EX Egg (VB DIM card; unlocks on the Data Tunnel road)
+    69: "greenhills",  # Wolf Howl Egg (VB DIM card; unlocks on the Green Hills road)
+    70: "blossom",     # Espimon Egg (VB DIM card; unlocks on the Flower Field Sunset road)
+    71: "boulevard",   # Blitzmon EX Egg (VB DIM card; unlocks on the Boulevard road)
+    72: "sunsetshore", # Wolfmon EX Egg (VB DIM card; unlocks on the Seafloor Sunset road)
+    73: "desert",      # Agnimon EX Egg (VB DIM card; unlocks on the Desert road)
+    74: "baybridge",   # Terriermon EX Egg (VB DIM card; unlocks on the Bay Bridge road)
+    75: "moonmeadow",  # Renamon GP Egg (VB DIM card; unlocks on the Moonlit Meadow road)
+    76: "tealhollow",  # Renamon EX Egg (VB DIM card; unlocks on the Teal Hollow road)
+    77: "islandsea",   # Monodramon GP Egg (VB DIM card; unlocks on the Island Day road)
+    78: "islandsea",   # Ancient Warriors Egg (VB DIM card; unlocks on the Island Day road)
+    79: "underwater",  # Chackmon EX Egg (VB DIM card; unlocks on the Seafloor road)
+    80: "greenhills",  # Titan of Dust Egg (VB DIM card; unlocks on the Green Hills road)
+    81: "forestgate",  # Primeval Warriors Egg (VB DIM card; unlocks on the Green Hollow road)
+    82: "city",        # Dynasty of the Evil Egg (VB DIM card; unlocks on the City road)
 }
 
 
@@ -162,8 +194,22 @@ EGG_BG = {
 # named scene except the arena is a FREE pick, the clone's final ruling
 # ("get rid of the price walls" -- Joel 2026-07-16).  The egg still decides
 # the DEFAULT scene; a pick merely overrides it (pet.bg_pick).
-PICKS = tuple(sorted((k for k in NAMES if k != "tourneyBack"),
-                     key=lambda k: NAMES[k]))
+# ...in FAMILY + THEME order, not A-Z (Joel 2026-10-15: "Shouldn't they at least
+# be more organized?"): every recolour sits beside its base (structural
+# correlation, measured: Green/Golden Hollow 0.98, Boulevard/Dusk 0.96, Flower
+# Field/Sunset 0.96, City/Sunset 0.95, Island 0.85, Bay Bridge 0.85, Seafloor
+# 0.72, Factory 0.70; Teal Hollow is the same path redrawn), and the families
+# run land -> water -> city -> digital.
+PICKS = ("greenhills", "moonmeadow", "lakeside",
+         "flowerfield", "blossom",
+         "forestgate", "goldenwood", "tealhollow",
+         "jungle", "mountains", "frozenpeak", "desert", "volcano",
+         "cove", "islandsea", "fileisland", "islandnight",
+         "underwater", "seafloor", "sunsetshore",
+         "city", "citysunset", "cityday", "boulevard", "boulevardusk",
+         "baybridge", "bridgenight", "factory", "factorynight",
+         "datatunnel")
+assert sorted(PICKS) == sorted(k for k in NAMES if k != "tourneyBack")
 
 
 def scene_for_egg(egg_type):

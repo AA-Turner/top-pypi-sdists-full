@@ -322,97 +322,24 @@ def test_compute_sync_window_last_28_days_with_gsc_lag() -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakeGetHttp:
-    def __init__(self, response: httpx.Response) -> None:
-        self.response = response
-        self.calls: list[dict] = []
-
-    async def __aenter__(self) -> _FakeGetHttp:
-        return self
-
-    async def __aexit__(self, *args: object) -> None:
-        return None
-
-    async def get(self, url: str, *, params: dict, headers: dict) -> httpx.Response:
-        self.calls.append({"url": url, "params": params, "headers": headers})
-        return self.response
-
-
-@pytest.mark.asyncio
-async def test_resolve_google_credential_calls_aidream(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AIDREAM_URL", "https://server.example/")
-    monkeypatch.setenv("AIDREAM_SERVICE_TOKEN", "svc-token")
-    fake = _FakeGetHttp(
-        _response(
-            200,
-            {
-                "refresh_token": "1//refresh",
-                "client_id": "abc.apps.googleusercontent.com",
-                "client_secret": "shhh",
-            },
-        )
-    )
-    monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
-        lambda **kwargs: fake,
-    )
-    credential = await resolve_google_credential(
-        credential_ref="conn-1",
-        site_organization_id="org-1",
-        user_id="user-1",
-    )
-    assert credential.refresh_token == "1//refresh"
-    assert credential.client_id == "abc.apps.googleusercontent.com"
-    call = fake.calls[0]
-    assert call["url"] == "https://server.example/api/google-integrations/internal/credential"
-    assert call["params"] == {"connection_id": "conn-1", "organization_id": "org-1"}
-    assert call["headers"]["Authorization"] == "Bearer svc-token"
-    assert call["headers"]["X-Matrx-User-Id"] == "user-1"
-    # The organization crosses the boundary as a header — aidream's bridge
-    # refuses a server-to-server call without it (the query param is only the
-    # confirming claim).
-    assert call["headers"]["X-Organization-Id"] == "org-1"
-    client = build_gsc_client(credential)
-    assert client.refresh_token == "1//refresh"
-    assert client.client_id == "abc.apps.googleusercontent.com"
-
-
-@pytest.mark.asyncio
-async def test_resolve_google_credential_http_error_is_loud(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setenv("AIDREAM_URL", "https://server.example")
-    monkeypatch.setenv("AIDREAM_SERVICE_TOKEN", "svc-token")
-    fake = _FakeGetHttp(_response(409, {"detail": "needs re-authentication"}))
-    monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
-        lambda **kwargs: fake,
-    )
-    with pytest.raises(RuntimeError, match="HTTP 409"):
-        await resolve_google_credential(
-            credential_ref="conn-1",
-            site_organization_id="org-1",
-            user_id="user-1",
-        )
-
-
 @pytest.mark.asyncio
 async def test_resolve_google_credential_incomplete_payload_is_loud(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AIDREAM_URL", "https://server.example")
     monkeypatch.setenv("AIDREAM_SERVICE_TOKEN", "svc-token")
-    fake = _FakeGetHttp(_response(200, {"refresh_token": "x"}))
+    real = httpx.AsyncClient
     monkeypatch.setattr(
-        "matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient",
-        lambda **kwargs: fake,
+        httpx,
+        "AsyncClient",
+        lambda *a, **k: real(
+            *a, **{**k, "transport": httpx.MockTransport(lambda r: httpx.Response(200, json={"refresh_token": "x"}))}
+        ),
     )
     with pytest.raises(RuntimeError, match="incomplete credential"):
         await resolve_google_credential(
             credential_ref="conn-1",
-            site_organization_id="org-1",
+            site_organization_id="3f2b8c1e-0a4d-4c55-9e0f-1a2b3c4d5e6f",
             user_id="user-1",
         )
 

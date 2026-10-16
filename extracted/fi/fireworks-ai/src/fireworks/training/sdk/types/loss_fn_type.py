@@ -11,4 +11,5 @@ LossFnType: TypeAlias = Literal[
     "dapo",
     "gspo",
     "dppo",
+    "reinforce",
 ]

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["importlib.util", "packaging", "pathlib", "pipx.self_install", "shutil", "subprocess"]
+
 import logging
 import os
 import shutil
 import subprocess
 import sys
 from functools import cache
+from importlib.util import find_spec
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,7 +16,6 @@ from packaging import version
 
 from pipx.constants import WINDOWS, FetchPythonOptions
 from pipx.self_install import get_environment_value
-from pipx.standalone_python import download_python_build_standalone
 from pipx.util import PipxError
 
 logger = logging.getLogger(__name__)
@@ -23,11 +25,7 @@ if TYPE_CHECKING:
 
 
 def has_venv() -> bool:
-    try:
-        import venv  # ruff:ignore[unused-import, import-outside-top-level]
-    except ImportError:
-        return False
-    return True
+    return find_spec("venv") is not None
 
 
 class InterpreterResolutionError(PipxError):
@@ -100,8 +98,10 @@ def find_unix_command_python(python_version: str) -> str | None:
 
 
 def _fetch_standalone_interpreter(python_version: str) -> str:
+    from pipx import standalone_python  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
+
     try:
-        return download_python_build_standalone(python_version)
+        return standalone_python.download_python_build_standalone(python_version)
     except PipxError as e:
         raise InterpreterResolutionError(source="the python-build-standalone project", version=python_version) from e
 

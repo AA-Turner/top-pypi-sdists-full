@@ -1,7 +1,7 @@
 import abc
 import collections.abc
-import modal._utils.task_command_router_client
 import modal.client
+import modal.sandbox._task_command_router_client
 import modal.stream_type
 import typing
 import typing_extensions
@@ -115,7 +115,7 @@ class _StreamReaderThroughSandboxExecCommandRouterParams:
     file_descriptor: int
     task_id: str
     object_id: str
-    command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient
+    command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient
     deadline: typing.Optional[float]
 
     def __init__(
@@ -123,7 +123,7 @@ class _StreamReaderThroughSandboxExecCommandRouterParams:
         file_descriptor: int,
         task_id: str,
         object_id: str,
-        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient,
         deadline: typing.Optional[float],
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
@@ -158,7 +158,7 @@ class _StreamReaderThroughSandboxCommandRouterParams:
     file_descriptor: int
     sandbox_id: str
     resolve_router: collections.abc.Callable[
-        [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+        [], collections.abc.Awaitable[tuple[str, modal.sandbox._task_command_router_client.TaskCommandRouterClient]]
     ]
 
     def __init__(
@@ -166,7 +166,7 @@ class _StreamReaderThroughSandboxCommandRouterParams:
         file_descriptor: int,
         sandbox_id: str,
         resolve_router: collections.abc.Callable[
-            [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+            [], collections.abc.Awaitable[tuple[str, modal.sandbox._task_command_router_client.TaskCommandRouterClient]]
         ],
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
@@ -407,13 +407,13 @@ class _StreamWriterThroughCommandRouterSandboxExecParams:
 
     task_id: str
     object_id: str
-    command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient
+    command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient
 
     def __init__(
         self,
         task_id: str,
         object_id: str,
-        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient,
     ) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
@@ -444,14 +444,14 @@ class _StreamWriterThroughCommandRouterSandboxParams:
     """
 
     resolve_router: collections.abc.Callable[
-        [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+        [], collections.abc.Awaitable[tuple[str, modal.sandbox._task_command_router_client.TaskCommandRouterClient]]
     ]
     check_open: collections.abc.Callable[[], None]
 
     def __init__(
         self,
         resolve_router: collections.abc.Callable[
-            [], collections.abc.Awaitable[tuple[str, modal._utils.task_command_router_client.TaskCommandRouterClient]]
+            [], collections.abc.Awaitable[tuple[str, modal.sandbox._task_command_router_client.TaskCommandRouterClient]]
         ],
         check_open: collections.abc.Callable[[], None],
     ) -> None:

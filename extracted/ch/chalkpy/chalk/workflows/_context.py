@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Awaitable, Generator, Generic, Mapping, Protocol, Sequence, TypeVar
 
 if TYPE_CHECKING:
     from chalk.workflows._definitions import TaskDefinition
+    from chalk.workflows._messages import WorkflowMessage
 
 R = TypeVar("R")
 
@@ -48,6 +50,13 @@ class WorkflowOrchestrator(Protocol):
         kwargs: Mapping[str, Any],
     ) -> TaskHandle[Any]: ...
 
+    def wait_for_message(self, name: str, timeout: timedelta | None) -> Awaitable[WorkflowMessage]: ...
+
+
+# Messages queued by `chalk.workflows.local_messages` for workflows run by a LocalOrchestrator.
+local_messages_var: contextvars.ContextVar[list[WorkflowMessage] | None] = contextvars.ContextVar(
+    "chalk_workflow_local_messages", default=None
+)
 
 current_orchestrator_var: contextvars.ContextVar[WorkflowOrchestrator | None] = contextvars.ContextVar(
     "chalk_workflow_orchestrator", default=None
@@ -100,3 +109,17 @@ class LocalOrchestrator:
         kwargs: Mapping[str, Any],
     ) -> TaskHandle[Any]:
         return TaskHandle(asyncio.ensure_future(self._execute(task, args, kwargs)))
+
+    async def wait_for_message(self, name: str, timeout: timedelta | None) -> WorkflowMessage:
+        # A direct local run has no address anyone could send to, so it only sees messages
+        # queued in advance; waiting would hang forever.
+        queued = local_messages_var.get()
+        if queued is not None:
+            for i, message in enumerate(queued):
+                if message.name == name:
+                    return queued.pop(i)
+        raise RuntimeError(
+            f"No local message named {name!r}. A workflow run directly in this process only receives "
+            + "messages queued with chalk.workflows.local_messages(...); run it on the workflow orchestrator "
+            + "(ChalkClient.trigger_workflow or run_workflow) to receive messages sent to it."
+        )

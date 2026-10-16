@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["packaging", "pipx", "pipx.commands.reinstall", "pipx.util", "pipx.venv", "subprocess"]
+
 import logging
 import subprocess
 from dataclasses import dataclass
@@ -7,8 +9,9 @@ from typing import TYPE_CHECKING, Final
 
 from packaging import version
 
-from pipx import commands, constants, paths, standalone_python
+from pipx import constants, paths
 from pipx.animate import animate
+from pipx.commands.reinstall import reinstall
 from pipx.result import OperationData, OperationResult, OutputMessage
 from pipx.util import is_paths_relative, rmdir
 from pipx.venv import Venv, VenvContainer
@@ -116,6 +119,8 @@ def get_latest_micro_version(
 
 
 def upgrade_interpreters(venv_container: VenvContainer, *, verbose: bool) -> OperationResult[InterpreterData]:
+    from pipx import standalone_python  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
+
     with animate("Getting the index of the latest standalone python builds", do_animation=not verbose):
         latest_pythons = standalone_python.list_pythons(use_cache=False)
 
@@ -146,7 +151,8 @@ def upgrade_interpreters(venv_container: VenvContainer, *, verbose: bool) -> Ope
             continue
         latest_micro_version = get_latest_micro_version(parsed_interpreter_full_version, parsed_latest_python_versions)
         if latest_micro_version > parsed_interpreter_full_version:
-            standalone_python.download_python_build_standalone(
+            # the new build lands in py/X.Y, so venvs on a patch-pinned py/X.Y.Z build must move to it
+            upgraded_python = standalone_python.download_python_build_standalone(
                 f"{latest_micro_version.major}.{latest_micro_version.minor}",
                 override=True,
             )
@@ -164,11 +170,11 @@ def upgrade_interpreters(venv_container: VenvContainer, *, verbose: bool) -> Ope
                             interpreter_full_version,
                             latest_micro_version,
                         )
-                        commands.reinstall(
+                        reinstall(
                             venv_dir=venv.root,
                             local_bin_dir=paths.ctx.bin_dir,
                             local_man_dir=paths.ctx.man_dir,
-                            python=str(interpreter_python),
+                            python=upgraded_python,
                             verbose=verbose,
                             venv_lock=venv_lock,
                         )

@@ -99,7 +99,7 @@ endif ()
 
 # Enable default use of OpenEXR core library for versions of the library
 # new enough to support DWA compression in exrcore.
-if (OPENEXR_VERSION VERSION_GREATER_EQUAL 3.1.10)
+if (OpenEXR_VERSION VERSION_GREATER_EQUAL 3.1.10)
     target_compile_definitions(OpenImageIO
                                PRIVATE OIIO_OPENEXR_CORE_DEFAULT=1)
     message (STATUS "OpenEXR core library will be used by default")
@@ -127,8 +127,6 @@ target_include_directories (OpenImageIO
                                 $<INSTALL_INTERFACE:include>
                             ${OPENIMAGEIO_IMATH_DEPENDENCY_VISIBILITY}
                                 ${OPENEXR_INCLUDES}
-                            PRIVATE
-                                ${ROBINMAP_INCLUDES}
                             )
 
 if (NOT BUILD_SHARED_LIBS)
@@ -145,9 +143,10 @@ target_link_libraries (OpenImageIO
         PUBLIC
             OpenImageIO_Util
             ${OPENIMAGEIO_IMATH_DEPENDENCY_VISIBILITY}
-            ${OPENIMAGEIO_IMATH_TARGETS}
+            Imath::Imath
         PRIVATE
-            ${OPENIMAGEIO_OPENEXR_TARGETS}
+            tsl::robin_map
+            OpenEXR::OpenEXR
             ${format_plugin_libs} # Add all the target link libraries from the plugins
             OpenColorIO::OpenColorIO
             $<TARGET_NAME_IF_EXISTS:OpenColorIO::OpenColorIOHeaders>
@@ -158,6 +157,17 @@ target_link_libraries (OpenImageIO
             ZLIB::ZLIB
             ${CMAKE_DL_LIBS}
         )
+
+# Google Highway (hwy) is an optional optimization dependency.
+set (_oiio_use_hwy 0)
+if (OIIO_USE_HWY AND TARGET hwy::hwy)
+    set (_oiio_use_hwy 1)
+    target_link_libraries (OpenImageIO PRIVATE hwy::hwy)
+    if (TARGET hwy::hwy_contrib)
+        target_link_libraries (OpenImageIO PRIVATE hwy::hwy_contrib)
+    endif ()
+endif ()
+target_compile_definitions (OpenImageIO PRIVATE OIIO_USE_HWY=${_oiio_use_hwy})
 
 if (WIN32)
     target_link_libraries (OpenImageIO PRIVATE psapi)
@@ -258,12 +268,13 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
 
     fancy_add_executable (NAME imagebufalgo_test SRC imagebufalgo_test.cpp
                           SYSTEM_INCLUDE_DIRS
-                                ${ROBINMAP_INCLUDES}
-                                ${OpenCV_INCLUDES}            
+                                ${OpenCV_INCLUDES}
                           LINK_LIBRARIES OpenImageIO
+                                         tsl::robin_map
                                          ${OpenCV_LIBRARIES}
-                                         ${OPENIMAGEIO_IMATH_TARGETS}
+                                         Imath::Imath
                           FOLDER "Unit Tests" NO_INSTALL)
+    target_compile_definitions (imagebufalgo_test PRIVATE OIIO_USE_HWY=${_oiio_use_hwy})
     add_test (unit_imagebufalgo ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/imagebufalgo_test)
     set_tests_properties (unit_imagebufalgo PROPERTIES PROCESSORS 2 COST 60)
 
@@ -278,12 +289,10 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
     add_test (unit_imageinout ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/imageinout_test)
     set_tests_properties (unit_imageinout PROPERTIES PROCESSORS 2 COST 30)
 
-    if (NOT DEFINED ENV{OpenImageIO_CI})
-        fancy_add_executable (NAME imagespeed_test SRC imagespeed_test.cpp
-                              LINK_LIBRARIES OpenImageIO
-                              FOLDER "Unit Tests" NO_INSTALL)
-        #add_test (imagespeed_test ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/imagespeed_test)
-    endif ()
+    fancy_add_executable (NAME imagespeed_test SRC imagespeed_test.cpp
+                          LINK_LIBRARIES OpenImageIO
+                          FOLDER "Unit Tests" NO_INSTALL)
+    #add_test (imagespeed_test ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/imagespeed_test)
 
     fancy_add_executable (NAME compute_test SRC compute_test.cpp
                           LINK_LIBRARIES OpenImageIO

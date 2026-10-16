@@ -472,6 +472,63 @@ pub fn router_circuit_breaker_threshold() -> usize {
 }
 
 // ============================================================================
+// NETWORK CONNECTIVITY CHECKS
+// ============================================================================
+
+const DEFAULT_CONNECTIVITY_ENDPOINTS: [&str; 3] = ["8.8.8.8:53", "1.1.1.1:53", "208.67.222.222:53"];
+
+/// Endpoints the network monitor probes (TCP connect, every 5s) to confirm outbound access.
+///
+/// **Default**: `8.8.8.8:53`, `1.1.1.1:53`, `208.67.222.222:53` (public DNS)
+///
+/// **Rationale**: Where public DNS is blocked by firewall policy the probes only generate
+/// firewall block logs; they do not gate WebRTC sessions. Such deployments can point the
+/// probes at reachable hosts or turn them off. With no endpoints the check is skipped and the
+/// network is treated as reachable.
+///
+/// **Env**:
+/// - `KEEPER_WEBRTC_DISABLE_CONNECTIVITY_CHECK`: `true` or `1` disables the checks. Takes
+///   precedence; any other value leaves them enabled.
+/// - `KEEPER_WEBRTC_CONNECTIVITY_ENDPOINTS`: comma-separated `host:port` list replacing the
+///   defaults, e.g. `10.0.1.1:53,10.0.1.2:53` or `dns.internal.corp:53`. Empty disables.
+pub fn connectivity_endpoints() -> Vec<String> {
+    resolve_connectivity_endpoints(
+        std::env::var("KEEPER_WEBRTC_DISABLE_CONNECTIVITY_CHECK")
+            .ok()
+            .as_deref(),
+        std::env::var("KEEPER_WEBRTC_CONNECTIVITY_ENDPOINTS")
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// [`connectivity_endpoints`] from the two variables' values, `None` when unset.
+pub(crate) fn resolve_connectivity_endpoints(
+    disable: Option<&str>,
+    endpoints: Option<&str>,
+) -> Vec<String> {
+    let disabled = disable.is_some_and(|v| {
+        let v = v.trim();
+        v == "1" || v.eq_ignore_ascii_case("true")
+    });
+    if disabled {
+        return Vec::new();
+    }
+    match endpoints {
+        Some(list) => list
+            .split(',')
+            .map(str::trim)
+            .filter(|e| !e.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        None => DEFAULT_CONNECTIVITY_ENDPOINTS
+            .iter()
+            .map(|e| (*e).to_owned())
+            .collect(),
+    }
+}
+
+// ============================================================================
 // LOGGING
 // ============================================================================
 

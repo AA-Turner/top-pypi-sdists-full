@@ -1,7 +1,6 @@
+from collections.abc import Callable
 from collections.abc import Mapping
 from collections.abc import Sequence
-from typing import Callable
-from typing import Union
 
 import pytest
 
@@ -20,7 +19,7 @@ def MC(
     methods: Sequence[Callable[..., object]],
     kwargs: Mapping[str, object],
     firstresult: bool = False,
-) -> Union[object, list[object]]:
+) -> object | list[object]:
     caller = _multicall
     hookfuncs = []
     for method in methods:
@@ -39,7 +38,7 @@ def test_keyword_args() -> None:
         def f(self, x, y):
             return x + y
 
-    reslist = MC([f, A().f], dict(x=23, y=24))
+    reslist = MC([f, A().f], {"x": 23, "y": 24})
     assert reslist == [24 + 23, 24]
 
 
@@ -48,7 +47,7 @@ def test_keyword_args_with_defaultargs() -> None:
     def f(x, z=1):
         return x + z
 
-    reslist = MC([f], dict(x=23, y=24))
+    reslist = MC([f], {"x": 23, "y": 24})
     assert reslist == [24]
 
 

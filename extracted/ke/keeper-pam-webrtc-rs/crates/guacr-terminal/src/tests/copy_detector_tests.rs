@@ -3,7 +3,7 @@ use crate::framebuffer::FrameRect;
 
 fn make_solid_frame(width: u32, height: u32, color: [u8; 4]) -> Vec<u8> {
     let mut data = vec![0u8; (width * height * 4) as usize];
-    for pixel in data.chunks_exact_mut(4) {
+    for pixel in data.as_chunks_mut::<4>().0 {
         pixel.copy_from_slice(&color);
     }
     data

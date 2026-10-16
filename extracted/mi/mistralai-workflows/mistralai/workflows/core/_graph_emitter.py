@@ -317,6 +317,19 @@ def _find_entrypoint_method_ast(
     return None
 
 
+def _find_runtime_function_ast(
+    module_ast: ast.Module, function: Callable[..., Any]
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    source_start_line = inspect.getsourcelines(function)[1]
+    for node in ast.walk(module_ast):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != function.__name__:
+            continue
+        definition_start_line = min((decorator.lineno for decorator in node.decorator_list), default=node.lineno)
+        if definition_start_line == source_start_line:
+            return node
+    return None
+
+
 def _collect_workflow_connectors_runtime(workflow_cls: type) -> list[str]:
     """Connector names declared on a workflow class via ``@uses_connectors(...)``."""
     metadata = getattr(workflow_cls, _PLUGIN_META_ATTR, None)
@@ -337,6 +350,12 @@ def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
         _get_workflow_entrypoint_method,
     )
 
+    entrypoint_fn = cast("Callable[..., Any] | None", _get_workflow_entrypoint_method(workflow_cls))
+    if entrypoint_fn is None:
+        raise ValueError(f"No entrypoint method for {workflow_cls.__name__}")
+    source_entrypoint = cast("Callable[..., Any]", inspect.unwrap(entrypoint_fn))
+    ep_name = entrypoint_fn.__name__
+
     file_path = inspect.getfile(workflow_cls)
     source_text = Path(file_path).read_text()
     sources: dict[str, str] = {file_path: source_text}
@@ -349,25 +368,50 @@ def build_graph_dynamically(workflow_cls: type) -> AtlasWireFormat:
         None,
     )
     if cls_def is None:
-        raise ValueError(f"Class {workflow_cls.__name__} not found in {file_path}")
+        entrypoint_file = inspect.getsourcefile(source_entrypoint) or inspect.getfile(source_entrypoint)
+        if entrypoint_file != file_path:
+            file_path = entrypoint_file
+            source_text = Path(file_path).read_text()
+            sources = {file_path: source_text}
+            asts = {}
+            indices = {}
+            ast_tree = _get_ast(file_path, sources, asts)
 
-    entrypoint_fn = cast("Callable[..., Any] | None", _get_workflow_entrypoint_method(workflow_cls))
-    if entrypoint_fn is None:
-        raise ValueError(f"No entrypoint method for {workflow_cls.__name__}")
+        ep_def = _find_runtime_function_ast(ast_tree, source_entrypoint)
+        if ep_def is None:
+            raise ValueError(f"Entrypoint method {ep_name} not found in {file_path}")
 
-    ep_name = entrypoint_fn.__name__
-    ep_def = next(
-        (n for n in cls_def.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == ep_name),
-        None,
-    )
-    if ep_def is None:
-        raise ValueError(f"Entrypoint method {ep_name} not found in {workflow_cls.__name__}")
+        cls_def = ast.copy_location(
+            ast.ClassDef(
+                name=workflow_cls.__name__,
+                bases=[],
+                keywords=[],
+                body=[ep_def],
+                decorator_list=[],
+                type_params=[],
+            ),
+            ep_def,
+        )
+    else:
+        ep_def = next(
+            (n for n in cls_def.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == ep_name),
+            None,
+        )
+        if ep_def is None:
+            raise ValueError(f"Entrypoint method {ep_name} not found in {workflow_cls.__name__}")
 
     workflow_name = get_workflow_definition(workflow_cls).name
     byte_len = len(source_text.encode("utf-8"))
     file_ranges: dict[str, dict[str, int]] = {file_path: {"begin": 0, "end": byte_len}}
 
-    module_ns: dict[str, Any] = vars(inspect.getmodule(entrypoint_fn))
+    closure_vars = inspect.getclosurevars(source_entrypoint)
+    entrypoint_module = inspect.getmodule(source_entrypoint)
+    module_ns: dict[str, Any] = {
+        **closure_vars.builtins,
+        **(vars(entrypoint_module) if entrypoint_module is not None else {}),
+        **closure_vars.globals,
+        **closure_vars.nonlocals,
+    }
     resolver = _DynamicResolver(module_ns=module_ns, workflow_cls=workflow_cls)
 
     tree_nodes = _walk_body_tree(

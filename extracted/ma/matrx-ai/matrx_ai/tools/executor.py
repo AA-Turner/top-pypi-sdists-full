@@ -1129,6 +1129,39 @@ class ToolExecutor:
                 name="tool_db_log_alias_recovered",
             )
 
+        # --- Pinned arguments (the person's per-request limit, arg_pins.py) ---
+        # Applied before the durable row, the trace and validation, so every record of
+        # the call carries what actually ran. Loud on every fire; told to the model below.
+        from matrx_ai.context.app_context import try_get_app_context as _try_app
+        from matrx_ai.tools.arg_pins import apply_arg_pins, pins_for
+
+        _pin_app = _try_app()
+        arguments, pinned_changes = apply_arg_pins(
+            arguments, pins_for(canonical_name, getattr(_pin_app, "metadata", None) if _pin_app else None)
+        )
+        if pinned_changes:
+            vcprint(f"[ToolExecutor] PINNED {tool_name}: {'; '.join(pinned_changes)}", color="cyan")
+            _debug_log(
+                "ARGS_PINNED",
+                tool=tool_name,
+                pinned="; ".join(pinned_changes),
+                conv=(getattr(ctx, "conversation_id", None) or "")[:8],
+                call=ctx.call_id,
+            )
+            detached_task(
+                _db_log(
+                    "ARGS_PINNED",
+                    tool_name=tool_name,
+                    kind=_dispatch_kind,
+                    args=arguments,
+                    conversation_id=getattr(ctx, "conversation_id", None),
+                    call_id=ctx.call_id,
+                    user_id=getattr(ctx, "user_id", None),
+                    metadata={"pinned": pinned_changes},
+                ),
+                name="tool_db_log_args_pinned",
+            )
+
         # --- Admin-only gate (defense-in-depth, the hard runtime boundary) ---
         # A tool marked admin_only (e.g. the cross-user `sql` tool) must NEVER execute
         # for a non-admin caller, no matter how it entered the toolset. The injection
@@ -2158,6 +2191,11 @@ class ToolExecutor:
                 result.output.setdefault("arg_inference_notice", _infer_notice)
             else:
                 result.model_notices.append(_infer_notice)
+        if pinned_changes:
+            result.model_notices.append(
+                f"NOTICE: this chat pins {tool_name}: {'; '.join(pinned_changes)}. "
+                "The call ran with the pinned value."
+            )
         if removed_variant_fields is not None:
             # The call ran WITHOUT these arguments: a model that sent, say,
             # categories to the wrong action got a different answer than it

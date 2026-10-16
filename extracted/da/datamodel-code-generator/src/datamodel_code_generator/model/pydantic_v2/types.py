@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from datamodel_code_generator._format_types import DateClassType, DatetimeClassType, PythonVersion, PythonVersionMin
 from datamodel_code_generator.imports import (
+    IMPORT_ANNOTATED,
     IMPORT_ANY,
     IMPORT_DATE,
     IMPORT_DATETIME,
@@ -26,6 +27,7 @@ from datamodel_code_generator.imports import (
     IMPORT_ULID,
     IMPORT_UUID,
 )
+from datamodel_code_generator.model.pydantic_v2 import imports as pydantic_imports
 from datamodel_code_generator.model.pydantic_v2._output_context import (
     ANNOTATED_CONSTRAINTS_CONTEXT as _ANNOTATED_CONSTRAINTS_CONTEXT,
 )
@@ -40,6 +42,7 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_CONINT,
     IMPORT_CONSTR,
     IMPORT_EMAIL_STR,
+    IMPORT_FIELD,
     IMPORT_FUTURE_DATE,
     IMPORT_FUTURE_DATETIME,
     IMPORT_IPV4ADDRESS,
@@ -64,15 +67,21 @@ from datamodel_code_generator.model.pydantic_v2.imports import (
     IMPORT_STRICT_FLOAT,
     IMPORT_STRICT_INT,
     IMPORT_STRICT_STR,
+    IMPORT_STRING_CONSTRAINTS,
     IMPORT_UUID1,
     IMPORT_UUID3,
     IMPORT_UUID4,
     IMPORT_UUID5,
 )
+from datamodel_code_generator.model.pydantic_v2.version import PYDANTIC_V2_STRING_CONSTRAINTS_MINIMUM, target_supports
 from datamodel_code_generator.python_literal import PythonCode
 from datamodel_code_generator.types import (
     CONSTRAINED_DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
     DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
+    LENGTH_KEYWORDS,
+    NUMBER_BOUND_KEYWORDS,
+    NUMBER_KEYWORDS,
+    STRING_KEYWORDS,
     DataType,
     StrictTypes,
     Types,
@@ -82,8 +91,10 @@ from datamodel_code_generator.types import (
 from datamodel_code_generator.types import DataTypeManager as _DataTypeManagerBase
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Iterator, Sequence
+    from collections.abc import Collection, Iterator, Mapping, Sequence
+    from types import ModuleType
 
+    from datamodel_code_generator.enums import TargetPydanticVersion
     from datamodel_code_generator.imports import Import
 
 
@@ -177,6 +188,7 @@ number_kwargs: tuple[str, ...] = (
 )
 
 string_kwargs: tuple[str, ...] = ("pattern", "minLength", "maxLength", "minItems", "maxItems")
+_ANNOTATED_STRING_IMPORTS = (IMPORT_ANNOTATED,)
 
 bytes_kwargs: tuple[str, ...] = ("minLength", "maxLength")
 
@@ -202,6 +214,11 @@ def _get_regex_literal(pattern: str) -> str:
     return PythonCode(raw_literal, pattern)
 
 
+def _constraint_keywords(keywords: frozenset[str], *imports: Import) -> dict[str, frozenset[str]]:
+    """Map the import paths of Pydantic types to the type-dependent keywords they take."""
+    return {f"{import_.from_}.{import_.import_}": keywords for import_ in imports}
+
+
 class _PydanticDataTypeManager(_DataTypeManagerBase):
     """Base data type manager for Pydantic models with constrained types."""
 
@@ -217,6 +234,35 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
         "NonNegativeFloat": ("minimum",),
         "NonPositiveFloat": ("maximum",),
     }
+    CONSTRAINT_KEYWORDS: ClassVar[Mapping[str, frozenset[str]]] = MappingProxyType({
+        **_DataTypeManagerBase.CONSTRAINT_KEYWORDS,
+        **_constraint_keywords(
+            NUMBER_KEYWORDS,
+            IMPORT_CONINT,
+            IMPORT_CONFLOAT,
+            IMPORT_CONDECIMAL,
+            IMPORT_STRICT_INT,
+            IMPORT_STRICT_FLOAT,
+            IMPORT_POSITIVE_INT,
+            IMPORT_NEGATIVE_INT,
+            IMPORT_NON_NEGATIVE_INT,
+            IMPORT_NON_POSITIVE_INT,
+            IMPORT_POSITIVE_FLOAT,
+            IMPORT_NEGATIVE_FLOAT,
+            IMPORT_NON_NEGATIVE_FLOAT,
+            IMPORT_NON_POSITIVE_FLOAT,
+        ),
+        **_constraint_keywords(
+            NUMBER_BOUND_KEYWORDS,
+            IMPORT_AWARE_DATETIME,
+            IMPORT_NAIVE_DATETIME,
+            IMPORT_PAST_DATETIME,
+            IMPORT_FUTURE_DATETIME,
+        ),
+        **_constraint_keywords(STRING_KEYWORDS, IMPORT_CONSTR, IMPORT_STRICT_STR, IMPORT_STRICT_BYTES),
+        **_constraint_keywords(LENGTH_KEYWORDS, IMPORT_CONBYTES, IMPORT_EMAIL_STR, IMPORT_SECRET_STR),
+    })
+    KNOWN_TYPE_IMPORTS: ClassVar[tuple[ModuleType, ...]] = (*_DataTypeManagerBase.KNOWN_TYPE_IMPORTS, pydantic_imports)
     DEFAULT_VALUE_DESCRIPTORS = MappingProxyType({
         (IMPORT_DECIMAL.from_, IMPORT_DECIMAL.import_): DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
         (IMPORT_CONDECIMAL.from_, IMPORT_CONDECIMAL.import_): CONSTRAINED_DECIMAL_DEFAULT_VALUE_DESCRIPTOR,
@@ -295,7 +341,7 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
             use_object_type,
         )
 
-    def transform_kwargs(self, kwargs: dict[str, Any], filter_: Collection[str]) -> dict[str, str]:
+    def transform_kwargs(self, kwargs: dict[str, Any], filter_: Collection[str]) -> dict[str, Any]:
         """Transform schema kwargs to Pydantic field kwargs.
 
         Iterates whichever side is smaller. Output order is identical either way
@@ -386,15 +432,35 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
             )
         return self.copy_data_type(self.type_map[types])
 
-    def get_data_str_type(self, types: Types, **kwargs: Any) -> DataType:
-        """Get string data type with constraints (constr)."""
-        data_type_kwargs: dict[str, Any] = self.transform_kwargs(kwargs, string_kwargs)
+    def get_data_str_type(
+        self,
+        types: Types,
+        *,
+        use_annotated: bool = False,
+        target_pydantic_version: TargetPydanticVersion | None = None,
+        **kwargs: Any,
+    ) -> DataType:
+        """Get a string type with constraints in the requested annotation style."""
         strict = StrictTypes.str in self.strict_types
-        if data_type_kwargs:
+        if data_type_kwargs := self.transform_kwargs(kwargs, string_kwargs):
             if strict:
-                data_type_kwargs["strict"] = True  # ty: ignore[invalid-assignment]
+                data_type_kwargs["strict"] = True
             if self.PATTERN_KEY in data_type_kwargs:
                 data_type_kwargs[self.PATTERN_KEY] = _get_regex_literal(data_type_kwargs[self.PATTERN_KEY])
+            if use_annotated:
+                from datamodel_code_generator.model.pydantic_v2._annotated_types import (  # noqa: PLC0415
+                    AnnotatedStringDataType,
+                )
+
+                constraint_import = (
+                    IMPORT_STRING_CONSTRAINTS
+                    if target_supports(target_pydantic_version, PYDANTIC_V2_STRING_CONSTRAINTS_MINIMUM)
+                    else IMPORT_FIELD
+                )
+                data_type = AnnotatedStringDataType.from_import(constraint_import, kwargs=data_type_kwargs)
+                data_type.python_version = self.python_version
+                data_type._set_runtime_expression_imports(_ANNOTATED_STRING_IMPORTS)  # noqa: SLF001
+                return data_type
             return self.data_type.from_import(IMPORT_CONSTR, kwargs=data_type_kwargs)
         if strict:
             return self.copy_data_type(self.strict_type_map[StrictTypes.str])
@@ -405,14 +471,14 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
         base64_encoded = kwargs.pop("base64_encoded", False)
         data_type_kwargs: dict[str, Any] = self.transform_kwargs(kwargs, bytes_kwargs)
         strict = StrictTypes.bytes in self.strict_types
-        if base64_encoded and not data_type_kwargs and not strict:
-            return self.data_type.from_import(IMPORT_BASE64BYTES)
-        if data_type_kwargs and not strict:
+        if data_type_kwargs:
+            if strict:
+                data_type_kwargs["strict"] = True
             return self.data_type.from_import(IMPORT_CONBYTES, kwargs=data_type_kwargs)
-        # conbytes doesn't accept strict argument
-        # https://github.com/samuelcolvin/pydantic/issues/2489
         if strict:
             return self.copy_data_type(self.strict_type_map[StrictTypes.bytes])
+        if base64_encoded:
+            return self.data_type.from_import(IMPORT_BASE64BYTES)
         return self.copy_data_type(self.type_map[types])
 
     def get_data_type(  # noqa: PLR0911
@@ -427,7 +493,7 @@ class _PydanticDataTypeManager(_DataTypeManagerBase):
             return self.get_data_str_type(types, **kwargs)
         if types in {Types.int32, Types.int64, Types.integer}:
             return self.get_data_int_type(types, **kwargs)
-        if types in {Types.float, Types.double, Types.number, Types.time}:
+        if types in {Types.float, Types.double, Types.number, Types.time} and not kwargs.get("string_format"):
             return self.get_data_float_type(types, **kwargs)
         if types == Types.decimal:
             return self.get_data_decimal_type(types, **kwargs)

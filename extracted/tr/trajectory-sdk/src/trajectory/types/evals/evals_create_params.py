@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Required, TypedDict
+from typing import Literal, TypedDict
 
 from trajectory.types.run_options_param import RunOptionsParam
 
@@ -20,7 +20,7 @@ class EvalsCreateParams(TypedDict, total=False):
   attribution uses the benchmark owner.
   """
   agent_id: str | None
-  base_model_slug: Required[
+  base_model_slug: (
     Literal[
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -42,11 +42,13 @@ class EvalsCreateParams(TypedDict, total=False):
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
       "moonshotai/kimi-k3",
     ]
-  ]
+    | None
+  )
   """
-  Registered base model for the run, distinct from a deployment model slug.
+  Registered base model; mutually exclusive with deployment_id.
   """
   options: RunOptionsParam | None
   """
@@ -57,6 +59,10 @@ class EvalsCreateParams(TypedDict, total=False):
   Checkpoint to resume training from or evaluate; must match the selected base model.
   """
   display_name: str | None
+  deployment_id: str | None
+  """
+  Evaluate the exact hosted checkpoint and pool of a ready deployment.
+  """
   task_split: Literal["test", "all"]
   """
   Evaluate test tasks by default; all includes both test and train tasks.

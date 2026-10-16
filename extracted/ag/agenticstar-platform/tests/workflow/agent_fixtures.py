@@ -220,6 +220,22 @@ async def run_gate_decision(context):
     (context.output_dir / "reply.md").write_text(text + "\n", encoding="utf-8")
 
 
+async def run_start_input(context):
+    """runの開始の入力を回答に書き出す（無ければnone）。書き換えられないことも書く。"""
+    si = context.start_input
+    if si is None:
+        text = "none"
+    else:
+        try:
+            si["kind"] = "changed"
+            writable = True
+        except TypeError:
+            writable = False
+        text = json.dumps({**dict(si), "writable": writable, "in_manifest": "start_input" in context.manifest},
+                          ensure_ascii=False, sort_keys=True)
+    (context.output_dir / "reply.md").write_text(text + "\n", encoding="utf-8")
+
+
 async def run_connection_token_expiring(context):
     """期限まで min_ttl を切った token は毎回取り直す。"""
     a = await context.connection_token("gitlab", min_ttl=3600 * 2)

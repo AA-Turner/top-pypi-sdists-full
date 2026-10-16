@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import time
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -501,51 +502,196 @@ def _client_host_pricing_notice(reason: str) -> None:
     )
 
 
+class PricingShapeError(ValueError):
+    """One pricing field holds a value that is not a price (e.g. a dict where a number belongs).
+
+    Raised per OFFERING, never per warm: one malformed catalog row makes THAT model unpriced
+    (loudly), it must never take pricing away from every other model. 2026-10-15: a single
+    offering with nested ``component_prices`` ({"service": {"web_search": 14000}}) aborted the
+    whole warm and every call on the platform recorded NULL cost.
+    """
+
+
+def _price(value: Any, field_name: str) -> float:
+    """A required price: number or numeric string; missing/None = 0. Anything else raises."""
+    if value is None or value == "":
+        return 0.0
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        raise PricingShapeError(
+            f"{field_name} must be a number, got {type(value).__name__}: {str(value)[:120]}"
+        )
+    try:
+        price = float(value)
+    except (TypeError, ValueError) as exc:
+        raise PricingShapeError(f"{field_name} is not numeric: {str(value)[:120]}") from exc
+    if not math.isfinite(price) or price < 0:
+        raise PricingShapeError(f"{field_name} must be a finite, non-negative price: {value}")
+    return price
+
+
 def _tiers_from_pricing_field(pricing_field: Any) -> list[PricingTier]:
     """Parse a pricing jsonb field (list of tier dicts) into PricingTier objects.
 
     Shared by the ORM (ai.offering.pricing) and host-catalog (model dict
-    'pricing' key) warm paths. A string field is json-decoded; anything
-    unusable yields []."""
+    'pricing' key) warm paths. A string field is json-decoded; an absent/empty
+    field yields []. A field that IS present but malformed raises
+    ``PricingShapeError`` — the caller isolates it to that one offering."""
     import json
 
+    if pricing_field is None:
+        return []
     if isinstance(pricing_field, str):
         try:
             pricing_field = json.loads(pricing_field)
-        except Exception:
-            return []
+        except Exception as exc:
+            raise PricingShapeError(f"pricing is not valid JSON: {pricing_field[:120]}") from exc
+    if isinstance(pricing_field, dict):
+        # A single tier object stored without its list wrapper ({} = no pricing, never a $0 tier).
+        pricing_field = [pricing_field] if pricing_field else []
     if not isinstance(pricing_field, list):
-        return []
+        raise PricingShapeError(f"pricing must be a list of tiers, got {type(pricing_field).__name__}")
     tiers: list[PricingTier] = []
-    for tier_data in pricing_field:
+    for index, tier_data in enumerate(pricing_field):
         if not isinstance(tier_data, dict):
-            continue
+            raise PricingShapeError(f"pricing[{index}] must be an object, got {type(tier_data).__name__}")
+        where = f"pricing[{index}]"
+        max_tokens = tier_data.get("max_tokens")
         tiers.append(
             PricingTier(
-                max_tokens=tier_data.get("max_tokens"),
-                input_price=float(tier_data.get("input_price") or 0),
-                output_price=float(tier_data.get("output_price") or 0),
-                cached_input_price=float(tier_data.get("cached_input_price") or 0),
+                max_tokens=None if max_tokens is None else int(_price(max_tokens, f"{where}.max_tokens")),
+                input_price=_price(tier_data.get("input_price"), f"{where}.input_price"),
+                output_price=_price(tier_data.get("output_price"), f"{where}.output_price"),
+                cached_input_price=_price(tier_data.get("cached_input_price"), f"{where}.cached_input_price"),
                 usage_basis=tier_data.get("usage_basis") or None,
-                cache_write_5m_price=_optional_float(tier_data.get("cache_write_5m_price")),
-                cache_write_1h_price=_optional_float(tier_data.get("cache_write_1h_price")),
-                cache_hit_price=_optional_float(tier_data.get("cache_hit_price")),
-                component_prices=_float_map(tier_data.get("component_prices")),
+                cache_write_5m_price=_optional_float(tier_data.get("cache_write_5m_price"), f"{where}.cache_write_5m_price"),
+                cache_write_1h_price=_optional_float(tier_data.get("cache_write_1h_price"), f"{where}.cache_write_1h_price"),
+                cache_hit_price=_optional_float(tier_data.get("cache_hit_price"), f"{where}.cache_hit_price"),
+                component_prices=_float_map(tier_data.get("component_prices"), f"{where}.component_prices"),
             )
         )
     return tiers
 
 
-def _optional_float(value: Any) -> float | None:
+def _optional_float(value: Any, field_name: str = "price") -> float | None:
     if value is None:
         return None
-    return float(value)
+    return _price(value, field_name)
 
 
-def _float_map(value: Any) -> dict[str, float]:
-    if not isinstance(value, dict):
+def _float_map(value: Any, field_name: str = "component_prices") -> dict[str, float]:
+    """Component prices, keyed by canonical dotted name (``service.web_search``).
+
+    A nested object is flattened to dotted keys — ``{"service": {"web_search": 14000}}`` is the
+    same price as ``{"service.web_search": 14000}`` (the catalog has held both shapes)."""
+    if value is None:
         return {}
-    return {str(key): float(price) for key, price in value.items() if price is not None}
+    if not isinstance(value, dict):
+        raise PricingShapeError(f"{field_name} must be an object, got {type(value).__name__}")
+    flat: dict[str, float] = {}
+
+    def walk(prefix: str, node: dict[str, Any]) -> None:
+        for key, price in node.items():
+            name = f"{prefix}.{key}" if prefix else str(key)
+            if price is None:
+                continue
+            if isinstance(price, dict):
+                walk(name, price)
+                continue
+            flat[name] = _price(price, f"{field_name}.{name}")
+
+    walk("", value)
+    return flat
+
+
+#: Offerings whose pricing could not be parsed on the last warm: offering label -> problem.
+_pricing_invalid_offerings: dict[str, str] = {}
+#: The last whole-warm failure ("" when the last warm succeeded).
+_pricing_warm_error: str = ""
+_pricing_warm_at: float = 0.0
+
+
+def pricing_warm_health() -> dict[str, Any]:
+    """Readiness view of the price table. ``ok`` is False when the table never loaded, the last
+    warm failed, or any offering's pricing could not be parsed (those models are unpriced)."""
+    warm = _pricing_lookup_cache is not None
+    return {
+        "ok": warm and not _pricing_warm_error and not _pricing_invalid_offerings,
+        "warm": warm,
+        "priced_entries": len(_pricing_lookup_cache or {}),
+        "last_error": _pricing_warm_error or None,
+        "invalid_offerings": dict(_pricing_invalid_offerings),
+        "client_host_mode": _client_host_pricing_mode,
+    }
+
+
+def _capture_pricing_problem(kind: str, message: str, payload: dict[str, Any]) -> None:
+    """Durable, structured capture (system_error via the host ``record_error`` sink). Never raises."""
+    try:
+        from matrx_ai._ext import get_ext, has_ext
+
+        if not has_ext("record_error"):
+            return
+        error = PricingShapeError(message) if kind == "pricing_shape_invalid" else RuntimeError(message)
+        pending = get_ext("record_error")(
+            error,
+            kind=kind,
+            route="matrx_ai.config.usage_config.warm_pricing_lookup",
+            error_type=kind,
+            error_text=message[:1000],
+            payload=payload,
+        )
+        import inspect
+
+        if inspect.isawaitable(pending):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                pending.close()
+                return
+            from matrx_utils import detached_task
+
+            detached_task(pending, name=kind)
+    except Exception:  # noqa: BLE001 — diagnostics never break pricing
+        return
+
+
+#: Conservative per-million prices used ONLY to count an unpriced call against spend caps when the
+#: price table holds nothing to compare with (the table failed to load). Opus-class on purpose: an
+#: unknown cost must trip a cap early, never late.
+UNPRICED_FALLBACK_INPUT_PER_M = 20.0
+UNPRICED_FALLBACK_OUTPUT_PER_M = 75.0
+
+
+def conservative_unpriced_cost(usage: Any) -> float:
+    """A deliberately HIGH cost estimate for a call whose real price is unknown.
+
+    Uses the highest token prices in the loaded price table (input, cached input, output), or the
+    Opus-class fallback when the table is empty. Never the recorded cost — the ledger keeps NULL;
+    this number exists so caps, run limits and alarms keep counting while the price is missing.
+    """
+    if usage is None:
+        return 0.0
+    max_in = max_out = 0.0
+    for pricing in (_pricing_lookup_cache or {}).values():
+        for tier in pricing.tiers:
+            if tier.usage_basis is not None:
+                continue
+            max_in = max(max_in, tier.input_price, tier.cached_input_price)
+            max_out = max(max_out, tier.output_price)
+    if max_in <= 0 and max_out <= 0:
+        max_in, max_out = UNPRICED_FALLBACK_INPUT_PER_M, UNPRICED_FALLBACK_OUTPUT_PER_M
+
+    def _n(name: str) -> int:
+        try:
+            return max(0, int(getattr(usage, name, 0) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    tokens_in = _n("input_tokens") + _n("cached_input_tokens")
+    for extra in ("cache_write_5m_tokens", "cache_write_1h_tokens"):
+        tokens_in += _n(extra)
+    tokens_out = _n("output_tokens")
+    return (tokens_in * max_in + tokens_out * max_out) / 1_000_000
 
 
 async def _warm_pricing_from_host_catalog(catalog: Any) -> dict[str, ModelPricing]:
@@ -565,7 +711,11 @@ async def _warm_pricing_from_host_catalog(catalog: Any) -> dict[str, ModelPricin
         name = str(getattr(model, "name", "") or "")
         if not name:
             continue
-        tiers = _tiers_from_pricing_field(model.get("pricing"))
+        try:
+            tiers = _tiers_from_pricing_field(model.get("pricing"))
+        except PricingShapeError as exc:
+            vcprint(f"[Pricing] host catalog model '{name}' has unusable pricing: {exc}", color="yellow")
+            continue
         if not tiers:
             continue
         model_pricing = ModelPricing(
@@ -609,7 +759,7 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
     Exceptions are logged loudly and the cache is left at its previous value so the
     next access can re-attempt the warm.
     """
-    global _pricing_lookup_cache, _client_host_pricing_mode
+    global _pricing_lookup_cache, _client_host_pricing_mode, _pricing_warm_error, _pricing_warm_at
     # CLIENT HOST: a host-injected model catalog replaces the ORM path entirely
     # — pricing comes off the catalog's model dicts. Never touches
     # ai_catalog_manager (which needs host DB config).
@@ -639,6 +789,7 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
         lookup: dict[str, ModelPricing] = {}
         orphan_models: list[str] = []
         parked_models: list[str] = []
+        invalid: dict[str, str] = {}
         for model in models:
             offerings = ai_catalog_manager.offerings_for(str(model.id))
             if not offerings:
@@ -664,7 +815,12 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
             priced_offerings: list[ModelPricing] = []
             for offering in offerings:
                 endpoint = ai_catalog_manager.endpoint(offering.endpoint_id)
-                tiers = _tiers_from_pricing_field(offering.pricing)
+                try:
+                    tiers = _tiers_from_pricing_field(offering.pricing)
+                except PricingShapeError as exc:
+                    # ONE bad row makes ONE offering unpriced — never the whole table.
+                    invalid[f"{model.name} (offering {offering.id})"] = str(exc)
+                    continue
                 if not tiers:
                     continue
                 api = endpoint.vendor if endpoint else ""
@@ -697,6 +853,26 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
             )
             await _capture_orphan_models(orphan_models)
 
+        if invalid:
+            detail = "\n".join(f"    ● {label}: {problem}" for label, problem in invalid.items())
+            vcprint(
+                f"{len(invalid)} offering(s) have pricing that cannot be read — those calls are "
+                f"UNPRICED (counted against caps at a conservative estimate) until the row is fixed:\n{detail}",
+                title="🚨 AI CATALOG PRICING SHAPE INVALID",
+                color="red",
+                log_level="error",
+            )
+            if invalid != _pricing_invalid_offerings:
+                _capture_pricing_problem(
+                    "pricing_shape_invalid",
+                    f"{len(invalid)} offering(s) have unreadable pricing and are unpriced: "
+                    + "; ".join(f"{k}: {v}" for k, v in invalid.items()),
+                    {"invalid_offerings": invalid, "invalid_count": len(invalid)},
+                )
+        _pricing_invalid_offerings.clear()
+        _pricing_invalid_offerings.update(invalid)
+        _pricing_warm_error = ""
+        _pricing_warm_at = time.time()
         _pricing_lookup_cache = lookup
         vcprint(
             f"[Pricing] Warmed {len(lookup)} models",
@@ -726,6 +902,15 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
             color="red",
             log_level="error",
         )
+        message = f"pricing lookup warm failed: {type(e).__name__}: {e}"
+        if message != _pricing_warm_error:
+            _capture_pricing_problem(
+                "pricing_lookup_warm_failed",
+                message + (" — every call is unpriced until it succeeds" if _pricing_lookup_cache is None
+                           else " — the previous price table is still in use"),
+                {"error_type": type(e).__name__, "had_previous_table": _pricing_lookup_cache is not None},
+            )
+        _pricing_warm_error = message
         return _pricing_lookup_cache or {}
 
 

@@ -37,6 +37,12 @@ class Evals(APIResource):
   def create(
     self,
     *,
+    idempotency_key: str | None | Omit = omit,
+    bench_id: str | None | Omit = omit,
+    agent_name: str | None | Omit = omit,
+    benchmark_name: str | None | Omit = omit,
+    bypass_ownership: bool | Omit = omit,
+    agent_id: str | None | Omit = omit,
     base_model_slug: Literal[
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -58,17 +64,15 @@ class Evals(APIResource):
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
       "moonshotai/kimi-k3",
-    ],
-    idempotency_key: str | None | Omit = omit,
-    bench_id: str | None | Omit = omit,
-    agent_name: str | None | Omit = omit,
-    benchmark_name: str | None | Omit = omit,
-    bypass_ownership: bool | Omit = omit,
-    agent_id: str | None | Omit = omit,
+    ]
+    | None
+    | Omit = omit,
     options: RunOptionsParam | None | Omit = omit,
     parent_checkpoint_id: str | None | Omit = omit,
     display_name: str | None | Omit = omit,
+    deployment_id: str | None | Omit = omit,
     task_split: Literal["test", "all"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
@@ -79,8 +83,6 @@ class Evals(APIResource):
     tasks.
 
     Args:
-      base_model_slug: Registered base model for the run, distinct from a deployment model slug.
-
       idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
         blank or over-long key, including an SDK call that passes `idempotency_key=None`.
         Optional for legacy callers, whose key the API generates. Reuse this key when
@@ -92,10 +94,14 @@ class Evals(APIResource):
       bypass_ownership: Allow a supplied agent to differ from the benchmark owner within the same
         organization; run attribution uses the benchmark owner.
 
+      base_model_slug: Registered base model; mutually exclusive with deployment_id.
+
       options: Run settings; omission, null, and an empty object preserve defaults.
 
       parent_checkpoint_id: Checkpoint to resume training from or evaluate; must match the selected base
         model.
+
+      deployment_id: Evaluate the exact hosted checkpoint and pool of a ready deployment.
 
       task_split: Evaluate test tasks by default; all includes both test and train tasks.
 
@@ -112,15 +118,16 @@ class Evals(APIResource):
       cast_to=StartEvalResponse,
       body=maybe_transform(
         {
-          "base_model_slug": base_model_slug,
           "bench_id": bench_id,
           "agent_name": agent_name,
           "benchmark_name": benchmark_name,
           "bypass_ownership": bypass_ownership,
           "agent_id": agent_id,
+          "base_model_slug": base_model_slug,
           "options": options,
           "parent_checkpoint_id": parent_checkpoint_id,
           "display_name": display_name,
+          "deployment_id": deployment_id,
           "task_split": task_split,
         },
         EvalsCreateParams,
@@ -166,6 +173,7 @@ class Evals(APIResource):
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
       "moonshotai/kimi-k3",
     ]
     | None

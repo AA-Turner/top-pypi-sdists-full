@@ -4,7 +4,7 @@ use std::path::Path;
 use chalk_ast::{AstFileParserCache, FeatureClassAST, ParsedAstFile, ResolverAST};
 use lsp_types::{Diagnostic, DiagnosticSeverity, NumberOrString, Position, Range};
 
-const SOURCE: &str = "chalk";
+const SOURCE: &str = "local";
 
 /// Run all lint checks on a single file and return LSP diagnostics.
 pub fn lint(project_root: Option<&Path>, file_path: &Path, source: &str) -> Vec<Diagnostic> {
@@ -19,25 +19,13 @@ pub fn lint(project_root: Option<&Path>, file_path: &Path, source: &str) -> Vec<
         return diags;
     }
 
-    if project_root.is_none() {
-        diags.push(Diagnostic {
-            range: Range::new(Position::new(0, 0), Position::new(0, 0)),
-            severity: Some(DiagnosticSeverity::INFORMATION),
-            source: Some(SOURCE.into()),
-            message: "No chalk.yml found in any parent directory. \
-                      Some lint checks are disabled."
-                .into(),
-            ..Default::default()
-        });
-    }
-
-    let root = project_root
-        .map(|p| p.to_path_buf())
-        .unwrap_or_else(|| file_path.parent().unwrap_or(Path::new(".")).to_path_buf());
+    let Some(root) = project_root else {
+        return diags;
+    };
 
     let file_path_str = file_path.to_string_lossy().to_string();
 
-    let parsed = parse_single_file(&root, &file_path_str);
+    let parsed = parse_single_file(root, &file_path_str);
 
     diags.extend(lint_feature_classes(&parsed.feature_classes));
     diags.extend(lint_resolvers(&parsed.resolvers));

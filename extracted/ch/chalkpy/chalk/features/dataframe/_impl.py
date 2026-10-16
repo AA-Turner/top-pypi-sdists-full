@@ -57,6 +57,7 @@ from chalk.utils.duration import Duration, parse_chalk_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pandas_utils import is_pandas_dataframe, require_pandas
 from chalk.utils.pl_helpers import (
+    polars_csv_renames_before_selection,
     polars_group_by_instead_of_groupby,
     polars_hist_column_is_breakpoint,
     polars_lazy_frame_collect_schema,
@@ -1552,6 +1553,30 @@ class DataFrame(metaclass=DataFrameMeta):
             cols_to_select, dtypes, new_columns = None, None, None
         else:
             cols_to_select, dtypes, new_columns = cls._parse_columns(columns)
+            if polars_csv_renames_before_selection:
+                # Polars 2 applies new_columns before column selection, and a
+                # positional schema override must cover the entire CSV. Give
+                # every source column a unique temporary name so destination
+                # names cannot collide with headers that will be projected out.
+                temporary_columns = [f"__chalk_csv_selected_{i}" for i in range(len(new_columns))]
+                column_names: Dict[Union[int, str], str] = dict(zip(cols_to_select, temporary_columns))
+
+                def rename_columns(names: List[str]) -> List[str]:
+                    return [
+                        column_names.get(i, column_names.get(name, f"__chalk_csv_unselected_{i}"))
+                        for i, name in enumerate(names)
+                    ]
+
+                data = pl.scan_csv(
+                    source=path,
+                    has_header=has_header,
+                    with_column_names=rename_columns,
+                    schema_overrides=dict(zip(temporary_columns, dtypes)),  # pyright: ignore[reportCallIssue]
+                    storage_options=DataFrame._get_storage_options(),
+                ).select(
+                    [pl.col(source).alias(destination) for source, destination in zip(temporary_columns, new_columns)]
+                )
+                return cls(data.collect())
 
         # 'dtypes' deprecated for 'schema_overrides' in polars 0.20.31+
         if polars_uses_schema_overrides:

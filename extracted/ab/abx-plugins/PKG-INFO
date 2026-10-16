@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.260
+Version: 1.13.413
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.77
-Requires-Dist: abxpkg==1.13.47
+Requires-Dist: abxpkg==1.13.54
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: rich-click>=1.9.7
 Requires-Dist: uv>=0.8.22
@@ -65,6 +65,13 @@ Each plugin lives under `plugins/<name>/` and may include:
 - `config.json > required_binaries` binary dependency declarations (optional)
 - `on_CrawlSetup__...` crawl setup hook scripts (optional) - shared setup/process startup, emit no stdout JSONL records
 - `on_Snapshot__...` per-snapshot hooks - emit `ArchiveResult` and may also emit `Snapshot` / `Tag`
+
+ArchiveBox templates that need sibling output manifests should bind
+`{% snapshot_results snapshot 'responses,wget' as captures %}` after
+`{% load core_tags %}`, then reuse `captures` across their loops. The host selects
+only the named plugins' manifests or reuses already-prefetched results; it does
+not load every result's fields and files for each loop. This works in live cards
+and static exports.
 
 Hooks run with:
 
@@ -128,6 +135,11 @@ Lifecycle:
 2. Hook config helpers hydrate `*_BINARY` values from env, known local paths, and abxpkg provider state so hooks can run as standalone CLIs.
 3. Runners may perform an install preflight from the same declarations. `abx-dl` and ArchiveBox use abxpkg services/cache backends to prepare env/DB state, but hooks must not depend on those services being active.
 
+Optional `min_version` and `max_version` are inclusive bounds on acceptable
+installed binaries. Set both to the same version for an exact requirement;
+provider `install_args` alone select what to install and do not reject a
+different binary already present on the host.
+
 `config.json` declaration:
 
 ```json
@@ -175,7 +187,9 @@ Lifecycle:
 - Extension setup hooks can publish `CRAWL_DIR/chrome/extensions/<name>.extension.json` with `name`, matching installed `version`, and a prepared `unpacked_path`. Chrome uses that copy only when the installed extension is selected and enabled; setup must leave the shared package cache unchanged.
 - Plugins whose snapshot hook owns the extension lifecycle may set `x-chrome-extension-load: on-demand` in `config.json`. Chrome keeps the installed extension available and enables CDP extension loading, but the hook loads and unloads it around each capture.
 - `on_Snapshot__*` runs once per snapshot; background hooks use their first stdout line as readiness and then may emit `ArchiveResult`, `Snapshot`, and `Tag` records only
-- `wait_for_plugins` lists optional producers that must finish before a consumer hook runs; it does not enable them. Final-file consumers may also declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
+- Papers download starts after DOM capture and overlaps article parsing.
+- PDF parsers settle background downloads before scanning saved documents, just like hashes settle producers before building the final manifest. Live DOM outlink extraction runs before that cleanup.
+- Final-file consumers may declare `wait_for_background_cleanup: true` to flush and stop snapshot monitors before reading their outputs. Place these hooks after all capture hooks. Direct callers must finish and clean up producers before invoking them.
 
 State:
 

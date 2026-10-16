@@ -4,12 +4,12 @@ from collections import deque
 import sys
 
 from .source_state import SourceState
+from .fstring_detector import FStringDetector
 from .rules import STRFTIME_REQS, BYTES_REQS, ARRAY_TYPECODE_REQS, CODECS_ERROR_HANDLERS, \
   CODECS_ERRORS_INDICES, CODECS_ENCODINGS, CODECS_ENCODINGS_INDICES, \
   BUILTIN_GENERIC_ANNOTATION_TYPES, DICT_UNION_SUPPORTED_TYPES, DICT_UNION_MERGE_SUPPORTED_TYPES, \
   DECORATOR_USER_FUNCTIONS
-from .utility import dotted_name, reverse_range, combine_versions, compare_requirements, \
-  remove_whitespace
+from .utility import dotted_name, reverse_range, combine_versions, compare_requirements
 
 STRFTIME_DIRECTIVE_REGEX = re.compile(r"%(?:[-\.\d#\s\+])*(\w)")
 BYTES_DIRECTIVE_REGEX = STRFTIME_DIRECTIVE_REGEX
@@ -18,8 +18,8 @@ WITH_PAREN_REGEX = re.compile(r"with[\s\\]*\(")
 
 def is_int_node(node):
   if sys.version_info >= (3, 8):
-    return (isinstance(node, ast.Constant) and isinstance(node.value, int)) or \
-      (isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant) and
+    return (isinstance(node, getattr(ast, "Constant")) and isinstance(node.value, int)) or \
+      (isinstance(node, ast.UnaryOp) and isinstance(node.operand, getattr(ast, "Constant")) and
        isinstance(node.operand.value, int))
   return (isinstance(node, ast.Num) and isinstance(node.n, int)) or \
     (isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Num) and
@@ -27,9 +27,10 @@ def is_int_node(node):
 
 def is_neg_int_node(node):
   if sys.version_info >= (3, 8):
-    return (isinstance(node, ast.Constant) and isinstance(node.value, int) and node.value < 0) or \
+    return (isinstance(node, getattr(ast, "Constant")) and
+            isinstance(node.value, int) and node.value < 0) or \
       (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub) and
-       isinstance(node.operand, ast.Constant) and isinstance(node.operand.value, int))
+       isinstance(node.operand, getattr(ast, "Constant")) and isinstance(node.operand.value, int))
   return (isinstance(node, ast.Num) and isinstance(node.n, int) and node.n < 0) or \
     (isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub) and
       isinstance(node.operand, ast.Num) and isinstance(node.operand.n, int))
@@ -38,7 +39,7 @@ def is_none_node(node):  # pragma: no cover
   if isinstance(node, ast.Name) and node.id == 'None':
     return True
   if sys.version_info >= (3, 8):
-    if isinstance(node, ast.Constant) and node.value is None:
+    if isinstance(node, getattr(ast, "Constant")) and node.value is None:
       return True
   elif sys.version_info >= (3, 4):
     if isinstance(node, ast.NameConstant) and node.value is None:
@@ -47,7 +48,7 @@ def is_none_node(node):  # pragma: no cover
 
 def is_ellipsis_node(node):  # pragma: no cover
   if sys.version_info >= (3, 8):
-    return isinstance(node, ast.Constant) and isinstance(node.value, type(Ellipsis))
+    return isinstance(node, getattr(ast, "Constant")) and isinstance(node.value, type(Ellipsis))
   return hasattr(ast, 'Ellipsis') and isinstance(node, ast.Ellipsis)
 
 # Generalized unpacking, or starred expressions, are allowed when used with assignment targets prior
@@ -56,11 +57,6 @@ def is_ellipsis_node(node):  # pragma: no cover
 def is_valid_star_unpack(node):
   return hasattr(ast, "Starred") and isinstance(node, ast.Starred) and\
     isinstance(node.ctx, ast.Load)
-
-def trim_fstring_value(value):  # pragma: no cover
-  # HACK: Since parentheses are stripped of the AST, we'll just remove all those deduced or directly
-  # available such that the self-doc f-strings can be compared.
-  return remove_whitespace(value, ["\\(", "\\)"])
 
 def assign_target_walk(node):
   """Walker used for determining assignment target nodes. It ignores all `ast.Subscript` and
@@ -77,6 +73,7 @@ class SourceVisitor(ast.NodeVisitor):
   def __init__(self, config, path=None, source=None):
     super().__init__()
     self.__s = SourceState(config, path, source)
+    self.__fstr = FStringDetector(self.__s.source)
 
   def modules(self):
     return self.__s.modules
@@ -104,6 +101,12 @@ class SourceVisitor(ast.NodeVisitor):
 
   def fstrings_self_doc(self):
     return self.__s.fstrings_self_doc
+
+  def fstrings_pep701(self):
+    return self.__s.fstrings_pep701
+
+  def fstrings_await(self):
+    return self.__s.fstrings_await
 
   def bool_const(self):
     return self.__s.bool_const
@@ -276,6 +279,21 @@ class SourceVisitor(ast.NodeVisitor):
   def generic_class(self):
     return self.__s.generic_class
 
+  def unpacking_in_comprehension(self):
+    return self.__s.unpacking_in_comprehension
+
+  def lazy_imports(self):
+    return self.__s.lazy_imports
+
+  def lazy_modules(self):
+    return self.__s.lazy_modules
+
+  def slice_subscription(self):
+    return self.__s.slice_subscription
+
+  def unary_plus_match_pattern(self):
+    return self.__s.unary_plus_match_pattern
+
   def __get_source_line(self, line, col=0):
     if self.__s.source is None:
       return None  # pragma: no cover
@@ -305,6 +323,9 @@ class SourceVisitor(ast.NodeVisitor):
     """
     # versions none indicates verbose message, not that no compatible versions found
     if versions is None:
+      return False
+    # If all version entries are sentinels or `None`, no real constraints exist.
+    if all(v is None or v == (0, 0) for v in versions):
       return False
     # compare_requirements considers violation if no targets, which we don't want
     targets = self.__s.config.targets()
@@ -368,10 +389,16 @@ class SourceVisitor(ast.NodeVisitor):
       mins = self.__add_versions_entity(mins, ((2, 6), (3, 0)), "'bytes' type")
 
     if self.fstrings():
-      mins = self.__add_versions_entity(mins, (None, (3, 6)), "fstrings")
+      mins = self.__add_versions_entity(mins, (None, (3, 6)), "f-strings")
 
-    if self.fstrings_self_doc():  # pragma: no cover
-      mins = self.__add_versions_entity(mins, (None, (3, 8)), "self-documenting fstrings")
+    if self.fstrings_self_doc():
+      mins = self.__add_versions_entity(mins, (None, (3, 8)), "self-documenting f-strings")
+
+    if self.fstrings_pep701():
+      mins = self.__add_versions_entity(mins, (None, (3, 12)), "f-strings (PEP 701)")
+
+    if self.fstrings_await():
+      mins = self.__add_versions_entity(mins, (None, (3, 7)), "`await` in f-string")
 
     if self.bool_const():  # pragma: no cover
       mins = self.__add_versions_entity(mins, ((2, 3), (3, 0)), "'bool' constant")
@@ -529,6 +556,26 @@ class SourceVisitor(ast.NodeVisitor):
     if self.generic_class():
       mins = self.__add_versions_entity(mins, (None, (3, 12)), "generic class `class C[T]: ...`")
 
+    if self.unpacking_in_comprehension():
+      mins = self.__add_versions_entity(mins, (None, (3, 15)),
+                                        "unpacking in comprehension (PEP 798)")
+
+    if self.lazy_imports():
+      mins = self.__add_versions_entity(mins, (None, (3, 15)),
+                                        "lazy imports (PEP 810)")
+
+    if self.lazy_modules():
+      mins = self.__add_versions_entity(mins, (None, (3, 15)),
+                                        "`__lazy_modules__`")
+
+    if self.slice_subscription():
+      mins = self.__add_versions_entity(mins, (None, (3, 15)),
+                                        "slice subscription")
+
+    if self.unary_plus_match_pattern():
+      mins = self.__add_versions_entity(mins, (None, (3, 15)),
+                                        "unary `+` in match literal pattern")
+
     for directive in self.strftime_directives():
       if directive in STRFTIME_REQS:
         vers = STRFTIME_REQS[directive]
@@ -589,11 +636,8 @@ class SourceVisitor(ast.NodeVisitor):
     return mins
 
   def output_text(self):
-    # Throw away dups and sort. But only when not dumping AST node visits because it would throw
-    # away multiple statements that are similar in AST.
+    # Sort the output lines.
     text = self.__s.output_text
-    if not self.__s.config.print_visits():
-      text = list(set(text))
     self.__s.output_text = self.__s.config.format().sort_output_lines(text)
 
     text = "\n".join(self.__s.output_text)
@@ -644,6 +688,15 @@ class SourceVisitor(ast.NodeVisitor):
       line = self.__s.line
 
     msg = fmt.format_output_line(msg, self.__s.path, line, col, versions, plural, violation)
+
+    # Deduplicate output by feature identity to avoid same feature producing multiple lines.
+    versions_key = None
+    if versions is not None:
+      versions_key = tuple(tuple(v) if v is not None else None for v in versions)
+    fingerprint = (msg, versions_key, entity)
+    if fingerprint in self.__s.output_seen:
+      return
+    self.__s.output_seen.add(fingerprint)
     self.__s.output_text.append(msg)
 
   def __vvprint(self, msg, entity=None, line=None,
@@ -693,7 +746,7 @@ class SourceVisitor(ast.NodeVisitor):
 
     if self.__s.config.is_excluded_kwarg(function, keyword):
       self.__vvprint("Excluding kwarg: {}({})".format(function, keyword))
-      return False
+      return None
 
     fn_kw = (function, keyword)
     if fn_kw not in self.__s.kwargs:
@@ -731,7 +784,7 @@ class SourceVisitor(ast.NodeVisitor):
       if 0 <= idx < len(node.args):
         arg = node.args[idx]
         name = None
-        if sys.version_info >= (3, 8) and isinstance(arg, ast.Constant):
+        if sys.version_info >= (3, 8) and isinstance(arg, getattr(ast, "Constant")):
           name = arg.value
         elif hasattr(arg, "s"):
           name = arg.s
@@ -745,7 +798,7 @@ class SourceVisitor(ast.NodeVisitor):
       # Check for "errors" keyword arguments.
       for kw in node.keywords:
         if kw.arg == "errors":
-          if sys.version_info >= (3, 8) and isinstance(kw.value, ast.Constant):
+          if sys.version_info >= (3, 8) and isinstance(kw.value, getattr(ast, "Constant")):
             name = kw.value.value
           elif hasattr(kw.value, "s"):
             name = kw.value.s
@@ -763,7 +816,7 @@ class SourceVisitor(ast.NodeVisitor):
         # Check indexed arguments.
         if 0 <= idx < len(node.args):
           arg = node.args[idx]
-          if sys.version_info >= (3, 8) and isinstance(arg, ast.Constant):
+          if sys.version_info >= (3, 8) and isinstance(arg, getattr(ast, "Constant")):
             name = arg.value
           elif hasattr(arg, "s"):
             name = arg.s
@@ -778,7 +831,7 @@ class SourceVisitor(ast.NodeVisitor):
         # Check for "encoding", "data_encoding", "file_encoding" keyword arguments.
         for kw in node.keywords:
           if kw.arg in self.__s.codecs_encodings_kwargs:
-            if sys.version_info >= (3, 8) and isinstance(kw.value, ast.Constant):
+            if sys.version_info >= (3, 8) and isinstance(kw.value, getattr(ast, "Constant")):
               name = kw.value.value
             elif hasattr(kw.value, "s"):
               name = kw.value.s
@@ -852,7 +905,7 @@ class SourceVisitor(ast.NodeVisitor):
           if len(full_name) == 0 or (full_name[0] != "list" and full_name[-1] != "list"):
             full_name.append("list")
         elif sys.version_info >= (3, 8):
-          if isinstance(attr, ast.Constant):
+          if isinstance(attr, getattr(ast, "Constant")):
             if isinstance(attr.value, str):
               name = "str"
               if len(full_name) == 0 or (full_name[0] != name and len(full_name) == 1):
@@ -913,7 +966,7 @@ class SourceVisitor(ast.NodeVisitor):
 
     # If rvalue is None
     elif sys.version_info >= (3, 8) and \
-         isinstance(node.value, ast.Constant) and node.value.value is None:
+         isinstance(node.value, getattr(ast, "Constant")) and node.value.value is None:
       type_name = "None"
     elif ((3, 8) > sys.version_info >= (3, 4)) and \
          isinstance(node.value, ast.NameConstant) and node.value.value is None:
@@ -927,7 +980,7 @@ class SourceVisitor(ast.NodeVisitor):
       type_name = node.value.id
 
     elif sys.version_info >= (3, 8):
-      if isinstance(node.value, ast.Constant):
+      if isinstance(node.value, getattr(ast, "Constant")):
         v = node.value.value
         if isinstance(v, str):
           value_name = "str"
@@ -977,6 +1030,14 @@ class SourceVisitor(ast.NodeVisitor):
   def __is_no_line(self, line):
     return line in self.__no_lines
 
+  def __check_unpacking_in_comprehension(self, value):
+    # Via PEP 798, check for `*x`/`**x` as the leading value expr of a comprehension. Dict `**`
+    # comprehensions are represented with `value=None`.
+    if value is None or isinstance(value, ast.Starred):
+      if not self.__s.unpacking_in_comprehension:
+        self.__s.unpacking_in_comprehension = True
+        self.__vvprint("unpacking in comprehension (PEP 798)", versions=[None, (3, 15)])
+
   def __after_visit_all(self):
     # Remove any modules and members that were added before any known user-definitions. Do it in
     # reverse so the indices are kept while traversing!
@@ -1009,6 +1070,12 @@ class SourceVisitor(ast.NodeVisitor):
     if self.__is_no_line(node.lineno):
       return
 
+    # PEP 810: `lazy import` (3.15+).
+    if hasattr(node, "is_lazy") and node.is_lazy:
+      self.__s.lazy_imports = True
+      self.__vvprint("lazy imports (PEP 810)", line=node.lineno,
+                     versions=[None, (3, 15)])
+
     for name in node.names:
       line = node.lineno
       col = node.col_offset + 7  # "import" = 6 + 1
@@ -1029,6 +1096,12 @@ class SourceVisitor(ast.NodeVisitor):
 
     if self.__is_no_line(node.lineno):
       return
+
+    # PEP 810: `lazy from ... import` (3.15+).
+    if hasattr(node, "is_lazy") and node.is_lazy:
+      self.__s.lazy_imports = True
+      self.__vvprint("lazy imports (PEP 810)", line=node.lineno,
+                     versions=[None, (3, 15)])
 
     from_col = 5  # "from" = 4 + 1
     self.__add_module(node.module, node.lineno, node.col_offset + from_col)
@@ -1063,6 +1136,10 @@ class SourceVisitor(ast.NodeVisitor):
     elif node.id in ("True", "False"):
       self.__s.bool_const = True
       self.__vvvprint("True/False constant", versions=[(2, 3), (3, 0)])
+    elif node.id == "__lazy_modules__":
+      self.__s.lazy_modules = True
+      self.__vvprint("`__lazy_modules__`", line=node.lineno,
+                     versions=[None, (3, 15)])
 
   def visit_Print(self, node):  # pragma: no cover
     self.__s.printv2 = True
@@ -1155,7 +1232,7 @@ class SourceVisitor(ast.NodeVisitor):
               self.__s.module_as_name[func.id] == "array.array"):
           for arg in node.args:
             if sys.version_info >= (3, 8):
-              if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+              if isinstance(arg, getattr(ast, "Constant")) and isinstance(arg.value, str):
                 # "array" = 5 + 1 = 6
                 self.__add_array_typecode(arg.value, node.lineno, node.col_offset + 6)
             else:
@@ -1174,7 +1251,8 @@ class SourceVisitor(ast.NodeVisitor):
       elif hasattr(func, "attr"):
         attr = func.attr
         if (sys.version_info >= (3, 8) and attr == "format" and hasattr(func, "value") and
-             isinstance(func.value, ast.Constant) and isinstance(func.value.value, str) and
+             isinstance(func.value, getattr(ast, "Constant")) and
+             isinstance(func.value.value, str) and
              "{}" in func.value.value) \
            or \
            (sys.version_info < (3, 8) and attr == "format" and hasattr(func, "value") and
@@ -1191,7 +1269,7 @@ class SourceVisitor(ast.NodeVisitor):
         elif attr in ("strftime", "strptime") and hasattr(node, "args"):
           for arg in node.args:
             look_for = None
-            if sys.version_info >= (3, 8) and isinstance(arg, ast.Constant):
+            if sys.version_info >= (3, 8) and isinstance(arg, getattr(ast, "Constant")):
               look_for = arg.value
             elif hasattr(arg, "s"):
               look_for = arg.s
@@ -1205,7 +1283,7 @@ class SourceVisitor(ast.NodeVisitor):
         if self.__s.function_name == "array.array":
           for arg in node.args:
             if sys.version_info >= (3, 8):
-              if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+              if isinstance(arg, getattr(ast, "Constant")) and isinstance(arg.value, str):
                 # "array.array" = 5 + 1 + 5 + 1 = 12
                 self.__add_array_typecode(arg.value, node.lineno, node.col_offset + 12)
             else:
@@ -1251,7 +1329,7 @@ class SourceVisitor(ast.NodeVisitor):
     self.generic_visit(node)
 
   def visit_keyword(self, node):
-    added = False
+    excluded = False
     for func_name in self.__s.function_name_stack:
       # kwarg related.
       exp_name = func_name.split(".")
@@ -1259,31 +1337,63 @@ class SourceVisitor(ast.NodeVisitor):
       # Check if function is imported from module.
       if func_name in self.__s.import_mem_mod:
         mod = self.__s.import_mem_mod[func_name]
-        added |= self.__add_kwargs(dotted_name([mod, func_name]), node.arg, self.__s.line)
+        excluded |= \
+          self.__add_kwargs(dotted_name([mod, func_name]), node.arg, self.__s.line) is None
 
       # When having "ElementTree.tostringlist", for instance, and include mapping "{'ElementTree':
       # 'xml.etree'}" then try piecing them together to form a match.
       elif exp_name[0] in self.__s.import_mem_mod:
         mod = self.__s.import_mem_mod[exp_name[0]]
-        added |= self.__add_kwargs(dotted_name([mod, func_name]), node.arg, self.__s.line)
+        excluded |= \
+          self.__add_kwargs(dotted_name([mod, func_name]), node.arg, self.__s.line) is None
 
       # Lookup indirect names via variables.
       elif exp_name[0] in self.__s.name_res:
         res = self.__s.name_res[exp_name[0]]
         if res in self.__s.import_mem_mod:
           mod = self.__s.import_mem_mod[res]
-          added |= self.__add_kwargs(dotted_name([mod, res, exp_name[1:]]), node.arg, self.__s.line)
+          excluded |= \
+            self.__add_kwargs(dotted_name([mod, res, exp_name[1:]]), node.arg,
+                              self.__s.line) is None
 
         # Try as FQN.
         else:
-          added |= self.__add_kwargs(dotted_name([res, exp_name[1:]]), node.arg, self.__s.line)
+          excluded |= \
+            self.__add_kwargs(dotted_name([res, exp_name[1:]]), node.arg, self.__s.line) is None
 
       # Only add direct function if not found via module/class/member.
       else:
-        added |= self.__add_kwargs(func_name, node.arg, self.__s.line)
+        excluded |= self.__add_kwargs(func_name, node.arg, self.__s.line) is None
 
-    # If not excluded or ignored then visit keyword values also.
-    if added:
+      # A chained receiver, like `Path.cwd().exists(follow_symlinks=True)`, yields intermediate
+      # call(s) in the name (`Path.cwd.exists`) that hide the real method being called. When the
+      # full name didn't match a known kwarg rule, retry with the intermediate call(s) collapsed
+      # away, keeping the receiver plus the final method (`Path.exists`). The receiver root may
+      # already be resolved and span several segments (e.g. `pathlib.Path.cwd.exists`), so try
+      # every receiver-length prefix joined with the final method. Only accept a collapsed form
+      # that corresponds to an actual kwarg rule, to avoid false matches.
+      if len(exp_name) > 2:
+        method = exp_name[-1]
+        for end in range(len(exp_name) - 1, 0, -1):
+          collapsed = exp_name[:end] + [method]
+
+          # Resolve the receiver root the same way as the primary lookups above.
+          if collapsed[0] in self.__s.import_mem_mod:
+            collapsed = [self.__s.import_mem_mod[collapsed[0]]] + collapsed
+          elif collapsed[0] in self.__s.name_res:
+            res = self.__s.name_res[collapsed[0]]
+            if res in self.__s.import_mem_mod:
+              collapsed = [self.__s.import_mem_mod[res], res] + collapsed[1:]
+            else:
+              collapsed = [res] + collapsed[1:]
+
+          collapsed_name = dotted_name(collapsed)
+          if (collapsed_name, node.arg) in self.__s.kwargs_reqs_rules:
+            excluded |= self.__add_kwargs(collapsed_name, node.arg, self.__s.line) is None
+            break
+
+    # Visit keyword values unless the keyword rule was explicitly excluded.
+    if not excluded:
       self.generic_visit(node)
 
   def visit_Bytes(self, node):
@@ -1314,10 +1424,11 @@ class SourceVisitor(ast.NodeVisitor):
     elif isinstance(node, ast.Subscript):
       n = None
       if sys.version_info >= (3, 9):
-        if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, int):
+        if isinstance(node.slice, getattr(ast, "Constant")) and isinstance(node.slice.value, int):
           n = node.slice.value
       elif sys.version_info >= (3, 8):
-        if isinstance(node.slice, ast.Index) and isinstance(node.slice.value, ast.Constant) and \
+        if isinstance(node.slice, ast.Index) and \
+           isinstance(node.slice.value, getattr(ast, "Constant")) and \
            isinstance(node.slice.value.value, int):
           n = node.slice.value.value
       else:
@@ -1351,7 +1462,7 @@ ast.Call(func=ast.Name)."""
     #   BinOp(left=Bytes(s=b'%4x'), op=Mod(), right=Num(n=10))
     #   BinOp(left=Call(func=Name(id='bytearray', ctx=Load()), args=[Bytes(s=b'%x')], keywords=[]),
     #         op=Mod(), right=Num(n=10))
-    if (sys.version_info >= (3, 8) and isinstance(node.left, ast.Constant) and
+    if (sys.version_info >= (3, 8) and isinstance(node.left, getattr(ast, "Constant")) and
          isinstance(node.left.value, bytes) and
          isinstance(node.op, ast.Mod)) or \
        (sys.version_info < (3, 8) and
@@ -1418,251 +1529,44 @@ ast.Call(func=ast.Name)."""
     if is_ellipsis_node(node):
       self.visit_Ellipsis(node)
 
-  def __extract_fstring_value(self, node):  # pragma: no cover
-    value = []
-    is_call = False
-    for n in ast.walk(node):
-      if isinstance(n, ast.Name):
-        value.append(n.id)
-
-      elif hasattr(ast, "Constant") and isinstance(n, ast.Constant):
-        v = str(n.value)
-        if isinstance(n.value, str):
-          v = "\"{}\"".format(v)
-        value.append(v)
-
-      elif isinstance(n, ast.Add):
-        value.append("+")
-
-      elif isinstance(n, ast.Sub):
-        value.append("-")
-
-      elif isinstance(n, ast.Div):
-        value.append("/")
-
-      elif isinstance(n, ast.FloorDiv):
-        value.append("//")
-
-      elif isinstance(n, ast.Mult):
-        value.append("*")
-
-      elif hasattr(ast, "MatMult") and isinstance(n, ast.MatMult):
-        value.append("@")
-
-      elif isinstance(n, ast.Mod):
-        value.append("%")
-
-      elif isinstance(n, ast.Pow):
-        value.append("**")
-
-      elif isinstance(n, ast.BitXor):
-        value.append("^")
-
-      elif isinstance(n, ast.BitOr):
-        value.append("|")
-
-      elif isinstance(n, ast.BitAnd):
-        value.append("&")
-
-      elif isinstance(n, ast.Not):
-        value.append("not ")
-
-      elif isinstance(n, ast.USub):
-        value.append("-")
-
-      elif isinstance(n, ast.UAdd):
-        value.append("+")
-
-      elif isinstance(n, ast.Invert):
-        value.append("~")
-
-      elif isinstance(n, ast.LShift):
-        value.append("<<")
-
-      elif isinstance(n, ast.RShift):
-        value.append(">>")
-
-      elif isinstance(n, ast.In):
-        value.append("in ")
-
-      elif isinstance(n, ast.NotIn):
-        value.append("not in ")
-
-      elif isinstance(n, ast.Is):
-        value.append(" is ")
-
-      elif isinstance(n, ast.IsNot):
-        value.append(" is not ")
-
-      elif isinstance(n, ast.Or):
-        value.append(" or ")
-
-      elif isinstance(n, ast.And):
-        value.append(" and ")
-
-      elif isinstance(n, ast.Eq):
-        value.append(" == ")
-
-      elif isinstance(n, ast.NotEq):
-        value.append(" != ")
-
-      elif isinstance(n, ast.LtE):
-        value.append(" <= ")
-
-      elif isinstance(n, ast.GtE):
-        value.append(" >= ")
-
-      elif isinstance(n, ast.Gt):
-        value.append(" > ")
-
-      elif isinstance(n, ast.Lt):
-        value.append(" < ")
-
-      elif hasattr(ast, "comprehension") and isinstance(n, ast.comprehension):
-        target = self.__extract_fstring_value(n.target)
-        iter_ = self.__extract_fstring_value(n.iter)
-        value.append("{} in {}".format(target, iter_))
-        break
-
-      elif isinstance(n, ast.Attribute):
-        value += self.__get_attribute_name(n)
-        break
-
-      elif isinstance(n, ast.keyword):
-        val = self.__extract_fstring_value(n.value)
-        value.append("{}={}".format(n.arg, val))
-        break
-
-      elif isinstance(n, ast.Call):
-        is_call = True
-        if len(n.args) == 0 and len(n.keywords) == 0:
-          value.append("{}()".format(self.__extract_fstring_value(n.func)))
-          break
-
-      elif isinstance(n, ast.BinOp):
-        left = self.__extract_fstring_value(n.left)
-        op = self.__extract_fstring_value(n.op)
-        right = self.__extract_fstring_value(n.right)
-        value.append(left + op + right)
-        break
-
-      elif isinstance(n, ast.UnaryOp):
-        op = self.__extract_fstring_value(n.op)
-        operand = self.__extract_fstring_value(n.operand)
-        value.append(op + operand)
-        break
-
-      elif isinstance(n, ast.BoolOp):
-        op = self.__extract_fstring_value(n.op)
-        vals = [self.__extract_fstring_value(v) for v in n.values]
-        value.append(op.join(vals))
-        break
-
-      elif isinstance(n, ast.IfExp):
-        test = self.__extract_fstring_value(n.test)
-        body = self.__extract_fstring_value(n.body)
-        orelse = self.__extract_fstring_value(n.orelse)
-        value.append("{} if {} else {}".format(body, test, orelse))
-        break
-
-      elif isinstance(n, ast.Tuple):
-        elts = [self.__extract_fstring_value(elt) for elt in n.elts]
-        value.append("({})".format(",".join(elts)))
-        break
-
-      elif isinstance(n, ast.List):
-        elts = [self.__extract_fstring_value(elt) for elt in n.elts]
-        value.append("[{}]".format(",".join(elts)))
-        break
-
-      elif isinstance(n, ast.Set):
-        elts = [self.__extract_fstring_value(elt) for elt in n.elts]
-        value.append("{" + ",".join(elts) + "}")
-        break
-
-      elif isinstance(n, ast.Dict):
-        keys = [self.__extract_fstring_value(key) for key in n.keys]
-        vals = [self.__extract_fstring_value(val) for val in n.values]
-        kvs = ",".join(["{}:{}".format(k, v) for (k, v) in zip(keys, vals)])
-        value.append("{" + kvs + "}")
-        break
-
-      elif sys.version_info >= (3, 9) \
-           and isinstance(n, (ast.Constant, ast.Name, ast.Slice, ast.Tuple)):
-        # Check on slice indices like a[0] or a[i] or a[0:1] or a[(0,1)]
-        val = self.__extract_fstring_value(n)
-        value.append(val)
-        break
-      elif sys.version_info < (3, 9) and isinstance(n, ast.Index):
-        val = self.__extract_fstring_value(n.value)
-        value.append(val)
-        break
-
-      elif hasattr(ast, "ListComp") and isinstance(n, ast.ListComp):
-        elt = self.__extract_fstring_value(n.elt)
-        gens = [self.__extract_fstring_value(gen) for gen in n.generators]
-        value.append("[{} for {}]".format(elt, " ".join(gens)))
-        break
-
-      elif hasattr(ast, "SetComp") and isinstance(n, ast.SetComp):
-        elt = self.__extract_fstring_value(n.elt)
-        gens = [self.__extract_fstring_value(gen) for gen in n.generators]
-        value.append("{" + "{} for {}".format(elt, " ".join(gens)) + "}")
-        break
-
-      elif hasattr(ast, "DictComp") and isinstance(n, ast.DictComp):
-        key = self.__extract_fstring_value(n.key)
-        val = self.__extract_fstring_value(n.value)
-        gens = [self.__extract_fstring_value(gen) for gen in n.generators]
-        value.append("{" + "{}:{} for {}".format(key, val, " ".join(gens)) + "}")
-        break
-
-      elif hasattr(ast, "GeneratorExp") and isinstance(n, ast.GeneratorExp):
-        elt = self.__extract_fstring_value(n.elt)
-        gens = [self.__extract_fstring_value(gen) for gen in n.generators]
-        value.append("({} for {})".format(elt, " ".join(gens)))
-        break
-
-      elif isinstance(n, ast.Compare):
-        left = self.__extract_fstring_value(n.left)
-        ops = [self.__extract_fstring_value(op) for op in n.ops]
-        comps = [self.__extract_fstring_value(comp) for comp in n.comparators]
-        value.append(left + "".join(["{} {}".format(op, comp) for (op, comp) in zip(ops, comps)]))
-        break
-
-      elif isinstance(n, ast.Subscript):
-        val = self.__extract_fstring_value(n.value)
-        slice_ = self.__extract_fstring_value(n.slice)
-        value.append("{}[{}]".format(val, slice_))
-        break
-
-    if is_call:
-      return "(".join(value) + ")" * (len(value) - 1)  # "a(b(c()))"
-    return ".".join(value)  # "a" or "a.b"..
-
   def visit_JoinedStr(self, node):
     self.__s.fstrings = True
     self.__vvprint("f-strings", versions=[None, (3, 6)])
-    if self.__s.fstring_self_doc_enabled and hasattr(node, "values"):  # pragma: no cover
-      total = len(node.values)
-      for i in range(total):
-        val = node.values[i]
-        # A self-referencing f-string will be at the end of the Constant, like "..stuff..expr=", and
-        # the next value will be a FormattedValue(value=..) with Names or nested Calls with Names
-        # inside, for instance.
-        if isinstance(val, ast.Constant) and hasattr(val, "value") and \
-           isinstance(val.value, str) and val.value.strip().endswith("=") and i + 1 < total:
-            next_val = node.values[i + 1]
-            if isinstance(next_val, ast.FormattedValue):
-              fstring_value =\
-                trim_fstring_value(self.__extract_fstring_value(next_val.value))
-              if len(fstring_value) > 0 and\
-                trim_fstring_value(val.value).endswith(fstring_value + "="):
-                  self.__s.fstrings_self_doc = True
-                  self.__vvprint("self-documenting fstrings", versions=[None, (3, 8)])
-                  break
+
+    if self.__s.fstring_self_doc_enabled and hasattr(node, "values") and \
+       hasattr(node, "end_lineno"):
+      if self.__fstr.is_self_doc(node):
+        self.__s.fstrings_self_doc = True
+        self.__vvprint("self-documenting f-strings", versions=[None, (3, 8)])
+
+    # PEP 701 fstrings detection requires Python 3.12+ to parse the syntax in the first place, and
+    # avoids both false positives and false negatives.
+    if self.__s.fstrings_pep701_enabled and sys.version_info >= (3, 12) and \
+       hasattr(node, "values") and hasattr(node, "end_lineno"):
+      if self.__fstr.pep701_violation(node) is not None:
+        self.__s.fstrings_pep701 = True
+        self.__vvprint("f-strings (PEP 701)", versions=[None, (3, 12)])
+
+    # `await` was only allowed within f-string expressions from 3.7.
+    if hasattr(node, "values") and self.__fstring_has_await(node):
+      self.__s.fstrings_await = True
+      self.__vvprint("`await` in f-string", versions=[None, (3, 7)])
 
     self.generic_visit(node)
+
+  def __fstring_has_await(self, node):
+    for value in node.values:
+      if isinstance(value, ast.FormattedValue) and self.__contains_await(value):
+        return True
+    return False
+
+  def __contains_await(self, node):
+    if isinstance(node, ast.Await):
+      return True
+    for child in ast.iter_child_nodes(node):
+      if self.__contains_await(child):
+        return True
+    return False
 
   # Mark variable names as aliases.
   def visit_Assign(self, node):
@@ -2056,11 +1960,13 @@ ast.Call(func=ast.Name)."""
     return user_defs_copy
 
   def visit_ListComp(self, node):
+    self.__check_unpacking_in_comprehension(node.elt)
     user_defs_copy = self.__handle_comprehensions(node.generators)
     self.generic_visit(node)
     self.__s.user_defs = user_defs_copy
 
   def visit_SetComp(self, node):
+    self.__check_unpacking_in_comprehension(node.elt)
     self.__s.set_comp = True
     self.__vvprint("set comprehensions", versions=[(2, 7), (3, 0)])
 
@@ -2069,11 +1975,13 @@ ast.Call(func=ast.Name)."""
     self.__s.user_defs = user_defs_copy
 
   def visit_GeneratorExp(self, node):
+    self.__check_unpacking_in_comprehension(node.elt)
     user_defs_copy = self.__handle_comprehensions(node.generators)
     self.generic_visit(node)
     self.__s.user_defs = user_defs_copy
 
   def visit_DictComp(self, node):
+    self.__check_unpacking_in_comprehension(node.value)
     self.__s.dict_comp = True
     self.__vvprint("dict comprehensions", versions=[(2, 7), (3, 0)])
 
@@ -2236,6 +2144,13 @@ ast.Call(func=ast.Name)."""
           if is_ellipsis_node(n):
             self.__s.ellipsis_nodes_in_slices.add(n)
 
+    # `slice[...]` subscript support (3.15+).
+    if isinstance(node.value, ast.Name) and node.value.id == "slice" \
+       and "slice" not in self.__s.user_defs:
+      self.__s.slice_subscription = True
+      self.__vvprint("slice subscription", line=node.lineno,
+                     versions=[None, (3, 15)])
+
     self.generic_visit(node)
 
   def visit_Match(self, node):
@@ -2243,6 +2158,21 @@ ast.Call(func=ast.Name)."""
       return
     self.__s.pattern_matching = True
     self.__vvprint("pattern matching", line=node.lineno, versions=[None, (3, 10)])
+    self.generic_visit(node)
+
+  def visit_MatchValue(self, node):
+    has_unary_plus = any(isinstance(n, ast.UnaryOp) and isinstance(n.op, ast.UAdd)
+                         for n in ast.walk(node))
+
+    # In early 3.15 builds, the folded `+` survives only in the source at the pattern's start.
+    if not has_unary_plus:
+      line = self.__get_source_line(node.lineno, node.col_offset)
+      has_unary_plus = line is not None and line.startswith("+")
+
+    if has_unary_plus:
+      self.__s.unary_plus_match_pattern = True
+      self.__vvprint("unary `+` in match literal pattern", line=node.lineno,
+                     versions=[None, (3, 15)])
     self.generic_visit(node)
 
   # Comment-excluded lines skip conditional blocks if enabled.

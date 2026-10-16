@@ -2,9 +2,10 @@
 name = "chalk-rs"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.97"
 
 [workspace]
-members = ["chalk-ast", "chalk-ignore", "chalk-lsp", "chalk-project", "chalk-proto", "chalk-sql-lsp", "chalk-ty-preprocess", "chalk-utils"]
+members = ["chalk-analyze", "chalk-ast", "chalk-ignore", "chalk-lsp", "chalk-project", "chalk-proto", "chalk-sql-lsp", "chalk-ty-preprocess", "chalk-utils"]
 resolver = "2"
 
 [lib]
@@ -16,7 +17,7 @@ default = ["python"]
 python = ["pyo3/extension-module"]
 
 [dependencies]
-pyo3 = { version = "0.28", optional = true }
+pyo3 = { version = "0.30", optional = true }
 lsp-types = "0.97"
 chalk-ast = { path = "chalk-ast" }
 chalk-ignore = { path = "chalk-ignore" }

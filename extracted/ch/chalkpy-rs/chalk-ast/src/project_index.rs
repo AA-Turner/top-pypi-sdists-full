@@ -98,6 +98,52 @@ impl AstProjectIndex {
             .cloned()
     }
 
+    /// Find a feature class anywhere in the project by its namespace (the
+    /// `name=` passed to `@features`, or the snake-cased class name).
+    pub fn find_feature_class_by_namespace(&self, namespace: &str) -> Option<FeatureClassAST> {
+        for path in self.file_paths.iter() {
+            let Ok(file_asts) = self.get_parsed_ast_file(path) else {
+                continue;
+            };
+            if let Some(ast) = file_asts
+                .feature_classes
+                .iter()
+                .find(|ast| ast.namespace == namespace)
+            {
+                return Some(ast.clone());
+            }
+        }
+        None
+    }
+
+    /// Find a feature class anywhere in the project by its Python class name.
+    pub fn find_feature_class_by_class_name(&self, class_name: &str) -> Option<FeatureClassAST> {
+        for path in self.file_paths.iter() {
+            if let Some(ast) = self.feature_class_ast_in_file(path, class_name) {
+                return Some(ast);
+            }
+        }
+        None
+    }
+
+    /// Resolve a `-- resolves:` target, which may be written as either a
+    /// namespace (`superhero`) or a class name (`ConfirmedFraud`).
+    pub fn find_feature_class_by_namespace_or_class_name(
+        &self,
+        identifier: &str,
+    ) -> Option<FeatureClassAST> {
+        self.find_feature_class_by_namespace(identifier)
+            .or_else(|| self.find_feature_class_by_class_name(identifier))
+    }
+
+    /// All feature classes declared in a single file.
+    pub fn feature_classes_in_file(&self, file_path: &str) -> Vec<FeatureClassAST> {
+        match self.get_parsed_ast_file(file_path) {
+            Ok(file_asts) => file_asts.feature_classes.clone(),
+            Err(_) => Vec::new(),
+        }
+    }
+
     pub fn resolver_ast(&self, module: &str, resolver_name: &str) -> Option<ResolverAST> {
         for path in self.file_paths.iter() {
             let Ok(file_asts) = self.get_parsed_ast_file(path) else {
@@ -500,6 +546,67 @@ class User:
                 .module,
             "pkg.models"
         );
+    }
+
+    #[test]
+    fn finds_feature_classes_by_namespace_and_class_name() {
+        let project_root = PathBuf::from("/tmp");
+        let features_path = "/tmp/superheroes.py".to_string();
+        let fs = Arc::new(MockFileSystem::new(HashMap::from([(
+            features_path.clone(),
+            r#"
+from chalk.features import features
+
+@features(name="superhero")
+class Superhero:
+    id: int
+    name: str
+    size: int
+
+@features
+class ConfirmedFraud:
+    id: int
+"#
+            .to_string(),
+        )])));
+
+        let index =
+            AstProjectIndex::with_filesystem(project_root, vec![features_path.clone()], fs.clone())
+                .expect("index should construct without parsing files");
+
+        // Look up by the explicit `name=` namespace.
+        let by_namespace = index
+            .find_feature_class_by_namespace("superhero")
+            .expect("feature class should be found by namespace");
+        assert_eq!(by_namespace.class_name, "Superhero");
+
+        // Look up by the Python class name.
+        let by_class = index
+            .find_feature_class_by_class_name("ConfirmedFraud")
+            .expect("feature class should be found by class name");
+        assert_eq!(by_class.namespace, "confirmed_fraud");
+
+        // The combined resolver accepts either form.
+        assert_eq!(
+            index
+                .find_feature_class_by_namespace_or_class_name("ConfirmedFraud")
+                .expect("class name should resolve")
+                .class_name,
+            "ConfirmedFraud"
+        );
+        assert_eq!(
+            index
+                .find_feature_class_by_namespace_or_class_name("superhero")
+                .expect("namespace should resolve")
+                .class_name,
+            "Superhero"
+        );
+        assert!(index
+            .find_feature_class_by_namespace_or_class_name("does_not_exist")
+            .is_none());
+
+        let all = index.feature_classes_in_file(&features_path);
+        assert_eq!(all.len(), 2);
     }
 
     #[test]

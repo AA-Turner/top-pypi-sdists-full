@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 #include "atoms/affine.h"
+#include "sparsediff_linalg/CSR_matrix.h"
+#include "sparsediff_linalg/matrix.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include "subexpr.h"
-#include "utils/CSR_matrix.h"
-#include "utils/sparse_matrix.h"
-#include "utils/tracked_alloc.h"
 #include <assert.h>
 #include <string.h>
 
@@ -138,7 +138,7 @@ static void wsum_hess_init_impl(expr *node)
     expr *child = node->left;
 
     wsum_hess_init(child);
-    node->wsum_hess = child->wsum_hess->copy_sparsity(child->wsum_hess);
+    node->wsum_hess = copy_sparsity_matrices_alloc(child->wsum_hess);
     /* backprop workspace: one weight per child entry */
     node->work->dwork = (double *) sp_malloc(child->size * sizeof(double));
 }

@@ -63,6 +63,18 @@ class ArgSpec(PoeOptions):
     The type of the argument.
     """
 
+    true_string: str | None = None
+    """
+    Literal string to expose for a true boolean argument in parameter expansion
+    and the environment. Defaults to "True" when omitted.
+    """
+
+    false_string: str | None = None
+    """
+    Literal string to expose for a false boolean argument in parameter expansion
+    and the environment. The variable is unset when omitted.
+    """
+
     multiple: bool | int = False
     """
     Indicates if multiple values are allowed for the argument. If an integer is
@@ -240,6 +252,7 @@ class ArgSpec(PoeOptions):
                         }
                     }
                 },
+                "else": {"properties": {"true_string": False, "false_string": False}},
             }
         ]
         return fragment
@@ -252,6 +265,12 @@ class ArgSpec(PoeOptions):
             raise
 
     def _validate(self):
+        for option in ("true_string", "false_string"):
+            if self.get(option) is not None and self.type != "boolean":
+                raise ConfigValidationError(
+                    f"Option {option!r} requires argument type 'boolean'"
+                )
+
         if not self.name.replace("-", "_").isidentifier():
             raise ConfigValidationError(
                 f"Argument name {self.name!r} is not a valid 'identifier',\n"
@@ -342,6 +361,7 @@ class PoeTaskArgs:
         self._task_name = task_name
         self._args = self._parse_args_def(args_def)
         self._io = io
+        self._parsed_boolean_defaults: dict[str, bool] | None = None
 
     def _parse_args_def(self, args_def: ArgsDef) -> tuple[ArgSpec, ...]:
         try:
@@ -379,9 +399,8 @@ class PoeTaskArgs:
         except ConfigValidationError as error:
             if suppress_errors:
                 return []
-            else:
-                cls._enrich_config_error(error, args_def, task_name)
-                raise
+            cls._enrich_config_error(error, args_def, task_name)
+            raise
 
     @staticmethod
     def _enrich_config_error(
@@ -462,6 +481,7 @@ class PoeTaskArgs:
                 )
             except ConfigValidationError as error:
                 error.context = f"Invalid default for argument {arg.name!r}"
+                error.task_name = self._task_name
                 raise
             if coerced_default:
                 result["action"] = "store_false"
@@ -497,6 +517,15 @@ class PoeTaskArgs:
             if arg.positional and (dest := arg.options[0]) != arg.name:
                 parsed_args[arg.name] = parsed_args[dest]
                 del parsed_args[dest]
+
+        # Keep the defaults that selected the parser's boolean actions. The
+        # environment used for forwarding may have since inherited or replaced
+        # variables. Only a successful parse replaces this snapshot.
+        self._parsed_boolean_defaults = {
+            arg.name: parser.get_default(arg.name)
+            for arg in self._args
+            if arg.type == "boolean"
+        }
         # args named with dash case are converted to snake case before being exposed
         return {name.replace("-", "_"): value for name, value in parsed_args.items()}
 
@@ -555,59 +584,89 @@ class PoeTaskArgs:
             else:
                 parsed_args[key] = [default]
 
+    def get_env_overrides(self, values: Mapping[str, Any]) -> dict[str, str]:
+        """
+        Get explicitly configured boolean strings without changing typed values.
+        Empty strings are retained, and templates are not expanded.
+        """
+        result = {}
+        for arg in self._args:
+            if arg.type != "boolean":
+                continue
+            name = arg.name.replace("-", "_")
+            if (
+                string_value := arg.true_string if values[name] else arg.false_string
+            ) is not None:
+                result[name] = string_value
+        return result
+
     def format_argv(self, values: Mapping[str, Any], env: TaskEnv) -> list[str]:
         """
         Re-emit parsed argument values as CLI tokens — the inverse of
         :meth:`parse`. Used to forward declared args (with defaults already
-        applied by the parser) into a subprocess that does its own CLI
-        parsing, e.g. ``python -m some_module``.
+        applied by the parser) into Python code that does its own CLI parsing,
+        e.g. ``python -m some_module``.
 
-        Conventions: positionals are emitted in declared order; option args
-        use the first entry of their ``options`` list as the flag name;
-        boolean flags are emitted iff the resolved value differs from the
-        declared default (i.e. the user provided the flag on the CLI);
-        multi-value args are emitted space-separated, matching argparse's
-        ``nargs="+"`` style.
+        Conventions: option args use the first entry of their ``options`` list as
+        the flag name; boolean flags are emitted iff the resolved value differs
+        from the default from the latest successful parse (i.e. the user provided
+        the flag on the CLI). If parse has not been called, defaults are resolved
+        against the supplied env. A single option value starting with ``-`` is
+        emitted in the same token as its flag (``-ovalue`` or ``--out=value``).
+
+        Positionals are emitted first, then multi-value options, then other
+        options and flags, so that values following a multi-value option can't be
+        mistaken for more of its values. Remaining ambiguities: free args appended
+        after the result are still taken by a trailing multi-value option if no
+        other option follows, and positional or multi-value items starting with
+        ``-`` may be read as options.
         """
 
-        result: list[str] = []
+        positionals: list[str] = []
+        multi_value_options: list[str] = []
+        other_options: list[str] = []
         for arg in self._args:
-            if arg.name not in values:
+            name = arg.name.replace("-", "_")
+            if name not in values:
                 continue
-            value = values[arg.name]
+            value = values[name]
 
             if arg.type == "boolean":
-                raw_default = arg.get("default")
-                if isinstance(raw_default, str):
-                    raw_default = env.fill_template(raw_default)
-                try:
-                    default_bool = (
-                        _coerce_bool(raw_default) if raw_default is not None else False
-                    )
-                except ConfigValidationError as error:
-                    error.context = f"Invalid default for argument {arg.name!r}"
-                    raise
+                default_bool = (
+                    self._parsed_boolean_defaults[arg.name]
+                    if self._parsed_boolean_defaults is not None
+                    else self._get_argument_params(arg, env)["default"]
+                )
                 if value != default_bool:
-                    result.append(arg.options[0])
+                    other_options.append(arg.options[0])
                 continue
 
             if arg.positional:
                 if arg.multiple:
-                    result.extend(str(item) for item in value)
+                    positionals.extend(str(item) for item in value)
                 elif value is not None:
-                    result.append(str(value))
+                    positionals.append(str(value))
                 continue
 
             flag = arg.options[0]
             if arg.multiple:
                 if value:
-                    result.append(flag)
-                    result.extend(str(item) for item in value)
+                    multi_value_options.append(flag)
+                    multi_value_options.extend(str(item) for item in value)
             elif value is not None:
-                result.append(flag)
-                result.append(str(value))
+                if (value_str := str(value)).startswith("-"):
+                    # Keep the value in the same token as its flag, so it can't be
+                    # read as an option. Short flags take the attached form, which
+                    # unlike "-o=value" is also understood by parsers like click.
+                    other_options.append(
+                        f"{flag}{value_str}"
+                        if len(flag) == 2
+                        else f"{flag}={value_str}"
+                    )
+                else:
+                    other_options.extend((flag, value_str))
 
-        return result
+        return [*positionals, *multi_value_options, *other_options]
 
 
 _BOOL_TRUE_LITERALS = frozenset({"t", "true", "1"})

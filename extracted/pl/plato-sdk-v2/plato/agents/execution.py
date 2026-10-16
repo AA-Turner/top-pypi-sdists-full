@@ -18,7 +18,7 @@ from plato.git_ops.repo import trust_git_directory
 from plato.rpc.errors import RetryableInfraError
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import VMRuntimeConfig
-from plato.transports.git import GitPublishedRef, GitTransport
+from plato.transports.git import GitPublishedRef, GitSetupTimeoutError, GitTransport
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
@@ -40,6 +40,9 @@ def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
     # "retry on a fresh VM" class the SSH substrings below approximate. Without
     # this, RPC-path infra failures fail the run outright instead of retrying.
     if isinstance(exc, RetryableInfraError):
+        return True
+    # The setup clone timed out before the agent started, so a fresh VM loses no work.
+    if isinstance(exc, GitSetupTimeoutError):
         return True
     # The daemon reported a real exit status: the agent ran and quit. Its
     # message carries the process's own output tail, which can quote the

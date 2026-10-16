@@ -1,9 +1,7 @@
 import logging
 import os
 import threading
-import time
-from dataclasses import dataclass
-from typing import Any, Sequence, Tuple
+from typing import Any, Tuple
 
 import structlog
 import temporalio.activity
@@ -15,38 +13,21 @@ from mistralai.extra.observability import (
 )
 from opentelemetry import metrics, trace
 from opentelemetry._logs import set_logger_provider
-from opentelemetry.exporter.otlp.proto.http._log_exporter import (
-    DEFAULT_LOGS_EXPORT_PATH,
-    OTLPLogExporter,
-)
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
-    DEFAULT_METRICS_EXPORT_PATH,
-    OTLPMetricExporter,
-)
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
-    DEFAULT_TRACES_EXPORT_PATH,
-    OTLPSpanExporter,
-)
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler, ReadableLogRecord
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExportResult
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics._internal.instrument import Counter, Histogram
 from opentelemetry.sdk.metrics.export import (
-    AggregationTemporality,
     ConsoleMetricExporter,
-    MetricExportResult,
     MetricReader,
-    MetricsData,
     PeriodicExportingMetricReader,
 )
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
     ConsoleSpanExporter,
     SpanExporter,
-    SpanExportResult,
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator, RandomIdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
@@ -55,7 +36,14 @@ from mistralai.workflows._version import __version__
 from mistralai.workflows.core._events.event_utils import try_get_lineage_workflow_exec_id
 from mistralai.workflows.core.auth import TokenProvider
 from mistralai.workflows.core.config.config import OtelRedactionMode
-from mistralai.workflows.core.logging import build_json_log_formatter, extract_error_context
+from mistralai.workflows.core.logging import build_json_log_formatter
+from mistralai.workflows.core.tracing.exporters import (
+    OtelExportOptions,
+    _DropOtelExportDiagnosticsFilter,
+    build_otlp_log_exporter,
+    build_otlp_metric_exporter,
+    build_otlp_span_exporter,
+)
 
 logger = structlog.getLogger(__name__)
 
@@ -75,115 +63,21 @@ FORCE_TRACE_ID_ATTRIBUTE = "__mistral_force_trace_id"
 FORCE_SPAN_ID_ATTRIBUTE = "__mistral_force_span_id"
 
 
-class _DropOtelExportDiagnosticsFilter(logging.Filter):
-    """Keep OTLP export diagnostics out of the OTel log-export pipeline.
+class _StructlogAwareLoggingHandler(LoggingHandler):
+    """Log handler that keeps structlog's private record extras out of exported log attributes.
 
-    Our export-failure warnings and the OTel SDK's own exporter error logs would otherwise be bridged
-    back into the log exporter; if the log endpoint is the broken one, each failed export emits a log
-    that gets queued for export and fails again. These records still reach stdout via structlog.
+    structlog's ``ProcessorFormatter.wrap_for_formatter`` attaches ``_logger`` (a structlog logger
+    object) and ``_name`` to every LogRecord via ``extra``; its formatter reads them, so they must
+    stay on the record. The OTel base class exports every non-reserved record attribute, and a
+    logger object is not a valid OTel attribute value, so without this filter every exported log
+    warns "Invalid type ... for attribute value" from ``opentelemetry.attributes``.
     """
 
-    def filter(self, record: logging.LogRecord) -> bool:
-        return record.name != __name__ and not record.name.startswith("opentelemetry.")
-
-
-_EXPORT_WARN_INTERVAL_SECONDS = 30.0
-
-_OTLP_404_HINT = (
-    "the telemetry endpoint does not seem to exist (not found). If you configured a custom OTEL "
-    "endpoint, check that it is correct; if you are using the default endpoint, your organization may "
-    "not have access to telemetry export"
-)
-
-
-class _ThrottledExportWarner:
-    """Capture the last export HTTP status and emit a throttled warning on failure (404 gets a hint).
-
-    The SDK collapses failures into a bare FAILURE, so we intercept ``_export`` for the status. First
-    failure logs immediately, then at most once per interval per signal (reporting suppressed count).
-    """
-
-    _last_export_status: int | None = None
-    _last_export_warn: float | None = None
-    _suppressed_export_warns: int = 0
-
-    def _export(self, serialized_data: bytes, timeout_sec: float | None = None) -> Any:
-        resp = super()._export(serialized_data, timeout_sec)  # type: ignore[misc]
-        self._last_export_status = getattr(resp, "status_code", None)
-        return resp
-
-    def _warn_export_failure(self, signal: str, endpoint: str | None, exc: Exception | None = None) -> None:
-        now = time.monotonic()
-        if self._last_export_warn is not None and now - self._last_export_warn < _EXPORT_WARN_INTERVAL_SECONDS:
-            self._suppressed_export_warns += 1
-            return
-        status_code = self._last_export_status
-        extra: dict[str, Any] = dict(extract_error_context(exc)) if exc is not None else {}
-        if status_code is not None:
-            extra["status_code"] = status_code
-        if self._suppressed_export_warns:
-            extra["suppressed_failures"] = self._suppressed_export_warns
-        message = f"Failed to export OpenTelemetry {signal}"
-        if status_code == 404:
-            message = f"{message}: {_OTLP_404_HINT}"
-        logger.warning(message, endpoint=endpoint, **extra)
-        self._last_export_warn = now
-        self._suppressed_export_warns = 0
-
-
-class _LoggingOTLPSpanExporter(_ThrottledExportWarner, OTLPSpanExporter):
-    """OTLP span exporter that warns via structlog when export fails.
-
-    The upstream exporter swallows export failures (e.g. an invalid endpoint returning 404) and only
-    emits a raw stdlib log, so we surface a throttled structured warning instead of failing silently.
-    """
-
-    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-        self._last_export_status = None
-        try:
-            result = super().export(spans)
-        except Exception as exc:
-            self._warn_export_failure("traces", self._endpoint, exc)
-            return SpanExportResult.FAILURE
-        if result is SpanExportResult.FAILURE:
-            self._warn_export_failure("traces", self._endpoint)
-        return result
-
-
-class _LoggingOTLPMetricExporter(_ThrottledExportWarner, OTLPMetricExporter):
-    """OTLP metric exporter that warns via structlog when export fails."""
-
-    def export(
-        self, metrics_data: MetricsData, timeout_millis: float | None = 10_000, **kwargs: Any
-    ) -> MetricExportResult:
-        self._last_export_status = None
-        try:
-            result = super().export(metrics_data, timeout_millis, **kwargs)
-        except Exception as exc:
-            self._warn_export_failure("metrics", self._endpoint, exc)
-            return MetricExportResult.FAILURE
-        if result is MetricExportResult.FAILURE:
-            self._warn_export_failure("metrics", self._endpoint)
-        return result
-
-
-class _LoggingOTLPLogExporter(_ThrottledExportWarner, OTLPLogExporter):
-    """OTLP log exporter that warns via structlog when export fails.
-
-    The warning is emitted on the internal structlog logger only (not routed through the OTel logging
-    handler) so a broken log endpoint cannot feed its own failures back into the export pipeline.
-    """
-
-    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
-        self._last_export_status = None
-        try:
-            result = super().export(batch)
-        except Exception as exc:
-            self._warn_export_failure("logs", self._endpoint, exc)
-            return LogRecordExportResult.FAILURE
-        if result is LogRecordExportResult.FAILURE:
-            self._warn_export_failure("logs", self._endpoint)
-        return result
+    def _get_attributes(self, record: logging.LogRecord) -> dict[str, Any]:  # type: ignore[override]
+        # Instance method + super() so a future OTel base change (e.g. staticmethod -> instance
+        # method) keeps working; the ignore covers the current staticmethod declaration upstream.
+        attributes = super()._get_attributes(record)
+        return {key: value for key, value in (attributes or {}).items() if not key.startswith("_")}
 
 
 class _ForcedIdGenerator(IdGenerator):
@@ -229,64 +123,6 @@ class _ForcedIdGenerator(IdGenerator):
 
 # Shared instance installed on the worker TracerProvider so the tracing interceptor can prime it.
 WORKFLOW_ROOT_ID_GENERATOR = _ForcedIdGenerator()
-
-
-@dataclass(frozen=True)
-class OtelExportOptions:
-    """Per-export-type options for an OTLP exporter (traces, metrics, or logs).
-
-    endpoint: OTLP base endpoint; export is skipped when unset.
-    enabled: whether to export this telemetry type at all.
-    use_api_key: whether to authenticate the exporter with the Mistral API key.
-    """
-
-    endpoint: str | None = None
-    enabled: bool = True
-    use_api_key: bool = True
-
-
-def _resolve_endpoint(options: OtelExportOptions, export_path: str) -> str:
-    assert options.endpoint is not None
-    return options.endpoint.removesuffix("/") + "/" + export_path
-
-
-def _attach_dynamic_auth(exporter: Any, provider: TokenProvider) -> None:
-    """Set ``session.auth`` so the OTLP exporter recomputes its bearer per export (picks up rotation).
-
-    Exporters otherwise freeze ``headers`` at construction; if ``_session`` is missing we skip dynamic
-    auth (export goes unauthenticated rather than crashing). A token read failure is logged (throttled,
-    since this runs on every export) and the export goes out unauthenticated until the token recovers.
-    """
-    session = getattr(exporter, "_session", None)
-    if session is None:
-        logger.warning(
-            "OTLP exporter exposes no _session; skipping dynamic telemetry auth "
-            "(export may be unauthenticated). The exporter library layout may have changed."
-        )
-        return
-
-    last_error_log = 0.0
-    error_log_interval_seconds = 60.0
-
-    def _inject(request: Any) -> Any:
-        nonlocal last_error_log
-        try:
-            token = provider.get_token()
-        except Exception as exc:
-            token = None
-            now = time.monotonic()
-            if now - last_error_log >= error_log_interval_seconds:
-                last_error_log = now
-                logger.warning(
-                    "Failed to read token for OTLP telemetry auth; "
-                    "exporting unauthenticated until the token is readable again",
-                    **extract_error_context(exc),
-                )
-        if token:
-            request.headers["Authorization"] = f"Bearer {token}"
-        return request
-
-    session.auth = _inject
 
 
 def _create_resource(
@@ -352,16 +188,9 @@ def _build_otlp_metric_reader(
     metric_config: OtelExportOptions, token_provider: TokenProvider | None, export_otlp_interval_ms: int
 ) -> MetricReader | None:
     """Build an OTLP metric reader (CUMULATIVE, dynamic per-export auth) or None when metrics are disabled."""
-    if not (metric_config.enabled and metric_config.endpoint):
+    exporter = build_otlp_metric_exporter(metric_config, token_provider)
+    if exporter is None:
         return None
-    endpoint = _resolve_endpoint(metric_config, DEFAULT_METRICS_EXPORT_PATH)
-    preferred_temporality: dict[type, AggregationTemporality] = {
-        Histogram: AggregationTemporality.CUMULATIVE,
-        Counter: AggregationTemporality.CUMULATIVE,
-    }
-    exporter = _LoggingOTLPMetricExporter(endpoint=endpoint, preferred_temporality=preferred_temporality)
-    if metric_config.use_api_key and token_provider is not None:
-        _attach_dynamic_auth(exporter, token_provider)
     return PeriodicExportingMetricReader(exporter, export_interval_millis=export_otlp_interval_ms)
 
 
@@ -424,11 +253,8 @@ def config_otel(
     )
     # Spans are still created for context propagation and log trace injection; only the
     # OTLP export is gated so traces can be disabled independently of the OTEL_ENABLED master switch.
-    if trace_config.enabled and trace_config.endpoint:
-        traces_endpoint = _resolve_endpoint(trace_config, DEFAULT_TRACES_EXPORT_PATH)
-        raw_span_exporter = _LoggingOTLPSpanExporter(endpoint=traces_endpoint)
-        if trace_config.use_api_key and token_provider is not None:
-            _attach_dynamic_auth(raw_span_exporter, token_provider)
+    raw_span_exporter = build_otlp_span_exporter(trace_config, token_provider)
+    if raw_span_exporter is not None:
         span_exporter = _apply_span_redaction(raw_span_exporter, redaction)
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
     trace.set_tracer_provider(tracer_provider)
@@ -443,11 +269,8 @@ def config_otel(
 
     # Configure log export via OTLP when enabled and an endpoint is provided
     logger_provider: LoggerProvider | None = None
-    if log_config.enabled and log_config.endpoint:
-        resolved_logs_endpoint = _resolve_endpoint(log_config, DEFAULT_LOGS_EXPORT_PATH)
-        log_exporter = _LoggingOTLPLogExporter(endpoint=resolved_logs_endpoint)
-        if log_config.use_api_key and token_provider is not None:
-            _attach_dynamic_auth(log_exporter, token_provider)
+    log_exporter = build_otlp_log_exporter(log_config, token_provider)
+    if log_exporter is not None:
         logger_provider = LoggerProvider(resource=resource)
         logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
         set_logger_provider(logger_provider)
@@ -455,7 +278,7 @@ def config_otel(
         # Bridge Python's standard logging module to OTel log SDK. The JSON
         # formatter forces exported log bodies to JSON regardless of the console
         # log format chosen by the user.
-        otel_handler = LoggingHandler(logger_provider=logger_provider)
+        otel_handler = _StructlogAwareLoggingHandler(logger_provider=logger_provider)
         otel_handler.setFormatter(build_json_log_formatter())
         otel_handler.addFilter(_DropOtelExportDiagnosticsFilter())
         otel_handler.addFilter(_WorkflowRunFilter(deployment_name=deployment_name, worker_name=worker_name))

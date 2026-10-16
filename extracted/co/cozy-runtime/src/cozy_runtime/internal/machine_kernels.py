@@ -1,5 +1,6 @@
 """The machine's kernels, compiled at machine start on the cards present, best first, while
-weights download.
+weights download: the attention ladder and the int8 linear op; first, the links between its
+GPUs (`parallel.links`), which a group reads.
 
 The machine launches `python -m cozy_runtime.internal.machine_kernels` once per installed
 generation, under that generation's own seal: its interpreter and torch, every card of the
@@ -10,8 +11,8 @@ the machine's compile ledger admits their compiler jobs within its CPUs and memo
 (`kernel_compile.compiler_job`); Sol's card objects start once its sources are in. A request
 finds each one ready or building and, without an override, never waits for one: it serves the
 best kernel ready (`attention`), and no executor builds a key twice. This process holds no
-device memory. It prints one JSON line per artifact as it ends and a last one, and exits
-nonzero when one failed.
+device memory (the link probe is its child). It prints one JSON line for the links, one per
+artifact as it ends and a last one, and exits nonzero when one failed.
 """
 
 from __future__ import annotations
@@ -33,11 +34,14 @@ from cozy_runtime.internal import (
     kernel_sources,
 )
 from cozy_runtime.internal.encoding import DeviceFacts
+from cozy_runtime.internal.parallel import links
 
 #: The best attention first, as the installed models rank it: H3's DiT ladder (Sol,
 #: SageAttention2, FA3 BF16; SDPA needs no compile). Models without a preference use the
 #: ranked table, whose only compiled kernel is FA3.
 LADDER: tuple[str, ...] = ("sol-attn", "sageattention", "flash-attn3")
+#: The int8 linear every 8-bit lane serves (`int8_linear`), on every int8 tensor-core card.
+INT8 = "cozy-int8"
 
 
 def cards(devices: str) -> dict[int, str]:
@@ -71,6 +75,14 @@ def ladder(present: Mapping[int, str]) -> list[kernel_compile.Job]:
             # Upstream's setup.py builds for the cards it sees: this one.
             job = dataclasses.replace(job, env={"CUDA_VISIBLE_DEVICES": device})
             jobs.setdefault(job.key.digest, job)
+        if sm >= 80:
+            try:
+                job = kernel_sources.job(INT8, sm)
+            except kernel_sources.Absent:
+                continue
+            jobs.setdefault(
+                job.key.digest, dataclasses.replace(job, env={"CUDA_VISIBLE_DEVICES": device})
+            )
     return list(jobs.values())
 
 
@@ -94,7 +106,14 @@ def main() -> int:
     started = time.perf_counter()
     environment = config.inherited_environment()
     store = kernel_cache.from_sealed(environment)
-    present = cards(environment.get("CUDA_VISIBLE_DEVICES", ""))
+    devices = config.parse_visible_devices(environment.get("CUDA_VISIBLE_DEVICES")) or ()
+    present = cards(",".join(devices))
+    if store is not None and len(devices) > 1 and all(map(accel.device_capability, devices)):
+        began = time.perf_counter()
+        measured = links.measured(links.directory(environment), devices)
+        took = round((time.perf_counter() - began) * 1000)
+        route = {**measured.nccl(), "copy_engines": measured.copy_engines, "ms": took}
+        print(json.dumps({"links": measured.why(), **route}), flush=True)
     # Builders are handed the card they build for; nothing in this process opens one.
     config.hide_gpus()
     ended: list[str] = []

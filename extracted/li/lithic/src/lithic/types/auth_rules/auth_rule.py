@@ -8,18 +8,18 @@ from .event_stream import EventStream
 from .velocity_limit_params import VelocityLimitParams
 from .merchant_lock_parameters import MerchantLockParameters
 from .typescript_code_parameters import TypescriptCodeParameters
-from .conditional_block_parameters import ConditionalBlockParameters
+from .auth_rule_entities_response import AuthRuleEntitiesResponse
 from .conditional_3ds_action_parameters import Conditional3DSActionParameters
 from .conditional_ach_action_parameters import ConditionalACHActionParameters
 from .conditional_tokenization_action_parameters import ConditionalTokenizationActionParameters
 from .conditional_authorization_action_parameters import ConditionalAuthorizationActionParameters
 from .conditional_authorization_adjustment_parameters import ConditionalAuthorizationAdjustmentParameters
+from .conditional_ach_payment_update_action_parameters import ConditionalACHPaymentUpdateActionParameters
 from .conditional_card_transaction_update_action_parameters import ConditionalCardTransactionUpdateActionParameters
 
 __all__ = ["AuthRule", "CurrentVersion", "CurrentVersionParameters", "DraftVersion", "DraftVersionParameters"]
 
 CurrentVersionParameters: TypeAlias = Union[
-    ConditionalBlockParameters,
     VelocityLimitParams,
     MerchantLockParameters,
     Conditional3DSActionParameters,
@@ -27,6 +27,7 @@ CurrentVersionParameters: TypeAlias = Union[
     ConditionalACHActionParameters,
     ConditionalTokenizationActionParameters,
     ConditionalCardTransactionUpdateActionParameters,
+    ConditionalACHPaymentUpdateActionParameters,
     TypescriptCodeParameters,
     ConditionalAuthorizationAdjustmentParameters,
 ]
@@ -44,7 +45,6 @@ class CurrentVersion(BaseModel):
 
 
 DraftVersionParameters: TypeAlias = Union[
-    ConditionalBlockParameters,
     VelocityLimitParams,
     MerchantLockParameters,
     Conditional3DSActionParameters,
@@ -52,6 +52,7 @@ DraftVersionParameters: TypeAlias = Union[
     ConditionalACHActionParameters,
     ConditionalTokenizationActionParameters,
     ConditionalCardTransactionUpdateActionParameters,
+    ConditionalACHPaymentUpdateActionParameters,
     TypescriptCodeParameters,
     ConditionalAuthorizationAdjustmentParameters,
 ]
@@ -93,17 +94,33 @@ class AuthRule(BaseModel):
     """Auth Rule Token"""
 
     account_tokens: List[str]
-    """Account tokens to which the Auth Rule applies."""
+    """Deprecated: Use `entities.include` with `ACCOUNT` entities instead.
+
+    Account tokens to which the Auth Rule applies.
+    """
 
     business_account_tokens: List[str]
-    """Business Account tokens to which the Auth Rule applies."""
+    """Deprecated: Use `entities.include` with `BUSINESS_ACCOUNT` entities instead.
+
+    Business Account tokens to which the Auth Rule applies.
+    """
 
     card_tokens: List[str]
-    """Card tokens to which the Auth Rule applies."""
+    """Deprecated: Use `entities.include` with `CARD` entities instead.
+
+    Card tokens to which the Auth Rule applies. Cards the rule applies to through a
+    `CARD_TAG` entity are not listed.
+    """
 
     current_version: Optional[CurrentVersion] = None
 
     draft_version: Optional[DraftVersion] = None
+
+    entities: AuthRuleEntitiesResponse
+    """
+    The entities the Auth Rule applies to (`include`) and does not apply to
+    (`exclude`). An exclusion overrides an inclusion.
+    """
 
     event_stream: EventStream
     """The event stream during which the rule will be evaluated."""
@@ -118,34 +135,48 @@ class AuthRule(BaseModel):
     """Auth Rule Name"""
 
     program_level: bool
-    """Whether the Auth Rule applies to all authorizations on the card program."""
+    """Deprecated: Use `entities.include` with a `PROGRAM` entity instead.
+
+    Whether the Auth Rule applies to all authorizations on the card program.
+    """
 
     state: Literal["ACTIVE", "INACTIVE"]
     """The state of the Auth Rule"""
 
-    type: Literal["CONDITIONAL_BLOCK", "VELOCITY_LIMIT", "MERCHANT_LOCK", "CONDITIONAL_ACTION", "TYPESCRIPT_CODE"]
+    type: Literal["VELOCITY_LIMIT", "MERCHANT_LOCK", "CONDITIONAL_ACTION", "TYPESCRIPT_CODE", "OTHER"]
     """The type of Auth Rule.
 
     For certain rule types, this determines the event stream during which it will be
     evaluated. For rules that can be applied to one of several event streams, the
     effective one is defined by the separate `event_stream` field.
 
-    - `CONDITIONAL_BLOCK`: Deprecated. Use `CONDITIONAL_ACTION` instead.
-      AUTHORIZATION event stream.
     - `VELOCITY_LIMIT`: AUTHORIZATION event stream.
     - `MERCHANT_LOCK`: AUTHORIZATION event stream.
     - `CONDITIONAL_ACTION`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
-      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, or CARD_TRANSACTION_UPDATE event
-      stream.
+      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, CARD_TRANSACTION_UPDATE, or
+      ACH_PAYMENT_UPDATE event stream.
     - `TYPESCRIPT_CODE`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
-      ACH_CREDIT_RECEIPT, or ACH_DEBIT_RECEIPT event stream.
+      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, CARD_TRANSACTION_UPDATE, or
+      ACH_PAYMENT_UPDATE event stream.
+    - `OTHER`: A rule whose type is not exposed through this API. Rules of this type
+      are read-only; `OTHER` cannot be used when creating a rule.
     """
 
     excluded_account_tokens: Optional[List[str]] = None
-    """Account tokens to which the Auth Rule does not apply."""
+    """Deprecated: Use `entities.exclude` with `ACCOUNT` entities instead.
+
+    Account tokens to which the Auth Rule does not apply.
+    """
 
     excluded_business_account_tokens: Optional[List[str]] = None
-    """Business account tokens to which the Auth Rule does not apply."""
+    """Deprecated: Use `entities.exclude` with `BUSINESS_ACCOUNT` entities instead.
+
+    Business account tokens to which the Auth Rule does not apply.
+    """
 
     excluded_card_tokens: Optional[List[str]] = None
-    """Card tokens to which the Auth Rule does not apply."""
+    """Deprecated: Use `entities.exclude` with `CARD` entities instead.
+
+    Card tokens to which the Auth Rule does not apply. Cards excluded through a
+    `CARD_TAG` entity are not listed.
+    """

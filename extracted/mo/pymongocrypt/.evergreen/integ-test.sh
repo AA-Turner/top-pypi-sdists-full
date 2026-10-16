@@ -18,6 +18,17 @@ if [ -z "$PYTHON" ]; then
     exit 1
 fi
 
+# pymongo (unreleased master) requires Python 3.11+. Some distros (e.g.
+# rhel82) only provide older interpreters, so provision one with uv.
+if ! "$PYTHON" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
+    if ! command -v uv >/dev/null 2>&1; then
+        "$PYTHON" -m pip install --user uv
+    fi
+    uv python install 3.11
+    PYTHON=$(uv python find 3.11)
+    echo "Using uv-provisioned Python: $PYTHON"
+fi
+
 if [ -d "${MONGOCRYPT_DIR}/nocrypto/lib64" ]; then
     PYMONGOCRYPT_LIB="${MONGOCRYPT_DIR}/nocrypto/lib64/libmongocrypt.so"
 else
@@ -25,7 +36,18 @@ else
 fi
 export PYMONGOCRYPT_LIB
 
-createvirtualenv $PYTHON .venv
+# PyMongo master requires Python 3.11+ (PYTHON-6138), but the newest
+# interpreter on some distros is the MongoDB toolchain Python 3.10 (e.g.
+# rhel-82-arm64). Provision a modern interpreter with uv in that case.
+if "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
+    createvirtualenv $PYTHON .venv
+else
+    . "${DRIVERS_TOOLS}/.evergreen/ensure-uv.sh"
+    ensure_uv
+    uv python install 3.13
+    uv venv --seed --python 3.13 .venv
+    . .venv/bin/activate
+fi
 pip install -e .
 pip install uv
 pushd $PYMONGO_DIR

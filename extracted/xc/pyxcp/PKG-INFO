@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: pyxcp
-Version: 0.29.19
+Version: 0.29.20
 Summary: Universal Calibration Protocol for Python
 Keywords: automotive,ecu,xcp,asam,autosar
 Author-Email: Christoph Schueler <cpu.gems@googlemail.com>
@@ -10,14 +10,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Project-URL: Homepage, https://github.com/christoph2/pyxcp
-Requires-Python: >=3.10
+Requires-Python: <3.16,>=3.11
 Requires-Dist: construct<3,>=2.10.68
 Requires-Dist: pyserial<4,>=3.5
 Requires-Dist: pyusb<2,>=1.2
@@ -74,7 +73,7 @@ To install from the main branch:
 Requirements
 ~~~~~~~~~~~~
 
-- Python >= 3.10
+- Python >= 3.11, < 3.16
 - Building from source requires a working C/C++ toolchain (native
   extensions are used for performance). Wheels are provided for common
   platforms and Python versions; if a wheel is not available, pip will
@@ -213,7 +212,7 @@ Compatibility
 -------------
 
 - Operating systems: Windows, Linux, macOS
-- Python: 3.10 - 3.14, CPython wheels where available
+- Python: 3.11 - 3.15, CPython wheels where available
 - CAN backends: python-can compatible drivers (see `howto_can_driver <howto_can_driver.rst>`__)
 
 Contributing

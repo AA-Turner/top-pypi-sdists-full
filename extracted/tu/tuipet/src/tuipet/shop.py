@@ -809,17 +809,17 @@ DIGIMENTAL_GATES = {
 # longer sells them; each crest is stocked in the two towns that fit its
 # virtue/element, and its unlock wave (DIGIMENTAL_GATES) still decides when.
 CREST_TOWNS = {
-    "egg_of_courage": (20, 12),       # Volcano, Desert -- fire
-    "egg_of_friendship": (11, 27),    # Mountains, Factory -- thunder
-    "egg_of_love": (1, 7),            # Flower Field, Flower Field Sunset -- sky
-    "egg_of_knowledge": (10, 14),     # Teal Hollow, City Sunset
-    "egg_of_sincerity": (13, 4),      # Seafloor, Beach -- water
-    "egg_of_reliability": (9, 8),     # Jungle, Golden Hollow -- forest
-    "egg_of_hope": (5, 6),            # Island Day, Moonlit Meadow
-    "egg_of_light": (18, 19),         # White City, Boulevard
-    "egg_of_kindness": (2, 0),        # Lakeside, Green Hills
+    "egg_of_courage": (25, 16),       # Volcano, Desert -- fire
+    "egg_of_friendship": (15, 23),    # Mountains, Factory -- thunder
+    "egg_of_love": (2, 13),            # Flower Field, Flower Field Sunset -- sky
+    "egg_of_knowledge": (14, 10),     # Teal Hollow, City Sunset
+    "egg_of_sincerity": (7, 5),      # Seafloor, Beach -- water
+    "egg_of_reliability": (19, 9),     # Jungle, Golden Hollow -- forest
+    "egg_of_hope": (0, 6),            # Island Day, Moonlit Meadow
+    "egg_of_light": (12, 11),         # White City, Boulevard
+    "egg_of_kindness": (3, 4),        # Lakeside, Green Hills
     "egg_of_miracles": (26, 28),      # Bay Bridge Night, Factory Night -- late
-    "egg_of_destiny": (29, 21),       # Data Tunnel, Island Sunset -- late
+    "egg_of_destiny": (29, 17),       # Data Tunnel, Island Sunset -- late
 }
 
 
@@ -846,8 +846,10 @@ EGG_STOCK_PER_TOWN = 6
 # PRESTIGE EGGS ARE EARNED, NEVER BOUGHT (eggs call #30 = B, Joel 2026-10-15):
 # the achievement IS the egg.  Matched by the egg's hatch name so a bank
 # reorder can't silently put one back on a shelf.
-EARN_ONLY_EGGS = frozenset({"Godzilla Egg", "Draco Egg", "Volcanic Beat Egg",
+EARN_ONLY_EGGS = frozenset({"Dynasty of the Evil Egg", "Primeval Warriors Egg", "Titan of Dust Egg", "Chackmon EX Egg", "Ancient Warriors Egg", "Monodramon GP Egg", "Renamon EX Egg", "Renamon GP Egg", "Terriermon EX Egg", "Agnimon EX Egg", "Wolfmon EX Egg", "Blitzmon EX Egg", "Espimon Egg", "Wolf Howl Egg", "Louwemon EX Egg", "Shadow Howl Egg", "Black Roar Egg", "Impmon GP Egg", "Ryudamon Egg", "Guilmon EX Egg", "Guilmon GP Egg", "Dinosaur Roar Egg", "Gabumon EX Egg", "Agumon EX Egg", "Jellymon Egg", "Angoramon Egg", "Fairimon EX Egg", "Godzilla Egg", "Draco Egg", "Volcanic Beat Egg",
                             "Infinite Tide Egg", "Nu Metal Empire Egg", "Blizzard Fang Egg",
+                            "Hermit in the Jungle Egg", "Mad Black Roar Egg",
+                            "True Shadow Howl Egg", "Impulse City Egg", "Gammamon Egg",
                             "Digitama X3"})
 
 

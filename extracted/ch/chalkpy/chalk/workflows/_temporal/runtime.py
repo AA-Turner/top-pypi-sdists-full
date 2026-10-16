@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from typing import Any, Awaitable, Callable, Iterable, Mapping, Sequence
@@ -14,6 +15,12 @@ from temporalio.worker import Worker
 
 from chalk.workflows._context import TaskHandle, current_orchestrator_var
 from chalk.workflows._definitions import TASK_REGISTRY, WORKFLOW_REGISTRY, TaskDefinition, WorkflowDefinition
+from chalk.workflows._messages import (
+    WORKFLOW_MESSAGE_SIGNAL,
+    WorkflowMessage,
+    WorkflowMessageTimeoutError,
+    message_from_envelope,
+)
 
 DEFAULT_TASK_QUEUE = "chalk-workflows"
 
@@ -22,18 +29,84 @@ DEFAULT_TASK_QUEUE = "chalk-workflows"
 _NO_WORKFLOW_RETRIES = RetryPolicy(maximum_attempts=1)
 
 
+# A task routed to its own worker runs as a child workflow of this name on that worker's
+# queue: task queue triggers scale a worker on the workflows open on its queue, which a bare
+# activity on the queue would not count as.
+TASK_RUNNER_PREFIX = "chalk.task:"
+
+
+def _task_retry_policy(task: TaskDefinition[Any, Any]) -> RetryPolicy:
+    return RetryPolicy(
+        maximum_attempts=task.retries + 1,
+        initial_interval=task.retry_delay if task.retry_delay is not None else timedelta(seconds=1),
+    )
+
+
+# Time allowed for a task's own worker to scale up from zero before its activity is
+# picked up, on top of the task's attempts; past it the routed call fails instead of
+# waiting forever on a worker that never comes up.
+_TASK_WORKER_STARTUP_ALLOWANCE = timedelta(minutes=15)
+
+
+def _routed_task_schedule_to_close(task: TaskDefinition[Any, Any]) -> timedelta:
+    attempts = task.retries + 1
+    retry_delay = task.retry_delay if task.retry_delay is not None else timedelta(seconds=1)
+    return task.timeout * attempts + retry_delay * task.retries + _TASK_WORKER_STARTUP_ALLOWANCE
+
+
+def _start_task_activity(
+    task: TaskDefinition[Any, Any],
+    args: Sequence[Any],
+    kwargs: Mapping[str, Any],
+    *,
+    schedule_to_close_timeout: timedelta | None = None,
+) -> Any:
+    return temporal_workflow.start_activity(
+        task.name,
+        args=[list(args), dict(kwargs)],
+        start_to_close_timeout=task.timeout,
+        schedule_to_close_timeout=schedule_to_close_timeout,
+        retry_policy=_task_retry_policy(task),
+    )
+
+
 class _TemporalOrchestrator:
     """Routes task invocations made inside a compiled workflow to Temporal activities."""
 
+    def __init__(self, messages: dict[str, deque[dict[str, Any]]]):
+        super().__init__()
+        # The workflow instance's buffer of delivered messages, by name; see build_workflow_class.
+        self._messages = messages
+
+    async def wait_for_message(self, name: str, timeout: timedelta | None) -> WorkflowMessage:
+        queue = self._messages.setdefault(name, deque())
+        deadline = None if timeout is None else temporal_workflow.now() + timeout
+        # One message can wake several concurrent waiters on the same name, so a waiter that
+        # finds the queue already drained waits again until the original deadline. Nothing
+        # yields between the emptiness check and popleft, so exactly one waiter takes each message.
+        while not queue:
+            remaining = None if deadline is None else deadline - temporal_workflow.now()
+            if remaining is not None and remaining <= timedelta(0):
+                raise WorkflowMessageTimeoutError(f"No {name!r} message arrived within {timeout}")
+            try:
+                # Deterministic on replay: the signals that fill the queue are recorded in history.
+                await temporal_workflow.wait_condition(lambda: len(queue) > 0, timeout=remaining)
+            except asyncio.TimeoutError:
+                raise WorkflowMessageTimeoutError(f"No {name!r} message arrived within {timeout}") from None
+        return message_from_envelope(queue.popleft())
+
     def _start(self, task: TaskDefinition[Any, Any], args: Sequence[Any], kwargs: Mapping[str, Any]) -> Any:
-        return temporal_workflow.start_activity(
-            task.name,
-            args=[list(args), dict(kwargs)],
-            start_to_close_timeout=task.timeout,
-            retry_policy=RetryPolicy(
-                maximum_attempts=task.retries + 1,
-                initial_interval=task.retry_delay if task.retry_delay is not None else timedelta(seconds=1),
-            ),
+        if task.task_queue is None:
+            return _start_task_activity(task, args, kwargs)
+        # Scheduled now, like `start_activity`, so `submit()`ed tasks run in parallel.
+        return asyncio.ensure_future(
+            temporal_workflow.execute_child_workflow(
+                f"{TASK_RUNNER_PREFIX}{task.name}",
+                args=[list(args), dict(kwargs)],
+                task_queue=task.task_queue,
+                # Attempts are the activity's retry policy, inside the child.
+                retry_policy=_NO_WORKFLOW_RETRIES,
+            )
         )
 
     def run_task(
@@ -56,10 +129,21 @@ def build_workflow_class(definition: WorkflowDefinition[Any, Any]) -> type:
     requirement of `@workflow` instead.
     """
 
+    def __init__(self: Any) -> None:
+        # Messages delivered by the API server but not yet taken by wait_for_message. Signals can
+        # arrive before `run` starts waiting (or before it starts at all), so they are buffered
+        # here rather than handed straight to a waiter.
+        self._chalk_messages = {}
+
+    # Every message arrives on one signal, with its name inside the envelope; see
+    # WORKFLOW_MESSAGE_SIGNAL.
+    def on_message(self: Any, envelope: dict[str, Any]) -> None:
+        self._chalk_messages.setdefault(str(envelope.get("name", "")), deque()).append(envelope)
+
     # Temporal invokes workflows with positional payloads; the SDK convention here is
     # a single JSON object holding the workflow function's keyword arguments.
     async def run(self: Any, kwargs: dict[str, Any]) -> Any:
-        token: contextvars.Token[Any] = current_orchestrator_var.set(_TemporalOrchestrator())
+        token: contextvars.Token[Any] = current_orchestrator_var.set(_TemporalOrchestrator(self._chalk_messages))
         try:
             return await definition.fn(**kwargs)
         finally:
@@ -68,11 +152,36 @@ def build_workflow_class(definition: WorkflowDefinition[Any, Any]) -> type:
     # The class is assembled with type() and given a module-level-looking qualname:
     # temporalio rejects run methods whose qualname contains '<locals>'.
     class_name = f"ChalkWorkflow_{definition.name}"
-    run.__qualname__ = f"{class_name}.run"
-    run.__module__ = definition.fn.__module__
-    cls = type(class_name, (), {"run": temporal_workflow.run(run)})
+    for method in (__init__, on_message, run):
+        method.__qualname__ = f"{class_name}.{method.__name__}"
+        method.__module__ = definition.fn.__module__
+    cls = type(
+        class_name,
+        (),
+        {
+            "__init__": __init__,
+            "on_message": temporal_workflow.signal(name=WORKFLOW_MESSAGE_SIGNAL)(on_message),
+            "run": temporal_workflow.run(run),
+        },
+    )
     cls.__module__ = definition.fn.__module__
     return temporal_workflow.defn(name=definition.name, sandboxed=False)(cls)
+
+
+def build_task_runner_workflow(task: TaskDefinition[Any, Any]) -> type:
+    """Compile the child workflow that runs `task` as an activity on its own worker's queue."""
+
+    async def run(self: Any, args: list[Any], kwargs: dict[str, Any]) -> Any:
+        return await _start_task_activity(
+            task, args, kwargs, schedule_to_close_timeout=_routed_task_schedule_to_close(task)
+        )
+
+    class_name = f"ChalkTaskRunner_{task.name}"
+    run.__qualname__ = f"{class_name}.run"
+    run.__module__ = task.fn.__module__
+    cls = type(class_name, (), {"run": temporal_workflow.run(run)})
+    cls.__module__ = task.fn.__module__
+    return temporal_workflow.defn(name=f"{TASK_RUNNER_PREFIX}{task.name}", sandboxed=False)(cls)
 
 
 def build_activity(task: TaskDefinition[Any, Any]) -> Callable[..., Any]:
@@ -104,7 +213,9 @@ async def connect_workflow_orchestrator(
 
     From outside the data plane, `address` is the orchestrator's public gateway
     (TLS, Chalk JWT required); in-cluster workers dial the frontend service
-    directly without a token.
+    directly, with a service-account token on a shared orchestrator and without
+    one otherwise. A token that expires must be refreshed by the caller; see
+    `chalk.workflows._orchestrator_auth.connect_with_token`.
     """
     rpc_metadata: dict[str, str] = {}
     if bearer_token is not None:
@@ -127,16 +238,21 @@ def create_worker(
     task_queue: str,
     workflows: Iterable[WorkflowDefinition[Any, Any]] | None = None,
     tasks: Iterable[TaskDefinition[Any, Any]] | None = None,
+    task_runners: Iterable[TaskDefinition[Any, Any]] = (),
     max_concurrent_tasks: int = 16,
 ) -> Worker:
     """Create a Temporal worker hosting the given (default: all registered)
-    Chalk workflows and tasks."""
+    Chalk workflows and tasks, plus the child workflows that run `task_runners`
+    routed to this worker's queue."""
     workflow_definitions = list(workflows) if workflows is not None else list(WORKFLOW_REGISTRY.values())
     task_definitions = list(tasks) if tasks is not None else list(TASK_REGISTRY.values())
     return Worker(
         client,
         task_queue=task_queue,
-        workflows=[build_workflow_class(w) for w in workflow_definitions],
+        workflows=[
+            *(build_workflow_class(w) for w in workflow_definitions),
+            *(build_task_runner_workflow(t) for t in task_runners),
+        ],
         activities=[build_activity(t) for t in task_definitions],
         activity_executor=ThreadPoolExecutor(max_workers=max_concurrent_tasks),
     )

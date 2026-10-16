@@ -21,8 +21,9 @@ from temporalio.service import RPCError, RPCStatusCode
 from mistralai.workflows.worker_client.errors import SDKError
 
 _TERMINAL_CODES: dict[str, str] = {
-    # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas)
-    "WF_1104": "Workflow registration failed: this principal is not authorized for this deployment",
+    # WF_1104 = WorkflowsErrorCode.WORKFLOW_REGISTRATION_FAILED (abraxas). It covers several refusals,
+    # so the label names none of them. The registration call logs the server's reason.
+    "WF_1104": "Worker stopped because the server refused workflow registration",
 }
 
 _TRANSIENT_STATUSES: frozenset[HTTPStatus] = frozenset(

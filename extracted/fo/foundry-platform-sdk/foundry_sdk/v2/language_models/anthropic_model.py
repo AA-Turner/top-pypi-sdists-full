@@ -79,6 +79,9 @@ class AnthropicModelClient:
     ) -> language_models_models.AnthropicMessagesResponse:
         """
 
+
+        Required scopes: [api:language-models-execute]
+
         :param anthropic_model_model_id:
         :type anthropic_model_model_id: LanguageModelApiName
         :param max_tokens: The maximum number of tokens to generate before stopping.
@@ -226,6 +229,9 @@ class AsyncAnthropicModelClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[language_models_models.AnthropicMessagesResponse]:
         """
+
+
+        Required scopes: [api:language-models-execute]
 
         :param anthropic_model_model_id:
         :type anthropic_model_model_id: LanguageModelApiName

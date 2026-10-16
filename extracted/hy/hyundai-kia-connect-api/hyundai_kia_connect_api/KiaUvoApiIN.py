@@ -5,14 +5,12 @@
 import base64
 import datetime as dt
 import logging
-import math
 import re
-import time
-import typing as ty
 from zoneinfo import ZoneInfo
 
 from .ApiImpl import ApiImplSession, ClimateRequestOptions
 from .ApiImplType1 import (
+    USER_AGENT_OK_HTTP,
     ApiImplType1,
     _check_response_for_errors,
     _retry_on_device_id_error,
@@ -25,43 +23,19 @@ from .const import (
     DISTANCE_UNITS,
     DOMAIN,
     ENGINE_TYPES,
+    SEAT_LOCATION,
     SEAT_STATUS,
     TEMPERATURE_UNITS,
-    VEHICLE_LOCK_ACTION,
 )
 from .exceptions import AuthenticationError
 from .Token import Token
 from .utils import get_child_value, get_hex_temp_into_index, get_index_into_hex_temp
 from .Vehicle import (
-    DayTripCounts,
-    MonthTripInfo,
     TripInfo,
     Vehicle,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-USER_AGENT_OK_HTTP: str = "okhttp/3.12.0"
-USER_AGENT_MOZILLA: str = "Mozilla/5.0 (Linux; Android 4.1.1; Galaxy Nexus Build/JRO03C) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.166 Mobile Safari/535.19"
-ACCEPT_HEADER_ALL: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
-
-SUPPORTED_LANGUAGES_LIST = [
-    "en",  # English
-    "de",  # German
-    "fr",  # French
-    "it",  # Italian
-    "es",  # Spanish
-    "sv",  # Swedish
-    "nl",  # Dutch
-    "no",  # Norwegian
-    "cs",  # Czech
-    "sk",  # Slovak
-    "hu",  # Hungarian
-    "da",  # Danish
-    "pl",  # Polish
-    "fi",  # Finnish
-    "pt",  # Portuguese
-]
 
 
 class KiaUvoApiIN(ApiImplType1):
@@ -122,7 +96,6 @@ class KiaUvoApiIN(ApiImplType1):
         self,
         username: str,
         password: str,
-        otp_handler: ty.Callable[[dict], dict] | None = None,
         pin: str | None = None,
     ) -> Token:
         stamp = self._get_stamp()
@@ -478,9 +451,9 @@ class KiaUvoApiIN(ApiImplType1):
         response = response["resMsg"]
         return response
 
-    def _get_location(self, token: Token, vehicle: Vehicle) -> dict:
+    def _get_location(self, token: Token, vehicle: Vehicle) -> dict | None:
         url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/location/park"
-        _LOGGER.error(f"Getting location from {url}")
+        _LOGGER.debug(f"{DOMAIN} - Getting location from {url}")
 
         try:
             response = self.session.get(
@@ -495,20 +468,6 @@ class KiaUvoApiIN(ApiImplType1):
         except Exception:
             _LOGGER.warning(f"{DOMAIN} - _get_location failed")
             return None
-
-    def lock_action(
-        self, token: Token, vehicle: Vehicle, action: VEHICLE_LOCK_ACTION
-    ) -> str:
-        url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/control/door"
-
-        payload = {"action": action.value, "deviceId": token.device_id}
-        _LOGGER.debug(f"{DOMAIN} - Lock Action Request: {payload}")
-        response = self.session.post(
-            url, json=payload, headers=self._get_authenticated_headers(token)
-        ).json()
-        _LOGGER.debug(f"{DOMAIN} - Lock Action Response: {response}")
-        _check_response_for_errors(response)
-        return response["msgId"]
 
     @_retry_on_device_id_error
     def charge_port_action(
@@ -579,36 +538,6 @@ class KiaUvoApiIN(ApiImplType1):
         _check_response_for_errors(response)
         return response["msgId"]
 
-    @_retry_on_device_id_error
-    def start_hazard_lights(self, token: Token, vehicle: Vehicle) -> str:
-        url = self.SPA_API_URL_V2 + "vehicles/" + vehicle.id + "/ccs2/control/light"
-
-        payload = {"command": "on"}
-        _LOGGER.debug(f"{DOMAIN} - Start Hazard Lights Request: {payload}")
-        response = self.session.post(
-            url,
-            json=payload,
-            headers=self._get_control_headers(token, vehicle),
-        ).json()
-        _LOGGER.debug(f"{DOMAIN} - Start Hazard Lights Response: {response}")
-        _check_response_for_errors(response)
-        return response["msgId"]
-
-    @_retry_on_device_id_error
-    def start_hazard_lights_and_horn(self, token: Token, vehicle: Vehicle) -> str:
-        url = self.SPA_API_URL_V2 + "vehicles/" + vehicle.id + "/ccs2/control/hornlight"
-
-        payload = {"command": "on"}
-        _LOGGER.debug(f"{DOMAIN} - Start Hazard Lights and Horn Request: {payload}")
-        response = self.session.post(
-            url,
-            json=payload,
-            headers=self._get_control_headers(token, vehicle),
-        ).json()
-        _LOGGER.debug(f"{DOMAIN} - Start Hazard Lights and Horn Response: {response}")
-        _check_response_for_errors(response)
-        return response["msgId"]
-
     def _update_vehicle_properties_charge(self, vehicle: Vehicle, state: dict) -> None:
         try:
             if isinstance(state.get("targetSOClist"), list):
@@ -628,7 +557,7 @@ class KiaUvoApiIN(ApiImplType1):
         vehicle: Vehicle,
         date_string: str,
         trip: dict,
-    ) -> dict:
+    ) -> TripInfo | None:
         if (
             vehicle.engine_type != ENGINE_TYPES.EV
             or BRANDS[self.brand] != BRAND_HYUNDAI
@@ -664,57 +593,13 @@ class KiaUvoApiIN(ApiImplType1):
 
         return processed_trip
 
-    def update_month_trip_info(
-        self,
-        token,
-        vehicle,
-        yyyymm_string,
-    ) -> None:
-        """
-        feature only available for some regions.
-        Updates the vehicle.month_trip_info for the specified month.
-
-        Default this information is None:
-
-        month_trip_info: MonthTripInfo = None
-        """
-        vehicle.month_trip_info = None
-        json_result = self._get_trip_info(
-            token,
-            vehicle,
-            yyyymm_string,
-            0,  # month trip info
-        )
-        msg = json_result["resMsg"]
-        if msg.get("monthTripDayCnt", 0) > 0 or len(msg.get("tripDayList", [])) > 0:
-            result = MonthTripInfo(
-                yyyymm=yyyymm_string,
-                day_list=[],
-                summary=TripInfo(
-                    drive_time=msg["tripDrvTime"],
-                    idle_time=msg["tripIdleTime"],
-                    distance=msg["tripDist"],
-                    avg_speed=msg["tripAvgSpeed"],
-                    max_speed=msg["tripMaxSpeed"],
-                ),
-            )
-
-            for day in msg["tripDayList"]:
-                processed_day = DayTripCounts(
-                    yyyymmdd=day["tripDayInMonth"],
-                    trip_count=day["tripCntDay"],
-                )
-                result.day_list.append(processed_day)
-
-            vehicle.month_trip_info = result
-
-    def _get_drv_seat_loc(self, vehicle: Vehicle) -> str:
+    def _get_drv_seat_loc(self, vehicle: Vehicle) -> SEAT_LOCATION:
         """India uses RHD vehicles regardless of the odometer unit."""
-        return "R"
+        return SEAT_LOCATION.RIGHT
 
     def _parse_day_trip(
         self, token: Token, vehicle: Vehicle, yyyymmdd_string: str, trip: dict
-    ) -> TripInfo:
+    ) -> TripInfo | None:
         # Hyundai EVs do not provide full trip info. Used "/tripinfo/detail" API instead
         if "tripTime" in trip:
             return super()._parse_day_trip(token, vehicle, yyyymmdd_string, trip)
@@ -804,29 +689,3 @@ class KiaUvoApiIN(ApiImplType1):
         token_type = response["token_type"]
         refresh_token = token_type + " " + response["access_token"]
         return token_type, refresh_token
-
-    def _get_control_token(self, token: Token) -> Token:
-        # Return cached control token if still valid
-        if token.control_token is not None and token.control_token_expiry > time.time():
-            return token.control_token, token.control_token_expiry
-
-        url = self.USER_API_URL + "pin?token="
-        headers = {
-            "Authorization": token.access_token,
-            "Content-type": "application/json",
-            "Host": self.BASE_URL,
-            "Accept-Encoding": "gzip",
-            "User-Agent": USER_AGENT_OK_HTTP,
-        }
-
-        data = {"deviceId": token.device_id, "pin": token.pin}
-        response = self.session.put(url, json=data, headers=headers)
-        response = response.json()
-        control_token = "Bearer " + response["controlToken"]
-        control_token_expire_at = math.floor(
-            dt.datetime.now().timestamp() + response["expiresTime"]
-        )
-        # Cache control token and expiry for reuse
-        token.control_token = control_token
-        token.control_token_expiry = control_token_expire_at
-        return control_token, control_token_expire_at

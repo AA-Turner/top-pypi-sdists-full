@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, cast, overload
 
 import cv2
 import numpy as np
@@ -49,6 +49,14 @@ def _apply_float_lut(img: ImageUInt8, lut: np.ndarray) -> ImageFloat32:
         return cast("ImageFloat32", _cv2_lut_channel_last(img, lut))
 
     return _apply_float_lut_per_channel_loop(img, lut)
+
+
+@overload
+def sz_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool = True) -> ImageUInt8: ...
+
+
+@overload
+def sz_lut(img: torch.Tensor, lut: ImageUInt8, inplace: bool = True) -> torch.Tensor: ...
 
 
 def sz_lut(
@@ -147,9 +155,8 @@ def _apply_shared_uint8_lut(img: ImageUInt8, lut: ImageUInt8, inplace: bool) -> 
     return sz_lut(img, lut, inplace)
 
 
-def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bool) -> ImageUInt8:
-    """``luts`` shaped ``(256, 1, C)`` uint8. Vector ``apply_lut`` ignores ``inplace`` (always new array)."""
-    del inplace  # API symmetry with ``apply_uint8_lut``; matches historical ``apply_lut`` behaviour.
+def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8) -> ImageUInt8:
+    """Apply ``(256, 1, C)`` uint8 tables out of place, matching vector ``apply_lut``."""
     num_channels = img.shape[-1]
     if num_channels == 1:
         return _apply_shared_uint8_lut(img, luts[:, 0, 0], inplace=False)
@@ -161,6 +168,26 @@ def _apply_per_channel_uint8_luts(img: ImageUInt8, luts: ImageUInt8, inplace: bo
     for i in range(num_channels):
         result[..., i] = sz_lut(img[..., i], np.ascontiguousarray(luts[:, 0, i]), inplace=False)
     return result
+
+
+@overload
+def apply_uint8_lut(
+    img: ImageUInt8,
+    lut: np.ndarray,
+    *,
+    inplace: bool = False,
+    layout: TensorLayout | None = None,
+) -> ImageUInt8: ...
+
+
+@overload
+def apply_uint8_lut(
+    img: torch.Tensor,
+    lut: np.ndarray,
+    *,
+    inplace: bool = False,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def apply_uint8_lut(
@@ -208,6 +235,4 @@ def apply_uint8_lut(
 
     if lut.ndim == 1:
         return _apply_shared_uint8_lut(img, lut, inplace)
-    if lut.ndim == 3 and lut.shape[0] == 256 and lut.shape[1] == 1:
-        return _apply_per_channel_uint8_luts(img, lut, inplace)
-    return _apply_per_channel_uint8_luts(img, lut, inplace)
+    return _apply_per_channel_uint8_luts(img, lut)

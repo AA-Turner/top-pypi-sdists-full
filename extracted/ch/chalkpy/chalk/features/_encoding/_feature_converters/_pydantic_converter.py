@@ -1,17 +1,7 @@
 from __future__ import annotations
 
 import typing as _typing_mod
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Iterable,
-    List,
-    Sequence,
-    Tuple,
-    cast,
-)
+from typing import Any, Callable, ClassVar, Dict, Iterable, List, Sequence, Tuple, cast
 
 import pyarrow as pa
 
@@ -30,9 +20,10 @@ from chalk.features._encoding.pyarrow import (
     rich_to_pyarrow,
 )
 from chalk.utils.collections import unwrap_optional_and_annotated_if_needed
-from chalk.utils.pydanticutil.pydantic_compat import construct_pydantic_model as _pydantic_construct
 from chalk.utils.json import TJSON
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pydanticutil.pydantic_compat import construct_pydantic_model as _pydantic_construct
+from chalk.utils.pydanticutil.pydantic_compat import is_pydantic_basemodel
 
 from ._base import (
     _DEFAULT_FEATURE_ENCODING_OPTIONS,
@@ -49,25 +40,9 @@ try:
 except ImportError:
     BaseModel = None  # type: ignore[assignment, misc]
 
-try:
-    from pydantic.v1 import BaseModel as V1BaseModel
-except ImportError:
-    V1BaseModel = None  # type: ignore[assignment, misc]
-
 
 def _is_pydantic_model(typ: Any) -> bool:
-    if not isinstance(typ, type):
-        return False
-    try:
-        if BaseModel is not None and issubclass(typ, BaseModel):
-            return True
-        if V1BaseModel is not None and issubclass(typ, V1BaseModel):
-            return True
-    except TypeError:
-        # On Python 3.10, generic aliases like list[X] satisfy isinstance(x, type)
-        # but raise TypeError in issubclass() via pydantic's __subclasscheck__.
-        pass
-    return False
+    return is_pydantic_basemodel(typ)
 
 
 def _get_field_names(model_class: type) -> tuple[str, ...]:
@@ -181,12 +156,16 @@ class PydanticFeatureConverter(
                 return cached
             if field_converters is None:
                 from ._factory import make_field_converters_for_pydantic as _make_field_converters
+
                 field_converters = _make_field_converters(model_class)
-            inst = cls(model_class, default, is_nullable, field_converters=field_converters, name=name, _from_new=_FROM_NEW)
+            inst = cls(
+                model_class, default, is_nullable, field_converters=field_converters, name=name, _from_new=_FROM_NEW
+            )
             cls._cache[key] = inst
             return inst
         if field_converters is None:
             from ._factory import make_field_converters_for_pydantic as _make_field_converters
+
             field_converters = _make_field_converters(model_class)
         return cls(model_class, default, is_nullable, field_converters=field_converters, name=name, _from_new=_FROM_NEW)
 
@@ -240,14 +219,16 @@ class PydanticFeatureConverter(
             for fname, fconv in field_converters.items()
         }
         self._null_proto: pb.ArrowType = pb.ArrowType(
-            struct=pb.Struct(sub_field_types=[
-                pb.Field(
-                    name=pa_field.name,
-                    nullable=pa_field.nullable,
-                    arrow_type=self._proto_field_arrow_types[pa_field.name],
-                )
-                for pa_field in struct_fields
-            ])
+            struct=pb.Struct(
+                sub_field_types=[
+                    pb.Field(
+                        name=pa_field.name,
+                        nullable=pa_field.nullable,
+                        arrow_type=self._proto_field_arrow_types[pa_field.name],
+                    )
+                    for pa_field in struct_fields
+                ]
+            )
         )
 
         if is_nullable and default is ...:
@@ -336,11 +317,16 @@ class PydanticFeatureConverter(
         field_names = self._field_names
         if has_nulls:
             return [
-                None if not valid[i]
-                else _pydantic_construct(mc, **{field_names[fi]: field_data[fi][i] for fi in range(n_fields)})
+                (
+                    None
+                    if not valid[i]
+                    else _pydantic_construct(mc, **{field_names[fi]: field_data[fi][i] for fi in range(n_fields)})
+                )
                 for i in range(n)
             ]
-        return [_pydantic_construct(mc, **{field_names[fi]: field_data[fi][i] for fi in range(n_fields)}) for i in range(n)]
+        return [
+            _pydantic_construct(mc, **{field_names[fi]: field_data[fi][i] for fi in range(n_fields)}) for i in range(n)
+        ]
 
     # ── helpers ──────────────────────────────────────────────────────────────
 
@@ -461,7 +447,9 @@ class PydanticFeatureConverter(
                 fixed: dict[str, Any] = {}
                 for pa_field in self._struct_fields_list:
                     v = row[pa_field.name]
-                    fixed[pa_field.name] = coerce_map_pylist_to_dict(v, pa_field.type) if is_map_in_dtype_tree(pa_field.type) else v
+                    fixed[pa_field.name] = (
+                        coerce_map_pylist_to_dict(v, pa_field.type) if is_map_in_dtype_tree(pa_field.type) else v
+                    )
                 result.append(fixed)
         return result
 

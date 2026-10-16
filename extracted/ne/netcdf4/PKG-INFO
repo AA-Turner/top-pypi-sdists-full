@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: netCDF4
-Version: 1.7.4
+Version: 1.7.5
 Summary: Provides an object-oriented python interface to the netCDF version 4 library
 Author-email: Jeff Whitaker <whitaker.jeffrey@gmail.com>
 License-Expression: MIT
@@ -9,27 +9,22 @@ Project-URL: Repository, https://github.com/Unidata/netcdf4-python
 Keywords: numpy,netcdf,data,science,network,oceanography,meteorology,climate
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: cftime
 Requires-Dist: certifi
-Requires-Dist: numpy>=2.3.0; platform_system == "Windows" and platform_machine == "ARM64"
-Requires-Dist: numpy>=1.21.2; platform_system != "Windows" or platform_machine != "ARM64"
-Provides-Extra: tests
-Requires-Dist: Cython; extra == "tests"
-Requires-Dist: packaging; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: typing-extensions>=4.15.0; extra == "tests"
+Requires-Dist: packaging
+Requires-Dist: numpy>=1.23.2
 Provides-Extra: parallel
 Requires-Dist: mpi4py; extra == "parallel"
 Dynamic: license-file

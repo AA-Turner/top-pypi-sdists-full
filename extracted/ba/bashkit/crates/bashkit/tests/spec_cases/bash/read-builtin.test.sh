@@ -1,6 +1,5 @@
 ### read_basic
-### bash_diff
-echo "hello" | read var; echo "$var"
+shopt -s lastpipe; echo "hello" | read var; echo "$var"
 ### expect
 hello
 ### end
@@ -169,4 +168,11 @@ a=<1> b=<2:3  > len=5
 read -r <<< "secret  "; printf 'reply=<%s> len=%d\n' "$REPLY" "${#REPLY}"
 ### expect
 reply=<secret  > len=8
+### end
+
+### read_into_readonly_fails
+# a readonly name fails read with status 1; later names are left alone
+readonly r=x; read a r b <<< "1 2 3"; echo $? $a $r ${b-unset}
+### expect
+1 1 x unset
 ### end

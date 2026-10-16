@@ -91,6 +91,9 @@ class DatasetClient:
         default branch ('master' for most enrollments). For more information on streaming datasets, refer to the
         [streams](https://palantir.com/docs/foundry/data-integration/streams/) user documentation.
 
+
+        Required scopes: [api:streams-write]
+
         :param name:
         :type name: DatasetName
         :param parent_folder_rid:
@@ -230,6 +233,9 @@ class AsyncDatasetClient:
         Creates a streaming dataset with a stream on the specified branch, or if no branch is specified, on the
         default branch ('master' for most enrollments). For more information on streaming datasets, refer to the
         [streams](https://palantir.com/docs/foundry/data-integration/streams/) user documentation.
+
+
+        Required scopes: [api:streams-write]
 
         :param name:
         :type name: DatasetName

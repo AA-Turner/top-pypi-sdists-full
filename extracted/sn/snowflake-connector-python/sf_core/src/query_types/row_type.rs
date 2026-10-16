@@ -1,0 +1,318 @@
+#[derive(Clone, Debug)]
+pub enum RowType {
+    Fixed {
+        name: String,
+        nullable: bool,
+        precision: u64,
+        scale: u64,
+    },
+    Text {
+        name: String,
+        nullable: bool,
+        length: u64,
+        byte_length: u64,
+    },
+    Boolean {
+        name: String,
+        nullable: bool,
+    },
+    Real {
+        name: String,
+        nullable: bool,
+    },
+    Date {
+        name: String,
+        nullable: bool,
+    },
+    TimestampNtz {
+        name: String,
+        nullable: bool,
+        scale: u64,
+    },
+    TimestampLtz {
+        name: String,
+        nullable: bool,
+        scale: u64,
+    },
+    TimestampTz {
+        name: String,
+        nullable: bool,
+        scale: u64,
+    },
+    Time {
+        name: String,
+        nullable: bool,
+        scale: u64,
+    },
+    Binary {
+        name: String,
+        nullable: bool,
+        length: u64,
+        byte_length: u64,
+    },
+    Decfloat {
+        name: String,
+        nullable: bool,
+        precision: u64,
+    },
+    Variant {
+        name: String,
+        nullable: bool,
+    },
+    Object {
+        name: String,
+        nullable: bool,
+    },
+    Array {
+        name: String,
+        nullable: bool,
+    },
+    Map {
+        name: String,
+        nullable: bool,
+    },
+    File {
+        name: String,
+        nullable: bool,
+    },
+    IntervalYearMonth {
+        name: String,
+        nullable: bool,
+        precision: u64,
+        scale: u64,
+    },
+    IntervalDaySecond {
+        name: String,
+        nullable: bool,
+        precision: u64,
+        scale: u64,
+    },
+    Geography {
+        name: String,
+        nullable: bool,
+        /// Underlying representation chosen by the server based on
+        /// `GEOGRAPHY_OUTPUT_FORMAT` (text for GeoJSON/WKT/EWKT, binary for WKB/EWKB).
+        representation: GeoRepresentation,
+    },
+    Geometry {
+        name: String,
+        nullable: bool,
+        /// Underlying representation chosen by the server based on
+        /// `GEOMETRY_OUTPUT_FORMAT` (text for GeoJSON/WKT/EWKT, binary for WKB/EWKB).
+        representation: GeoRepresentation,
+    },
+    Vector {
+        name: String,
+        nullable: bool,
+        /// Element count of the VECTOR column. Snowflake guarantees a non-negative
+        /// dimension (SQL reference caps this at 4096), so `usize` mirrors the
+        /// value space directly and keeps capacity math cast-free.
+        dimension: usize,
+        element_type: VectorElementType,
+    },
+}
+
+/// Underlying storage representation for GEOGRAPHY / GEOMETRY columns.
+/// Values in JSON result format arrive as UTF-8 strings when the output format
+/// produces text (GeoJSON/WKT/EWKT), and as hex-encoded strings when the format
+/// produces binary (WKB/EWKB).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GeoRepresentation {
+    /// Textual output: GeoJSON object (returned by Snowflake as `type=object`),
+    /// or WKT/EWKT strings (returned as `type=text`).
+    Text,
+    /// Binary output: WKB/EWKB, returned as hex-encoded strings with
+    /// `type=binary` — decoded into Arrow `Binary` by the JSON parser.
+    Binary,
+}
+
+/// VECTOR(INT) uses 32-bit ints; VECTOR(FLOAT) uses 32-bit IEEE 754 floats.
+/// Stored as an enum (rather than `arrow::DataType`) to keep this module independent
+/// of the Arrow crate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum VectorElementType {
+    Int32,
+    Float32,
+}
+
+impl RowType {
+    pub fn fixed(name: &str, nullable: bool, precision: u64, scale: u64) -> Self {
+        RowType::Fixed {
+            name: name.to_string(),
+            nullable,
+            precision,
+            scale,
+        }
+    }
+
+    pub fn fixed_with_scale_zero(name: &str, nullable: bool, precision: u64) -> Self {
+        RowType::Fixed {
+            name: name.to_string(),
+            nullable,
+            precision,
+            scale: 0,
+        }
+    }
+
+    pub fn text(name: &str, nullable: bool, length: u64, byte_length: u64) -> Self {
+        RowType::Text {
+            name: name.to_string(),
+            nullable,
+            length,
+            byte_length,
+        }
+    }
+
+    pub fn boolean(name: &str, nullable: bool) -> Self {
+        RowType::Boolean {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn real(name: &str, nullable: bool) -> Self {
+        RowType::Real {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn date(name: &str, nullable: bool) -> Self {
+        RowType::Date {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn timestamp_ntz(name: &str, nullable: bool, scale: u64) -> Self {
+        RowType::TimestampNtz {
+            name: name.to_string(),
+            nullable,
+            scale,
+        }
+    }
+
+    pub fn timestamp_ltz(name: &str, nullable: bool, scale: u64) -> Self {
+        RowType::TimestampLtz {
+            name: name.to_string(),
+            nullable,
+            scale,
+        }
+    }
+
+    pub fn timestamp_tz(name: &str, nullable: bool, scale: u64) -> Self {
+        RowType::TimestampTz {
+            name: name.to_string(),
+            nullable,
+            scale,
+        }
+    }
+
+    pub fn time(name: &str, nullable: bool, scale: u64) -> Self {
+        RowType::Time {
+            name: name.to_string(),
+            nullable,
+            scale,
+        }
+    }
+
+    pub fn binary(name: &str, nullable: bool, length: u64, byte_length: u64) -> Self {
+        RowType::Binary {
+            name: name.to_string(),
+            nullable,
+            length,
+            byte_length,
+        }
+    }
+
+    pub fn decfloat(name: &str, nullable: bool, precision: u64) -> Self {
+        RowType::Decfloat {
+            name: name.to_string(),
+            nullable,
+            precision,
+        }
+    }
+
+    pub fn variant(name: &str, nullable: bool) -> Self {
+        RowType::Variant {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn object(name: &str, nullable: bool) -> Self {
+        RowType::Object {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn array(name: &str, nullable: bool) -> Self {
+        RowType::Array {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn map(name: &str, nullable: bool) -> Self {
+        RowType::Map {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn file(name: &str, nullable: bool) -> Self {
+        RowType::File {
+            name: name.to_string(),
+            nullable,
+        }
+    }
+
+    pub fn interval_year_month(name: &str, nullable: bool, precision: u64, scale: u64) -> Self {
+        RowType::IntervalYearMonth {
+            name: name.to_string(),
+            nullable,
+            precision,
+            scale,
+        }
+    }
+
+    pub fn interval_day_second(name: &str, nullable: bool, precision: u64, scale: u64) -> Self {
+        RowType::IntervalDaySecond {
+            name: name.to_string(),
+            nullable,
+            precision,
+            scale,
+        }
+    }
+
+    pub fn geography(name: &str, nullable: bool, representation: GeoRepresentation) -> Self {
+        RowType::Geography {
+            name: name.to_string(),
+            nullable,
+            representation,
+        }
+    }
+
+    pub fn geometry(name: &str, nullable: bool, representation: GeoRepresentation) -> Self {
+        RowType::Geometry {
+            name: name.to_string(),
+            nullable,
+            representation,
+        }
+    }
+
+    pub fn vector(
+        name: &str,
+        nullable: bool,
+        dimension: usize,
+        element_type: VectorElementType,
+    ) -> Self {
+        RowType::Vector {
+            name: name.to_string(),
+            nullable,
+            dimension,
+            element_type,
+        }
+    }
+}

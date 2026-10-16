@@ -12,7 +12,7 @@ import random
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 
-from .._config_utils import load_toml_section
+from .._config_utils import load_toml_section, model_accepts_dimensions, parse_embedding_dimensions
 
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
@@ -87,6 +87,15 @@ class EmbeddingError(Exception):
     pass
 
 
+class EmbeddingDimensionError(EmbeddingError):
+    """返ってきたベクトルの長さが設定の次元と違う (壊れたベクトルを保存しない。3.2 R32-072)"""
+    pass
+
+
+# 次元を設定しないときの既定 (text-embedding-ada-002 / text-embedding-3-small / embed-v-4-0 の既定)
+DEFAULT_EMBEDDING_DIMENSIONS = 1536
+
+
 class RateLimitExceededError(EmbeddingError):
     """レートリミット超過エラー"""
     pass
@@ -103,7 +112,9 @@ class EmbeddingConfig:
         api_key: APIキー
         model: デプロイメント名/モデル名（例: "text-embedding-3-small"）
         api_version: APIバージョン（デフォルト: "2024-02-15-preview"）
-        dimensions: Embedding次元数（text-embedding-3-smallは1536）
+        dimensions: Embedding次元数。None = 設定なし（1536 とみなし、API には渡さない）。設定すれば API の
+            dimensions に渡し、返ってきた長さが違えば EmbeddingDimensionError（3.1.1）。実際の次元は
+            EmbeddingGenerator.dimensions（整数）
         max_cache_size: キャッシュ最大サイズ（デフォルト: 10000）
         max_retries: リトライ回数（デフォルト: 5）
         base_delay: 基本待機時間秒（デフォルト: 1.0）
@@ -134,7 +145,7 @@ class EmbeddingConfig:
     model: str = "text-embedding-ada-002"
     api_version: str = "2024-02-15-preview"
     max_cache_size: int = 10000
-    dimensions: int = 1536  # text-embedding-ada-002のデフォルト
+    dimensions: Optional[int] = None  # None = 設定なし (1536 とみなし API に渡さない)。3.2 R32-072
     # 接続プロバイダー: "azure" = Azure OpenAI (deployments パス) /
     # "openai" = OpenAI 互換エンドポイント (Azure AI inference の embed-v-4-0 等。
     # base_url に /models まで含めて指定し、api_version は使わない)
@@ -143,6 +154,9 @@ class EmbeddingConfig:
     max_retries: int = 5
     base_delay: float = 1.0
     max_delay: float = 60.0
+    def __post_init__(self) -> None:
+        # 直接作ったときも検査する (真偽値・小数は断る)。未設定は None のまま残す (複製・dict との往復で設定に化けない)
+        self.dimensions = parse_embedding_dimensions(self.dimensions)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "EmbeddingConfig":
@@ -174,7 +188,7 @@ class EmbeddingConfig:
             model=model,
             api_version=data.get("api_version", "2024-02-15-preview"),
             max_cache_size=data.get("max_cache_size", 10000),
-            dimensions=data.get("dimensions", 1536),
+            dimensions=data.get("dimensions"),
             provider=data.get("provider", "azure"),
             max_retries=data.get("max_retries", 5),
             base_delay=data.get("base_delay", 1.0),
@@ -275,7 +289,11 @@ class EmbeddingGenerator:
         # embedding token 予算（モデル別: 8192 上限系 8000 / embed-v4 等 128k 系 100k）
         self._token_budget = _budget_for_model(model)
         self.model_name = config.model  # For model_version tracking
-        self.dimensions = config.dimensions
+        # 3.2 R32-072: 次元は設定されたときだけ API に渡し、返ってきた長さを確かめる (設定なしは今までどおり 1536 とみなす)
+        configured = config.dimensions
+        self.dimensions = configured or DEFAULT_EMBEDDING_DIMENSIONS
+        self._expected_dimensions = configured
+        self._request_dimensions = configured if configured is not None and model_accepts_dimensions(model) else None
 
         # リトライ設定
         self._max_retries = config.max_retries
@@ -337,10 +355,9 @@ class EmbeddingGenerator:
                 # (embed-v-4-0 等の OpenAI 互換 endpoint) は input に list を要求し、
                 # 素の文字列は 422 "Input should be a valid list" になる。list 入力は
                 # OpenAI / Azure OpenAI 双方が受理し、応答 shape (data[0].embedding) も不変。
-                response = await self.client.embeddings.create(
-                    input=[text], model=self.deployment_name
-                )
+                response = await self.client.embeddings.create(**self._create_kwargs([text]))
                 embedding = response.data[0].embedding
+                self._check_dimensions([embedding])
 
                 # Cache update
                 self._update_memory_cache(cache_key, embedding)
@@ -348,6 +365,8 @@ class EmbeddingGenerator:
                 logger.debug(f"Embedding generated - dims={len(embedding)}")
                 return embedding
 
+            except EmbeddingDimensionError:
+                raise
             except Exception as e:
                 last_error = e
                 if "429" in str(e) or "rate" in str(e).lower():
@@ -437,9 +456,8 @@ class EmbeddingGenerator:
                 last_error = None
                 for attempt in range(self._max_retries):
                     try:
-                        response = await self.client.embeddings.create(
-                            input=batch, model=self.deployment_name
-                        )
+                        response = await self.client.embeddings.create(**self._create_kwargs(batch))
+                        self._check_dimensions([d.embedding for d in response.data])
 
                         # Map back to original indices
                         for j, embedding_obj in enumerate(response.data):
@@ -454,6 +472,8 @@ class EmbeddingGenerator:
                         # Success - move to next batch
                         break
 
+                    except EmbeddingDimensionError:
+                        raise
                     except Exception as e:
                         last_error = e
                         if "429" in str(e) or "rate" in str(e).lower():
@@ -476,6 +496,23 @@ class EmbeddingGenerator:
                 i += batch_size
 
         return embeddings  # type: ignore
+
+    def _create_kwargs(self, inputs: List[str]) -> Dict[str, Any]:
+        kwargs: Dict[str, Any] = {"input": inputs, "model": self.deployment_name}
+        if self._request_dimensions is not None:
+            kwargs["dimensions"] = self._request_dimensions
+        return kwargs
+
+    def _check_dimensions(self, vectors: List[List[float]]) -> None:
+        """設定の次元と違う長さのベクトルは返さない (キャッシュにも入れない)。"""
+        if self._expected_dimensions is None:
+            return
+        for vector in vectors:
+            if len(vector) != self._expected_dimensions:
+                raise EmbeddingDimensionError(
+                    f"Embedding dimension mismatch: configured {self._expected_dimensions}, "
+                    f"model {self.model_name} returned {len(vector)}"
+                )
 
     def _calculate_backoff_delay(self, attempt: int) -> float:
         """

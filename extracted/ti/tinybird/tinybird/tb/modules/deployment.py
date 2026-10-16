@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -582,7 +582,7 @@ data-host="{client.host}"
 
         try:
             ttl = timedelta(days=365 * 10)
-            expiration_time = int((ttl + datetime.now(timezone.utc)).timestamp())
+            expiration_time = int((ttl + datetime.now(UTC)).timestamp())
             datasources = client.datasources()
             pipes = client.pipes()
 

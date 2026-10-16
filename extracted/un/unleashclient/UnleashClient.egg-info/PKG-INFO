@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: UnleashClient
-Version: 6.9.0
+Version: 6.9.1
 Summary: Python client for the Unleash feature toggle system!
 Author-email: Ivan Lee <ivanklee86@gmail.com>
 Project-URL: Homepage, https://github.com/Unleash/unleash-python-sdk
@@ -28,7 +28,7 @@ Requires-Dist: apscheduler<4.0.0
 Requires-Dist: importlib_metadata
 Requires-Dist: python-dateutil
 Requires-Dist: semver<4.0.0
-Requires-Dist: yggdrasil-engine>=2.0.0
+Requires-Dist: yggdrasil-engine<3.0.0,>=2.0.0
 Requires-Dist: launchdarkly-eventsource
 Provides-Extra: async
 Requires-Dist: aiohttp>=3.9; extra == "async"

@@ -357,6 +357,51 @@ static int css_comp_is_repeat_keyword(css_buf *pool, const css_comp *comp) {
                                       css_comp_kw(pool, comp, "repeat") || css_comp_kw(pool, comp, "no-repeat"));
 }
 
+static int css_background_non_color(css_buf *pool, const css_comp *comp) {
+    static const char *const keywords[] = {
+        "fixed",    "scroll",   "local",  "none",    "border-box", "padding-box", "content-box",
+        "repeat-x", "repeat-y", "cover",  "contain", "auto",       "left",        "right",
+        "top",      "bottom",   "center", "space",   "round",      "repeat",      "no-repeat",
+    };
+    static const char *const functions[] = {
+        "image-set",
+        "linear-gradient",
+        "radial-gradient",
+        "conic-gradient",
+        "repeating-linear-gradient",
+        "repeating-radial-gradient",
+        "repeating-conic-gradient",
+        "calc",
+        "min",
+        "max",
+        "clamp",
+    };
+    if (comp->kind == CK_SEP || comp->kind == CK_URL || comp->kind == CK_NUM || comp->kind == CK_DIM ||
+        comp->kind == CK_PCT) {
+        return 1;
+    }
+    if (comp->kind == CK_IDENT) {
+        if (comp->len == 5 && css_comp_kw(pool, comp, "fixed")) {
+            return 1;
+        }
+        return css_prop_in(pool->data + comp->off, comp->len, keywords, sizeof(keywords) / sizeof(char *));
+    }
+    return comp->kind == CK_FUNC && css_prop_in(pool->data + comp->off, css_func_name_len(pool, comp), functions,
+                                                sizeof(functions) / sizeof(char *));
+}
+
+static CSS_FORCEINLINE int css_background_has_other_color(css_buf *pool, const comp_vec *run, Py_ssize_t transparent) {
+    if (run->len == 2) {
+        return !css_background_non_color(pool, &run->items[1 - transparent]);
+    }
+    for (Py_ssize_t index = 0; index < run->len; index++) {
+        if (index != transparent && !css_background_non_color(pool, &run->items[index])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void css_position_single(css_buf *pool, const css_comp *items, Py_ssize_t count, comp_vec *out) {
     pos_val run[64];
     Py_ssize_t resolved = css_position_run(pool, items, count, run);
@@ -364,19 +409,144 @@ static void css_position_single(css_buf *pool, const css_comp *items, Py_ssize_t
 }
 
 CSS_NOINLINE static int css_background_unshortenable(css_buf *pool, const comp_vec *run) {
+    static const char *const image_funcs[] = {"image-set",
+                                              "linear-gradient",
+                                              "radial-gradient",
+                                              "conic-gradient",
+                                              "repeating-linear-gradient",
+                                              "repeating-radial-gradient",
+                                              "repeating-conic-gradient"};
+    static const char *const position_funcs[] = {"calc", "min", "max", "clamp"};
     int attachments = 0;
+    int images = 0;
+    int repeats = 0;
+    int boxes = 0;
+    int positions = 0;
+    int position_open = 0;
+    int previous_repeat = 0;
     for (Py_ssize_t pos = 0; pos < run->len; pos++) {
         const css_comp *comp = &run->items[pos];
+        if (comp->kind == CK_SEP) {
+            if (!position_open || pos + 1 == run->len) {
+                return 1;
+            }
+            const css_comp *size = &run->items[++pos];
+            if (css_comp_kw(pool, size, "cover") || css_comp_kw(pool, size, "contain")) {
+                position_open = 0;
+                previous_repeat = 0;
+                continue;
+            }
+            if (!css_comp_is_lp(pool, size) && !css_comp_kw(pool, size, "auto")) {
+                return 1;
+            }
+            if (pos + 1 < run->len &&
+                (css_comp_is_lp(pool, &run->items[pos + 1]) || css_comp_kw(pool, &run->items[pos + 1], "auto"))) {
+                pos++;
+            }
+            position_open = 0;
+            previous_repeat = 0;
+            continue;
+        }
+        int image = comp->kind == CK_URL;
+        int repeat = 0;
+        int basic_repeat = 0;
+        int box = 0;
+        int position = comp->kind == CK_NUM || comp->kind == CK_DIM;
+        int attachment = 0;
         if (comp->kind == CK_DELIM) {
             return 1;
         }
-        if (comp->kind == CK_IDENT && comp->len >= 5 &&
-            (css_comp_kw(pool, comp, "scroll") || css_comp_kw(pool, comp, "fixed") ||
-             css_comp_kw(pool, comp, "local"))) {
-            if (++attachments > 1) {
+        if (comp->kind == CK_FUNC) {
+            Py_ssize_t name_len = css_func_name_len(pool, comp);
+            image = css_prop_in(pool->data + comp->off, name_len, image_funcs, sizeof(image_funcs) / sizeof(char *));
+            position =
+                css_prop_in(pool->data + comp->off, name_len, position_funcs, sizeof(position_funcs) / sizeof(char *));
+        } else if (comp->kind == CK_IDENT) {
+            switch (css_lower(pool->data[comp->off])) {
+            case 'b':
+                box = css_comp_kw(pool, comp, "border-box");
+                position = css_comp_kw(pool, comp, "bottom");
+                break;
+            case 'c':
+                if (comp->len == 6) {
+                    position = css_comp_kw(pool, comp, "center");
+                } else if (comp->len == 11) {
+                    box = css_comp_kw(pool, comp, "content-box");
+                }
+                break;
+            case 'f':
+                attachment = css_comp_kw(pool, comp, "fixed");
+                break;
+            case 'i':
+                if (css_comp_kw(pool, comp, "inherit") || css_comp_kw(pool, comp, "initial")) {
+                    return 1;
+                }
+                break;
+            case 'l':
+                attachment = css_comp_kw(pool, comp, "local");
+                position = css_comp_kw(pool, comp, "left");
+                break;
+            case 'n':
+                if (comp->len == 4) {
+                    image = css_comp_kw(pool, comp, "none");
+                } else if (comp->len == 9) {
+                    basic_repeat = css_comp_kw(pool, comp, "no-repeat");
+                }
+                repeat = basic_repeat;
+                break;
+            case 'p':
+                box = css_comp_kw(pool, comp, "padding-box");
+                break;
+            case 'r':
+                if (css_comp_kw(pool, comp, "revert") || css_comp_kw(pool, comp, "revert-layer")) {
+                    return 1;
+                }
+                basic_repeat = css_comp_kw(pool, comp, "repeat") || css_comp_kw(pool, comp, "round");
+                repeat = basic_repeat || css_comp_kw(pool, comp, "repeat-x") || css_comp_kw(pool, comp, "repeat-y");
+                position = css_comp_kw(pool, comp, "right");
+                break;
+            case 's':
+                attachment = css_comp_kw(pool, comp, "scroll");
+                basic_repeat = css_comp_kw(pool, comp, "space");
+                repeat = basic_repeat;
+                break;
+            case 't':
+                position = css_comp_kw(pool, comp, "top");
+                break;
+            case 'u':
+                if (css_comp_kw(pool, comp, "unset")) {
+                    return 1;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        if (image && ++images > 1) {
+            return 1;
+        }
+        if (box && ++boxes > 2) {
+            return 1;
+        }
+        if (attachment && ++attachments > 1) {
+            return 1;
+        }
+        if (repeat) {
+            repeats++;
+            if (repeats > 2 || (repeats == 2 && (!previous_repeat || !basic_repeat))) {
                 return 1;
             }
         }
+        if (position) {
+            if (positions && !position_open) {
+                return 1;
+            }
+            positions = 1;
+            position_open = 1;
+        } else {
+            position_open = 0;
+        }
+        previous_repeat = basic_repeat;
     }
     return 0;
 }
@@ -392,12 +562,8 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
         css_comp *comp = &run->items[index];
         /* css_handle_background splits on ',' SEPs, so the only SEP left in a layer run is the '/' size separator */
         if (comp->kind == CK_SEP) {
-            int first_size = index + 1 < run->len && (css_comp_is_lp(pool, &run->items[index + 1]) ||
-                                                      css_comp_kw(pool, &run->items[index + 1], "auto"));
-            if (!first_size && index + 1 < run->len && run->items[index + 1].kind == CK_IDENT &&
-                css_comp_is_position_keyword(pool, &run->items[index + 1])) {
-                return;
-            }
+            int first_size =
+                css_comp_is_lp(pool, &run->items[index + 1]) || css_comp_kw(pool, &run->items[index + 1], "auto");
             if (first_size) {
                 int second_size = index + 2 < run->len && (css_comp_is_lp(pool, &run->items[index + 2]) ||
                                                            css_comp_kw(pool, &run->items[index + 2], "auto"));
@@ -421,6 +587,13 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
     Py_ssize_t padding_box_at = -1;
     index = 0;
     while (index < run->len) {
+        if (run->items[index].kind == CK_SEP) {
+            index += 2;
+            if (index < run->len && css_comp_is_lp(pool, &run->items[index])) {
+                index++;
+            }
+            continue;
+        }
         css_minify_color_comp(pool, &run->items[index]);
         css_comp *comp = &run->items[index];
         if (comp->kind == CK_IDENT) {
@@ -454,7 +627,17 @@ static void css_background_run(css_buf *pool, comp_vec *run) {
                 continue;
             }
         } else if (comp->kind == CK_HASH && comp_ieq(pool, comp, "#0000")) {
-            comp_vec_splice(run, index, 1, NULL, 0);
+            if (run->len > 1 && css_background_has_other_color(pool, run, index)) {
+                return;
+            }
+            if (run->len == 2) {
+                if (index == 0) {
+                    run->items[0] = run->items[1];
+                }
+                run->len = 1;
+            } else {
+                comp_vec_splice(run, index, 1, NULL, 0);
+            }
             continue;
         } else if (css_func_name_is(pool, comp, "var")) {
             index++;
@@ -1022,7 +1205,7 @@ static void css_minify_value(css_buf *pool, token_vec *vec, Py_ssize_t start, Py
     }
     scratch->len = 0;
     int color_mode = css_prop_color_mode(name, name_len);
-    css_calc_context context = {name, name_len, whole_calc};
+    css_calc_context context = {name, name_len, whole_calc, 0};
     /* Flexbox 1 §7.1: a unitless zero not preceded by two flex factors is a flex factor, so flex keeps zero units */
     css_render_components(pool, vec, start, end, color_mode,
                           !is_integer_role && (name_len != 4 || !css_run_ieq(name, name_len, "flex")), &context,

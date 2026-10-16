@@ -10,9 +10,9 @@ use nom::{
 
 use crate::{
 	Input,
-	block::quote,
 	error::ParseError,
 	grammar::{Grammar, GrammarSet},
+	node::block::quote,
 };
 
 pub const LINE_PREFIX_GRAMMARS: GrammarSet = enum_set!(Grammar::Quote);

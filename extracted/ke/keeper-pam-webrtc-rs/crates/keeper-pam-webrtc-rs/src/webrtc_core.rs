@@ -523,6 +523,8 @@ pub struct WebRTCPeerConnection {
     pub peer_connection: Arc<RTCPeerConnection>,
     pub(crate) trickle_ice: bool,
     pub(crate) is_closing: Arc<AtomicBool>,
+    // Separate from is_closing: Tube::close() sets is_closing early, which must not short-circuit close().
+    close_started: Arc<AtomicBool>,
     pending_incoming_ice_candidates: Arc<Mutex<Vec<String>>>, // Buffer incoming candidates until ready
     pub(crate) signal_sender: Option<UnboundedSender<SignalMessage>>,
     pub tube_id: String,
@@ -790,6 +792,7 @@ impl WebRTCPeerConnection {
             peer_connection: pc_arc,
             trickle_ice,
             is_closing,
+            close_started: Arc::new(AtomicBool::new(false)),
             pending_incoming_ice_candidates,
             signal_sender,
             tube_id,
@@ -2242,6 +2245,9 @@ impl WebRTCPeerConnection {
                 let conversation_id = self.conversation_id.clone();
 
                 move || {
+                    if webrtc_conn.is_closing.load(Ordering::Acquire) {
+                        return;
+                    }
                     let conn = webrtc_conn.clone();
                     let id = tube_id.clone();
                     let cid = conversation_id.clone();
@@ -2637,10 +2643,10 @@ impl WebRTCPeerConnection {
     }
 
     pub async fn close(&self) -> Result<(), String> {
-        // Avoid duplicate close operations
-        if self.is_closing.swap(true, Ordering::AcqRel) {
-            return Ok(()); // Already closing or closed
+        if self.close_started.swap(true, Ordering::AcqRel) {
+            return Ok(());
         }
+        self.is_closing.store(true, Ordering::Release);
 
         // Stop keepalive task before closing
         if let Err(e) = self.stop_keepalive().await {

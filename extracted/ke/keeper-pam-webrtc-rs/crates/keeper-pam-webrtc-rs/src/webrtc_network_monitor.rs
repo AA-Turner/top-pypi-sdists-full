@@ -97,13 +97,6 @@ pub enum NetworkChangeEvent {
     ConnectivityLost,
     /// Network connectivity restored
     ConnectivityRestored,
-    /// Network migration completed
-    MigrationCompleted {
-        from_interface: String,
-        to_interface: String,
-        success: bool,
-        migration_time_ms: u64,
-    },
     /// Network quality degradation detected
     QualityDegraded {
         interface_name: String,
@@ -152,8 +145,6 @@ pub struct NetworkMonitor {
     last_connectivity_check: Arc<std::sync::atomic::AtomicU8>,
     /// Monitor task handle - AtomicBool for lock-free check
     monitoring_active: Arc<AtomicBool>,
-    /// Connection migration manager
-    connection_migrator: Arc<ConnectionMigrator>,
     /// Primary interface tracker - still needs Mutex (String can't be atomic)
     primary_interface: Arc<Mutex<Option<String>>>,
     /// Quality history for predictive analysis - DashMap for lock-free access
@@ -182,8 +173,6 @@ pub struct NetworkMonitorConfig {
     pub enable_migration: bool,
     /// Migration quality threshold (0-100, migrate if current interface drops below this)
     pub migration_quality_threshold: u8,
-    /// Maximum migration time before considering it failed
-    pub migration_timeout: Duration,
 }
 
 impl Default for NetworkMonitorConfig {
@@ -191,350 +180,12 @@ impl Default for NetworkMonitorConfig {
         Self {
             check_interval: Duration::from_secs(5),
             connectivity_timeout: Duration::from_secs(3),
-            test_endpoints: vec![
-                "8.8.8.8:53".to_string(),        // Google DNS
-                "1.1.1.1:53".to_string(),        // Cloudflare DNS
-                "208.67.222.222:53".to_string(), // OpenDNS
-            ],
+            test_endpoints: crate::config::connectivity_endpoints(),
             monitor_ip_changes: true,
             monitor_interface_changes: true,
             change_debounce_delay: Duration::from_millis(500),
             enable_migration: true,
             migration_quality_threshold: 60,
-            migration_timeout: Duration::from_secs(10),
-        }
-    }
-}
-
-/// Connection migration manager
-#[derive(Debug)]
-pub struct ConnectionMigrator {
-    /// Active migrations in progress - DashMap for lock-free concurrent access
-    active_migrations: Arc<DashMap<String, MigrationState>>,
-    /// Migration strategies
-    migration_strategies: Vec<MigrationStrategy>,
-    /// Configuration
-    config: NetworkMonitorConfig,
-    /// Conversation ID for log correlation
-    conversation_id: Option<String>,
-}
-
-/// State of an active migration
-#[derive(Debug, Clone)]
-pub struct MigrationState {
-    pub from_interface: String,
-    pub to_interface: String,
-    pub start_time: Instant,
-    pub phase: MigrationPhase,
-    pub attempt_count: u32,
-}
-
-/// Migration phases
-#[derive(Debug, Clone, PartialEq)]
-pub enum MigrationPhase {
-    Preparing,
-    Testing,
-    Migrating,
-    Completing,
-    Failed(String),
-    Completed,
-}
-
-/// Migration strategy
-#[derive(Debug, Clone)]
-pub enum MigrationStrategy {
-    /// Make-before-break: establish new connection before closing old
-    MakeBeforeBreak,
-    /// Break-before-make: close old connection before establishing new
-    BreakBeforeMake,
-    /// Seamless: attempt to maintain both connections during transition
-    Seamless,
-}
-
-impl ConnectionMigrator {
-    pub fn new(config: NetworkMonitorConfig, conversation_id: Option<String>) -> Self {
-        Self {
-            active_migrations: Arc::new(DashMap::new()),
-            migration_strategies: vec![
-                MigrationStrategy::Seamless,
-                MigrationStrategy::MakeBeforeBreak,
-                MigrationStrategy::BreakBeforeMake,
-            ],
-            config,
-            conversation_id,
-        }
-    }
-
-    /// Start a connection migration from one interface to another
-    pub async fn start_migration(
-        &self,
-        tube_id: &str,
-        from_interface: String,
-        to_interface: String,
-    ) -> WebRTCResult<()> {
-        let migration_id = format!("{}:{}->{}", tube_id, from_interface, to_interface);
-
-        info!(
-            "Starting connection migration: {} (conversation_id: {})",
-            migration_id,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        let migration_state = MigrationState {
-            from_interface: from_interface.clone(),
-            to_interface: to_interface.clone(),
-            start_time: Instant::now(),
-            phase: MigrationPhase::Preparing,
-            attempt_count: 1,
-        };
-
-        // DashMap - no lock needed
-        self.active_migrations
-            .insert(migration_id.clone(), migration_state);
-
-        // Execute migration asynchronously
-        let migrator = self.clone();
-        let migration_id_clone = migration_id.clone();
-        tokio::spawn(async move {
-            if let Err(e) = migrator.execute_migration(&migration_id_clone).await {
-                error!(
-                    "Migration failed for {}: {:?} (conversation_id: {})",
-                    migration_id_clone,
-                    e,
-                    migrator.conversation_id.as_deref().unwrap_or("-")
-                );
-                migrator.mark_migration_failed(&migration_id_clone, &format!("{:?}", e));
-            }
-        });
-
-        Ok(())
-    }
-
-    async fn execute_migration(&self, migration_id: &str) -> WebRTCResult<()> {
-        // Phase 1: Prepare migration
-        self.update_migration_phase(migration_id, MigrationPhase::Preparing);
-        self.prepare_migration(migration_id).await?;
-
-        // Phase 2: Test new connection
-        self.update_migration_phase(migration_id, MigrationPhase::Testing);
-        self.test_new_connection(migration_id).await?;
-
-        // Phase 3: Perform migration
-        self.update_migration_phase(migration_id, MigrationPhase::Migrating);
-        self.perform_migration(migration_id).await?;
-
-        // Phase 4: Complete migration
-        self.update_migration_phase(migration_id, MigrationPhase::Completing);
-        self.complete_migration(migration_id).await?;
-
-        self.update_migration_phase(migration_id, MigrationPhase::Completed);
-        info!(
-            "Migration completed successfully: {} (conversation_id: {})",
-            migration_id,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        Ok(())
-    }
-
-    async fn prepare_migration(&self, migration_id: &str) -> WebRTCResult<()> {
-        // Get migration state to access target interface (DashMap - no lock needed)
-        let (to_interface, from_interface) = {
-            if let Some(state) = self.active_migrations.get(migration_id) {
-                (state.to_interface.clone(), state.from_interface.clone())
-            } else {
-                return Err(crate::WebRTCError::Unknown {
-                    tube_id: "".to_string(),
-                    reason: format!("Migration {} not found", migration_id),
-                });
-            }
-        };
-
-        // Note: In a real implementation, we would need access to the NetworkMonitor
-        // to verify the target interface exists and is active. However, ConnectionMigrator
-        // doesn't have a reference to NetworkMonitor to avoid circular dependencies.
-        // The caller (NetworkMonitor) should have already validated this before calling start_migration.
-
-        debug!(
-            "Migration preparation completed: {} ({}->{}, conversation_id: {})",
-            migration_id,
-            from_interface,
-            to_interface,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-        Ok(())
-    }
-
-    async fn test_new_connection(&self, migration_id: &str) -> WebRTCResult<()> {
-        // Test connectivity to STUN/TURN servers via new interface
-        let test_endpoints = vec![
-            "stun.l.google.com:19302",
-            "stun1.l.google.com:19302",
-            "stun2.l.google.com:19302",
-        ];
-
-        debug!(
-            "Testing new connection for migration: {} (conversation_id: {})",
-            migration_id,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        for endpoint in &test_endpoints {
-            match tokio::time::timeout(
-                Duration::from_secs(3),
-                tokio::net::TcpStream::connect(endpoint),
-            )
-            .await
-            {
-                Ok(Ok(_stream)) => {
-                    debug!(
-                        "New connection tested successfully: {} via {} (conversation_id: {})",
-                        migration_id,
-                        endpoint,
-                        self.conversation_id.as_deref().unwrap_or("-")
-                    );
-                    return Ok(());
-                }
-                Ok(Err(e)) => {
-                    debug!(
-                        "Connection test failed for {} to {}: {} (conversation_id: {})",
-                        migration_id,
-                        endpoint,
-                        e,
-                        self.conversation_id.as_deref().unwrap_or("-")
-                    );
-                    continue;
-                }
-                Err(_) => {
-                    debug!(
-                        "Connection test timed out for {} to {} (conversation_id: {})",
-                        migration_id,
-                        endpoint,
-                        self.conversation_id.as_deref().unwrap_or("-")
-                    );
-                    continue;
-                }
-            }
-        }
-
-        Err(crate::WebRTCError::IceConnectionFailed {
-            tube_id: "".to_string(),
-            reason: format!(
-                "New connection test failed for all endpoints during migration: {}",
-                migration_id
-            ),
-        })
-    }
-
-    async fn perform_migration(&self, migration_id: &str) -> WebRTCResult<()> {
-        // The actual ICE restart is triggered by the WebRTCNetworkIntegration callbacks
-        // when it receives the network change event. This method just coordinates the timing.
-
-        debug!(
-            "Connection migration phase: performing handover for {} (conversation_id: {})",
-            migration_id,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        // Wait for ICE restart to be initiated (this is done via callbacks in the integration layer)
-        // Give some time for the network change event to propagate and ICE restart to begin
-        sleep(Duration::from_millis(500)).await;
-
-        debug!(
-            "Connection migration handover initiated: {} (conversation_id: {})",
-            migration_id,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-        Ok(())
-    }
-
-    async fn complete_migration(&self, migration_id: &str) -> WebRTCResult<()> {
-        // Get migration timing and interfaces for completion event (DashMap - no lock needed)
-        let (from_interface, to_interface, migration_time_ms) = {
-            if let Some(state) = self.active_migrations.get(migration_id) {
-                let elapsed_ms = state.start_time.elapsed().as_millis() as u64;
-                (
-                    state.from_interface.clone(),
-                    state.to_interface.clone(),
-                    elapsed_ms,
-                )
-            } else {
-                return Err(crate::WebRTCError::Unknown {
-                    tube_id: "".to_string(),
-                    reason: format!("Migration {} not found during completion", migration_id),
-                });
-            }
-        };
-
-        debug!(
-            "Migration cleanup completed: {} ({}->{}, took {}ms, conversation_id: {})",
-            migration_id,
-            from_interface,
-            to_interface,
-            migration_time_ms,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        // Note: The actual NetworkMonitor update and event triggering should be done
-        // by the caller (NetworkMonitor) since ConnectionMigrator doesn't have access to it.
-        // This is to avoid circular dependencies.
-
-        Ok(())
-    }
-
-    fn update_migration_phase(&self, migration_id: &str, phase: MigrationPhase) {
-        // DashMap - get_mut returns a RefMut
-        if let Some(mut migration) = self.active_migrations.get_mut(migration_id) {
-            migration.phase = phase.clone();
-            debug!(
-                "Migration {} phase updated to {:?} (conversation_id: {})",
-                migration_id,
-                phase,
-                self.conversation_id.as_deref().unwrap_or("-")
-            );
-        }
-    }
-
-    fn mark_migration_failed(&self, migration_id: &str, reason: &str) {
-        // DashMap - get_mut returns a RefMut
-        if let Some(mut migration) = self.active_migrations.get_mut(migration_id) {
-            migration.phase = MigrationPhase::Failed(reason.to_string());
-            warn!(
-                "Migration {} failed: {} (conversation_id: {})",
-                migration_id,
-                reason,
-                self.conversation_id.as_deref().unwrap_or("-")
-            );
-        }
-    }
-
-    pub fn get_migration_status(&self, migration_id: &str) -> Option<MigrationState> {
-        // DashMap - get returns Option<Ref>
-        self.active_migrations.get(migration_id).map(|r| r.clone())
-    }
-
-    pub fn cleanup_completed_migrations(&self) {
-        let cutoff_time = Instant::now() - Duration::from_secs(300); // 5 minutes
-
-        // DashMap - retain works directly
-        self.active_migrations.retain(|_, migration| {
-            match &migration.phase {
-                MigrationPhase::Completed | MigrationPhase::Failed(_) => {
-                    migration.start_time > cutoff_time
-                }
-                _ => true, // Keep active migrations
-            }
-        });
-    }
-}
-
-impl Clone for ConnectionMigrator {
-    fn clone(&self) -> Self {
-        Self {
-            active_migrations: Arc::clone(&self.active_migrations),
-            migration_strategies: self.migration_strategies.clone(),
-            config: self.config.clone(),
-            conversation_id: self.conversation_id.clone(),
         }
     }
 }
@@ -628,15 +279,9 @@ impl NetworkMonitor {
     }
 
     pub fn new_with_context(config: NetworkMonitorConfig, conversation_id: Option<String>) -> Self {
-        let connection_migrator = Arc::new(ConnectionMigrator::new(
-            config.clone(),
-            conversation_id.clone(),
-        ));
-
         Self {
             interfaces: Arc::new(DashMap::new()),
             callbacks: Arc::new(Mutex::new(Vec::new())),
-            connection_migrator,
             primary_interface: Arc::new(Mutex::new(None)),
             quality_history: Arc::new(DashMap::new()),
             config,
@@ -758,36 +403,6 @@ impl NetworkMonitor {
             .iter()
             .map(|r| (r.key().clone(), r.value().clone()))
             .collect()
-    }
-
-    /// Handle network transition (connection migration)
-    pub async fn handle_network_transition(
-        &self,
-        tube_id: &str,
-        old_interface: &str,
-        new_interface: &str,
-    ) -> WebRTCResult<()> {
-        info!(
-            "Handling network transition for tube {} from {} to {} (conversation_id: {})",
-            tube_id,
-            old_interface,
-            new_interface,
-            self.conversation_id.as_deref().unwrap_or("-")
-        );
-
-        if self.config.enable_migration {
-            self.connection_migrator
-                .start_migration(
-                    tube_id,
-                    old_interface.to_string(),
-                    new_interface.to_string(),
-                )
-                .await?;
-        } else {
-            info!("Connection migration disabled, triggering standard ICE restart (conversation_id: {})", self.conversation_id.as_deref().unwrap_or("-"));
-        }
-
-        Ok(())
     }
 
     /// Assess comprehensive network quality for an interface
@@ -942,19 +557,12 @@ impl NetworkMonitor {
         )
     }
 
-    /// Get migration status for a tube
-    pub fn get_migration_status(
-        &self,
-        tube_id: &str,
-        from_interface: &str,
-        to_interface: &str,
-    ) -> Option<MigrationState> {
-        let migration_id = format!("{}:{}->{}", tube_id, from_interface, to_interface);
-        self.connection_migrator.get_migration_status(&migration_id)
-    }
-
     /// Check if network connectivity is available
     pub async fn check_connectivity(&self) -> bool {
+        // No endpoints means the check is disabled, not that every endpoint failed.
+        if self.config.test_endpoints.is_empty() {
+            return true;
+        }
         for endpoint in &self.config.test_endpoints {
             if self.test_endpoint_connectivity(endpoint).await {
                 // Connectivity checks can be frequent - only log in verbose mode
@@ -1313,6 +921,9 @@ impl NetworkMonitorForTask {
 
     /// Check connectivity (delegated implementation)
     async fn check_connectivity(&self) -> bool {
+        if self.config.test_endpoints.is_empty() {
+            return true;
+        }
         for endpoint in &self.config.test_endpoints {
             if self.test_endpoint_connectivity(endpoint).await {
                 return true;
@@ -1469,10 +1080,6 @@ impl WebRTCNetworkIntegration {
             NetworkChangeEvent::ConnectivityRestored => {
                 // Connectivity restoration requires ICE restart
                 true
-            }
-            NetworkChangeEvent::MigrationCompleted { .. } => {
-                // Migration completed - might need ICE restart for cleanup
-                false
             }
             NetworkChangeEvent::QualityDegraded { .. } => {
                 // Quality degradation might benefit from ICE restart

@@ -13,6 +13,102 @@ STAGES = ["Fresh", "InTraining", "Rookie", "Champion", "Ultimate", "Mega"]
 # design; ver1's Betamon road + the ver2-verE canon rewrite, 2026-07-07 --
 # every device line now matches its humulos DM20 chart)
 DECLARED_EDGES = {
+    # dev -- the official Dynasty of the Evil DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (14, 886), (99, 759), (102, 500), (102, 759), (103, 203), (103, 216), (103, 1655), (121, 1655), (216, 799), (216, 1031), (230, 278), (500, 1031), (759, 703), (886, 102), (886, 103), (886, 121), (1415, 14), (1655, 703), (1655, 799),
+    # pwa -- the official Primeval Warriors DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (65, 178), (156, 529), (178, 422), (178, 526), (178, 529), (248, 314), (413, 248), (413, 529), (422, 314), (492, 526), (492, 529), (526, 343), (526, 734), (529, 304), (529, 314), (529, 343), (529, 734), (1434, 949),
+    # tdu -- the official Titan of Dust DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (113, 604), (113, 1658), (145, 227), (226, 579), (226, 926), (227, 825), (227, 913), (410, 227), (555, 226), (555, 604), (555, 1658), (604, 926), (887, 145), (887, 555), (889, 913), (1136, 1142), (1658, 579), (1658, 926),
+    # cex -- the official Chackmon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (79, 135), (79, 175), (135, 197), (135, 739), (175, 197), (175, 1656), (197, 333), (197, 1047), (450, 593), (499, 333), (499, 659), (593, 696), (672, 499), (672, 1656), (696, 659), (739, 659), (739, 1047), (1656, 649), (1656, 659),
+    # awa -- the official Ancient Warriors DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (144, 521), (144, 1657), (153, 1657), (198, 311), (198, 519), (248, 313), (422, 313), (515, 198), (515, 521), (520, 198), (520, 248), (520, 422), (521, 311), (521, 519), (1430, 939), (1657, 313), (1657, 519),
+    # mgp -- the official Monodramon GP DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (219, 1653), (219, 1654), (1433, 947),
+    # rex -- the official Renamon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (64, 185), (64, 536), (155, 645), (155, 648), (185, 273), (185, 639), (185, 647), (189, 639), (189, 647), (247, 857), (273, 1652), (536, 247), (536, 645), (639, 580), (639, 1652), (645, 580), (645, 857), (647, 580), (647, 1652), (648, 307), (648, 857), (966, 967),
+    # rgp -- the official Renamon GP DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (247, 1651), (966, 967),
+    # trx -- the official Terriermon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (60, 546), (157, 642), (163, 249), (163, 640), (243, 306), (244, 305), (249, 573), (546, 640), (546, 641), (546, 642), (640, 309), (640, 573), (641, 309), (641, 573), (642, 305), (642, 306), (1445, 971),
+    # anx -- the official Agnimon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (21, 28), (28, 754), (95, 1002), (265, 429), (265, 724), (409, 727), (417, 429), (417, 719), (654, 95), (752, 719), (752, 724), (754, 265), (1002, 719), (1002, 724), (1418, 21),
+    # wfx -- the official Wolfmon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (137, 651), (137, 662), (408, 798), (418, 434), (418, 718), (445, 418), (445, 662), (651, 718), (651, 720), (662, 718), (662, 720), (743, 434), (743, 720), (771, 651), (890, 35), (890, 653),
+    # blx -- the official Blitzmon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (23, 454), (55, 765), (138, 741), (264, 725), (264, 804), (454, 138), (652, 725), (652, 804), (736, 264), (738, 774), (741, 722), (765, 264), (774, 1312), (1420, 23), (1515, 722),
+    # esp -- the official Espimon DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (172, 502), (172, 982), (172, 1092), (196, 505), (198, 1240), (488, 172), (488, 1235), (497, 982), (497, 1092), (982, 1240), (1092, 1240), (1235, 196), (1235, 198), (1235, 1092), (1337, 1235), (1448, 976),
+    # who -- the official Wolf Howl DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (34, 713), (108, 701), (122, 262), (122, 270), (122, 701), (187, 262), (187, 701), (262, 346), (270, 279), (701, 346), (701, 353), (713, 262), (1412, 16),
+    # lwx -- the official Louwemon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (33, 491), (33, 922), (421, 805), (421, 1020), (458, 923), (471, 921), (478, 926), (478, 1020), (491, 260), (491, 421), (491, 478), (921, 925), (922, 260), (922, 421), (923, 805), (923, 926), (924, 805), (924, 1020), (925, 1020), (956, 957), (957, 33),
+    # sho -- the official Shadow Howl DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (1412, 16),
+    # bro -- the official Black Roar DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (1411, 12),
+    # ipg -- the official Impmon GP DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (500, 310), (500, 312), (1428, 934),
+    # rym -- the official Ryudamon DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (67, 127), (67, 683), (127, 426), (161, 221), (221, 370), (369, 618), (406, 127), (406, 683), (426, 618), (683, 369), (969, 406), (1444, 969),
+    # gix -- the official Guilmon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (40, 94), (40, 368), (40, 630), (85, 644), (85, 1228), (94, 638), (94, 643), (94, 644), (240, 440), (368, 646), (368, 1228), (630, 638), (630, 643), (630, 646), (638, 298), (638, 435), (643, 298), (643, 435), (644, 440), (644, 866), (646, 298), (646, 866), (902, 17), (1228, 440), (1228, 866),
+    # gpg -- the official Guilmon GP DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (902, 17),
+    # dro -- the official Dinosaur Roar DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (29, 129), (56, 125), (93, 365), (129, 220), (129, 365), (149, 365), (195, 347), (365, 280), (365, 347), (1411, 12),
+    # gbx -- the official Gabumon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (34, 1287), (108, 791), (127, 481), (176, 767), (232, 398), (367, 279), (367, 398), (481, 279), (767, 398), (1412, 16),
+    # agx -- the official Agumon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (29, 1287), (88, 766), (93, 204), (204, 280), (204, 297), (214, 297), (237, 297), (766, 297), (1287, 237), (1411, 12),
+    # jel -- the official Jellymon DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (193, 289), (205, 288), (205, 720), (207, 720), (495, 207), (1139, 1145), (1150, 720),
+    # ang -- the official Angoramon DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (212, 287), (212, 617), (263, 293), (490, 847), (847, 293), (847, 617), (1073, 212), (1138, 1144),
+    # frx -- the official Fairimon EX DIM card's connectors the corpus
+    # graph never carried (humulos vbdm; VB batch 2026-10-15)
+    (18, 779), (18, 893), (123, 549), (123, 797), (360, 549), (360, 663), (549, 374), (549, 723), (607, 758), (663, 336), (663, 721), (726, 663), (758, 374), (768, 374), (768, 721), (779, 360), (797, 336), (797, 723), (893, 726), (1414, 18),
+    # gam -- the official Gammamon DIM card's connectors the corpus graph never
+    # carried (humulos vbdm/v; Joel approved the line 2026-10-15)
+    (447, 345), (447, 396), (480, 345), (480, 987), (625, 345), (1137, 1143),
+    # ici -- the official Impulse City DIM card's connectors the corpus graph
+    # never carried (humulos vbdm; Joel approved the line 2026-10-15)
+    (1429, 936),
+    # tsh -- the official True Shadow Howl DIM card's connectors the corpus
+    # graph never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (1412, 16), (82, 108), (108, 1039), (187, 1039), (122, 448), (122, 570), (713, 570), (187, 262), (108, 270), (122, 701), (570, 346), (262, 346), (448, 353), (570, 353), (448, 436), (262, 436), (701, 436), (1039, 810), (270, 810), (701, 810),
+    # mbr -- the official Mad Black Roar DIM card's connectors the corpus graph
+    # never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (1411, 12), (56, 93), (56, 125), (93, 1038), (149, 1038), (125, 239), (129, 365), (125, 990), (129, 990), (239, 347), (365, 347), (239, 299), (365, 380), (990, 380), (195, 380), (1038, 810), (990, 810), (241, 810),
+    # hju -- the official Hermit in the Jungle DIM card's connectors the corpus
+    # graph never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
+    (1414, 18), (44, 675), (44, 894), (675, 613), (170, 613), (894, 218), (675, 235), (170, 896), (675, 474), (109, 474), (613, 508), (218, 508), (474, 508), (235, 619), (896, 619),
     # bfa -- the official Blizzard Fang DIM card's connectors the corpus graph
     # never carried (humulos vbdm/vol; Joel approved the line 2026-10-15)
     (628, 547), (547, 391), (136, 696), (547, 696), (696, 290), (696, 1047), (201, 649), (627, 649), (1284, 649),
@@ -248,7 +344,8 @@ def _all_lines():
 # a card places a form in a slot its global stage disagrees with, and Joel
 # ruled to keep it there playing as its global stage (2026-10-15: Blizzard
 # Fang's Daipenmon sits in the card's Ultimate slot, a Mega in tuipet)
-STAGE_SLOT_EXCEPTIONS = {("bfa", 696)}
+STAGE_SLOT_EXCEPTIONS = {("pwa", 529), ("pwa", 526), ("cex", 696), ("awa", 521), ("anx", 727), ("wfx", 798), ("blx", 774), ("lwx", 925), ("frx", 549), ("frx", 758), ("bfa", 696),   # Daipenmon: Mega in an Ultimate slot
+                         ("tsh", 570)}   # Rhinomon: Champion in an Ultimate slot (Joel 2026-10-15)
 
 
 def test_every_member_is_a_real_form_at_its_stage():
@@ -271,7 +368,9 @@ def test_every_edge_is_real_or_declared():
                     (lid, p, num)
 
 
-DMX_STAGE_QUIRKS = {"x3a", "x3b", "kera", "godzilla"}   # godzilla: 1994 -> Burning (VI+)   # real-device stage jumps
+DMX_STAGE_QUIRKS = {"x3a", "x3b", "kera", "godzilla",
+                    # VB cards whose Stage VII super forms land on Mega (2026-10-15)
+                    "agx", "rym", "bro", "sho", "dro", "esp", "anx", "wfx", "gbx"}   # godzilla: 1994 -> Burning (VI+)   # real-device stage jumps
 
 
 def test_every_line_has_one_root_and_monotonic_stages():

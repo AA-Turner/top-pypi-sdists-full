@@ -71,6 +71,9 @@ class OntologyTransactionClient:
         """
         Applies a set of edits to a transaction in order.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param transaction_id: The ID of the transaction to apply edits to. Transactions are an experimental feature and all workflows may not be supported.
@@ -177,6 +180,9 @@ class AsyncOntologyTransactionClient:
     ) -> typing.Awaitable[ontologies_models.PostTransactionEditsResponse]:
         """
         Applies a set of edits to a transaction in order.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

@@ -138,6 +138,20 @@ def test_help_is_never_refused():
     assert _refusal(["wandb", "import-local", "-h"]) is not None
 
 
+@pytest.mark.parametrize("state", [session_marker.STATE_READ_ONLY, session_marker.STATE_DAEMON])
+def test_help_as_an_options_value_is_still_the_write_it_names(state):
+    """`--title --help` titles the note `--help`: click creates it. A token search
+    for `--help` let the write past the gate under read-only and daemon."""
+    _set(state)
+    _lease()
+    assert _refusal(["notes", "create", "--run", "R", "--title", "--help", "eval.md"]) is not None
+    assert _refusal(["notes", "create", "--run", "R", "--title=--help", "eval.md"]) is not None
+    # Help as click reads it, on a command, a group or `probe` itself, is still only help.
+    for argv in (["notes", "create", "--help"], ["notes", "create", "--run", "R", "eval.md", "--help"],
+                 ["notes", "--help"], ["project", "code", "--help"], ["--sync", "--help"]):
+        assert _refusal(argv) is None, argv
+
+
 @pytest.mark.parametrize(
     "argv",
     [

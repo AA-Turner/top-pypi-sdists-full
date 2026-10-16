@@ -1,5 +1,7 @@
 """Target-policy support choices survive serialization and fail closed before submission."""
 
+from __future__ import annotations
+
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -25,9 +27,53 @@ def test_support_choice_mode_survives_wire_conversion(support_choice):
 
 
 @pytest.mark.parametrize("value", [None, False, True, 1, "true"])
-def test_only_explicit_boolean_capability_is_known(value):
-    response = _CreateModelResponse(model_id="m", supports_target_logprob_support=value)
-    assert response.supports_target_logprob_support is (value if type(value) is bool else None)
+@pytest.mark.parametrize(
+    "field",
+    [
+        "supports_target_logprob_support",
+        "supports_reinforce",
+        "supports_score_centering",
+        "supports_policy_importance_sampling",
+        "supports_policy_diagnostics",
+    ],
+)
+def test_only_explicit_boolean_capability_is_known(value, field: str) -> None:
+    response = _CreateModelResponse(model_id="m", **{field: value})
+    assert getattr(response, field) is (value if type(value) is bool else None)
+
+
+@pytest.mark.parametrize(
+    "reinforce,centering,config",
+    [
+        (None, True, None),
+        (False, True, None),
+        (True, None, {"score_centering": True}),
+        (True, False, {"score_centering": True}),
+    ],
+)
+@pytest.mark.parametrize("method", ["forward", "forward_backward"])
+def test_unsupported_reinforce_fails_before_submission(reinforce, centering, config, method: str) -> None:
+    client = FiretitanTrainingClient.__new__(FiretitanTrainingClient)
+    TrainingClient.__init__(client, SimpleNamespace(), 0, "model-test")
+    client.supports_reinforce = reinforce
+    client.supports_score_centering = centering
+    with pytest.raises(ValueError, match="Trainer does not advertise"):
+        getattr(client, method)([], "reinforce", config)
+
+
+@pytest.mark.parametrize("config", [None, {"score_centering": False}, {"score_centering": True, "weighting": "mis"}])
+def test_reinforce_configuration_reaches_submission_unchanged(config) -> None:
+    client = FiretitanTrainingClient.__new__(FiretitanTrainingClient)
+    TrainingClient.__init__(client, SimpleNamespace(), 0, "model-test")
+    client.supports_reinforce = True
+    client.supports_score_centering = (config or {}).get("score_centering", False)
+    with (
+        patch.object(client, "_log_r3_request_error"),
+        patch.object(client, "_can_run_firetitan_chunked_requests", return_value=False),
+        patch.object(TrainingClient, "forward_backward", return_value="submitted") as submit,
+    ):
+        assert client.forward_backward([], "reinforce", config) == "submitted"
+        submit.assert_called_once_with([], "reinforce", config)
 
 
 @pytest.mark.parametrize("capability", [False, None])
@@ -130,3 +176,41 @@ def test_full_vocabulary_forward_reaches_submission_unchanged(config):
     ):
         assert client.forward([], "ppo", config).result() == "submitted"
         send.assert_awaited_once_with(0, [], "ppo", config)
+
+
+@pytest.mark.parametrize("method", ["forward", "forward_backward"])
+@pytest.mark.parametrize("capability", [None, False])
+def test_server_policy_correction_requires_capability(method: str, capability: bool | None) -> None:
+    client = FiretitanTrainingClient.__new__(FiretitanTrainingClient)
+    TrainingClient.__init__(client, SimpleNamespace(), 0, "model-test")
+    client.supports_policy_importance_sampling = capability
+    with pytest.raises(ValueError, match="does not advertise server policy TIS/MIS"):
+        getattr(client, method)([], "ppo", {"weighting": "mis", "anchor_logprob_source": "current_detached"})
+
+
+@pytest.mark.parametrize("diagnostics", [False, True])
+def test_supported_policy_correction_is_submitted_unchanged(diagnostics) -> None:
+    client = FiretitanTrainingClient.__new__(FiretitanTrainingClient)
+    TrainingClient.__init__(client, SimpleNamespace(), 0, "model-test")
+    client.supports_policy_importance_sampling = True
+    client.supports_policy_diagnostics = diagnostics
+    config = {"weighting": "mis", "anchor_logprob_source": "current_detached", "weight_low": 0.2, "weight_high": 5.0}
+    if diagnostics:
+        config["report_policy_diagnostics"] = True
+    with (
+        patch.object(client, "_log_r3_request_error"),
+        patch.object(client, "_can_run_firetitan_chunked_requests", return_value=False),
+        patch.object(TrainingClient, "forward_backward", return_value="submitted") as submit,
+    ):
+        assert client.forward_backward([], "ppo", config) == "submitted"
+        submit.assert_called_once_with([], "ppo", config)
+
+
+@pytest.mark.parametrize("method", ["forward", "forward_backward"])
+@pytest.mark.parametrize("capability", [None, False])
+def test_policy_diagnostics_requires_capability(method, capability):
+    client = FiretitanTrainingClient.__new__(FiretitanTrainingClient)
+    TrainingClient.__init__(client, SimpleNamespace(), 0, "model-test")
+    client.supports_policy_diagnostics = capability
+    with pytest.raises(ValueError, match="does not advertise replay policy diagnostics"):
+        getattr(client, method)([], "ppo", {"report_policy_diagnostics": True})

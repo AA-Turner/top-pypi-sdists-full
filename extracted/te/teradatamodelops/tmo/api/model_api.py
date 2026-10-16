@@ -1,12 +1,16 @@
 from __future__ import absolute_import
 
 from tmo.api.iterator_base_api import IteratorBaseApi
+from tmo.types.model import Model
 
 
 class ModelApi(IteratorBaseApi):
     name = "Model API"
     path = "models"
     type = "MODEL"
+
+    def _parse_entity_from_dictionary(self, response: dict) -> Model:
+        return Model.from_dict(response)
 
     def find_by_source_id(self, source_model_id: str, projection: str = None):
         """

@@ -78,16 +78,16 @@ class ConfirmExecutionResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SUCCESS_FIELD_NUMBER: builtins.int
-    REQUEST_ID_FIELD_NUMBER: builtins.int
+    EXECUTION_ID_FIELD_NUMBER: builtins.int
     success: builtins.bool
-    request_id: builtins.str
+    execution_id: builtins.str
     def __init__(
         self,
         *,
         success: builtins.bool = ...,
-        request_id: builtins.str = ...,
+        execution_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["request_id", b"request_id", "success", b"success"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["execution_id", b"execution_id", "success", b"success"]) -> None: ...
 
 global___ConfirmExecutionResponse = ConfirmExecutionResponse
 
@@ -427,3 +427,33 @@ class ResolveDeferredRelationsResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["fqn_by_unique_id", b"fqn_by_unique_id"]) -> None: ...
 
 global___ResolveDeferredRelationsResponse = ResolveDeferredRelationsResponse
+
+@typing.final
+class UpdateExecutionMetadataRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EXECUTION_ID_FIELD_NUMBER: builtins.int
+    LAST_MODIFIED_EPOCH_FIELD_NUMBER: builtins.int
+    execution_id: builtins.str
+    last_modified_epoch: builtins.int
+    def __init__(
+        self,
+        *,
+        execution_id: builtins.str = ...,
+        last_modified_epoch: builtins.int | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_last_modified_epoch", b"_last_modified_epoch", "last_modified_epoch", b"last_modified_epoch"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_last_modified_epoch", b"_last_modified_epoch", "execution_id", b"execution_id", "last_modified_epoch", b"last_modified_epoch"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_last_modified_epoch", b"_last_modified_epoch"]) -> typing.Literal["last_modified_epoch"] | None: ...
+
+global___UpdateExecutionMetadataRequest = UpdateExecutionMetadataRequest
+
+@typing.final
+class UpdateExecutionMetadataResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___UpdateExecutionMetadataResponse = UpdateExecutionMetadataResponse

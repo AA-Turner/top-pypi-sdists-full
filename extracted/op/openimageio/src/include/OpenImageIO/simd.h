@@ -76,6 +76,17 @@
 // OIIO_SIMD_HAS_MATRIX4 : nonzero if matrix44 is defined
 // OIIO_SIMD_HAS_SIMD8 : nonzero if vfloat8, vint8, vbool8 are defined
 // OIIO_SIMD_HAS_SIMD16 : nonzero if vfloat16, vint16, vbool16 are defined
+//
+// A note on baselines: OIIO considers SSE4.2 to be the floor for x86_64 and
+// NEON to be the floor for aarch64. NEON takes care of itself, being
+// architecturally mandatory on ARMv8-A. For x86_64, however, gcc and clang
+// only make the SSE3/SSSE3/SSE4 intrinsics available when told to with -m
+// flags, so this header cannot simply assume them -- it must keep honoring
+// __SSE4_1__ and friends. OIIO's own build passes -msse4.2 (see USE_SIMD in
+// src/cmake/compiler.cmake); a downstream translation unit that includes this
+// header will only get the SSE4 code paths if it too is compiled with
+// -msse4.2 or better. MSVC is the exception: it exposes all intrinsics
+// regardless of /arch:, so we can and do assume SSE4 there unconditionally.
 
 #ifdef OIIO_NO_SIMD /* Request to disable all SIMD */
 #  define OIIO_NO_SSE 1
@@ -141,6 +152,16 @@
        * comparisons and CRCs, which don't currently seem relevant to OIIO,
        * so for simplicity, we sweep this difference under the rug.
        */
+#  elif defined(_MSC_VER) && !defined(__clang__) && !defined(__INTEL_LLVM_COMPILER) \
+        && (defined(_M_X64) || defined(_M_AMD64)) && !defined(_M_ARM64EC)
+#    define OIIO_SIMD_SSE 4
+     /* MSVC never predefines the __SSE*__ macros, but it makes every
+      * intrinsic through AVX2 available regardless of the /arch: setting.
+      * For OIIO we treat SSE4.x as the baseline for x86-64 builds, so enable
+      * the SSE4 code paths here unconditionally.
+      * (Note that clang-cl and icx define _MSC_VER but do gate intrinsics
+      * on -m flags, so they must take the branch above instead.)
+      */
 #  elif defined(__SSSE3__)
 #    define OIIO_SIMD_SSE 3
      /* N.B. We only use OIIO_SIMD_SSE = 3 when fully at SSSE3. In theory,
@@ -1020,12 +1041,7 @@ public:
     vint4& operator=(int a) { load(a); return *this; }
 
     /// Assignment from another vint4
-#if !defined(__INTEL_COMPILER)
     vint4& operator=(const vint4& other) = default;
-#else
-    // For explanation of the necessity of this, see implementation comment.
-    vint4& operator=(const vint4& other);
-#endif
 
     /// Component access (get)
     int operator[] (int i) const;
@@ -1314,12 +1330,7 @@ public:
     vint8& operator=(int a) { load(a); return *this; }
 
     /// Assignment from another vint8
-#if !defined(__INTEL_COMPILER)
     vint8& operator=(const vint8& other) = default;
-#else
-    // For explanation of the necessity of this, see implementation comment.
-    vint8& operator=(const vint8& other);
-#endif
 
     /// Component access (get)
     int operator[] (int i) const;
@@ -1614,12 +1625,7 @@ public:
     vint16& operator=(int a) { load(a); return *this; }
 
     /// Assignment from another vint16
-#if !defined(__INTEL_COMPILER)
     vint16& operator=(const vint16& other) = default;
-#else
-    // For explanation of the necessity of this, see implementation comment.
-    vint16& operator=(const vint16& other);
-#endif
 
     /// Component access (get)
     int operator[] (int i) const;
@@ -4106,18 +4112,6 @@ OIIO_FORCEINLINE bool none (const vbool16& v) { return reduce_or(v) == false; }
 //////////////////////////////////////////////////////////////////////
 // vint4 implementation
 
-#if defined(__INTEL_COMPILER)
-// For reasons we don't understand, all sorts of failures crop up only on icc
-// if we make this =default. Although we still support icc for now, it's a
-// discontinued compiler, so we special-case it here rather than spend a lot
-// of time investigating what might be broken (and would of course never be
-// fixed if it's a compiler bug).
-OIIO_FORCEINLINE vint4& vint4::operator=(const vint4& other) {
-    m_simd = other.m_simd;
-    return *this;
-}
-#endif
-
 OIIO_FORCEINLINE int vint4::operator[] (int i) const {
     OIIO_DASSERT(i<elements);
     return m_val[i];
@@ -5021,18 +5015,6 @@ OIIO_FORCEINLINE vint4 safe_mod (const vint4& a, int b) {
 //////////////////////////////////////////////////////////////////////
 // vint8 implementation
 
-#if defined(__INTEL_COMPILER)
-// For reasons we don't understand, all sorts of failures crop up only on icc
-// if we make this =default. Although we still support icc for now, it's a
-// discontinued compiler, so we special-case it here rather than spend a lot
-// of time investigating what might be broken (and would of course never be
-// fixed if it's a compiler bug).
-OIIO_FORCEINLINE vint8& vint8::operator=(const vint8& other) {
-    m_simd = other.m_simd;
-    return *this;
-}
-#endif
-
 OIIO_FORCEINLINE int vint8::operator[] (int i) const {
     OIIO_DASSERT(i<elements);
     return m_val[i];
@@ -5850,18 +5832,6 @@ OIIO_FORCEINLINE vint8 safe_mod (const vint8& a, int b) {
 
 //////////////////////////////////////////////////////////////////////
 // vint16 implementation
-
-#if defined(__INTEL_COMPILER)
-// For reasons we don't understand, all sorts of failures crop up only on icc
-// if we make this =default. Although we still support icc for now, it's a
-// discontinued compiler, so we special-case it here rather than spend a lot
-// of time investigating what might be broken (and would of course never be
-// fixed if it's a compiler bug).
-OIIO_FORCEINLINE vint16& vint16::operator=(const vint16& other) {
-    m_simd = other.m_simd;
-    return *this;
-}
-#endif
 
 OIIO_FORCEINLINE int vint16::operator[] (int i) const {
     OIIO_DASSERT(i<elements);
@@ -10412,15 +10382,6 @@ template<> struct fmt::formatter<OIIO::simd::vint16>
 template<> struct fmt::formatter<OIIO::simd::matrix44>
     : OIIO::pvt::array_formatter<OIIO::simd::matrix44, float, 16> {};
 
-
-// Allow C++ metaprogramming to understand that the simd types are trivially
-// copyable (i.e. memcpy to copy simd types is fine).
-#if defined(__INTEL_COMPILER)
-// Necessary because we have to define the vint types copy constructors on icc
-template<> struct std::is_trivially_copyable<OIIO::simd::vint4> : std::true_type {};
-template<> struct std::is_trivially_copyable<OIIO::simd::vint8> : std::true_type {};
-template<> struct std::is_trivially_copyable<OIIO::simd::vint16> : std::true_type {};
-#endif
 
 
 #undef SIMD_DO

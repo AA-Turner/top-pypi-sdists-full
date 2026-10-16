@@ -52,11 +52,11 @@ use starlark_map::small_set::SmallSet;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::attr::AttrSetter;
 use crate::alt::attr::AttrSubsetError;
 use crate::alt::attr::ClassBase;
 use crate::alt::attr::NoAccessReason;
-use crate::alt::callable::CallArg;
-use crate::alt::expr::TypeOrExpr;
+use crate::alt::call::CallTargetLookup;
 use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::DataclassKind;
@@ -115,12 +115,20 @@ use crate::types::types::TArgs;
 use crate::types::types::Type;
 use crate::types::types::Union;
 
+/// Whether a read-write attribute resolves to a method. Assignment to a method is allowed, but
+/// it is reported as `method-assign`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IsMethod {
+    Yes,
+    No,
+}
+
 /// The result of looking up an attribute access on a class (either as an instance or a
 /// class access, and possibly through a special case lookup such as a type var with a bound).
 #[derive(Debug, Clone)]
 pub enum ClassAttribute {
     /// A read-write attribute with a closed form type for both get and set actions.
-    ReadWrite(Type),
+    ReadWrite(Type, IsMethod),
     /// A read-only attribute with a closed form type for get actions.
     ReadOnly(Type, ReadOnlyReason),
     /// A `NoAccess` attribute indicates that the attribute is well-defined, but does
@@ -145,7 +153,7 @@ pub enum ClassAttribute {
 
 impl ClassAttribute {
     pub fn read_write(ty: Type) -> Self {
-        Self::ReadWrite(ty)
+        Self::ReadWrite(ty, IsMethod::No)
     }
 
     pub fn read_only(ty: Type, reason: ReadOnlyReason) -> Self {
@@ -185,7 +193,7 @@ impl ClassAttribute {
 
     pub fn read_only_equivalent(self, reason: ReadOnlyReason) -> Self {
         match self {
-            Self::ReadWrite(ty) => Self::ReadOnly(ty, reason),
+            Self::ReadWrite(ty, _) => Self::ReadOnly(ty, reason),
             Self::Property(getter, _, cls) => Self::Property(getter, None, cls),
             Self::Descriptor(descriptor, base) => Self::Descriptor(
                 Descriptor {
@@ -217,7 +225,7 @@ impl ClassAttribute {
         match self {
             // TODO(stroxler): ReadWrite attributes are not actually methods but limiting access to
             // ReadOnly breaks unit tests; we should investigate callsites to understand this better.
-            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
+            ClassAttribute::ReadWrite(ty, _) | ClassAttribute::ReadOnly(ty, _) => Some(ty),
             ClassAttribute::NoAccess(..)
             | ClassAttribute::Property(..)
             | ClassAttribute::Descriptor(..)
@@ -1072,7 +1080,13 @@ impl ClassField {
 
     fn is_override(&self) -> bool {
         match &self.0 {
-            ClassFieldInner::Property { ty, .. } => ty.is_override(),
+            ClassFieldInner::Property { ty, .. } => {
+                ty.is_override()
+                    || ty.property_metadata().is_some_and(|meta| {
+                        meta.getter.is_override()
+                            || meta.setter.as_ref().is_some_and(|s| s.is_override())
+                    })
+            }
             ClassFieldInner::Descriptor { descriptor, .. } => descriptor.is_override,
             ClassFieldInner::Method { ty, .. } => ty.is_override(),
             ClassFieldInner::ProxyMethod { .. } => false,
@@ -1290,6 +1304,12 @@ fn make_bound_method_helper(
             let ts = &f.members;
             let mut bound_methods = Vec::with_capacity(ts.len());
             for t in ts {
+                // Binding `Any` yields `Any`, so it should not prevent the other members from
+                // being bound.
+                if t.is_any() {
+                    bound_methods.push(t.clone());
+                    continue;
+                }
                 match make_bound_method_helper(heap, obj.clone(), t.clone(), should_bind) {
                     Ok(x) => bound_methods.push(x),
                     Err(_) => return Err(attr),
@@ -1378,11 +1398,13 @@ fn has_any_abstract(ty: &Type) -> bool {
 /// - or, it's a Callable initialized on the class body and satisfying some special case:
 ///   - it's marked as a ClassVar
 ///   - it's assigned to a dunder name like `__add__`
+///   - it's unannotated and its first positional parameter is an instance of the containing class
 /// - or, it's a union where ANY element satisfies the above rules
 ///
 /// Note: staticmethods and union types that have at least one method type are included.
 /// We rely on make_bound_method_helper to handle defining the binding logic for those cases.
 fn is_method(
+    class: &Class,
     ty: &Type,
     initialization: &ClassFieldInitialization,
     name: &Name,
@@ -1401,12 +1423,22 @@ fn is_method(
     }
 
     // Special cases where Callable is assumed to be a method
-    if matches!(ty, Type::Callable(_)) {
+    if let Type::Callable(callable) = ty {
         if is_dunder(name.as_str()) {
             return true;
         }
         if annotation
             .is_some_and(|ann| ann.is_class_var() && matches!(ann.get_type(), Type::Callable(_)))
+        {
+            return true;
+        }
+        // An unannotated Callable that expects an instance of the containing class as its first
+        // argument is a method in all but name, e.g. `isNull = _unary_op("isNull")` where
+        // `_unary_op` returns `Callable[[Column], Column]`. An explicit non-`ClassVar` annotation
+        // declares an instance attribute, which is not bound.
+        if annotation.is_none()
+            && let Some(Type::ClassType(first_param)) = callable.get_positional_param(0)
+            && first_param.class_object() == class
         {
             return true;
         }
@@ -1430,14 +1462,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let has_default = call.arguments.find_keyword("default").is_some();
+        let default = call.arguments.find_keyword("default");
+        let has_default = default.is_some();
         let has_default_factory = call.arguments.find_keyword("default_factory").is_some();
         let has_factory = call.arguments.find_keyword("factory").is_some();
         let has_keyword_conflict = has_default && (has_default_factory || has_factory)
             || has_default_factory && has_factory;
         let may_have_positional_default =
             !call.arguments.args.is_empty() && (has_default_factory || has_factory);
-        if !has_keyword_conflict && !may_have_positional_default {
+        let mutable_default = default.filter(|default| {
+            matches!(&default.value, Expr::Dict(_) | Expr::List(_) | Expr::Set(_))
+        });
+        if !has_keyword_conflict && !may_have_positional_default && mutable_default.is_none() {
             return;
         }
 
@@ -1462,6 +1498,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 || id.has_toplevel_qname("pydantic.fields", "PrivateAttr")
                 || id.has_toplevel_qname("pydantic._internal._model_construction", "NoInitField")
         }) {
+            return;
+        }
+
+        // SQLAlchemy passes mapped dataclass fields to stdlib dataclasses, which reject mutable
+        // container defaults.
+        if !has_keyword_conflict
+            && let Some(default) = mutable_default
+            && function_id.is_some_and(|id| {
+                id.has_toplevel_qname("sqlalchemy.orm", "mapped_column")
+                    || id.has_toplevel_qname("sqlalchemy.orm._orm_constructors", "mapped_column")
+            })
+        {
+            self.error(
+                errors,
+                default.value.range(),
+                ErrorKind::BadClassDefinition,
+                format!("Mutable default for field `{name}` is not allowed; use `default_factory`"),
+            );
             return;
         }
 
@@ -1614,6 +1668,32 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         "Final attribute declared in class body must be initialized with a value or in `__init__`".to_owned(),
                     );
                 }
+                // An annotated instance attribute declared in the class body must be
+                // initialized there or in a recognized method such as `__init__`. Final
+                // fields are already reported by the check above, so skip them here to
+                // avoid a duplicate diagnostic.
+                let is_uninit_instance_var = !initialized_in_recognized_method
+                    && !direct_annotation.as_ref().is_some_and(|a| a.is_final())
+                    && matches!(initialization, ClassFieldInitialization::Uninitialized);
+                // A dataclass normally initializes every annotated field through its
+                // synthesized `__init__`, so those fields are not reported. The exception is
+                // a plain `@dataclass(init=False)`, which synthesizes no `__init__` and so
+                // leaves annotation-only fields uninitialized at runtime. attrs and pydantic
+                // manage initialization in ways we do not model here, so they stay excluded.
+                // Reuse `is_special_class` so new special classes are excluded here too, then
+                // carve out the plain `@dataclass(init=False)` case, which it over-excludes.
+                let excluded_from_uninit_check = is_special_class
+                    && metadata.dataclass_metadata().is_none_or(|dc| {
+                        !matches!(dc.kind, DataclassKind::Dataclass { .. }) || dc.kws.init
+                    });
+                if is_uninit_instance_var && !excluded_from_uninit_check {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::UninitializedInstanceVariable,
+                        format!("Instance attribute `{name}` is declared but never initialized"),
+                    );
+                }
                 let value =
                     value_storage.push(ExprOrBinding::Binding(Binding::Any(AnyStyle::Implicit)));
                 let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
@@ -1640,6 +1720,16 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 ..
             } => {
                 let mut direct_annotation = annot.map(|a| self.get_idx(a).annotation.clone());
+                let mut annotation_flags = annot
+                    .and_then(|annot| {
+                        self.extract_pydantic_field_from_annotation(annot, name, metadata)
+                    })
+                    .and_then(|flags| flags.strict)
+                    .map(|strict| {
+                        let mut flags = DataclassFieldKeywords::new();
+                        flags.strict = Some(strict);
+                        flags
+                    });
                 if metadata.is_protocol()
                     && direct_annotation.is_none()
                     && !is_dunder(name.as_str())
@@ -1654,7 +1744,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         ),
                     );
                 }
-                let initialization = if let ExprOrBinding::Expr(e) = value.as_ref()
+                let flags = if let ExprOrBinding::Expr(e) = value.as_ref()
                     && let Some(dm) = metadata.dataclass_metadata()
                     && let Expr::Call(call) = e
                 {
@@ -1694,6 +1784,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         direct_annotation.as_ref().and_then(|a| a.ty.as_ref()),
                         dm,
                     );
+                    if let Some(f) = &mut flags
+                        && let Some(annotation_flags) = annotation_flags.as_ref()
+                        && f.strict.is_none()
+                    {
+                        f.strict = annotation_flags.strict;
+                    }
                     if flags.is_some() {
                         // A field specifier with no type annotation is a definition-time error,
                         // except under classic attrs (`auto_attribs=False`), where an unannotated
@@ -1774,10 +1870,20 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         f.converter_param =
                             Some(self.attrs_converter_decorator_param(method_range));
                     }
-                    ClassFieldInitialization::ClassBody(flags.map(Box::new))
+                    flags
                 } else {
-                    ClassFieldInitialization::ClassBody(None)
+                    None
                 };
+                let initialization = ClassFieldInitialization::ClassBody(
+                    flags
+                        .or_else(|| {
+                            annotation_flags.take().map(|mut flags| {
+                                flags.default = Some(self.heap.mk_any_implicit());
+                                flags
+                            })
+                        })
+                        .map(Box::new),
+                );
                 let (value_ty, annotation, is_inherited) = self.analyze_class_field_value(
                     value,
                     class,
@@ -1941,6 +2047,28 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     value_storage.push(ExprOrBinding::Binding(Binding::Forward(*definition)));
                 let (value_ty, annotation, is_inherited) =
                     self.analyze_class_field_value(value, class, name, None, false, range, errors);
+                // A class-body name bound by unpacking, a `for` loop or `with` is a class
+                // attribute, so an unknown type is reported like a plain class-body assignment,
+                // at the binding that produced it. Imports, walrus targets and match captures
+                // also end up here and are not reported, as at other scopes. So is a name whose
+                // final value merges several bindings, which is only checked as a whole here.
+                let is_reported_target = matches!(
+                    self.bindings().get(*definition),
+                    Binding::IterableValueLoop(..)
+                        | Binding::ContextValue(..)
+                        | Binding::UnpackedValue(..)
+                );
+                if is_reported_target
+                    && annotation.is_none()
+                    && matches!(value_ty, Type::Any(AnyStyle::Implicit))
+                {
+                    self.error(
+                        errors,
+                        self.bindings().idx_to_key(*definition).range(),
+                        ErrorKind::UnknownAttributeType,
+                        "This expression is implicitly inferred to be `Any`. Please provide an explicit type annotation.".to_owned(),
+                    );
+                }
                 (
                     initialization,
                     false,
@@ -2277,7 +2405,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 },
                 is_inherited,
             )
-        } else if is_method(&ty, &initialization, name, annotation.as_ref()) {
+        } else if is_method(class, &ty, &initialization, name, annotation.as_ref()) {
             // Use helper functions to compute flags for unions
             let is_abstract_flag = has_any_abstract(&ty);
             let is_classvar = annotation.as_ref().is_some_and(|ann| ann.is_class_var());
@@ -2657,6 +2785,20 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
+    /// A `ProxyMethod` target is either an ordinary instance method or a class
+    /// attribute whose type is callable (e.g. `torch.nn.Module` declares
+    /// `forward: Callable[..., Any]`).
+    fn is_proxy_method_target(&self, field: &ClassFieldInner) -> bool {
+        match field {
+            ClassFieldInner::Method { ty, .. } => Self::is_ordinary_instance_method_type(ty),
+            ClassFieldInner::ClassAttribute { ty, .. } => matches!(
+                self.as_call_target(self.normalize_attr_ty(ty.clone())),
+                CallTargetLookup::Ok(_)
+            ),
+            _ => false,
+        }
+    }
+
     fn is_ordinary_instance_method_type(ty: &Type) -> bool {
         ty.toplevel_func_metadata()
             .is_some_and(&|metadata: &FuncMetadata| {
@@ -2810,16 +2952,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         if let Some(dm) = metadata.dataclass_metadata()
             && (dm.kws.frozen || dm.kws.attrs_setattr_frozen)
             && !is_classvar
-            && dm.fields.contains(name)
+            && dm.fields.contains_key(name)
         {
-            let reason = if metadata.is_pydantic_model() {
-                ReadOnlyReason::PydanticFrozen
+            let reason = if let Some(pydantic) = metadata.pydantic_model_kind() {
+                if pydantic != PydanticModelKind::DataClass
+                    && name.starts_with('_')
+                    && !name.starts_with("__")
+                {
+                    // Names with a single leading underscore are not treated as fields by Pydantic
+                    // and therefore not frozen.
+                    None
+                } else {
+                    Some(ReadOnlyReason::PydanticFrozen)
+                }
             } else if dm.kws.frozen {
-                ReadOnlyReason::FrozenDataclass
+                Some(ReadOnlyReason::FrozenDataclass)
             } else {
-                ReadOnlyReason::AttrsFrozen
+                Some(ReadOnlyReason::AttrsFrozen)
             };
-            return Some(reason);
+            return reason;
         }
         if metadata.is_pydantic_model()
             && let ClassFieldInitialization::ClassBody(Some(kws)) = initialization
@@ -3034,7 +3185,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             name,
                             &errors2,
                         );
-                        if errors2.is_empty() {
+                        if !errors2.has_hard() {
                             // The new type is compatible with the inherited one; use the child's
                             // inferred type to preserve type precision. Skip the override check
                             // since we've already validated compatibility above.
@@ -3224,6 +3375,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
+        // An attribute's type is the last boundary a free type parameter passes through: nothing
+        // downstream can give it a home. Settling those first keeps the check below about type
+        // variables the attribute really depends on, rather than ones a call left undetermined.
+        let ty = ty.finalize_free_quantifieds();
         let mut qs = SmallSet::new();
         ty.collect_quantifieds(&mut qs);
         if qs.is_empty() {
@@ -3335,7 +3490,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
 
     fn normalize_attr_ty(&self, mut ty: Type) -> Type {
         self.expand_mut(&mut ty);
-        ty.finalize_callable_residuals_at_boundary(self.heap, false)
+        ty.finalize_free_quantifieds()
     }
 
     /// Filter out overload signatures whose explicit `self:` annotation is not
@@ -3490,18 +3645,12 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if is_classvar {
                     ClassAttribute::read_only(ty, ReadOnlyReason::ClassVar)
                 } else {
-                    ClassAttribute::read_write(ty)
+                    ClassAttribute::ReadWrite(ty, IsMethod::Yes)
                 }
             }
             ClassFieldInner::ProxyMethod { target, .. } => {
                 match self.get_class_member(instance.class, &target) {
-                    Some(target_field)
-                        if matches!(
-                            &target_field.0,
-                            ClassFieldInner::Method { ty, .. }
-                                if Self::is_ordinary_instance_method_type(ty)
-                        ) =>
-                    {
+                    Some(target_field) if self.is_proxy_method_target(&target_field.0) => {
                         self.as_instance_attribute(&target, target_field.as_ref(), instance)
                     }
                     _ => ClassAttribute::no_access(NoAccessReason::ProxyMethodTargetInvalid {
@@ -3623,7 +3772,10 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if let Some(quantified) = self_quantified {
                     ty = self.wrap_with_quantified(ty, quantified);
                 }
-                bind_class_attribute(self.heap, cls, ty, None)
+                ClassAttribute::ReadWrite(
+                    make_bound_classmethod(self.heap, cls, ty).into_inner(),
+                    IsMethod::Yes,
+                )
             }
             ClassFieldInner::ProxyMethod { .. } => ClassAttribute::no_access(
                 NoAccessReason::ProxyMethodClassAccess(cls.class_object().dupe()),
@@ -3859,12 +4011,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         class_metadata: &ClassMetadata,
         is_explicit_override: bool,
     ) -> bool {
-        // Object construction (`__new__`, `__init__`, `__init_subclass__`) should not participate
-        // in override checks unless the user explicitly opts in with `@override`.
+        // Object construction (`__new__`, `__init__`, `__init_subclass__`) and `__class__`
+        // should not participate in override checks unless the user explicitly opts in with `@override`.
         if !is_explicit_override
             && (field_name == &dunder::NEW
                 || field_name == &dunder::INIT
-                || field_name == &dunder::INIT_SUBCLASS)
+                || field_name == &dunder::INIT_SUBCLASS
+                || field_name == &dunder::CLASS)
         {
             return false;
         }
@@ -4195,7 +4348,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     });
                 };
                 match &mut attr {
-                    ClassAttribute::ReadOnly(ty, _) | ClassAttribute::ReadWrite(ty)
+                    ClassAttribute::ReadOnly(ty, _) | ClassAttribute::ReadWrite(ty, _)
                         if ty.has_toplevel_func_metadata() =>
                     {
                         relax_ty(ty);
@@ -4760,9 +4913,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     }
 
     pub fn get_self_attribute(&self, cls: &ClassType, name: &Name) -> Option<ClassAttribute> {
-        self.get_class_member(cls.class_object(), name)
-            .map(|field| {
-                self.as_instance_attribute(name, field.as_ref(), &Instance::of_self_type(cls))
+        let metadata = self.get_metadata_for_class(cls.class_object());
+        self.special_case_enum_attr_lookup(cls, None, metadata, name)
+            .or_else(|| {
+                self.get_class_member(cls.class_object(), name)
+                    .map(|field| {
+                        self.as_instance_attribute(
+                            name,
+                            field.as_ref(),
+                            &Instance::of_self_type(cls),
+                        )
+                    })
             })
     }
 
@@ -5255,20 +5416,19 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         }
     }
 
-    pub fn check_class_attr_set_and_infer_narrow(
+    /// Resolves how to check an assignment to a class attribute. Returns `None` if the
+    /// assignment is an error, which has already been reported.
+    pub fn resolve_class_attr_setter(
         &self,
         class_attr: ClassAttribute,
         instance_class: Option<&ClassType>,
         class_base: Option<&ClassBase>,
         attr_name: &Name,
-        got: TypeOrExpr,
         allow_assign_to_final: bool,
         range: TextRange,
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
-        should_narrow: &mut bool,
-        narrowed_types: &mut Vec<Type>,
-    ) {
+    ) -> Option<AttrSetter> {
         match class_attr {
             ClassAttribute::NoAccess(e) => {
                 self.error_with_context(
@@ -5278,7 +5438,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     e.to_error_msg(attr_name),
                     context,
                 );
-                *should_narrow = false;
+                None
             }
             ClassAttribute::ReadOnly(attr_ty, reason) => {
                 // In pydantic, if a non-frozen model inherits from a frozen model,
@@ -5296,23 +5456,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     true
                 };
 
-                if allow_assign_to_final
-                    && matches!(
-                        reason,
-                        ReadOnlyReason::Final(IsFinalVariableInitialized::No)
-                    )
+                if !should_raise_error
+                    || (allow_assign_to_final
+                        && matches!(
+                            reason,
+                            ReadOnlyReason::Final(IsFinalVariableInitialized::No)
+                        ))
                 {
-                    self.check_set_read_write_and_infer_narrow(
-                        attr_ty,
-                        attr_name,
-                        got,
-                        range,
-                        errors,
-                        context,
-                        *should_narrow,
-                        narrowed_types,
-                    );
-                } else if should_raise_error {
+                    Some(AttrSetter::Declared {
+                        ty: attr_ty,
+                        narrow: true,
+                    })
+                } else {
                     errors
                         .error_builder(
                             range,
@@ -5321,10 +5476,19 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         )
                         .with_detail(reason.error_message())
                         .emit();
-                    *should_narrow = false;
+                    None
                 }
             }
-            ClassAttribute::ReadWrite(attr_ty) => {
+            ClassAttribute::ReadWrite(attr_ty, is_method) => {
+                if is_method == IsMethod::Yes {
+                    self.error_with_context(
+                        errors,
+                        range,
+                        ErrorKind::MethodAssign,
+                        format!("Cannot assign to method `{attr_name}`"),
+                        context,
+                    );
+                }
                 // If the attribute has a converter, then `want` should be the type expected by the converter.
                 let attr_ty = match instance_class {
                     Some(cls) => match self.get_dataclass_member(cls.class_object(), attr_name) {
@@ -5340,34 +5504,20 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 if let Some(class_object) = class_object {
                     self.check_dataclass_field_final(class_object, attr_name, errors, range);
                 }
-                self.check_set_read_write_and_infer_narrow(
-                    attr_ty,
-                    attr_name,
-                    got,
-                    range,
-                    errors,
-                    context,
-                    *should_narrow,
-                    narrowed_types,
-                );
+                Some(AttrSetter::Declared {
+                    ty: attr_ty,
+                    narrow: true,
+                })
             }
             ClassAttribute::Property(getter, None, cls) => {
                 let is_cached_property = getter
                     .toplevel_func_metadata()
                     .is_some_and(|meta| meta.flags.is_cached_property);
                 if is_cached_property {
-                    let attr_ty = self.call_property_getter(getter, range, errors, context);
-                    self.check_set_read_write_and_infer_narrow(
-                        attr_ty,
-                        attr_name,
-                        got,
-                        range,
-                        errors,
-                        context,
-                        *should_narrow,
-                        narrowed_types,
-                    );
-                    *should_narrow = false;
+                    Some(AttrSetter::Declared {
+                        ty: self.call_property_getter(getter, range, errors, context),
+                        narrow: false,
+                    })
                 } else {
                     let e = NoAccessReason::SettingReadOnlyProperty(cls);
                     self.error_with_context(
@@ -5377,74 +5527,55 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                         e.to_error_msg(attr_name),
                         context,
                     );
-                    *should_narrow = false;
+                    None
                 }
             }
             ClassAttribute::Property(_, Some(setter), _) => {
-                let got = CallArg::arg(got);
-                self.call_property_setter(setter, got, range, errors, context);
-                *should_narrow = false;
+                Some(AttrSetter::PropertySetter(setter))
             }
-            ClassAttribute::Descriptor(x, base) => {
-                match base {
-                    DescriptorBase::Instance(_) | DescriptorBase::SelfInstance(_)
-                        if let Some(setter) =
-                            self.resolve_descriptor_setter(attr_name, &x, errors) =>
-                    {
-                        // TODO(mfish33) we allow uninitialized descriptors in this case. This
-                        // is to have better compatibility with other type checkers and support
-                        // common metaclass patterns. In the future it would be better to detect
-                        // this and use an intersection type between the setter and the descriptor
-                        // class.
-                        let got = CallArg::arg(got);
-                        self.call_descriptor_setter(setter, base, got, range, errors, context);
-                    }
-                    DescriptorBase::Instance(class_type)
-                    | DescriptorBase::SelfInstance(class_type) => {
-                        let e = NoAccessReason::SettingReadOnlyDescriptor(
-                            class_type.class_object().dupe(),
-                        );
-                        self.error_with_context(
-                            errors,
-                            range,
-                            ErrorKind::ReadOnly,
-                            e.to_error_msg(attr_name),
-                            context,
-                        );
-                    }
-                    DescriptorBase::ClassDef(_) => {
-                        // Class-level assignment bypasses the descriptor protocol.
-                        // __set__ only intercepts instance assignments, so we check
-                        // that the value is assignable to the descriptor type.
-                        let attr_ty = self.heap.mk_class_type(x.cls.clone());
-                        self.check_set_read_write_and_infer_narrow(
-                            attr_ty,
-                            attr_name,
-                            got,
-                            range,
-                            errors,
-                            context,
-                            false,
-                            narrowed_types,
-                        );
-                    }
-                };
-                *should_narrow = false;
-            }
-            attr @ ClassAttribute::DescriptorRead { .. } => self
-                .check_class_attr_set_and_infer_narrow(
-                    attr.into_declared(),
-                    instance_class,
-                    class_base,
-                    attr_name,
-                    got,
-                    allow_assign_to_final,
-                    range,
-                    errors,
-                    context,
-                    should_narrow,
-                    narrowed_types,
-                ),
+            ClassAttribute::Descriptor(x, base) => match base {
+                DescriptorBase::Instance(_) | DescriptorBase::SelfInstance(_)
+                    if let Some(setter) = self.resolve_descriptor_setter(attr_name, &x, errors) =>
+                {
+                    // TODO(mfish33) we allow uninitialized descriptors in this case. This
+                    // is to have better compatibility with other type checkers and support
+                    // common metaclass patterns. In the future it would be better to detect
+                    // this and use an intersection type between the setter and the descriptor
+                    // class.
+                    Some(AttrSetter::DescriptorSetter(setter, base))
+                }
+                DescriptorBase::Instance(class_type) | DescriptorBase::SelfInstance(class_type) => {
+                    let e =
+                        NoAccessReason::SettingReadOnlyDescriptor(class_type.class_object().dupe());
+                    self.error_with_context(
+                        errors,
+                        range,
+                        ErrorKind::ReadOnly,
+                        e.to_error_msg(attr_name),
+                        context,
+                    );
+                    None
+                }
+                DescriptorBase::ClassDef(_) => {
+                    // Class-level assignment bypasses the descriptor protocol.
+                    // __set__ only intercepts instance assignments, so we check
+                    // that the value is assignable to the descriptor type.
+                    Some(AttrSetter::Declared {
+                        ty: self.heap.mk_class_type(x.cls.clone()),
+                        narrow: false,
+                    })
+                }
+            },
+            attr @ ClassAttribute::DescriptorRead { .. } => self.resolve_class_attr_setter(
+                attr.into_declared(),
+                instance_class,
+                class_base,
+                attr_name,
+                allow_assign_to_final,
+                range,
+                errors,
+                context,
+            ),
         }
     }
 
@@ -5541,7 +5672,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
         };
         match attr {
-            ClassAttribute::ReadWrite(ty) => Some(ClassAttribute::ReadWrite(filter_type(ty)?)),
+            ClassAttribute::ReadWrite(ty, is_method) => {
+                Some(ClassAttribute::ReadWrite(filter_type(ty)?, is_method))
+            }
             ClassAttribute::ReadOnly(ty, reason) => {
                 Some(ClassAttribute::ReadOnly(filter_type(ty)?, reason))
             }
@@ -5592,7 +5725,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             }
             (
                 ClassAttribute::Property(got_getter, Some(got_setter), _),
-                ClassAttribute::ReadWrite(want),
+                ClassAttribute::ReadWrite(want, _),
             ) if allow_property_override => {
                 is_subset(
                     got_getter,
@@ -5638,13 +5771,13 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             ) => Err(Box::new(AttrSubsetError::Property)),
             (
                 ClassAttribute::ReadOnly(..),
-                ClassAttribute::Property(_, Some(_), _) | ClassAttribute::ReadWrite(_),
+                ClassAttribute::Property(_, Some(_), _) | ClassAttribute::ReadWrite(..),
             ) => Err(Box::new(AttrSubsetError::ReadOnly)),
             (
                 // TODO(stroxler): Investigate this case more: methods should be ReadOnly, but
                 // in some cases for unknown reasons they wind up being ReadWrite.
-                ClassAttribute::ReadWrite(got),
-                ClassAttribute::ReadWrite(want),
+                ClassAttribute::ReadWrite(got, _),
+                ClassAttribute::ReadWrite(want, _),
             ) if got.has_toplevel_func_metadata() && want.has_toplevel_func_metadata() => {
                 is_subset(got, want).map_err(|subset_error| {
                     Box::new(AttrSubsetError::Covariant {
@@ -5656,8 +5789,17 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     })
                 })
             }
-            (ClassAttribute::ReadWrite(got), ClassAttribute::ReadWrite(want)) => {
-                let subset_error = is_subset(got, want)
+            (ClassAttribute::ReadWrite(got, _), ClassAttribute::ReadWrite(want, _)) => {
+                // A value matching any branch of an `Overloaded` attribute can be assigned to it.
+                let assignable = match want {
+                    Type::Overloaded(branches) => branches
+                        .iter()
+                        .map(|branch| is_subset(got, branch))
+                        .find_or_last(Result::is_ok)
+                        .expect("`Overloaded` has at least one branch"),
+                    _ => is_subset(got, want),
+                };
+                let subset_error = assignable
                     .map_or_else(Some, |_| is_subset(want, got).map_or_else(Some, |_| None));
                 if let Some(subset_error) = subset_error {
                     Err(Box::new(AttrSubsetError::Invariant {
@@ -5670,7 +5812,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
             }
             (
-                ClassAttribute::ReadWrite(got) | ClassAttribute::ReadOnly(got, ..),
+                ClassAttribute::ReadWrite(got, _) | ClassAttribute::ReadOnly(got, ..),
                 ClassAttribute::ReadOnly(want, _),
             ) => is_subset(got, want).map_err(|subset_error| {
                 Box::new(AttrSubsetError::Covariant {
@@ -5697,7 +5839,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                     })
                 })
             }
-            (ClassAttribute::ReadWrite(got), ClassAttribute::Property(want, want_setter, _)) => {
+            (ClassAttribute::ReadWrite(got, _), ClassAttribute::Property(want, want_setter, _)) => {
                 is_subset(
                     // Synthesize a getter method
                     &self.heap.mk_callable_ellipsis(got.clone()),
@@ -5766,15 +5908,158 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
             }
             (
-                ClassAttribute::Descriptor(Descriptor { cls: got_cls, .. }, ..),
-                ClassAttribute::Descriptor(Descriptor { cls: want_cls, .. }, ..),
+                ClassAttribute::Descriptor(got_d, got_base),
+                ClassAttribute::Descriptor(want_d, want_base),
             ) => {
-                let got_ty = self.heap.mk_class_type(got_cls.clone());
-                let want_ty = self.heap.mk_class_type(want_cls.clone());
-                is_subset(&got_ty, &want_ty).map_err(|subset_error| {
+                let got_ty = self.heap.mk_class_type(got_d.cls.clone());
+                let want_ty = self.heap.mk_class_type(want_d.cls.clone());
+                if is_subset(&got_ty, &want_ty).is_ok() {
+                    return Ok(());
+                }
+                let (got_read_ty, got_setter) = self.resolve_descriptor_types(got_d, got_base);
+                let (want_read_ty, want_setter) = self.resolve_descriptor_types(want_d, want_base);
+                is_subset(&got_read_ty, &want_read_ty).map_err(|subset_error| {
                     Box::new(AttrSubsetError::Covariant {
-                        got: got_ty,
-                        want: want_ty,
+                        got: got_read_ty.clone(),
+                        want: want_read_ty.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                        subset_error,
+                    })
+                })?;
+                if let Some(want_setter_val) = want_setter {
+                    if let Some(got_setter_val) = got_setter {
+                        is_subset(&want_setter_val, &got_setter_val).map_err(|subset_error| {
+                            Box::new(AttrSubsetError::Contravariant {
+                                want: want_setter_val,
+                                got: got_setter_val,
+                                got_is_property: false,
+                                want_is_property: false,
+                                subset_error,
+                            })
+                        })
+                    } else {
+                        Err(Box::new(AttrSubsetError::ReadOnly))
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            (
+                ClassAttribute::Descriptor(got_d, got_base),
+                ClassAttribute::Property(want_getter, want_setter, _),
+            ) => {
+                let (got_read_ty, got_setter) = self.resolve_descriptor_types(got_d, got_base);
+                is_subset(
+                    &self.heap.mk_callable_ellipsis(got_read_ty.clone()),
+                    want_getter,
+                )
+                .map_err(|subset_error| {
+                    Box::new(AttrSubsetError::Covariant {
+                        got: got_read_ty.clone(),
+                        want: want_getter.clone(),
+                        got_is_property: false,
+                        want_is_property: true,
+                        subset_error,
+                    })
+                })?;
+                if let Some(want_setter) = want_setter {
+                    let Some(want_setter_val) = want_setter
+                        .toplevel_callable_signatures()
+                        .next()
+                        .and_then(|(sig, _)| sig.strip_first_param())
+                        .and_then(|sig| sig.get_first_param().cloned())
+                    else {
+                        return Ok(());
+                    };
+                    if let Some(got_setter_val) = got_setter {
+                        is_subset(&want_setter_val, &got_setter_val).map_err(|subset_error| {
+                            Box::new(AttrSubsetError::Contravariant {
+                                want: want_setter.clone(),
+                                got: got_setter_val,
+                                got_is_property: false,
+                                want_is_property: true,
+                                subset_error,
+                            })
+                        })
+                    } else {
+                        Err(Box::new(AttrSubsetError::ReadOnly))
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            (
+                ClassAttribute::Property(got_getter, got_setter, _),
+                ClassAttribute::Descriptor(want_d, want_base),
+            ) => {
+                let (want_read_ty, want_setter) = self.resolve_descriptor_types(want_d, want_base);
+                is_subset(
+                    got_getter,
+                    &self.heap.mk_callable_ellipsis(want_read_ty.clone()),
+                )
+                .map_err(|subset_error| {
+                    Box::new(AttrSubsetError::Covariant {
+                        got: got_getter.clone(),
+                        want: want_read_ty.clone(),
+                        got_is_property: true,
+                        want_is_property: false,
+                        subset_error,
+                    })
+                })?;
+                if let Some(want_setter_val) = want_setter {
+                    if let Some(got_setter) = got_setter {
+                        let Some(got_setter_val) = got_setter
+                            .toplevel_callable_signatures()
+                            .next()
+                            .and_then(|(sig, _)| sig.strip_first_param())
+                            .and_then(|sig| sig.get_first_param().cloned())
+                        else {
+                            return Ok(());
+                        };
+                        is_subset(&want_setter_val, &got_setter_val).map_err(|subset_error| {
+                            Box::new(AttrSubsetError::Contravariant {
+                                want: want_setter_val,
+                                got: got_setter.clone(),
+                                got_is_property: true,
+                                want_is_property: false,
+                                subset_error,
+                            })
+                        })
+                    } else {
+                        Err(Box::new(AttrSubsetError::ReadOnly))
+                    }
+                } else {
+                    Ok(())
+                }
+            }
+            (
+                ClassAttribute::Descriptor(got_d, got_base),
+                ClassAttribute::ReadWrite(want_ty, _) | ClassAttribute::ReadOnly(want_ty, _),
+            ) if want_ty.has_toplevel_func_metadata() => {
+                let (got_read_ty, _) = self.resolve_descriptor_types(got_d, got_base);
+                is_subset(&got_read_ty, want_ty).map_err(|subset_error| {
+                    Box::new(AttrSubsetError::Covariant {
+                        got: got_read_ty,
+                        want: want_ty.clone(),
+                        got_is_property: false,
+                        want_is_property: false,
+                        subset_error,
+                    })
+                })
+            }
+            (
+                ClassAttribute::ReadWrite(got_ty, _) | ClassAttribute::ReadOnly(got_ty, _),
+                ClassAttribute::Descriptor(want_d, want_base),
+            ) if got_ty.has_toplevel_func_metadata() => {
+                let (want_read_ty, want_setter) = self.resolve_descriptor_types(want_d, want_base);
+                if want_setter.is_some() {
+                    return Err(Box::new(AttrSubsetError::ReadOnly));
+                }
+                is_subset(got_ty, &want_read_ty).map_err(|subset_error| {
+                    Box::new(AttrSubsetError::Covariant {
+                        got: got_ty.clone(),
+                        want: want_read_ty,
                         got_is_property: false,
                         want_is_property: false,
                         subset_error,
@@ -5797,7 +6082,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     ) -> Result<Type, NoAccessReason> {
         match class_attr {
             ClassAttribute::NoAccess(reason) => Err(reason),
-            ClassAttribute::ReadWrite(ty) | ClassAttribute::ReadOnly(ty, _) => Ok(ty),
+            ClassAttribute::ReadWrite(ty, _) | ClassAttribute::ReadOnly(ty, _) => Ok(ty),
             ClassAttribute::Property(getter, ..) => {
                 self.record_property_getter(range, &getter);
                 Ok(self.call_property_getter(getter, range, errors, context))
@@ -5842,6 +6127,25 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }))
             }
         }
+    }
+
+    fn resolve_descriptor_types(
+        &self,
+        desc: &Descriptor,
+        base: &DescriptorBase,
+    ) -> (Type, Option<Type>) {
+        let error_swallower = self.error_swallower();
+        let read_ty = if let Some(getter) =
+            self.resolve_descriptor_getter(&dunder::GET, desc, &error_swallower)
+        {
+            self.call_descriptor_getter(getter, base.clone(), desc.range, &error_swallower, None)
+        } else {
+            self.heap.mk_class_type(desc.cls.clone())
+        };
+        let setter_val = self
+            .resolve_descriptor_setter(&dunder::SET, desc, &error_swallower)
+            .map(|setter| self.get_descriptor_setter_value(&setter));
+        (read_ty, setter_val)
     }
 
     fn resolve_descriptor_getter(

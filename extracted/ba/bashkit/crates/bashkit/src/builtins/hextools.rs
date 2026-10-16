@@ -1,4 +1,7 @@
 //! od, xxd, and hexdump builtins - byte-level inspection tools
+//!
+//! Decision: od caps row width before layout arithmetic, pads only one field
+//! on the stack, and admits output growth through the shared request budget.
 
 use super::clap_cache::cached_command;
 use async_trait::async_trait;
@@ -7,15 +10,16 @@ use super::{Builtin, Context};
 use crate::error::Result;
 use crate::fs::vfs_join;
 use crate::interpreter::ExecResult;
+use crate::limits::{BudgetedString, ExecutionBudget};
 
 /// The od builtin - dump files in octal and other formats.
 ///
 /// Argument surface is generated from uutils/coreutils' `uu_app()` via
 /// the `bashkit-coreutils-port` codegen tool — see
 /// `generated/od_args.rs`. Behaviour is implemented locally against
-/// the bashkit VFS. Subset honoured today: `-A RADIX`, `-t TYPE`,
-/// `-N COUNT`, `-j SKIP`, `-w COLS`, plus `-x`/`-c`/`-d`/`-o`
-/// shorthands.
+/// the bashkit VFS: `-A RADIX`, repeated `-t TYPE` (a, c, d, o, u, x with
+/// sizes and the `z` trailer), the integer/char shorthands, `-N`, `-j`,
+/// `-w`, `-v` and `--endian`. Floating-point types are rejected.
 pub struct Od;
 
 /// The xxd builtin - make a hexdump or do the reverse.
@@ -42,13 +46,25 @@ pub struct Xxd;
 pub struct Hexdump;
 
 // --- Od implementation ---
+//
+// Decision: a port of GNU od's block layout. Every `-t` spec (and shorthand
+// such as `-x` = `-t x2`) prints its own line per block in command-line
+// order; fields share GNU's width-per-block padding so specs stay aligned; a
+// short final block is zero-filled; `z` appends a `>...<` trailer; repeated
+// full blocks collapse to `*` unless `-v`. Floating-point types (`f`, `-e`,
+// `-f`, `-F`) are rejected with an explicit error (not yet ported).
+
+// THREAT[TM-DOS-103]: Bound caller-selected dimensions even without a budget.
+const OD_MAX_WIDTH: usize = 65_536;
 
 struct OdOptions {
     addr_radix: AddrRadix,
-    output_type: OutputType,
+    specs: Vec<OdSpec>,
     count: Option<usize>,
     skip: usize,
-    width: usize,
+    width: Option<usize>,
+    big_endian: bool,
+    show_duplicates: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -59,27 +75,155 @@ enum AddrRadix {
     None,
 }
 
-#[derive(Clone, Copy)]
-enum OutputType {
+#[derive(Clone, Copy, PartialEq)]
+enum OdKind {
+    Named,
+    Char,
+    Signed,
+    Unsigned,
     Octal,
     Hex,
-    Decimal,
-    Char,
+}
+
+#[derive(Clone, Copy)]
+struct OdSpec {
+    kind: OdKind,
+    size: usize,
+    trailer: bool,
+}
+
+impl OdSpec {
+    /// GNU field width: the widest value of this type, without the separator.
+    fn field_width(&self) -> usize {
+        let idx = match self.size {
+            1 => 0,
+            2 => 1,
+            4 => 2,
+            _ => 3,
+        };
+        match self.kind {
+            OdKind::Named | OdKind::Char => 3,
+            OdKind::Signed => [4, 6, 11, 20][idx],
+            OdKind::Unsigned => [3, 5, 10, 20][idx],
+            OdKind::Octal => [3, 6, 11, 22][idx],
+            OdKind::Hex => [2, 4, 8, 16][idx],
+        }
+    }
+}
+
+/// Parse one `-t` TYPE string, which may hold several specs (`-t ox1z`).
+fn parse_od_type(s: &str) -> std::result::Result<Vec<OdSpec>, String> {
+    let b = s.as_bytes();
+    let mut specs = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        i += 1;
+        let (kind, size) = match c {
+            b'a' => (OdKind::Named, 1),
+            b'c' => (OdKind::Char, 1),
+            b'd' | b'o' | b'u' | b'x' => {
+                let kind = match c {
+                    b'd' => OdKind::Signed,
+                    b'o' => OdKind::Octal,
+                    b'u' => OdKind::Unsigned,
+                    _ => OdKind::Hex,
+                };
+                let size = match b.get(i) {
+                    Some(b'C') => {
+                        i += 1;
+                        1
+                    }
+                    Some(b'S') => {
+                        i += 1;
+                        2
+                    }
+                    Some(b'I') => {
+                        i += 1;
+                        4
+                    }
+                    Some(b'L') => {
+                        i += 1;
+                        8
+                    }
+                    Some(d) if d.is_ascii_digit() => {
+                        let n = b[i..].iter().take_while(|d| d.is_ascii_digit()).count();
+                        let size: usize = s[i..i + n].parse().unwrap_or(0);
+                        i += n;
+                        size
+                    }
+                    _ => 4,
+                };
+                if !matches!(size, 1 | 2 | 4 | 8) {
+                    return Err(format!(
+                        "od: invalid type string '{s}';\nthis system doesn't provide a {size}-byte integral type"
+                    ));
+                }
+                (kind, size)
+            }
+            b'f' => {
+                return Err(format!(
+                    "od: floating-point type string '{s}' is not supported in bashkit"
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "od: invalid character '{}' in type string '{s}'",
+                    c as char
+                ));
+            }
+        };
+        let trailer = b.get(i) == Some(&b'z');
+        if trailer {
+            i += 1;
+        }
+        specs.push(OdSpec {
+            kind,
+            size,
+            trailer,
+        });
+    }
+    if specs.is_empty() {
+        return Err(format!("od: invalid type string '{s}'"));
+    }
+    Ok(specs)
+}
+
+/// GNU od number operand: `0x` hex, leading-`0` octal, or decimal, with an
+/// optional `b`/`k`/`m` multiplier.
+fn parse_od_num(s: &str, what: &str) -> std::result::Result<usize, String> {
+    let err = || format!("od: invalid {what} argument '{s}'");
+    let (digits, mult) = match s.as_bytes().last() {
+        Some(b'b') if !s.starts_with("0x") && !s.starts_with("0X") => (&s[..s.len() - 1], 512),
+        Some(b'k' | b'K') => (&s[..s.len() - 1], 1024),
+        Some(b'm' | b'M') => (&s[..s.len() - 1], 1024 * 1024),
+        _ => (s, 1),
+    };
+    let value = if let Some(hex) = digits
+        .strip_prefix("0x")
+        .or_else(|| digits.strip_prefix("0X"))
+    {
+        usize::from_str_radix(hex, 16).map_err(|_| err())?
+    } else if digits.len() > 1 && digits.starts_with('0') {
+        usize::from_str_radix(&digits[1..], 8).map_err(|_| err())?
+    } else {
+        digits.parse::<usize>().map_err(|_| err())?
+    };
+    value.checked_mul(mult).ok_or_else(err)
 }
 
 /// Translate clap-parsed `od` matches into the local rendering struct.
-/// The clap surface is generated from uutils; we only honour the subset
-/// the bashkit VFS dump supports — other flags are accepted (so unknown
-/// flags still error cleanly) but ignored.
 fn od_options_from_matches(
     matches: &clap::ArgMatches,
 ) -> std::result::Result<(OdOptions, Vec<String>), String> {
     let mut opts = OdOptions {
         addr_radix: AddrRadix::Octal,
-        output_type: OutputType::Octal,
+        specs: Vec::new(),
         count: None,
         skip: 0,
-        width: 16,
+        width: None,
+        big_endian: false,
+        show_duplicates: matches.get_flag("output-duplicates"),
     };
 
     if let Some(radix) = matches.get_one::<String>("address-radix") {
@@ -91,55 +235,71 @@ fn od_options_from_matches(
             other => return Err(format!("od: invalid address radix: '{}'", other)),
         };
     }
-    if let Some(mut formats) = matches.get_many::<String>("format") {
-        // -t accepts a stack of types upstream; bashkit only honours the
-        // last one, matching the behaviour of the original handwritten
-        // path. Unknown TYPE letters surface as an explicit error.
-        if let Some(t) = formats.next_back() {
-            opts.output_type = match t.chars().next() {
-                Some('o') => OutputType::Octal,
-                Some('x') => OutputType::Hex,
-                Some('d') => OutputType::Decimal,
-                Some('c') => OutputType::Char,
-                _ => return Err(format!("od: invalid output type: '{}'", t)),
-            };
+
+    // Specs apply in command-line order, so collect (index, TYPE) pairs from
+    // both `-t` and the single-letter shorthands, then sort.
+    let mut ordered: Vec<(usize, String)> = Vec::new();
+    if let (Some(idx), Some(vals)) = (
+        matches.indices_of("format"),
+        matches.get_many::<String>("format"),
+    ) {
+        ordered.extend(idx.zip(vals.cloned()));
+    }
+    const SHORTHANDS: &[(&str, &str)] = &[
+        ("a", "a"),
+        ("b", "o1"),
+        ("c", "c"),
+        ("d", "u2"),
+        ("D", "u4"),
+        ("o", "o2"),
+        ("I", "dL"),
+        ("L", "dL"),
+        ("i", "dI"),
+        ("l", "dL"),
+        ("x", "x2"),
+        ("h", "x2"),
+        ("O", "o4"),
+        ("s", "d2"),
+        ("X", "x4"),
+        ("H", "x4"),
+        ("e", "fD"),
+        ("f", "fF"),
+        ("F", "fD"),
+    ];
+    for (id, ty) in SHORTHANDS {
+        if matches.try_get_one::<bool>(id).ok().flatten().copied() == Some(true)
+            && let Some(idx) = matches.index_of(id)
+        {
+            ordered.push((idx, (*ty).to_string()));
         }
     }
-    if let Some(s) = matches.get_one::<String>("read-bytes") {
-        opts.count = Some(
-            s.parse()
-                .map_err(|_| format!("od: invalid count: '{}'", s))?,
-        );
+    ordered.sort_by_key(|(idx, _)| *idx);
+    for (_, ty) in &ordered {
+        opts.specs.extend(parse_od_type(ty)?);
     }
-    if let Some(s) = matches.get_one::<String>("skip-bytes") {
-        opts.skip = s
-            .parse()
-            .map_err(|_| format!("od: invalid skip: '{}'", s))?;
-    }
-    if let Some(s) = matches.get_one::<String>("width") {
-        let parsed: usize = s
-            .parse()
-            .map_err(|_| format!("od: invalid width: '{}'", s))?;
-        if parsed > 0 {
-            opts.width = parsed;
-        }
+    if opts.specs.is_empty() {
+        opts.specs.push(OdSpec {
+            kind: OdKind::Octal,
+            size: 2,
+            trailer: false,
+        });
     }
 
-    // Single-letter shorthands: clap exposes each as its own SetTrue
-    // flag (see `generated/od_args.rs`). Honour the four bashkit
-    // supports today; the rest are accepted-but-ignored, matching the
-    // documented coverage.
-    if matches.try_get_one::<bool>("x").ok().flatten().copied() == Some(true) {
-        opts.output_type = OutputType::Hex;
+    if let Some(s) = matches.get_one::<String>("read-bytes") {
+        opts.count = Some(parse_od_num(s, "-N")?);
     }
-    if matches.try_get_one::<bool>("c").ok().flatten().copied() == Some(true) {
-        opts.output_type = OutputType::Char;
+    if let Some(s) = matches.get_one::<String>("skip-bytes") {
+        opts.skip = parse_od_num(s, "-j")?;
     }
-    if matches.try_get_one::<bool>("d").ok().flatten().copied() == Some(true) {
-        opts.output_type = OutputType::Decimal;
+    if let Some(s) = matches.get_one::<String>("width") {
+        let width = parse_od_num(s, "-w")?;
+        if width > OD_MAX_WIDTH {
+            return Err(format!("od: width exceeds maximum of {OD_MAX_WIDTH} bytes"));
+        }
+        opts.width = Some(width);
     }
-    if matches.try_get_one::<bool>("o").ok().flatten().copied() == Some(true) {
-        opts.output_type = OutputType::Octal;
+    if let Some(e) = matches.get_one::<String>("endian") {
+        opts.big_endian = e == "big";
     }
 
     let files: Vec<String> = matches
@@ -154,73 +314,176 @@ fn format_od_addr(offset: usize, radix: AddrRadix) -> String {
     match radix {
         AddrRadix::Octal => format!("{:07o}", offset),
         AddrRadix::Decimal => format!("{:07}", offset),
-        AddrRadix::Hex => format!("{:07x}", offset),
+        AddrRadix::Hex => format!("{:06x}", offset),
         AddrRadix::None => String::new(),
     }
 }
 
-fn format_od_byte(byte: u8, output_type: OutputType) -> String {
-    match output_type {
-        OutputType::Octal => format!(" {:03o}", byte),
-        OutputType::Hex => format!(" {:02x}", byte),
-        OutputType::Decimal => format!(" {:3}", byte),
-        OutputType::Char => {
-            let c = match byte {
-                0 => "\\0".to_string(),
-                7 => "\\a".to_string(),
-                8 => "\\b".to_string(),
-                9 => "\\t".to_string(),
-                10 => "\\n".to_string(),
-                11 => "\\v".to_string(),
-                12 => "\\f".to_string(),
-                13 => "\\r".to_string(),
-                0x20..=0x7e => format!("  {}", byte as char),
-                _ => format!(" {:03o}", byte),
-            };
-            format!(" {}", c.trim_start())
+const OD_NAMES: [&str; 33] = [
+    "nul", "soh", "stx", "etx", "eot", "enq", "ack", "bel", "bs", "ht", "nl", "vt", "ff", "cr",
+    "so", "si", "dle", "dc1", "dc2", "dc3", "dc4", "nak", "syn", "etb", "can", "em", "sub", "esc",
+    "fs", "gs", "rs", "us", "sp",
+];
+
+fn format_od_field(spec: &OdSpec, bytes: &[u8], big_endian: bool) -> String {
+    match spec.kind {
+        OdKind::Named => {
+            let b = bytes[0] & 0x7f;
+            match b {
+                0..=32 => OD_NAMES[b as usize].to_string(),
+                127 => "del".to_string(),
+                _ => (b as char).to_string(),
+            }
+        }
+        OdKind::Char => match bytes[0] {
+            0 => "\\0".to_string(),
+            7 => "\\a".to_string(),
+            8 => "\\b".to_string(),
+            9 => "\\t".to_string(),
+            10 => "\\n".to_string(),
+            11 => "\\v".to_string(),
+            12 => "\\f".to_string(),
+            13 => "\\r".to_string(),
+            b @ 0x20..=0x7e => (b as char).to_string(),
+            b => format!("{:03o}", b),
+        },
+        _ => {
+            let mut v: u64 = 0;
+            if big_endian {
+                for &b in bytes {
+                    v = (v << 8) | u64::from(b);
+                }
+            } else {
+                for &b in bytes.iter().rev() {
+                    v = (v << 8) | u64::from(b);
+                }
+            }
+            let w = spec.field_width();
+            match spec.kind {
+                OdKind::Octal => format!("{:0w$o}", v),
+                OdKind::Hex => format!("{:0w$x}", v),
+                OdKind::Unsigned => v.to_string(),
+                _ => {
+                    let shift = 64 - 8 * spec.size as u32;
+                    (((v << shift) as i64) >> shift).to_string()
+                }
+            }
         }
     }
 }
 
-fn od_dump(data: &[u8], opts: &OdOptions) -> String {
-    let bytes_per_line = opts.width;
-    let mut output = String::new();
+// Avoid allocating padding or formatted rows outside the budgeted owner.
+fn od_spaces(output: &mut BudgetedString, mut count: usize) -> Result<()> {
+    const SPACES: &str = "                                                                ";
+    while count > 0 {
+        let n = count.min(SPACES.len());
+        output.try_push_str(&SPACES[..n])?;
+        count -= n;
+    }
+    Ok(())
+}
 
-    let data = if opts.skip < data.len() {
-        &data[opts.skip..]
-    } else {
-        &[]
+fn od_dump(data: &[u8], opts: &OdOptions, budget: Option<&ExecutionBudget>) -> Result<String> {
+    let lcm = opts.specs.iter().fold(1usize, |acc, s| {
+        let (mut a, mut b) = (acc, s.size);
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        acc / a * s.size
+    });
+    let bpb = match opts.width {
+        Some(w) if w > 0 && w % lcm == 0 => w,
+        Some(_) => lcm,
+        None => lcm * (16 / lcm).max(1),
     };
+    let width_per_block = opts
+        .specs
+        .iter()
+        .map(|s| (s.field_width() + 1) * (bpb / s.size))
+        .max()
+        .unwrap_or(0);
+    let addr_pad = format_od_addr(0, opts.addr_radix).len();
 
+    let data = data.get(opts.skip..).unwrap_or(&[]);
     let data = match opts.count {
         Some(n) => &data[..data.len().min(n)],
         None => data,
     };
 
-    for (chunk_idx, chunk) in data.chunks(bytes_per_line).enumerate() {
-        let offset = opts.skip + chunk_idx * bytes_per_line;
-        let addr = format_od_addr(offset, opts.addr_radix);
-        if !addr.is_empty() {
-            output.push_str(&addr);
+    // THREAT[TM-DOS-103]: lease capacity before fallible allocation.
+    let mut output = BudgetedString::new(budget)?;
+    let mut prev: Option<&[u8]> = None;
+    let mut in_dup_run = false;
+    for (chunk_idx, chunk) in data.chunks(bpb).enumerate() {
+        if let Some(budget) = budget {
+            budget.consume_work(chunk.len() as u64)?;
         }
+        let offset = opts.skip + chunk_idx * bpb;
+        if !opts.show_duplicates && chunk.len() == bpb && prev == Some(chunk) {
+            if !in_dup_run {
+                output.try_push_str("*\n")?;
+                in_dup_run = true;
+            }
+            continue;
+        }
+        in_dup_run = false;
+        prev = Some(chunk);
 
-        for byte in chunk {
-            output.push_str(&format_od_byte(*byte, opts.output_type));
+        for (si, spec) in opts.specs.iter().enumerate() {
+            if si == 0 {
+                output.try_push_str(&format_od_addr(offset, opts.addr_radix))?;
+            } else {
+                od_spaces(&mut output, addr_pad)?;
+            }
+            let fields = bpb / spec.size;
+            let blank = (bpb - chunk.len()) / spec.size;
+            let width = spec.field_width();
+            let pad = width_per_block - width * fields;
+            let mut pad_remaining = pad;
+            for i in (blank + 1..=fields).rev() {
+                let idx = fields - i;
+                // Width is capped; u64 also keeps the product safe on 32-bit hosts.
+                let next_pad = (pad as u64 * (i - 1) as u64 / fields as u64) as usize;
+                let adjusted = pad_remaining - next_pad + width;
+                if let Some(budget) = budget {
+                    budget.consume_work(1)?;
+                }
+                // Only an incomplete numeric field needs zero padding (max 8 bytes).
+                let mut field = [0u8; 8];
+                let start = idx * spec.size;
+                let available = spec.size.min(chunk.len() - start);
+                field[..available].copy_from_slice(&chunk[start..start + available]);
+                let text = format_od_field(spec, &field[..spec.size], opts.big_endian);
+                od_spaces(&mut output, adjusted.saturating_sub(text.len()))?;
+                output.try_push_str(&text)?;
+                pad_remaining = next_pad;
+            }
+            if spec.trailer {
+                let trailer_pad =
+                    blank * width + (pad as u64 * blank as u64 / fields as u64) as usize;
+                od_spaces(&mut output, trailer_pad)?;
+                output.try_push_str("  >")?;
+                for &b in chunk {
+                    output.try_push(if (0x20..0x7f).contains(&b) {
+                        b as char
+                    } else {
+                        '.'
+                    })?;
+                }
+                output.try_push('<')?;
+            }
+            output.try_push('\n')?;
         }
-        output.push('\n');
     }
 
-    // Final address line
-    if !data.is_empty() {
-        let final_offset = opts.skip + data.len();
-        let addr = format_od_addr(final_offset, opts.addr_radix);
-        if !addr.is_empty() {
-            output.push_str(&addr);
-            output.push('\n');
-        }
+    // GNU always ends with the final address (nothing for `-An`).
+    let addr = format_od_addr(opts.skip + data.len(), opts.addr_radix);
+    if !addr.is_empty() {
+        output.try_push_str(&addr)?;
+        output.try_push('\n')?;
     }
 
-    output
+    Ok(output.into_inner())
 }
 
 // Cached `od` arg surface: pre-built once, cloned per invocation.
@@ -256,8 +519,19 @@ impl Builtin for Od {
             Err(e) => return Ok(ExecResult::err(format!("{}\n", e), 1)),
         };
 
-        let data = collect_input(ctx.stdin, &files, ctx.cwd, &ctx.fs).await?;
-        let output = od_dump(&data, &opts);
+        let data = match collect_input("od", ctx.stdin, &files, ctx.cwd, &ctx.fs).await {
+            Ok(data) => data,
+            Err(failure) => return Ok(failure),
+        };
+        let budget = ctx
+            .execution_budget()
+            .map(|budget| {
+                budget
+                    .try_with(Clone::clone)
+                    .map_err(|_| crate::Error::Cancelled)
+            })
+            .transpose()?;
+        let output = od_dump(&data, &opts, budget.as_ref())?;
 
         Ok(ExecResult::ok(output))
     }
@@ -463,7 +737,10 @@ impl Builtin for Xxd {
             Err(e) => return Ok(ExecResult::err(format!("{}\n", e), 1)),
         };
 
-        let data = collect_input(ctx.stdin, &files, ctx.cwd, &ctx.fs).await?;
+        let data = match collect_input("xxd", ctx.stdin, &files, ctx.cwd, &ctx.fs).await {
+            Ok(data) => data,
+            Err(failure) => return Ok(failure),
+        };
 
         if opts.reverse {
             let bytes = xxd_reverse(&data, opts.plain);
@@ -621,7 +898,10 @@ impl Builtin for Hexdump {
             Err(e) => return Ok(ExecResult::err(format!("{}\n", e), 1)),
         };
 
-        let data = collect_input(ctx.stdin, &files, ctx.cwd, &ctx.fs).await?;
+        let data = match collect_input("hexdump", ctx.stdin, &files, ctx.cwd, &ctx.fs).await {
+            Ok(data) => data,
+            Err(failure) => return Ok(failure),
+        };
         let output = hexdump_dump(&data, &opts);
 
         Ok(ExecResult::ok(output))
@@ -630,12 +910,23 @@ impl Builtin for Hexdump {
 
 // --- Shared helpers ---
 
+/// Read the operand files for `od` / `xxd` / `hexdump`.
+///
+/// An unreadable operand is an ordinary command failure, not an interpreter
+/// error: real `od` prints `od: FILE: No such file or directory`, exits 1 and
+/// lets the rest of the script run. Wrapping the VFS error in
+/// `Error::Internal` instead aborted the whole script with
+/// `internal error: FILE: io error: file not found` — two Rust enum shapes on
+/// a path any typo reaches, which is the TM-INF-022 leak nightly `glob_fuzz`
+/// run 228 caught. Hence `Err(ExecResult)`: the failure is the command's own
+/// output, so the caller returns it as `Ok`.
 async fn collect_input(
+    name: &str,
     stdin: Option<&crate::StreamData>,
     files: &[String],
     cwd: &std::path::Path,
     fs: &std::sync::Arc<dyn crate::fs::FileSystem>,
-) -> Result<Vec<u8>> {
+) -> std::result::Result<Vec<u8>, ExecResult> {
     let mut data = Vec::new();
 
     if files.is_empty() {
@@ -655,10 +946,12 @@ async fn collect_input(
                     vfs_join(cwd, file)
                 };
 
-                let content = fs
-                    .read_file(&path)
-                    .await
-                    .map_err(|e| crate::error::Error::Internal(format!("{}: {}", file, e)))?;
+                let content = fs.read_file(&path).await.map_err(|e| {
+                    ExecResult::err(
+                        format!("{name}: {file}: {}\n", crate::error::io_error_reason(&e)),
+                        1,
+                    )
+                })?;
                 data.extend_from_slice(&content);
             }
         }
@@ -790,8 +1083,8 @@ mod tests {
     async fn test_od_basic() {
         let result = run_od(&[], Some("AB")).await;
         assert_eq!(result.exit_code, 0);
-        assert!(result.stdout.contains("101")); // 'A' = octal 101
-        assert!(result.stdout.contains("102")); // 'B' = octal 102
+        // Default is `-t o2`: "AB" little-endian = 0x4241 = octal 041101.
+        assert!(result.stdout.contains("041101"));
     }
 
     #[tokio::test]
@@ -821,7 +1114,7 @@ mod tests {
     async fn test_od_hex_addr() {
         let result = run_od(&["-A", "x"], Some("test")).await;
         assert_eq!(result.exit_code, 0);
-        assert!(result.stdout.starts_with("0000000"));
+        assert!(result.stdout.starts_with("000000 "));
     }
 
     #[tokio::test]
@@ -853,7 +1146,7 @@ mod tests {
     async fn test_od_empty_input() {
         let result = run_od(&[], Some("")).await;
         assert_eq!(result.exit_code, 0);
-        assert_eq!(result.stdout, "");
+        assert_eq!(result.stdout, "0000000\n");
     }
 
     #[tokio::test]
@@ -862,6 +1155,49 @@ mod tests {
             run_od_with_fs(&["-t", "x", "/test.bin"], &[("/test.bin", &[0x41, 0x42])]).await;
         assert_eq!(result.exit_code, 0);
         assert!(result.stdout.contains("41"));
+    }
+
+    #[tokio::test]
+    async fn test_od_default_is_octal_shorts() {
+        let result = run_od(&[], Some("AB")).await;
+        assert_eq!(result.stdout, "0000000 041101\n0000002\n");
+    }
+
+    #[tokio::test]
+    async fn test_od_multiple_types_align() {
+        let result = run_od(&["-An", "-tx1", "-c"], Some("A\n")).await;
+        assert_eq!(result.stdout, "  41  0a\n   A  \\n\n");
+    }
+
+    #[tokio::test]
+    async fn test_od_hexl_trailer() {
+        let result = run_od(&["-t", "x2z"], Some("abc")).await;
+        assert_eq!(
+            result.stdout,
+            format!("0000000 6261 0063{}  >abc<\n0000003\n", " ".repeat(30))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_od_duplicates_collapse() {
+        let data = "a".repeat(48);
+        let result = run_od(&["-An", "-tx1", "-w4"], Some(&data[..12])).await;
+        assert_eq!(result.stdout, " 61 61 61 61\n*\n");
+        let result = run_od(&["-An", "-v", "-tx1", "-w4"], Some(&data[..8])).await;
+        assert_eq!(result.stdout, " 61 61 61 61\n 61 61 61 61\n");
+    }
+
+    #[tokio::test]
+    async fn test_od_named_and_signed() {
+        let result = run_od(&["-An", "-ta", "-td1"], Some("\x7f ")).await;
+        assert_eq!(result.stdout, "  del   sp\n  127   32\n");
+    }
+
+    #[tokio::test]
+    async fn test_od_float_rejected() {
+        let result = run_od(&["-tf"], Some("abcd")).await;
+        assert_eq!(result.exit_code, 1);
+        assert!(result.stderr.contains("not supported"));
     }
 
     // --- Xxd tests ---
@@ -1019,5 +1355,17 @@ mod tests {
         let result = run_hexdump(&["-C"], Some("AB")).await;
         assert_eq!(result.exit_code, 0);
         assert!(result.stdout.contains("00000002")); // final offset
+    }
+
+    /// TM-INF-022: a missing operand must not put a Rust enum shape on
+    /// stderr. Guards the whole `UNIVERSAL_BANNED` list, not just the two
+    /// shapes `Error::Internal(Error::Io)` used to produce, so a future
+    /// rewording cannot reintroduce a different leak.
+    #[tokio::test]
+    async fn no_leak_missing_operand() {
+        let result = run_od_with_fs(&["/nope"], &[]).await;
+        crate::testing::assert_no_leak(&result, "od", &[]);
+        assert_eq!(result.stderr, "od: /nope: No such file or directory\n");
+        assert_eq!(result.exit_code, 1);
     }
 }

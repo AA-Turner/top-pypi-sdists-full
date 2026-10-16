@@ -1,0 +1,1177 @@
+use proto_utils::ProtoError;
+use sf_core::config::logout::ErrorStrategy;
+use sf_core::config::param_names;
+use sf_core::protobuf::apis::database_driver_v1::{
+    DatabaseDriverClient, DatabaseDriverClientBlockingExt, DriverProviders, database_driver_client,
+    database_driver_client_with,
+};
+use sf_core::protobuf::generated::database_driver_v1::*;
+use std::sync::Mutex;
+
+use super::arrow_result_helper::ArrowResultHelper;
+use super::config::{Parameters, get_parameters, setup_logging};
+use super::private_key_helper::{self, PrivateKeyFile};
+
+/// Cloud provider backing the current Snowflake deployment.
+///
+/// Internal (temporary) stages are provisioned in the deployment's cloud, so
+/// this is the signal cloud-specific PUT/GET tests use to self-skip when the
+/// connected account lives on a different cloud than the one under test.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloudProvider {
+    Aws,
+    Gcp,
+    Azure,
+}
+
+/// Creates a connected Snowflake client with database and connection initialized
+pub struct SnowflakeTestClient {
+    pub conn_handle: ConnectionHandle,
+    pub db_handle: DatabaseHandle,
+    pub parameters: Parameters,
+    private_key_file: Option<PrivateKeyFile>,
+    client: DatabaseDriverClient,
+    created_statements: Mutex<Vec<StatementHandle>>,
+    created_result_sets: Mutex<Vec<ResultSetHandle>>,
+}
+
+impl SnowflakeTestClient {
+    /// Creates a client with default parameters (no authentication parameters set)
+    pub fn with_default_params() -> Self {
+        setup_logging();
+        let parameters = get_parameters();
+        let client = database_driver_client();
+        let db_response = client.database_new_blocking(DatabaseNewRequest {}).unwrap();
+        let db_handle = db_response.db_handle.unwrap();
+
+        client
+            .database_init_blocking(DatabaseInitRequest {
+                db_handle: Some(db_handle),
+            })
+            .unwrap();
+
+        let conn_response = client
+            .connection_new_blocking(ConnectionNewRequest {})
+            .unwrap();
+        let conn_handle = conn_response.conn_handle.unwrap();
+
+        let test_client = Self {
+            conn_handle,
+            db_handle,
+            parameters,
+            private_key_file: None,
+            client,
+            created_statements: Mutex::new(Vec::new()),
+            created_result_sets: Mutex::new(Vec::new()),
+        };
+
+        test_client.set_options_from_parameters();
+        test_client
+    }
+
+    /// Creates a client with default parameters and JWT authentication configured
+    pub fn with_default_jwt_auth_params() -> Self {
+        setup_logging();
+        let mut client = Self::with_default_params();
+
+        client.setup_jwt_auth();
+        client
+    }
+
+    pub fn connect_with_default_auth() -> Self {
+        setup_logging();
+        let mut test_client = Self::with_default_params();
+
+        test_client.setup_jwt_auth();
+
+        test_client
+            .client
+            .connection_init_blocking(ConnectionInitRequest {
+                conn_handle: Some(test_client.conn_handle),
+                db_handle: Some(test_client.db_handle),
+                ..Default::default()
+            })
+            .unwrap();
+
+        test_client
+    }
+
+    pub fn with_int_tests_params(server_url: Option<&str>) -> Self {
+        Self::with_int_tests_params_and_client(server_url, database_driver_client())
+    }
+
+    /// Variant of [`Self::with_int_tests_params`] that installs test
+    /// providers (e.g. a mocked filesystem) on the underlying driver
+    /// before the client starts issuing requests. Add new providers by
+    /// extending [`DriverProviders`]; no new constructor is required.
+    pub fn with_int_tests_params_using(
+        server_url: Option<&str>,
+        providers: DriverProviders,
+    ) -> Self {
+        Self::with_int_tests_params_and_client(server_url, database_driver_client_with(providers))
+    }
+
+    pub fn with_int_tests_params_and_client(
+        server_url: Option<&str>,
+        client: DatabaseDriverClient,
+    ) -> Self {
+        setup_logging();
+
+        let server_url = server_url.unwrap_or("http://localhost:8090");
+
+        let test_parameters = Parameters {
+            account_name: Some("test_account".to_string()),
+            user: Some("test_user".to_string()),
+            password: Some("test_password".to_string()),
+            database: Some("test_database".to_string()),
+            schema: Some("test_schema".to_string()),
+            warehouse: Some("test_warehouse".to_string()),
+            host: Some("localhost".to_string()),
+            role: Some("test_role".to_string()),
+            server_url: Some(server_url.to_string()),
+            protocol: Some("http".to_string()),
+            ..Default::default()
+        };
+
+        let db_response = client.database_new_blocking(DatabaseNewRequest {}).unwrap();
+        let db_handle = db_response.db_handle.unwrap();
+
+        client
+            .database_init_blocking(DatabaseInitRequest {
+                db_handle: Some(db_handle),
+            })
+            .unwrap();
+
+        let conn_response = client
+            .connection_new_blocking(ConnectionNewRequest {})
+            .unwrap();
+        let conn_handle = conn_response.conn_handle.unwrap();
+
+        let test_client = Self {
+            conn_handle,
+            db_handle,
+            parameters: test_parameters,
+            private_key_file: None,
+            client,
+            created_statements: Mutex::new(Vec::new()),
+            created_result_sets: Mutex::new(Vec::new()),
+        };
+
+        test_client.set_options_from_parameters();
+        test_client.set_connection_option("client_store_temporary_credential", "false");
+        test_client
+    }
+
+    pub fn connect_integration_test(server_url: Option<&str>) -> Self {
+        let mut test_client = Self::with_int_tests_params(server_url);
+
+        test_client.set_connection_option("authenticator", "SNOWFLAKE_JWT");
+        let temp_key_file = private_key_helper::get_test_private_key_file()
+            .expect("Failed to create test private key file");
+        test_client
+            .set_connection_option("private_key_file", temp_key_file.path().to_str().unwrap());
+
+        test_client
+            .client
+            .connection_init_blocking(ConnectionInitRequest {
+                conn_handle: Some(test_client.conn_handle),
+                db_handle: Some(test_client.db_handle),
+                ..Default::default()
+            })
+            .unwrap();
+
+        test_client.private_key_file = Some(temp_key_file);
+        test_client
+    }
+
+    /// Creates a new statement handle
+    pub fn new_statement(&self) -> StatementHandle {
+        let response = self
+            .client
+            .statement_new_blocking(StatementNewRequest {
+                conn_handle: Some(self.conn_handle),
+            })
+            .unwrap();
+        let stmt_handle = response.stmt_handle.unwrap();
+        self.created_statements.lock().unwrap().push(stmt_handle);
+        stmt_handle
+    }
+
+    /// Track all ResultSetHandles from an execute query result
+    fn track_result_handles(&self, result: &execute_query_response::Result) {
+        match result {
+            execute_query_response::Result::Single(rs) => {
+                if let Some(handle) = rs.result_set_handle {
+                    self.created_result_sets.lock().unwrap().push(handle);
+                }
+            }
+            execute_query_response::Result::Multi(_) => {
+                // Multi-statement results don't contain handles directly.
+                // They have query_ids, and handles are retrieved later via
+                // connection_get_result_set() which tracks them separately.
+            }
+        }
+    }
+
+    pub fn execute_statement_query(
+        &self,
+        stmt: &StatementHandle,
+    ) -> execute_query_response::Result {
+        self.execute_statement_query_with_bindings(stmt, None)
+    }
+
+    /// Set a single per-statement option via the proto/FFI client.
+    pub fn set_statement_option(&self, stmt: &StatementHandle, key: &str, value: ConfigSetting) {
+        self.client
+            .statement_set_options_blocking(StatementSetOptionsRequest {
+                stmt_handle: Some(*stmt),
+                options: [(key.to_string(), value)].into_iter().collect(),
+            })
+            .unwrap();
+    }
+
+    pub fn execute_statement_query_with_bindings(
+        &self,
+        stmt: &StatementHandle,
+        json_bindings: Option<&str>,
+    ) -> execute_query_response::Result {
+        let bindings = json_bindings.map(|json| {
+            let ptr = json.as_bytes().as_ptr() as u64;
+            QueryBindings {
+                binding_type: Some(query_bindings::BindingType::Json(BinaryDataPtr {
+                    value: ptr.to_le_bytes().to_vec(),
+                    length: json.len() as i64,
+                })),
+            }
+        });
+        let result = self
+            .client
+            .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                stmt_handle: Some(*stmt),
+                bindings,
+                timeout_seconds: None,
+            })
+            .unwrap()
+            .result
+            .unwrap();
+        self.track_result_handles(&result);
+        result
+    }
+
+    /// Execute `stmt`'s query with CSV (stage-binding) bindings — the wire-level
+    /// counterpart to `execute_statement_query_with_bindings`'s JSON path.
+    ///
+    /// The JSON-vs-CSV choice is made per-wrapper (e.g. ODBC's
+    /// `select_binding_mode`/`stage_binding_threshold`, Python's
+    /// `parse_stage_binding_threshold`) based on the `CLIENT_STAGE_ARRAY_BINDING_THRESHOLD`
+    /// session parameter — `sf_core` itself never decides this, it just uploads
+    /// whatever `BindingType` it is handed. This helper sends `csv_bindings`
+    /// as `BindingType::Csv` directly, the same way a wrapper does once it has
+    /// already decided to stage-bind, driving `sf_core::stage_binding::upload_csv_bindings`.
+    ///
+    /// Returns `Err` (rather than panicking) on failure so callers can assert
+    /// on failure paths (e.g. a dead proxy) — see `execute_query_no_unwrap`.
+    pub fn execute_statement_query_with_csv_bindings_no_unwrap(
+        &self,
+        stmt: &StatementHandle,
+        csv_bindings: &[u8],
+    ) -> Result<execute_query_response::Result, String> {
+        let ptr = csv_bindings.as_ptr() as u64;
+        let bindings = Some(QueryBindings {
+            binding_type: Some(query_bindings::BindingType::Csv(BinaryDataPtr {
+                value: ptr.to_le_bytes().to_vec(),
+                length: csv_bindings.len() as i64,
+            })),
+        });
+        match self
+            .client
+            .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                stmt_handle: Some(*stmt),
+                bindings,
+                timeout_seconds: None,
+            }) {
+            Ok(response) => {
+                let result = response.result.unwrap();
+                self.track_result_handles(&result);
+                Ok(result)
+            }
+            Err(e) => match *e {
+                ProtoError::Application(e) => Err(format!("Failed to execute query: {e:?}")),
+                ProtoError::Transport(e) => Err(format!("Transport error: {e:?}")),
+            },
+        }
+    }
+
+    /// Submit a statement without waiting for it to complete, returning its
+    /// query id immediately. Unlike `execute_statement_query`, this does not
+    /// poll the server for a result, so the query is typically still running
+    /// when this call returns.
+    pub fn execute_statement_async(&self, stmt: &StatementHandle) -> String {
+        self.client
+            .statement_execute_async_blocking(StatementExecuteAsyncRequest {
+                stmt_handle: Some(*stmt),
+                bindings: None,
+            })
+            .unwrap()
+            .query_id
+    }
+
+    pub fn set_sql_query(&self, stmt: &StatementHandle, query: &str) {
+        self.client
+            .statement_set_sql_query_blocking(StatementSetSqlQueryRequest {
+                stmt_handle: Some(*stmt),
+                query: query.to_string(),
+            })
+            .unwrap();
+    }
+
+    /// Builds a JSON bindings string for integer parameters.
+    pub fn bind_int_parameters_json(&self, params: &[i32]) -> String {
+        let mut bindings = serde_json::Map::new();
+        for (i, value) in params.iter().enumerate() {
+            let mut entry = serde_json::Map::new();
+            entry.insert(
+                "type".to_string(),
+                serde_json::Value::String("FIXED".to_string()),
+            );
+            entry.insert(
+                "value".to_string(),
+                serde_json::Value::String(value.to_string()),
+            );
+            bindings.insert((i + 1).to_string(), serde_json::Value::Object(entry));
+        }
+        serde_json::to_string(&bindings).unwrap()
+    }
+
+    pub fn result_set_get_chunks(&self, rs_handle: &ResultSetHandle) -> ResultSetGetChunksResponse {
+        self.client
+            .result_set_get_chunks_blocking(ResultSetGetChunksRequest {
+                result_set_handle: Some(*rs_handle),
+            })
+            .unwrap()
+    }
+
+    pub fn fetch_chunk(&self, chunk: ResultChunk) -> DatabaseFetchChunkResponse {
+        self.fetch_chunks(vec![chunk])
+    }
+
+    pub fn fetch_chunks(&self, chunks: Vec<ResultChunk>) -> DatabaseFetchChunkResponse {
+        self.client
+            .database_fetch_chunk_blocking(DatabaseFetchChunkRequest {
+                conn_handle: None,
+                chunks,
+                // Arrow IPC path: columns are ignored.
+                columns: Vec::new(),
+            })
+            .unwrap()
+    }
+
+    /// Execute the statement's query, returning the raw protobuf result so
+    /// tests can inspect the `DriverException` (e.g. `vendor_code`) on failure.
+    #[allow(clippy::result_large_err)]
+    pub fn execute_statement_query_raw(
+        &self,
+        stmt: &StatementHandle,
+    ) -> Result<ExecuteQueryResponse, Box<ProtoError<DriverException>>> {
+        self.client
+            .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                stmt_handle: Some(*stmt),
+                bindings: None,
+                timeout_seconds: None,
+            })
+    }
+
+    /// Mint an operation handle so a query can be dispatched cancellably and
+    /// cancelled from another thread. See [`Self::cancel_operation`].
+    pub fn register_operation(&self) -> u64 {
+        self.client.register_operation()
+    }
+
+    /// Cancel the operation registered for `operation`, from any thread. This is
+    /// the cross-thread `SQLCancel` shape: no runtime needed, returns immediately,
+    /// and the abort's outcome comes back on the *executing* thread's error.
+    pub fn cancel_operation(&self, operation: u64) {
+        self.client.cancel_operation(operation);
+    }
+
+    /// Execute under `operation`, returning the raw protobuf result so tests can
+    /// inspect the `DriverException` — including the `cancellation_abort_outcome`
+    /// that reports what a cancellation's abort-request achieved.
+    #[allow(clippy::result_large_err)]
+    pub fn execute_statement_query_cancellable_raw(
+        &self,
+        stmt: &StatementHandle,
+        operation: u64,
+    ) -> Result<ExecuteQueryResponse, Box<ProtoError<DriverException>>> {
+        self.client.statement_execute_query_cancellable_blocking(
+            operation,
+            StatementExecuteQueryRequest {
+                stmt_handle: Some(*stmt),
+                bindings: None,
+                timeout_seconds: None,
+            },
+        )
+    }
+
+    pub fn release_statement(&self, stmt: &StatementHandle) {
+        self.client
+            .statement_release_blocking(StatementReleaseRequest {
+                stmt_handle: Some(*stmt),
+            })
+            .unwrap();
+        self.created_statements
+            .lock()
+            .unwrap()
+            .retain(|s| s != stmt);
+    }
+
+    /// Executes a SQL statement, ignoring the result. Use for DDL/side-effect queries.
+    pub fn execute_sql(&self, sql: &str) {
+        let stmt_handle = self.new_statement();
+
+        self.client
+            .statement_set_sql_query_blocking(StatementSetSqlQueryRequest {
+                stmt_handle: Some(stmt_handle),
+                query: sql.to_string(),
+            })
+            .unwrap();
+
+        self.client
+            .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                stmt_handle: Some(stmt_handle),
+                bindings: None,
+                timeout_seconds: None,
+            })
+            .unwrap();
+
+        self.release_statement(&stmt_handle);
+    }
+
+    pub fn execute_query_no_unwrap(
+        &self,
+        sql: &str,
+    ) -> Result<execute_query_response::Result, String> {
+        let stmt_handle = self.new_statement();
+
+        if let Err(e) = self
+            .client
+            .statement_set_sql_query_blocking(StatementSetSqlQueryRequest {
+                stmt_handle: Some(stmt_handle),
+                query: sql.to_string(),
+            })
+        {
+            self.release_statement(&stmt_handle);
+            return Err(format!("Failed to set SQL query: {e:?}"));
+        }
+
+        let result =
+            match self
+                .client
+                .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                    stmt_handle: Some(stmt_handle),
+                    bindings: None,
+                    timeout_seconds: None,
+                }) {
+                Ok(response) => Ok(response.result.unwrap()),
+                Err(e) => match *e {
+                    ProtoError::Application(e) => Err(format!("Failed to execute query: {e:?}")),
+                    ProtoError::Transport(e) => Err(format!("Transport error: {e:?}")),
+                },
+            };
+        self.release_statement(&stmt_handle);
+        result
+    }
+
+    /// Execute a single query and get the Arrow stream directly.
+    pub fn execute_query(&self, sql: &str) -> ResultSetGetStreamResponse {
+        let stmt_handle = self.new_statement();
+        self.set_sql_query(&stmt_handle, sql);
+        let result = self.execute_statement_query(&stmt_handle);
+        let rs_handle = unwrap_single_rs_handle(&result);
+        let stream = self.result_set_get_stream(&rs_handle);
+        self.result_set_release(&rs_handle);
+        self.release_statement(&stmt_handle);
+        stream
+    }
+
+    /// Execute a single query with per-statement options (e.g. QUERY_TAG) set
+    /// via the statement-options path, returning the Arrow stream directly.
+    pub fn execute_query_with_statement_params(
+        &self,
+        sql: &str,
+        statement_params: &[(&str, &str)],
+    ) -> ResultSetGetStreamResponse {
+        let stmt_handle = self.new_statement();
+        self.set_sql_query(&stmt_handle, sql);
+        for (key, value) in statement_params {
+            self.set_statement_option(&stmt_handle, key, ConfigSetting::from(*value));
+        }
+        let result = self.execute_statement_query(&stmt_handle);
+        let rs_handle = unwrap_single_rs_handle(&result);
+        let stream = self.result_set_get_stream(&rs_handle);
+        self.result_set_release(&rs_handle);
+        self.release_statement(&stmt_handle);
+        stream
+    }
+
+    /// Get an Arrow stream for a query_id by looking it up via the connection,
+    /// fetching the stream, and releasing the handle.
+    pub fn get_result_set(
+        &self,
+        _stmt: &StatementHandle,
+        query_id: &str,
+    ) -> ResultSetGetStreamResponse {
+        let rs = self.connection_get_result_set(query_id);
+        let rs_handle = rs.result_set_handle.unwrap();
+        let stream = self.result_set_get_stream(&rs_handle);
+        self.result_set_release(&rs_handle);
+        stream
+    }
+
+    /// Retrieve the result of an async PUT/GET by query_id via the connection.
+    /// Calls `connection_get_query_result`, which handles the DOWNLOAD/UPLOAD
+    /// command dispatch and stage-info refresh.
+    pub fn connection_get_query_result(
+        &self,
+        query_id: &str,
+    ) -> Result<ExecuteQueryResponse, String> {
+        self.client
+            .connection_get_query_result_blocking(ConnectionGetQueryResultRequest {
+                conn_handle: Some(self.conn_handle),
+                query_id: query_id.to_string(),
+            })
+            .map_err(|e| format!("{e:?}"))
+    }
+
+    /// Retrieve an async PUT/GET result under `operation`, so another thread can
+    /// cancel it mid-transfer. Returns the raw protobuf result so the test can
+    /// assert on `DriverException.kind`.
+    ///
+    /// The plain [`Self::connection_get_query_result`] passes no operation handle,
+    /// so the core sees `operation_ctx: None` and nothing downstream — including the PUT/GET
+    /// transfer — has a token to observe.
+    #[allow(clippy::result_large_err)]
+    pub fn connection_get_query_result_cancellable_raw(
+        &self,
+        query_id: &str,
+        operation: u64,
+    ) -> Result<ExecuteQueryResponse, Box<ProtoError<DriverException>>> {
+        self.client
+            .connection_get_query_result_cancellable_blocking(
+                operation,
+                ConnectionGetQueryResultRequest {
+                    conn_handle: Some(self.conn_handle),
+                    query_id: query_id.to_string(),
+                },
+            )
+    }
+
+    /// Get a ResultSetResponse (handle + descriptor) by query_id via the connection.
+    pub fn connection_get_result_set(&self, query_id: &str) -> ResultSetResponse {
+        let response = self
+            .client
+            .connection_get_result_set_blocking(ConnectionGetResultSetRequest {
+                conn_handle: Some(self.conn_handle),
+                query_id: query_id.to_string(),
+            })
+            .unwrap();
+        if let Some(handle) = response.result_set_handle {
+            self.created_result_sets.lock().unwrap().push(handle);
+        }
+        response
+    }
+
+    /// Abort a running query by its Snowflake Query ID. Returns the server's
+    /// outcome (`NotRunning` if the query was not running — e.g. already
+    /// completed, or never started). Panics on a genuine RPC error (bad
+    /// handle, transport failure).
+    pub fn abort_query(&self, query_id: &str) -> AbortQueryOutcome {
+        let outcome = self.abort_query_no_unwrap(query_id).unwrap().outcome;
+        AbortQueryOutcome::try_from(outcome).unwrap_or(AbortQueryOutcome::Unspecified)
+    }
+
+    /// Like [`Self::abort_query`], but surfaces a genuine RPC error instead
+    /// of panicking — for tests asserting on the error path itself.
+    pub fn abort_query_no_unwrap(
+        &self,
+        query_id: &str,
+    ) -> Result<ConnectionAbortQueryResponse, String> {
+        self.client
+            .connection_abort_query_blocking(ConnectionAbortQueryRequest {
+                conn_handle: Some(self.conn_handle),
+                query_id: query_id.to_string(),
+            })
+            .map_err(|e| format!("{e:?}"))
+    }
+
+    /// Fetch the current status name (e.g. "RUNNING", "ABORTED") of a query
+    /// by its Snowflake Query ID via `ConnectionGetQueryStatus`.
+    pub fn get_query_status(&self, query_id: &str) -> String {
+        self.client
+            .connection_get_query_status_blocking(ConnectionGetQueryStatusRequest {
+                conn_handle: Some(self.conn_handle),
+                query_id: query_id.to_string(),
+            })
+            .unwrap()
+            .status_name
+    }
+
+    /// Streaming GET: download `source_filename` from `stage_name` (JDBC
+    /// `downloadStream` path), optionally gunzipping. Drives the chunked
+    /// `ConnectionDownloadStream{Begin,Chunk,Close}` RPCs to completion —
+    /// begin the session, pull chunks until `eof`, then close — mirroring
+    /// how a production wrapper consumes this API. Returns the raw bytes.
+    pub fn download_stream(
+        &self,
+        stage_name: &str,
+        source_filename: &str,
+        decompress: bool,
+    ) -> Result<Vec<u8>, String> {
+        let begin = self
+            .client
+            .connection_download_stream_begin_blocking(ConnectionDownloadStreamBeginRequest {
+                conn_handle: Some(self.conn_handle),
+                stage_name: stage_name.to_string(),
+                source_filename: source_filename.to_string(),
+                decompress,
+            })
+            .map_err(|e| format!("{e:?}"))?;
+        let download_handle = begin.download_handle;
+
+        let mut bytes = Vec::new();
+        // Pull chunks, capturing the outcome instead of `?`-returning early: a
+        // chunk failure must still fall through to the close RPC below so the
+        // server-side download session is always released (no leak on error).
+        let pump_result = loop {
+            match self.client.connection_download_stream_chunk_blocking(
+                ConnectionDownloadStreamChunkRequest {
+                    download_handle,
+                    max_len: 8 * 1024 * 1024,
+                },
+            ) {
+                Ok(chunk) => {
+                    bytes.extend_from_slice(&chunk.data);
+                    if chunk.eof {
+                        break Ok(());
+                    }
+                }
+                Err(e) => break Err(format!("{e:?}")),
+            }
+        };
+
+        // Always close, even if a chunk failed, then surface the first error
+        // (chunk error takes precedence over a close error).
+        let close_result = self
+            .client
+            .connection_download_stream_close_blocking(ConnectionDownloadStreamCloseRequest {
+                download_handle,
+            })
+            .map_err(|e| format!("{e:?}"));
+
+        pump_result?;
+        close_result?;
+
+        Ok(bytes)
+    }
+
+    /// Chunked streaming PUT: opens a session with `sql`, appends `data` as a
+    /// single chunk, then finishes the upload (runs the PUT against the
+    /// stage). Mirrors how a wrapper drives the chunked
+    /// Begin/Chunk/Finish RPC — the direct replacement for the old
+    /// single-shot `connection_upload_stream` RPC main removed. Discards the
+    /// `ResultSetHandle`/descriptor on success since callers here only need
+    /// to know the upload succeeded, not read its result rowset.
+    pub fn connection_upload_stream(&self, sql: &str, data: Vec<u8>) -> Result<(), String> {
+        let begin = self
+            .client
+            .connection_upload_stream_begin_blocking(ConnectionUploadStreamBeginRequest {
+                conn_handle: Some(self.conn_handle),
+                sql: sql.to_string(),
+            })
+            .map_err(|e| format!("{e:?}"))?;
+        let upload_handle = begin.upload_handle;
+
+        self.client
+            .connection_upload_stream_chunk_blocking(ConnectionUploadStreamChunkRequest {
+                upload_handle,
+                data,
+            })
+            .map_err(|e| format!("{e:?}"))?;
+
+        self.client
+            .connection_upload_stream_finish_blocking(ConnectionUploadStreamFinishRequest {
+                upload_handle,
+            })
+            .map_err(|e| format!("{e:?}"))?;
+
+        Ok(())
+    }
+
+    /// Chunked streaming GET (S3-only `downloadStreamBegin` path): opens a
+    /// session, drains it with `downloadStreamChunk` until EOF, then closes it,
+    /// returning the full payload. Mirrors how a wrapper drives the chunked RPC.
+    pub fn connection_download_stream_chunked(
+        &self,
+        stage_name: &str,
+        source_filename: &str,
+        decompress: bool,
+    ) -> Result<Vec<u8>, String> {
+        let begin = self
+            .client
+            .connection_download_stream_begin_blocking(ConnectionDownloadStreamBeginRequest {
+                conn_handle: Some(self.conn_handle),
+                stage_name: stage_name.to_string(),
+                source_filename: source_filename.to_string(),
+                decompress,
+            })
+            .map_err(|e| format!("{e:?}"))?;
+        let handle = begin.download_handle;
+
+        // Always close the handle after the loop, even if a chunk read fails,
+        // so a mid-stream error doesn't leak the handle server-side. The loop
+        // result is captured first and propagated only after the close call.
+        let read_result: Result<Vec<u8>, String> = (|| {
+            let mut out = Vec::new();
+            loop {
+                let chunk = self
+                    .client
+                    .connection_download_stream_chunk_blocking(
+                        ConnectionDownloadStreamChunkRequest {
+                            download_handle: handle,
+                            max_len: 64 * 1024,
+                        },
+                    )
+                    .map_err(|e| format!("{e:?}"))?;
+                out.extend_from_slice(&chunk.data);
+                if chunk.eof {
+                    break;
+                }
+            }
+            Ok(out)
+        })();
+
+        self.client
+            .connection_download_stream_close_blocking(ConnectionDownloadStreamCloseRequest {
+                download_handle: handle,
+            })
+            .map_err(|e| format!("{e:?}"))?;
+        read_result
+    }
+
+    pub fn result_set_get_stream(&self, rs_handle: &ResultSetHandle) -> ResultSetGetStreamResponse {
+        self.client
+            .result_set_get_stream_blocking(ResultSetGetStreamRequest {
+                result_set_handle: Some(*rs_handle),
+            })
+            .unwrap()
+    }
+
+    pub fn result_set_release(&self, rs_handle: &ResultSetHandle) {
+        self.client
+            .result_set_release_blocking(ResultSetReleaseRequest {
+                result_set_handle: Some(*rs_handle),
+            })
+            .unwrap();
+        self.created_result_sets
+            .lock()
+            .unwrap()
+            .retain(|h| h != rs_handle);
+    }
+
+    /// Execute a multistatement query.
+    pub fn execute_multistatement(&self, sql: &str, count: i64) -> execute_query_response::Result {
+        let stmt_handle = self.new_statement();
+        self.set_sql_query(&stmt_handle, sql);
+        self.client
+            .statement_set_options_blocking(StatementSetOptionsRequest {
+                stmt_handle: Some(stmt_handle),
+                options: [(
+                    "multi_statement_count".to_string(),
+                    ConfigSetting::from(count),
+                )]
+                .into_iter()
+                .collect(),
+            })
+            .unwrap();
+        let result = self.execute_statement_query(&stmt_handle);
+        self.release_statement(&stmt_handle);
+        result
+    }
+
+    /// Execute a multistatement query, returning error on failure.
+    pub fn execute_multistatement_no_unwrap(
+        &self,
+        sql: &str,
+        count: i64,
+    ) -> Result<execute_query_response::Result, String> {
+        let stmt_handle = self.new_statement();
+        self.set_sql_query(&stmt_handle, sql);
+        self.client
+            .statement_set_options_blocking(StatementSetOptionsRequest {
+                stmt_handle: Some(stmt_handle),
+                options: [(
+                    "multi_statement_count".to_string(),
+                    ConfigSetting::from(count),
+                )]
+                .into_iter()
+                .collect(),
+            })
+            .unwrap();
+        let result =
+            match self
+                .client
+                .statement_execute_query_blocking(StatementExecuteQueryRequest {
+                    stmt_handle: Some(stmt_handle),
+                    bindings: None,
+                    timeout_seconds: None,
+                }) {
+                Ok(response) => Ok(response.result.unwrap()),
+                Err(e) => match *e {
+                    ProtoError::Application(e) => Err(format!("{e:?}")),
+                    ProtoError::Transport(e) => Err(format!("{e:?}")),
+                },
+            };
+        self.release_statement(&stmt_handle);
+        result
+    }
+
+    pub fn create_temporary_stage(&self, stage_name: &str) {
+        self.execute_sql(&format!(
+            "create temporary stage if not exists {stage_name}"
+        ));
+    }
+
+    /// Returns the cloud provider of the current Snowflake deployment,
+    /// derived from `CURRENT_REGION()`. Internal (temporary) stages are
+    /// provisioned in this same cloud, so cloud-specific PUT/GET tests use
+    /// this to self-skip when the connected account is on another cloud
+    /// (e.g. CI's default AWS account vs. the GCS-only digest-skip test).
+    pub fn current_cloud(&self) -> CloudProvider {
+        let result = self.execute_query("SELECT CURRENT_REGION()");
+        let rows = ArrowResultHelper::from_result(result)
+            .transform_into_array::<String>()
+            .expect("CURRENT_REGION() should return rows");
+        let region = rows
+            .first()
+            .and_then(|row| row.first())
+            .expect("CURRENT_REGION() should return one value")
+            .to_uppercase();
+        // CURRENT_REGION() returns "<CLOUD>_<REGION>", optionally prefixed by a
+        // region group (e.g. "PUBLIC.AWS_US_WEST_2"); match on the cloud token.
+        if region.contains("GCP") {
+            CloudProvider::Gcp
+        } else if region.contains("AZURE") {
+            CloudProvider::Azure
+        } else {
+            CloudProvider::Aws
+        }
+    }
+
+    pub fn connect(&self) -> Result<(), String> {
+        match self.client.connection_init_blocking(ConnectionInitRequest {
+            conn_handle: Some(self.conn_handle),
+            db_handle: Some(self.db_handle),
+            ..Default::default()
+        }) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Connection failed: {e:?}")),
+        }
+    }
+
+    pub fn open_another_connection(&mut self) {
+        let conn_response = self
+            .client
+            .connection_new_blocking(ConnectionNewRequest {})
+            .expect("connection_new");
+        self.conn_handle = conn_response
+            .conn_handle
+            .expect("connection_new returns a handle");
+        self.set_options_from_parameters();
+    }
+
+    pub fn set_connection_option(&self, option_name: &str, option_value: &str) {
+        self.set_connection_config_setting(option_name, option_value.to_string().into());
+    }
+
+    pub fn set_connection_option_int(&self, option_name: &str, option_value: i64) {
+        self.set_connection_config_setting(option_name, option_value.into());
+    }
+
+    pub fn set_connection_option_bool(&self, option_name: &str, option_value: bool) {
+        self.set_connection_config_setting(option_name, option_value.into());
+    }
+
+    pub fn set_connection_option_bytes(&self, option_name: &str, option_value: &[u8]) {
+        self.client
+            .connection_set_options_blocking(ConnectionSetOptionsRequest {
+                conn_handle: Some(self.conn_handle),
+                options: [(option_name.to_string(), option_value.to_vec().into())]
+                    .into_iter()
+                    .collect(),
+                no_connection_details: false,
+                connections_file_path: None,
+            })
+            .unwrap();
+    }
+
+    pub fn set_statement_async_execution(&self, stmt: &StatementHandle, enabled: bool) {
+        self.client
+            .statement_set_options_blocking(StatementSetOptionsRequest {
+                stmt_handle: Some(*stmt),
+                options: [(
+                    param_names::ASYNC_EXECUTION.as_str().to_string(),
+                    ConfigSetting::from(enabled),
+                )]
+                .into_iter()
+                .collect(),
+            })
+            .unwrap();
+    }
+
+    fn set_connection_config_setting(&self, key: &str, setting: ConfigSetting) {
+        self.client
+            .connection_set_options_blocking(ConnectionSetOptionsRequest {
+                conn_handle: Some(self.conn_handle),
+                options: [(key.to_string(), setting)].into_iter().collect(),
+                no_connection_details: false,
+                connections_file_path: None,
+            })
+            .unwrap();
+    }
+
+    /// Stores a temporary private key file to keep it alive for the duration of the test.
+    pub fn set_temp_key_file(&mut self, temp_key_file: PrivateKeyFile) {
+        self.private_key_file = Some(temp_key_file);
+    }
+
+    pub fn verify_simple_query(&self, connection_result: Result<(), String>) {
+        connection_result.expect("Login failed");
+        let _result = self.execute_query("SELECT 1");
+    }
+
+    pub fn assert_login_error(&self, result: Result<(), String>) {
+        let error_msg = result.expect_err("Expected error");
+
+        // For protobuf errors, we check the string representation for now
+        // TODO: Improve error handling to extract proper DriverException details
+        assert!(
+            error_msg.contains("login")
+                || error_msg.contains("auth")
+                || error_msg.contains("LoginError")
+                || error_msg.contains("AuthError"),
+            "Error message should contain login or auth related information: {error_msg}"
+        );
+        assert!(!error_msg.is_empty(), "Error message should not be empty");
+    }
+
+    pub fn assert_missing_parameter_error(&self, result: Result<(), String>) {
+        let error_msg = result.expect_err("Expected error");
+
+        // For protobuf errors, we check the string representation for now
+        // TODO: Improve error handling to extract proper DriverException details
+        assert!(
+            error_msg.contains("MissingParameter")
+                || error_msg.contains("missing")
+                || error_msg.contains("parameter"),
+            "Error message should contain missing parameter information: {error_msg}"
+        );
+        assert!(!error_msg.is_empty(), "Error message should not be empty");
+    }
+
+    pub fn assert_invalid_parameter_error(&self, result: Result<(), String>, parameter: &str) {
+        let error_msg = result.expect_err("Expected error");
+
+        assert!(
+            (error_msg.contains("InvalidParameterValue") || error_msg.contains("Invalid"))
+                && error_msg.contains(parameter),
+            "Error message should report an invalid {parameter} value: {error_msg}"
+        );
+        assert!(!error_msg.is_empty(), "Error message should not be empty");
+    }
+
+    /// Sets up JWT authentication configuration, passing the PEM directly (no temp file)
+    fn setup_jwt_auth(&mut self) {
+        self.set_connection_option("authenticator", "SNOWFLAKE_JWT");
+        let private_key_pem =
+            private_key_helper::get_private_key_pem_from_parameters(&self.parameters)
+                .expect("Failed to read private key");
+        self.set_connection_option("private_key", &private_key_pem);
+        if let Some(password) = &self.parameters.private_key_password {
+            self.set_connection_option("private_key_password", password);
+        }
+    }
+
+    fn set_options_from_parameters(&self) {
+        self.set_connection_option("account", &self.parameters.account_name.clone().unwrap());
+        self.set_connection_option("user", &self.parameters.user.clone().unwrap());
+
+        // Set optional parameters if specified
+        if let Some(database) = &self.parameters.database {
+            self.set_connection_option("database", database);
+        }
+
+        if let Some(schema) = &self.parameters.schema {
+            self.set_connection_option("schema", schema);
+        }
+
+        if let Some(warehouse) = &self.parameters.warehouse() {
+            self.set_connection_option("warehouse", warehouse);
+        }
+
+        if let Some(host) = &self.parameters.host {
+            self.set_connection_option("host", host);
+        }
+
+        if let Some(role) = &self.parameters.role {
+            self.set_connection_option("role", role);
+        }
+
+        if let Some(server_url) = &self.parameters.server_url {
+            self.set_connection_option("server_url", server_url);
+        }
+
+        if let Some(port) = self.parameters.port {
+            self.set_connection_option_int("port", port);
+        }
+
+        if let Some(protocol) = &self.parameters.protocol {
+            self.set_connection_option("protocol", protocol);
+        }
+    }
+
+    /// Initialize this connection (call after configuring options, before queries).
+    #[allow(clippy::result_large_err)]
+    pub fn connection_init_blocking(
+        &self,
+    ) -> Result<ConnectionInitResponse, Box<ProtoError<DriverException>>> {
+        self.client.connection_init_blocking(ConnectionInitRequest {
+            conn_handle: Some(self.conn_handle),
+            db_handle: Some(self.db_handle),
+            ..Default::default()
+        })
+    }
+
+    pub fn set_logout_error_strategy(&self, strategy: ErrorStrategy) {
+        self.set_connection_option("logout_error_strategy", strategy.as_str());
+    }
+
+    /// Close this connection (logout + release).
+    #[allow(clippy::result_large_err)]
+    pub fn connection_close_blocking(
+        &self,
+    ) -> Result<ConnectionCloseResponse, Box<ProtoError<DriverException>>> {
+        self.client
+            .connection_close_blocking(ConnectionCloseRequest {
+                conn_handle: Some(self.conn_handle),
+            })
+    }
+
+    /// Check whether this connection has been closed.
+    #[allow(clippy::result_large_err)]
+    pub fn connection_is_closed_blocking(&self) -> Result<bool, Box<ProtoError<DriverException>>> {
+        self.client
+            .connection_is_closed_blocking(ConnectionIsClosedRequest {
+                conn_handle: Some(self.conn_handle),
+            })
+            .map(|r| r.is_closed)
+    }
+
+    /// Read the connection's expired flag. Uses this client's own driver
+    /// instance (handle registries are per-instance, not global), so the
+    /// connection must be owned by `self`.
+    #[allow(clippy::result_large_err)]
+    pub fn connection_is_expired_blocking(&self) -> Result<bool, Box<ProtoError<DriverException>>> {
+        self.client
+            .connection_is_expired_blocking(ConnectionIsExpiredRequest {
+                conn_handle: Some(self.conn_handle),
+            })
+            .map(|r| r.is_expired)
+    }
+
+    /// Get connection info (tokens, host, etc.) for inspection.
+    #[allow(clippy::result_large_err)]
+    pub fn connection_get_info_blocking(
+        &self,
+        include_master_token: bool,
+    ) -> Result<ConnectionGetInfoResponse, Box<ProtoError<DriverException>>> {
+        self.client
+            .connection_get_info_blocking(ConnectionGetInfoRequest {
+                conn_handle: Some(self.conn_handle),
+                include_master_token,
+                ..Default::default()
+            })
+    }
+}
+
+impl Drop for SnowflakeTestClient {
+    fn drop(&mut self) {
+        // Release all unreleased result sets first
+        let result_sets = self.created_result_sets.lock().unwrap().clone();
+        for rs in result_sets {
+            if let Err(e) = self
+                .client
+                .result_set_release_blocking(ResultSetReleaseRequest {
+                    result_set_handle: Some(rs),
+                })
+            {
+                tracing::warn!("Failed to release result set in Drop: {e:?}");
+            }
+        }
+
+        // Release all unreleased statements
+        let statements = self.created_statements.lock().unwrap().clone();
+        for stmt in statements {
+            if let Err(e) = self
+                .client
+                .statement_release_blocking(StatementReleaseRequest {
+                    stmt_handle: Some(stmt),
+                })
+            {
+                tracing::warn!("Failed to release statement in Drop: {e:?}");
+            }
+        }
+
+        // Release the connection when the client is dropped
+        if let Err(e) = self
+            .client
+            .connection_release_blocking(ConnectionReleaseRequest {
+                conn_handle: Some(self.conn_handle),
+            })
+        {
+            tracing::warn!("Failed to release connection in Drop: {e:?}");
+        }
+        // Release the database handle
+        if let Err(e) = self
+            .client
+            .database_release_blocking(DatabaseReleaseRequest {
+                db_handle: Some(self.db_handle),
+            })
+        {
+            tracing::warn!("Failed to release database handle in Drop: {e:?}");
+        }
+    }
+}
+
+/// Extract the query_id from a single-statement execute result.
+/// Panics if the result is a multi-statement result.
+pub fn unwrap_single_query_id(result: &execute_query_response::Result) -> String {
+    match result {
+        execute_query_response::Result::Single(rs) => {
+            rs.result_descriptor.as_ref().unwrap().query_id.clone()
+        }
+        execute_query_response::Result::Multi(_) => {
+            panic!("Expected single-statement result, got multi-statement")
+        }
+    }
+}
+
+/// Extract the ResultSetHandle from a single-statement execute result.
+/// Panics if the result is a multi-statement result.
+pub fn unwrap_single_rs_handle(result: &execute_query_response::Result) -> ResultSetHandle {
+    match result {
+        execute_query_response::Result::Single(rs) => rs.result_set_handle.unwrap(),
+        execute_query_response::Result::Multi(_) => {
+            panic!("Expected single-statement result, got multi-statement")
+        }
+    }
+}

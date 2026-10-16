@@ -100,6 +100,9 @@ class DatasetClient:
         """
         Creates a new Dataset. A default branch - `master` for most enrollments - will be created on the Dataset.
 
+
+        Required scopes: [api:datasets-write]
+
         :param name:
         :type name: DatasetName
         :param parent_folder_rid:
@@ -167,6 +170,9 @@ class DatasetClient:
         """
         Deletes the Schema from a Dataset and Branch.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The RID of the Dataset on which to delete the schema.
         :type dataset_rid: DatasetRid
         :param branch_id: The ID of the Branch on which to delete the schema.
@@ -229,6 +235,9 @@ class DatasetClient:
         """
         Gets the Dataset with the given DatasetRid.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -275,6 +284,9 @@ class DatasetClient:
     ) -> typing.Optional[typing.Any]:
         """
         Retrieves the Schema for a Dataset and Branch, if it exists.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The RID of the Dataset.
         :type dataset_rid: DatasetRid
@@ -343,6 +355,9 @@ class DatasetClient:
         Gets the content of a dataset as a table in the specified format.
 
         This endpoint currently does not support views (virtual datasets composed of other datasets). For more information, refer to the [views documentation](https://palantir.com/docs/foundry/data-integration/views).
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The RID of the Dataset.
         :type dataset_rid: DatasetRid
@@ -417,6 +432,9 @@ class DatasetClient:
     ) -> None:
         """
         Puts a Schema on an existing Dataset and Branch.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid: The RID of the Dataset on which to put the Schema.
         :type dataset_rid: DatasetRid
@@ -584,6 +602,9 @@ class AsyncDatasetClient:
         """
         Creates a new Dataset. A default branch - `master` for most enrollments - will be created on the Dataset.
 
+
+        Required scopes: [api:datasets-write]
+
         :param name:
         :type name: DatasetName
         :param parent_folder_rid:
@@ -651,6 +672,9 @@ class AsyncDatasetClient:
         """
         Deletes the Schema from a Dataset and Branch.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The RID of the Dataset on which to delete the schema.
         :type dataset_rid: DatasetRid
         :param branch_id: The ID of the Branch on which to delete the schema.
@@ -713,6 +737,9 @@ class AsyncDatasetClient:
         """
         Gets the Dataset with the given DatasetRid.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -759,6 +786,9 @@ class AsyncDatasetClient:
     ) -> typing.Awaitable[typing.Optional[typing.Any]]:
         """
         Retrieves the Schema for a Dataset and Branch, if it exists.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The RID of the Dataset.
         :type dataset_rid: DatasetRid
@@ -827,6 +857,9 @@ class AsyncDatasetClient:
         Gets the content of a dataset as a table in the specified format.
 
         This endpoint currently does not support views (virtual datasets composed of other datasets). For more information, refer to the [views documentation](https://palantir.com/docs/foundry/data-integration/views).
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The RID of the Dataset.
         :type dataset_rid: DatasetRid
@@ -901,6 +934,9 @@ class AsyncDatasetClient:
     ) -> typing.Awaitable[None]:
         """
         Puts a Schema on an existing Dataset and Branch.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid: The RID of the Dataset on which to put the Schema.
         :type dataset_rid: DatasetRid

@@ -86,6 +86,7 @@ class UndecidedResponse(BaseSerDeModel):
 @proto_dataclass(sql_service_pb2.SkipExecutionResponse)
 class SkipExecutionResponse(BaseSerDeModel):
     explained_decision: shared_models.ExplainedDecision
+    execution_id: str
     transformed_nodes_by_query: TransformedNodesByQuery = transformed_nodes_by_query_field()
     execution_results: t.Dict[str, t.Any] = field(
         default_factory=dict,

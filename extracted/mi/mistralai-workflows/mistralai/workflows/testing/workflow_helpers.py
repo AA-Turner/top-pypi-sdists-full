@@ -15,7 +15,7 @@ from mistralai.workflows.protocol.v1.events import (
     WorkflowEvent,
     WorkflowEventType,
 )
-from mistralai.workflows.protocol.v1.streaming import StreamEventSsePayload
+from mistralai.workflows.protocol.v1.streaming import StreamEventSseErrorData, StreamEventSsePayload
 from mistralai.workflows.testing.constants import TEST_TASK_QUEUE
 
 SSE_DATA_PREFIX = "data:"
@@ -29,6 +29,9 @@ _MAX_CONSECUTIVE_POLL_ERRORS = 5
 _TERMINAL_STATUSES = frozenset({"COMPLETED", "FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"})
 
 sse_payload_adapter: TypeAdapter[StreamEventSsePayload] = TypeAdapter(StreamEventSsePayload)
+sse_stream_data_adapter: TypeAdapter[StreamEventSsePayload | StreamEventSseErrorData] = TypeAdapter(
+    StreamEventSsePayload | StreamEventSseErrorData
+)
 workflow_event_adapter: TypeAdapter[WorkflowEvent] = TypeAdapter(WorkflowEvent)
 
 _T = TypeVar("_T")
@@ -511,10 +514,19 @@ async def stream_workflow_events(
     client: httpx.AsyncClient,
     execution_id: str,
     timeout_seconds: float = 30.0,
+    *,
+    include_child_workflows: bool = False,
 ) -> list[dict[str, Any]]:
+    """Stream events until the requested execution completes.
+
+    When ``include_child_workflows`` is set, events are scoped by root execution so
+    child workflow events are included without treating a child's completion as the
+    end of the stream.
+    """
     async with asyncio.timeout(timeout_seconds):
         received_events: list[dict[str, Any]] = []
         retry_delay: float = 1  # by default 1 second
+        execution_filter = "root_workflow_exec_id" if include_child_workflows else "workflow_exec_id"
 
         while True:
             start_seq = 0
@@ -523,7 +535,7 @@ async def stream_workflow_events(
             async with client.stream(
                 "GET",
                 "/v1/workflows/events/stream",
-                params={"workflow_exec_id": execution_id, "start_seq": start_seq},
+                params={execution_filter: execution_id, "start_seq": start_seq},
                 timeout=timeout_seconds,
             ) as stream_response:
                 stream_response.raise_for_status()
@@ -534,10 +546,14 @@ async def stream_workflow_events(
                         event_data = line[len(SSE_DATA_PREFIX) :].strip()
                         if event_data:
                             event = json.loads(event_data)
-                            sse_payload_adapter.validate_python(event)
+                            payload = sse_stream_data_adapter.validate_python(event)
+                            if isinstance(payload, StreamEventSseErrorData):
+                                break
                             received_events.append(event)
-                            event_type = event.get("data", {}).get("event_type")
-                            if event_type == WorkflowEventType.WORKFLOW_EXECUTION_COMPLETED:
+                            if (
+                                payload.data.event_type == WorkflowEventType.WORKFLOW_EXECUTION_COMPLETED
+                                and payload.data.workflow_exec_id == execution_id
+                            ):
                                 return received_events
                     elif line.startswith(SSE_RETRY_PREFIX):
                         event_retry = line[len(SSE_RETRY_PREFIX) :].strip()

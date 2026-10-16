@@ -9,6 +9,7 @@ from urllib.parse import urljoin, urlparse
 from pydantic import BaseModel, Field
 from selectolax.parser import HTMLParser, Node
 
+from matrx_scraper.clean_content import looks_like_address, street_addresses_in
 from matrx_scraper.events import PageSummary
 from matrx_scraper.media_embed import video_embed_provider
 
@@ -31,10 +32,6 @@ _PHONE_PATTERN = r"(?<!\w)(?:\+?1[ .-]?)?(?:\([2-9]\d{2}\)|[2-9]\d{2})[ .-]\d{3}
 _PHONE_RE = re.compile(_PHONE_PATTERN)
 _FAX_RE = re.compile(
     rf"\b(?:fax|facsimile)(?:\s*(?:number|no\.?|#))?\s*[:\-]?\s*(?P<number>{_PHONE_PATTERN})",
-    re.IGNORECASE,
-)
-_ADDRESS_RE = re.compile(
-    r"\b\d{1,6}\s+[A-Z0-9][A-Z0-9 .'-]{2,60}\s(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Boulevard|Blvd\.?|Lane|Ln\.?|Drive|Dr\.?|Way|Court|Ct\.?)\b",
     re.IGNORECASE,
 )
 _LOGO_HINTS = ("logo", "brand", "wordmark", "logomark")
@@ -257,7 +254,10 @@ def extract_homepage_candidates(
                     context={"where": "schema.org", "schema_path": schema_path},
                     confidence=0.98,
                 )
-            elif lowered == "address" and isinstance(raw, str | dict):
+            elif lowered == "address" and isinstance(raw, str | dict) and (
+                isinstance(raw, dict) and any(raw.get(k) for k in ("streetAddress", "postalCode", "addressLocality"))
+                or isinstance(raw, str) and looks_like_address(raw)
+            ):
                 add(
                     "fact",
                     "address",
@@ -376,9 +376,10 @@ def extract_homepage_candidates(
     for regex, kind, confidence in (
         (_EMAIL_RE, "email", 0.9),
         (_PHONE_RE, "phone", 0.82),
-        (_ADDRESS_RE, "address", 0.72),
+        (None, "address", 0.72),
     ):
-        for match in regex.finditer(visible_text):
+        matches = street_addresses_in(visible_text) if kind == "address" else list(regex.finditer(visible_text))
+        for match in matches:
             if kind == "phone" and any(
                 match.start() >= fax.start("number") and match.end() <= fax.end("number")
                 for fax in fax_matches

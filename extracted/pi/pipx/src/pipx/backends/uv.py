@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["importlib", "json", "pathlib", "pipx.util", "shutil", "subprocess"]
+
 import json
 import logging
 import re
@@ -20,10 +22,9 @@ from pipx.util import (
     subprocess_post_check,
     subprocess_post_check_handle_pip_error,
 )
-from pipx.venv_inspect import list_not_required_packages
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
     from subprocess import CompletedProcess
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class UvBackend(Backend):
             stream_output=verbose or progress,
         )
         if log_pip_errors:
-            subprocess_post_check_handle_pip_error(process, tool_name="uv")
+            subprocess_post_check_handle_pip_error(process, tool_name="uv", streamed=verbose or progress)
         return process
 
     @staticmethod
@@ -128,11 +129,11 @@ class UvBackend(Backend):
         *,
         venv_root: Path,
         venv_python: Path,
-        package: str,
+        packages: Sequence[str],
         verbose: bool,
     ) -> CompletedProcess[str]:
         cmd = self._uv_pip_command("uninstall", venv_python, verbose=verbose)
-        cmd.append(package)
+        cmd.extend(packages)
         process = run_subprocess(cmd, run_dir=str(venv_root), env_overrides=_uv_env_overrides())
         subprocess_post_check(process)
         return process
@@ -145,6 +146,8 @@ class UvBackend(Backend):
         not_required: bool = False,
     ) -> set[str]:
         if not_required:
+            from pipx.venv_inspect import list_not_required_packages  # ruff:ignore[import-outside-top-level]  # pulls in packaging.requirements, slows startup
+
             return list_not_required_packages(venv_python)
 
         cmd = self._uv_pip_command("list", venv_python, verbose=False)
@@ -165,9 +168,10 @@ class UvBackend(Backend):
         venv_root: Path,
         venv_python: Path,
         index_args: list[str],
+        exclude: list[str],
     ) -> tuple[OutdatedPackage, ...]:
         cmd = self._uv_pip_command("list", venv_python, verbose=False)
-        cmd += ["--outdated", "--format=json", *index_args]
+        cmd += ["--outdated", "--format=json", *index_args, *(f"--exclude={name}" for name in exclude)]
         process = run_subprocess(cmd, run_dir=str(venv_root), env_overrides=_uv_env_overrides())
         return outdated_packages_from_process(process)
 
@@ -197,6 +201,8 @@ class UvBackend(Backend):
             capture_stdout=capture_stdout,
             capture_stderr=capture_stderr,
             env_overrides=_uv_env_overrides(),
+            # uncaptured, it talks to the user's terminal, as under `pipx runpip`
+            interactive=not (capture_stdout or capture_stderr),
         )
 
     def _uv_pip_command(
@@ -256,9 +262,7 @@ def find_uv_binary() -> tuple[Path | None, str]:
 def _binary_runs(binary: Path) -> bool:
     # Liveness probe; full floor-version check stays in ``_check_uv_version``.
     try:
-        process = subprocess.run(
-            [str(binary), "--version"], check=False, text=True, capture_output=True, timeout=_UV_PROBE_TIMEOUT
-        )
+        process = _run_uv_version(binary)
     except (OSError, subprocess.TimeoutExpired) as exc:
         _LOGGER.debug("uv launch probe failed for %s: %s", binary, exc)
         return False
@@ -275,12 +279,33 @@ def _binary_runs(binary: Path) -> bool:
 
 
 @cache
+def uv_meets_minimum_version(binary: Path) -> bool:
+    # Cached so auto-detection, which runs once per venv, warns once per process.
+    if (version := _uv_version(binary)) >= _MIN_UV_VERSION:
+        return True
+    _LOGGER.warning(
+        "Skipping uv %s at %s since pipx needs uv>=%s; using pip. "
+        "Upgrade uv, or set PIPX_DEFAULT_BACKEND=pip to silence this.",
+        version,
+        binary,
+        _MIN_UV_VERSION,
+    )
+    return False
+
+
 def _check_uv_version(binary: Path) -> Version:
-    # Cached so ``upgrade-all`` over many venvs doesn't fork uv repeatedly.
-    try:
-        process = subprocess.run(
-            [str(binary), "--version"], check=False, text=True, capture_output=True, timeout=_UV_PROBE_TIMEOUT
+    if (version := _uv_version(binary)) < _MIN_UV_VERSION:
+        msg = (
+            f"pipx needs uv>={_MIN_UV_VERSION}, but {binary} reports {version}.\n"
+            "Upgrade uv (`uv self update` or reinstall pipx[uv]), or run with `--backend pip` to bypass."
         )
+        raise PipxError(msg)
+    return version
+
+
+def _uv_version(binary: Path) -> Version:
+    try:
+        process = _run_uv_version(binary)
     except (OSError, subprocess.TimeoutExpired) as exc:
         msg = (
             f"Could not run {binary} --version ({exc}).\n"
@@ -294,17 +319,18 @@ def _check_uv_version(binary: Path) -> Version:
         )
         raise PipxError(msg)
     try:
-        version = Version(match.group(1))
+        return Version(match.group(1))
     except InvalidVersion as exc:
         msg = f"Unrecognized uv version {match.group(1)!r}."
         raise PipxError(msg) from exc
-    if version < _MIN_UV_VERSION:
-        msg = (
-            f"pipx needs uv>={_MIN_UV_VERSION}, but {binary} reports {version}.\n"
-            "Upgrade uv (`uv self update` or reinstall pipx[uv]), or run with `--backend pip` to bypass."
-        )
-        raise PipxError(msg)
-    return version
+
+
+@cache
+def _run_uv_version(binary: Path) -> subprocess.CompletedProcess[str]:
+    # Cached so the liveness probe, the version floor check and ``upgrade-all`` over many venvs share one fork of uv.
+    return subprocess.run(
+        [str(binary), "--version"], check=False, text=True, capture_output=True, timeout=_UV_PROBE_TIMEOUT
+    )
 
 
 def _uv_env_overrides(*, progress: bool = False) -> dict[str, str | None]:
@@ -325,4 +351,5 @@ __all__ = [
     "UvBackend",
     "find_uv_binary",
     "resolve_uv_binary",
+    "uv_meets_minimum_version",
 ]

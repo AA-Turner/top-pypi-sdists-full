@@ -8,36 +8,94 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from contextvars import ContextVar
+from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from xknx.remote_value import RemoteValue
-from xknx.telegram import Telegram
+from xknx.telegram import GroupReadTelegram, GroupValueTelegram, Telegram
 from xknx.telegram.address import DeviceGroupAddress
 from xknx.telegram.apci import GroupValueRead, GroupValueResponse, GroupValueWrite
-from xknx.typing import DeviceCallbackType, Self
+from xknx.telegram.telegram import _current_telegram_context
+from xknx.typing import DeviceCallbackType
 
 if TYPE_CHECKING:
     from xknx.xknx import XKNX
 
 logger = logging.getLogger("xknx.log")
 
+# Telegram currently processed by a device. Being a ContextVar, tasks started by
+# devices while processing (debouncers, travel updates, counters) inherit it as their
+# cause. It is cleared while device updated callbacks run, so application code never
+# inherits it.
+_processing_telegram: ContextVar[Telegram | None] = ContextVar(
+    "xknx_processing_telegram", default=None
+)
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceUpdate:
+    """
+    Cause of a device update - see `Device.last_update`.
+
+    Attributes:
+        telegram: The telegram that caused the update - incoming or outgoing. For
+            updates run from a task started by the device, this is the telegram that
+            started the task, eg. the one starting a covers travel. None if no telegram
+            caused it, eg. `RemoteValue.update_value()` or a movement started by
+            `Cover.set_position()` before its telegram was processed. Work scheduled
+            from a device updated callback doesn't inherit the cause - pass
+            `last_update.context` to `telegram_context()` to attribute it explicitly.
+        context: The application defined context of the update. `telegram.context`
+            if a telegram caused it, else the one of the active `telegram_context()`.
+
+    """
+
+    telegram: Telegram | None = None
+    context: Any = None
+
 
 class Device(ABC):
     """Base class for devices."""
 
+    # cause of the latest update - set before device updated callbacks are called
+    last_update: DeviceUpdate = DeviceUpdate()
+
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         device_updated_cb: DeviceCallbackType[Self] | None = None,
     ) -> None:
         """Initialize Device class."""
         self.xknx = xknx
-        self.name = name
+        # assigned directly - the `name` setter needs the RemoteValues of the
+        # subclass, which are only created after this constructor has returned
+        self._name = name
         self.device_updated_cbs: list[DeviceCallbackType[Self]] = []
         if device_updated_cb is not None:
             self.register_device_updated_cb(device_updated_cb)
+
+    @property
+    def name(self) -> str:
+        """Return name of device. Defaults to the class name."""
+        if self._name is None:
+            return type(self).__name__
+        return self._name
+
+    @name.setter
+    def name(self, name: str | None) -> None:
+        """Set name of device and pass it down to its RemoteValues."""
+        self._name = name
+        self._update_device_name()
+
+    def _update_device_name(self) -> None:
+        """Pass the current device name down to all RemoteValues of this device."""
+        name = self.name
+        for remote_value in self._iter_remote_values():
+            remote_value.device_name = name
 
     def register_state_updater(self) -> None:
         """Register device addresses for StateUpdater."""
@@ -86,14 +144,23 @@ class Device(ABC):
         *args: Any,  # a single argument may be passed if used as a RemoteValue callback
     ) -> None:
         """Execute callbacks after internal state has been changed."""
-        for device_callback in self.device_updated_cbs:
-            try:
-                device_callback(self)
-            except Exception:  # pylint: disable=broad-except
-                logger.exception(
-                    "Unexpected error while processing device_updated_cb for %s",
-                    self,
-                )
+        if (telegram := _processing_telegram.get()) is not None:
+            self.last_update = DeviceUpdate(telegram=telegram, context=telegram.context)
+        else:
+            self.last_update = DeviceUpdate(context=_current_telegram_context.get())
+        # callbacks read `last_update` - work they schedule shall not inherit the cause
+        token = _processing_telegram.set(None)
+        try:
+            for device_callback in self.device_updated_cbs:
+                try:
+                    device_callback(self)
+                except Exception:  # pylint: disable=broad-except
+                    logger.exception(
+                        "Unexpected error while processing device_updated_cb for %s",
+                        self,
+                    )
+        finally:
+            _processing_telegram.reset(token)
 
     async def sync(self, wait_for_result: bool = False) -> None:
         """Read states of device from KNX bus."""
@@ -101,25 +168,31 @@ class Device(ABC):
             await remote_value.read_state(wait_for_result=wait_for_result)
 
     def process(self, telegram: Telegram) -> None:
-        """Process incoming telegram."""
-        if isinstance(telegram.payload, GroupValueWrite):
-            self.process_group_write(telegram)
-        elif isinstance(telegram.payload, GroupValueResponse):
-            self.process_group_response(telegram)
-        elif isinstance(telegram.payload, GroupValueRead):
-            self.process_group_read(telegram)
+        """Process incoming or outgoing telegram."""
+        token = _processing_telegram.set(telegram)
+        try:
+            if isinstance(telegram.payload, GroupValueWrite):
+                self.process_group_write(cast("Telegram[GroupValueWrite]", telegram))
+            elif isinstance(telegram.payload, GroupValueResponse):
+                self.process_group_response(
+                    cast("Telegram[GroupValueResponse]", telegram)
+                )
+            elif isinstance(telegram.payload, GroupValueRead):
+                self.process_group_read(cast("GroupReadTelegram", telegram))
+        finally:
+            _processing_telegram.reset(token)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GroupValueRead telegrams."""
         # The default is, that devices don't answer to group reads
         return
 
-    def process_group_response(self, telegram: Telegram) -> None:
+    def process_group_response(self, telegram: Telegram[GroupValueResponse]) -> None:
         """Process incoming GroupValueResponse telegrams."""
         # Per default mapped to group write.
         self.process_group_write(telegram)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming GroupValueWrite telegrams."""
         # The default is, that devices don't process group writes
         return
@@ -134,7 +207,3 @@ class Device(ABC):
             group_address in remote_value.group_addresses()
             for remote_value in self._iter_remote_values()
         )
-
-    def __eq__(self, other: object) -> bool:
-        """Compare for quality."""
-        return self.__dict__ == other.__dict__

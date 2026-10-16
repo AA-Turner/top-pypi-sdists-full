@@ -241,7 +241,6 @@ class SamplingResultCollector:
         self._event = asyncio.Event()
         self._task = None
         self._closed = False
-        self._next_heartbeat = {}
         self.snapshot_rpcs = 0
         self.polled_handles = 0
 
@@ -376,15 +375,6 @@ class SamplingResultCollector:
     async def _snapshot(self, entries: dict[str, _Entry]):
         loop = asyncio.get_running_loop()
         session = next(iter(entries.values())).batch._session
-        from .client import _HEARTBEAT_POLL_INTERVAL_SECS
-
-        now = time.monotonic()
-        next_heartbeat = self._next_heartbeat.setdefault(
-            session, now + _HEARTBEAT_POLL_INTERVAL_SECS
-        )
-        heartbeat_due = now >= next_heartbeat
-        if heartbeat_due:
-            self._next_heartbeat[session] = now + _HEARTBEAT_POLL_INTERVAL_SECS
         self.snapshot_rpcs += 1
         self.polled_handles += len(entries)
 
@@ -395,8 +385,6 @@ class SamplingResultCollector:
         try:
             first = next(iter(entries.values()))
             session._check_heartbeat_health()
-            if heartbeat_due:
-                await loop.run_in_executor(self.executor, session._attempt_heartbeat)
             if session._before_poll is not None:
                 await loop.run_in_executor(self.executor, session._before_poll)
             remaining = (

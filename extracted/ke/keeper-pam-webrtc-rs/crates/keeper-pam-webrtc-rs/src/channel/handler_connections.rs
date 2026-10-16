@@ -20,6 +20,35 @@ use log::{debug, error, info, trace, warn};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
+fn drain_terminal_batch(
+    first: Bytes,
+    rx: &mut mpsc::Receiver<Bytes>,
+    pending: &mut Option<Bytes>,
+) -> Bytes {
+    const TERMINAL_DATA_OPCODE: u8 = 0x20;
+    const MAX_BATCH_PAYLOAD: usize = guacr_protocol::MAX_SAFE_PAYLOAD_SIZE;
+
+    let mut batch = bytes::BytesMut::with_capacity(first.len());
+    batch.extend_from_slice(&first);
+    while batch.len() < MAX_BATCH_PAYLOAD {
+        match rx.try_recv() {
+            Ok(more) if more.first() == Some(&TERMINAL_DATA_OPCODE) => {
+                if batch.len() + more.len() > MAX_BATCH_PAYLOAD {
+                    *pending = Some(more);
+                    break;
+                }
+                batch.extend_from_slice(&more);
+            }
+            Ok(other) => {
+                *pending = Some(other);
+                break;
+            }
+            Err(_) => break,
+        }
+    }
+    batch.freeze()
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -362,43 +391,10 @@ pub async fn invoke_builtin_handler(
                 // control instructions or independent image frames that must not merge.
                 const TERMINAL_DATA_OPCODE: u8 = 0x20;
 
-                // Vault drops incoming WebRTC messages larger than MAX_INCOMING_MESSAGE_BYTES
-                // (= MAX_MESSAGE_SIZE_BYTES × 2 = 32,750 bytes). The outer Frame adds 17 bytes
-                // of header (conn_no u32 + timestamp u64 + len u32 + terminator). Cap the batch
-                // payload at the budget that leaves the outer header fitting within that limit.
-                const FRAME_HEADER_BYTES: usize = 4 + 8 + 4 + 1; // CONN_NO + TS + LEN + TERMINATOR
-                const MAX_INCOMING_MESSAGE_BYTES: usize = (16 * 1024 - 9) * 2; // mirrors vault
-                const MAX_BATCH_PAYLOAD: usize = MAX_INCOMING_MESSAGE_BYTES - FRAME_HEADER_BYTES;
-
                 let is_terminal = first.first() == Some(&TERMINAL_DATA_OPCODE);
 
                 let payload = if is_terminal {
-                    let mut batch = bytes::BytesMut::with_capacity(first.len() * 4);
-                    batch.extend_from_slice(&first);
-
-                    // Drain queued frames until the queue is empty or the batch would
-                    // exceed the WebRTC message size limit. Adapts to environment:
-                    // interactive (1 frame) → sends immediately; flood (64 queued) →
-                    // drains as many as fit within the 32 KB budget in one message.
-                    while batch.len() < MAX_BATCH_PAYLOAD {
-                        match send_queue_rx.try_recv() {
-                            Ok(more) if more.first() == Some(&TERMINAL_DATA_OPCODE) => {
-                                if batch.len() + more.len() > MAX_BATCH_PAYLOAD {
-                                    pending = Some(more);
-                                    break;
-                                }
-                                batch.extend_from_slice(&more);
-                            }
-                            Ok(other) => {
-                                // Non-terminal frame mid-drain: send this batch first,
-                                // handle the other frame on the next iteration.
-                                pending = Some(other);
-                                break;
-                            }
-                            Err(_) => break, // queue empty — send what we have
-                        }
-                    }
-                    batch.freeze()
+                    drain_terminal_batch(first, &mut send_queue_rx, &mut pending)
                 } else {
                     first
                 };
@@ -726,4 +722,43 @@ pub async fn invoke_builtin_handler(
         protocol_name, conn_no, channel.channel_id, channel.conversation_id
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod terminal_batch_tests {
+    use super::*;
+
+    #[test]
+    fn full_terminal_frame_and_next_frame_stay_in_separate_vault_messages() {
+        // Given one maximum-size binary terminal frame followed by another frame.
+        let (tx, mut rx) = mpsc::channel(2);
+        let first = vec![0x20; guacr_protocol::MAX_SAFE_PAYLOAD_SIZE];
+        tx.try_send(Bytes::from_static(b"\x20nextdata")).unwrap();
+        let mut pending = None;
+
+        // When the first frame fills the batch, then the next frame remains queued.
+        let batch = drain_terminal_batch(Bytes::from(first), &mut rx, &mut pending);
+        assert_eq!(batch.len(), guacr_protocol::MAX_SAFE_PAYLOAD_SIZE);
+        assert!(batch.len() + guacr_protocol::FRAME_PROTOCOL_OVERHEAD <= (16 * 1024 - 17) * 2);
+        assert!(pending.is_none());
+        assert_eq!(rx.try_recv().unwrap(), Bytes::from_static(b"\x20nextdata"));
+    }
+
+    #[test]
+    fn near_full_terminal_batch_defers_next_frame_without_losing_it() {
+        // Given two terminal frames that fit the old budget but exceed the Vault budget together.
+        let (tx, mut rx) = mpsc::channel(2);
+        let first = Bytes::from(vec![0x20; guacr_protocol::MAX_SAFE_PAYLOAD_SIZE - 8]);
+        let second = Bytes::from(vec![0x20; 16]);
+        tx.try_send(second.clone()).unwrap();
+        let mut pending = None;
+
+        // When batched, then both ordered messages remain within Vault's frame limit.
+        let batch = drain_terminal_batch(first.clone(), &mut rx, &mut pending);
+        assert_eq!(batch, first);
+        assert!(batch.len() + guacr_protocol::FRAME_PROTOCOL_OVERHEAD <= (16 * 1024 - 17) * 2);
+        assert_eq!(pending.as_ref(), Some(&second));
+        let next = drain_terminal_batch(pending.take().unwrap(), &mut rx, &mut pending);
+        assert_eq!(next, second);
+    }
 }

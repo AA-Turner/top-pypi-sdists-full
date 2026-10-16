@@ -491,6 +491,48 @@ impl FeatherBodyType {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceRequirements {
+    #[prost(map="string, string", tag="1")]
+    pub requests: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    #[prost(map="string, string", tag="2")]
+    pub limits: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceRequests {
+    /// *
+    /// CPU requests: Increasing this will make some Chalk operations that are parallel and CPU-bound faster.
+    /// Default unit is physical CPU cores, i.e. "8" means 8 CPU cores, "0.5" means half of a CPU core.
+    /// An alternative unit is "millicore", which is one-thousandth of a CPU core, i.e. 500m is half of a CPU core.
+    ///
+    #[prost(string, optional, tag="1")]
+    pub cpu: ::core::option::Option<::prost::alloc::string::String>,
+    /// *
+    /// Memory requests: you can use these to give your pod more memory, i.e. to prevent especially large jobs from OOMing.
+    /// Default unit is bytes, i.e. 1000000000 is 1 gigabyte of memory.
+    /// You can also specify a suffix such as K, M, or G for kilobytes, megabytes, and gigabytes, respectively.
+    /// It's also possible to use the power of two equivalents, such as Ki, Mi, and Gi.
+    #[prost(string, optional, tag="2")]
+    pub memory: ::core::option::Option<::prost::alloc::string::String>,
+    /// *
+    /// Chalk can use this for spilling intermediate state of some large computations, i.e. joins, aggregations, and sorting.
+    ///
+    /// Default unit is bytes, i.e. 1000000000 is 1 gigabyte of memory.
+    /// You can also specify a suffix such as K, M, or G for kilobytes, megabytes, and gigabytes, respectively.
+    /// It's also possible to use the power of two equivalents, such as Ki, Mi, and Gi.
+    #[prost(string, optional, tag="3")]
+    pub ephemeral_volume_size: ::core::option::Option<::prost::alloc::string::String>,
+    /// *
+    /// Ephemeral storage for miscellaneous file system access.
+    /// Should probably not be below 1Gi to ensure there's enough space for the Docker image, etc.
+    /// Should also not be too high or else the pod will not be scheduled.
+    #[prost(string, optional, tag="4")]
+    pub ephemeral_storage: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="5")]
+    pub resource_group: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OfflineQueryRecomputeFeatures {
     #[prost(oneof="offline_query_recompute_features::Impl", tags="1, 2")]
     pub r#impl: ::core::option::Option<offline_query_recompute_features::Impl>,
@@ -561,7 +603,7 @@ pub struct OfflineQueryShardedParquetUploadInput {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct OfflineQueryInputs {
-    #[prost(oneof="offline_query_inputs::Impl", tags="1, 2, 3, 4, 5")]
+    #[prost(oneof="offline_query_inputs::Impl", tags="1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub r#impl: ::core::option::Option<offline_query_inputs::Impl>,
 }
 /// Nested message and enum types in `OfflineQueryInputs`.
@@ -585,41 +627,101 @@ pub mod offline_query_inputs {
         ShardedInputs(super::OfflineQueryInputSharded),
         #[prost(message, tag="5")]
         ShardedParquetUploadInputs(super::OfflineQueryShardedParquetUploadInput),
+        #[prost(string, tag="6")]
+        SqlInput(::prost::alloc::string::String),
+        #[prost(message, tag="7")]
+        UriInput(super::OfflineQueryUriInput),
+        #[prost(message, tag="8")]
+        ManifestInput(super::OfflineQueryManifestInput),
+        #[prost(message, tag="9")]
+        GivensParquetFilenameInput(super::OfflineQueryGivensParquetFilename),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResourceRequests {
-    /// *
-    /// CPU requests: Increasing this will make some Chalk operations that are parallel and CPU-bound faster.
-    /// Default unit is physical CPU cores, i.e. "8" means 8 CPU cores, "0.5" means half of a CPU core.
-    /// An alternative unit is "millicore", which is one-thousandth of a CPU core, i.e. 500m is half of a CPU core.
-    ///
-    #[prost(string, optional, tag="1")]
-    pub cpu: ::core::option::Option<::prost::alloc::string::String>,
-    /// *
-    /// Memory requests: you can use these to give your pod more memory, i.e. to prevent especially large jobs from OOMing.
-    /// Default unit is bytes, i.e. 1000000000 is 1 gigabyte of memory.
-    /// You can also specify a suffix such as K, M, or G for kilobytes, megabytes, and gigabytes, respectively.
-    /// It's also possible to use the power of two equivalents, such as Ki, Mi, and Gi.
-    #[prost(string, optional, tag="2")]
-    pub memory: ::core::option::Option<::prost::alloc::string::String>,
-    /// *
-    /// Chalk can use this for spilling intermediate state of some large computations, i.e. joins, aggregations, and sorting.
-    ///
-    /// Default unit is bytes, i.e. 1000000000 is 1 gigabyte of memory.
-    /// You can also specify a suffix such as K, M, or G for kilobytes, megabytes, and gigabytes, respectively.
-    /// It's also possible to use the power of two equivalents, such as Ki, Mi, and Gi.
-    #[prost(string, optional, tag="3")]
-    pub ephemeral_volume_size: ::core::option::Option<::prost::alloc::string::String>,
-    /// *
-    /// Ephemeral storage for miscellaneous file system access.
-    /// Should probably not be below 1Gi to ensure there's enough space for the Docker image, etc.
-    /// Should also not be too high or else the pod will not be scheduled.
-    #[prost(string, optional, tag="4")]
-    pub ephemeral_storage: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, optional, tag="5")]
-    pub resource_group: ::core::option::Option<::prost::alloc::string::String>,
+pub struct OfflineQueryFeatureName {
+    #[prost(oneof="offline_query_feature_name::Value", tags="1, 2")]
+    pub value: ::core::option::Option<offline_query_feature_name::Value>,
+}
+/// Nested message and enum types in `OfflineQueryFeatureName`.
+pub mod offline_query_feature_name {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(string, tag="1")]
+        FeatureName(::prost::alloc::string::String),
+        #[prost(message, tag="2")]
+        FeatureNames(super::OfflineQueryStringList),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfflineQueryStringList {
+    #[prost(string, repeated, tag="1")]
+    pub values: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfflineQueryUriInput {
+    #[prost(string, tag="1")]
+    pub parquet_uri: ::prost::alloc::string::String,
+    #[prost(int32, optional, tag="2")]
+    pub start_row: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag="3")]
+    pub end_row: ::core::option::Option<i32>,
+    #[prost(bool, tag="4")]
+    pub is_iceberg: bool,
+    #[prost(int64, optional, tag="5")]
+    pub iceberg_snapshot_id: ::core::option::Option<i64>,
+    #[prost(int32, optional, tag="6")]
+    pub iceberg_start_partition: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag="7")]
+    pub iceberg_end_partition: ::core::option::Option<i32>,
+    #[prost(string, optional, tag="8")]
+    pub iceberg_filter: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="9")]
+    pub aws_role_arn: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="10")]
+    pub aws_region: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(map="string, message", tag="11")]
+    pub column_name_to_feature_name: ::std::collections::HashMap<::prost::alloc::string::String, OfflineQueryFeatureName>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfflineQueryManifestInput {
+    #[prost(string, tag="1")]
+    pub manifest_uri: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfflineQueryGivensParquetFilename {
+    #[prost(string, tag="1")]
+    pub filename: ::prost::alloc::string::String,
+    #[prost(int32, tag="2")]
+    pub version: i32,
+}
+/// *
+/// Destination to which the query's output rows should be written directly by the
+/// engine (e.g. as a velox TableWriteNode target), instead of (or in addition to)
+/// the standard dataset output. A oneof so richer destination transports (e.g.
+/// structured sink configurations with credentials/format options) can be added
+/// without breaking existing clients.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OfflineQueryWriteTo {
+    #[prost(oneof="offline_query_write_to::Destination", tags="1")]
+    pub destination: ::core::option::Option<offline_query_write_to::Destination>,
+}
+/// Nested message and enum types in `OfflineQueryWriteTo`.
+pub mod offline_query_write_to {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Destination {
+        /// A storage URI (e.g. `s3://bucket/path` or `gs://bucket/path`) that is a
+        /// valid destination for a velox TableWriteNode.
+        #[prost(string, tag="1")]
+        Uri(::prost::alloc::string::String),
+    }
 }
 /// *
 /// A gRPC representation of the JSON body expected by the offline query endpoint in the http engine.
@@ -683,6 +785,16 @@ pub struct OfflineQueryRequest {
     /// The upper bound for the observed at timestamp (inclusive). If not specified, defaults to the end of time
     #[prost(string, optional, tag="202")]
     pub observed_at_upper_bound: ::core::option::Option<::prost::alloc::string::String>,
+    /// The lower bound for the inserted at timestamp (inclusive). Filters on when each row was written
+    /// to the offline store, regardless of the wall-clock time it was originally observed.
+    /// If not specified, defaults to the beginning of time.
+    #[prost(string, optional, tag="217")]
+    pub inserted_at_lower_bound: ::core::option::Option<::prost::alloc::string::String>,
+    /// The upper bound for the inserted at timestamp (inclusive). Filters on when each row was written
+    /// to the offline store, regardless of the wall-clock time it was originally observed.
+    /// If not specified, defaults to the end of time.
+    #[prost(string, optional, tag="218")]
+    pub inserted_at_upper_bound: ::core::option::Option<::prost::alloc::string::String>,
     /// Planner options to pass to the engine, overriding any default/set by environment variable
     #[prost(map="string, message", tag="203")]
     pub planner_options: ::std::collections::HashMap<::prost::alloc::string::String, ::prost_types::Value>,
@@ -700,6 +812,8 @@ pub struct OfflineQueryRequest {
     pub num_shards: ::core::option::Option<i32>,
     #[prost(int32, optional, tag="208")]
     pub num_workers: ::core::option::Option<i32>,
+    #[prost(bool, optional, tag="220")]
+    pub use_job_queue: ::core::option::Option<bool>,
     /// Additional customer-defined context passed in to resolvers (see <https://docs.chalk.ai/api-docs#ChalkContext>)
     #[prost(map="string, message", tag="209")]
     pub query_context: ::std::collections::HashMap<::prost::alloc::string::String, ::prost_types::Value>,
@@ -714,12 +828,22 @@ pub struct OfflineQueryRequest {
     pub resources: ::core::option::Option<ResourceRequests>,
     #[prost(message, repeated, tag="215")]
     pub unload_resolvers: ::prost::alloc::vec::Vec<UnloadResolverSpec>,
+    #[prost(bool, optional, tag="216")]
+    pub use_metaplanner: ::core::option::Option<bool>,
+    /// Optional destination to write query outputs to directly.
+    #[prost(message, optional, tag="219")]
+    pub write_to: ::core::option::Option<OfflineQueryWriteTo>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UnloadResolverSpec {
+    /// FQN of the resolver to unload.
     #[prost(string, tag="1")]
     pub fqn: ::prost::alloc::string::String,
+    /// Source of truth: engine/chalkengine/metaplanner/manifest_utils.py:_decode_partition_expr()
+    /// tl;dr: each string can be either:
+    /// - A base64-encoded serialization of LogicalExprNode, representing the partition expression.
+    /// - An FQN string for a single feature, syntactic sugar for `feature == feature`.
     #[prost(string, repeated, tag="2")]
     pub partition_by: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

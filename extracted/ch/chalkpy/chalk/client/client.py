@@ -2670,6 +2670,26 @@ class ChalkClient:
             The specific deployment ID to source the new branch from.
         """
 
+    def delete_branch(self, name: str) -> None:
+        """Soft-delete a branch and archive its deployments in this client's environment.
+
+        The branch is removed from branch lists and can no longer be queried.
+        Its deployment history and source are no longer available. Recreating the
+        name starts with fresh deployment history. Deleting a missing or already
+        deleted branch succeeds. The client's selected branch is unchanged.
+
+        Parameters
+        ----------
+        name
+            The name of the branch to delete.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().delete_branch("my-branch")
+        """
+        ...
+
     def get_branches(self) -> list[str]:
         """Lists the current branches for this environment.
 
@@ -3944,6 +3964,52 @@ class ChalkClient:
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
         >>> client.trigger_workflow("nightly_scoring", input={"segment": "us"})
+        """
+        ...
+
+    def send_workflow_message(
+        self,
+        workflow_id: str,
+        name: str,
+        payload: Any = None,
+        *,
+        run_id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> None:
+        """Send a message to a running workflow, e.g. a reviewer's decision.
+
+        The workflow receives it from `chalk.workflows.wait_for_message(name)`, together with
+        the sender's identity as authenticated by Chalk. Use this to build human-in-the-loop
+        steps: a workflow waits for a `"review"` message, and a person or a Chalk function
+        sends one with the decision.
+
+        Parameters
+        ----------
+        workflow_id
+            The id of the workflow run to deliver the message to.
+        name
+            The message name the workflow waits on.
+        payload
+            JSON-serializable data delivered with the message.
+        run_id
+            A specific run of the workflow. Defaults to its latest run.
+        environment
+            The environment the workflow runs in.
+
+        Raises
+        ------
+        RuntimeError
+            If the workflow is not running, or the caller may not send it messages.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> client = ChalkClient()
+        >>> client.send_workflow_message(
+        ...     "review-account-123",
+        ...     "review",
+        ...     {"approved": True, "comment": "Verified by phone"},
+        ... )
         """
         ...
 

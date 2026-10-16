@@ -584,6 +584,15 @@ class UniverseSelection(System.Object):
         """
         ...
 
+    def check_pending_delisted_removals(self, date_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Removes the delisted securities which are now safe to remove from the algorithm and their universes,
+        checked hourly like the cash settlement
+        
+        :param date_time_utc: The current utc time
+        """
+        ...
+
     def ensure_currency_data_feeds(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, seed_new_currencies: bool = True) -> None:
         """
         Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data
@@ -2429,6 +2438,14 @@ class PendingRemovalsManager(System.Object):
         """
         ...
 
+    def check_pending_delisted_removals(self) -> typing.List[QuantConnect.Securities.Security]:
+        """
+        Will check the pending removals of delisted securities, see try_remove_delisted
+        
+        :returns: The delisted securities which can now be removed, null if none.
+        """
+        ...
+
     def check_pending_removals(self, selected_symbols: System.Collections.Generic.HashSet[QuantConnect.Symbol], current_universe: QuantConnect.Data.UniverseSelection.Universe) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.PendingRemovalsManager.RemovedMember]:
         """
         Will check pending security removals
@@ -2457,6 +2474,17 @@ class PendingRemovalsManager(System.Object):
         
         :param member: The universe member
         :returns: Whether the security is pending for removal.
+        """
+        ...
+
+    def try_remove_delisted(self, security: QuantConnect.Securities.Security) -> bool:
+        """
+        Will determine if the delisted Security can be removed from the algorithm.
+        If it can't be removed yet, like before its delisting liquidation or while its funds settle,
+        it's kept as a pending removal, see check_pending_delisted_removals
+        
+        :param security: The delisted security to remove
+        :returns: True if the security can be removed.
         """
         ...
 

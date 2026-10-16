@@ -53,7 +53,7 @@ pub struct ExprCall {
     pub kwargs: ::std::collections::HashMap<::prost::alloc::string::String, LogicalExprNode>,
     #[prost(string, optional, tag="4")]
     pub repr_override: ::core::option::Option<::prost::alloc::string::String>,
-    /// Blocking expression policies (concurrency, rate limiting, retry, logging, cache).
+    /// Blocking expression policies (concurrency, rate limiting, retry, logging, cache, batching).
     /// Only meaningful when the call resolves to a blocking function.
     #[prost(message, repeated, tag="5")]
     pub policies: ::prost::alloc::vec::Vec<ExprPolicy>,
@@ -71,8 +71,11 @@ pub struct ExprPolicy {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExprBlockingCall {
+    #[deprecated]
     #[prost(message, optional, tag="1")]
     pub blocking_fn: ::core::option::Option<BlockingFunction>,
+    #[prost(message, optional, tag="3")]
+    pub blocking_fn_v2: ::core::option::Option<BlockingFunctionV2>,
     #[prost(message, repeated, tag="2")]
     pub arguments: ::prost::alloc::vec::Vec<LogicalExprNode>,
 }
@@ -80,7 +83,7 @@ pub struct ExprBlockingCall {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BlockingFunction {
-    #[prost(oneof="blocking_function::FnType", tags="1, 2")]
+    #[prost(oneof="blocking_function::FnType", tags="1, 2, 3")]
     pub fn_type: ::core::option::Option<blocking_function::FnType>,
 }
 /// Nested message and enum types in `BlockingFunction`.
@@ -92,7 +95,24 @@ pub mod blocking_function {
         CatalogCall(super::CatalogCall),
         #[prost(message, tag="2")]
         CallResolver(super::CallResolver),
+        #[prost(message, tag="3")]
+        HttpRequest(super::HttpRequest),
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BlockingFunctionV2 {
+    #[prost(string, tag="1")]
+    pub fn_type: ::prost::alloc::string::String,
+    /// arguments passed to the constructor of the blocking fn, not to the call itself
+    #[prost(map="string, message", tag="2")]
+    pub arguments: ::std::collections::HashMap<::prost::alloc::string::String, RichArgument>,
+}
+/// A stateless HTTP request blocking function. No configuration: the output type and
+/// execution behavior are fixed and do not need to be stored in the plan.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct HttpRequest {
 }
 /// A catalog-registered function, resolved at plan compilation time via CatalogRuntime.
 /// Holds only pure data (name + types), no runtime pointers.
@@ -116,6 +136,171 @@ pub struct CallResolver {
     #[prost(message, optional, tag="2")]
     pub output_type: ::core::option::Option<super::super::arrow::v1::ArrowType>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchUdf {
+    #[prost(string, tag="1")]
+    pub batch_udf_type: ::prost::alloc::string::String,
+    #[prost(map="string, message", tag="2")]
+    pub arguments: ::std::collections::HashMap<::prost::alloc::string::String, BatchUdfArgument>,
+    #[prost(map="string, message", tag="3")]
+    pub arguments_v2: ::std::collections::HashMap<::prost::alloc::string::String, RichArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RichArgument {
+    #[prost(oneof="rich_argument::Arg", tags="1, 2, 3, 7, 6, 8, 9, 10, 11, 4, 5")]
+    pub arg: ::core::option::Option<rich_argument::Arg>,
+}
+/// Nested message and enum types in `RichArgument`.
+pub mod rich_argument {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Arg {
+        #[prost(message, tag="1")]
+        PrimitiveValue(super::super::super::primitive::v1::Primitive),
+        /// Deprecated: use `flat_expr_value` (the flat DAG encoding) instead. The nested
+        /// `LogicalExprNode` form is being phased out.
+        #[prost(message, tag="2")]
+        ExprValue(super::LogicalExprNode),
+        #[prost(message, tag="3")]
+        PyObjectValue(super::PyObject),
+        #[prost(message, tag="7")]
+        PyObjectV2Value(super::PyObjectV2),
+        #[prost(message, tag="6")]
+        BatchUdfValue(super::BatchUdf),
+        /// An expression argument encoded as a flat (DAG) `FlatLogicalExpr`, the non-deprecated
+        /// successor to `expr_value`.
+        #[prost(message, tag="8")]
+        FlatExprValue(super::FlatLogicalExpr),
+        /// Canonical domain protos whose packages cannot be imported here without
+        /// creating proto import cycles.
+        #[prost(message, tag="9")]
+        CanonicalProtoValue(::prost_types::Any),
+        #[prost(message, tag="10")]
+        CustomPythonValue(super::CustomPython),
+        /// A nested blocking function (e.g. the inner function a DecoratedBlockingFunction wraps),
+        /// dispatched through DeserializationContext::blocking_fn_deserializer on the way back.
+        #[prost(message, tag="11")]
+        BlockingFnV2Value(super::BlockingFunctionV2),
+        /// Recursive Containers
+        #[prost(message, tag="4")]
+        ListValue(super::RichArgumentList),
+        #[prost(message, tag="5")]
+        UnorderedDictValue(super::RichArgumentUnorderedDict),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustomPython {
+    #[prost(string, tag="1")]
+    pub py_ty: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="2")]
+    pub py_encoding: ::core::option::Option<::prost_types::Any>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RichArgumentList {
+    #[prost(message, repeated, tag="1")]
+    pub values: ::prost::alloc::vec::Vec<RichArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RichArgumentUnorderedDict {
+    #[prost(map="string, message", tag="1")]
+    pub items: ::std::collections::HashMap<::prost::alloc::string::String, RichArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchUdfArgument {
+    #[prost(oneof="batch_udf_argument::Arg", tags="1, 2, 5, 3, 4")]
+    pub arg: ::core::option::Option<batch_udf_argument::Arg>,
+}
+/// Nested message and enum types in `BatchUDFArgument`.
+pub mod batch_udf_argument {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Arg {
+        #[prost(message, tag="1")]
+        PrimitiveValue(super::super::super::primitive::v1::Primitive),
+        #[prost(message, tag="2")]
+        ExprValue(super::LogicalExprNode),
+        #[prost(message, tag="5")]
+        PyObjectValue(super::PyObject),
+        /// Recursive Containers
+        #[prost(message, tag="3")]
+        ListValue(super::BatchUdfArgumentList),
+        #[prost(message, tag="4")]
+        UnorderedDictValue(super::BatchUdfUnorderedDict),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchUdfArgumentList {
+    #[prost(message, repeated, tag="1")]
+    pub values: ::prost::alloc::vec::Vec<BatchUdfArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BatchUdfUnorderedDict {
+    #[prost(map="string, message", tag="1")]
+    pub items: ::std::collections::HashMap<::prost::alloc::string::String, BatchUdfArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PyObject {
+    #[prost(oneof="py_object::Obj", tags="1, 2, 3, 4, 5, 6")]
+    pub obj: ::core::option::Option<py_object::Obj>,
+}
+/// Nested message and enum types in `PyObject`.
+pub mod py_object {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Obj {
+        #[prost(message, tag="1")]
+        PyCallable(super::PyCallable),
+        #[prost(message, tag="2")]
+        PyCall(::prost::alloc::boxed::Box<super::PyCall>),
+        #[prost(int64, tag="3")]
+        PyInt(i64),
+        #[prost(string, tag="4")]
+        PyString(::prost::alloc::string::String),
+        #[prost(bytes, tag="5")]
+        PyBytes(::prost::bytes::Bytes),
+        #[prost(message, tag="6")]
+        PyArrowSchema(super::PyArrowSchema),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PyObjectV2 {
+    #[prost(enumeration="PyObjectType", tag="1")]
+    pub r#type: i32,
+    #[prost(map="string, message", tag="2")]
+    pub arguments: ::std::collections::HashMap<::prost::alloc::string::String, RichArgument>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PyCallable {
+    #[prost(string, tag="1")]
+    pub callable_name: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PyArrowSchema {
+    #[prost(message, optional, tag="1")]
+    pub schema: ::core::option::Option<super::super::arrow::v1::Schema>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PyCall {
+    #[prost(message, optional, boxed, tag="1")]
+    pub callee: ::core::option::Option<::prost::alloc::boxed::Box<PyObject>>,
+    #[prost(message, repeated, tag="2")]
+    pub args: ::prost::alloc::vec::Vec<PyObject>,
+    #[prost(map="string, message", tag="3")]
+    pub kwargs: ::std::collections::HashMap<::prost::alloc::string::String, PyObject>,
+}
 /// A literal expression.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -132,7 +317,32 @@ pub struct ExprLiteral {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FlatLogicalExpr {
+    /// Collection of "flat" nodes that represent a LogicalExpr DAG. Each node does not nest
+    /// other nodes; they refer to one another via the `LogicalExprNodeReference` class.
+    /// Concretely:
+    /// - each element of `flat_nodes` must have `this_reference` populated.
+    /// - for each element of `flat_nodes`, its `expr_form` must not be `reference`.
+    /// - if a `flat_nodes` element contains another `LogicalExprNode`, the contained `LogicalExprNode`
+    ///     must be of type `reference` - a reference to another node. this is what is meant by "they
+    ///     refer to one another via the `LogicalExprNodeReference` class."
+    /// - a node can only reference a node that appears earlier than itself in the `flat_nodes` list.
+    /// - the last element of `flat_nodes` is the root of the expression (it follows from the ordering
+    ///    above: children precede parents, so the overall root is emitted last).
+    #[prost(message, repeated, tag="1")]
+    pub flat_nodes: ::prost::alloc::vec::Vec<LogicalExprNode>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct LogicalExprNodeReference {
+    #[prost(uint64, tag="1")]
+    pub id: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LogicalExprNode {
+    #[prost(message, optional, tag="44")]
+    pub this_reference: ::core::option::Option<LogicalExprNodeReference>,
     /// The memory ID of this node. Nodes with equal id share are *identical*, sharing any nondeterminism and mutations.
     #[prost(string, tag="40")]
     pub expr_id: ::prost::alloc::string::String,
@@ -144,7 +354,7 @@ pub struct LogicalExprNode {
     ///
     /// Consumers must always perform additional parsing and validation, so
     /// semantic information should not be stored in the proto message itself.
-    #[prost(oneof="logical_expr_node::ExprForm", tags="35, 36, 37, 38, 39, 41, 42")]
+    #[prost(oneof="logical_expr_node::ExprForm", tags="35, 36, 37, 38, 39, 41, 42, 43")]
     pub expr_form: ::core::option::Option<logical_expr_node::ExprForm>,
     /// All of these expression forms are deprecated.
     /// A simpler syntactic representation is used now.
@@ -178,6 +388,8 @@ pub mod logical_expr_node {
         TypedIdentifier(super::TypedIdentifier),
         #[prost(message, tag="42")]
         BlockingCall(super::ExprBlockingCall),
+        #[prost(message, tag="43")]
+        Reference(super::LogicalExprNodeReference),
     }
     /// All of these expression forms are deprecated.
     /// A simpler syntactic representation is used now.
@@ -683,6 +895,7 @@ pub enum ExprPolicyKind {
     Retry = 3,
     Logging = 4,
     Cache = 5,
+    Batching = 6,
 }
 impl ExprPolicyKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -697,6 +910,7 @@ impl ExprPolicyKind {
             ExprPolicyKind::Retry => "EXPR_POLICY_KIND_RETRY",
             ExprPolicyKind::Logging => "EXPR_POLICY_KIND_LOGGING",
             ExprPolicyKind::Cache => "EXPR_POLICY_KIND_CACHE",
+            ExprPolicyKind::Batching => "EXPR_POLICY_KIND_BATCHING",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -708,6 +922,90 @@ impl ExprPolicyKind {
             "EXPR_POLICY_KIND_RETRY" => Some(Self::Retry),
             "EXPR_POLICY_KIND_LOGGING" => Some(Self::Logging),
             "EXPR_POLICY_KIND_CACHE" => Some(Self::Cache),
+            "EXPR_POLICY_KIND_BATCHING" => Some(Self::Batching),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PyObjectType {
+    Unspecified = 0,
+    Int = 1,
+    String = 2,
+    Bytes = 3,
+    Callable = 4,
+    Call = 5,
+    PyarrowSchema = 6,
+    Bool = 7,
+    StructPackingInfo = 8,
+    None = 9,
+    ChalkThreadPoolExecutorBindInfo = 10,
+    Float = 11,
+    Datetime = 12,
+    Timedelta = 13,
+    List = 14,
+    FilterOperand = 15,
+    FilterParsedRef = 16,
+    DataframeRef = 17,
+    FeatureRef = 18,
+    HasManyFeatureRefs = 20,
+    ResolverFeatureSetRefs = 21,
+}
+impl PyObjectType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            PyObjectType::Unspecified => "PY_OBJECT_TYPE_UNSPECIFIED",
+            PyObjectType::Int => "PY_OBJECT_TYPE_INT",
+            PyObjectType::String => "PY_OBJECT_TYPE_STRING",
+            PyObjectType::Bytes => "PY_OBJECT_TYPE_BYTES",
+            PyObjectType::Callable => "PY_OBJECT_TYPE_CALLABLE",
+            PyObjectType::Call => "PY_OBJECT_TYPE_CALL",
+            PyObjectType::PyarrowSchema => "PY_OBJECT_TYPE_PYARROW_SCHEMA",
+            PyObjectType::Bool => "PY_OBJECT_TYPE_BOOL",
+            PyObjectType::StructPackingInfo => "PY_OBJECT_TYPE_STRUCT_PACKING_INFO",
+            PyObjectType::None => "PY_OBJECT_TYPE_NONE",
+            PyObjectType::ChalkThreadPoolExecutorBindInfo => "PY_OBJECT_TYPE_CHALK_THREAD_POOL_EXECUTOR_BIND_INFO",
+            PyObjectType::Float => "PY_OBJECT_TYPE_FLOAT",
+            PyObjectType::Datetime => "PY_OBJECT_TYPE_DATETIME",
+            PyObjectType::Timedelta => "PY_OBJECT_TYPE_TIMEDELTA",
+            PyObjectType::List => "PY_OBJECT_TYPE_LIST",
+            PyObjectType::FilterOperand => "PY_OBJECT_TYPE_FILTER_OPERAND",
+            PyObjectType::FilterParsedRef => "PY_OBJECT_TYPE_FILTER_PARSED_REF",
+            PyObjectType::DataframeRef => "PY_OBJECT_TYPE_DATAFRAME_REF",
+            PyObjectType::FeatureRef => "PY_OBJECT_TYPE_FEATURE_REF",
+            PyObjectType::HasManyFeatureRefs => "PY_OBJECT_TYPE_HAS_MANY_FEATURE_REFS",
+            PyObjectType::ResolverFeatureSetRefs => "PY_OBJECT_TYPE_RESOLVER_FEATURE_SET_REFS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PY_OBJECT_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "PY_OBJECT_TYPE_INT" => Some(Self::Int),
+            "PY_OBJECT_TYPE_STRING" => Some(Self::String),
+            "PY_OBJECT_TYPE_BYTES" => Some(Self::Bytes),
+            "PY_OBJECT_TYPE_CALLABLE" => Some(Self::Callable),
+            "PY_OBJECT_TYPE_CALL" => Some(Self::Call),
+            "PY_OBJECT_TYPE_PYARROW_SCHEMA" => Some(Self::PyarrowSchema),
+            "PY_OBJECT_TYPE_BOOL" => Some(Self::Bool),
+            "PY_OBJECT_TYPE_STRUCT_PACKING_INFO" => Some(Self::StructPackingInfo),
+            "PY_OBJECT_TYPE_NONE" => Some(Self::None),
+            "PY_OBJECT_TYPE_CHALK_THREAD_POOL_EXECUTOR_BIND_INFO" => Some(Self::ChalkThreadPoolExecutorBindInfo),
+            "PY_OBJECT_TYPE_FLOAT" => Some(Self::Float),
+            "PY_OBJECT_TYPE_DATETIME" => Some(Self::Datetime),
+            "PY_OBJECT_TYPE_TIMEDELTA" => Some(Self::Timedelta),
+            "PY_OBJECT_TYPE_LIST" => Some(Self::List),
+            "PY_OBJECT_TYPE_FILTER_OPERAND" => Some(Self::FilterOperand),
+            "PY_OBJECT_TYPE_FILTER_PARSED_REF" => Some(Self::FilterParsedRef),
+            "PY_OBJECT_TYPE_DATAFRAME_REF" => Some(Self::DataframeRef),
+            "PY_OBJECT_TYPE_FEATURE_REF" => Some(Self::FeatureRef),
+            "PY_OBJECT_TYPE_HAS_MANY_FEATURE_REFS" => Some(Self::HasManyFeatureRefs),
+            "PY_OBJECT_TYPE_RESOLVER_FEATURE_SET_REFS" => Some(Self::ResolverFeatureSetRefs),
             _ => None,
         }
     }

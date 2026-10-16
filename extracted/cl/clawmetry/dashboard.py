@@ -106,11 +106,13 @@ from helpers.gateway import (  # noqa: F401 — re-export for routes/
     _gw_ws_rpc,
 )
 from routes.usage import bp_usage
+from routes.attribution import bp_attribution
 from routes.crons import bp_crons
 from routes.harness import bp_harness
 from routes.delegated import bp_delegated
 from routes.readiness import bp_readiness
 from routes.guard import bp_guard
+from routes.node_activity import bp_node_activity
 from routes.improve import bp_improve  # noqa: E402 (route registration follows boot setup)
 from routes.signals import bp_signals
 from routes.selfdiag import bp_selfdiag
@@ -141,6 +143,7 @@ from routes.assets import bp_assets
 from routes.reasoning import bp_reasoning
 from routes.plugins import bp_plugins
 from routes.local_query import bp_local_query
+from routes.asimov import bp_asimov
 from routes.public_api import bp_public_api
 from routes.apikeys_admin import bp_apikeys_admin
 from routes.update_check import bp_update_check, start_update_check_thread
@@ -373,7 +376,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.916"
+__version__ = "0.12.927"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -6507,8 +6510,10 @@ def detect_config(args=None):
     if not _pro_loaded:
         app.register_blueprint(bp_selfevolve)
     app.register_blueprint(bp_alerts)
+    app.register_blueprint(bp_attribution)
     app.register_blueprint(bp_autonomy)
     app.register_blueprint(bp_auth)
+    app.register_blueprint(bp_asimov)
     app.register_blueprint(bp_brain)
     app.register_blueprint(bp_budget)
     app.register_blueprint(bp_channels)
@@ -6528,6 +6533,7 @@ def detect_config(args=None):
     from routes.error_groups import bp_error_groups
     app.register_blueprint(bp_error_groups)
     app.register_blueprint(bp_improve)
+    app.register_blueprint(bp_node_activity)
     app.register_blueprint(bp_signals)
     app.register_blueprint(bp_selfdiag)
     app.register_blueprint(bp_capability_gaps)
@@ -7161,6 +7167,7 @@ DASHBOARD_HTML = r"""
      no legal basis. Regenerate with scripts/vendor_fonts.py. -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css', v=asset_version|default(version, true)) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=asset_version|default(version, true)) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/node-activity.css', v=asset_version|default(version, true)) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/investigations.css', v=asset_version|default(version, true)) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/assistant.css', v=asset_version|default(version, true)) }}">
 <script src="{{ url_for('static', filename='js/nav-dropdown.js', v=asset_version|default(version, true)) }}"></script>
@@ -7341,6 +7348,10 @@ DASHBOARD_HTML = r"""
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span>
         <span class="left-nav-label" data-i18n="nav.inventory">Agents</span>
       </div>
+      <div class="left-nav-item" data-tab="node-activity" onclick="switchTab('node-activity')" title="Processes, resource use and changes on this machine">
+        <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4M6 10h3l2-4 3 8 2-4h2"/></svg></span>
+        <span class="left-nav-label">Node activity</span>
+      </div>
       <div class="left-nav-item" data-tab="setup" onclick="switchTab('setup')" title="Rules, skills, commands, agents, and hooks shaping how your agents work">
         <span class="left-nav-icon" aria-hidden="true">&#10022;</span>
         <span class="left-nav-label">Setup</span>
@@ -7361,6 +7372,10 @@ DASHBOARD_HTML = r"""
       <div class="left-nav-item" data-tab="usage" onclick="switchTab('usage')" data-i18n-title="nav.cost_tooltip" title="Token spend &amp; cost analytics">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
         <span class="left-nav-label" data-i18n="nav.cost">Cost</span>
+      </div>
+      <div class="left-nav-item" id="left-nav-delivery" data-tab="delivery" onclick="switchTab('delivery')" title="What the spend bought: the pull requests your agents worked on, and what each one cost">
+        <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 9v6a3 3 0 0 0 3 3h6"/><path d="M18 9V7a3 3 0 0 0-3-3h-2"/></svg></span>
+        <span class="left-nav-label">Delivered</span>
       </div>
       <div class="left-nav-item" data-tab="models" onclick="switchTab('models')" data-i18n-title="nav.models_tooltip" title="Which models your agents used, and what each one cost">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2"/></svg></span>
@@ -7504,6 +7519,7 @@ DASHBOARD_HTML = r"""
 
 <!-- AGENT INVENTORY (single-pane control-tower roster) -->
 {% include 'tabs/inventory.html' %}
+{% include 'tabs/node-activity.html' %}
 
 <!-- HARNESS SETUP (runtime-aware rules, skills, commands, agents, and hooks) -->
 {% include 'tabs/setup.html' %}
@@ -7525,6 +7541,9 @@ DASHBOARD_HTML = r"""
 
 <!-- USAGE -->
 {% include 'tabs/usage.html' %}
+
+<!-- DELIVERY (what the spend bought: pull requests + the cost split) -->
+{% include 'tabs/delivery.html' %}
 
 <!-- PRICE BOOK (settings screen for negotiated rates, opened from Cost; #5936) -->
 {% include 'tabs/price-book.html' %}
@@ -7635,6 +7654,7 @@ DASHBOARD_HTML = r"""
 <script src="{{ url_for('static', filename='js/custom-dashboard.js', v=asset_version|default(version, true)) }}"></script>
 <script src="{{ url_for('static', filename='js/setup.js', v=asset_version|default(version, true)) }}"></script>
 <script src="{{ url_for('static', filename='js/improve.js', v=asset_version|default(version, true)) }}"></script>
+<script src="{{ url_for('static', filename='js/node-activity.js', v=asset_version|default(version, true)) }}"></script>
 </div> <!-- end zoom-wrapper -->
 
 {# position:fixed overlays must live OUTSIDE #zoom-wrapper: its zoom

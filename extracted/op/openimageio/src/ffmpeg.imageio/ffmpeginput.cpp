@@ -207,20 +207,27 @@ ffmpeg_input_imageio_create()
 // QuickTime / MOV
 // raw MPEG-4 video
 // MPEG-1 Systems / MPEG program stream
-OIIO_EXPORT const char* ffmpeg_input_extensions[]
-    = { "avi", "mov", "qt",  "mp4", "m4a", "3gp",
-        "3g2", "mj2", "m4v", "mpg", "mkv", nullptr };
+OIIO_EXPORT const char* ffmpeg_input_extensions[] = { "avi", "mov", "qt",
+                                                      "mp4", "m4a", "3gp",
+                                                      "3g2", "mj2", "m4v",
+                                                      "mpg", "mkv", nullptr };
 
 
 OIIO_PLUGIN_EXPORTS_END
 
 
 
-FFmpegInput::FFmpegInput() { init(); }
+FFmpegInput::FFmpegInput()
+{
+    init();
+}
 
 
 
-FFmpegInput::~FFmpegInput() { close(); }
+FFmpegInput::~FFmpegInput()
+{
+    close();
+}
 
 
 
@@ -256,6 +263,7 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
         }
     if (!valid_extension) {
         errorfmt("\"{}\" could not open input", name);
+        close();
         return false;
     }
 
@@ -264,10 +272,12 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
     if (avformat_open_input(&m_format_context, file_name, NULL, NULL) != 0) {
         // avformat_open_input allocs format_context
         errorfmt("\"{}\" could not open input", file_name);
+        close();
         return false;
     }
     if (avformat_find_stream_info(m_format_context, NULL) < 0) {
         errorfmt("\"{}\" could not find stream info", file_name);
+        close();
         return false;
     }
     m_video_stream = -1;
@@ -282,6 +292,7 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
     }
     if (m_video_stream == -1) {
         errorfmt("\"{}\" could not find a valid videostream", file_name);
+        close();
         return false;
     }
     for (unsigned int i = 0; i < m_format_context->nb_streams; i++) {
@@ -299,12 +310,14 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
     m_codec = avcodec_find_decoder(par->codec_id);
     if (!m_codec) {
         errorfmt("\"{}\" can't find decoder", file_name);
+        close();
         return false;
     }
 
     m_codec_context = avcodec_alloc_context3(m_codec);
     if (!m_codec_context) {
         errorfmt("\"{}\" can't allocate decoder context", file_name);
+        close();
         return false;
     }
 
@@ -313,11 +326,13 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
     ret = avcodec_parameters_to_context(m_codec_context, par);
     if (ret < 0) {
         errorfmt("\"{}\" unsupported codec", file_name);
+        close();
         return false;
     }
 
     if (avcodec_open2(m_codec_context, m_codec, NULL) < 0) {
         errorfmt("\"{}\" could not open codec", file_name);
+        close();
         return false;
     }
     m_codec_cap_delay = (bool)(m_codec_context->codec->capabilities
@@ -559,22 +574,26 @@ FFmpegInput::open(const std::string& name, ImageSpec& spec)
     }
     m_stride = (size_t)(m_spec.scanline_bytes());
 
-    int rgb_buffer_size
-        = av_image_get_buffer_size(m_dst_pix_format, m_codec_context->width,
-                                   m_codec_context->height, ffmpeg_image_align);
+    int rgb_buffer_size = av_image_get_buffer_size(m_dst_pix_format,
+                                                   m_codec_context->width,
+                                                   m_codec_context->height,
+                                                   ffmpeg_image_align);
     if (rgb_buffer_size <= 0) {
         errorfmt("\"{}\" invalid FFmpeg RGB buffer size", file_name);
+        close();
         return false;
     }
     m_rgb_buffer.resize(static_cast<size_t>(rgb_buffer_size), 0);
 
-    m_sws_rgb_context
-        = sws_getContext(m_codec_context->width, m_codec_context->height,
-                         src_pix_format, m_codec_context->width,
-                         m_codec_context->height, m_dst_pix_format, SWS_AREA,
-                         NULL, NULL, NULL);
+    m_sws_rgb_context = sws_getContext(m_codec_context->width,
+                                       m_codec_context->height, src_pix_format,
+                                       m_codec_context->width,
+                                       m_codec_context->height,
+                                       m_dst_pix_format, SWS_AREA, NULL, NULL,
+                                       NULL);
     if (!m_sws_rgb_context) {
         errorfmt("\"{}\" could not create FFmpeg scaling context", file_name);
+        close();
         return false;
     }
 

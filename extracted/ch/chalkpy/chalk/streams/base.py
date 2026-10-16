@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 
 class StreamSource:
     """Base class for all stream sources generated from `@stream`."""
 
-    registry: "list[StreamSource]" = []
-    name: Optional[str] = None
+    registry: ClassVar[list[StreamSource]] = []
+    name: Optional[str]
 
     def _config_to_json(self) -> Any:
         return self.config_to_json()  # for backcompat

@@ -228,6 +228,11 @@ def _decorate_activity(
             if retry_policy_backoff_coefficient is not None
             else config.worker.retry_policy_backoff_coefficient
         )
+        effective_local_backoff = (
+            config.worker.local_retry_backoff_coefficient
+            if config.worker.local_retry_backoff_coefficient is not None
+            else effective_backoff
+        )
 
         is_inside_activity = _context_var_is_inside_activity.get(False)
         token = _context_var_is_inside_activity.set(True)
@@ -343,7 +348,7 @@ def _decorate_activity(
                     else tenacity.retry(
                         retry=tenacity.retry_if_exception_type(Exception),
                         stop=tenacity.stop_after_attempt(effective_max_attempts),
-                        wait=tenacity.wait_exponential(multiplier=effective_backoff),
+                        wait=tenacity.wait_exponential(multiplier=effective_local_backoff),
                         reraise=True,
                     )(func)
                 )

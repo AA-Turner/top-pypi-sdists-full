@@ -1,0 +1,1032 @@
+use std::collections::HashMap;
+
+use super::error::{ApiError, InvalidArgumentSnafu};
+use crate::config::ParamStore;
+use crate::config::param_registry::{self, ValueType, Wrapper, param_names};
+use crate::config::settings::{Setting, Settings};
+
+pub use crate::config::connection_config::{ValidationCode, ValidationIssue, ValidationSeverity};
+
+fn setting_matches_value_type(setting: &Setting, expected: ValueType) -> bool {
+    matches!(
+        (setting, expected),
+        (Setting::String(_), ValueType::String)
+            | (Setting::Int(_), ValueType::Int)
+            | (Setting::Double(_), ValueType::Double)
+            // An integer is a valid floating-point value (numeric widening),
+            // mirroring `ParamStore::get_double`. Wrappers routinely send a
+            // whole-number Double param as an Int (e.g. Python renders the
+            // `retry_backoff_factor` default `2.0` as the int literal `2`).
+            | (Setting::Int(_), ValueType::Double)
+            | (Setting::Bytes(_), ValueType::Bytes)
+            | (Setting::Bool(_), ValueType::Bool)
+    )
+}
+
+fn setting_matches_expected_types(
+    setting: &Setting,
+    primary: ValueType,
+    additional: Option<ValueType>,
+) -> bool {
+    setting_matches_value_type(setting, primary)
+        || additional.is_some_and(|value_type| setting_matches_value_type(setting, value_type))
+}
+
+fn value_type_name(vt: ValueType) -> &'static str {
+    match vt {
+        ValueType::String => "String",
+        ValueType::Int => "Int",
+        ValueType::Double => "Double",
+        ValueType::Bytes => "Bytes",
+        ValueType::Bool => "Bool",
+    }
+}
+
+fn value_type_names(primary: ValueType, additional: Option<ValueType>) -> String {
+    match additional {
+        Some(value_type) => format!(
+            "{} or {}",
+            value_type_name(primary),
+            value_type_name(value_type)
+        ),
+        None => value_type_name(primary).to_string(),
+    }
+}
+
+fn try_coerce_to_value_type(setting: &Setting, expected: ValueType) -> Option<Setting> {
+    let s = match setting {
+        Setting::String(s) => s,
+        _ => return None,
+    };
+
+    match expected {
+        ValueType::Int => s.parse::<i64>().ok().map(Setting::Int),
+        ValueType::Double => s.parse::<f64>().ok().map(Setting::Double),
+        ValueType::Bool => crate::utils::parse_setting_bool_token(s).map(Setting::Bool),
+        ValueType::String | ValueType::Bytes => None,
+    }
+}
+
+fn setting_type_name(setting: &Setting) -> &'static str {
+    match setting {
+        Setting::String(_) => "String",
+        Setting::Int(_) => "Int",
+        Setting::Double(_) => "Double",
+        Setting::Bytes(_) => "Bytes",
+        Setting::Bool(_) => "Bool",
+    }
+}
+
+/// Attempt to coerce a `Setting::String` to the primary or additional `ValueType`.
+///
+/// Connection strings (ODBC, JDBC, TOML files) are inherently stringly-typed,
+/// so values like `"443"` (port) or `"true"` (verify_hostname) arrive as
+/// strings even when the registry expects Int or Bool.  This function
+/// converts them when the parse is unambiguous, returning `None` if the
+/// string cannot be parsed.
+fn try_coerce_setting(
+    setting: &Setting,
+    primary: ValueType,
+    additional: Option<ValueType>,
+) -> Option<Setting> {
+    try_coerce_to_value_type(setting, primary)
+        .or_else(|| additional.and_then(|value_type| try_coerce_to_value_type(setting, value_type)))
+}
+
+fn odbc_key_for(internal_canonical: &str) -> Option<&'static str> {
+    match internal_canonical {
+        "user" => Some("UID"),
+        "password" => Some("PWD"),
+        "host" => Some("SERVER"),
+        _ => None,
+    }
+}
+
+fn push_conflict_error(
+    issues: &mut Vec<ValidationIssue>,
+    existing_key: &str,
+    new_key: &str,
+    canonical_name: &str,
+) {
+    issues.push(ValidationIssue {
+        severity: ValidationSeverity::Error,
+        parameter: new_key.to_string(),
+        message: format!(
+            "Parameters '{existing_key}' and '{new_key}' both resolve to '{canonical_name}'. Provide only one key for that setting.",
+        ),
+        code: ValidationCode::ConflictingParameters,
+    });
+}
+
+/// Validate and resolve a batch of options through the `ParamRegistry`.
+///
+/// Returns `(resolved_options, issues)` where `resolved_options` contains
+/// canonical-name → value pairs for all valid entries, and `issues` contains
+/// any warnings or errors encountered.
+///
+/// `wrapper` selects which scoped aliases are visible (see
+/// [`param_registry::ParamRegistry::resolve_for`]).
+pub fn resolve_options(
+    wrapper: Wrapper,
+    options: HashMap<String, Setting>,
+) -> (HashMap<String, Setting>, Vec<ValidationIssue>) {
+    let registry = param_registry::registry();
+    let mut resolved = HashMap::new();
+    let mut issues = Vec::new();
+    let mut canonical_sources: HashMap<String, String> = HashMap::new();
+
+    for (key, value) in options {
+        match registry.resolve_for(wrapper, &key) {
+            Some(param_def) => {
+                let canonical_name = param_def.canonical_name.to_string();
+                if let Some(existing_key) = canonical_sources.get(&canonical_name) {
+                    // TODO: Move this to the ODBC-specific code.
+                    // UID/PWD/SERVER conflict-tiebreak is ODBC-specific.
+                    if wrapper == Wrapper::Odbc
+                        && let Some(odbc_key) = odbc_key_for(&canonical_name)
+                    {
+                        let (winner, loser) = if existing_key.eq_ignore_ascii_case(odbc_key) {
+                            (existing_key.clone(), key.clone())
+                        } else if key.eq_ignore_ascii_case(odbc_key) {
+                            (key.clone(), existing_key.clone())
+                        } else {
+                            push_conflict_error(&mut issues, existing_key, &key, &canonical_name);
+                            continue;
+                        };
+                        issues.push(ValidationIssue {
+                            severity: ValidationSeverity::Warning,
+                            parameter: loser.clone(),
+                            message: format!(
+                                "Parameter '{loser}' is ignored because '{winner}' was also provided (both resolve to '{canonical_name}').",
+                            ),
+                            code: ValidationCode::ConflictingParameters,
+                        });
+                        if winner == key {
+                            canonical_sources.insert(canonical_name.clone(), key);
+                            resolved.insert(canonical_name, value);
+                        }
+                        continue;
+                    }
+                    push_conflict_error(&mut issues, existing_key, &key, &canonical_name);
+                    continue;
+                }
+
+                if let Some(deprecation) = param_def.deprecated {
+                    issues.push(ValidationIssue {
+                        severity: ValidationSeverity::Warning,
+                        parameter: key.clone(),
+                        message: deprecation.message_for(&key),
+                        code: ValidationCode::DeprecatedParameter,
+                    });
+                }
+
+                let final_value = if setting_matches_expected_types(
+                    &value,
+                    param_def.value_type,
+                    param_def.additional_value_type,
+                ) {
+                    value
+                } else if let Some(coerced) = try_coerce_setting(
+                    &value,
+                    param_def.value_type,
+                    param_def.additional_value_type,
+                ) {
+                    coerced
+                } else {
+                    issues.push(ValidationIssue {
+                        severity: ValidationSeverity::Error,
+                        parameter: key.clone(),
+                        message: format!(
+                            "Expected type {} for parameter '{}', got {}",
+                            value_type_names(param_def.value_type, param_def.additional_value_type),
+                            key,
+                            setting_type_name(&value),
+                        ),
+                        code: ValidationCode::InvalidType,
+                    });
+                    continue;
+                };
+
+                canonical_sources.insert(canonical_name.clone(), key);
+                resolved.insert(canonical_name, final_value);
+            }
+            None => {
+                issues.push(ValidationIssue {
+                    severity: ValidationSeverity::Warning,
+                    parameter: key.clone(),
+                    message: format!("Unknown parameter '{key}'"),
+                    code: ValidationCode::UnknownParameter,
+                });
+                resolved.insert(key, value);
+            }
+        }
+    }
+
+    (resolved, issues)
+}
+
+/// Underscores are not valid in DNS labels (RFC 952/1123), but Snowflake account
+/// names may contain them. When the host or server_url is derived from such an
+/// account, the underscores must be replaced with hyphens so the hostname
+/// resolves correctly.
+/// Skipped when `preserve_underscores_in_hostname` is `true`.
+///
+/// Called from `connection_init` after all settings (explicit options, TOML
+/// config) have been accumulated, so it always sees the complete picture.
+pub(crate) fn normalize_host_underscores(settings: &mut dyn Settings) {
+    if is_allow_underscores(settings) {
+        return;
+    }
+
+    let account = match settings.get_string(param_names::ACCOUNT.as_str()) {
+        Some(a) if a.contains('_') => a,
+        _ => return,
+    };
+
+    let account_lower = account.to_ascii_lowercase();
+
+    if let Some(host) = settings.get_string(param_names::HOST.as_str())
+        && starts_with_account_label(&host, &account_lower)
+    {
+        let prefix = &host[..account.len()];
+        let new_host = format!("{}{}", prefix.replace('_', "-"), &host[account.len()..]);
+        tracing::debug!(old = %host, new = %new_host, "Replaced underscores with hyphens in host");
+        settings.set(param_names::HOST.as_str(), Setting::String(new_host));
+    }
+
+    if let Some(url) = settings.get_string(param_names::SERVER_URL.as_str())
+        && let Some(after_scheme) = url.find("://").map(|i| i + 3)
+    {
+        let host_part = &url[after_scheme..];
+        if starts_with_account_label(host_part, &account_lower) {
+            let prefix = &host_part[..account.len()];
+            let new_url = format!(
+                "{}{}{}",
+                &url[..after_scheme],
+                prefix.replace('_', "-"),
+                &host_part[account.len()..]
+            );
+            tracing::debug!(old = %url, new = %new_url, "Replaced underscores with hyphens in server_url");
+            settings.set(param_names::SERVER_URL.as_str(), Setting::String(new_url));
+        }
+    }
+}
+
+/// Returns `true` when `value` starts with `account_lower` and the next
+/// character (if any) is a DNS label boundary (`.`, `:`, or end-of-string).
+/// This prevents a prefix-only match from rewriting unrelated hosts (e.g.
+/// account `abc_test` must not match host `abc_test2.example.com`).
+fn starts_with_account_label(value: &str, account_lower: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    if !lower.starts_with(account_lower) {
+        return false;
+    }
+    matches!(
+        lower.as_bytes().get(account_lower.len()),
+        None | Some(b'.') | Some(b':')
+    )
+}
+
+/// Read the `preserve_underscores_in_hostname` opt-out flag.
+///
+/// `settings` is always a `ParamStore` already alias-resolved and type-coerced
+/// by `resolve_options` (via `resolver::resolve`), so the flag lives under its
+/// canonical key as a `Bool` — no alias fan-out or string coercion needed here.
+fn is_allow_underscores(settings: &dyn Settings) -> bool {
+    settings.get_bool_or(
+        param_names::PRESERVE_UNDERSCORES_IN_HOSTNAME.as_str(),
+        false,
+    )
+}
+
+/// Resolve, validate, and apply a batch of options to a settings map.
+///
+/// Calls [`resolve_options`] internally, rejects the batch if any errors are
+/// found, and returns only the warnings on success.
+pub fn resolve_and_apply_options(
+    wrapper: Wrapper,
+    settings: &mut ParamStore,
+    options: HashMap<String, Setting>,
+) -> Result<Vec<ValidationIssue>, ApiError> {
+    let (resolved, issues) = resolve_options(wrapper, options);
+
+    let error_messages: Vec<String> = issues
+        .iter()
+        .filter(|i| i.severity == ValidationSeverity::Error)
+        .map(|i| i.to_string())
+        .collect();
+
+    if !error_messages.is_empty() {
+        return InvalidArgumentSnafu {
+            argument: error_messages.join("; "),
+        }
+        .fail();
+    }
+
+    for (key, value) in resolved {
+        settings.insert(key, value);
+    }
+
+    Ok(issues
+        .into_iter()
+        .filter(|i| i.severity == ValidationSeverity::Warning)
+        .collect())
+}
+
+pub(crate) fn canonicalize_setting_key(
+    wrapper: Wrapper,
+    key: &str,
+) -> (String, Option<&'static param_registry::ParamDef>) {
+    let reg = param_registry::registry();
+    match reg.resolve_for(wrapper, key) {
+        Some(d) => (d.canonical_name.to_string(), Some(d)),
+        None => (key.to_string(), None),
+    }
+}
+
+pub(crate) fn validate_connection_seed_write(
+    post_connect: bool,
+    def: Option<&param_registry::ParamDef>,
+) -> Result<(), ApiError> {
+    let Some(d) = def else {
+        return Ok(());
+    };
+    if d.is_statement_only() {
+        return InvalidArgumentSnafu {
+            argument: format!(
+                "Parameter '{}' is statement-scoped; set it on a statement handle",
+                d.canonical_name
+            ),
+        }
+        .fail();
+    }
+    if post_connect {
+        if d.is_session_scoped() {
+            return InvalidArgumentSnafu {
+                argument: format!(
+                    "Parameter '{}' is session-scoped; use connection_set_session_option after connect",
+                    d.canonical_name
+                ),
+            }
+            .fail();
+        }
+        if !d.mutable_after_connect {
+            return InvalidArgumentSnafu {
+                argument: format!(
+                    "Parameter '{}' cannot be changed after connect",
+                    d.canonical_name
+                ),
+            }
+            .fail();
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_session_override_write(
+    def: Option<&param_registry::ParamDef>,
+) -> Result<(), ApiError> {
+    let Some(d) = def else {
+        return Ok(());
+    };
+    if !d.is_session_scoped() {
+        let argument = if d.is_statement_only() {
+            format!(
+                "Parameter '{}' is statement-scoped; set it on a statement handle",
+                d.canonical_name
+            )
+        } else {
+            format!(
+                "Parameter '{}' is connection-scoped; set it via connection options before connect",
+                d.canonical_name
+            )
+        };
+        return InvalidArgumentSnafu { argument }.fail();
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_statement_option_write(
+    def: Option<&param_registry::ParamDef>,
+) -> Result<(), ApiError> {
+    let Some(d) = def else {
+        return Ok(());
+    };
+    if !d.is_statement_scoped() {
+        return InvalidArgumentSnafu {
+            argument: format!(
+                "Parameter '{}' is not statement-scoped; set it on the connection or session",
+                d.canonical_name
+            ),
+        }
+        .fail();
+    }
+    Ok(())
+}
+
+/// Whether `key` has no entry in the param registry, under any alias.
+pub(crate) fn is_unregistered_param(key: &str) -> bool {
+    let registry = param_registry::registry();
+    !registry.is_known(key) && registry.resolve(key).is_none()
+}
+
+/// Collect string-typed settings whose keys are not recognized by the param
+/// registry. These are forwarded as session parameters at login time so that
+/// drivers can set arbitrary Snowflake session parameters (e.g. `QUERY_TAG`)
+/// via regular connection options.
+pub(crate) fn collect_unknown_settings(settings: &ParamStore) -> HashMap<String, String> {
+    settings
+        .iter()
+        .filter(|(key, _)| is_unregistered_param(key))
+        .filter_map(|(key, value)| {
+            let str_value = match value {
+                Setting::String(s) => s.clone(),
+                Setting::Int(i) => i.to_string(),
+                Setting::Bool(b) => b.to_string(),
+                Setting::Double(d) => d.to_string(),
+                Setting::Bytes(_) => return None,
+            };
+            Some((key.to_uppercase(), str_value))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test]
+    fn unknown_key_produces_warning() {
+        let mut options = HashMap::new();
+        options.insert(
+            "nonexistent_key".to_string(),
+            Setting::String("value".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Warning);
+        assert_eq!(issues[0].code, ValidationCode::UnknownParameter);
+        assert!(resolved.contains_key("nonexistent_key"));
+    }
+
+    #[test]
+    fn type_mismatch_produces_error() {
+        let mut options = HashMap::new();
+        options.insert("host".to_string(), Setting::Int(42));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Error);
+        assert_eq!(issues[0].code, ValidationCode::InvalidType);
+        assert!(!resolved.contains_key("host"));
+    }
+
+    #[test]
+    fn int_is_accepted_for_a_double_param() {
+        // Whole-number Double params arrive as Int from wrappers (e.g. Python's
+        // `retry_backoff_factor` default `2.0` renders as `2`). This must not be
+        // rejected as a type mismatch.
+        let mut options = HashMap::new();
+        options.insert("retry_backoff_factor".to_string(), Setting::Int(2));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(resolved.get("retry_backoff_factor"), Some(&Setting::Int(2)));
+    }
+
+    #[test]
+    fn alias_resolves_to_canonical_name() {
+        let mut options = HashMap::new();
+        options.insert(
+            "SERVER".to_string(),
+            Setting::String("myhost.example.com".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Odbc, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty());
+        assert!(resolved.contains_key("host"));
+        assert!(!resolved.contains_key("SERVER"));
+    }
+
+    #[test]
+    fn alias_does_not_resolve_for_a_wrapper_whose_old_driver_lacked_it() {
+        // `SERVER` is a legacy ODBC DSN key with no counterpart in
+        // snowflake-connector-python, so the Python flavor must treat it as an
+        // unknown parameter rather than silently setting `host`.
+        let mut options = HashMap::new();
+        options.insert(
+            "SERVER".to_string(),
+            Setting::String("myhost.example.com".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert!(!resolved.contains_key("host"));
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.severity == ValidationSeverity::Warning
+                    && i.code == ValidationCode::UnknownParameter
+                    && i.parameter == "SERVER"),
+            "expected an unknown-parameter warning for SERVER, got: {issues:?}"
+        );
+    }
+
+    #[test]
+    fn valid_options_produce_no_errors() {
+        let mut options = HashMap::new();
+        options.insert(
+            "account".to_string(),
+            Setting::String("myaccount".to_string()),
+        );
+        options.insert("user".to_string(), Setting::String("myuser".to_string()));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty());
+        assert_eq!(resolved.len(), 2);
+    }
+
+    #[test]
+    fn mixed_valid_and_invalid_options() {
+        let mut options = HashMap::new();
+        options.insert(
+            "account".to_string(),
+            Setting::String("myaccount".to_string()),
+        );
+        options.insert(
+            "port".to_string(),
+            Setting::String("not_a_number".to_string()),
+        );
+        options.insert(
+            "unknown_param".to_string(),
+            Setting::String("value".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 2);
+        let type_errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.code == ValidationCode::InvalidType)
+            .collect();
+        assert_eq!(type_errors.len(), 1);
+        let unknown_warnings: Vec<_> = issues
+            .iter()
+            .filter(|i| i.code == ValidationCode::UnknownParameter)
+            .collect();
+        assert_eq!(unknown_warnings.len(), 1);
+        assert!(resolved.contains_key("account"));
+        assert!(!resolved.contains_key("port"));
+        assert!(resolved.contains_key("unknown_param"));
+    }
+
+    #[test]
+    fn bool_type_accepted_for_bool_param() {
+        let mut options = HashMap::new();
+        options.insert("verify_hostname".to_string(), Setting::Bool(false));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty());
+        assert!(resolved.contains_key("verify_hostname"));
+    }
+
+    #[test]
+    fn string_port_coerced_to_int() {
+        let mut options = HashMap::new();
+        options.insert("port".to_string(), Setting::String("443".to_string()));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(resolved.get("port"), Some(&Setting::Int(443)));
+    }
+
+    #[test]
+    fn string_bool_coerced_to_bool() {
+        let mut options = HashMap::new();
+        options.insert(
+            "verify_hostname".to_string(),
+            Setting::String("true".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(resolved.get("verify_hostname"), Some(&Setting::Bool(true)));
+    }
+
+    #[test]
+    fn string_bool_case_insensitive() {
+        let mut options = HashMap::new();
+        options.insert(
+            "verify_hostname".to_string(),
+            Setting::String("FALSE".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(resolved.get("verify_hostname"), Some(&Setting::Bool(false)));
+    }
+
+    #[test]
+    fn unparseable_string_for_int_is_error() {
+        let mut options = HashMap::new();
+        options.insert("port".to_string(), Setting::String("abc".to_string()));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Error);
+        assert_eq!(issues[0].code, ValidationCode::InvalidType);
+        assert!(!resolved.contains_key("port"));
+    }
+
+    #[test]
+    fn unparseable_string_for_bool_is_error() {
+        let mut options = HashMap::new();
+        options.insert(
+            "verify_hostname".to_string(),
+            Setting::String("yes".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Error);
+        assert_eq!(issues[0].code, ValidationCode::InvalidType);
+        assert!(!resolved.contains_key("verify_hostname"));
+    }
+
+    #[test]
+    fn private_key_string_is_accepted() {
+        let mut options = HashMap::new();
+        options.insert(
+            "private_key".to_string(),
+            Setting::String("base64-encoded-key".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(
+            resolved.get("private_key"),
+            Some(&Setting::String("base64-encoded-key".to_string()))
+        );
+    }
+
+    #[test]
+    fn private_key_bytes_are_accepted() {
+        let mut options = HashMap::new();
+        options.insert(
+            "private_key".to_string(),
+            Setting::Bytes(vec![0x01, 0x02, 0x03]),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(
+            resolved.get("private_key"),
+            Some(&Setting::Bytes(vec![0x01, 0x02, 0x03]))
+        );
+    }
+
+    #[test]
+    fn private_key_invalid_type_lists_all_supported_types() {
+        let mut options = HashMap::new();
+        options.insert("private_key".to_string(), Setting::Int(7));
+
+        let (resolved, issues) = resolve_options(Wrapper::Python, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Error);
+        assert_eq!(issues[0].code, ValidationCode::InvalidType);
+        assert_eq!(
+            issues[0].message,
+            "Expected type String or Bytes for parameter 'private_key', got Int"
+        );
+        assert!(!resolved.contains_key("private_key"));
+    }
+
+    #[test]
+    fn duplicate_alias_and_canonical_key_is_error() {
+        // `PRIV_KEY_BASE64` is an ODBC-scoped alias for `private_key`, so this
+        // duplicate-detection case is exercised under the ODBC flavor.
+        let mut options = HashMap::new();
+        options.insert(
+            "PRIV_KEY_BASE64".to_string(),
+            Setting::String("dsn-key".to_string()),
+        );
+        options.insert(
+            "priv_key_base64".to_string(),
+            Setting::String("attr-key".to_string()),
+        );
+
+        let (_resolved, issues) = resolve_options(Wrapper::Odbc, options);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Error);
+        assert_eq!(issues[0].code, ValidationCode::ConflictingParameters);
+    }
+
+    #[test]
+    fn uid_and_user_together_uid_wins_with_warning() {
+        let mut options = HashMap::new();
+        options.insert("UID".to_string(), Setting::String("joe".to_string()));
+        options.insert("USER".to_string(), Setting::String("jane".to_string()));
+
+        let (resolved, issues) = resolve_options(Wrapper::Odbc, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Warning);
+        assert_eq!(issues[0].code, ValidationCode::ConflictingParameters);
+        assert!(
+            issues[0].message.contains("USER"),
+            "warning should mention the ignored key USER"
+        );
+        assert_eq!(
+            resolved.get("user"),
+            Some(&Setting::String("joe".to_string())),
+            "UID value should win"
+        );
+    }
+
+    #[test]
+    fn pwd_and_password_together_pwd_wins_with_warning() {
+        let mut options = HashMap::new();
+        options.insert("PWD".to_string(), Setting::String("s3cr3t".to_string()));
+        options.insert("PASSWORD".to_string(), Setting::String("other".to_string()));
+
+        let (resolved, issues) = resolve_options(Wrapper::Odbc, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Warning);
+        assert_eq!(issues[0].code, ValidationCode::ConflictingParameters);
+        assert!(
+            issues[0].message.contains("PASSWORD"),
+            "warning should mention the ignored key PASSWORD"
+        );
+        assert_eq!(
+            resolved.get("password"),
+            Some(&Setting::String("s3cr3t".to_string())),
+            "PWD value should win"
+        );
+    }
+
+    #[test]
+    fn server_and_host_together_server_wins_with_warning() {
+        let mut options = HashMap::new();
+        options.insert(
+            "SERVER".to_string(),
+            Setting::String("dsn.example.com".to_string()),
+        );
+        options.insert(
+            "host".to_string(),
+            Setting::String("attr.example.com".to_string()),
+        );
+
+        let (resolved, issues) = resolve_options(Wrapper::Odbc, options);
+
+        let errors: Vec<_> = issues
+            .iter()
+            .filter(|i| i.severity == ValidationSeverity::Error)
+            .collect();
+        assert!(errors.is_empty(), "unexpected errors: {errors:?}");
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].severity, ValidationSeverity::Warning);
+        assert_eq!(issues[0].code, ValidationCode::ConflictingParameters);
+        assert!(
+            issues[0].message.contains("host"),
+            "warning should mention the ignored key host"
+        );
+        assert_eq!(
+            resolved.get("host"),
+            Some(&Setting::String("dsn.example.com".to_string())),
+            "SERVER value should win"
+        );
+    }
+
+    #[test]
+    fn login_timeout_resolves_by_configuration_flavor() {
+        let mut odbc_opts = HashMap::new();
+        odbc_opts.insert("LOGIN_TIMEOUT".to_string(), Setting::Int(30));
+        let (odbc_resolved, odbc_issues) = resolve_options(Wrapper::Odbc, odbc_opts);
+        assert!(
+            odbc_issues
+                .iter()
+                .all(|i| i.severity != ValidationSeverity::Error),
+            "{odbc_issues:?}"
+        );
+        // ODBC's `LOGIN_TIMEOUT` resolves to the `authentication_timeout` Okta
+        // budget (the deliberate scoped-alias shadow), so the canonical
+        // `login_timeout` is unreachable from here. The outer login wrap picks
+        // it up from the `authentication_timeout` mirror applied a layer later,
+        // in `resolver::resolve_for_wrapper`.
+        assert_eq!(
+            odbc_resolved.get("authentication_timeout"),
+            Some(&Setting::Int(30))
+        );
+        assert!(!odbc_resolved.contains_key("login_timeout"));
+
+        let mut jdbc_opts = HashMap::new();
+        jdbc_opts.insert("LOGIN_TIMEOUT".to_string(), Setting::Int(30));
+        let (jdbc_resolved, jdbc_issues) = resolve_options(Wrapper::Jdbc, jdbc_opts);
+        assert!(
+            jdbc_issues
+                .iter()
+                .all(|i| i.severity != ValidationSeverity::Error),
+            "{jdbc_issues:?}"
+        );
+        assert!(jdbc_resolved.contains_key("login_timeout"));
+        assert!(!jdbc_resolved.contains_key("authentication_timeout"));
+    }
+
+    #[test_case("abc_test", "host", "abc_test.us-east-1.snowflakecomputing.com", "abc-test.us-east-1.snowflakecomputing.com" ; "host")]
+    #[test_case("ABC_Test", "host", "abc_test.snowflakecomputing.com", "abc-test.snowflakecomputing.com" ; "host case insensitive")]
+    #[test_case("foo_account_test_1", "host", "foo_account_test_1.snowflakecomputing.com", "foo-account-test-1.snowflakecomputing.com" ; "host multiple underscores")]
+    #[test_case("org-account_test_1", "host", "org-account_test_1.snowflakecomputing.com", "org-account-test-1.snowflakecomputing.com" ; "host org-account regionless")]
+    #[test_case("abc_test", "server_url", "https://abc_test.snowflakecomputing.com", "https://abc-test.snowflakecomputing.com" ; "server_url")]
+    #[test_case("abc_test", "server_url", "https://abc_test.snowflakecomputing.com:443", "https://abc-test.snowflakecomputing.com:443" ; "server_url with port")]
+    fn normalizes_underscores(account: &str, key: &str, input: &str, expected: &str) {
+        let mut settings = HashMap::new();
+        settings.insert("account".to_string(), Setting::String(account.to_string()));
+        settings.insert(key.to_string(), Setting::String(input.to_string()));
+
+        normalize_host_underscores(&mut settings);
+
+        assert_eq!(
+            Settings::get(&settings, key),
+            Some(Setting::String(expected.to_string())),
+        );
+        assert_eq!(
+            Settings::get(&settings, "account"),
+            Some(Setting::String(account.to_string())),
+        );
+    }
+
+    #[test_case("myaccount", Some("myaccount.snowflakecomputing.com"), None ; "no underscore in account")]
+    #[test_case("abc_test", Some("192.168.1.1"), None ; "host not starting with account")]
+    #[test_case("abc_test", None, None ; "no host or server_url set")]
+    #[test_case("abc_test", None, Some("https://custom-host.example.com") ; "server_url not matching account")]
+    #[test_case("abc_test", Some("abc_test2.snowflakecomputing.com"), None ; "account is only a prefix of host label")]
+    #[test_case("abc_test", None, Some("https://abc_test2.snowflakecomputing.com") ; "account is only a prefix of server_url label")]
+    fn skips_normalization(account: &str, host: Option<&str>, server_url: Option<&str>) {
+        let mut settings = HashMap::new();
+        settings.insert("account".to_string(), Setting::String(account.to_string()));
+        if let Some(h) = host {
+            settings.insert("host".to_string(), Setting::String(h.to_string()));
+        }
+        if let Some(u) = server_url {
+            settings.insert("server_url".to_string(), Setting::String(u.to_string()));
+        }
+
+        normalize_host_underscores(&mut settings);
+
+        assert_eq!(
+            Settings::get(&settings, "host"),
+            host.map(|h| Setting::String(h.to_string())),
+        );
+        assert_eq!(
+            Settings::get(&settings, "server_url"),
+            server_url.map(|u| Setting::String(u.to_string())),
+        );
+    }
+
+    #[test_case("preserve_underscores_in_hostname", Setting::Bool(true) ; "bool on canonical key")]
+    #[test_case("preserve_underscores_in_hostname", Setting::String("true".to_string()) ; "string on canonical key")]
+    fn opt_out_skips_normalization(key: &str, value: Setting) {
+        let mut settings = HashMap::new();
+        settings.insert(
+            "account".to_string(),
+            Setting::String("abc_test".to_string()),
+        );
+        settings.insert(
+            "host".to_string(),
+            Setting::String("abc_test.snowflakecomputing.com".to_string()),
+        );
+        settings.insert(key.to_string(), value);
+
+        normalize_host_underscores(&mut settings);
+
+        assert_eq!(
+            Settings::get(&settings, "host"),
+            Some(Setting::String(
+                "abc_test.snowflakecomputing.com".to_string()
+            )),
+        );
+    }
+
+    #[test]
+    fn collect_unknown_settings_returns_only_unregistered_keys() {
+        let mut store = ParamStore::new();
+        // Known key — should NOT appear in result
+        store.insert(
+            "host".to_string(),
+            Setting::String("example.com".to_string()),
+        );
+        // Unknown string key — should appear uppercased
+        store.insert(
+            "some_string_key".to_string(),
+            Setting::String("my_val".to_string()),
+        );
+        // Unknown non-string keys — should be stringified
+        store.insert("some_int_key".to_string(), Setting::Int(42));
+        store.insert("some_bool_key".to_string(), Setting::Bool(true));
+
+        let unknown = collect_unknown_settings(&store);
+
+        assert_eq!(unknown.len(), 3);
+        assert_eq!(unknown.get("SOME_STRING_KEY"), Some(&"my_val".to_string()));
+        assert_eq!(unknown.get("SOME_INT_KEY"), Some(&"42".to_string()));
+        assert_eq!(unknown.get("SOME_BOOL_KEY"), Some(&"true".to_string()));
+        assert!(!unknown.contains_key("host"));
+        assert!(!unknown.contains_key("HOST"));
+    }
+
+    #[test]
+    fn collect_unknown_settings_forwards_gcs_use_downscoped_credential() {
+        let mut store = ParamStore::new();
+        store.insert(
+            "gcs_use_downscoped_credential".to_string(),
+            Setting::String("true".to_string()),
+        );
+
+        let unknown = collect_unknown_settings(&store);
+
+        assert_eq!(
+            unknown.get("GCS_USE_DOWNSCOPED_CREDENTIAL"),
+            Some(&"true".to_string())
+        );
+    }
+
+    #[test]
+    fn collect_unknown_settings_excludes_wrapper_restricted_canonicals() {
+        let mut store = ParamStore::new();
+        store.insert("put_fastfail".to_string(), Setting::Bool(true));
+        store.insert(
+            "some_string_key".to_string(),
+            Setting::String("my_val".to_string()),
+        );
+
+        let unknown = collect_unknown_settings(&store);
+
+        assert_eq!(unknown.len(), 1);
+        assert_eq!(unknown.get("SOME_STRING_KEY"), Some(&"my_val".to_string()));
+        assert!(!unknown.contains_key("PUT_FASTFAIL"));
+    }
+}

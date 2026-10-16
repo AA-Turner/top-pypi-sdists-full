@@ -10,6 +10,8 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from abx_plugins.plugins.base.utils import build_request
+
 
 class NeedsLogin(Exception):
     pass
@@ -35,6 +37,33 @@ def read_request():
 
 def read_records(lines, request, on_progress=None):
     """Validate the same JSONL boundary for host ingestion and learned-script replay."""
+    expected_account = request.get("expected_account", {})
+    if not isinstance(expected_account, dict) or (
+        expected_account
+        and (
+            not isinstance(expected_account.get("id"), str)
+            or not 1 <= len(expected_account["id"]) <= 1024
+        )
+    ):
+        raise ValueError(
+            "expected_account must be an object with a bounded stable string ID.",
+        )
+    preview_count = request.get("preview_count", 0)
+    if type(preview_count) is not int or not 0 <= preview_count <= 500:
+        raise ValueError("Preview item count must be an integer between 0 and 500.")
+    delivered = request.get("delivered_ids", [])
+    if (
+        not isinstance(delivered, list)
+        or len(delivered) > 500
+        or any(
+            not isinstance(value, str) or not 1 <= len(value) <= 1024
+            for value in delivered
+        )
+    ):
+        raise ValueError(
+            "Delivered item IDs must be a bounded list of stable string IDs.",
+        )
+    seen = set(delivered)
     size = count = 0
     finished = False
     for line in lines:
@@ -76,6 +105,11 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer returned invalid item metadata.")
+            if record["id"] in seen:
+                raise ValueError(
+                    "Importer re-emitted an item ID already delivered in this or the preceding batch.",
+                )
+            seen.add(record["id"])
         elif kind == "ImporterResult":
             if record.get("status") not in {"succeeded", "needs_login", "failed"}:
                 raise ValueError("Importer returned an unknown result status.")
@@ -92,6 +126,36 @@ def read_records(lines, request, on_progress=None):
                 dict,
             ):
                 raise ValueError("Importer checkpoint and account must be objects.")
+            if (
+                record["status"] == "succeeded"
+                and expected_account
+                and record.get("account", {}).get("id") != expected_account["id"]
+            ):
+                raise ValueError(
+                    "The importer changed expected_account.id. Verify the signed-in session "
+                    "and preserve its pinned stable ID; progress was not advanced.",
+                )
+            if (
+                record["status"] == "succeeded"
+                and request["action"] == "preview"
+                and record.get("has_more") is True
+                and not count
+            ):
+                raise ValueError(
+                    "The preview returned no items while reporting more history. "
+                    "Discover a sample before reporting success.",
+                )
+            if (
+                record["status"] == "succeeded"
+                and request["action"] == "import"
+                and not request.get("checkpoint", {})
+                and preview_count
+                and not count
+            ):
+                raise ValueError(
+                    "The initial import returned no items after a nonempty preview. "
+                    "Recheck the source; progress was not advanced.",
+                )
             if (
                 record["status"] == "succeeded"
                 and request["action"] == "import"
@@ -122,7 +186,8 @@ def fetch(url, *, authenticated=False):
     ):
         cookies.load(cookie_file, ignore_discard=True, ignore_expires=False)
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cookies))
-    request = urllib.request.Request(
+    # Feed and sheet URLs may be IRIs or carry credentials (user:pw@host).
+    request = build_request(
         url,
         headers={"User-Agent": os.environ.get("USER_AGENT") or "ArchiveBox importer"},
     )

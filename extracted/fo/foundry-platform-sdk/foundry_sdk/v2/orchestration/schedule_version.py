@@ -67,6 +67,9 @@ class ScheduleVersionClient:
     ) -> orchestration_models.ScheduleVersion:
         """
         Get the ScheduleVersion with the specified rid.
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_version_rid: The RID of a schedule version
         :type schedule_version_rid: ScheduleVersionRid
         :param preview: Enables the use of preview functionality.
@@ -114,6 +117,9 @@ class ScheduleVersionClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Optional[orchestration_models.Schedule]:
         """
+
+
+        Required scopes: [api:orchestration-read]
 
         :param schedule_version_rid: The RID of a schedule version
         :type schedule_version_rid: ScheduleVersionRid
@@ -207,6 +213,9 @@ class AsyncScheduleVersionClient:
     ) -> typing.Awaitable[orchestration_models.ScheduleVersion]:
         """
         Get the ScheduleVersion with the specified rid.
+
+        Required scopes: [api:orchestration-read]
+
         :param schedule_version_rid: The RID of a schedule version
         :type schedule_version_rid: ScheduleVersionRid
         :param preview: Enables the use of preview functionality.
@@ -254,6 +263,9 @@ class AsyncScheduleVersionClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[typing.Optional[orchestration_models.Schedule]]:
         """
+
+
+        Required scopes: [api:orchestration-read]
 
         :param schedule_version_rid: The RID of a schedule version
         :type schedule_version_rid: ScheduleVersionRid

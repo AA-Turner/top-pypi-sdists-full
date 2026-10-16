@@ -85,6 +85,33 @@ pub fn parse_image_formats(params: &HashMap<String, String>, log_prefix: &str) -
 }
 
 // ---------------------------------------------------------------------------
+// parse_client_size
+// ---------------------------------------------------------------------------
+
+/// Read the width and height out of a client `size` instruction's arguments.
+///
+/// The two directions of `size` do not have the same shape. Server to client it is
+/// `size,<layer>,<width>,<height>`, because the instruction names the layer to resize.
+/// Client to server it is `size,<width>,<height>`: `guacamole-common-js`'s
+/// `sendSize(width, height)` sends exactly two elements, and so does guacd's own
+/// `guac_user_size_handler`. A handler that reads width from `args[1]` therefore never
+/// sees a resize from a real browser at all — the instruction arrives with two arguments,
+/// fails the arity check and is dropped in silence.
+///
+/// Both forms are accepted here: three or more arguments are read as the layer form and
+/// the layer is discarded, two are read as the client form. Returns `None` when there are
+/// too few arguments or either dimension is not a number, which is the caller's signal to
+/// ignore the instruction.
+pub fn parse_client_size(args: &[&str]) -> Option<(u32, u32)> {
+    let (width, height) = match args.len() {
+        0 | 1 => return None,
+        2 => (args[0], args[1]),
+        _ => (args[1], args[2]),
+    };
+    Some((width.parse().ok()?, height.parse().ok()?))
+}
+
+// ---------------------------------------------------------------------------
 // parse_sftp_config
 // ---------------------------------------------------------------------------
 

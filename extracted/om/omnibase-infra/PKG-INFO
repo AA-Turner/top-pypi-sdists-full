@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omnibase_infra
-Version: 0.38.72
+Version: 0.38.73
 Summary: ONEX Infrastructure - Service integration and database infrastructure tools
 Author-email: "OmniNode.ai" <contact@omninode.ai>
 License: MIT
@@ -10,14 +10,14 @@ Requires-Dist: a2a-sdk<2.0.0,>=0.3.4
 Requires-Dist: aiofiles<26.0.0,>=23.2.1
 Requires-Dist: aiohttp<4.0.0,>=3.14.3
 Requires-Dist: aiokafka[snappy]<0.15.0,>=0.11.0
-Requires-Dist: asyncpg<0.32.0,>=0.29.0
+Requires-Dist: asyncpg<0.33.0,>=0.29.0
 Requires-Dist: aws-msk-iam-sasl-signer-python<2.0.0,>=1.0.2
 Requires-Dist: circuitbreaker<3.0.0,>=2.0.0
 Requires-Dist: click<9.0.0,>=8.3.3
 Requires-Dist: confluent-kafka<3.0.0,>=2.12.0
 Requires-Dist: cryptography<51.0.0,>=46.0.3
 Requires-Dist: dependency-injector<5.0.0,>=4.48.1
-Requires-Dist: fastapi<0.143.0,>=0.120.1
+Requires-Dist: fastapi<0.144.0,>=0.120.1
 Requires-Dist: grpcio<2.0.0,>=1.62.0
 Requires-Dist: httpx<0.29.0,>=0.28.1
 Requires-Dist: infisicalsdk<2.0.0,>=1.0.15
@@ -201,6 +201,9 @@ make local-env
 # the /v1/chat/completions URL of an OpenAI-compatible server that serves the
 # model id omnimarket's routing contract declares (Qwen3.8-27B today).
 
+# Delegation refuses to run ("never minted a tenant identity") while the env
+# file names no tenant; this generates one into ~/.omnibase/local.env.
+make tenant-local
 make up-local        # builds the runtime image and boots everything
 make status-local    # migration gate, both runtime /health bodies, delegate consumer
 make delegate-local PROMPT="Reply with exactly one word: hello"

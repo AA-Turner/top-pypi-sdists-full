@@ -61,6 +61,67 @@ fn test_keepalive_manager_frame_counter() {
     );
 }
 
+/// A keepalive must fire on every interval deadline, not every other one.
+///
+/// Every call site drives `check()` from a `tokio::time::interval` of the same period, so
+/// the deadlines are at t=5, t=10, t=15 — but a tick is always observed a little *after* its
+/// deadline. If the schedule restarts from the moment of sending rather than from the
+/// deadline, the next tick is a fraction of a millisecond too early, `check()` rejects it,
+/// and the effective keepalive period doubles: 10s instead of the documented 5s. Dead-viewer
+/// detection is built on that interval, so the drift is not cosmetic.
+#[tokio::test(start_paused = true)]
+async fn test_keepalive_manager_fires_on_every_interval_deadline() {
+    use std::time::Duration;
+
+    let mut manager = KeepAliveManager::new(5);
+
+    // The first tick, observed 1ms after its deadline.
+    tokio::time::advance(Duration::from_secs(5) + Duration::from_millis(1)).await;
+    assert!(
+        manager.check().is_some(),
+        "a keepalive is due at the first interval deadline"
+    );
+
+    // The second deadline is at t=10, which is only 4999ms after that send.
+    tokio::time::advance(Duration::from_millis(4999)).await;
+    assert!(
+        manager.check().is_some(),
+        "the second deadline must produce a keepalive — rejecting it halves the keepalive rate"
+    );
+
+    // And the third, to show the schedule does not accumulate the correction.
+    tokio::time::advance(Duration::from_secs(5)).await;
+    assert!(
+        manager.check().is_some(),
+        "the third deadline must produce a keepalive"
+    );
+}
+
+/// A long stall must not produce a burst of catch-up keepalives.
+///
+/// Every call site sets `MissedTickBehavior::Skip` on its interval, so missed deadlines are
+/// dropped rather than replayed. The manager has to agree: a session that was blocked for a
+/// minute owes the client one ping, not twelve.
+#[tokio::test(start_paused = true)]
+async fn test_keepalive_manager_skips_missed_deadlines() {
+    use std::time::Duration;
+
+    let mut manager = KeepAliveManager::new(5);
+
+    tokio::time::advance(Duration::from_secs(60)).await;
+    assert!(manager.check().is_some(), "the overdue keepalive is sent");
+    assert!(
+        manager.check().is_none(),
+        "missed deadlines are skipped, not replayed as a burst"
+    );
+
+    tokio::time::advance(Duration::from_secs(5)).await;
+    assert!(
+        manager.check().is_some(),
+        "the schedule resumes from the catch-up point"
+    );
+}
+
 #[test]
 fn test_connection_options_default() {
     let opts = ConnectionOptions::default();

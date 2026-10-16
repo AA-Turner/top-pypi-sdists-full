@@ -2019,7 +2019,7 @@ PyDoc_STRVAR(canonicalize_doc, "canonicalize(options=None)\n--\n\n"
                                "by namespace URI and local name), redundant namespace declarations are\n"
                                "dropped, empty elements are written as start-end pairs, and the c14n\n"
                                "character-reference rules apply. The whole subtree is canonicalized, so\n"
-                               "c14n 1.0 and 1.1 coincide here bar the apex's inherited xml: attributes.\n\n"
+                               "c14n 1.1 fixes inherited xml:base values across omitted ancestors.\n\n"
                                ":param options: a Canonical configuration object (version, exclusive,\n"
                                "    with_comments, inclusive_ns_prefixes), or None for the defaults.\n"
                                ":returns: the canonical XML, encoded as UTF-8 bytes.\n"
@@ -2290,7 +2290,7 @@ static int resolve_layout(module_state *state, PyObject *layout_obj, enum th_lay
    encode); it is borrowed only for the duration of the call. */
 static PyObject *node_serialize_str(PyObject *self, PyObject *formatter_obj, PyObject *layout_obj, int sort_attributes,
                                     int meta_charset, int xml, const char *charset, int inner) {
-    th_serialize_opts opts = {0, sort_attributes, meta_charset, charset, (Py_ssize_t)strlen(charset), xml, inner};
+    th_serialize_opts opts = {0, sort_attributes, meta_charset, charset, (Py_ssize_t)strlen(charset), xml, inner, NULL};
     if (resolve_formatter(state_of(self), formatter_obj, &opts.formatter) < 0) {
         return NULL;
     }
@@ -2451,6 +2451,13 @@ static int parse_canonical_spec(PyObject *spec, th_c14n_opts *opts, const char *
     return 0;
 }
 
+static Py_NO_INLINE PyObject *canonicalize_failed(void) {
+    if (PyErr_Occurred()) { /* GCOVR_EXCL_BR_LINE: only allocation failure has no pending exception */
+        return NULL;
+    }
+    return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+}
+
 static PyObject *node_canonicalize_from_spec(PyObject *self, PyObject *spec) {
     th_c14n_opts opts = {0, 0, 0, NULL, 0};
     const char **inclusive_utf8;
@@ -2464,8 +2471,8 @@ static PyObject *node_canonicalize_from_spec(PyObject *self, PyObject *spec) {
     data = th_node_canonicalize(tree_of(self), ((NodeObject *)self)->node, &opts, &out_len);
     Py_END_CRITICAL_SECTION();
     PyMem_Free(inclusive_utf8);
-    if (data == NULL) {          /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (data == NULL) {
+        return canonicalize_failed();
     }
     PyObject *text = ucs4_to_str(data, out_len);
     PyMem_Free(data);
@@ -2526,7 +2533,7 @@ TH_NODE_API(static, PyObject *, node_to_source, (PyObject * self, PyObject *igno
 static PyObject *node_make_serialize_iter(PyObject *self, PyObject *formatter_obj, PyObject *layout_obj,
                                           int sort_attributes, int meta_charset, int xml, int inner) {
     module_state *state = state_of(self);
-    th_serialize_opts opts = {0, sort_attributes, meta_charset, "utf-8", (Py_ssize_t)strlen("utf-8"), xml, inner};
+    th_serialize_opts opts = {0, sort_attributes, meta_charset, "utf-8", (Py_ssize_t)strlen("utf-8"), xml, inner, NULL};
     if (resolve_formatter(state, formatter_obj, &opts.formatter) < 0) {
         return NULL;
     }

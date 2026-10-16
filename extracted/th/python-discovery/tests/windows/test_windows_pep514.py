@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import subprocess
 import sys
 import textwrap
+from pathlib import Path
+from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from pytest_mock import MockerFixture
 
 
 @pytest.mark.usefixtures("_mock_registry")
@@ -154,3 +166,66 @@ def test_pep514_run(capsys: pytest.CaptureFixture[str], caplog: pytest.LogCaptur
         f"{prefix}HKEY_CURRENT_USER/PythonCore/3.X error: invalid format 3.X",
     ]
     assert caplog.messages == expected_logs
+
+
+@pytest.fixture
+def load_exe_with_args(mocker: MockerFixture) -> Callable[[object], tuple[str, str | None] | None]:
+    from python_discovery._windows import _pep514 as pep514
+
+    mocker.patch.object(pep514.winreg, "OpenKeyEx", return_value=MagicMock())
+    mocker.patch.object(pep514, "_resolve_exe", return_value=r"C:\py.exe")
+    mocker.patch.object(pep514.os.path, "exists", return_value=True)
+
+    def load(registered: object) -> tuple[str, str | None] | None:
+        mocker.patch.object(pep514, "get_value", return_value=registered)
+        return pep514.load_exe("HKCU", "PythonCore", MagicMock(), "3.11")
+
+    return load
+
+
+@pytest.mark.usefixtures("_mock_registry")
+@pytest.mark.parametrize(
+    ("registered", "expected"),
+    [
+        pytest.param('-3.11 --config "a b"', '-3.11 --config "a b"', id="kept"),
+        pytest.param(None, None, id="missing"),
+        pytest.param("", None, id="empty"),
+        pytest.param("   ", None, id="blank"),
+    ],
+)
+def test_pep514_loads_executable_arguments(
+    load_exe_with_args: Callable[[object], tuple[str, str | None] | None], registered: str | None, expected: str | None
+) -> None:
+    assert load_exe_with_args(registered) == (r"C:\py.exe", expected)
+
+
+@pytest.mark.usefixtures("_mock_registry")
+def test_pep514_rejects_non_string_executable_arguments(
+    load_exe_with_args: Callable[[object], tuple[str, str | None] | None],
+) -> None:
+    assert load_exe_with_args(42) is None
+
+
+@pytest.mark.skipif(sys.platform != "win32" or shutil.which("py") is None, reason="requires the Windows launcher")
+def test_pep514_launcher_arguments_select_interpreter(mocker: MockerFixture, tmp_path: Path) -> None:
+    from python_discovery import DiskCache, PythonSpec
+    from python_discovery._windows import _propose
+
+    launcher = shutil.which("py")
+    assert launcher is not None
+    script = (
+        "import json, struct, sys; print(json.dumps([sys.executable, *sys.version_info[:2], struct.calcsize('P') * 8]))"
+    )
+    probe = subprocess.run([launcher, "-3.11", "-c", script], capture_output=True, text=True, check=False)
+    if probe.returncode:
+        pytest.skip("the launcher cannot select 3.11")  # ty: ignore[too-many-positional-arguments]  # ty ships a stale pytest stub for 3.9
+    selected, major, minor, arch = json.loads(probe.stdout)
+    mocker.patch.object(
+        _propose, "discover_pythons", return_value=[("PythonCore", major, minor, arch, False, launcher, "-3.11")]
+    )
+
+    info = next(
+        _propose.propose_interpreters(PythonSpec.from_string_spec("python3.11"), DiskCache(tmp_path), os.environ)
+    )
+
+    assert Path(info.executable).samefile(selected)

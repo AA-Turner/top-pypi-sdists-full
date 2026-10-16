@@ -60,6 +60,7 @@ from datamodel_code_generator._source import (
 from datamodel_code_generator._source import (
     _read_parser_source_data_from_path as _read_parser_source_data_from_path,
 )
+from datamodel_code_generator._url_redaction import redact_path, redact_url
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
     MAX_VERSION,
@@ -71,6 +72,9 @@ from datamodel_code_generator.enums import (
     AllOfMergeMode,
     AsyncAPIVersion,
     ClassNameAffixScope,
+    ClientBodyArguments,
+    ClientSignatureStyle,
+    ClientType,
     CollapseRootModelsNameStrategy,
     CustomFileHeaderMode,
     DataclassArguments,
@@ -90,6 +94,10 @@ from datamodel_code_generator.enums import (
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
     SchemaValidatorType,
+    ServerBodyMode,
+    ServerHandlerMode,
+    ServerLayout,
+    ServerType,
     TargetPydanticVersion,
     VersionMode,
     XMLSchemaVersion,
@@ -117,6 +125,7 @@ if TYPE_CHECKING:
     )
     from datamodel_code_generator._generation_contract import GenerationCaptureSession, OpenAPIParserFactory
     from datamodel_code_generator._parser_context import ParserSourceContext
+    from datamodel_code_generator._project_config import load_pyproject_config
     from datamodel_code_generator._publication import PublicationAnchor
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._types import (
@@ -163,18 +172,19 @@ def _tuned_gc() -> Iterator[None]:
     """Raise the young-generation GC threshold while one generation run is in progress.
 
     Process-global by nature: only the outermost concurrent caller changes and restores the
-    threshold, nested or parallel calls are counted, and a host that disabled GC is left alone.
+    threshold, nested or parallel calls are counted, and a host that disabled GC is left alone, as is a runtime
+    such as PyPy whose gc module has no threshold API.
     """
     global _gc_saved_threshold  # noqa: PLW0603
 
     with _gc_tuning_lock:
         match _gc_tuning_depth[0]:
-            case 0 if gc.isenabled():
+            case 0 if gc.isenabled() and hasattr(gc, "get_threshold"):
                 _gc_saved_threshold = gc.get_threshold()
                 gc.set_threshold(_GC_YOUNG_THRESHOLD, *_gc_saved_threshold[1:])
                 _gc_tuning_depth[0] = 1
             case 0:
-                # Negative depth records scopes entered while the host disabled GC.
+                # Negative depth records scopes entered while GC is disabled or its threshold is not tunable.
                 _gc_tuning_depth[0] = -1
             case depth:
                 _gc_tuning_depth[0] = depth + (1 if depth > 0 else -1)
@@ -227,11 +237,15 @@ if TYPE_CHECKING:
         bool,
         RemoteReferenceLock | None,
     ]
+
+    class _SharedParserConfigDict(ParserConfigDict, closed=True):
+        """Parser options every input type accepts, closed so they extend each closed parser config."""
+
     _PreparedParser: TypeAlias = tuple[
         DataModelSet,
         _ParserSource,
         bool,
-        ParserConfigDict,
+        _SharedParserConfigDict,
         _PythonTypeExpressions | None,
     ]
     _ParsedGeneration: TypeAlias = tuple[_ParserResults, ModelMetadata | None, DataModelSet, bool]
@@ -241,7 +255,7 @@ GeneratedModules: TypeAlias = dict[tuple[str, ...], str]
 """Type alias for multiple generated modules.
 
 Maps module path tuples (e.g., ("models", "user.py")) to generated code strings.
-Returned by generate() when output=None and multiple modules are generated.
+Returned by generate() when output=None and multiple modules are generated, or a server or client package.
 """
 
 
@@ -561,6 +575,14 @@ class DefaultValueTypeWarning(UserWarning):
     """Warn that a generated default is still serialized instead of its runtime type."""
 
 
+class DocumentationAnnotationWarning(UserWarning):
+    """Warn that a served document leaves out an annotation that has no JSON form."""
+
+
+class LeftoverFilesWarning(UserWarning):
+    """Warn that a generated package holds Python files that the generation left in place and does not generate."""
+
+
 class InvalidClassNameError(Error):
     """Raised when a schema title cannot be converted to a valid Python class name."""
 
@@ -599,8 +621,11 @@ def _apply_missing_sentinel_config(config: GenerateConfig) -> GenerateConfig:
     if not config.use_missing_sentinel:
         return config
 
-    if config.output_model_type is not DataModelType.PydanticV2BaseModel:
-        msg = "`--use-missing-sentinel` is only supported for `--output-model-type pydantic_v2.BaseModel`"
+    if config.output_model_type not in {DataModelType.PydanticV2BaseModel, DataModelType.PydanticV2Dataclass}:
+        msg = (
+            "`--use-missing-sentinel` is only supported for `--output-model-type pydantic_v2.BaseModel` "
+            "or `pydantic_v2.dataclass`"
+        )
         raise Error(msg)
 
     match target_version := config.target_pydantic_version:
@@ -636,7 +661,7 @@ class InvalidFileFormatError(Error):
         self.input_file_type = input_file_type
         self.source = source
         error_detail = f"{type(original_error).__name__}: {original_error}"
-        source_detail = f" at {source}" if source is not None else ""
+        source_detail = f" at {redact_url(str(source))}" if source is not None else ""
         if input_file_type is not None:
             message = f"Invalid file format for {input_file_type.value}{source_detail}: {error_detail}"
         else:
@@ -662,7 +687,7 @@ class SchemaParseError(Error):
     def _format_message(self, message: str) -> str:
         """Format message with schema path context."""
         if self.path:
-            path_str = "/".join(self.path)
+            path_str = redact_path(self.path)
             return f"Error at schema path '{path_str}': {message}"
         return message
 
@@ -686,6 +711,17 @@ def get_first_file(path: Path) -> Path:  # pragma: no cover
     raise FileNotFoundError(msg)
 
 
+def _is_comment_only_source(source: str) -> bool:
+    """Return whether every physical line is blank or a comment.
+
+    Split only at CR/LF: ``splitlines()`` adds Unicode boundaries the tokenizer does not treat as line breaks.
+    """
+    return all(
+        not (content := line.lstrip(" \t\f")) or content.startswith("#")
+        for line in source.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    )
+
+
 def _find_future_import_insertion_point(header: str) -> int:  # noqa: PLR0911, PLR0912, PLR0915
     """Find the future-import position without crossing into target-version syntax.
 
@@ -706,12 +742,7 @@ def _find_future_import_insertion_point(header: str) -> int:  # noqa: PLR0911, P
             return header_size
         # Keep the speculative scan bounded: a comment-prefixed code header
         # must not pay an unbounded second pass before runtime tokenization.
-        # Do not use splitlines(): its extra Unicode boundaries are not the
-        # physical CR/LF boundaries normalized by the tokenizer adapter.
-        if header[first_content] == "#" and all(
-            not (content := line.lstrip(" \t\f")) or content.startswith("#")
-            for line in header.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-        ):
+        if header[first_content] == "#" and _is_comment_only_source(header):
             return header_size
 
     import io  # noqa: PLC0415
@@ -815,7 +846,7 @@ def _format_file_header(
     """Format a per-file header, skipping all work for replace mode."""
     if header_suffix is None:
         return header_prefix
-    safe_filename = filename.replace("\n", " ").replace("\r", " ") if filename else ""
+    safe_filename = redact_url(filename).replace("\n", " ").replace("\r", " ") if filename else ""
     return f"{header_prefix}{safe_filename}{header_suffix}"
 
 
@@ -844,15 +875,22 @@ def _build_file_header_parts(custom_file_header: str | None, config: GenerateCon
     return header_prefix, header_suffix
 
 
-def _extract_leading_future_imports(body: str, future_imports: str) -> tuple[str, str]:
-    """Extract generated future imports after leading comments or a module docstring."""
+def _extract_leading_future_imports(body: str, future_imports: str, header: str) -> tuple[str, str]:
+    """Extract generated future imports after leading comments or a module docstring.
+
+    A body docstring stays the module docstring under a comment-only header, so nothing is extracted then.
+    """
     future_start = 0
     while (
         not body.startswith("from __future__ import ", future_start)
         and (line_end := body.find("\n", future_start)) >= 0
     ):
         if (leading_line := body[future_start:line_end].lstrip()) and not leading_line.startswith("#"):
-            future_start = _find_future_import_insertion_point(body)
+            if (insertion_point := _find_future_import_insertion_point(body)) > future_start and (
+                _is_comment_only_source(header)
+            ):
+                return body, ""
+            future_start = insertion_point
             break
         future_start = line_end + 1
     if not body.startswith("from __future__ import ", future_start):
@@ -886,7 +924,7 @@ def _build_module_content(
         return f"{header}\n\n{body.rstrip()}"
 
     # Custom formatters may add comments or a module docstring before the import.
-    body_without_future, extracted_future = _extract_leading_future_imports(body, future_imports)
+    body_without_future, extracted_future = _extract_leading_future_imports(body, future_imports, header)
 
     if not extracted_future:
         return f"{header}\n\n{body.rstrip()}"
@@ -1019,7 +1057,7 @@ def _create_parser_config(
     additional_options: ParserConfigDict,
 ) -> Any:
     """Create the lightweight config for already-validated generation options."""
-    values = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
+    values: dict[str, Any] = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
     values.update(dict(additional_options))
     parser_config = _get_internal_parser_config_model().model_construct(**values)
     return _configure_parser_config_context(parser_config, values, generate_config)
@@ -1055,7 +1093,7 @@ def _create_typed_parser_config(
     and CLI-only options remain owned by ``GenerateConfig`` instead of leaking
     into an ``extra=allow`` parser bag.
     """
-    values = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
+    values: dict[str, Any] = {**_INTERNAL_PARSER_CONFIG_DEFAULTS, **_generate_config_values(generate_config)}
     values.update(dict(additional_options))
     # ``extra="forbid"`` makes model_construct ignore non-parser generation
     # fields without allocating a second filtered dictionary.
@@ -1306,6 +1344,7 @@ def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
         use_type_alias_type=config.use_type_alias_type,
         use_root_model_type_alias=config.use_root_model_type_alias,
         include_graphql_models=input_file_type == InputFileType.GraphQL,
+        target_pydantic_version=config.target_pydantic_version,
     )
 
     python_type_expressions: _PythonTypeExpressions | None = None
@@ -1337,7 +1376,7 @@ def _prepare_parser_common_options(  # noqa: PLR0912, PLR0913, PLR0917
             case _:
                 target_datetime_class = DatetimeClassType.Awaredatetime
 
-    additional_options: ParserConfigDict = {
+    additional_options: _SharedParserConfigDict = {
         "data_model_type": data_model_types.data_model,
         "data_model_root_type": data_model_types.root_model,
         "data_model_field_type": data_model_types.field_model,
@@ -1378,7 +1417,7 @@ def _build_parser(  # noqa: PLR0911, PLR0913
     input_file_type: InputFileType,
     source: Any,
     config: GenerateConfig,
-    additional_options: ParserConfigDict,
+    additional_options: _SharedParserConfigDict,
     data_model_types: DataModelSet,
     *,
     jsonschema_version: JsonSchemaVersion | None,
@@ -1501,6 +1540,7 @@ def _emit_stdout_results(
 
 
 _SINGLE_MODULE_OUTPUT_DIRECTORY_ERROR = "Single-module output requires a file path, not a directory"
+_MODULAR_OUTPUT_FILE_ERROR = "Modular references require an output directory, not a file"
 _MODEL_METADATA_OUTPUT_DIRECTORY_ERROR = "Model metadata output requires a file path, not a directory"
 
 
@@ -1527,8 +1567,7 @@ def _write_results_to_output(  # noqa: PLR0913
         modules: dict[Path, tuple[str, str, str | None]] = {output: (results, "", input_filename)}
     else:
         if output.suffix:
-            msg = "Modular references require an output directory, not a file"
-            raise Error(msg)
+            raise Error(_MODULAR_OUTPUT_FILE_ERROR)
         modules = {
             output.joinpath(*name): (
                 result.body,
@@ -1537,6 +1576,10 @@ def _write_results_to_output(  # noqa: PLR0913
             )
             for name, result in sorted(results.items())
         }
+    if config._logical_output is None and (isinstance(results, str) or output.is_dir()):  # noqa: SLF001
+        from datamodel_code_generator._shadowed_modules import warn_shadowed_modules  # noqa: PLC0415
+
+        warn_shadowed_modules(modules)
 
     for path, (body, future_imports, filename) in modules.items():
         if not path.parent.exists():
@@ -1601,6 +1644,33 @@ def _format_deferred_output(
     code_formatter.format_directory(output)
 
 
+def _default_input_filename(input_: _GenerationInput) -> str:
+    """Return the file name a header shows for an input that names none, such as a dict given directly."""
+    match input_:
+        case str():
+            return "<stdin>"
+        case ParseResult():
+            return input_.geturl()
+        case Path():
+            return input_.name
+        case _:
+            pass
+    return getattr(input_, "name", "<dict>")
+
+
+def _read_custom_file_header(
+    custom_file_header: str | None, custom_file_header_path: Path | None, encoding: str
+) -> str | None:
+    """Return the custom file header text, reading `custom_file_header_path` when no text is given."""
+    if custom_file_header is not None or custom_file_header_path is None:
+        return custom_file_header
+    try:
+        return custom_file_header_path.read_text(encoding=encoding)
+    except (OSError, UnicodeDecodeError) as e:
+        msg = f"Unable to read custom file header {custom_file_header_path}: {e}"
+        raise Error(msg) from e
+
+
 def _emit_results(  # noqa: PLR0913
     results: _ParserResults,
     input_: _GenerationInput,
@@ -1614,29 +1684,14 @@ def _emit_results(  # noqa: PLR0913
     allow_empty_api: bool = False,
 ) -> str | GeneratedModules | None:
     if not input_filename:  # pragma: no cover
-        match input_:
-            case str():
-                input_filename = "<stdin>"
-            case ParseResult():
-                input_filename = input_.geturl()
-            case Path():
-                input_filename = input_.name
-            case _:
-                # input_ might be a dict object provided directly, and missing a name field
-                input_filename = getattr(input_, "name", "<dict>")
+        input_filename = _default_input_filename(input_)
     if not results:
         if allow_empty_api:
             return None
         msg = "Models not found in the input data"
         raise Error(msg)
 
-    if custom_file_header is None and (custom_file_header_path := config.custom_file_header_path):
-        try:
-            custom_file_header = custom_file_header_path.read_text(encoding=config.encoding)
-        except (OSError, UnicodeDecodeError) as e:
-            msg = f"Unable to read custom file header {custom_file_header_path}: {e}"
-            raise Error(msg) from e
-
+    custom_file_header = _read_custom_file_header(custom_file_header, config.custom_file_header_path, config.encoding)
     has_custom_file_header = bool(custom_file_header)
     header_prefix, header_suffix = _build_file_header_parts(custom_file_header, config)
 
@@ -1650,15 +1705,20 @@ def _emit_results(  # noqa: PLR0913
             has_custom_file_header=has_custom_file_header,
         )
 
-    _write_results_to_output(
-        results,
-        output,
-        config,
-        input_filename=input_filename,
-        header_prefix=header_prefix,
-        header_suffix=header_suffix,
-        has_custom_file_header=has_custom_file_header,
-    )
+    try:
+        _write_results_to_output(
+            results,
+            output,
+            config,
+            input_filename=input_filename,
+            header_prefix=header_prefix,
+            header_suffix=header_suffix,
+            has_custom_file_header=has_custom_file_header,
+        )
+    except OSError as e:
+        if isinstance(results, str) or not output.is_file():
+            raise
+        raise Error(_MODULAR_OUTPUT_FILE_ERROR) from e
     if defer_formatting:
         _format_deferred_output(output, config, data_model_types, settings_path)
 
@@ -1690,6 +1750,10 @@ def generate(
     that module is absent. Explicit choices and paired dependency errors do not fall back. File URL reference
     joining uses a dependency-free local fast path.
 
+    ``generate_server`` or ``generate_client`` also generates a server or client package with the models (experimental),
+    configured by the ``server_*`` or ``client_*`` options; they take the values of their command-line options, with
+    JSON options as mappings. Without the selector those options have no effect.
+
     Args:
         input_: The input source (Path file input, string content, URL, dict,
             list of file paths, or MCP tools list when input_file_type is
@@ -1702,6 +1766,8 @@ def generate(
         - When output is None and single module: str (generated code)
         - When output is None and multiple modules: GeneratedModules (dict mapping
           module path tuples to generated code strings)
+        - When output is None and a server or client is generated: GeneratedModules with every model and package
+          file, each under the path its import path implies
 
     Raises:
         ValueError: If both config and **options are provided.
@@ -1716,6 +1782,10 @@ def generate(
 
         _rebuild_generate_config()
         config = _GenerateConfig.model_validate(options)
+    if config.generate_server is not None or config.generate_client is not None:
+        from datamodel_code_generator._target_selection import generate_selected_target  # noqa: PLC0415
+
+        return generate_selected_target(input_, config)
     config = _prepare_generate_facade_config(config)
 
     atomic_remote_update = (
@@ -1739,11 +1809,18 @@ def _prepare_generate_facade_config(config: GenerateConfig) -> GenerateConfig:
     """Apply existing facade warnings, presets, sentinels, and metadata checks in order."""
     from pydantic import VERSION as PYDANTIC_VERSION  # ruff: ignore[import-outside-top-level]
 
+    from datamodel_code_generator.base_config import implied_model_settings  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator.deprecations import warn_legacy_dependency  # ruff: ignore[import-outside-top-level]
 
     warn_legacy_dependency("dependency.pydantic-runtime-minimum", PYDANTIC_VERSION, (2, 8, 2))
+    warn_legacy_dependency("dependency.python-310-runtime", ".".join(map(str, sys.version_info[:3])), (3, 11, 0))
+    given = set(config.model_fields_set)
     config = _apply_generate_config_preset(config)
     config = _apply_missing_sentinel_config(config)
+    if implied := {
+        name: value for name, value in implied_model_settings(config, given).items() if getattr(config, name) != value
+    }:
+        config = config.model_copy(update=implied)
 
     if (metadata_path := config.emit_model_metadata) is not None:
         _ensure_file_output_path(metadata_path, _MODEL_METADATA_OUTPUT_DIRECTORY_ERROR)
@@ -1936,7 +2013,7 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
     input_file_type: InputFileType,
     parser_source: _ParserSource,
     config: GenerateConfig,
-    parser_options: ParserConfigDict,
+    parser_options: _SharedParserConfigDict,
     data_model_types: DataModelSet,
     schema_versions: _SchemaVersions,
     diagnostic_source_path: Path | None,
@@ -1945,6 +2022,8 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
     formatter_cwd: Path | None = None,
     preserve_circular_root_models: bool = False,
     suppress_parse_warnings: bool = False,
+    untyped_nullable_maps: bool = False,
+    yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
     reference_cache: Any | None = None,
     python_type_expressions: _PythonTypeExpressions | None = None,
     openapi_parser_factory: OpenAPIParserFactory | None = None,
@@ -1978,6 +2057,8 @@ def _build_generation_parser(  # noqa: PLR0913, PLR0917
         formatter_cwd=formatter_cwd,
         preserve_circular_root_models=preserve_circular_root_models,
         suppress_parse_warnings=suppress_parse_warnings,
+        untyped_nullable_maps=untyped_nullable_maps,
+        yielding_names=yielding_names,
     )
     return parser
 
@@ -2001,6 +2082,8 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
     formatter_cwd: Path | None = None,
     preserve_circular_root_models: bool = False,
     suppress_parse_warnings: bool = False,
+    untyped_nullable_maps: bool = False,
+    yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
     openapi_parser_factory: OpenAPIParserFactory | None = None,
 ) -> tuple[Any, DataModelSet, bool]:
     """Build one fresh parser for an internal compatibility retry."""
@@ -2031,6 +2114,8 @@ def _build_generation_retry_parser(  # noqa: PLR0913, PLR0917
         formatter_cwd=formatter_cwd,
         preserve_circular_root_models=preserve_circular_root_models,
         suppress_parse_warnings=suppress_parse_warnings,
+        untyped_nullable_maps=untyped_nullable_maps,
+        yielding_names=yielding_names,
         reference_cache=reference_cache,
         python_type_expressions=python_type_expressions,
         openapi_parser_factory=openapi_parser_factory,
@@ -2156,6 +2241,7 @@ def _prepare_generation_input(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         case Path() as input_path if not input_path.is_absolute():
             input_ = (caller_cwd / input_path.expanduser()).resolve()
         case [Path(), *_] as input_paths if input_file_type != InputFileType.MCPTools:
+            input_paths = cast("list[Path]", input_paths)
             if any(not path.is_absolute() for path in input_paths):
                 input_ = [
                     path if path.is_absolute() else (caller_cwd / path.expanduser()).resolve() for path in input_paths
@@ -2335,6 +2421,82 @@ def _parse_collapse_root_models_retry(
         raise public_error from None
 
 
+def _parse_again(  # noqa: PLR0913, PLR0917
+    input_: _GenerationInput,
+    input_text: str | None,
+    input_file_type: InputFileType,
+    source_override: Mapping[str, Any] | None,
+    config: GenerateConfig,
+    dataclass_arguments: DataclassArguments,
+    schema_versions: _SchemaVersions,
+    diagnostic_source_path: Path | None,
+    remote_text_cache: DefaultPutDict[str, str],
+    reference_cache: Any | None,
+    base_path: Path,
+    *,
+    skip_root_model: bool,
+    prefetched_source: tuple[Path, bytes] | None,
+    formatter_cwd: Path | None,
+    preserve_circular_root_models: bool,
+    parser_settings_path: Path | None,
+    capture: GenerationCaptureSession[object] | None,
+    openapi_parser_factory: OpenAPIParserFactory | None,
+    untyped_nullable_maps: bool = True,
+    yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
+) -> tuple[Any, _ParserResults, DataModelSet, bool, defaultdict[str, dict[str, Any]] | None]:
+    """Parse once more, with the values of nullable maps untyped as earlier releases did, or typed under given names.
+
+    The values of nullable maps get models that give their names to every other model. Options keyed by class name
+    are looked up while models are created, so a run whose map value models end under other names, which such
+    options name, is parsed again with those models named as they end.
+
+    A run keeps these values untyped when typing them changes where models are written, the files written, or the
+    models a collapse keeps; the decision covers the whole run, so every input of a directory run is then untyped.
+    The first parse already reported its warnings, so this one reports none. The caller disposes the parser it does
+    not keep only after binding the kept one, as both share loaded documents.
+    """
+    extra_template_data = _prepare_generation_extra_template_data(config)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        parser, data_model_types, defer_formatting = _build_generation_retry_parser(
+            input_,
+            input_text,
+            input_file_type,
+            source_override,
+            config,
+            extra_template_data,
+            dataclass_arguments,
+            schema_versions,
+            diagnostic_source_path,
+            remote_text_cache,
+            reference_cache,
+            base_path,
+            skip_root_model=skip_root_model,
+            prefetched_source=prefetched_source,
+            formatter_cwd=formatter_cwd,
+            preserve_circular_root_models=preserve_circular_root_models,
+            suppress_parse_warnings=True,
+            untyped_nullable_maps=untyped_nullable_maps,
+            yielding_names=yielding_names,
+            openapi_parser_factory=openapi_parser_factory,
+        )
+        results = _parse_with_disposal(
+            input_, parser, config, parser_settings_path=parser_settings_path, capture=capture
+        )
+    return parser, results, data_model_types, defer_formatting, extra_template_data
+
+
+def _same_model_placement(
+    parser: Any, results: _ParserResults, other_parser: Any, other_results: _ParserResults
+) -> bool:
+    """Return whether two parses write the same modules with the same models other than typed map values."""
+    return (
+        isinstance(other_results, str) == isinstance(results, str)
+        and (isinstance(results, str) or set(other_results) == set(results))
+        and other_parser.model_placement == parser.model_placement
+    )
+
+
 def _dispose_capture_parser(parser: Any, capture: GenerationCaptureSession[object], *, discard: bool) -> None:
     """Release a capture parser without replacing an active primary failure."""
     if sys.exc_info()[0] is not None:
@@ -2360,7 +2522,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
     source_override: Mapping[str, Any] | None,
     config: GenerateConfig,
     parser_source: _ParserSource,
-    parser_options: ParserConfigDict,
+    parser_options: _SharedParserConfigDict,
     data_model_types: DataModelSet,
     defer_formatting: bool,  # noqa: FBT001
     extra_template_data: defaultdict[str, dict[str, Any]] | None,
@@ -2440,6 +2602,69 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                 parser_settings_path=parser_settings_path,
                 capture=capture,
             )
+        if yielding_names := parser.yielding_names_to_assign:
+            reparse_caches = parser.remote_text_cache, getattr(parser, "remote_object_cache", None), parser.base_path
+            preserve_circular_root_models = parser.run_context.preserve_circular_root_models
+            if capture is None:
+                parser.dispose()
+            else:
+                _dispose_capture_parser(parser, capture, discard=True)
+            del parser
+            parser, results, data_model_types, defer_formatting, extra_template_data = _parse_again(
+                input_,
+                input_text,
+                input_file_type,
+                source_override,
+                config,
+                dataclass_arguments,
+                schema_versions,
+                diagnostic_source_path,
+                *reparse_caches,
+                skip_root_model=skip_root_model,
+                prefetched_source=prefetched_source,
+                formatter_cwd=None if use_output_cwd else output_context_path,
+                preserve_circular_root_models=preserve_circular_root_models,
+                parser_settings_path=parser_settings_path,
+                capture=capture,
+                openapi_parser_factory=openapi_parser_factory,
+                untyped_nullable_maps=False,
+                yielding_names=yielding_names,
+            )
+        discarded_parser = None
+        if parser.typed_nullable_maps and parser.typed_map_values_may_move_models:
+            try:
+                untyped_parse = _parse_again(
+                    input_,
+                    input_text,
+                    input_file_type,
+                    source_override,
+                    config,
+                    dataclass_arguments,
+                    schema_versions,
+                    diagnostic_source_path,
+                    parser.remote_text_cache,
+                    getattr(parser, "remote_object_cache", None),
+                    parser.base_path,
+                    skip_root_model=skip_root_model,
+                    prefetched_source=prefetched_source,
+                    formatter_cwd=None if use_output_cwd else output_context_path,
+                    preserve_circular_root_models=parser.run_context.preserve_circular_root_models,
+                    parser_settings_path=parser_settings_path,
+                    capture=capture,
+                    openapi_parser_factory=openapi_parser_factory,
+                )
+            except BaseException:
+                if capture is None:
+                    with contextlib.suppress(BaseException):
+                        parser.dispose()
+                else:
+                    _dispose_capture_parser(parser, capture, discard=True)
+                raise
+            if _same_model_placement(parser, results, untyped_parse[0], untyped_parse[1]):
+                discarded_parser = untyped_parse[0]
+            else:
+                discarded_parser = parser
+                parser, results, data_model_types, defer_formatting, extra_template_data = untyped_parse
         model_metadata = parser.model_metadata
         if repair_modules := parser.invalid_dotted_stdout_repair_modules:
             legacy_inventory = parser.generated_model_inventory
@@ -2448,6 +2673,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
             retry_reference_cache = getattr(parser, "remote_object_cache", None)
             retry_base_path = parser.base_path
             preserve_circular_root_models = parser.run_context.preserve_circular_root_models
+            untyped_nullable_maps = parser.run_context.untyped_nullable_maps or parser.typed_nullable_maps
         if capture is None:
             parser.dispose()
         else:
@@ -2456,6 +2682,11 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
             finally:
                 _dispose_capture_parser(parser, capture, discard=False)
         del parser
+        if discarded_parser is not None:
+            if capture is None:
+                discarded_parser.dispose()
+            else:
+                _dispose_capture_parser(discarded_parser, capture, discard=True)
 
         if repair_modules:
             retry_config = config.model_copy(
@@ -2484,6 +2715,7 @@ def _parse_generation(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
                     prefetched_source=prefetched_source,
                     formatter_cwd=None if use_output_cwd else output_context_path,
                     preserve_circular_root_models=preserve_circular_root_models,
+                    untyped_nullable_maps=untyped_nullable_maps,
                     openapi_parser_factory=openapi_parser_factory,
                 )
                 retry_results = _parse_with_disposal(
@@ -2631,7 +2863,9 @@ def _run_generation(  # noqa: PLR0914
             if additional_options["base_path"] is None and not isinstance(source, Path):
                 match input_:
                     case [Path(), *_] as input_paths:
-                        additional_options["base_path"] = _path_list_base_path(input_paths, caller_cwd)
+                        additional_options["base_path"] = _path_list_base_path(
+                            cast("list[Path]", input_paths), caller_cwd
+                        )
                     case _:
                         additional_options["base_path"] = caller_cwd
             schema_versions = _resolve_schema_versions(input_file_type, config.schema_version)
@@ -2793,6 +3027,7 @@ def detect_xmlschema_version(source: Any) -> XMLSchemaVersion:
 
 
 _LAZY_IMPORTS = {
+    "load_pyproject_config": "datamodel_code_generator._project_config",
     "clear_dynamic_models_cache": "datamodel_code_generator.dynamic",
     "detect_jsonschema_version": "datamodel_code_generator.parser.schema_version",
     "detect_openapi_version": "datamodel_code_generator.parser.schema_version",
@@ -2834,6 +3069,9 @@ __all__ = [
     "AllOfMergeMode",
     "AsyncAPIVersion",
     "ClassNameAffixScope",
+    "ClientBodyArguments",
+    "ClientSignatureStyle",
+    "ClientType",
     "CollapseRootModelsNameStrategy",
     "CustomFileHeaderMode",
     "DanglingRefWarning",
@@ -2842,6 +3080,7 @@ __all__ = [
     "DefaultPutDict",
     "DefaultValueType",
     "DefaultValueTypeWarning",
+    "DocumentationAnnotationWarning",
     "Error",
     "FieldTypeCollisionStrategy",
     "GeneratedModules",
@@ -2852,6 +3091,7 @@ __all__ = [
     "InvalidClassNameError",
     "InvalidFileFormatError",
     "JsonSchemaVersion",
+    "LeftoverFilesWarning",
     "LiteralType",
     "ModuleSplitMode",
     "NamingStrategy",
@@ -2865,6 +3105,10 @@ __all__ = [
     "SchemaParseError",
     "SchemaResourceRefWarning",
     "SchemaValidatorType",
+    "ServerBodyMode",
+    "ServerHandlerMode",
+    "ServerLayout",
+    "ServerType",
     "TargetPydanticVersion",
     "VersionMode",
     "XMLSchemaVersion",
@@ -2878,3 +3122,4 @@ __all__ = [
 ]
 
 __all__ += ["GenerateConfig"]
+__all__ += ["load_pyproject_config"]

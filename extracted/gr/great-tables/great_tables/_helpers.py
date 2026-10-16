@@ -8,7 +8,7 @@ from typing import Any, Callable, Literal
 
 from typing_extensions import Self, TypeAlias
 
-from ._text import BaseText, Html, Md, _md_html
+from ._text import BaseText, Html, Md, _latex_escape, _md_html, _md_latex
 
 FontStackName: TypeAlias = Literal[
     "system-ui",
@@ -153,33 +153,56 @@ FONT_STACKS = {
 
 
 class _StubSentinel:
-    """Sentinel that refers to the stub column in column-selection helpers.
+    """Sentinel that refers to the stub column(s) in column-selection helpers.
 
     Use the module-level `stub` instance (importable from `great_tables`) rather than instantiating
     this class directly. The sentinel is hashable and can therefore be used as a dictionary key,
-    (e.g., `cols_width(cases={stub: "250px"})`).
+    (e.g., `cols_width(cases={stub: "250px"})`). Calling it, as in `stub(1)`, gives a sentinel for a
+    single level of a hierarchical stub, counted from the right.
     """
 
     _instance: "_StubSentinel | None" = None
+    _level: int | None = None
 
-    def __new__(cls) -> "_StubSentinel":
+    def __new__(cls, level: int | None = None) -> "_StubSentinel":
+        if level is not None:
+            obj = super().__new__(cls)
+            obj._level = level
+            return obj
+
         # Singleton so that `stub is stub` holds everywhere.
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
+    def __call__(self, n: int | None = None) -> "_StubSentinel":
+        if self._level is not None:
+            raise TypeError(f"`{self!r}` refers to a single stub column and can't be called.")
+        if n is None:
+            return self
+        if isinstance(n, bool) or not isinstance(n, int) or n < 1:
+            raise ValueError(f"`stub(n)` needs a positive integer for `n`, but got {n!r}.")
+        return _StubSentinel(n)
+
     def __repr__(self) -> str:
-        return "stub"
+        return "stub" if self._level is None else f"stub({self._level})"
 
     def __hash__(self) -> int:
-        return hash("__great_tables_stub__")
+        if self._level is None:
+            return hash("__great_tables_stub__")
+        return hash(("__great_tables_stub__", self._level))
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, _StubSentinel)
+        return isinstance(other, _StubSentinel) and other._level == self._level
 
 
 stub = _StubSentinel()
-"""Sentinel for selecting the stub column in `~great_tables.GT.cols_width`.
+"""Sentinel for selecting the stub column(s).
+
+Use it in `~great_tables.GT.cols_width`, or in the `columns=` of methods that can target the stub
+(e.g., the `fmt_*()` methods, `~great_tables.GT.cols_align`, `~great_tables.GT.cols_hide`), as in
+`fmt_number(columns=stub(2))`. Methods that don't apply to the stub (e.g., spanners) skip it, just
+as they skip a stub column given by name.
 
 Pass this as a dictionary key to set the width of the stub column without risking a collision with a
 data column named `"stub"`:
@@ -188,6 +211,14 @@ data column named `"stub"`:
 from great_tables import GT, stub, px
 
 GT(df, rowname_col="row").cols_width(cases={stub: "200px", "value": "100px"})
+```
+
+With a hierarchical stub (where `rowname_col=` is a list of columns), `stub` gives every stub column
+the width. Call it with a number to target a single level, counting from the right: `stub(1)` is the
+last (row label) column, `stub(2)` the one to its left, and so on.
+
+```python
+GT(df, rowname_col=["group", "row"]).cols_width(cases={stub(1): "70px", stub(2): "200px"})
 ```
 """
 
@@ -649,11 +680,37 @@ def _generate_tokens_list(units_notation: str) -> list[str]:
 
     # Replace any instances of `/<text>` with `<text>^-1`
     tokens_list = [
-        re.sub(r"^/", "", x) + "^-1" if re.match(r"^/", x) and len(x) > 1 else x
-        for x in tokens_list
+        _invert_slashed_unit(x) if re.match(r"^/", x) and len(x) > 1 else x for x in tokens_list
     ]
 
     return tokens_list
+
+
+def _invert_slashed_unit(token: str) -> str:
+    # `/<unit>` is `<unit>^-1`, so an exponent already on the unit is negated rather than
+    # followed by a second one (`/m^3` is `m^-3`, not `m^3^-1`)
+    unit = token[1:]
+
+    if "^" not in unit:
+        return unit + "^-1"
+
+    base, exponent = unit.rsplit("^", 1)
+
+    # Keep the closing bracket of an overstruck subscript and exponent (e.g., `/h[_0^3]`)
+    closing = "]" if exponent.endswith("]") and "[" in base else ""
+    exponent = exponent.removesuffix(closing)
+    exponent = exponent[1:] if exponent.startswith("-") else "-" + exponent
+
+    # A negated `-1` leaves a first power, which is written without an exponent (`/s^-1` is `s`,
+    # and `/h[_0^-1]` is `h_0`)
+    if exponent == "1":
+        if closing:
+            unit_part, subscript = base.rsplit("[", 1)
+            return unit_part + subscript
+
+        return base
+
+    return f"{base}^{exponent}{closing}"
 
 
 # Sub-pixel lengths are valid CSS, so a scaled padding keeps its fractional part.
@@ -881,6 +938,44 @@ class UnitDefinition:
 
         return units_str
 
+    def to_latex(self) -> str:
+        units_object = self
+
+        unit = units_object.unit
+
+        # As in HTML, 'x10' is a scalar multiplier written with a multiplication sign (this is
+        # done before conversion since LaTeX macros such as `\textdegree` contain an 'x')
+        if "x10" in unit and not units_object.chemical_formula:
+            unit = unit.replace("x", ":times:")
+
+        unit = _units_text_latex(unit)
+
+        unit_subscript = (
+            None
+            if units_object.unit_subscript is None
+            else _units_text_latex(units_object.unit_subscript)
+        )
+
+        exponent = (
+            None if units_object.exponent is None else _units_text_latex(units_object.exponent)
+        )
+
+        # A chemical formula has its numbers set as subscripts
+        if units_object.chemical_formula:
+            return re.sub(r"(\d+)", r"\\textsubscript{\1}", unit)
+
+        # Overstriking a subscript and an exponent is only done in HTML; here the two are
+        # written one after the other
+        units_str = unit
+
+        if unit_subscript is not None:
+            units_str += f"\\textsubscript{{{unit_subscript}}}"
+
+        if exponent is not None:
+            units_str += f"\\textsuperscript{{{exponent}}}"
+
+        return units_str
+
 
 class UnitStr(BaseText):
     def __init__(self, units_str: list[str | UnitDefinitionList]):
@@ -900,7 +995,17 @@ class UnitStr(BaseText):
         return built_units
 
     def to_latex(self) -> str:
-        raise NotImplementedError("LaTeX conversion of units is not yet supported.")
+        # Text around the units is escaped, as it would be in a plain string label
+        built_units = "".join(
+            [
+                unit_def.to_latex()
+                if isinstance(unit_def, UnitDefinitionList)
+                else _latex_escape(unit_def)
+                for unit_def in self.units_str
+            ]
+        )
+
+        return built_units
 
     def _repr_html_(self):
         return self.to_html()
@@ -949,8 +1054,12 @@ class UnitDefinitionList:
         return self.units_list[index]
 
     def to_html(self) -> str:
-        built_units = [unit_def.to_html() for unit_def in self.units_list]
+        return self._join_built_units([unit_def.to_html() for unit_def in self.units_list])
 
+    def to_latex(self) -> str:
+        return self._join_built_units([unit_def.to_latex() for unit_def in self.units_list])
+
+    def _join_built_units(self, built_units: list[str]) -> str:
         units_str = ""
 
         common_condition = len(self) == 3 and self[1].unit == "/"
@@ -1024,6 +1133,30 @@ def _escape_html_tags(text: str) -> str:
     # Replace the '<' and '>' characters with their HTML entity equivalents
     text = text.replace("<", "&lt;")
     text = text.replace(">", "&gt;")
+
+    return text
+
+
+def _units_text_latex(text: str) -> str:
+    # Markdown (e.g., '*m*') is converted as in HTML, which also escapes LaTeX's special characters
+    text = _md_latex(text) if len(text) > 1 else _latex_escape(text)
+
+    # A hyphen is a minus sign
+    text = text.replace("-", "\\ensuremath{-}")
+
+    # These are the whole string (or its start); a function as the replacement keeps `re.sub()`
+    # from reading the backslashes as escapes
+    for pattern, value in [
+        (r"^um$", "\\ensuremath{\\mu}m"),
+        (r"^uL$", "\\ensuremath{\\mu}L"),
+        (r"^umol", "\\ensuremath{\\mu}mol"),
+        (r"^ug$", "\\ensuremath{\\mu}g"),
+        (r"^ohm$", "\\ensuremath{\\Omega}"),
+    ]:
+        text = re.sub(pattern, lambda _, value=value: value, text)
+
+    for key, value in UNITS_SYMBOLS_LATEX.items():
+        text = text.replace(key, value)
 
     return text
 
@@ -1105,6 +1238,88 @@ UNITS_SYMBOLS_HTML = {
     ":psi:": "&psi;",
     ":Omega:": "&Omega;",
     ":omega:": "&omega;",
+}
+
+
+# LaTeX forms of the symbols in `UNITS_SYMBOLS_HTML`; uppercase Greek letters that look like
+# Latin letters have no macro of their own
+UNITS_SYMBOLS_LATEX = {
+    "degC": "\\textdegree{}C",
+    "degF": "\\textdegree{}F",
+    ":pm:": "\\ensuremath{\\pm}",
+    ":mp:": "\\ensuremath{\\mp}",
+    ":lt:": "\\textless{}",
+    ":gt:": "\\textgreater{}",
+    ":le:": "\\ensuremath{\\le}",
+    ":ge:": "\\ensuremath{\\ge}",
+    ":cdot:": "\\ensuremath{\\cdot}",
+    ":times:": "\\ensuremath{\\times}",
+    ":div:": "\\ensuremath{\\div}",
+    ":ne:": "\\ensuremath{\\ne}",
+    ":prime:": "\\ensuremath{\\prime}",
+    ":rightarrow:": "\\ensuremath{\\rightarrow}",
+    ":leftarrow:": "\\ensuremath{\\leftarrow}",
+    ":micro:": "\\ensuremath{\\mu}",
+    ":ohm:": "\\ensuremath{\\Omega}",
+    ":angstrom:": "\\AA{}",
+    ":plusminus:": "\\ensuremath{\\pm}",
+    ":permil:": "\\textperthousand{}",
+    ":permille:": "\\textperthousand{}",
+    ":degree:": "\\textdegree{}",
+    ":degrees:": "\\textdegree{}",
+    ":space:": "~",
+    ":Alpha:": "A",
+    ":alpha:": "\\ensuremath{\\alpha}",
+    ":Beta:": "B",
+    ":beta:": "\\ensuremath{\\beta}",
+    ":Gamma:": "\\ensuremath{\\Gamma}",
+    ":gamma:": "\\ensuremath{\\gamma}",
+    ":Delta:": "\\ensuremath{\\Delta}",
+    ":delta:": "\\ensuremath{\\delta}",
+    ":Epsilon:": "E",
+    ":epsilon:": "\\ensuremath{\\epsilon}",
+    ":varepsilon:": "\\ensuremath{\\varepsilon}",
+    ":Zeta:": "Z",
+    ":zeta:": "\\ensuremath{\\zeta}",
+    ":Eta:": "H",
+    ":eta:": "\\ensuremath{\\eta}",
+    ":Theta:": "\\ensuremath{\\Theta}",
+    ":theta:": "\\ensuremath{\\theta}",
+    ":vartheta:": "\\ensuremath{\\vartheta}",
+    ":Iota:": "I",
+    ":iota:": "\\ensuremath{\\iota}",
+    ":Kappa:": "K",
+    ":kappa:": "\\ensuremath{\\kappa}",
+    ":Lambda:": "\\ensuremath{\\Lambda}",
+    ":lambda:": "\\ensuremath{\\lambda}",
+    ":Mu:": "M",
+    ":mu:": "\\ensuremath{\\mu}",
+    ":Nu:": "N",
+    ":nu:": "\\ensuremath{\\nu}",
+    ":Xi:": "\\ensuremath{\\Xi}",
+    ":xi:": "\\ensuremath{\\xi}",
+    ":Omicron:": "O",
+    ":omicron:": "o",
+    ":Pi:": "\\ensuremath{\\Pi}",
+    ":pi:": "\\ensuremath{\\pi}",
+    ":Rho:": "P",
+    ":rho:": "\\ensuremath{\\rho}",
+    ":Sigma:": "\\ensuremath{\\Sigma}",
+    ":sigma:": "\\ensuremath{\\sigma}",
+    ":sigmaf:": "\\ensuremath{\\varsigma}",
+    ":varsigma:": "\\ensuremath{\\varsigma}",
+    ":Tau:": "T",
+    ":tau:": "\\ensuremath{\\tau}",
+    ":Upsilon:": "\\ensuremath{\\Upsilon}",
+    ":upsilon:": "\\ensuremath{\\upsilon}",
+    ":Phi:": "\\ensuremath{\\Phi}",
+    ":phi:": "\\ensuremath{\\phi}",
+    ":Chi:": "X",
+    ":chi:": "\\ensuremath{\\chi}",
+    ":Psi:": "\\ensuremath{\\Psi}",
+    ":psi:": "\\ensuremath{\\psi}",
+    ":Omega:": "\\ensuremath{\\Omega}",
+    ":omega:": "\\ensuremath{\\omega}",
 }
 
 
@@ -1391,7 +1606,9 @@ def nanoplot_options(
         `vertical_guide_stroke_color=` option.
     vertical_guide_stroke_width
         The vertical guide's stroke width, by default, is relatively large at `12` (this is '12px').
-        This is modifiable by setting a different value with `vertical_guide_stroke_width=`.
+        This is modifiable by setting a different value with `vertical_guide_stroke_width=`. This
+        width applies to the hover highlight, so it has no effect when
+        `interactive_data_values=False`.
     show_data_points
         By default, all data points in a nanoplot are shown but this layer can be hidden by setting
         `show_data_points=` to `False`.
@@ -1423,7 +1640,9 @@ def nanoplot_options(
         presentation. However, for some types of plots (like horizontal bar plots), a persistent
         display of values alongside the plot marks may be desirable. By setting
         `interactive_data_values=False` we can opt for always displaying the data values alongside
-        the plot components.
+        the plot components. In this static view, the hover highlights are left out: vertical
+        guides are drawn as thin, faint lines (in the `vertical_guide_stroke_color=` color) and
+        any reference line keeps its regular color.
     y_val_fmt_fn
         If providing a function to `y_val_fmt_fn=`, customized formatting of the *y* values
         associated with the data points/bars is possible.
@@ -1472,7 +1691,7 @@ def nanoplot_options(
 
     data_line_type = data_line_type or "curved"
     data_line_stroke_color = data_line_stroke_color or "#4682B4"
-    data_line_stroke_width = data_line_stroke_width or 8
+    data_line_stroke_width = 8 if data_line_stroke_width is None else data_line_stroke_width
 
     data_area_fill_color = data_area_fill_color or "#FF0000"
 
@@ -1481,14 +1700,18 @@ def nanoplot_options(
     data_bar_fill_color = data_bar_fill_color or "#3FB5FF"
 
     data_bar_negative_stroke_color = data_bar_negative_stroke_color or "#CC3243"
-    data_bar_negative_stroke_width = data_bar_negative_stroke_width or 4
+    data_bar_negative_stroke_width = (
+        4 if data_bar_negative_stroke_width is None else data_bar_negative_stroke_width
+    )
     data_bar_negative_fill_color = data_bar_negative_fill_color or "#D75A68"
 
     reference_line_color = reference_line_color or "#75A8B0"
     reference_area_fill_color = reference_area_fill_color or "#A6E6F2"
 
     vertical_guide_stroke_color = vertical_guide_stroke_color or "#911EB4"
-    vertical_guide_stroke_width = vertical_guide_stroke_width or 12
+    vertical_guide_stroke_width = (
+        12 if vertical_guide_stroke_width is None else vertical_guide_stroke_width
+    )
 
     show_data_points = True if show_data_points is None else show_data_points
     show_data_line = True if show_data_line is None else show_data_line

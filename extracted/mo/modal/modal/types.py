@@ -3,11 +3,63 @@
 
 import enum
 from dataclasses import FrozenInstanceError, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Iterable, Literal, Optional, TypedDict
 
 from modal_proto import api_pb2
+
+
+@dataclass(frozen=True)
+class TimeSeriesPoint:
+    """A metric sample at a UTC bucket start. A missing observation has value None."""
+
+    time: datetime
+    value: float | None
+
+
+@dataclass(frozen=True)
+class MetricSeries:
+    """An individual metric series with points ordered by time."""
+
+    name: str
+    unit: str
+    aggregation: str
+    points: list[TimeSeriesPoint]
+    description: str = ""
+
+
+@dataclass(frozen=True)
+class MetricDefinition:
+    """The name, unit, and meaning of an individual exportable series."""
+
+    name: str
+    unit: str
+    description: str
+
+
+@dataclass(frozen=True)
+class MetricsSchema:
+    """A metrics group and its individual series definitions."""
+
+    name: str
+    definitions: list[MetricDefinition]
+
+
+@dataclass(frozen=True)
+class ObjectMetrics:
+    """Exported metrics over the effective, UTC-aligned [since, until) range."""
+
+    object_id: str
+    since: datetime
+    until: datetime
+    bucket_size: timedelta
+    point_count: int
+    series: dict[str, MetricSeries]
+
+    def __getitem__(self, name: str) -> MetricSeries:
+        """Look up a series by its exact name."""
+        return self.series[name]
 
 
 class InputStatus(enum.IntEnum):
@@ -387,6 +439,43 @@ class TokenData:
 
     token_id: str
     token_secret: str
+
+
+@dataclass(frozen=True)
+class ServiceUserInfo:
+    """A lightweight dataclass containing metadata about a Modal Service User."""
+
+    service_user_id: str
+    name: str
+    token_id: str
+    created_by: str
+    created_at: datetime
+    last_used_at: datetime | None
+    expires_at: datetime | None
+
+    # Environment Name -> Role
+    environment_roles: dict[str, str]
+
+    @classmethod
+    def _from_proto(cls, proto: api_pb2.ServiceUser) -> "ServiceUserInfo":
+        created_at = datetime.fromtimestamp(proto.created_at, tz=timezone.utc)
+        last_used_at = datetime.fromtimestamp(proto.last_used_at, tz=timezone.utc) if proto.last_used_at else None
+        expires_at = datetime.fromtimestamp(proto.expires_at, tz=timezone.utc) if proto.expires_at else None
+
+        environment_roles: dict[str, str] = {}
+        for item in proto.environment_roles:
+            environment_roles[item.environment_name] = item.role_str
+
+        return cls(
+            service_user_id=proto.service_user_id,
+            name=proto.name,
+            token_id=proto.token_id,
+            created_by=proto.created_by,
+            created_at=created_at,
+            last_used_at=last_used_at,
+            expires_at=expires_at,
+            environment_roles=environment_roles,
+        )
 
 
 @dataclass(frozen=True)

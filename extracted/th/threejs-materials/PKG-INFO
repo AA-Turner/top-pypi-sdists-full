@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: threejs-materials
-Version: 1.2.4
+Version: 1.2.5
 Summary: Download PBR materials on demand and convert to Three.js MeshPhysicalMaterial JSON
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/bernhard-42/threejs-materials
@@ -10,7 +10,8 @@ Project-URL: Changelog, https://github.com/bernhard-42/threejs-materials/blob/ma
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pillow<12.3.0,>=12.2.0
+Requires-Dist: numpy<3,>2
+Requires-Dist: pillow<14.0.0,>=12.2.0
 Requires-Dist: pygltflib<2.0,>=1.16
 Requires-Dist: requests<3.0,>=2.31.0
 Requires-Dist: platformdirs<5.0.0,>=4.9.6

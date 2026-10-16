@@ -4,7 +4,7 @@
   keywords = ["pulumi", "vercel", "category/cloud"]
   readme = "README.md"
   requires-python = ">=3.9"
-  version = "5.4.1"
+  version = "5.21.1"
   [project.license]
     text = "Apache-2.0"
   [project.urls]

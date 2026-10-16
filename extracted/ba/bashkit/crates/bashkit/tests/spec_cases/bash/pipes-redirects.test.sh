@@ -239,11 +239,179 @@ value is expanded
 ### end
 
 ### readwrite_redirect_opens_file
-### skip: `<>` (read-write fd) is not implemented — parser rejects the operator
 # Bash opens the file read-write on fd 0 without truncating it.
 echo start > /tmp/rw.txt
 exec 3<> /tmp/rw.txt
 cat <&3
 ### expect
 start
+### end
+
+### null_command_output_redirect_truncates
+# A redirect with no command still truncates/creates the file
+echo data > /tmp/nullcmd_out
+> /tmp/nullcmd_out
+wc -c < /tmp/nullcmd_out
+echo "rc=$?"
+### expect
+0
+rc=0
+### end
+
+### null_command_input_redirect_missing
+# A lone input redirect to a missing file fails with status 1
+{ < /tmp/nullcmd_missing; } 2>/dev/null
+echo "rc=$?"
+### expect
+rc=1
+### end
+
+### null_command_redirect_resets_status
+# A successful redirect-only command exits 0
+false
+> /tmp/nullcmd_status
+echo "rc=$?"
+### expect
+rc=0
+### end
+
+### assignment_with_redirect_creates_file
+# x=1 > file assigns and still creates the file
+x=1 > /tmp/nullcmd_assign
+echo "$x"
+test -f /tmp/nullcmd_assign && echo exists
+### expect
+1
+exists
+### end
+
+### pipeline_last_stage_is_subshell
+# Without lastpipe every pipeline stage runs in a subshell
+echo x | read v
+echo "${v-unset}"
+n=0
+printf 'a\nb\n' | while read -r l; do n=$((n+1)); done
+echo "n=$n"
+### expect
+unset
+n=0
+### end
+
+### pipeline_lastpipe_runs_last_stage_in_shell
+# shopt -s lastpipe keeps the last stage in the current shell
+shopt -s lastpipe
+echo x | read v
+echo "v=$v"
+n=0
+printf 'a\nb\n' | while read -r l; do n=$((n+1)); done
+echo "n=$n"
+### expect
+v=x
+n=2
+### end
+
+### pipeline_first_stage_state_does_not_leak
+# Assignments and cd in a non-last stage stay in that stage
+x=1
+x=2 | cat
+cd /
+cd /tmp | true
+echo "x=$x pwd=$PWD"
+### expect
+x=1 pwd=/
+### end
+
+### pipeline_stage_exit_only_ends_the_stage
+# exit inside a pipeline stage ends that stage, not the shell
+echo hi | exit 3
+echo "after $?"
+exit 4 | cat
+echo "still here"
+### expect
+after 3
+still here
+### end
+
+### pipeline_endless_producer_into_head
+# head exits after two lines; the endless loop gets SIGPIPE (141)
+while :; do echo x; done | head -n 2
+echo "${PIPESTATUS[*]}"
+### expect
+x
+x
+141 0
+### end
+
+### pipeline_endless_producer_into_reads
+# A group that reads two lines and leaves ends the producer too
+i=0
+while :; do echo $((i++)); done | { read -r a; read -r b; echo "$a $b"; }
+echo "${PIPESTATUS[*]}"
+### expect
+0 1
+141 0
+### end
+
+### pipeline_endless_through_middle_stage
+# Every stage upstream of head is ended by SIGPIPE
+while :; do echo a; done | while read -r l; do echo "<$l>"; done | head -n 2
+echo "${PIPESTATUS[*]}"
+### expect
+<a>
+<a>
+141 141 0
+### end
+
+### pipeline_reader_breaks_out_early
+# A while-read loop that breaks ends an endless producer
+while :; do echo y; done | while read -r l; do echo "got $l"; break; done
+echo "${PIPESTATUS[*]}"
+### expect
+got y
+141 0
+### end
+
+
+### dup_word_to_fd1_writes_both_streams
+# 1>&file is &>file
+{ echo o; echo e >&2; } 1>&both.txt
+cat both.txt
+### expect
+o
+e
+### end
+
+### dup_word_to_fd2_is_ambiguous
+# 2>&file is an ambiguous redirect and the command does not run
+echo b 2>&out.txt
+echo "status $?"
+test -e out.txt || echo "no file"
+### expect
+status 1
+no file
+### end
+
+### dup_expanded_fd
+# 2>&$fd duplicates the descriptor the word expands to
+fd=1
+{ echo e >&2; } 2>&$fd | tr e E
+### expect
+E
+### end
+
+### close_stdout_after_dup
+# 2>&1 1>&- sends stderr to the old stdout and drops stdout
+f() { echo out; echo err >&2; }
+f 2>&1 1>&- | sed 's/^.*write error/write error/'
+### expect
+write error: Bad file descriptor
+err
+### end
+
+### failed_output_both_runs_nothing
+# &> into a missing directory drops the output and fails
+echo z &> /no/such/dir/f
+echo "status $?"
+### expect
+status 1
 ### end

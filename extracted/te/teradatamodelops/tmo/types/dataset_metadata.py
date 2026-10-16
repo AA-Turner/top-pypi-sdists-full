@@ -1,26 +1,25 @@
-from enum import Enum
-
 from tmo.decorators.functional import functional
+from tmo.types.enums import ValueEnum
 
 
-class DataType(Enum):
+class DataType(ValueEnum):
     FLOAT = "float"
     INTEGER = "integer"
     VARCHAR = "varchar"
 
 
-class TypeEnum(Enum):
+class TypeEnum(ValueEnum):
     ENTITY = "entity"
     FEATURE = "feature"
     TARGET = "target"
 
 
-class CatalogType(Enum):
+class CatalogType(ValueEnum):
     VANTAGE = "VANTAGE"
     NO_CATALOG = "NONE"
 
 
-class CatalogBodyType(Enum):
+class CatalogBodyType(ValueEnum):
     VANTAGE = "CatalogBody"
     NO_CATALOG = "NoCatalogBody"
 
@@ -71,6 +70,7 @@ class Metadata(object):
 class FeatureMetadata(object):
     database: str = None  # NOSONAR
     table: str = None  # NOSONAR
+    monitoring_group: str = None  # NOSONAR
 
 
 # Mapping functions between CatalogType and CatalogBodyType

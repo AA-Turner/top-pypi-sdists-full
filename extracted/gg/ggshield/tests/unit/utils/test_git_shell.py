@@ -20,12 +20,12 @@ from ggshield.utils.git_shell import (
     check_git_ref,
     get_default_branch,
     get_filepaths_from_ref,
-    get_new_branch_ci_commits,
     get_remotes,
     get_repository_url_from_path,
     get_staged_filepaths,
     git,
     git_ls_unstaged,
+    git_unavailable_reason,
     gitignore,
     is_git_available,
     is_git_dir,
@@ -54,10 +54,24 @@ def _create_repository_with_remote(
     return local_repo
 
 
-@patch("ggshield.utils.git_shell._get_git_path")
-def test_is_git_available(_get_git_path_mock):
-    _get_git_path_mock.side_effect = GitExecutableNotFound()
+def test_is_git_available(no_git):
     assert not is_git_available()
+
+
+def test_git_lookup_caches_a_failure(monkeypatch):
+    """
+    GIVEN git cannot be found
+    WHEN git availability is checked and git is called
+    THEN git is looked up once and every caller gets the same reason
+    """
+    m_which = Mock(return_value=None)
+    monkeypatch.setattr(git_shell, "which", m_which)
+    reason = "unable to find git executable in PATH/PATHEXT"
+    assert git_unavailable_reason() == reason
+    assert not is_git_available()
+    with pytest.raises(GitExecutableNotFound, match=reason):
+        git(["--version"])
+    assert m_which.call_count == 1
 
 
 @pytest.mark.parametrize(
@@ -155,58 +169,6 @@ def test_is_git_dir(tmp_path):
 def test_is_valid_git_commit_ref():
     assert is_valid_git_commit_ref("HEAD")
     assert not is_valid_git_commit_ref("invalid_ref")
-
-
-def test_get_new_branch_ci_commits(tmp_path: Path):
-    # GIVEN a remote repository
-    remote_repository = Repository.create(tmp_path / "remote", bare=True)
-
-    # AND a local clone, with commitM pushed on main
-    local_repository = Repository.clone(remote_repository.path, tmp_path / "local")
-    local_repository.create_commit()
-    local_repository.push()
-
-    # AND commitA1 on new branchA
-    local_repository.create_branch("branchA")
-    commitA1_sha = local_repository.create_commit("commitA1")
-    # AND commitB1 & B2 on new branchB, created from branchA
-    local_repository.create_branch("branchB")
-    commitB1_sha = local_repository.create_commit("commitB1")
-    commitB2_sha = local_repository.create_commit("commitB2")
-    # AND commitA2 created later on branchA
-    local_repository.checkout("branchA")
-    commitA2_sha = local_repository.create_commit("commitA2")
-
-    # WHEN executing get_branch_new_commits
-    # THEN only new commits are found for each branch
-    local_repository.checkout("branchA")
-    assert get_new_branch_ci_commits("branchA", local_repository.path) == [
-        commitA2_sha,
-        commitA1_sha,
-    ]
-    local_repository.checkout("branchB")
-    assert get_new_branch_ci_commits("branchB", local_repository.path) == (
-        [commitB2_sha, commitB1_sha, commitA1_sha]
-    )
-
-
-def test_get_branch_new_commits_many_branches(tmp_path: Path):
-    # GIVEN a repository with many branches
-    remote_repository = Repository.create(tmp_path / "remote", bare=True)
-    local_repository = Repository.clone(remote_repository.path, tmp_path / "local")
-    for i in range(50):
-        local_repository.create_branch(f"branch_with_a_long_name{i}")
-        local_repository.create_commit()
-    local_repository.push("--all")
-
-    # AND a local branch with one new commit
-    local_repository.create_branch("tested-branch")
-    tested_commit = local_repository.create_commit()
-    # WHEN executing get_branch_new_commits
-    # THEN it works as intended
-    assert get_new_branch_ci_commits("tested-branch", local_repository.path) == [
-        tested_commit
-    ]
 
 
 def test_check_git_dir(tmp_path):

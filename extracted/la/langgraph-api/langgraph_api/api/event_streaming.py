@@ -40,6 +40,8 @@ from langgraph_api.serde import json_dumpb
 from langgraph_api.sse import EventSourceResponse
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from starlette.requests import Request
     from starlette.websockets import WebSocket
 
@@ -78,7 +80,12 @@ def _json_response(content: Any, *, status_code: int = 200) -> Response:
     )
 
 
-def _make_manager(thread_id: str, send_event: Any = None) -> ThreadRunManager:
+def _make_manager(
+    thread_id: str,
+    send_event: Any = None,
+    *,
+    headers: Mapping[str, str] | None = None,
+) -> ThreadRunManager:
     # Auth context is propagated via ``ApiRoute``'s ``with_user`` wrapper
     # — ops reads it off the context var, so we don't thread it through
     # the manager explicitly.
@@ -87,6 +94,7 @@ def _make_manager(thread_id: str, send_event: Any = None) -> ThreadRunManager:
         runs=Runs,
         threads=Threads,
         send_event=send_event,
+        headers=headers,
     )
 
 
@@ -335,7 +343,7 @@ async def _thread_command(request: Request) -> Response:
             status_code=400,
         )
 
-    manager = _make_manager(thread_id)
+    manager = _make_manager(thread_id, headers=request.headers)
     try:
         resp = await manager.handle_command(payload)
         return _json_response(resp)

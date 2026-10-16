@@ -41,6 +41,10 @@ pub struct DatasetFeatureOperand {
     pub dataset: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub feature: ::prost::alloc::string::String,
+    /// Dataset revision (offline query id) to use as the KS baseline distribution.
+    /// When unset, the most recent revision for the dataset is used.
+    #[prost(string, optional, tag="3")]
+    pub revision_id: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -72,6 +76,52 @@ pub struct MetricFilter {
     #[prost(string, repeated, tag="3")]
     pub value: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// RawMetricLabelMatcher constrains a raw VictoriaMetrics label to a set of values.
+/// Unlike MetricFilter it names the VM label directly, because raw series are not
+/// mapped through the MetricKind registry and so have no FilterKind vocabulary.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawMetricLabelMatcher {
+    #[prost(string, tag="1")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(enumeration="ComparatorKind", tag="2")]
+    pub comparator: i32,
+    #[prost(string, repeated, tag="3")]
+    pub value: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// RawMetricSeries plots a VictoriaMetrics series by its own name and labels,
+/// bypassing the curated MetricKind registry. It exists so Chalk employees can
+/// introspect and chart metrics the registry does not (yet) map; see
+/// ChartsService.ListRawMetrics for discovery.
+///
+/// Access is Chalk-employee-only (PERMISSION_CHALK_ADMIN, enforced in the chart
+/// snapshot handler) and raw series are rejected on the chart/alert persistence
+/// paths: VM series names are an internal implementation detail, not a stable
+/// surface a saved chart should depend on.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RawMetricSeries {
+    /// VictoriaMetrics series name, e.g. "chalk_query_plan_latency_bucket". Ignored
+    /// when metricsql is set.
+    #[prost(string, tag="1")]
+    pub metric_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="2")]
+    pub matchers: ::prost::alloc::vec::Vec<RawMetricLabelMatcher>,
+    /// Raw VM label names to group by. Each becomes a `by (...)` label and shows up
+    /// as a series tag under its own label name.
+    #[prost(string, repeated, tag="3")]
+    pub group_by: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Fully free-form MetricsQL, evaluated verbatim as a range query. When set,
+    /// metric_name/matchers/group_by are ignored and no environment scoping is
+    /// injected, so the query must scope itself.
+    #[prost(string, optional, tag="4")]
+    pub metricsql: ::core::option::Option<::prost::alloc::string::String>,
+    /// Overrides how metric_name is aggregated over each chart bucket. When unset,
+    /// the shape is inferred from the series name (a _bucket suffix means a
+    /// histogram, _total a cumulative counter, anything else a gauge).
+    #[prost(enumeration="RawMetricValueKind", optional, tag="5")]
+    pub value_kind: ::core::option::Option<i32>,
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MetricConfigSeries {
@@ -88,6 +138,25 @@ pub struct MetricConfigSeries {
     /// A positive duration by which to shift the time series data backwards.
     #[prost(message, optional, tag="6")]
     pub time_shift: ::core::option::Option<::prost_types::Duration>,
+    /// When set, this series plots a raw VictoriaMetrics series and `metric`,
+    /// `filters` and `group_by` are ignored. Chalk-employee-only; see RawMetricSeries.
+    #[prost(message, optional, tag="7")]
+    pub raw: ::core::option::Option<RawMetricSeries>,
+}
+/// Marks a time-series (not statistic) config. Empty for now — the render fields
+/// (display_window_period) stay at the MetricConfig top level.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct TimeSeriesVisualizationOptions {
+}
+/// When set on a MetricConfig, GetChartSnapshot evaluates the query over the whole range as a single
+/// bucket and returns that scalar (GetChartSnapshotResponse.statistic) instead of a time series. The
+/// series' own window_function is the aggregation (count/mean/max/…), so there is no separate
+/// reduction or bucketing knob. The config must produce exactly one output series (no group_by, no
+/// multiple series/formulas).
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct StatisticVisualizationOptions {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -102,6 +171,8 @@ pub struct MetricConfig {
     pub series: ::prost::alloc::vec::Vec<MetricConfigSeries>,
     #[prost(message, repeated, tag="4")]
     pub formulas: ::prost::alloc::vec::Vec<MetricFormula>,
+    #[prost(string, repeated, tag="11")]
+    pub mql_formulas: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, optional, tag="5")]
     pub trigger: ::core::option::Option<AlertTrigger>,
     /// If this is generated as part of their code source and not to be edited otherwise
@@ -116,6 +187,21 @@ pub struct MetricConfig {
     /// "5m", "1h").
     #[prost(string, optional, tag="8")]
     pub display_window_period: ::core::option::Option<::prost::alloc::string::String>,
+    /// Which visualization this config renders as; unset is treated as a time series.
+    #[prost(oneof="metric_config::VisualizationOptions", tags="9, 10")]
+    pub visualization_options: ::core::option::Option<metric_config::VisualizationOptions>,
+}
+/// Nested message and enum types in `MetricConfig`.
+pub mod metric_config {
+    /// Which visualization this config renders as; unset is treated as a time series.
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Oneof)]
+    pub enum VisualizationOptions {
+        #[prost(message, tag="9")]
+        TimeSeriesOptions(super::TimeSeriesVisualizationOptions),
+        #[prost(message, tag="10")]
+        StatOptions(super::StatisticVisualizationOptions),
+    }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -222,6 +308,118 @@ pub enum MetricKind {
     FunctionCallInflight = 79,
     PodContainerMemoryBytes = 80,
     PodContainerCpuUtilization = 81,
+    /// Query progress gauges emitted periodically by libchalk's report writer
+    /// for an in-flight query operation (query_progress namespace).
+    QueryProgressSplitsProcessed = 82,
+    QueryProgressSplitsQueued = 83,
+    QueryProgressBlockedDrivers = 84,
+    QueryProgressResolverRowsReturned = 85,
+    QueryProgressOperatorOutputBytes = 86,
+    QueryProgressOperatorRowsProcessed = 87,
+    ScheduledQueryCount = 88,
+    ScheduledQuerySuccessRatio = 89,
+    HypervisorContainerCpuUtilization = 90,
+    HypervisorContainerMemoryBytes = 91,
+    QueryPlanLatency = 92,
+    QueryProgressSpoolFlushedBytes = 93,
+    QueryProgressSpoolReclaimedBytes = 94,
+    QueryProgressSpoolBufferedBytes = 95,
+    QueryProgressSpoolOutstandingChunks = 96,
+    QueryProgressSpilledBytes = 97,
+    QueryProgressSpilledRows = 98,
+    QueryProgressSpillOutstandingBytes = 99,
+    QueryProgressSpillTimeMs = 100,
+    /// VM-only cumulative counters emitted by Vector's collector and aggregator
+    /// self-observability pipeline.
+    TelemetryPipelineLogReceived = 101,
+    TelemetryPipelineLogEmitted = 102,
+    TelemetryPipelineLogDropped = 103,
+    TelemetryPipelineMetricReceived = 104,
+    TelemetryPipelineMetricEmitted = 105,
+    TelemetryPipelineMetricDropped = 106,
+    TelemetryPipelineTraceReceived = 107,
+    TelemetryPipelineTraceEmitted = 108,
+    TelemetryPipelineTraceDropped = 109,
+    TelemetryPipelineMixedReceived = 110,
+    TelemetryPipelineMixedEmitted = 111,
+    TelemetryPipelineMixedDropped = 112,
+    /// DCGM framebuffer gauges, stored in bytes. The exporter's default counter set
+    /// has no total, so device capacity is used + free (+ a small reserved region).
+    GpuMemoryUsedBytes = 113,
+    GpuMemoryFreeBytes = 114,
+    /// Counts pods whose maximum container CPU utilization in a chart bucket is at
+    /// or below the fixed low-utilization threshold.
+    LowCpuUtilizationPodCount = 115,
+    /// Percent (0-100) of the fullest mounted filesystem in use, computed per mount
+    /// before being reduced so both gauges come from the same disk.
+    DiskUsedPercent = 116,
+    ClickhouseCpuPctUsed = 117,
+    ClickhouseCpuSystemTime = 118,
+    ClickhouseCpuIdleTime = 119,
+    ClickhouseCpuUserTime = 120,
+    ClickhouseMemoryLimitBytes = 121,
+    ClickhouseMemoryPctUsed = 122,
+    ClickhouseMemoryUsedBytes = 123,
+    ClickhouseQueryCount = 124,
+    ClickhouseQueryLatencyAvgMs = 125,
+    ClickhouseQueryLatencyMaxMs = 126,
+    /// Online store bytes held by keys and values, excluding allocator and buffer
+    /// overhead. Unlike ONLINE_STORE_USED_MEMORY, which is RSS, this falls when keys
+    /// are deleted.
+    OnlineStoreDatasetSize = 127,
+    /// Bytes the online store's allocator holds, which is what its eviction limit
+    /// applies to. ONLINE_STORE_USED_MEMORY is RSS and sits above this; DATASET_SIZE
+    /// excludes keyspace overhead and sits below it.
+    OnlineStoreAllocatedMemory = 128,
+    /// Whole bound offline-store dataset/schema size in bytes; the denominator for
+    /// the accelerated (wide-table) share. Emitted at wide-table fill/compaction ends.
+    OfflineStoreTotalBytes = 129,
+    /// A namespace's active wide feature-view table size in bytes; the accelerated
+    /// numerator, keyed by GROUP_BY_KIND_NAMESPACE. Emitted alongside TOTAL_BYTES.
+    OfflineStoreWideBytes = 130,
+    /// Time from when Chalk received a streaming message to processing
+    /// completion; STREAM_INGEST_DELAY minus this is time spent in the bus.
+    StreamMessageProcessingDuration = 131,
+    /// Storage "Accelerated" tile: completed offline queries (denominator) and the subset
+    /// whose plan read a wide table / MFV (numerator). VM-only, no Timescale series.
+    OfflineQueryCompleted = 132,
+    OfflineQueryAccelerated = 133,
+    /// Model training metrics emitted via chalk_train.log_metrics.
+    ModelTrainingAccuracy = 134,
+    ModelTrainingLoss = 135,
+    ModelTrainingPrecision = 136,
+    ModelTrainingRecall = 137,
+    ModelTrainingF1 = 138,
+    ModelTrainingMae = 139,
+    ModelTrainingMse = 140,
+    ModelTrainingRmse = 141,
+    ModelTrainingR2 = 142,
+    /// Total requests Envoy sent to upstream clusters. This is backed directly by
+    /// Envoy's cumulative Prometheus counter rather than Chalk's metric pipeline.
+    EnvoyUpstreamRequestCount = 143,
+    PodStateCount = 144,
+    ContainerCrashes = 145,
+    /// Reinforcement learning metrics emitted via chalk_train.log_metrics.
+    ModelTrainingReward = 146,
+    ModelTrainingRewardStd = 147,
+    ModelTrainingPassRate = 148,
+    ModelTrainingKl = 149,
+    ModelTrainingEntropy = 150,
+    ModelTrainingGradNorm = 151,
+    ModelTrainingLearningRate = 152,
+    ModelTrainingResponseLength = 153,
+    /// Sandbox lifecycle metrics combine the available Kubernetes and hypervisor telemetry.
+    SandboxStateCount = 154,
+    SandboxStartupLatency = 155,
+    /// Sandbox resource metrics. The chart backend reads each runtime's
+    /// native telemetry and combines the results without requiring common emitters.
+    SandboxMemoryUsedBytes = 156,
+    SandboxCpuUsageCores = 157,
+    SandboxCpuRequestCores = 158,
+    SandboxMemoryRequestBytes = 159,
+    /// Per-sandbox usage divided by its configured request, before cross-sandbox aggregation.
+    SandboxCpuUtilization = 160,
+    SandboxMemoryUtilization = 161,
 }
 impl MetricKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -312,6 +510,86 @@ impl MetricKind {
             MetricKind::FunctionCallInflight => "METRIC_KIND_FUNCTION_CALL_INFLIGHT",
             MetricKind::PodContainerMemoryBytes => "METRIC_KIND_POD_CONTAINER_MEMORY_BYTES",
             MetricKind::PodContainerCpuUtilization => "METRIC_KIND_POD_CONTAINER_CPU_UTILIZATION",
+            MetricKind::QueryProgressSplitsProcessed => "METRIC_KIND_QUERY_PROGRESS_SPLITS_PROCESSED",
+            MetricKind::QueryProgressSplitsQueued => "METRIC_KIND_QUERY_PROGRESS_SPLITS_QUEUED",
+            MetricKind::QueryProgressBlockedDrivers => "METRIC_KIND_QUERY_PROGRESS_BLOCKED_DRIVERS",
+            MetricKind::QueryProgressResolverRowsReturned => "METRIC_KIND_QUERY_PROGRESS_RESOLVER_ROWS_RETURNED",
+            MetricKind::QueryProgressOperatorOutputBytes => "METRIC_KIND_QUERY_PROGRESS_OPERATOR_OUTPUT_BYTES",
+            MetricKind::QueryProgressOperatorRowsProcessed => "METRIC_KIND_QUERY_PROGRESS_OPERATOR_ROWS_PROCESSED",
+            MetricKind::ScheduledQueryCount => "METRIC_KIND_SCHEDULED_QUERY_COUNT",
+            MetricKind::ScheduledQuerySuccessRatio => "METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO",
+            MetricKind::HypervisorContainerCpuUtilization => "METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION",
+            MetricKind::HypervisorContainerMemoryBytes => "METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES",
+            MetricKind::QueryPlanLatency => "METRIC_KIND_QUERY_PLAN_LATENCY",
+            MetricKind::QueryProgressSpoolFlushedBytes => "METRIC_KIND_QUERY_PROGRESS_SPOOL_FLUSHED_BYTES",
+            MetricKind::QueryProgressSpoolReclaimedBytes => "METRIC_KIND_QUERY_PROGRESS_SPOOL_RECLAIMED_BYTES",
+            MetricKind::QueryProgressSpoolBufferedBytes => "METRIC_KIND_QUERY_PROGRESS_SPOOL_BUFFERED_BYTES",
+            MetricKind::QueryProgressSpoolOutstandingChunks => "METRIC_KIND_QUERY_PROGRESS_SPOOL_OUTSTANDING_CHUNKS",
+            MetricKind::QueryProgressSpilledBytes => "METRIC_KIND_QUERY_PROGRESS_SPILLED_BYTES",
+            MetricKind::QueryProgressSpilledRows => "METRIC_KIND_QUERY_PROGRESS_SPILLED_ROWS",
+            MetricKind::QueryProgressSpillOutstandingBytes => "METRIC_KIND_QUERY_PROGRESS_SPILL_OUTSTANDING_BYTES",
+            MetricKind::QueryProgressSpillTimeMs => "METRIC_KIND_QUERY_PROGRESS_SPILL_TIME_MS",
+            MetricKind::TelemetryPipelineLogReceived => "METRIC_KIND_TELEMETRY_PIPELINE_LOG_RECEIVED",
+            MetricKind::TelemetryPipelineLogEmitted => "METRIC_KIND_TELEMETRY_PIPELINE_LOG_EMITTED",
+            MetricKind::TelemetryPipelineLogDropped => "METRIC_KIND_TELEMETRY_PIPELINE_LOG_DROPPED",
+            MetricKind::TelemetryPipelineMetricReceived => "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_RECEIVED",
+            MetricKind::TelemetryPipelineMetricEmitted => "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_EMITTED",
+            MetricKind::TelemetryPipelineMetricDropped => "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_DROPPED",
+            MetricKind::TelemetryPipelineTraceReceived => "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_RECEIVED",
+            MetricKind::TelemetryPipelineTraceEmitted => "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_EMITTED",
+            MetricKind::TelemetryPipelineTraceDropped => "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_DROPPED",
+            MetricKind::TelemetryPipelineMixedReceived => "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED",
+            MetricKind::TelemetryPipelineMixedEmitted => "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED",
+            MetricKind::TelemetryPipelineMixedDropped => "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED",
+            MetricKind::GpuMemoryUsedBytes => "METRIC_KIND_GPU_MEMORY_USED_BYTES",
+            MetricKind::GpuMemoryFreeBytes => "METRIC_KIND_GPU_MEMORY_FREE_BYTES",
+            MetricKind::LowCpuUtilizationPodCount => "METRIC_KIND_LOW_CPU_UTILIZATION_POD_COUNT",
+            MetricKind::DiskUsedPercent => "METRIC_KIND_DISK_USED_PERCENT",
+            MetricKind::ClickhouseCpuPctUsed => "METRIC_KIND_CLICKHOUSE_CPU_PCT_USED",
+            MetricKind::ClickhouseCpuSystemTime => "METRIC_KIND_CLICKHOUSE_CPU_SYSTEM_TIME",
+            MetricKind::ClickhouseCpuIdleTime => "METRIC_KIND_CLICKHOUSE_CPU_IDLE_TIME",
+            MetricKind::ClickhouseCpuUserTime => "METRIC_KIND_CLICKHOUSE_CPU_USER_TIME",
+            MetricKind::ClickhouseMemoryLimitBytes => "METRIC_KIND_CLICKHOUSE_MEMORY_LIMIT_BYTES",
+            MetricKind::ClickhouseMemoryPctUsed => "METRIC_KIND_CLICKHOUSE_MEMORY_PCT_USED",
+            MetricKind::ClickhouseMemoryUsedBytes => "METRIC_KIND_CLICKHOUSE_MEMORY_USED_BYTES",
+            MetricKind::ClickhouseQueryCount => "METRIC_KIND_CLICKHOUSE_QUERY_COUNT",
+            MetricKind::ClickhouseQueryLatencyAvgMs => "METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_AVG_MS",
+            MetricKind::ClickhouseQueryLatencyMaxMs => "METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_MAX_MS",
+            MetricKind::OnlineStoreDatasetSize => "METRIC_KIND_ONLINE_STORE_DATASET_SIZE",
+            MetricKind::OnlineStoreAllocatedMemory => "METRIC_KIND_ONLINE_STORE_ALLOCATED_MEMORY",
+            MetricKind::OfflineStoreTotalBytes => "METRIC_KIND_OFFLINE_STORE_TOTAL_BYTES",
+            MetricKind::OfflineStoreWideBytes => "METRIC_KIND_OFFLINE_STORE_WIDE_BYTES",
+            MetricKind::StreamMessageProcessingDuration => "METRIC_KIND_STREAM_MESSAGE_PROCESSING_DURATION",
+            MetricKind::OfflineQueryCompleted => "METRIC_KIND_OFFLINE_QUERY_COMPLETED",
+            MetricKind::OfflineQueryAccelerated => "METRIC_KIND_OFFLINE_QUERY_ACCELERATED",
+            MetricKind::ModelTrainingAccuracy => "METRIC_KIND_MODEL_TRAINING_ACCURACY",
+            MetricKind::ModelTrainingLoss => "METRIC_KIND_MODEL_TRAINING_LOSS",
+            MetricKind::ModelTrainingPrecision => "METRIC_KIND_MODEL_TRAINING_PRECISION",
+            MetricKind::ModelTrainingRecall => "METRIC_KIND_MODEL_TRAINING_RECALL",
+            MetricKind::ModelTrainingF1 => "METRIC_KIND_MODEL_TRAINING_F1",
+            MetricKind::ModelTrainingMae => "METRIC_KIND_MODEL_TRAINING_MAE",
+            MetricKind::ModelTrainingMse => "METRIC_KIND_MODEL_TRAINING_MSE",
+            MetricKind::ModelTrainingRmse => "METRIC_KIND_MODEL_TRAINING_RMSE",
+            MetricKind::ModelTrainingR2 => "METRIC_KIND_MODEL_TRAINING_R2",
+            MetricKind::EnvoyUpstreamRequestCount => "METRIC_KIND_ENVOY_UPSTREAM_REQUEST_COUNT",
+            MetricKind::PodStateCount => "METRIC_KIND_POD_STATE_COUNT",
+            MetricKind::ContainerCrashes => "METRIC_KIND_CONTAINER_CRASHES",
+            MetricKind::ModelTrainingReward => "METRIC_KIND_MODEL_TRAINING_REWARD",
+            MetricKind::ModelTrainingRewardStd => "METRIC_KIND_MODEL_TRAINING_REWARD_STD",
+            MetricKind::ModelTrainingPassRate => "METRIC_KIND_MODEL_TRAINING_PASS_RATE",
+            MetricKind::ModelTrainingKl => "METRIC_KIND_MODEL_TRAINING_KL",
+            MetricKind::ModelTrainingEntropy => "METRIC_KIND_MODEL_TRAINING_ENTROPY",
+            MetricKind::ModelTrainingGradNorm => "METRIC_KIND_MODEL_TRAINING_GRAD_NORM",
+            MetricKind::ModelTrainingLearningRate => "METRIC_KIND_MODEL_TRAINING_LEARNING_RATE",
+            MetricKind::ModelTrainingResponseLength => "METRIC_KIND_MODEL_TRAINING_RESPONSE_LENGTH",
+            MetricKind::SandboxStateCount => "METRIC_KIND_SANDBOX_STATE_COUNT",
+            MetricKind::SandboxStartupLatency => "METRIC_KIND_SANDBOX_STARTUP_LATENCY",
+            MetricKind::SandboxMemoryUsedBytes => "METRIC_KIND_SANDBOX_MEMORY_USED_BYTES",
+            MetricKind::SandboxCpuUsageCores => "METRIC_KIND_SANDBOX_CPU_USAGE_CORES",
+            MetricKind::SandboxCpuRequestCores => "METRIC_KIND_SANDBOX_CPU_REQUEST_CORES",
+            MetricKind::SandboxMemoryRequestBytes => "METRIC_KIND_SANDBOX_MEMORY_REQUEST_BYTES",
+            MetricKind::SandboxCpuUtilization => "METRIC_KIND_SANDBOX_CPU_UTILIZATION",
+            MetricKind::SandboxMemoryUtilization => "METRIC_KIND_SANDBOX_MEMORY_UTILIZATION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -399,6 +677,86 @@ impl MetricKind {
             "METRIC_KIND_FUNCTION_CALL_INFLIGHT" => Some(Self::FunctionCallInflight),
             "METRIC_KIND_POD_CONTAINER_MEMORY_BYTES" => Some(Self::PodContainerMemoryBytes),
             "METRIC_KIND_POD_CONTAINER_CPU_UTILIZATION" => Some(Self::PodContainerCpuUtilization),
+            "METRIC_KIND_QUERY_PROGRESS_SPLITS_PROCESSED" => Some(Self::QueryProgressSplitsProcessed),
+            "METRIC_KIND_QUERY_PROGRESS_SPLITS_QUEUED" => Some(Self::QueryProgressSplitsQueued),
+            "METRIC_KIND_QUERY_PROGRESS_BLOCKED_DRIVERS" => Some(Self::QueryProgressBlockedDrivers),
+            "METRIC_KIND_QUERY_PROGRESS_RESOLVER_ROWS_RETURNED" => Some(Self::QueryProgressResolverRowsReturned),
+            "METRIC_KIND_QUERY_PROGRESS_OPERATOR_OUTPUT_BYTES" => Some(Self::QueryProgressOperatorOutputBytes),
+            "METRIC_KIND_QUERY_PROGRESS_OPERATOR_ROWS_PROCESSED" => Some(Self::QueryProgressOperatorRowsProcessed),
+            "METRIC_KIND_SCHEDULED_QUERY_COUNT" => Some(Self::ScheduledQueryCount),
+            "METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO" => Some(Self::ScheduledQuerySuccessRatio),
+            "METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION" => Some(Self::HypervisorContainerCpuUtilization),
+            "METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES" => Some(Self::HypervisorContainerMemoryBytes),
+            "METRIC_KIND_QUERY_PLAN_LATENCY" => Some(Self::QueryPlanLatency),
+            "METRIC_KIND_QUERY_PROGRESS_SPOOL_FLUSHED_BYTES" => Some(Self::QueryProgressSpoolFlushedBytes),
+            "METRIC_KIND_QUERY_PROGRESS_SPOOL_RECLAIMED_BYTES" => Some(Self::QueryProgressSpoolReclaimedBytes),
+            "METRIC_KIND_QUERY_PROGRESS_SPOOL_BUFFERED_BYTES" => Some(Self::QueryProgressSpoolBufferedBytes),
+            "METRIC_KIND_QUERY_PROGRESS_SPOOL_OUTSTANDING_CHUNKS" => Some(Self::QueryProgressSpoolOutstandingChunks),
+            "METRIC_KIND_QUERY_PROGRESS_SPILLED_BYTES" => Some(Self::QueryProgressSpilledBytes),
+            "METRIC_KIND_QUERY_PROGRESS_SPILLED_ROWS" => Some(Self::QueryProgressSpilledRows),
+            "METRIC_KIND_QUERY_PROGRESS_SPILL_OUTSTANDING_BYTES" => Some(Self::QueryProgressSpillOutstandingBytes),
+            "METRIC_KIND_QUERY_PROGRESS_SPILL_TIME_MS" => Some(Self::QueryProgressSpillTimeMs),
+            "METRIC_KIND_TELEMETRY_PIPELINE_LOG_RECEIVED" => Some(Self::TelemetryPipelineLogReceived),
+            "METRIC_KIND_TELEMETRY_PIPELINE_LOG_EMITTED" => Some(Self::TelemetryPipelineLogEmitted),
+            "METRIC_KIND_TELEMETRY_PIPELINE_LOG_DROPPED" => Some(Self::TelemetryPipelineLogDropped),
+            "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_RECEIVED" => Some(Self::TelemetryPipelineMetricReceived),
+            "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_EMITTED" => Some(Self::TelemetryPipelineMetricEmitted),
+            "METRIC_KIND_TELEMETRY_PIPELINE_METRIC_DROPPED" => Some(Self::TelemetryPipelineMetricDropped),
+            "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_RECEIVED" => Some(Self::TelemetryPipelineTraceReceived),
+            "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_EMITTED" => Some(Self::TelemetryPipelineTraceEmitted),
+            "METRIC_KIND_TELEMETRY_PIPELINE_TRACE_DROPPED" => Some(Self::TelemetryPipelineTraceDropped),
+            "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_RECEIVED" => Some(Self::TelemetryPipelineMixedReceived),
+            "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_EMITTED" => Some(Self::TelemetryPipelineMixedEmitted),
+            "METRIC_KIND_TELEMETRY_PIPELINE_MIXED_DROPPED" => Some(Self::TelemetryPipelineMixedDropped),
+            "METRIC_KIND_GPU_MEMORY_USED_BYTES" => Some(Self::GpuMemoryUsedBytes),
+            "METRIC_KIND_GPU_MEMORY_FREE_BYTES" => Some(Self::GpuMemoryFreeBytes),
+            "METRIC_KIND_LOW_CPU_UTILIZATION_POD_COUNT" => Some(Self::LowCpuUtilizationPodCount),
+            "METRIC_KIND_DISK_USED_PERCENT" => Some(Self::DiskUsedPercent),
+            "METRIC_KIND_CLICKHOUSE_CPU_PCT_USED" => Some(Self::ClickhouseCpuPctUsed),
+            "METRIC_KIND_CLICKHOUSE_CPU_SYSTEM_TIME" => Some(Self::ClickhouseCpuSystemTime),
+            "METRIC_KIND_CLICKHOUSE_CPU_IDLE_TIME" => Some(Self::ClickhouseCpuIdleTime),
+            "METRIC_KIND_CLICKHOUSE_CPU_USER_TIME" => Some(Self::ClickhouseCpuUserTime),
+            "METRIC_KIND_CLICKHOUSE_MEMORY_LIMIT_BYTES" => Some(Self::ClickhouseMemoryLimitBytes),
+            "METRIC_KIND_CLICKHOUSE_MEMORY_PCT_USED" => Some(Self::ClickhouseMemoryPctUsed),
+            "METRIC_KIND_CLICKHOUSE_MEMORY_USED_BYTES" => Some(Self::ClickhouseMemoryUsedBytes),
+            "METRIC_KIND_CLICKHOUSE_QUERY_COUNT" => Some(Self::ClickhouseQueryCount),
+            "METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_AVG_MS" => Some(Self::ClickhouseQueryLatencyAvgMs),
+            "METRIC_KIND_CLICKHOUSE_QUERY_LATENCY_MAX_MS" => Some(Self::ClickhouseQueryLatencyMaxMs),
+            "METRIC_KIND_ONLINE_STORE_DATASET_SIZE" => Some(Self::OnlineStoreDatasetSize),
+            "METRIC_KIND_ONLINE_STORE_ALLOCATED_MEMORY" => Some(Self::OnlineStoreAllocatedMemory),
+            "METRIC_KIND_OFFLINE_STORE_TOTAL_BYTES" => Some(Self::OfflineStoreTotalBytes),
+            "METRIC_KIND_OFFLINE_STORE_WIDE_BYTES" => Some(Self::OfflineStoreWideBytes),
+            "METRIC_KIND_STREAM_MESSAGE_PROCESSING_DURATION" => Some(Self::StreamMessageProcessingDuration),
+            "METRIC_KIND_OFFLINE_QUERY_COMPLETED" => Some(Self::OfflineQueryCompleted),
+            "METRIC_KIND_OFFLINE_QUERY_ACCELERATED" => Some(Self::OfflineQueryAccelerated),
+            "METRIC_KIND_MODEL_TRAINING_ACCURACY" => Some(Self::ModelTrainingAccuracy),
+            "METRIC_KIND_MODEL_TRAINING_LOSS" => Some(Self::ModelTrainingLoss),
+            "METRIC_KIND_MODEL_TRAINING_PRECISION" => Some(Self::ModelTrainingPrecision),
+            "METRIC_KIND_MODEL_TRAINING_RECALL" => Some(Self::ModelTrainingRecall),
+            "METRIC_KIND_MODEL_TRAINING_F1" => Some(Self::ModelTrainingF1),
+            "METRIC_KIND_MODEL_TRAINING_MAE" => Some(Self::ModelTrainingMae),
+            "METRIC_KIND_MODEL_TRAINING_MSE" => Some(Self::ModelTrainingMse),
+            "METRIC_KIND_MODEL_TRAINING_RMSE" => Some(Self::ModelTrainingRmse),
+            "METRIC_KIND_MODEL_TRAINING_R2" => Some(Self::ModelTrainingR2),
+            "METRIC_KIND_ENVOY_UPSTREAM_REQUEST_COUNT" => Some(Self::EnvoyUpstreamRequestCount),
+            "METRIC_KIND_POD_STATE_COUNT" => Some(Self::PodStateCount),
+            "METRIC_KIND_CONTAINER_CRASHES" => Some(Self::ContainerCrashes),
+            "METRIC_KIND_MODEL_TRAINING_REWARD" => Some(Self::ModelTrainingReward),
+            "METRIC_KIND_MODEL_TRAINING_REWARD_STD" => Some(Self::ModelTrainingRewardStd),
+            "METRIC_KIND_MODEL_TRAINING_PASS_RATE" => Some(Self::ModelTrainingPassRate),
+            "METRIC_KIND_MODEL_TRAINING_KL" => Some(Self::ModelTrainingKl),
+            "METRIC_KIND_MODEL_TRAINING_ENTROPY" => Some(Self::ModelTrainingEntropy),
+            "METRIC_KIND_MODEL_TRAINING_GRAD_NORM" => Some(Self::ModelTrainingGradNorm),
+            "METRIC_KIND_MODEL_TRAINING_LEARNING_RATE" => Some(Self::ModelTrainingLearningRate),
+            "METRIC_KIND_MODEL_TRAINING_RESPONSE_LENGTH" => Some(Self::ModelTrainingResponseLength),
+            "METRIC_KIND_SANDBOX_STATE_COUNT" => Some(Self::SandboxStateCount),
+            "METRIC_KIND_SANDBOX_STARTUP_LATENCY" => Some(Self::SandboxStartupLatency),
+            "METRIC_KIND_SANDBOX_MEMORY_USED_BYTES" => Some(Self::SandboxMemoryUsedBytes),
+            "METRIC_KIND_SANDBOX_CPU_USAGE_CORES" => Some(Self::SandboxCpuUsageCores),
+            "METRIC_KIND_SANDBOX_CPU_REQUEST_CORES" => Some(Self::SandboxCpuRequestCores),
+            "METRIC_KIND_SANDBOX_MEMORY_REQUEST_BYTES" => Some(Self::SandboxMemoryRequestBytes),
+            "METRIC_KIND_SANDBOX_CPU_UTILIZATION" => Some(Self::SandboxCpuUtilization),
+            "METRIC_KIND_SANDBOX_MEMORY_UTILIZATION" => Some(Self::SandboxMemoryUtilization),
             _ => None,
         }
     }
@@ -431,6 +789,46 @@ pub enum FilterKind {
     ScalingGroup = 22,
     FunctionName = 23,
     ServiceKind = 24,
+    ConsumerGroup = 25,
+    ContainerId = 26,
+    Planner = 27,
+    PlanReason = 28,
+    FunctionCallMode = 29,
+    /// The operation ID of an offline query specifically. Distinct from
+    /// FILTER_KIND_OPERATION_ID, which spans every computation context: only the
+    /// offline-query subset survives into VictoriaMetrics, so a chart slicing per
+    /// operation must say which it means. See go-api-server/charts/vm_registry.go.
+    OfflineQueryOperationId = 30,
+    /// The remaining computation contexts whose operation IDs VictoriaMetrics
+    /// retains, each under its own label. A chart must name the context it means;
+    /// FILTER_KIND_OPERATION_ID stays unresolvable there.
+    ScriptTaskOperationId = 31,
+    CronOperationId = 32,
+    ChalksqlOperationId = 33,
+    /// The Kubernetes node a metric was observed on. Distinct from
+    /// FILTER_KIND_POD_NAME: both address the `source` column, but the node
+    /// namespace stores a bare node name there, with no "namespace/podName"
+    /// shape to unpack. The GPU gauges are the node-scoped metrics today —
+    /// DCGM reports per device per node, not per pod.
+    NodeName = 34,
+    /// The scaling-group revision that executed a function call. Function-call
+    /// metrics persist this value in the shared operation_id storage dimension,
+    /// but it is not a query operation ID and must not use operation formatting.
+    ScalingGroupRevisionId = 35,
+    /// The feature-view namespace of an offline-store wide-table size metric.
+    Namespace = 36,
+    TrainingRunId = 37,
+    TrainingStep = 38,
+    TrainingSplit = 39,
+    TrainingClass = 40,
+    TrainingThreshold = 41,
+    TrainingOptimizer = 42,
+    TrainingModelVersion = 43,
+    TrainingEpoch = 44,
+    PodState = 45,
+    ContainerCrashReason = 46,
+    WorkloadRuntime = 48,
+    WorkloadState = 49,
 }
 impl FilterKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -464,6 +862,30 @@ impl FilterKind {
             FilterKind::ScalingGroup => "FILTER_KIND_SCALING_GROUP",
             FilterKind::FunctionName => "FILTER_KIND_FUNCTION_NAME",
             FilterKind::ServiceKind => "FILTER_KIND_SERVICE_KIND",
+            FilterKind::ConsumerGroup => "FILTER_KIND_CONSUMER_GROUP",
+            FilterKind::ContainerId => "FILTER_KIND_CONTAINER_ID",
+            FilterKind::Planner => "FILTER_KIND_PLANNER",
+            FilterKind::PlanReason => "FILTER_KIND_PLAN_REASON",
+            FilterKind::FunctionCallMode => "FILTER_KIND_FUNCTION_CALL_MODE",
+            FilterKind::OfflineQueryOperationId => "FILTER_KIND_OFFLINE_QUERY_OPERATION_ID",
+            FilterKind::ScriptTaskOperationId => "FILTER_KIND_SCRIPT_TASK_OPERATION_ID",
+            FilterKind::CronOperationId => "FILTER_KIND_CRON_OPERATION_ID",
+            FilterKind::ChalksqlOperationId => "FILTER_KIND_CHALKSQL_OPERATION_ID",
+            FilterKind::NodeName => "FILTER_KIND_NODE_NAME",
+            FilterKind::ScalingGroupRevisionId => "FILTER_KIND_SCALING_GROUP_REVISION_ID",
+            FilterKind::Namespace => "FILTER_KIND_NAMESPACE",
+            FilterKind::TrainingRunId => "FILTER_KIND_TRAINING_RUN_ID",
+            FilterKind::TrainingStep => "FILTER_KIND_TRAINING_STEP",
+            FilterKind::TrainingSplit => "FILTER_KIND_TRAINING_SPLIT",
+            FilterKind::TrainingClass => "FILTER_KIND_TRAINING_CLASS",
+            FilterKind::TrainingThreshold => "FILTER_KIND_TRAINING_THRESHOLD",
+            FilterKind::TrainingOptimizer => "FILTER_KIND_TRAINING_OPTIMIZER",
+            FilterKind::TrainingModelVersion => "FILTER_KIND_TRAINING_MODEL_VERSION",
+            FilterKind::TrainingEpoch => "FILTER_KIND_TRAINING_EPOCH",
+            FilterKind::PodState => "FILTER_KIND_POD_STATE",
+            FilterKind::ContainerCrashReason => "FILTER_KIND_CONTAINER_CRASH_REASON",
+            FilterKind::WorkloadRuntime => "FILTER_KIND_WORKLOAD_RUNTIME",
+            FilterKind::WorkloadState => "FILTER_KIND_WORKLOAD_STATE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -494,6 +916,30 @@ impl FilterKind {
             "FILTER_KIND_SCALING_GROUP" => Some(Self::ScalingGroup),
             "FILTER_KIND_FUNCTION_NAME" => Some(Self::FunctionName),
             "FILTER_KIND_SERVICE_KIND" => Some(Self::ServiceKind),
+            "FILTER_KIND_CONSUMER_GROUP" => Some(Self::ConsumerGroup),
+            "FILTER_KIND_CONTAINER_ID" => Some(Self::ContainerId),
+            "FILTER_KIND_PLANNER" => Some(Self::Planner),
+            "FILTER_KIND_PLAN_REASON" => Some(Self::PlanReason),
+            "FILTER_KIND_FUNCTION_CALL_MODE" => Some(Self::FunctionCallMode),
+            "FILTER_KIND_OFFLINE_QUERY_OPERATION_ID" => Some(Self::OfflineQueryOperationId),
+            "FILTER_KIND_SCRIPT_TASK_OPERATION_ID" => Some(Self::ScriptTaskOperationId),
+            "FILTER_KIND_CRON_OPERATION_ID" => Some(Self::CronOperationId),
+            "FILTER_KIND_CHALKSQL_OPERATION_ID" => Some(Self::ChalksqlOperationId),
+            "FILTER_KIND_NODE_NAME" => Some(Self::NodeName),
+            "FILTER_KIND_SCALING_GROUP_REVISION_ID" => Some(Self::ScalingGroupRevisionId),
+            "FILTER_KIND_NAMESPACE" => Some(Self::Namespace),
+            "FILTER_KIND_TRAINING_RUN_ID" => Some(Self::TrainingRunId),
+            "FILTER_KIND_TRAINING_STEP" => Some(Self::TrainingStep),
+            "FILTER_KIND_TRAINING_SPLIT" => Some(Self::TrainingSplit),
+            "FILTER_KIND_TRAINING_CLASS" => Some(Self::TrainingClass),
+            "FILTER_KIND_TRAINING_THRESHOLD" => Some(Self::TrainingThreshold),
+            "FILTER_KIND_TRAINING_OPTIMIZER" => Some(Self::TrainingOptimizer),
+            "FILTER_KIND_TRAINING_MODEL_VERSION" => Some(Self::TrainingModelVersion),
+            "FILTER_KIND_TRAINING_EPOCH" => Some(Self::TrainingEpoch),
+            "FILTER_KIND_POD_STATE" => Some(Self::PodState),
+            "FILTER_KIND_CONTAINER_CRASH_REASON" => Some(Self::ContainerCrashReason),
+            "FILTER_KIND_WORKLOAD_RUNTIME" => Some(Self::WorkloadRuntime),
+            "FILTER_KIND_WORKLOAD_STATE" => Some(Self::WorkloadState),
             _ => None,
         }
     }
@@ -612,6 +1058,38 @@ pub enum GroupByKind {
     PartitionName = 17,
     FunctionName = 18,
     ServiceKind = 19,
+    ConsumerGroup = 20,
+    Planner = 21,
+    PlanReason = 22,
+    TelemetryPipelineRole = 23,
+    TelemetryPipelineStep = 24,
+    TelemetryPipelineDropScope = 25,
+    /// Per-operation breakdown restricted to offline queries; see
+    /// FILTER_KIND_OFFLINE_QUERY_OPERATION_ID.
+    OfflineQueryOperationId = 26,
+    /// Per-operation breakdowns for the other retained contexts; see
+    /// FILTER_KIND_SCRIPT_TASK_OPERATION_ID.
+    ScriptTaskOperationId = 27,
+    CronOperationId = 28,
+    ChalksqlOperationId = 29,
+    /// The scaling-group revision that executed a function call; see
+    /// FILTER_KIND_SCALING_GROUP_REVISION_ID.
+    ScalingGroupRevisionId = 30,
+    /// The feature-view namespace an offline-store wide-table size is keyed by; see
+    /// FILTER_KIND_NAMESPACE.
+    Namespace = 31,
+    TrainingRunId = 32,
+    TrainingStep = 33,
+    TrainingSplit = 34,
+    TrainingClass = 35,
+    TrainingThreshold = 36,
+    TrainingOptimizer = 37,
+    TrainingModelVersion = 38,
+    TrainingEpoch = 39,
+    EnvoyCluster = 40,
+    PodState = 41,
+    ContainerCrashReason = 42,
+    WorkloadRuntime = 44,
 }
 impl GroupByKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -640,6 +1118,30 @@ impl GroupByKind {
             GroupByKind::PartitionName => "GROUP_BY_KIND_PARTITION_NAME",
             GroupByKind::FunctionName => "GROUP_BY_KIND_FUNCTION_NAME",
             GroupByKind::ServiceKind => "GROUP_BY_KIND_SERVICE_KIND",
+            GroupByKind::ConsumerGroup => "GROUP_BY_KIND_CONSUMER_GROUP",
+            GroupByKind::Planner => "GROUP_BY_KIND_PLANNER",
+            GroupByKind::PlanReason => "GROUP_BY_KIND_PLAN_REASON",
+            GroupByKind::TelemetryPipelineRole => "GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE",
+            GroupByKind::TelemetryPipelineStep => "GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP",
+            GroupByKind::TelemetryPipelineDropScope => "GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE",
+            GroupByKind::OfflineQueryOperationId => "GROUP_BY_KIND_OFFLINE_QUERY_OPERATION_ID",
+            GroupByKind::ScriptTaskOperationId => "GROUP_BY_KIND_SCRIPT_TASK_OPERATION_ID",
+            GroupByKind::CronOperationId => "GROUP_BY_KIND_CRON_OPERATION_ID",
+            GroupByKind::ChalksqlOperationId => "GROUP_BY_KIND_CHALKSQL_OPERATION_ID",
+            GroupByKind::ScalingGroupRevisionId => "GROUP_BY_KIND_SCALING_GROUP_REVISION_ID",
+            GroupByKind::Namespace => "GROUP_BY_KIND_NAMESPACE",
+            GroupByKind::TrainingRunId => "GROUP_BY_KIND_TRAINING_RUN_ID",
+            GroupByKind::TrainingStep => "GROUP_BY_KIND_TRAINING_STEP",
+            GroupByKind::TrainingSplit => "GROUP_BY_KIND_TRAINING_SPLIT",
+            GroupByKind::TrainingClass => "GROUP_BY_KIND_TRAINING_CLASS",
+            GroupByKind::TrainingThreshold => "GROUP_BY_KIND_TRAINING_THRESHOLD",
+            GroupByKind::TrainingOptimizer => "GROUP_BY_KIND_TRAINING_OPTIMIZER",
+            GroupByKind::TrainingModelVersion => "GROUP_BY_KIND_TRAINING_MODEL_VERSION",
+            GroupByKind::TrainingEpoch => "GROUP_BY_KIND_TRAINING_EPOCH",
+            GroupByKind::EnvoyCluster => "GROUP_BY_KIND_ENVOY_CLUSTER",
+            GroupByKind::PodState => "GROUP_BY_KIND_POD_STATE",
+            GroupByKind::ContainerCrashReason => "GROUP_BY_KIND_CONTAINER_CRASH_REASON",
+            GroupByKind::WorkloadRuntime => "GROUP_BY_KIND_WORKLOAD_RUNTIME",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -665,6 +1167,30 @@ impl GroupByKind {
             "GROUP_BY_KIND_PARTITION_NAME" => Some(Self::PartitionName),
             "GROUP_BY_KIND_FUNCTION_NAME" => Some(Self::FunctionName),
             "GROUP_BY_KIND_SERVICE_KIND" => Some(Self::ServiceKind),
+            "GROUP_BY_KIND_CONSUMER_GROUP" => Some(Self::ConsumerGroup),
+            "GROUP_BY_KIND_PLANNER" => Some(Self::Planner),
+            "GROUP_BY_KIND_PLAN_REASON" => Some(Self::PlanReason),
+            "GROUP_BY_KIND_TELEMETRY_PIPELINE_ROLE" => Some(Self::TelemetryPipelineRole),
+            "GROUP_BY_KIND_TELEMETRY_PIPELINE_STEP" => Some(Self::TelemetryPipelineStep),
+            "GROUP_BY_KIND_TELEMETRY_PIPELINE_DROP_SCOPE" => Some(Self::TelemetryPipelineDropScope),
+            "GROUP_BY_KIND_OFFLINE_QUERY_OPERATION_ID" => Some(Self::OfflineQueryOperationId),
+            "GROUP_BY_KIND_SCRIPT_TASK_OPERATION_ID" => Some(Self::ScriptTaskOperationId),
+            "GROUP_BY_KIND_CRON_OPERATION_ID" => Some(Self::CronOperationId),
+            "GROUP_BY_KIND_CHALKSQL_OPERATION_ID" => Some(Self::ChalksqlOperationId),
+            "GROUP_BY_KIND_SCALING_GROUP_REVISION_ID" => Some(Self::ScalingGroupRevisionId),
+            "GROUP_BY_KIND_NAMESPACE" => Some(Self::Namespace),
+            "GROUP_BY_KIND_TRAINING_RUN_ID" => Some(Self::TrainingRunId),
+            "GROUP_BY_KIND_TRAINING_STEP" => Some(Self::TrainingStep),
+            "GROUP_BY_KIND_TRAINING_SPLIT" => Some(Self::TrainingSplit),
+            "GROUP_BY_KIND_TRAINING_CLASS" => Some(Self::TrainingClass),
+            "GROUP_BY_KIND_TRAINING_THRESHOLD" => Some(Self::TrainingThreshold),
+            "GROUP_BY_KIND_TRAINING_OPTIMIZER" => Some(Self::TrainingOptimizer),
+            "GROUP_BY_KIND_TRAINING_MODEL_VERSION" => Some(Self::TrainingModelVersion),
+            "GROUP_BY_KIND_TRAINING_EPOCH" => Some(Self::TrainingEpoch),
+            "GROUP_BY_KIND_ENVOY_CLUSTER" => Some(Self::EnvoyCluster),
+            "GROUP_BY_KIND_POD_STATE" => Some(Self::PodState),
+            "GROUP_BY_KIND_CONTAINER_CRASH_REASON" => Some(Self::ContainerCrashReason),
+            "GROUP_BY_KIND_WORKLOAD_RUNTIME" => Some(Self::WorkloadRuntime),
             _ => None,
         }
     }
@@ -839,6 +1365,47 @@ impl ChartLinkKind {
         }
     }
 }
+/// RawMetricValueKind is how a raw series' samples combine over a chart bucket.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum RawMetricValueKind {
+    Unspecified = 0,
+    /// Instantaneous value; aggregated with avg/min/max/sum_over_time.
+    Gauge = 1,
+    /// Monotonic Prometheus counter; per-bucket values come from increase().
+    Counter = 2,
+    /// Prometheus/vmrange bucket series; percentiles come from histogram_quantile().
+    Histogram = 3,
+    /// Non-cumulative per-flush increment; summed with sum_over_time(). Never use
+    /// increase() on these — the dips between windows would read as counter resets.
+    DeltaCount = 4,
+}
+impl RawMetricValueKind {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            RawMetricValueKind::Unspecified => "RAW_METRIC_VALUE_KIND_UNSPECIFIED",
+            RawMetricValueKind::Gauge => "RAW_METRIC_VALUE_KIND_GAUGE",
+            RawMetricValueKind::Counter => "RAW_METRIC_VALUE_KIND_COUNTER",
+            RawMetricValueKind::Histogram => "RAW_METRIC_VALUE_KIND_HISTOGRAM",
+            RawMetricValueKind::DeltaCount => "RAW_METRIC_VALUE_KIND_DELTA_COUNT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RAW_METRIC_VALUE_KIND_UNSPECIFIED" => Some(Self::Unspecified),
+            "RAW_METRIC_VALUE_KIND_GAUGE" => Some(Self::Gauge),
+            "RAW_METRIC_VALUE_KIND_COUNTER" => Some(Self::Counter),
+            "RAW_METRIC_VALUE_KIND_HISTOGRAM" => Some(Self::Histogram),
+            "RAW_METRIC_VALUE_KIND_DELTA_COUNT" => Some(Self::DeltaCount),
+            _ => None,
+        }
+    }
+}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CronAggregateBackfill {
@@ -854,6 +1421,7 @@ pub struct CronAggregateBackfill {
     pub resolvers: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(string, repeated, tag="6")]
     pub query_tags: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// TODO: deprecate
     #[prost(enumeration="CronAggregateBackfillTarget", tag="7")]
     pub target: i32,
     #[prost(string, optional, tag="8")]
@@ -864,6 +1432,17 @@ pub struct CronAggregateBackfill {
     pub upper_bound: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(bool, optional, tag="11")]
     pub allow_empty_tiles: ::core::option::Option<bool>,
+    #[prost(enumeration="CronAggregateBackfillTarget", repeated, tag="12")]
+    pub targets: ::prost::alloc::vec::Vec<i32>,
+    #[prost(string, optional, tag="13")]
+    pub environment: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(map="string, string", tag="14")]
+    pub planner_options: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// Maximum number of bucket-aligned time-sharded jobs to split each run's window
+    /// into; the server's per-shard window-width policy may choose fewer. Unset/1
+    /// preserves the single-job behavior.
+    #[prost(int32, optional, tag="15")]
+    pub num_shards: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -945,6 +1524,49 @@ pub struct CronQuery {
     pub input_sql: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="20")]
     pub unload_resolvers: ::prost::alloc::vec::Vec<super::super::common::v1::UnloadResolverSpec>,
+    #[prost(int32, optional, tag="21")]
+    pub max_retries: ::core::option::Option<i32>,
+    #[prost(message, optional, tag="22")]
+    pub resources: ::core::option::Option<super::super::common::v1::ResourceRequests>,
+    #[prost(string, optional, tag="23")]
+    pub environment_override: ::core::option::Option<::prost::alloc::string::String>,
+    /// Name of the dataset that recurring runs write to. Carried so the
+    /// metadata store can persist the same CronQuerySchedule.dataset_name
+    /// column the legacy GraphQL apply path wrote.
+    #[prost(string, optional, tag="24")]
+    pub dataset_name: ::core::option::Option<::prost::alloc::string::String>,
+    /// Optional destination each run's output rows are written to directly
+    /// (e.g. a storage URI usable as a velox TableWriteNode target), in
+    /// addition to online/offline store persistence.
+    #[prost(message, optional, tag="25")]
+    pub write_to: ::core::option::Option<super::super::common::v1::OfflineQueryWriteTo>,
+    /// ISO datetime or chalk duration prefixed with "delta:" (e.g. "delta:-7d"); when set, takes
+    /// precedence over lower_bound/upper_bound and is resolved at run time.
+    #[prost(string, optional, tag="26")]
+    pub observed_at_lower_bound: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag="27")]
+    pub observed_at_upper_bound: ::core::option::Option<::prost::alloc::string::String>,
+    /// Data quality checks declared with `ScheduledQuery(...).with_checks(...)`, one serialized
+    /// `DqmCheckSpec` per entry -- the same JSON the `CHALK_DQM_CHECK_SPECS` environment variable
+    /// carries, so both surfaces feed one parser.
+    ///
+    /// Deliberately JSON rather than a typed message. A check's assertions carry fields that only
+    /// newer chalkpy versions know about (`kind`, `source_sql`, `preview_sql`), and the engine's
+    /// parser ignores the ones it does not recognize -- so a customer on a newer chalkpy keeps
+    /// working against an older engine, just without the extra reporting. Modeling it in proto
+    /// would turn each new check kind into a coordinated rollout.
+    ///
+    /// This is what makes `with_checks` reach the engine at all: the engine builds its graph from
+    /// a serialized artifact and never executes the customer's Python, so the checks have to
+    /// travel as data alongside every other ScheduledQuery field.
+    #[prost(string, repeated, tag="28")]
+    pub data_quality_check_specs: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Environment variables applied to each recurring offline query run.
+    #[prost(map="string, string", tag="29")]
+    pub env_overrides: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// When set, overrides the server-side scheduled-query metaplanner rollout flags for this query.
+    #[prost(bool, optional, tag="30")]
+    pub use_metaplanner: ::core::option::Option<bool>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]

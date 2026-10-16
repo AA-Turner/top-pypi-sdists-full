@@ -15,6 +15,9 @@ from omnibase_core.models.validation.model_extra_forbid_finding import (
     STATUS_UNRESOLVED,
 )
 from omnibase_core.validation.pydantic_module_index import (
+    BINDING_ASSIGN,
+    BINDING_CLASS,
+    BINDING_IMPORT,
     _ModuleIndex,
     module_for_path,
     parse_module,
@@ -25,6 +28,18 @@ _PYDANTIC_MODEL_BASES: frozenset[str] = frozenset(
     {"BaseModel", "BaseSettings", "RootModel"}
 )
 _EXEMPT_BASES: frozenset[str] = frozenset({"RootModel"})
+_STDLIB_BASE_NAMES: frozenset[str] = frozenset({"Generic", "ABC", "Protocol", "object"})
+_STDLIB_BASE_ORIGINS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("typing", "Generic"),
+        ("typing", "Protocol"),
+        ("typing_extensions", "Generic"),
+        ("typing_extensions", "Protocol"),
+        ("abc", "ABC"),
+        ("builtins", "object"),
+    }
+)
+_MAX_ALIAS_DEPTH = 16
 _STATUS_BY_EXTRA: dict[str, str] = {
     "forbid": STATUS_EXPLICIT_FORBID,
     "ignore": STATUS_EXPLICIT_IGNORE,
@@ -79,24 +94,43 @@ class _StaticResolver:
         return self._reaches_model_base(module, node, set())
 
     def is_exempt(self, module: str, node: ast.ClassDef) -> bool:
-        for base_module, base_name, base_node in self._bases(module, node):
-            if base_name in _EXEMPT_BASES:
-                return True
-            if base_node is not None and self.is_exempt(base_module, base_node):
-                return True
-        return False
+        # A RootModel on one branch cannot exempt an invalid sibling branch.
+        if self._has_unresolved_ancestry(module, node, set()):
+            return False
+        return self._reaches_model_base(module, node, set(), _EXEMPT_BASES)
 
     def _reaches_model_base(
-        self, module: str, node: ast.ClassDef, seen: set[tuple[str, str]]
+        self,
+        module: str,
+        node: ast.ClassDef,
+        seen: set[tuple[str, str]],
+        targets: frozenset[str] = _PYDANTIC_MODEL_BASES,
     ) -> bool:
         key = (module, node.name)
         if key in seen:
             return False
-        seen.add(key)
+        seen = seen | {key}
         for base_module, base_name, base_node in self._bases(module, node):
-            if base_name in _PYDANTIC_MODEL_BASES:
+            if base_name in targets:
                 return True
             if base_node is not None and self._reaches_model_base(
+                base_module, base_node, seen, targets
+            ):
+                return True
+        return False
+
+    def _has_unresolved_ancestry(
+        self, module: str, node: ast.ClassDef, seen: set[tuple[str, str]]
+    ) -> bool:
+        """Reject cycles and unknown bases before granting a config or exemption."""
+        key = (module, node.name)
+        if key in seen:
+            return True
+        seen = seen | {key}
+        for base_module, base_name, base_node in self._bases(module, node):
+            if base_name in _PYDANTIC_MODEL_BASES:
+                continue
+            if base_node is None or self._has_unresolved_ancestry(
                 base_module, base_node, seen
             ):
                 return True
@@ -105,18 +139,21 @@ class _StaticResolver:
     def resolve_extra(
         self, module: str, node: ast.ClassDef, seen: set[tuple[str, str]] | None = None
     ) -> tuple[str, str | None]:
-        """Return ``(status, effective_extra)`` using MRO-like base order."""
+        """Return ``(status, effective_extra)`` using Pydantic's ordered config merge."""
+        if seen is None and self._has_unresolved_ancestry(module, node, set()):
+            return STATUS_UNRESOLVED, None
         seen = seen if seen is not None else set()
         key = (module, node.name)
         if key in seen:
             return STATUS_UNRESOLVED, None
-        seen.add(key)
+        seen = seen | {key}
 
         own = _extra_from_class(node)
         if own is not None:
             return _STATUS_BY_EXTRA.get(own, STATUS_UNRESOLVED), own
 
         unresolved_base = False
+        inherited: tuple[str, str | None] = (STATUS_IMPLICIT_DEFAULT, None)
         for base_module, base_name, base_node in self._bases(module, node):
             if base_name in _PYDANTIC_MODEL_BASES:
                 continue
@@ -125,13 +162,13 @@ class _StaticResolver:
                 continue
             status, extra = self.resolve_extra(base_module, base_node, seen)
             if extra is not None:
-                return status, extra
+                inherited = status, extra
             if status == STATUS_UNRESOLVED:
                 unresolved_base = True
 
         if unresolved_base:
             return STATUS_UNRESOLVED, None
-        return STATUS_IMPLICIT_DEFAULT, None
+        return inherited
 
     def _bases(
         self, module: str, node: ast.ClassDef
@@ -143,34 +180,80 @@ class _StaticResolver:
             name = _base_name(base)
             if name is None:
                 continue
-            simple = name.rsplit(".", maxsplit=1)[-1]
-            if simple in _PYDANTIC_MODEL_BASES:
-                out.append((module, simple, None))
-                continue
-            if simple in {"Generic", "ABC", "Protocol", "object"}:
-                continue
-
-            target_module: str | None = None
-            target_name = simple
-            if index is not None:
-                binding = index.imports.get(simple)
-                if binding is not None:
-                    target_module, bound_name = binding
-                    target_name = bound_name or simple
-                elif simple in index.classes:
-                    out.append((module, simple, index.classes[simple]))
-                    continue
-
-            if target_module is None:
-                out.append((module, simple, None))
-                continue
-            if target_name in _PYDANTIC_MODEL_BASES:
-                out.append((target_module, target_name, None))
-                continue
-            base_index = self._index_for_module(target_module)
-            base_node = base_index.classes.get(target_name) if base_index else None
-            out.append((target_module, target_name, base_node))
+            resolved = self._resolve_base(module, index, name, node.lineno, 0)
+            if resolved is not None:
+                out.append(resolved)
         return out
+
+    def _resolve_base(
+        self,
+        module: str,
+        index: _ModuleIndex | None,
+        dotted: str,
+        lineno: int,
+        depth: int,
+    ) -> tuple[str, str, ast.ClassDef | None] | None:
+        """Resolve a base name as bound just before *lineno*; None means exempt.
+
+        The stdlib bases (``Protocol``, ``Generic``, ``ABC``, ``object``) are exempt by
+        the origin their name is bound to at that point of the module, never by the
+        name alone: a model class that happens to be called ``Protocol`` is followed.
+        """
+        simple = dotted.rsplit(".", maxsplit=1)[-1]
+        if simple in _PYDANTIC_MODEL_BASES:
+            return (module, simple, None)
+        if depth > _MAX_ALIAS_DEPTH:
+            return (module, simple, None)
+
+        if "." in dotted:
+            return self._resolve_attribute_base(module, index, dotted, lineno)
+
+        binding = index.binding_at(simple, lineno) if index is not None else None
+        if binding is None:
+            if simple in _STDLIB_BASE_NAMES:
+                return None
+            if index is not None and simple in index.classes:
+                return (module, simple, index.classes[simple])
+            return (module, simple, None)
+
+        _, kind, source, imported, target = binding
+        if kind == BINDING_CLASS and isinstance(target, ast.ClassDef):
+            return (module, simple, target)
+        if kind == BINDING_ASSIGN and isinstance(target, ast.expr):
+            alias = _base_name(target)
+            if alias is None:
+                return (module, simple, None)
+            return self._resolve_base(module, index, alias, binding[0], depth + 1)
+        if kind == BINDING_IMPORT and imported:
+            return self._resolve_imported(source, imported)
+        return (module, simple, None)
+
+    def _resolve_attribute_base(
+        self, module: str, index: _ModuleIndex | None, dotted: str, lineno: int
+    ) -> tuple[str, str, ast.ClassDef | None] | None:
+        """Resolve ``pkg.Name``: exempt when it names the stdlib base, else followed."""
+        simple = dotted.rsplit(".", maxsplit=1)[-1]
+        root, *middle = dotted.split(".")[:-1]
+        binding = index.binding_at(root, lineno) if index is not None else None
+        if binding is None or binding[1] != BINDING_IMPORT or binding[3]:
+            return None if simple in _STDLIB_BASE_NAMES else (module, simple, None)
+        origin = ".".join([binding[2], *middle])
+        if (origin, simple) in _STDLIB_BASE_ORIGINS:
+            return None
+        if simple not in _STDLIB_BASE_NAMES:
+            return (module, simple, None)
+        return self._resolve_imported(origin, simple)
+
+    def _resolve_imported(
+        self, source: str, imported: str
+    ) -> tuple[str, str, ast.ClassDef | None] | None:
+        if (source, imported) in _STDLIB_BASE_ORIGINS:
+            return None
+        if imported in _PYDANTIC_MODEL_BASES:
+            return (source, imported, None)
+        base_index = self._index_for_module(source)
+        base_node = base_index.classes.get(imported) if base_index else None
+        return (source, imported, base_node)
 
 
 def _base_name(node: ast.expr) -> str | None:

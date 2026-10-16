@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-automodapi
-Version: 0.22.0
+Version: 0.22.1
 Summary: Sphinx extension for auto-generating API documentation for entire modules
 Home-page: https://github.com/astropy/sphinx-automodapi
 Author: The Astropy Developers

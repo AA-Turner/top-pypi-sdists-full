@@ -16,14 +16,12 @@
  * limitations under the License.
  */
 #include "atoms/bivariate_full_dom.h"
+#include "sparsediff_linalg/CSR_matrix.h"
+#include "sparsediff_linalg/matmul.h"
+#include "sparsediff_linalg/matrix.h"
+#include "sparsediff_linalg/matrix_sum.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include "subexpr.h"
-#include "utils/CSR_matrix.h"
-#include "utils/CSR_sum.h"
-#include "utils/matmul_dispatchers.h"
-#include "utils/matrix_sum.h"
-#include "utils/sparse_matrix.h"
-#include "utils/stacked_pd.h"
-#include "utils/tracked_alloc.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,8 +29,6 @@
 
 // ------------------------------------------------------------------------------
 // Implementation of elementwise multiplication when both arguments are vectors.
-// If one argument is a scalar variable, the broadcasting should be represented
-// as a linear operator child node? How to treat if one variable is a constant?
 // ------------------------------------------------------------------------------
 static void forward(expr *node, const double *u)
 {
@@ -152,20 +148,9 @@ static void wsum_hess_init_impl(expr *node)
             node->work->dwork = (double *) sp_malloc(node->size * sizeof(double));
         }
 
-        /* For sparse matrices we need the CSC cache to be valid for the
-           BTA_matrices_alloc / BTDA_matrices_fill_values calls below. */
-        if (!x->jacobian->is_permuted_dense && !x->jacobian->is_stacked_pd)
-        {
-            sparse_matrix_ensure_csc_cache((sparse_matrix *) x->jacobian);
-        }
-        if (!y->jacobian->is_permuted_dense && !y->jacobian->is_stacked_pd)
-        {
-            sparse_matrix_ensure_csc_cache((sparse_matrix *) y->jacobian);
-        }
-
         /* compute sparsity of C and prepare CT */
         matrix *C = BTA_matrices_alloc(x->jacobian, y->jacobian);
-        matrix *CT = C->transpose_alloc(C);
+        matrix *CT = transpose_matrices_alloc(C);
 
         /* initialize wsum_hessians of children */
         wsum_hess_init(x);
@@ -175,44 +160,9 @@ static void wsum_hess_init_impl(expr *node)
         mul_node->C = C;
         mul_node->CT = CT;
 
-        /* compute sparsity pattern of H = C + C^T + term2 + term3 (we also
-           fill index maps telling us where to accumulate each element of each
-           matrix in the sum) */
-        int *maps[4];
-        CSR_matrix *hess = sum_4_csr_alloc(C->to_csr(C), CT->to_csr(CT),
-                                           x->wsum_hess->to_csr(x->wsum_hess),
-                                           y->wsum_hess->to_csr(y->wsum_hess), maps);
-        node->wsum_hess = new_sparse_matrix(hess);
-        mul_node->idx_map_C = maps[0];
-        mul_node->idx_map_CT = maps[1];
-        mul_node->idx_map_Hx = maps[2];
-        mul_node->idx_map_Hy = maps[3];
-
-        /* If C / CT / x->wsum_hess / y->wsum_hess come out as stacked_pd,
-           re-index the corresponding idx_map from CSR position so the
-           accumulator below can read each matrix's ->x directly. */
-        if (C->is_stacked_pd)
-        {
-            compose_csr_idx_map_for_spd((const stacked_pd *) C, C->to_csr(C),
-                                        mul_node->idx_map_C);
-        }
-        if (CT->is_stacked_pd)
-        {
-            compose_csr_idx_map_for_spd((const stacked_pd *) CT, CT->to_csr(CT),
-                                        mul_node->idx_map_CT);
-        }
-        if (x->wsum_hess->is_stacked_pd)
-        {
-            compose_csr_idx_map_for_spd((const stacked_pd *) x->wsum_hess,
-                                        x->wsum_hess->to_csr(x->wsum_hess),
-                                        mul_node->idx_map_Hx);
-        }
-        if (y->wsum_hess->is_stacked_pd)
-        {
-            compose_csr_idx_map_for_spd((const stacked_pd *) y->wsum_hess,
-                                        y->wsum_hess->to_csr(y->wsum_hess),
-                                        mul_node->idx_map_Hy);
-        }
+        /* sparsity pattern of H = C + C^T + term2 + term3 */
+        matrix *ops[4] = {C, CT, x->wsum_hess, y->wsum_hess};
+        node->wsum_hess = sum_n_matrices_alloc(ops, 4);
     }
 }
 
@@ -232,26 +182,21 @@ static void eval_wsum_hess_impl(expr *node, const double *w)
     {
         bool is_x_affine = x->is_affine(x);
         bool is_y_affine = y->is_affine(y);
-        // ----------------------------------------------------------------------
-        //  Refresh each operand's CSC_matrix cache as needed for the (Sparse,
-        //  Sparse) dispatch path. For PD operands, refresh_csc_values is a no-op.
-        //  The refresh is version-guarded, so an affine child's cache is only
-        //  filled once per parameter epoch.
-        // ----------------------------------------------------------------------
-        x->jacobian->refresh_csc_values(x->jacobian);
-        y->jacobian->refresh_csc_values(y->jacobian);
-
         // ---------------------------------------------------------------
         //                    compute C and CT
         // ---------------------------------------------------------------
         elementwise_mult_expr *mul_node = (elementwise_mult_expr *) node;
         BTDA_matrices_fill_values(x->jacobian, w, y->jacobian, mul_node->C);
-        matrix_values_changed(mul_node->C);
-        mul_node->C->transpose_fill_values(mul_node->C, mul_node->CT);
+        transpose_matrices_fill_values(mul_node->C, mul_node->CT);
 
         // ---------------------------------------------------------------
-        //              compute term2 and term 3
+        //   compute H = C + C^T + term2 + term3, adding each term right
+        //   after it is evaluated
         // ---------------------------------------------------------------
+        sum_n_matrices_fill_zero(node->wsum_hess);
+        sum_n_matrices_fill_add(mul_node->C, 0, node->wsum_hess);
+        sum_n_matrices_fill_add(mul_node->CT, 1, node->wsum_hess);
+
         if (!is_x_affine)
         {
             for (int i = 0; i < node->size; i++)
@@ -260,6 +205,7 @@ static void eval_wsum_hess_impl(expr *node, const double *w)
             }
             eval_wsum_hess(x, node->work->dwork);
         }
+        sum_n_matrices_fill_add(x->wsum_hess, 2, node->wsum_hess);
 
         if (!is_y_affine)
         {
@@ -269,19 +215,7 @@ static void eval_wsum_hess_impl(expr *node, const double *w)
             }
             eval_wsum_hess(y, node->work->dwork);
         }
-
-        // ---------------------------------------------------------------
-        //        compute H = C + C^T + term2 + term3
-        // ---------------------------------------------------------------
-        memset(node->wsum_hess->x, 0, node->wsum_hess->nnz * sizeof(double));
-        accumulator(mul_node->C->x, mul_node->C->nnz, mul_node->idx_map_C,
-                    node->wsum_hess->x);
-        accumulator(mul_node->CT->x, mul_node->CT->nnz, mul_node->idx_map_CT,
-                    node->wsum_hess->x);
-        accumulator(x->wsum_hess->x, x->wsum_hess->nnz, mul_node->idx_map_Hx,
-                    node->wsum_hess->x);
-        accumulator(y->wsum_hess->x, y->wsum_hess->nnz, mul_node->idx_map_Hy,
-                    node->wsum_hess->x);
+        sum_n_matrices_fill_add(y->wsum_hess, 3, node->wsum_hess);
     }
 }
 
@@ -290,10 +224,6 @@ static void free_type_data(expr *node)
     elementwise_mult_expr *mul_node = (elementwise_mult_expr *) node;
     free_matrix(mul_node->C);
     free_matrix(mul_node->CT);
-    sp_free(mul_node->idx_map_C);
-    sp_free(mul_node->idx_map_CT);
-    sp_free(mul_node->idx_map_Hx);
-    sp_free(mul_node->idx_map_Hy);
 }
 
 static bool is_affine(const expr *node)

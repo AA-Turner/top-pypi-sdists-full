@@ -42,6 +42,7 @@ from datarobot.application_utils.persistence.exceptions import (
 
 # The detail string the service returns for stale-event PATCH (HTTP 422).
 _EVENT_VERSION_DETAIL: str = "Patch of incorrect version of event"
+_SESSION_VERSION_DETAIL: str = "Session version mismatch"
 
 
 class DRMemoryServiceClient:
@@ -282,8 +283,16 @@ class DRMemoryServiceClient:
                     existing_id=str(existing_id) if existing_id else None,
                     location=str(location) if location else None,
                 )
-            # 409 without dedup markers = session version mismatch
-            raise DRMemoryVersionConflictError(detail, status_code=409, payload=body)
+            # Non-dedup 409s carry two shapes: a stale If-Match ("Session version
+            # mismatch: ...") — fixable by re-reading and retrying — and, since
+            # service 11.13 (FLEET-7891), a business rejection for changing an
+            # already-executed lifecycle strategy type, which no amount of
+            # re-reading can fix.  Route on the version-mismatch detail so only
+            # genuine staleness advertises "re-read and retry"; anything else
+            # falls through to the non-retryable base error.
+            if _SESSION_VERSION_DETAIL.lower() in detail.lower():
+                raise DRMemoryVersionConflictError(detail, status_code=409, payload=body)
+            raise DRMemoryServiceError(detail, status_code=409, payload=body)
 
         if resp.status_code == 422:
             if _EVENT_VERSION_DETAIL.lower() in detail.lower():

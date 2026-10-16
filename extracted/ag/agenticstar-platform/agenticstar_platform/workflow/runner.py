@@ -203,6 +203,18 @@ def _gate_decision(ctx: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     return {key: gd[key] if isinstance(gd.get(key), str) else None for key in GATE_DECISION_KEYS}
 
 
+def _start_input(ctx: Mapping[str, Any]) -> Optional[dict[str, Any]]:
+    """外から呼んだ run（API・メール）の最初の工程（分岐なら各レーンの最初）なら、run の開始の入力（front の context の
+    `start_input`）。形が合わなければ渡さない。`external` は外から来た値で指示ではない印。"""
+    si = ctx.get("start_input")
+    if not isinstance(si, dict) or not isinstance(si.get("kind"), str) or not isinstance(si.get("external"), bool):
+        return None
+    return {"kind": si["kind"], "payload": si.get("payload"),
+            "subject": si["subject"] if isinstance(si.get("subject"), str) else None,
+            "text": si["text"] if isinstance(si.get("text"), str) else None,
+            "external": si["external"]}
+
+
 def validate_env(env: Mapping[str, str]) -> dict[str, str]:
     missing = [k for k in REQUIRED_ENV if not env.get(k)]
     if missing:
@@ -724,6 +736,7 @@ class WorkflowRunner:
             "parameters": ctx.get("parameters") or {}, "connections": ctx.get("connections") or {},
             "input_dir": str(input_dir), "work_dir": str(work_dir), "output_dir": str(output_dir),
             "manifest": manifest, "deadlines": ctx.get("deadlines") or {}, "gate_decision": _gate_decision(ctx),
+            "start_input": _start_input(ctx),
             "agent_deadline": self._agent_deadline.isoformat() if self._agent_deadline else None,
         }
         # 制御チャネル: 親→子（spec + 応答）、子→親（要求）。stdio は Agent の通常出力のまま。

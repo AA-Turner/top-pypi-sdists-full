@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cozy-runtime
-Version: 0.24.1
+Version: 0.24.8
 Summary: Cozy author surface and device executor
 License-File: native/LICENSE
 License-File: native/NOTICE
@@ -10,7 +10,7 @@ Requires-Dist: msgspec>=0.19
 Requires-Dist: numpy>=1.26
 Requires-Dist: packaging>=24
 Requires-Dist: pillow>=12
-Requires-Dist: tensorfs<0.10,>=0.9.0
+Requires-Dist: tensorfs<0.10,>=0.9.2
 Provides-Extra: adapters
 Requires-Dist: peft<0.21,>=0.20; extra == 'adapters'
 Requires-Dist: tokenizers>=0.23.1; extra == 'adapters'
@@ -27,4 +27,4 @@ Requires-Dist: torch>=2.13; extra == 'derive'
 Provides-Extra: media
 Requires-Dist: av>=19.0.1; extra == 'media'
 Provides-Extra: model-execution
-Requires-Dist: tensorfs<0.10,>=0.9.0; extra == 'model-execution'
+Requires-Dist: tensorfs<0.10,>=0.9.2; extra == 'model-execution'

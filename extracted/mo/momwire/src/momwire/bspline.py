@@ -57,7 +57,6 @@ from dataclasses import dataclass
 import numpy as np
 import scipy.linalg
 import scipy.sparse
-from scipy.interpolate import BSpline
 
 from ._bspline_kernels import (
     _EK,
@@ -82,11 +81,13 @@ from . import _below_interface
 from . import _bspline_kernels
 from . import _crossing_fill
 from . import _exact_kernel
+from . import _exact_kernel_base
 from . import _exact_kernel_seam
 from . import _feed_snap
 from . import _ground_mirror
 from . import _ground_refl
 from . import _ground_spec
+from . import _lapack
 from . import _medium_spec
 from . import _potential_ground
 from . import _quadrature
@@ -109,6 +110,7 @@ from ._port_solution import (
     port_impedances,
     refuse_undriven,
 )
+from ._vec3 import norm3, dot3
 
 # Cross-edge quadrature defaults, resolved per deck by `BSplineSolver.n_qp_pair`.
 # Two constants because there are two fills; see that property for the
@@ -313,6 +315,13 @@ _SAME_EDGE_WINDOW_BLOCKS = True
 _EXACT_KERNEL_ROW_WINDOWS = True
 _EXACT_KERNEL_ROWS_OVERRIDE = None
 
+# momwire#1421: the windows' BASE moments (what the fill put on the group's
+# pairs) come from `_exact_kernel_base.BaseRows`, which evaluates one pair per
+# diagonal of each uniform run-pair block rather than every pair. Off restores
+# the per-pair recompute (`_exact_kernel_base_J`), the reference it is gated
+# against; for gates, not callers.
+_EXACT_KERNEL_BASE_DEDUP = True
+
 _BSPLINE_ASSEMBLE_ACCEL_MAX_D = 2
 
 # Constant Vandermonde inverses for uniform sample points [0, 1/d, ..., 1].
@@ -342,55 +351,100 @@ _V_UNIT_INV: dict[int, np.ndarray] = {
 }
 
 
-def _design_matrix_rows(dm_csr, d):
-    """Split a `BSpline.design_matrix` CSR into per-row (values, columns).
+def _bspline_basis_rows(x, t, k):
+    """Every basis function that is nonzero at each sample, on knots ``t``.
 
-    Returns two (n_rows, d+1) arrays. The dense form of that CSR is
-    (n_rows, n_basis) with only d+1 nonzeros per row, so materialising it
-    costs O(n_rows · n_basis) for O(n_rows · d) of content (#329); every
-    consumer here reads inside the band, so none of them needs it.
+    Returns ``(values, first)``: ``values`` is (n_samples, k+1) and row ``i``
+    holds bases ``first[i] .. first[i] + k`` at ``x[i]``, in ascending order.
+    This is the whole content of a B-spline design matrix (each row has
+    exactly k+1 bases that can be nonzero), without the matrix.
 
-    The two structural facts this relies on — exactly d+1 stored entries
-    per row, at consecutive columns in ascending order — are scipy's
-    output shape rather than anything we control, so they are checked
-    here (O(n_rows · d), the same order as the gather itself) instead of
-    assumed.
+    It is scipy's ``BSpline.design_matrix`` reproduced to the bit (momwire
+    #1489, which drops scipy.interpolate from the import path): the same
+    span search and the same Cox-de Boor recurrence, term for term, so the
+    basis polynomials every bs2 fill is built from do not move.
+    ``tests/test_bspline_own_readouts_1489.py`` holds the two equal bit for
+    bit on clamped knots at every supported degree, knot samples included.
+
+    Span rule: a sample in ``[t[l], t[l+1])`` uses span ``l`` -- so a sample
+    exactly ON an interior knot takes the span to its RIGHT -- except the
+    last knot of the base interval, which closes the last span. Repeated
+    knots resolve to the last copy. A sample outside ``[t[k], t[n]]``
+    (n = len(t) - k - 1) or not a finite number is refused, as scipy's
+    ``extrapolate=False`` design matrix refuses it.
     """
-    width = d + 1
-    n_rows = dm_csr.shape[0]
-    if not np.array_equal(np.diff(dm_csr.indptr), np.full(n_rows, width)):
-        raise AssertionError(
-            "BSpline.design_matrix no longer stores exactly d+1 entries per row"
-        )
-    cols = dm_csr.indices.reshape(n_rows, width)
-    if width > 1 and not np.all(np.diff(cols, axis=1) == 1):
-        raise AssertionError(
-            "BSpline.design_matrix columns are no longer consecutive ascending"
-        )
-    return dm_csr.data.reshape(n_rows, width), cols
+    x = np.ascontiguousarray(np.asarray(x, dtype=np.float64).reshape(-1))
+    t = np.asarray(t, dtype=np.float64)
+    n = t.shape[0] - k - 1
+    m = x.shape[0]
+    if m:
+        if not np.all(np.isfinite(x)):
+            raise ValueError("a B-spline sample position is not a finite number")
+        lo, hi = float(t[k]), float(t[n])
+        x_min, x_max = float(x.min()), float(x.max())
+        if x_min < lo or x_max > hi:
+            bad = x_min if x_min < lo else x_max
+            raise ValueError(
+                f"B-spline sample position {bad:.17g} lies outside the knot "
+                f"range {lo:.17g} to {hi:.17g}"
+            )
+    ell = np.searchsorted(t, x, side="right") - 1
+    np.clip(ell, k, n - 1, out=ell)
+    h = np.zeros((m, k + 1), dtype=np.float64)
+    h[:, 0] = 1.0
+    # Cox-de Boor, written in the order scipy's C evaluates it so the
+    # roundoff is the same: at each level j, h[nn-1] += w·(xb - x) and
+    # h[nn] = w·(x - xa) with w = hh[nn-1] / (xb - xa), and a zero-width
+    # knot pair (the clamped ends) contributes nothing.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for j in range(1, k + 1):
+            hh = h[:, :j].copy()
+            h[:, 0] = 0.0
+            for nn in range(1, j + 1):
+                xb = t[ell + nn]
+                xa = t[ell + nn - j]
+                same = xb == xa
+                w = hh[:, nn - 1] / (xb - xa)
+                h[:, nn - 1] = np.where(same, h[:, nn - 1], h[:, nn - 1] + w * (xb - x))
+                h[:, nn] = np.where(same, 0.0, w * (x - xa))
+    return h, ell - k
 
 
-def _design_matrix_band(dm_csr, n_seg, d):
+def _bspline_design_matrix_dense(x, t, k):
+    """The dense (n_samples, n_basis) design matrix, from `_bspline_basis_rows`.
+
+    For the few-sample callers only (a feed point, a source quadrature): it
+    is O(n_samples · n_basis), the cost #329 removed from the basis build.
+    """
+    vals, first = _bspline_basis_rows(x, t, k)
+    n_basis = np.asarray(t).shape[0] - k - 1
+    out = np.zeros((vals.shape[0], n_basis), dtype=np.float64)
+    rows = np.arange(vals.shape[0])[:, None]
+    out[rows, first[:, None] + np.arange(k + 1)] = vals
+    return out
+
+
+def _design_matrix_band(vals, first, n_seg, d):
     """Per-segment basis values as (n_seg, d+1 samples, d+1 bases).
 
-    Band column b holds basis (seg + b): segment s lies inside the
-    support of exactly bases s .. s+d, so this band is all of the dense
-    design matrix that any per-segment consumer can read.
+    ``vals`` / ``first`` are `_bspline_basis_rows` at d+1 samples per
+    segment, segment-major. Band column b holds basis (seg + b): segment s
+    lies inside the support of exactly bases s .. s+d, so this band is all
+    of the dense design matrix that any per-segment consumer can read.
 
-    Sample rows are gathered by each row's OWN column start, not by a
-    shared per-segment offset. A segment's last sample sits on its
-    right-hand knot, and scipy resolves a sample on an interior knot into
-    the NEXT span; such a row starts one column higher and carries a
-    trailing entry for the basis whose support opens at that knot, which
-    is zero there. Whether a given segment's endpoint sample lands that
-    way is a floating-point question (arc[s] + h[s] need not round to
-    arc[s+1]), so the offset is read per row and the out-of-band column
-    is checked to be zero rather than reasoned about.
+    Sample rows are placed by each row's OWN first basis, not by a shared
+    per-segment offset. A segment's last sample sits on its right-hand knot,
+    and the span rule resolves a sample on an interior knot into the NEXT
+    span; such a row starts one basis higher and carries a trailing entry
+    for the basis whose support opens at that knot, which is zero there.
+    Whether a given segment's endpoint sample lands that way is a
+    floating-point question (arc[s] + h[s] need not round to arc[s+1]), so
+    the offset is read per row and the out-of-band column is checked to be
+    zero rather than reasoned about.
     """
     width = d + 1
-    data, cols = _design_matrix_rows(dm_csr, d)
-    data = data.reshape(n_seg, width, width)
-    starts = cols.reshape(n_seg, width, width)[:, :, 0]
+    data = vals.reshape(n_seg, width, width)
+    starts = first.reshape(n_seg, width)
     off = starts - np.arange(n_seg)[:, None]
     if off.min() < 0 or off.max() > 1:
         raise AssertionError(
@@ -401,6 +455,73 @@ def _design_matrix_band(dm_csr, n_seg, d):
     if np.any(padded[:, :, width] != 0.0):
         raise AssertionError("nonzero design-matrix entry outside the segment band")
     return padded[:, :, :width].copy()
+
+
+def _wire_span_polynomials(coeffs, polys, kept, local_to_global, n_seg, d):
+    """The solved current on each knot span of one wire, as a polynomial.
+
+    Returns (n_seg, d+1) complex: row s holds the coefficients, lowest
+    power first, of Σ_m c_m·Φ_m on span s in the span's own local arc
+    u = s_arc - arc[s] — the same local variable, and the same per-(basis,
+    wing) polynomials, that `_build_basis_polynomials` hands the fills.
+
+    Bases are summed in ascending local index on every span, so the
+    order of accumulation is fixed by the mesh, not by the junction or
+    ground layout that decided which bases were kept. A dropped (free-end)
+    basis contributes nothing, as its zero coefficient did before.
+    """
+    out = np.zeros((n_seg, d + 1), dtype=np.complex128)
+    if not kept:
+        return out
+    j = np.array([kj for (kj, _kind, _junc, _end) in kept], dtype=np.int64)
+    m = np.array([local_to_global[i] for i in range(len(kept))], dtype=np.int64)
+    c = np.asarray(coeffs)[m]
+    seg_lo = np.maximum(0, j - d)
+    seg_hi = np.minimum(n_seg, j + 1)
+    # band[s, b, :] is the polynomial of basis s + b on span s, and
+    # band_c[s, b] its coefficient: basis j covers spans max(0, j-d) ..
+    # min(n_seg, j+1) - 1, its wing w sitting on span max(0, j-d) + w.
+    band = np.zeros((n_seg, d + 1, d + 1), dtype=np.float64)
+    band_c = np.zeros((n_seg, d + 1), dtype=np.complex128)
+    for w in range(d + 1):
+        span = seg_lo + w
+        ok = span < seg_hi
+        b = j[ok] - span[ok]
+        band[span[ok], b, :] = polys[m[ok], w, :]
+        band_c[span[ok], b] = c[ok]
+    for b in range(d + 1):
+        out += band_c[:, b, None] * band[:, b, :]
+    return out
+
+
+def _eval_span_polynomials(span_polys, arc, s, derivative):
+    """Evaluate `_wire_span_polynomials` (or its arc derivative) at ``s``.
+
+    ``s`` must already lie in [arc[0], arc[-1]]. The span is the knot rule
+    the basis itself uses (`_bspline_basis_rows`): a sample in
+    [arc[i], arc[i+1]) uses span i, so a sample ON an interior knot reads
+    the span to its RIGHT, and the last knot closes the last span. That
+    choice is invisible in the current, which is continuous, and decides
+    the slope at a knot when degree 1 makes it piecewise constant.
+
+    Horner in the local arc u; the derivative is the exact one of the
+    span polynomial (degree d - 1), not a difference.
+    """
+    n_seg, n_poly = span_polys.shape
+    d = n_poly - 1
+    span = np.searchsorted(arc, s, side="right") - 1
+    np.clip(span, 0, n_seg - 1, out=span)
+    u = s - arc[span]
+    coef = span_polys[span]
+    if not derivative:
+        val = coef[:, d].copy()
+        for p in range(d - 1, -1, -1):
+            val = val * u + coef[:, p]
+        return val
+    val = d * coef[:, d]
+    for p in range(d - 1, 0, -1):
+        val = val * u + p * coef[:, p]
+    return val
 
 
 # Module-level caches for `_build_geometry` and `_build_basis_polynomials`.
@@ -449,11 +570,14 @@ def _lu_solve(Z, rhs, overwrite_a=False, overwrite_b=False):
     a locally built F-ordered rhs take the solution. An EXACTLY singular Z
     still raises `LinAlgError`, as `solve` did, where `lu_factor` alone only
     warns and the solve would return inf/NaN.
+
+    Both calls go through `momwire._lapack`, which is scipy's own unless a
+    host process has published its LAPACK there.
     """
-    lu_piv = scipy.linalg.lu_factor(Z, overwrite_a=overwrite_a)
+    lu_piv = _lapack.lu_factor(Z, overwrite_a=overwrite_a)
     if not np.all(np.diagonal(lu_piv[0])):
         raise np.linalg.LinAlgError("singular matrix")
-    return scipy.linalg.lu_solve(lu_piv, rhs, overwrite_b=overwrite_b)
+    return _lapack.lu_solve(lu_piv, rhs, overwrite_b=overwrite_b)
 
 
 def _evict_fifo(cache: dict, limit: int) -> None:
@@ -553,7 +677,7 @@ def _segment_touch_lists(seg_l, seg_r):
     n = seg_l.shape[0]
     ends = np.concatenate([seg_l, seg_r])
     owner = np.concatenate([np.arange(n), np.arange(n)])
-    lens = np.linalg.norm(seg_r - seg_l, axis=1)
+    lens = norm3(seg_r - seg_l)
     tol = 1e-9 * max(float(lens.max()), 1e-300)
     pairs = cKDTree(ends).query_pairs(tol, output_type="ndarray")
     a, b = owner[pairs[:, 0]], owner[pairs[:, 1]]
@@ -749,6 +873,7 @@ SINGULAR_ENRICHMENT_NEVER = (
 # and a serve-time refusal with no numbers in it is not actionable.
 _BURIED_ENRICHMENT_REFUSAL = _below_interface.BURIED_ENRICHMENT_REFUSAL
 _BURIED_EXTENDED_KERNEL_REFUSAL = _below_interface.BURIED_EXTENDED_KERNEL_REFUSAL
+_BURIED_EXTENDED_KERNEL_ABOVE_ONLY = _below_interface.BURIED_EXTENDED_KERNEL_ABOVE_ONLY
 _BURIED_DENSE_BUDGET_REFUSAL = _below_interface.BURIED_DENSE_BUDGET_REFUSAL
 _BURIED_GRAZING_REFUSAL = _below_interface.BURIED_GRAZING_REFUSAL
 _BURIED_CROSS_RANGE_REFUSAL = _below_interface.BURIED_CROSS_RANGE_REFUSAL
@@ -1224,6 +1349,29 @@ class BSplineSolver(
         deck's own EK shift, so it is the one place the mixture is visible.
         The full table, the O(a²) confirmation and the tolerances are in
         tests/test_extended_kernel_bspline.py Gate 18.
+
+        **Buried wires under EK** (momwire#1170 stage 0). A deck with wires
+        below a Sommerfeld ground plane is served IN PART: a pair whose two
+        segments are both above ground takes the extended kernel, direct and
+        image, as on an all-above deck, and every pair that touches a buried
+        segment keeps the reduced kernel — the below/below blocks at the
+        in-medium wavenumber, and the cross-medium blocks, which are field
+        integrals with no thin-wire kernel in them. The extended kernel in
+        and across the soil is not derived (the later stages of #1170), so a
+        wire continued below the plane through a crossing junction changes
+        kernel at the node. It was a refusal before; now the first buried
+        fill raises `ExtendedKernelAboveGround` once, naming the wires that
+        kept the reduced kernel, and `extended_kernel_wires()` reports the
+        same per wire. Measured, at equal mesh against the all-reduced solve
+        it replaces: with a buried wire detached and 1.4 wavelengths off,
+        the feed's EK shift is the above-only deck's to 2e-6 of itself. On
+        1 mm wire the shift is small against the deck's own gap to either
+        engine: 5-7 milliohm on a 16-radial buried-radial vertical (gaps
+        0.5-9 ohm) and at most 0.12 ohm on a 20 m end-fed vertical on a 2 m
+        stake (gaps 45-170 ohm). On a 25 mm vertical on a 1 m stake, at
+        segment/radius 5 and 2.5, it is 0.16-0.23 ohm, TOWARD NEC-5 and AWAY
+        from NEC-4.2. `tests/test_ek_above_ground_1170.py` counts the pairs
+        per kernel.
     exact_kernel : the exact ring kernel on coaxial pairs (momwire#1408),
         opt-in. False (the default) leaves every fill exactly as it was, bit
         for bit: no line of the correction runs. True replaces, after the
@@ -1233,7 +1381,11 @@ class BSplineSolver(
         halves of an end-port feed) with the exact ring kernel
         K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2) — at every
         separation along that line, not only near the source, so no kernel
-        switch sits inside a wire. Every other pair (bends, offset parallel
+        switch sits inside a wire. A pair on one line across a radius step
+        (momwire#1438) takes the two-radius kernel, each ring on its own
+        wire's surface: R² = z² + a_i² + a_j² - 2a_i a_j cos φ
+        (`_exact_kernel.ring_kernel2`, symmetric in the radii, so Z stays
+        symmetric). Every other pair (bends, offset parallel
         wires, the ground image, the Sommerfeld remainder) keeps the kernel
         `extended_kernel` selects. The kernel is log-singular at z = 0; the
         self and adjacent cells integrate its log term by product
@@ -1430,9 +1582,13 @@ class BSplineSolver(
             "buried+refl-coef": _medium_spec.BURIED_REFL_REFUSAL,
             "buried+contact": _medium_spec.CONTACT_WITH_BURIED_REFUSAL,
             "buried+singular_enrichment": _BURIED_ENRICHMENT_REFUSAL,
-            "buried+extended_kernel": _BURIED_EXTENDED_KERNEL_REFUSAL,
             "buried+crossing": _medium_spec.CROSSING_REFUSAL,
         },
+        # momwire#1170 stage 0: served, but not on every pair -- the
+        # extended kernel acts above ground and the buried wires keep the
+        # reduced kernel. It was a refusal until then, and the accelerated
+        # subclasses still refuse a buried deck outright.
+        partials={"buried+extended_kernel": _BURIED_EXTENDED_KERNEL_ABOVE_ONLY},
     )
 
     # momwire#1408: `_serves_exact_kernel`, `EXACT_KERNEL_CHOICES` and
@@ -1604,6 +1760,9 @@ class BSplineSolver(
         # the axis-group labels, identity-checked, same pattern as
         # `SinusoidalSolver._cached_ek_gating`.
         self._cached_ek_groups = None
+        # momwire#1170 stage 0: the buried fill's masked spec, same cache shape.
+        self._cached_ek_above = None
+        self._warned_ek_above = False
         if self.extended_kernel:
             # One refusal rather than a half-served path (#249 §5). The
             # second (finite ground) was lifted by momwire#269 — see below.
@@ -2027,7 +2186,7 @@ class BSplineSolver(
 
     def _exact_kernel_h_and_a(self):
         geom = self._build_geometry()
-        h = np.linalg.norm(geom["seg_r"] - geom["seg_l"], axis=1)
+        h = norm3(geom["seg_r"] - geom["seg_l"])
         return h, self._seg_radius(geom)
 
     def _rotational_ground_kind(self):
@@ -2114,7 +2273,7 @@ class BSplineSolver(
                 p0 = pl[e_idx]
                 p1 = pl[e_idx + 1]
                 edge_vec = p1 - p0
-                edge_len = float(np.linalg.norm(edge_vec))
+                edge_len = float(norm3(edge_vec))
                 if edge_len < 1e-15:
                     raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
                 tan = edge_vec / edge_len
@@ -2346,7 +2505,7 @@ class BSplineSolver(
                     if node_end and n_v > 2 and interior:
                         e0 = 0 if z_at[0] else n_v - 2
                         edge = pl_arr[e0 + 1] - pl_arr[e0]
-                        seg_len = float(np.linalg.norm(edge))
+                        seg_len = float(norm3(edge))
                         slope = abs(float(edge[2])) / seg_len if seg_len > 0 else 0.0
                         l_min = _crossing_fill.node_panel_floor(h_floor, slope)
                         if l_min is not None:
@@ -2760,6 +2919,10 @@ class BSplineSolver(
         port_rows = []
         for j_idx, _v in self.junction_ports:
             if j_idx in grounded:
+                if j_idx in self._crossing_junctions():
+                    raise ValueError(
+                        _below_interface.crossing_junction_port_refusal(j_idx)
+                    )
                 raise ValueError(
                     f"junction {j_idx} is both grounded and a junction port — "
                     "a grounded node's voltage is pinned by the ground image, "
@@ -2903,22 +3066,22 @@ class BSplineSolver(
             arc_at_knot_w = pw["arc_at_knot"]
             n_total_w = pw["n_total"]
 
-            # Vectorize: per-wire single BSpline.design_matrix + constant
-            # V_unit_inv lookup replaces per-(basis, wing) BSpline
+            # Vectorize: one basis evaluation per wire + constant
+            # V_unit_inv lookup replaces per-(basis, wing) spline
             # construction + per-segment linspace/vander/solve.
             #
             # Sample points: d+1 uniform u within each segment, in global
-            # arc. shape (n_total_w, d+1) → flatten for design_matrix.
+            # arc. shape (n_total_w, d+1) → flatten for the evaluation.
             unit = np.linspace(0.0, 1.0, d + 1)  # (d+1,) shared across segs
             u_local_per_seg = h_per_seg_w[:, None] * unit[None, :]  # (N, d+1)
             u_global_per_seg = arc_at_knot_w[:-1, None] + u_local_per_seg
             u_flat = u_global_per_seg.reshape(-1)
 
-            # All basis values at all sample points in one design_matrix
-            # call, kept in the (n_total_w, d+1, d+1) band: band column b
+            # All basis values at all sample points in one
+            # `_bspline_basis_rows` call, kept in the (n_total_w, d+1, d+1) band: band column b
             # of segment s is basis s+b, the only bases that segment sees.
             DM_seg = _design_matrix_band(
-                BSpline.design_matrix(u_flat, knots, d), n_total_w, d
+                *_bspline_basis_rows(u_flat, knots, d), n_total_w, d
             )
 
             # V_unit_inv @ vals: convert d+1 basis values per segment to
@@ -4213,6 +4376,94 @@ class BSplineSolver(
         b_j = None if np.all(seg_a == seg_a[0]) else seg_a
         return _EK(a=None, group_i=group_i, group_j=group_j, b_j=b_j)
 
+    def _ek_spec_above(self, geom, mirror=False):
+        """The `_EK` spec of a deck with BURIED wires (momwire#1170 stage 0):
+        `_ek_spec`'s labels with every segment below the interface marked
+        never-extend (-1, the marker `_ek_axis_groups` reserves), or None
+        when the extended kernel is off or no segment is above.
+
+        The extended kernel is the O(a^2) tube average of the free-space
+        Green's function at ONE wavenumber. A pair of above-ground segments
+        is that case, and so is an above segment against the mirror of an
+        above source (the image block momwire#269 serves). A pair that
+        touches a buried segment is not: the pair spans two media, or sits
+        in the lower one, where neither the expansion's wavenumber nor its
+        image has been measured (the later stages of #1170). Those pairs
+        keep the reduced kernel, so the mask is on the SEGMENT, both as an
+        observer and as a source, real or mirrored.
+
+        Only the buried fill asks here. A deck with no buried wire never
+        does, which is what keeps every other route's labels, and bits,
+        what they were. Cached per geometry object and mirror flag.
+        """
+        if not self.extended_kernel:
+            return None
+        cached = self._cached_ek_above
+        if cached is None or cached[0] is not geom:
+            cached = (geom, {})
+            self._cached_ek_above = cached
+        hit = cached[1].get(mirror)
+        if hit is None:
+            below = np.asarray(self._below_segments(geom), dtype=bool)
+            if below.all():
+                hit = (None,)
+            else:
+                spec = self._ek_spec(geom, mirror=mirror)
+                hit = (
+                    spec._replace(
+                        group_i=np.where(below, -1, spec.group_i),
+                        group_j=np.where(below, -1, spec.group_j),
+                    ),
+                )
+            cached[1][mirror] = hit
+        return hit[0]
+
+    def _advise_ek_above(self):
+        """Say, once per solver, that this buried deck's extended kernel is
+        the above-ground one (`ExtendedKernelAboveGround`, momwire#1170). A
+        front end that has already said it in its own words sets
+        `_warned_ek_above` and this stays silent."""
+        if not self.extended_kernel or self._warned_ek_above:
+            return
+        self._warned_ek_above = True
+        wires = self.extended_kernel_wires()
+        if all(wires):
+            return
+        warnings.warn(
+            _below_interface.extended_kernel_above_advisory(wires),
+            _below_interface.ExtendedKernelAboveGround,
+            stacklevel=4,
+        )
+
+    def _ek_subset(self, geom, obs_sel, seg_idx, mirror):
+        """`_ek_spec_above` for one buried-fill subset block, cut to nothing
+        when the block has no eligible pair: `(spec, same_edge_spec)`, both
+        None for a block of buried segments, so that block makes exactly the
+        reduced-kernel calls it made before the mask existed."""
+        ek = self._ek_spec_above(geom, mirror=mirror)
+        if ek is None:
+            return None, None
+        if not (np.any(ek.group_i[obs_sel] >= 0) and np.any(ek.group_j[seg_idx] >= 0)):
+            return None, None
+        return ek, _EK_SAME_EDGE
+
+    def extended_kernel_wires(self):
+        """Per wire, whether its pairs take the extended kernel: a tuple of
+        bools, one per wire, all False with `extended_kernel=False`.
+
+        All True on a deck with no buried wire. On a deck with wires below a
+        Sommerfeld ground plane (momwire#1170 stage 0) a buried wire is
+        False: every pair that touches one of its segments keeps the reduced
+        kernel, and the extended kernel acts on the pairs whose two segments
+        are both above ground (and on their images).
+        """
+        n = len(self.wires_polylines)
+        if not self.extended_kernel:
+            return (False,) * n
+        if self.ground_z is None or not self._has_buried_wires():
+            return (True,) * n
+        return tuple(m != _medium_spec.BELOW for m in self._wire_media())
+
     def _same_edge_prep(self, geom):
         """k-independent per-same-edge precompute hoisted out of the swept-k
         loop: each edge's analytic static-moment block, plus the O(N_e)
@@ -5400,10 +5651,11 @@ class BSplineSolver(
         # length; `arc` is that same length ACCUMULATED over the mesh, and the
         # two differ in the last ulps — measured 3.6e-15 short on a
         # 95-segment 19.84542 m wire, which put the request past `knots[-d-1]`
-        # and made `BSpline.design_matrix` raise `Out of bounds` on a feed
-        # that was exactly where it was asked for. `_feed_cell` already clips
-        # the same request for the segment model ("one at the wire's far end
-        # is clipped to the last cell"); this is that clip for the point one.
+        # and made the basis evaluation (then scipy's design matrix) refuse
+        # it as out of bounds on a feed that was exactly where it was asked
+        # for. `_feed_cell` already clips the same request for the segment
+        # model ("one at the wire's far end is clipped to the last cell");
+        # this is that clip for the point one.
         #
         # Inside a RELATIVE tolerance of the two ends only, so an arclength
         # that is genuinely off the wire still reaches the raise rather than
@@ -5417,7 +5669,7 @@ class BSplineSolver(
 
         if self.feed_smoothing_factor is None and self.feed_model == "point":
             # Delta-gap (original)
-            DM = BSpline.design_matrix(np.array([s_f]), knots, d).toarray()[0]
+            DM = _bspline_design_matrix_dense(np.array([s_f]), knots, d)[0]
             v = np.zeros(n_basis_total, dtype=np.complex128)
             for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
                 m_global = local_to_global[kept_idx]
@@ -5439,7 +5691,7 @@ class BSplineSolver(
             # (1/h)·∫_cell Φ_m ds — exact, the integrand being degree d on
             # exactly one knot span (see the docstring).
             weights = (0.5 * h_cell * gl_w) / h_cell
-            DM = BSpline.design_matrix(t, knots, d).toarray()
+            DM = _bspline_design_matrix_dense(t, knots, d)
             v_full = DM.T @ weights
             v = np.zeros(n_basis_total, dtype=np.complex128)
             for kept_idx, (j, _kind, _junc_idx, _end_pos) in enumerate(kept):
@@ -5486,7 +5738,7 @@ class BSplineSolver(
         )
 
         # Evaluate every basis at the quadrature points and integrate.
-        DM = BSpline.design_matrix(t, knots, d).toarray()  # (n_qp, n_basis_w_full)
+        DM = _bspline_design_matrix_dense(t, knots, d)  # (n_qp, n_basis_w_full)
         v_full = np.einsum("qj,q,q->j", DM, g_vals, weights)  # (n_basis_w_full,)
 
         v = np.zeros(n_basis_total, dtype=np.complex128)
@@ -5519,7 +5771,7 @@ class BSplineSolver(
         sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
         w = sol[:, 0]
         X = sol[:, 1:]
-        lam = scipy.linalg.solve(kcl_A @ X, kcl_A @ w)
+        lam = _lapack.solve(kcl_A @ X, kcl_A @ w)
         return w - X @ lam
 
     def _solve_with_kcl_ports(self, Z, V, kcl_A, overwrite=False):
@@ -5539,7 +5791,7 @@ class BSplineSolver(
         sol = _lu_solve(Z, rhs, overwrite_a=overwrite, overwrite_b=True)
         W = sol[:, :n_p]
         X = sol[:, n_p:]
-        Lam = scipy.linalg.solve(kcl_A @ X, kcl_A @ W)
+        Lam = _lapack.solve(kcl_A @ X, kcl_A @ W)
         return W - X @ Lam
 
     def _solve_with_kcl_batch(self, Z, v, kcl_A):
@@ -5555,17 +5807,17 @@ class BSplineSolver(
         n_k, n_b = Z.shape[0], Z.shape[1]
         if kcl_A.shape[0] == 0:
             rhs = np.broadcast_to(v[None, :, None], (n_k, n_b, 1))
-            return np.linalg.solve(Z, rhs)[:, :, 0]
+            return _lapack.solve_stacked(Z, rhs)[:, :, 0]
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_k, n_b, 1 + n_c), dtype=np.complex128)
         rhs[:, :, 0] = v[None, :]
         rhs[:, :, 1:] = kcl_A.T[None, :, :]
-        sol = np.linalg.solve(Z, rhs)  # (n_k, n_b, 1 + n_c)
+        sol = _lapack.solve_stacked(Z, rhs)  # (n_k, n_b, 1 + n_c)
         w = sol[:, :, 0]
         X = sol[:, :, 1:]
         S = np.einsum("cm,kmn->kcn", kcl_A, X)
         Aw = np.einsum("cm,km->kc", kcl_A, w)
-        lam = np.linalg.solve(S, Aw[:, :, None])[:, :, 0]
+        lam = _lapack.solve_stacked(S, Aw[:, :, None])[:, :, 0]
         return w - np.einsum("kmc,kc->km", X, lam)
 
     def _solve_with_kcl_swept_ports(self, Z, V, kcl_A):
@@ -5578,17 +5830,17 @@ class BSplineSolver(
         n_b, n_p = V.shape
         if kcl_A.shape[0] == 0:
             rhs = np.broadcast_to(V[None, :, :], (n_k, n_b, n_p))
-            return np.linalg.solve(Z, rhs)
+            return _lapack.solve_stacked(Z, rhs)
         n_c = kcl_A.shape[0]
         rhs = np.empty((n_k, n_b, n_p + n_c), dtype=np.complex128)
         rhs[:, :, :n_p] = V[None, :, :]
         rhs[:, :, n_p:] = kcl_A.T[None, :, :]
-        sol = np.linalg.solve(Z, rhs)
+        sol = _lapack.solve_stacked(Z, rhs)
         W = sol[:, :, :n_p]
         X = sol[:, :, n_p:]
         S = np.einsum("cm,kmn->kcn", kcl_A, X)
         AW = np.einsum("cm,kmp->kcp", kcl_A, W)
-        Lam = np.linalg.solve(S, AW)
+        Lam = _lapack.solve_stacked(S, AW)
         return W - np.einsum("kmc,kcp->kmp", X, Lam)
 
     # ------------------------------------------------------------------
@@ -5759,7 +6011,7 @@ class BSplineSolver(
         # Z_ee: symmetric. Fill upper triangle, mirror.
         for e in range(n_enrich):
             for f in range(e, n_enrich):
-                td = float(np.dot(tangents[seg_e_arr[e]], tangents[seg_e_arr[f]]))
+                td = float(dot3(tangents[seg_e_arr[e]], tangents[seg_e_arr[f]]))
                 diff = pos_e_all[e, :, None, :] - pos_e_all[f, None, :, :]
                 R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
                 iR_4pi = inv_4pi / R
@@ -5811,8 +6063,8 @@ class BSplineSolver(
                 pos_m[:, 2] = (1.0 - t) * seg_l[seg_m, 2] + t * seg_r[seg_m, 2]
                 for e in range(n_enrich):
                     seg_e = int(seg_e_arr[e])
-                    td_me = float(np.dot(tangents[seg_m], tangents[seg_e]))
-                    td_em = float(np.dot(tangents[seg_e], tangents[seg_m]))
+                    td_me = float(dot3(tangents[seg_m], tangents[seg_e]))
+                    td_em = float(dot3(tangents[seg_e], tangents[seg_m]))
                     # Z_pe leg: i = m-axis, j = e-axis
                     diff = pos_m[:, None, :] - pos_e_all[e, None, :, :]
                     R = np.sqrt(np.sum(diff * diff, axis=-1) + a_squared)
@@ -6631,6 +6883,13 @@ class BSplineSolver(
         if mirror_sources:
             src_l = self._image_positions(src_l)
             src_r = self._image_positions(src_r)
+        # momwire#1170 stage 0: None on every block of buried segments and
+        # on every block of an `extended_kernel=False` solve, which is then
+        # the call below as it always was. Set, it is the above/above block
+        # (direct or image) under the extended kernel.
+        ek, ek_se = self._ek_subset(geom, obs_sel, seg_idx, mirror_sources)
+        ek_kw = {} if ek is None else {"ek": _ek_slice(ek, rows=obs_sel, cols=seg_idx)}
+        ek_se_kw = {} if ek_se is None else {"ek": ek_se}
         block = _seg_seg_full_moments_offedge(
             seg_l[obs_sel],
             seg_r[obs_sel],
@@ -6641,6 +6900,7 @@ class BSplineSolver(
             d,
             self.n_qp_pair,
             ladder=self._fill_ladder(k, seg_l[seg_idx], seg_r[seg_idx], None),
+            **ek_kw,
         )
         if not mirror_sources:
             # Same-edge overwrite, per edge of each subset wire. The image
@@ -6669,9 +6929,16 @@ class BSplineSolver(
                     s_hi = s_lo + (ed_off[i_e + 1] - ed_off[i_e])
                     sl = slice(lo, hi)
                     ssl = slice(s_lo, s_hi)
-                    A_st = _seg_seg_static_moments(ed_arc[i_e], a_w, max_d=d)
+                    A_st = _seg_seg_static_moments(
+                        ed_arc[i_e], a_w, max_d=d, **ek_se_kw
+                    )
                     A_reg = _seg_seg_reg_moments(
-                        ed_arc[i_e], a_w, k, max_d=d, n_qp=self.n_qp_pair_same_edge
+                        ed_arc[i_e],
+                        a_w,
+                        k,
+                        max_d=d,
+                        n_qp=self.n_qp_pair_same_edge,
+                        **ek_se_kw,
                     )
                     block[:, :, sl, ssl] = A_st + A_reg
         J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=np.complex128)
@@ -6684,7 +6951,11 @@ class BSplineSolver(
         n = int(geom["n_segs_total"])
         _below_interface.refuse_out_of_scope(
             use_singular_enrichment=self.use_singular_enrichment,
-            extended_kernel=self.extended_kernel,
+            # momwire#1170 stage 0: not refused on this family any more. The
+            # subset fills extend the above/above pairs and leave the rest
+            # reduced (`_ek_spec_above`), and the fill says so once
+            # (`_advise_ek_above`).
+            extended_kernel=False,
             n=n,
             degree=self.degree,
             dense_fits=self._dense_tensor_fits_budget(n),
@@ -6786,6 +7057,17 @@ class BSplineSolver(
         # The dense twin `_build_J_blocks_subset` resolves the same way, so
         # the two routes to this block stay the same arithmetic.
         ladder = self._fill_ladder(k, seg_l[seg_idx], seg_r[seg_idx], None)
+        # momwire#1170 stage 0, as in `_build_J_blocks_subset`: None unless
+        # this is an above/above block of an extended-kernel solve. The
+        # whole-mesh spec is cut to each window, sweep and same-edge fixup
+        # alike, so the fixup subtracts the arithmetic the sweep added.
+        ek, ek_se = self._ek_subset(
+            geom, seg_idx if obs_idx is None else obs_idx, seg_idx, mirror_sources
+        )
+        ek_se_kw = {} if ek_se is None else {"ek": ek_se}
+
+        def _ek_kw(rows, cols):
+            return {} if ek is None else {"ek": _ek_slice(ek, rows=rows, cols=cols)}
 
         def _bases_touching(lo, hi):
             mask = ((supp_c >= lo) & (supp_c < hi)).any(axis=1)
@@ -6887,6 +7169,7 @@ class BSplineSolver(
                 d,
                 self.n_qp_pair,
                 ladder=ladder,
+                **_ek_kw(slice(i0, i1), slice(j0, j1)),
             )
             _accumulate(J_win, i0, i1, j0, j1)
 
@@ -6909,9 +7192,9 @@ class BSplineSolver(
             on_obs[np.asarray(obs_idx, dtype=np.int64)] = True
 
         def _fix_edge(w, sl, arc, a_w):
-            A_st = _seg_seg_static_moments(arc, a_w, max_d=d)
+            A_st = _seg_seg_static_moments(arc, a_w, max_d=d, **ek_se_kw)
             A_reg = _seg_seg_reg_moments(
-                arc, a_w, k, max_d=d, n_qp=self.n_qp_pair_same_edge
+                arc, a_w, k, max_d=d, n_qp=self.n_qp_pair_same_edge, **ek_se_kw
             )
             J_edge = _seg_seg_full_moments_offedge(
                 seg_l[sl],
@@ -6923,6 +7206,7 @@ class BSplineSolver(
                 d,
                 self.n_qp_pair,
                 ladder=ladder,
+                **_ek_kw(sl, sl),
             )
             corr = (A_st + A_reg) - J_edge
             del J_edge
@@ -7016,6 +7300,7 @@ class BSplineSolver(
         `CrossingContext` adapter that names the basis, and the per-instance
         media and node caches.
         """
+        self._advise_ek_above()
         return _below_interface.compute_Z_operator_buried(
             geom,
             supp_seg,
@@ -7188,6 +7473,41 @@ class BSplineSolver(
             edges.setdefault(int(labels[sl.start]), []).append((sl, arc, a_w))
         return [(S, edges[g]) for g, S in groups]
 
+    def _exact_kernel_lines(self, geom):
+        """[(segment indices, radius labels, [(slice, arc, radius) per
+        edge])] per coaxial line carrying a radius step (momwire#1438,
+        `_exact_kernel_seam.coaxial_lines`). An edge is one straight run at
+        one radius, so it lies on exactly one line."""
+        seg_a = self._seg_radius(geom)
+        labels, _groups = _exact_kernel_seam.coaxial_groups(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], seg_a
+        )
+        lines = _exact_kernel_seam.coaxial_lines(
+            geom["seg_l"], geom["seg_r"], geom["tangents"], seg_a, labels
+        )
+        if not lines:
+            return []
+        line_of = np.full(int(geom["n_segs_total"]), -1, dtype=np.int64)
+        for i, (S, _lab) in enumerate(lines):
+            line_of[S] = i
+        edges = {}
+        for _w, sl, arc, a_w in self._edge_ingredients(geom):
+            i = int(line_of[sl.start])
+            if i >= 0:
+                edges.setdefault(i, []).append((sl, arc, a_w))
+        return [(S, lab, edges[i]) for i, (S, lab) in enumerate(lines)]
+
+    def _exact_kernel_jobs(self, geom):
+        """[(segment indices, edges, radius labels or None)]: every coaxial
+        group (labels None), then every stepped line's cross job
+        (momwire#1438). The two own disjoint pairs, so their corrections
+        add; a deck with no step has no cross job."""
+        jobs = [(S, g_edges, None) for S, g_edges in self._exact_kernel_groups(geom)]
+        jobs += [
+            (S, g_edges, lab) for S, lab, g_edges in self._exact_kernel_lines(geom)
+        ]
+        return jobs
+
     def _exact_kernel_base_J(self, geom, S, g_edges, k, rows=None, fill=None):
         """The (d+1, d+1, n, n) moments the free-space fill put on the
         group's pairs, recomputed through the same kernels with the same
@@ -7269,13 +7589,37 @@ class BSplineSolver(
         per key new to the window, its moments and its table entry: a few
         bytes a pair on a uniform run, up to ~300 on a graded mesh where
         every pair is new, inside this total either way (memgate:
-        tests/test_exact_kernel_accel_1410.py)."""
+        tests/test_exact_kernel_accel_1410.py).
+
+        The base dedup (momwire#1421) builds the same-edge R table and the
+        reg rows only for the pairs it recomputes directly -- all of them on
+        a graded mesh, which this total already prices -- and gathers the
+        rest from O(n) diagonal values, so its window transients stay inside
+        this total too. Its cross-window cache is not a per-row cost: it is
+        held to `_exact_kernel_base_cache_bytes`, which the windows' budget
+        gives up before this total divides it (memgates:
+        tests/test_exact_kernel_base_dedup_1421.py)."""
         nd2 = (self.degree + 1) ** 2
         per_pair = 3 * nd2 * 16 + nd2 * 8 + 2 * 8 * self.n_qp_pair_same_edge**2 + 200
         return n * per_pair + self._offedge_fallback_row_bytes(n)
 
+    def _exact_kernel_base_cache_bytes(self):
+        """The most of `swept_mem_mb` held back from the row windows for the
+        base dedup's cross-window cache (momwire#1421): a sixteenth. The
+        windows give up only what the cache can hold
+        (`BaseRows.cache_entries_needed`), capped here: one (d+1)² complex
+        moment per diagonal of a run-pair block that can gather -- 2n - 1 on
+        a uniform run, 870 kB at n = 3,000, d = 2 -- and nothing on a graded
+        mesh or one of many tiny edges, whose windows are then main's. The
+        cap only bites on pathological meshes, where a block past it is
+        deduplicated inside its window and not remembered."""
+        return int(self.swept_mem_mb * 1024 * 1024) // 16
+
     def _add_exact_kernel_correction(self, Z, geom, supp_seg, polys, k):
-        """Z += Z_exact - Z_base over every coaxial group (momwire#1408).
+        """Z += Z_exact - Z_base over every coaxial group (momwire#1408),
+        and over the cross-radius pairs of every line with a radius step
+        (momwire#1438: `_exact_kernel.CoaxialCrossRows`, its base the
+        `BaseRows` cross mode, which produces only those pairs).
 
         In place, by observer-row windows of each group (momwire#1411): a
         window's exact moments (`_exact_kernel.CoaxialRows`) minus the base
@@ -7288,7 +7632,15 @@ class BSplineSolver(
         windows trace 176 MB there and leave the process peak at the fill's.
         The pre-#1411 whole-group route stays behind
         `_EXACT_KERNEL_ROW_WINDOWS` as the reference this one is gated
-        against."""
+        against.
+
+        The base moments are subtracted in place by
+        `_exact_kernel_base.BaseRows` (momwire#1421): one kernel evaluation
+        per diagonal of each uniform run-pair block, so a uniform run's base
+        costs O(n) kernel work like its exact moments (5,999 pairs instead
+        of 9,000,000 on the 3,000-segment wire), and pairs it cannot gather
+        are recomputed as `_exact_kernel_base_J` does, which stays behind
+        `_EXACT_KERNEL_BASE_DEDUP` as the reference."""
         if not _EXACT_KERNEL_ROW_WINDOWS:
             return self._add_exact_kernel_correction_whole(Z, geom, supp_seg, polys, k)
         d = self.degree
@@ -7304,19 +7656,32 @@ class BSplineSolver(
             and not np.iscomplexobj(self.eps)
         )
         fill = self._exact_kernel_fill_spec(geom, k)
-        for S, g_edges in self._exact_kernel_groups(geom):
+        for S, g_edges, lab in self._exact_kernel_jobs(geom):
             n = S.size
             _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
             budget = self.swept_mem_mb * 1024 * 1024
-            exact = _exact_kernel.coaxial_rows(
-                x0,
-                sgn,
-                h,
-                float(seg_a[S[0]]),
-                k,
-                nd,
-                max_cached=max(1, budget // (nd * nd * 16 + 256)),
-            )
+            if lab is None:
+                exact = _exact_kernel.coaxial_rows(
+                    x0,
+                    sgn,
+                    h,
+                    float(seg_a[S[0]]),
+                    k,
+                    nd,
+                    max_cached=max(1, budget // (nd * nd * 16 + 256)),
+                )
+            else:
+                # numpy only, zero on the same-radius pairs (momwire#1438)
+                exact = _exact_kernel.CoaxialCrossRows(
+                    x0,
+                    sgn,
+                    h,
+                    seg_a[S],
+                    lab,
+                    k,
+                    nd,
+                    max_cached=max(1, budget // (nd * nd * 16 + 256)),
+                )
             # Bases are relabelled onto the group's local segment order;
             # a wing elsewhere points at the sentinel n, which no window
             # holds, so both assemblers skip it.
@@ -7327,18 +7692,51 @@ class BSplineSolver(
             B = np.flatnonzero(np.any(supp_loc < n, axis=1)).astype(np.int64)
             tan_loc = np.zeros((n + 1, 3))
             tan_loc[:n] = tang[S]
-            chunk = _schedule.mb_rows(
-                self.swept_mem_mb, self._exact_kernel_row_bytes(n)
-            )
+            window_mb = self.swept_mem_mb
+            base = None
+            if _EXACT_KERNEL_BASE_DEDUP:
+                base = _exact_kernel_base.BaseRows(
+                    seg_l=seg_l,
+                    seg_r=seg_r,
+                    seg_a=seg_a,
+                    tangents=tang,
+                    S=S,
+                    g_edges=g_edges,
+                    k=k,
+                    d=d,
+                    n_qp_pair=self.n_qp_pair,
+                    n_qp_same_edge=self.n_qp_pair_same_edge,
+                    ek=fill[0],
+                    ladder=fill[1],
+                    ek_se=_EK_SAME_EDGE if self.extended_kernel else None,
+                    n_segs_total=n_total,
+                    cross_lab=lab,
+                )
+                entry = nd * nd * 16 + 1
+                reserve = min(
+                    self._exact_kernel_base_cache_bytes(),
+                    base.cache_entries_needed() * entry,
+                )
+                base.max_cached = reserve // entry
+                window_mb = (budget - reserve) / (1024 * 1024)
+            chunk = _schedule.mb_rows(window_mb, self._exact_kernel_row_bytes(n))
             if _EXACT_KERNEL_ROWS_OVERRIDE is not None:
                 chunk = int(_EXACT_KERNEL_ROWS_OVERRIDE)
             for r0 in range(0, n, chunk):
                 r1 = min(n, r0 + chunk)
                 self._checkpoint()
                 dJ = exact.rows(r0, r1)
-                dJ -= self._exact_kernel_base_J(
-                    geom, S, g_edges, k, rows=slice(r0, r1), fill=fill
-                )
+                if base is not None:
+                    base.subtract_from(dJ, r0, r1)
+                else:
+                    bJ = self._exact_kernel_base_J(
+                        geom, S, g_edges, k, rows=slice(r0, r1), fill=fill
+                    )
+                    if lab is not None:
+                        # The same-radius pairs are the one-radius groups'.
+                        bJ[:, :, lab[r0:r1, None] == lab[None, :]] = 0.0
+                    dJ -= bJ
+                    del bJ
                 sB = supp_loc[B]
                 M = B[np.any((sB >= r0) & (sB < r1), axis=1)]
                 if accel:
@@ -7411,11 +7809,18 @@ class BSplineSolver(
         tang = geom["tangents"]
         seg_a = self._seg_radius(geom)
         n_total = int(geom["n_segs_total"])
-        for S, g_edges in self._exact_kernel_groups(geom):
+        for S, g_edges, lab in self._exact_kernel_jobs(geom):
             n = S.size
             _axis, x0, sgn, h = _exact_kernel_seam.group_frame(S, seg_l, seg_r, tang)
-            dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
-            dJ -= self._exact_kernel_base_J(geom, S, g_edges, k)
+            if lab is None:
+                dJ = _exact_kernel.coaxial_block(x0, sgn, h, float(seg_a[S[0]]), k, nd)
+                dJ -= self._exact_kernel_base_J(geom, S, g_edges, k)
+            else:
+                dJ = _exact_kernel.coaxial_cross_block(x0, sgn, h, seg_a[S], lab, k, nd)
+                base = self._exact_kernel_base_J(geom, S, g_edges, k)
+                base[:, :, lab[:, None] == lab[None, :]] = 0.0
+                dJ -= base
+                del base
             # assemble over the bases touching the group; wings elsewhere
             # point at one extra all-zero segment
             loc = np.full(n_total, n, dtype=np.int64)
@@ -7979,7 +8384,8 @@ class BSplineSolver(
             active_junctions = sorted(active)
             self._auto_active_junctions = active_junctions
             if not active_junctions:
-                return _solution(B.T @ X1, X1)  # pass-1 result is final
+                # pass-1 result is final
+                return _solution(_lapack.matmul(B.T, X1), X1)
 
         if self.use_singular_enrichment:
             enrich = self._enrichment_Z_assemble(
@@ -8013,10 +8419,11 @@ class BSplineSolver(
                 # vectors are zero on the enrichment dofs); the returned
                 # columns keep the enrichment block, which is part of the
                 # solved current — `basis.n_poly` marks the split.
-                return _solution(B.T @ X[:n_p, :], X)
+                return _solution(_lapack.matmul(B.T, X[:n_p, :]), X)
 
         X = self._solve_with_kcl_ports(Z, B, kcl_con, overwrite=True)
-        return _solution(B.T @ X, X)  # Y[i, j] = v_i^T · solve(Z, v_j)
+        # Y[i, j] = v_i^T · solve(Z, v_j)
+        return _solution(_lapack.matmul(B.T, X), X)
 
     def _port_solutions_swept(self, k_array):
         """Per-k `PortSolution` generator behind `compute_y_matrix_swept` and
@@ -8418,10 +8825,12 @@ class BSplineSolver(
 
         The twin of :meth:`currents_at_knots`, differentiated in the basis
         rather than around it: a B-spline of degree ``d`` is a polynomial on
-        each knot span and scipy's :class:`~scipy.interpolate.BSpline` hands
-        back its exact derivative as a spline of degree ``d-1``, so this is
+        each knot span, and this differentiates the span polynomials
+        `_build_basis_polynomials` already built (degree ``d-1``), so it is
         the same sum evaluated with the same coefficients and no step size
-        anywhere.
+        anywhere. (scipy's ``BSpline.derivative`` did this until momwire
+        #1489; the two agree to the tolerance
+        ``tests/test_bspline_own_readouts_1489.py`` derives.)
 
         Returned per wire, in ``wires_polylines`` order, at the mesh knots
         (``s_array=None``) or at the arc positions given per wire — the same
@@ -8434,7 +8843,8 @@ class BSplineSolver(
         discretisation of a quantity this basis already knows exactly. At
         ``degree >= 2`` the derivative is continuous across a knot; at
         ``degree == 1`` it is piecewise constant and a sample taken AT a knot
-        lands on whichever span scipy assigns it, so ask for centres.
+        reads the span to its right (the last span at the wire's end, the
+        convention scipy's spline used), so ask for centres.
 
         Singular enrichment is refused rather than silently dropped: the
         enrichment shape ``(u/h)·log(u/h)`` contributes nothing to the
@@ -8450,7 +8860,7 @@ class BSplineSolver(
             )
         coeffs = np.asarray(coeffs)
         geom = self._build_geometry()
-        _, _, _, wire_knots, wire_basis_global = self._build_basis_polynomials(geom)
+        _, polys, _, wire_knots, wire_basis_global = self._build_basis_polynomials(geom)
         d = self.degree
 
         out = []
@@ -8465,23 +8875,32 @@ class BSplineSolver(
                     knots_vec[0],
                     knots_vec[-1],
                 )
-            kept, local_to_global = wire_basis_global[w_idx]
-            c_basis = np.zeros(len(knots_vec) - d - 1, dtype=np.complex128)
-            for kept_idx, (j_local, _, _, _) in enumerate(kept):
-                c_basis[j_local] = coeffs[local_to_global[kept_idx]]
             if s_eval.shape[0] == 0:
                 out.append(np.zeros(0, dtype=np.complex128))
                 continue
-            spline = BSpline(knots_vec, c_basis, d, extrapolate=False)
-            out.append(np.asarray(spline.derivative(1)(s_eval), dtype=np.complex128))
+            kept, local_to_global = wire_basis_global[w_idx]
+            span_polys = _wire_span_polynomials(
+                coeffs, polys, kept, local_to_global, len(arc_at_knot) - 1, d
+            )
+            slope = _eval_span_polynomials(
+                span_polys, arc_at_knot, s_eval, derivative=True
+            )
+            # A sample that is not a number reads as not a number, as the
+            # scipy spline this replaces returned it (its out-of-range
+            # answer); clipping cannot move one into the wire.
+            slope[np.isnan(s_eval)] = complex(np.nan, np.nan)
+            out.append(slope)
         return out
 
     @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, coeffs, s_array=None):
         """Per-wire complex current at every mesh knot.
 
-        Evaluates Σ_kept c_g · B_{j_local}(s_knot) per wire using scipy's
-        B-spline design matrix on the wire's clamped knot vector.
+        Evaluates Σ_kept c_g · B_{j_local}(s_knot) per wire from the
+        per-span basis polynomials `_build_basis_polynomials` built (Horner
+        in each span's local arc), on the wire's clamped knot range. Until
+        momwire#1489 this read scipy's B-spline design matrix; the two agree
+        to the tolerance ``tests/test_bspline_own_readouts_1489.py`` derives.
 
         When `s_array` is provided as a list of 1D arc-length arrays (one per
         wire), the basis sum is evaluated at those arc positions instead of
@@ -8497,8 +8916,8 @@ class BSplineSolver(
         """
         coeffs = np.asarray(coeffs)
         geom = self._build_geometry()
-        supp_seg, _, _, wire_knots, wire_basis_global = self._build_basis_polynomials(
-            geom
+        supp_seg, polys, _, wire_knots, wire_basis_global = (
+            self._build_basis_polynomials(geom)
         )
         n_poly = supp_seg.shape[0]
         d = self.degree
@@ -8528,21 +8947,20 @@ class BSplineSolver(
             I_out = np.zeros(s_eval.shape[0], dtype=np.complex128)
             kept, local_to_global = wire_basis_global[w_idx]
             if s_eval.shape[0] > 0:
-                # design_matrix at [0, wire_arc] — clip tiny FP overshoots that
-                # would push the endpoint epsilon outside the clamped knot range.
-                DM = BSpline.design_matrix(s_eval, knots_vec, d)
-                # Scatter the kept coefficients onto their bases (dropped
-                # free-end bases keep their 0) and sum each row over its
-                # own d+1 stored entries. Those entries are in ascending
-                # column order, so the per-row accumulation order matches
-                # the ascending-basis loop this replaces term for term —
-                # the terms it drops are the exact zeros off the band.
-                c_basis = np.zeros(len(knots_vec) - d - 1, dtype=np.complex128)
-                for kept_idx, (j_local, _, _, _) in enumerate(kept):
-                    c_basis[j_local] = coeffs[local_to_global[kept_idx]]
-                dm_vals, dm_cols = _design_matrix_rows(DM, d)
-                for e in range(d + 1):
-                    I_out += c_basis[dm_cols[:, e]] * dm_vals[:, e]
+                # Positions are clipped into [0, wire_arc] above — tiny FP
+                # overshoots at an end land on the end. A position that is
+                # not a number has no current, and is refused as the scipy
+                # design matrix this replaced refused it.
+                if np.isnan(s_eval).any():
+                    raise ValueError(
+                        "a current sample position along a wire is not a finite number"
+                    )
+                span_polys = _wire_span_polynomials(
+                    coeffs, polys, kept, local_to_global, len(arc_at_knot) - 1, d
+                )
+                I_out += _eval_span_polynomials(
+                    span_polys, arc_at_knot, s_eval, derivative=False
+                )
 
             if enrich_specs is not None:
                 seg_off_w = geom["seg_offsets"][w_idx]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: agent-framework-redis
-Version: 1.0.0b261002
+Version: 1.0.0b261015
 Summary: Redis integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10,<3.15
@@ -24,6 +24,7 @@ Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
+Import-Name: agent_framework_redis
 
 # Microsoft Agent Framework Redis
 
@@ -45,7 +46,8 @@ records. Import them from `agent_framework.redis` or `agent_framework_redis`.
 
 ## Install
 
-Requires Python 3.10 or later:
+Requires Python 3.10–3.14. RedisVL currently declares `Requires-Python <3.15`,
+so pip cannot install this connector on Python 3.15 yet:
 
 ```bash
 pip install agent-framework-redis --pre

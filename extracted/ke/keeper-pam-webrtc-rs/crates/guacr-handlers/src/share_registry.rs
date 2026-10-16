@@ -311,32 +311,38 @@ mod tests {
     // and validates the fix (forward returns true and delivers bytes after wiring).
     #[test]
     fn test_viewer_input_forwarding_requires_channel_registration() {
-        use crate::session_sharing;
+        use crate::session_sharing::{self, ViewerInput};
         use bytes::Bytes;
 
         let id = session_id();
         // Register as if we're the owner handler calling session_sharing::register().
         let handle = session_sharing::register(&id).unwrap();
 
+        let input = || ViewerInput {
+            bytes: Bytes::from_static(b"4.key,1.1,1.0;"),
+            guid: uuid::Uuid::nil(),
+            display_name: "Viewer".into(),
+        };
+
         // Before set_viewer_input_channel: forward_viewer_input returns false.
-        let dropped = !handle.forward_viewer_input(Bytes::from_static(b"4.key,1.1,1.0;"));
+        let dropped = !handle.forward_viewer_input(input());
         assert!(
             dropped,
             "input must be dropped when no channel is registered"
         );
 
         // Wire the channel (what the owner handler must do at session start).
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Bytes>();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ViewerInput>();
         handle.set_viewer_input_channel(tx);
 
         // After wiring: forward_viewer_input returns true and the bytes arrive.
-        let delivered = handle.forward_viewer_input(Bytes::from_static(b"4.key,1.1,1.0;"));
+        let delivered = handle.forward_viewer_input(input());
         assert!(
             delivered,
             "input must be delivered after channel is registered"
         );
         let received = rx.try_recv().expect("bytes must arrive on channel");
-        assert_eq!(received.as_ref(), b"4.key,1.1,1.0;");
+        assert_eq!(received.bytes.as_ref(), b"4.key,1.1,1.0;");
 
         session_sharing::deregister(&id);
     }

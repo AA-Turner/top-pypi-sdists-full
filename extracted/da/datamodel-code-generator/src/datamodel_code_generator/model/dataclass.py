@@ -5,6 +5,7 @@ Generates Python dataclasses using the @dataclass decorator.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
 from datamodel_code_generator._format_types import (
@@ -17,6 +18,7 @@ from datamodel_code_generator.model import DataModel, DataModelFieldBase, _rebui
 from datamodel_code_generator.model._constraints import Constraints  # noqa: TC001 # needed for pydantic
 from datamodel_code_generator.model.base import (
     UNDEFINED,
+    _default_factory_type_name,
     _has_field_assignment,
     _nested_model_default_factory,
     get_effective_fields,
@@ -31,6 +33,8 @@ if TYPE_CHECKING:
     from collections import defaultdict
     from collections.abc import Collection, Sequence
     from pathlib import Path
+
+    from typing_extensions import Self
 
     from datamodel_code_generator.enums import DataclassArguments
     from datamodel_code_generator.imports import Import
@@ -138,10 +142,12 @@ def _build_nested_dataclass_default_factory(data_type: DataType, default: dict[A
         return None
     if has_nested_mapping_default and _has_recursive_nested_mapping_default(source):
         return None
-    return f"lambda: {data_type.alias or source.class_name}({', '.join(arguments)})"
+    return f"lambda: {_default_factory_type_name(data_type)}({', '.join(arguments)})"
 
 
 _REQUIRED_INHERITED_INIT_KEY = "_required_inherited_init"
+_UNBOUND_FIELD_KEY = "_unbound_field"
+_PSEUDO_FIELD_TYPE = re.compile(r"(?:\w+\.)*(?:ClassVar|InitVar)\b")
 
 
 class _DataclassReuseMixin:
@@ -149,12 +155,12 @@ class _DataclassReuseMixin:
         """Return whether a dataclass declaration enables keyword-only fields."""
         return bool(cast("DataModel", self).dataclass_arguments.get("kw_only"))
 
-    def create_reuse_model(self, base_ref: Reference) -> DataModel:
+    def create_reuse_model(self, base_ref: Reference) -> Self:
         """Create inherited model with empty fields pointing to base reference."""
         model = cast("DataModel", self)
         model_cls = cast("Any", self.__class__)
         model_attrs = vars(model)
-        return cast(
+        reuse_model = cast(
             "DataModel",
             model_cls(
                 fields=[],
@@ -172,6 +178,8 @@ class _DataclassReuseMixin:
                 dataclass_arguments=model.dataclass_arguments,
             ),
         )
+        reuse_model.reused_reference = model.reference
+        return cast("Self", reuse_model)
 
 
 class DataClass(_DataclassReuseMixin, DataModel):
@@ -179,6 +187,7 @@ class DataClass(_DataclassReuseMixin, DataModel):
 
     TEMPLATE_FILE_PATH: ClassVar[str] = "dataclass.jinja2"
     DEFAULT_IMPORTS: ClassVar[tuple[Import, ...]] = (IMPORT_DATACLASS,)
+    RESOLVES_STRING_ANNOTATIONS_FROM_MODULE: ClassVar[bool] = True
     FIELD_DEFAULT_CLASSIFIER = staticmethod(get_field_default_info)
     FIELD_PARTICIPATES_IN_CONSTRUCTOR = staticmethod(field_participates_in_constructor)
     SUPPORTS_TREE_SCOPE_REUSE_MODEL_INHERITANCE: ClassVar[bool] = True
@@ -187,6 +196,35 @@ class DataClass(_DataclassReuseMixin, DataModel):
     SUPPORTS_DISCRIMINATOR: ClassVar[bool] = True
     SUPPORTS_INHERITED_DISCRIMINATOR_ENUM: ClassVar[bool] = True
     SUPPORTS_KW_ONLY: ClassVar[bool] = True
+
+    def field_name_hides_types(self, field: DataModelFieldBase) -> bool:
+        """Return whether the class body binds the field's name, which its annotation is evaluated after."""
+        return self.field_binds_class_attribute(field)
+
+    def unbind_fields(self, names: Collection[str | None]) -> bool:
+        """Write the defaults of the fields of these names through ``default_factory``.
+
+        ``dataclasses`` then removes their class attributes, so a resolver that looks the class up before the module,
+        like Pydantic or a native deferred annotation, finds the type of that name instead of the default. A
+        ``ClassVar`` or ``InitVar`` takes no default factory and stays bound.
+        """
+        fields = [
+            field
+            for field in self.fields
+            if field.name in names
+            and not any(_PSEUDO_FIELD_TYPE.match(data_type.type or "") for data_type in field.data_type.all_data_types)
+        ]
+        for field in fields:
+            field.__dict__[_UNBOUND_FIELD_KEY] = True
+        return bool(fields)
+
+    def resolves_hidden_types_from_strings(self) -> bool:
+        """Return whether the class needs string annotations to resolve a type that a field hides.
+
+        ``dataclasses`` evaluates native deferred annotations while the class still binds the field's name. A class
+        with slots is built anew once the name is unbound, and a string would find the slot of that name instead.
+        """
+        return not self.dataclass_arguments.get("slots")
 
     @classmethod
     def prepare_required_inherited_field(
@@ -356,6 +394,11 @@ class DataModelField(DataModelFieldBase):
                     f"lambda: {represent_python_value(default)}" if default else type(default).__name__
                 )
 
+        if self.__dict__.get(_UNBOUND_FIELD_KEY) and (
+            "default" in data
+            or not (data or (self.required and not self.use_default_with_required) or self.should_strip_default_none())
+        ):
+            data["default_factory"] = f"lambda: {represent_python_value(data.pop('default', self.default))}"
         return data
 
     def _get_constructor_default_info(self) -> tuple[bool, bool]:

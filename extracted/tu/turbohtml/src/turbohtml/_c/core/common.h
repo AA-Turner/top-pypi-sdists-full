@@ -156,6 +156,7 @@ PyObject *turbohtml_url_percent_decode(PyObject *module, PyObject *arg);
    _url_join(base, target) exposes it to the extract_links shim. Both arguments are borrowed str references; returns a
    new reference, NULL with a ValueError set when a component cannot be split (an unbalanced IPv6 bracket). */
 PyObject *th_url_join(PyObject *base, PyObject *target);
+PyObject *th_url_join_c14n_raw(const Py_UCS4 *base, Py_ssize_t base_len, PyObject *target);
 PyObject *turbohtml_url_join(PyObject *module, PyObject *args);
 
 /* _url_is_tracker(key): whether a lowercased query-parameter name names a referral rather than content, so a
@@ -205,7 +206,7 @@ PyObject *turbohtml_url_to_ascii(PyObject *module, PyObject *arg);
    behavior normalize_url takes for an unencodable label. The checked IPv6 variant lets clean_url reject an address
    a browser cannot fetch. NULL only on allocation failure. */
 PyObject *th_url_host_canonical(PyObject *host, int kind);
-PyObject *th_url_ipv6_canonical_checked(PyObject *host);
+PyObject *th_url_host_canonical_checked(PyObject *host, int kind);
 
 /* Implemented in url/registrable.c. _registrable_domain(host) returns a lowercased
    host's registrable domain (eTLD+1) from the shipped IANA and Public Suffix List

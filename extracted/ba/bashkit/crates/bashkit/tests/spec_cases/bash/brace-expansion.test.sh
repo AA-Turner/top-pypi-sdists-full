@@ -55,11 +55,10 @@ a1 a2 b1 b2
 ### end
 
 ### brace_empty_item
-### bash_diff: Bashkit preserves leading space from empty brace item, bash strips it
-# Brace with empty item
+# Brace with empty item: the empty word is dropped
 echo {,a,b}
 ### expect
- a b
+a b
 ### end
 
 ### brace_no_expand_single
@@ -157,4 +156,18 @@ for x in "{1..3}"; do echo "$x"; done
 for x in {only}; do echo $x; done
 ### expect
 {only}
+### end
+
+### brace_unclosed_open_brace_is_literal
+echo {{a,b}
+echo x{{a,b}y}z
+### expect
+{a {b
+x{ay}z x{by}z
+### end
+
+### brace_zero_step_is_one
+echo -{1..4..0}- {a..c..0}
+### expect
+-1- -2- -3- -4- a b c
 ### end

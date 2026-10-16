@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.14.0
+Version: 0.14.1
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -39,7 +39,7 @@ Description-Content-Type: text/markdown
 # river-client
 
 Python client for the [River](https://river.ai) ML training API — sampling,
-LoRA fine-tuning, and reinforcement learning against River-hosted models.
+LoRA and full-weight fine-tuning, and reinforcement learning against River-hosted models.
 
 ## Installation
 
@@ -83,6 +83,89 @@ with client.session() as session:
     # Sample from the current weights
     sample_groups = model.sample("Continue:", max_tokens=100)
 ```
+
+## Capacity hints
+
+Capacity hints are disabled by default. Enable them with
+`client.session(capacity_hints=True)` to print capacity changes to stderr:
+workers preparing, additional workers starting, or waits for available capacity.
+A state must persist for five seconds before a hint appears. Each run and workload
+prints at most once per 30 seconds, with no repeated messages for an unchanged
+state. A ready message
+appears only after a capacity hint was shown.
+
+Structured status remains available with printing disabled:
+
+```python
+with client.session() as session:
+    # Create models and run your job as usual. In your progress update:
+    for status in session.capacity_status:
+        print(status.training_run_id, status.workload, status.state)
+```
+
+`session.capacity_status` returns an immutable tuple of `river.CapacityStatus`
+objects from the latest heartbeat without an extra API call. Each object contains
+`training_run_id`, `workload` (`training` or `inference`), `state`, `capacity_wait`,
+and `observed_at` (a UTC datetime when available). States are `ready`, `scaling_up`,
+`preparing`, `waiting`, `at_limit`, and `unavailable`.
+
+Observations expire after 30 seconds. An empty tuple or `unavailable` means no
+fresh status is available; neither means capacity is ready. A scaling limit alone
+does not imply queuing, and workload capacity pressure does not explain every
+individual request's latency.
+
+These observations require a server that supplies heartbeat capacity status.
+They cover the session's training runs and their checkpoint inference, matching
+Console. Stateless base-model sampling is outside this scope. Set
+`session.capacity_hints = True` to enable hints in an already-running session,
+or set it to `False` to silence them.
+
+## Full-weight training
+
+On an endpoint with the GLM 5.3 Flash BF16 pool enabled, select
+`full_weight=True` instead of `lora`:
+
+```python
+model = session.create_model(
+    base_model="zai-org/GLM-5.3-Flash-BF16",
+    full_weight=True,
+)
+model.forward_backward(data, loss_fn="cross_entropy")
+model.optim_step(lr=1e-5, beta1=0.9, beta2=0.95, weight_decay=0.01)
+checkpoint = model.save_weights("step1", mode="training", immutable=True, timeout=3600)
+model.load_weights(checkpoint, load_optimizer=True, timeout=3600)
+```
+
+Checkpoints include FP32 master weights, Adam moments, optimizer parameters,
+and the training step. Full-weight saves require `immutable=True`; repeated
+names create separate checkpoint URIs with independent retention. Only an RL
+model such as `zai-org/GLM-5.3-Flash-FW-RL` can sample: its run owns a sampler,
+and `river_client.rl` refreshes it with `save_weights(mode="publish")`.
+See the [full-weight training guide](../../docs/river-api-design-docs/full-weight-training.md)
+for RL, resume semantics and deployment requirements.
+
+For temporary sampling or training checkpoints, use `durable=False`:
+
+```python
+checkpoint = model.save_weights("sampling", mode="inference", durable=False)
+```
+
+These checkpoints stay on shared NFS for 24 hours by default and never upload
+to cloud storage. Pass `ttl=datetime.timedelta(...)` to choose another lifetime
+within the server's retention cap. They cannot be restored from cloud storage
+after expiry or NFS loss. This option requires server support; the SDK rejects
+it on an endpoint without `temporary_checkpoints_v1`. Changing an existing
+checkpoint's storage policy requires a new name or `immutable=True`. The RL
+trainer uses it for per-step sampling snapshots. Recovery and evaluation saves
+remain durable so unfinished evaluations can resume after a long pause. Update the server before using the new RL client.
+Custom model implementations must accept the `durable` keyword on `save_weights`.
+
+On trainer resume, unfinished rollouts pinned to temporary snapshots restart
+from their environment's initial state, even after a short pause. Recovery
+republishes only the current policy; older pins may have expired. Completed
+rollout data is preserved, and each restarted rollout selects a fresh policy
+without mixing policies within a trajectory.
+
 
 ## Reinforcement learning
 

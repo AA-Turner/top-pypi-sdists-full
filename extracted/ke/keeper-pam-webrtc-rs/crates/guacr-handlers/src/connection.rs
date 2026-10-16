@@ -107,17 +107,33 @@ impl KeepAliveManager {
     ///
     /// Returns `Some(sync_instruction)` if it's time to send a ping,
     /// `None` otherwise.
+    ///
+    /// The schedule advances by whole intervals rather than restarting from the moment of
+    /// sending. Callers drive this from a `tokio::time::interval` of the same period, and a
+    /// tick is always observed a little *after* its deadline; restarting from `now` made the
+    /// following deadline arrive a fraction of a millisecond early, so it was rejected and
+    /// the effective keep-alive period doubled. Advancing by the interval keeps the deadlines
+    /// where the caller's timer puts them and lets the error cancel out instead of
+    /// accumulating.
+    ///
+    /// Deadlines missed while a session was blocked are skipped, not replayed — matching the
+    /// `MissedTickBehavior::Skip` every caller sets on its interval. A stalled session owes
+    /// the client one ping, not one per interval it was away.
     pub fn check(&mut self) -> Option<Bytes> {
         if self.interval.is_zero() {
             return None;
         }
 
-        if self.last_sync.elapsed() >= self.interval {
-            self.last_sync = Instant::now();
-            Some(self.generate_sync())
-        } else {
-            None
+        if self.last_sync.elapsed() < self.interval {
+            return None;
         }
+
+        self.last_sync += self.interval;
+        if self.last_sync.elapsed() >= self.interval {
+            // More than one interval went by: skip the backlog rather than bursting.
+            self.last_sync = Instant::now();
+        }
+        Some(self.generate_sync())
     }
 
     /// Generate a sync instruction

@@ -18,9 +18,12 @@ pub use advanced::{
     // Instructions
     format_ack,
     format_error,
+    format_msg,
     format_nest,
     format_pipe,
     format_transfer,
+    // Message codes
+    MSG_SECURITY_WARNING,
     // Status codes
     STATUS_CLIENT_BAD_REQUEST,
     STATUS_CLIENT_BAD_TYPE,
@@ -31,16 +34,23 @@ pub use advanced::{
     STATUS_CLIENT_UNAUTHORIZED,
     STATUS_RESOURCE_CLOSED,
     STATUS_RESOURCE_CONFLICT,
+    STATUS_RESOURCE_NOT_FOUND,
+    STATUS_SERVER_BUSY,
     STATUS_SERVER_ERROR,
+    STATUS_SESSION_CLOSED,
+    STATUS_SESSION_CONFLICT,
+    STATUS_SESSION_TIMEOUT,
+    STATUS_SUCCESS,
+    STATUS_UNSUPPORTED,
     STATUS_UPSTREAM_ERROR,
     STATUS_UPSTREAM_NOT_FOUND,
     STATUS_UPSTREAM_TIMEOUT,
     STATUS_UPSTREAM_UNAVAILABLE,
 };
 pub use binary::{
-    BinaryEncoder, ImageFormat, Opcode, BINARY_PROTOCOL_OVERHEAD, FLAG_COMPRESSED, FLAG_ENCRYPTED,
-    FLAG_FRAGMENTED, FRAGMENT_PAYLOAD_SIZE, FRAME_PROTOCOL_OVERHEAD, MAX_SAFE_PAYLOAD_SIZE,
-    TOTAL_PROTOCOL_OVERHEAD,
+    BinaryEncoder, FragmentError, ImageFormat, Opcode, BINARY_PROTOCOL_OVERHEAD, FLAG_COMPRESSED,
+    FLAG_ENCRYPTED, FLAG_FRAGMENTED, FRAGMENT_PAYLOAD_SIZE, FRAME_PROTOCOL_OVERHEAD,
+    MAX_SAFE_PAYLOAD_SIZE, TOTAL_PROTOCOL_OVERHEAD,
 };
 pub use drawing::*;
 pub use layers::*;
@@ -54,7 +64,7 @@ pub use streaming::{
 pub use streams::{
     format_audio, format_bell_audio, format_blob, format_chunked_blobs, format_clipboard,
     format_clipboard_text, format_end, format_terminal_data, format_terminal_data_binary,
-    format_video, format_vnc_data, parse_clipboard_blob,
+    format_terminal_data_binary_bounded, format_video, format_vnc_data, parse_clipboard_blob,
 };
 pub use text_optimized::TextProtocolEncoder;
 

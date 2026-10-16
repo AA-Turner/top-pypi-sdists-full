@@ -33,20 +33,46 @@ def _chrome_environment(config):
     )
 
 
-def published_browsers():
-    """Discover local published sessions, grouped by browser WebSocket identity."""
+def browser_live_dir(tmp_dir, endpoint: str) -> Path:
+    """Match chrome/browser_observer.js: hot tab/viewer/frame state lives on
+    local TMP_DIR, not on possibly-remote crawl/persona storage."""
+    return (
+        Path(tmp_dir or tempfile.gettempdir())
+        / "chrome_browser"
+        / hashlib.sha256(endpoint.encode()).hexdigest()
+    )
+
+
+def published_browsers(config, *, snapshot_targets=False):
+    """Discover live published sessions, grouped by browser WebSocket identity.
+
+    The Agent panel polls this every second. Session dirs live on archive
+    storage that may be remote (e.g. rclone FUSE), and probing their
+    descriptor files for every persona and running chrome process made each
+    poll do dozens of network round trips. Each browser's observer publishes
+    its endpoint, session dir, PID and tabs on local TMP_DIR, so discovery
+    reads only those files plus process rows the runner already owns.
+    """
     from archivebox.machine.models import Machine, Process
     from archivebox.personas.models import Persona
 
-    candidates = [
-        (persona.path / ".browser", {"persona": persona.name})
-        for persona in Persona.objects.all().only("name")
-    ]
-    for process in Process.objects.filter(
-        machine=Machine.current_readonly(),
-        status=Process.StatusChoices.RUNNING,
-        pwd__endswith="/chrome",
-    ).values("pwd", "cmd", "env__CRAWL_DIR", "env__ACTIVE_PERSONA"):
+    processes = list(
+        Process.objects.filter(
+            machine=Machine.current_readonly(),
+            status=Process.StatusChoices.RUNNING,
+            pwd__endswith="/chrome",
+        ).values(
+            "pwd",
+            "cmd",
+            "env__CRAWL_DIR",
+            "env__ACTIVE_PERSONA",
+            "env__TMP_DIR",
+        ),
+    )
+    # Crawl-isolated snapshot hooks attach to their crawl's browser, whose
+    # session dir is CRAWL_DIR/chrome; snapshot-isolated ones own their pwd.
+    sources_by_dir = {}
+    for process in processes:
         source = {
             key: arg.split("=", 1)[1]
             for key in ("crawl", "snapshot")
@@ -57,54 +83,82 @@ def published_browsers():
             source["crawl"] = Path(process["env__CRAWL_DIR"]).name
         if process["env__ACTIVE_PERSONA"]:
             source["persona_name"] = process["env__ACTIVE_PERSONA"]
-        candidates.append((Path(process["pwd"]), source))
-    sessions = {}
-    for directory, source in candidates:
-        try:
-            if not json.loads((directory / "browser.json").read_text()).get("ready"):
-                continue
-            endpoint = (directory / "cdp_url.txt").read_text().strip()
-            if not endpoint:
-                continue
-            browser_id = hashlib.sha256(endpoint.encode()).hexdigest()[:16]
-            session = sessions.setdefault(
-                browser_id,
-                {
-                    "id": browser_id,
-                    "cdp_url": endpoint,
-                    "sources": [],
-                    "pid": None,
-                    "available": False,
-                    "tabs": [],
-                },
+        session_dirs = {process["pwd"]}
+        if process["env__CRAWL_DIR"]:
+            session_dirs.add(str(Path(process["env__CRAWL_DIR"]) / "chrome"))
+        for session_dir in session_dirs:
+            sources_by_dir.setdefault(session_dir, []).append(
+                (Path(process["pwd"]), source),
             )
-            if (directory / "chrome.pid").exists():
-                session["pid"] = int((directory / "chrome.pid").read_text())
-            if (directory / "target_id.txt").exists():
-                source = {
-                    **source,
-                    "target_id": (directory / "target_id.txt").read_text().strip(),
-                }
-            if source not in session["sources"]:
-                session["sources"].append(source)
-            state = json.loads((directory / "tabs.json").read_text())
-            if state.get("cdp_url") == endpoint and state.get("connected"):
+    # Map persona session dirs by name: Persona.path lists PERSONAS_DIR.
+    personas = {
+        name.casefold(): name for name in Persona.objects.values_list("name", flat=True)
+    }
+    # Owners publish under their own TMP_DIR. CLI and server startup resolve
+    # the same collection TMP_DIR; runner hooks record theirs on Process rows.
+    tmp_dirs = {
+        config.get("TMP_DIR") or tempfile.gettempdir(),
+        *(process["env__TMP_DIR"] for process in processes if process["env__TMP_DIR"]),
+    }
+    sessions = {}
+    for tmp_dir in tmp_dirs:
+        try:
+            live_dirs = list(
+                (Path(tmp_dir) / "chrome_browser").iterdir(),
+            )
+        except OSError:
+            continue
+        for live_dir in live_dirs:
+            try:
+                state = json.loads((live_dir / "tabs.json").read_text())
+                endpoint = state["cdp_url"]
+                if not state["connected"] or live_dir != browser_live_dir(
+                    tmp_dir,
+                    endpoint,
+                ):
+                    continue
                 os.kill(int(state["owner_pid"]), 0)
-                session.update(
-                    directory=str(directory),
-                    available=True,
-                    tabs=state["tabs"],
-                )
-        except (OSError, ValueError, TypeError, KeyError):
-            continue  # Stale/partial artifacts cannot take down the agent UI.
-    return [session for session in sessions.values() if session["available"]]
+                directory = Path(state["session_dir"])
+            except (OSError, ValueError, TypeError, KeyError):
+                continue  # Stale/partial artifacts cannot take down the agent UI.
+            browser_id = hashlib.sha256(endpoint.encode()).hexdigest()[:16]
+            sources = []
+            if directory.name == ".browser" and (
+                persona := personas.get(directory.parent.name.casefold())
+            ):
+                sources.append({"persona": persona})
+            for source_dir, source in sources_by_dir.get(str(directory), []):
+                if snapshot_targets:
+                    # Explicit agent listings only; never on the panel poll.
+                    try:
+                        target_id = (source_dir / "target_id.txt").read_text()
+                        source = {**source, "target_id": target_id.strip()}
+                    except OSError:
+                        pass
+                if source not in sources:
+                    sources.append(source)
+            sessions[browser_id] = {
+                "id": browser_id,
+                "cdp_url": endpoint,
+                "sources": sources,
+                "pid": state.get("pid"),
+                "available": True,
+                "tabs": state["tabs"],
+                "directory": str(directory),
+                "live_dir": str(live_dir),
+            }
+    return list(sessions.values())
 
 
-def browser_inventory(config):
+def browser_inventory(config, *, snapshot_targets=False):
     """Read owner-published state only: no CDP, installs, or child processes."""
     return [
-        {key: value for key, value in session.items() if key != "directory"}
-        for session in published_browsers()
+        {
+            key: value
+            for key, value in session.items()
+            if key not in ("directory", "live_dir")
+        }
+        for session in published_browsers(config, snapshot_targets=snapshot_targets)
     ]
 
 
@@ -195,7 +249,7 @@ def browser_environment(
         session = next(
             (
                 item
-                for item in published_browsers()
+                for item in published_browsers(config)
                 if item["id"] == selected["id"] and item["available"]
             ),
             None,
@@ -295,7 +349,14 @@ def main() -> None:
     if args.list:
         from archivebox.config.common import get_config
 
-        print(json.dumps(browser_inventory(get_config().model_dump(mode="json"))))
+        print(
+            json.dumps(
+                browser_inventory(
+                    get_config().model_dump(mode="json"),
+                    snapshot_targets=True,
+                ),
+            ),
+        )
         return
     env = browser_environment(
         persona_name=args.persona,

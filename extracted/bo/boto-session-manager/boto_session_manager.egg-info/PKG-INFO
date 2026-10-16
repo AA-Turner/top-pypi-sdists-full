@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: boto_session_manager
-Version: 2.0.1
-Summary: Provides an alternative, or maybe a more user friendly way to use the native boto3 API.
-Author-email: Sanhe Hu <husanhe@email.com>
-Maintainer-email: Sanhe Hu <husanhe@email.com>
+Version: 2.1.0
+Summary: A boto3 session manager: cached clients, typed client properties for 400+ AWS services, assume role with auto-refresh, and AWS CLI credential handoff.
+Author-email: Sanhe Hu <husanhe@gmail.com>
+Maintainer-email: Sanhe Hu <husanhe@gmail.com>
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/MacHu-GWU/boto_session_manager-project
 Project-URL: Documentation, https://boto-session-manager.readthedocs.io/en/latest/
@@ -18,42 +18,39 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
 Provides-Extra: dev
-Requires-Dist: rich<14.0.0,>=13.8.1; extra == "dev"
+Requires-Dist: rich<15.0.0,>=14.3.4; extra == "dev"
 Requires-Dist: jinja2<4.0.0,>=3.1.6; extra == "dev"
-Requires-Dist: httpx<1.0.0,>=0.28.1; extra == "dev"
+Requires-Dist: httpx2<3.0.0,>=2.13.1; extra == "dev"
 Requires-Dist: selectolax<1.0.0,>=0.4.7; extra == "dev"
 Requires-Dist: diskcache<6.0.0,>=5.6.3; extra == "dev"
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.250.0; extra == "dev"
 Provides-Extra: test
 Requires-Dist: boto3<2.0.0,>=1.42.0; extra == "test"
-Requires-Dist: python-dotenv<2.0.0,>=1.2.2; extra == "test"
-Requires-Dist: pytest<9.0.0,>=8.2.2; extra == "test"
-Requires-Dist: pytest-cov<7.0.0,>=6.0.0; extra == "test"
+Requires-Dist: pytest<10.0.0,>=9.1.1; extra == "test"
+Requires-Dist: pytest-cov<8.0.0,>=7.1.0; extra == "test"
 Provides-Extra: doc
-Requires-Dist: Sphinx<8.0.0,>=7.4.7; extra == "doc"
+Requires-Dist: Sphinx<9.0.0,>=8.2.3; extra == "doc"
 Requires-Dist: sphinx-copybutton<1.0.0,>=0.5.2; extra == "doc"
-Requires-Dist: sphinx-design<1.0.0,>=0.6.1; extra == "doc"
+Requires-Dist: sphinx-design<1.0.0,>=0.7.0; extra == "doc"
 Requires-Dist: sphinx-jinja<3.0.0,>=2.0.2; extra == "doc"
-Requires-Dist: furo==2024.8.6; extra == "doc"
+Requires-Dist: furo==2025.12.19; extra == "doc"
 Requires-Dist: pygments<3.0.0,>=2.18.0; extra == "doc"
 Requires-Dist: ipython<8.19.0,>=8.18.1; extra == "doc"
-Requires-Dist: nbsphinx<1.0.0,>=0.8.12; extra == "doc"
-Requires-Dist: rstobj==2.0.0; extra == "doc"
-Requires-Dist: docfly==3.0.3; extra == "doc"
+Requires-Dist: ipykernel<8.0.0,>=7.3.0; extra == "doc"
+Requires-Dist: nbsphinx<1.0.0,>=0.9.8; extra == "doc"
+Requires-Dist: rstobj<3.0.0,>=2.0.0; extra == "doc"
+Requires-Dist: docfly<4.0.0,>=3.0.3; extra == "doc"
 Provides-Extra: mise
 Requires-Dist: PyGithub<3.0.0,>=2.8.0; extra == "mise"
-Requires-Dist: httpx<1.0.0,>=0.28.0; extra == "mise"
-Requires-Dist: tomli<3.0.0,>=2.0.0; python_version < "3.11" and extra == "mise"
+Requires-Dist: httpx2<3.0.0,>=2.13.1; extra == "mise"
 Dynamic: license-file
 
 
@@ -179,6 +176,12 @@ Typed Client Properties with Auto-Complete
     bsm.lambda_client.list_functions()
 
     # ... and 400+ more: bsm.dynamodb_client, bsm.sqs_client, bsm.iam_client, etc.
+
+.. note::
+
+    The GIFs below were recorded with 1.x, which imported
+    ``from boto_session_manager import BotoSesManager``. Since 2.0, import it
+    from ``boto_session_manager.api``; the auto-complete behavior is the same.
 
 .. image:: https://github.com/MacHu-GWU/boto_session_manager-project/assets/6800411/c9f7f9bd-7b1d-4a3a-bacc-6296fd0c241a
 
@@ -452,12 +455,12 @@ Clear Cache
 AI Coding Agent Skill
 ------------------------------------------------------------------------------
 
-``boto_session_manager`` ships with a Claude Code agent skill in ``.claude/skills/bsm``. Copy this directory into your project's ``.claude/skills/`` folder, and any Claude Code agent working in that project will know how to use ``boto_session_manager`` correctly — including import paths, common patterns, and best practices.
+``boto_session_manager`` ships with a Claude Code agent skill in `.claude/skills/pypi-boto_session_manager <https://github.com/MacHu-GWU/boto_session_manager-project/tree/main/.claude/skills/pypi-boto_session_manager>`__. Copy this directory into your project's ``.claude/skills/`` folder, and any Claude Code agent working in that project will know how to use ``boto_session_manager`` correctly — including import paths, common patterns, and best practices.
 
 .. code-block:: console
 
     # From your project root
-    $ cp -r /path/to/boto_session_manager-project/.claude/skills/bsm .claude/skills/
+    $ cp -r /path/to/boto_session_manager-project/.claude/skills/pypi-boto_session_manager .claude/skills/
 
 
 .. _install:

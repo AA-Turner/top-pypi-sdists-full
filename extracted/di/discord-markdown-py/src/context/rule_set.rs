@@ -6,7 +6,7 @@ use tracing::Level;
 use crate::{
 	Input,
 	error::ParseError,
-	node::{Element, ParsedNode},
+	node::Element,
 	rule::ParsedRuleSet,
 	span::{Span, TraceOk, TraceParse},
 	util::iter_alt,
@@ -51,7 +51,7 @@ where
 	E: ParseError<'data>,
 {
 	type Error = E;
-	type Output = Element<'data, S, ParsedNode<'data, S>>;
+	type Output = Element<'data, S>;
 
 	#[tracing::instrument(name = "contextual_rules", level = Level::TRACE, fields(ok, output))]
 	fn process<OM>(

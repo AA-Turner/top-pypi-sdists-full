@@ -8,8 +8,8 @@ credentials for the connector:
 * **Bearer / PAT token** — if a bearer credential (e.g. a GitHub Personal
   Access Token) is stored against the connector, the interceptor finds it
   and proceeds immediately.  No interactive OAuth flow is required.
-* **OAuth2** — if no credentials exist but the connector has a preset
-  OAuth2 app configuration, the interceptor emits an ``auth_url``
+* **OAuth2** — if no credentials exist but the connector supports an
+  OAuth2 authentication method, the interceptor emits an ``auth_url``
   task-event so the UI (or client helper) can trigger the OAuth flow.
 
 The workflow itself only declares ``connector("github")`` — it does not

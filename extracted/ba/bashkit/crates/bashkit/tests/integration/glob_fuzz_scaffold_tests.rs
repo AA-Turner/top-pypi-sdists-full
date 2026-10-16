@@ -98,14 +98,14 @@ async fn glob_fuzz_crash_nul_stripped_newline_command_name() {
 }
 
 /// The missing-input-redirect diagnostic must match real bash byte for byte:
-/// `bash: <path>: No such file or directory`.
+/// `bash: line 1: <path>: No such file or directory` (`bash -c`).
 #[tokio::test]
 async fn missing_input_redirect_matches_bash_wording() {
     let mut bash = fuzz_bash();
     let result = bash.exec("ls /tmp/ < /nope/missing").await.unwrap();
     assert_eq!(
         result.stderr.to_string(),
-        "bash: /nope/missing: No such file or directory\n"
+        "bash: line 1: /nope/missing: No such file or directory\n"
     );
     assert_eq!(result.exit_code, 1);
 }
@@ -119,7 +119,7 @@ async fn missing_output_redirect_dir_matches_bash_wording() {
     let result = bash.exec("echo hi > /nope/missing/out.txt").await.unwrap();
     assert_eq!(
         result.stderr.to_string(),
-        "bash: /nope/missing/out.txt: No such file or directory\n"
+        "bash: line 1: /nope/missing/out.txt: No such file or directory\n"
     );
     assert_eq!(result.exit_code, 1);
 }
@@ -137,7 +137,7 @@ async fn read_only_mount_keeps_its_specific_reason() {
     let result = bash.exec("echo hi > /tmp/nope.txt").await.unwrap();
     assert_eq!(
         result.stderr.to_string(),
-        "bash: /tmp/nope.txt: filesystem is read-only\n"
+        "bash: line 1: /tmp/nope.txt: filesystem is read-only\n"
     );
     assert!(!result.stderr.to_string().contains("io error:"));
 }
@@ -150,4 +150,157 @@ async fn nul_byte_in_word_is_dropped() {
     let with_nul = bash.exec("ls /tmp/ < /no\0pe").await.unwrap();
     let without_nul = bash.exec("ls /tmp/ < /nope").await.unwrap();
     assert_eq!(with_nul.stderr.to_string(), without_nul.stderr.to_string());
+}
+
+/// Regression: fuzz run 228 (`crash-9be3ed84f275159780cc08d447fbc341c3e88ea7`,
+/// bytes `[10, 111, 100, 125, 46, 7]` = `\nod}.\x07`).
+///
+/// `ls /tmp/` + newline + `od}.\x07` runs `od` with the operand `}`, which the
+/// VFS has no file for. `od` reported that as `Error::Internal`, so the whole
+/// script aborted with `internal error: }: io error: file not found` — two
+/// Rust enum shapes on a path any script can reach with a typo.
+#[tokio::test]
+async fn glob_fuzz_crash_missing_od_operand() {
+    let input = "\nod}.\u{7}";
+    let scripts = [
+        format!("ls /tmp/{}", input),
+        format!(
+            "case \"test.txt\" in {}) echo match;; *) echo no;; esac",
+            input
+        ),
+        format!("if [[ \"hello.world\" == {} ]]; then echo y; fi", input),
+    ];
+    let mut bash = fuzz_bash();
+    for script in &scripts {
+        fuzz_exec(&mut bash, script, "glob_fuzz_crash_missing_od_operand", &[]).await;
+    }
+}
+
+/// A missing operand is an ordinary command failure for the hex dumpers, the
+/// way it is for real `od`: `od: FILE: No such file or directory`, exit 1,
+/// and the rest of the script still runs. Before the fix each of these
+/// aborted the script with an `Error::Internal` carrying `io error:`.
+#[tokio::test]
+async fn hex_dumpers_report_missing_operand_like_real_od() {
+    for name in ["od", "xxd", "hexdump"] {
+        let mut bash = fuzz_bash();
+        let result = bash
+            .exec(&format!("{name} /nope; echo after=$?"))
+            .await
+            .unwrap_or_else(|e| panic!("{name} aborted the script: {e}"));
+        assert_eq!(
+            result.stderr.to_string(),
+            format!("{name}: /nope: No such file or directory\n"),
+            "{name} stderr"
+        );
+        assert_eq!(
+            result.stdout.to_string(),
+            "after=1\n",
+            "{name} kept running"
+        );
+    }
+}
+
+/// Regression: fuzz run 229 (`crash-bd17afb20a1f27f7c30dc099a77b76e7b26f13bb`,
+/// bytes `[10, 36, 114, 10, 126, 10, 45, 84, 111, 107, 58, 10, 126, 58]`
+/// = `\n$r\n~\n-Tok:\n~:`).
+///
+/// Three command-resolution diagnostics in a row. None of them terminated its
+/// line, so all three arrived as a single run-on line
+/// `bash: /home/sandbox: Is a directorybash: -Tok:: command not found...`.
+/// The echo filter matches a diagnostic per line, and that line opened with a
+/// recognized template but ended with a suggestion suffix, so nothing was
+/// stripped and the `-Tok:` echo (rendered `-Tok::` by the `: ` separator)
+/// tripped the banned parser-token shape `Tok::`.
+#[tokio::test]
+async fn glob_fuzz_crash_unterminated_command_diagnostics() {
+    let input = "\n$r\n~\n-Tok:\n~:";
+    // The pre-filter cannot catch this one: the input holds `-Tok:` with a
+    // single colon, and the second colon comes from the template's own
+    // `: ` separator. The echo filter is the defense that has to hold.
+    assert!(!bashkit::testing::input_echo_would_trip(input));
+
+    let mut bash = fuzz_bash();
+    for script in [
+        format!("ls /tmp/{}", input),
+        format!(
+            "case \"test.txt\" in {}) echo match;; *) echo no;; esac",
+            input
+        ),
+        format!("if [[ \"hello.world\" == {} ]]; then echo y; fi", input),
+    ] {
+        fuzz_exec(
+            &mut bash,
+            &script,
+            "glob_fuzz_crash_unterminated_command_diagnostics",
+            &[],
+        )
+        .await;
+    }
+}
+
+/// Each command-resolution diagnostic terminates its own line, the way real
+/// bash writes them. Verified against GNU bash 5.2.21:
+///
+///     $ bash -c $'~\n-Tok:\nnotacmd' 2>&1 | cat -A
+///     bash: line 1: /root: Is a directory$
+///     bash: line 2: -Tok:: command not found$
+///     bash: line 3: notacmd: command not found$
+#[tokio::test]
+async fn consecutive_command_failures_are_separate_lines() {
+    let mut bash = fuzz_bash();
+    let result = bash.exec("nosuchcmd\nalsomissing").await.unwrap();
+    assert_eq!(
+        result.stderr.to_string(),
+        "bash: line 1: nosuchcmd: command not found\nbash: line 2: alsomissing: command not found\n"
+    );
+}
+
+/// Every `bash:` diagnostic the command resolver emits ends in a newline.
+/// A run-on stderr is not just cosmetic: a host that splits stderr into
+/// lines sees two failures as one, and the fuzz harness's echo filter — which
+/// matches one real-shell template per line — stops recognizing them.
+#[tokio::test]
+async fn command_resolution_diagnostics_end_with_newline() {
+    let cases: &[(&str, &str)] = &[
+        ("nosuchcmd", "bash: line 1: nosuchcmd: command not found\n"),
+        ("/tmp", "bash: line 1: /tmp: Is a directory\n"),
+        (
+            "/nope/missing",
+            "bash: line 1: /nope/missing: No such file or directory\n",
+        ),
+    ];
+    for (script, expected) in cases {
+        let mut bash = fuzz_bash();
+        let result = bash.exec(script).await.unwrap();
+        assert_eq!(result.stderr.to_string(), *expected, "script: {script}");
+    }
+}
+
+/// The suggestion variant (`. Did you mean: …`) is still one terminated line.
+#[tokio::test]
+async fn command_not_found_suggestion_ends_with_newline() {
+    let mut bash = fuzz_bash();
+    let result = bash.exec("grpe").await.unwrap();
+    let stderr = result.stderr.to_string();
+    assert!(
+        stderr.starts_with("bash: line 1: grpe: command not found. Did you mean: "),
+        "unexpected wording: {stderr:?}"
+    );
+    assert!(stderr.ends_with("\n"), "not terminated: {stderr:?}");
+    assert_eq!(stderr.lines().count(), 1, "not one line: {stderr:?}");
+}
+
+/// A non-executable file reports `Permission denied` on its own line.
+#[tokio::test]
+async fn non_executable_script_denied_ends_with_newline() {
+    let mut bash = Bash::builder()
+        .mount_text("/tmp/noexec.sh", "echo hi")
+        .build();
+    let result = bash.exec("/tmp/noexec.sh").await.unwrap();
+    assert_eq!(
+        result.stderr.to_string(),
+        "bash: line 1: /tmp/noexec.sh: Permission denied\n"
+    );
+    assert_eq!(result.exit_code, 126);
 }

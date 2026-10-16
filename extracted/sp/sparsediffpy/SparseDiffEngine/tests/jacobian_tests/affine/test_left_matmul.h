@@ -8,7 +8,6 @@
 #include "minunit.h"
 #include "numerical_diff.h"
 #include "test_helpers.h"
-#include "utils/permuted_dense.h"
 
 const char *test_jacobian_left_matmul_log(void)
 {
@@ -134,7 +133,7 @@ const char *test_jacobian_left_matmul_exp_composite(void)
     memcpy(A->i, A_i, 7 * sizeof(int));
     memcpy(A->x, A_x, 7 * sizeof(double));
 
-    expr *Bx = new_linear(x, B, NULL);
+    expr *Bx = new_left_matmul(NULL, x, B);
     expr *exp_Bx = new_exp(Bx);
     expr *A_exp_Bx = new_left_matmul(NULL, exp_Bx, A);
 
@@ -149,7 +148,7 @@ const char *test_jacobian_left_matmul_exp_composite(void)
 
 /* outer = A2 @ (A1 @ x). Inner left_matmul produces a PD Jacobian via the
    leaf-var fast path. Outer left_matmul sees a PD child Jacobian and must
-   fire the produce_pd_jacobian_from_child branch via BA_pd_matrices_*.
+   fire the produce_pd_jacobian_from_child branch via BA_matrices_*.
 
    x is a length-2 leaf variable at var_id=0, n_vars=2.
    A1 is 3x2: [[1,2],[3,4],[5,6]] (row-major).
@@ -172,23 +171,58 @@ const char *test_jacobian_left_matmul_pd_from_composite_child(void)
     eval_jacobian(A2_A1_x);
 
     /* Structural: outer's Jacobian must be PD (produced by the
-       jacobian_init_pd path via BA_pd_matrices_alloc). */
-    mu_assert("outer Jacobian should be PD", A2_A1_x->jacobian->is_permuted_dense);
-    permuted_dense *pd = (permuted_dense *) A2_A1_x->jacobian;
-    mu_assert("global m", A2_A1_x->jacobian->m == 4);
-    mu_assert("global n", A2_A1_x->jacobian->n == 2);
-    mu_assert("m0", pd->m0 == 4);
-    mu_assert("n0", pd->n0 == 2);
-    int expected_row_perm[4] = {0, 1, 2, 3};
-    int expected_col_perm[2] = {0, 1};
-    mu_assert("row_perm", cmp_int_array(pd->row_perm, expected_row_perm, 4));
-    mu_assert("col_perm", cmp_int_array(pd->col_perm, expected_col_perm, 2));
+       jacobian_init_pd path via BA_matrices_alloc). */
+    mu_assert("outer Jacobian should be PD",
+              A2_A1_x->jacobian->kind == MATRIX_PERMUTED_DENSE);
+    matrix *jac = A2_A1_x->jacobian;
+    mu_assert("global m", jac->m == 4);
+    mu_assert("global n", jac->n == 2);
+    /* nnz == m * n: the dense block covers the full shape (identity perms). */
+    mu_assert("full block", jac->nnz == 8);
 
-    /* Numerical: X = A2 @ A1 (row-major 4x2). */
+    /* Numerical: X = A2 @ A1 (row-major 4x2; a PD's x is its block). */
     double expected_X[8] = {6.0, 8.0, 3.0, 4.0, 6.0, 8.0, 3.0, 4.0};
-    mu_assert("X values", cmp_double_array(pd->X, expected_X, 8));
+    mu_assert("X values", cmp_double_array(jac->x, expected_X, 8));
 
     /* Cross-check against numerical differentiation for paranoia. */
+    mu_assert("check_jacobian failed",
+              check_jacobian_num(A2_A1_x, x_vals, NUMERICAL_DIFF_DEFAULT_H));
+
+    free_expr(A2_A1_x);
+    return 0;
+}
+
+/* Same composition with a SPARSE outer A2 (the same 0/1 pattern as a CSR).
+   A single-block sparse left_matmul goes through BA_matrices_* like the dense
+   one, so the PD child Jacobian stays PD instead of being flattened to CSR. */
+const char *test_jacobian_left_matmul_sparse_pd_from_composite_child(void)
+{
+    double A1_data[6] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+    CSR_matrix *A2 = new_CSR_matrix(4, 3, 6);
+    int A2p[5] = {0, 2, 3, 5, 6};
+    int A2i[6] = {0, 2, 1, 0, 2, 1};
+    double A2x[6] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    memcpy(A2->p, A2p, sizeof(A2p));
+    memcpy(A2->i, A2i, sizeof(A2i));
+    memcpy(A2->x, A2x, sizeof(A2x));
+
+    expr *x = new_variable(2, 1, 0, 2);
+    expr *A1_x = new_left_matmul_dense(NULL, x, 3, 2, A1_data);
+    expr *A2_A1_x = new_left_matmul(NULL, A1_x, A2);
+    free_CSR_matrix(A2);
+
+    double x_vals[2] = {0.5, -1.5};
+    A2_A1_x->forward(A2_A1_x, x_vals);
+    jacobian_init(A2_A1_x);
+    eval_jacobian(A2_A1_x);
+
+    matrix *jac = A2_A1_x->jacobian;
+    mu_assert("outer Jacobian should be PD", jac->kind == MATRIX_PERMUTED_DENSE);
+    mu_assert("global m", jac->m == 4);
+    mu_assert("global n", jac->n == 2);
+    mu_assert("full block", jac->nnz == 8);
+    double expected_X[8] = {6.0, 8.0, 3.0, 4.0, 6.0, 8.0, 3.0, 4.0};
+    mu_assert("X values", cmp_double_array(jac->x, expected_X, 8));
     mu_assert("check_jacobian failed",
               check_jacobian_num(A2_A1_x, x_vals, NUMERICAL_DIFF_DEFAULT_H));
 
@@ -200,7 +234,7 @@ const char *test_jacobian_left_matmul_pd_from_composite_child(void)
    Verifies the PD path (jacobian_init_pd / eval_jacobian_pd) handles a
    parameterized A — the structure is fixed at construction, refresh_dense_left
    updates A->X before each forward, and eval_jacobian_pd reads those values
-   via BA_pd_matrices_fill_values.
+   via BA_matrices_fill_values.
 
    x is length 2 at var_id=0, n_vars=2.
    A_param is 3x2. The parameter convention is column-major, so the param's
@@ -223,26 +257,21 @@ const char *test_jacobian_left_matmul_pd_param(void)
     eval_jacobian(A_x);
 
     /* Structural: Jacobian must be PD. */
-    mu_assert("Jacobian should be PD", A_x->jacobian->is_permuted_dense);
-    permuted_dense *pd = (permuted_dense *) A_x->jacobian;
-    mu_assert("global m", A_x->jacobian->m == 3);
-    mu_assert("global n", A_x->jacobian->n == 2);
-    mu_assert("m0", pd->m0 == 3);
-    mu_assert("n0", pd->n0 == 2);
-    int expected_row_perm[3] = {0, 1, 2};
-    int expected_col_perm[2] = {0, 1};
-    mu_assert("row_perm", cmp_int_array(pd->row_perm, expected_row_perm, 3));
-    mu_assert("col_perm", cmp_int_array(pd->col_perm, expected_col_perm, 2));
+    mu_assert("Jacobian should be PD", A_x->jacobian->kind == MATRIX_PERMUTED_DENSE);
+    matrix *jac = A_x->jacobian;
+    mu_assert("global m", jac->m == 3);
+    mu_assert("global n", jac->n == 2);
+    mu_assert("full block", jac->nnz == 6);
 
-    /* Values: pd->X is row-major of A. */
+    /* Values: the block is row-major A. */
     double expected_X1[6] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
-    mu_assert("X values (param 1)", cmp_double_array(pd->X, expected_X1, 6));
+    mu_assert("X values (param 1)", cmp_double_array(jac->x, expected_X1, 6));
 
     mu_assert("numerical check (param 1)",
               check_jacobian_num(A_x, x_vals, NUMERICAL_DIFF_DEFAULT_H));
 
-    /* Update the parameter and re-evaluate. The PD output struct is reused;
-       only pd->X should change. */
+    /* Update the parameter and re-evaluate. The PD output is reused; only its
+       values should change. */
     double theta2[6] = {7.0, 9.0, 11.0, 8.0, 10.0, 12.0};
     memcpy(A_param->value, theta2, 6 * sizeof(double));
     expr_set_needs_refresh(A_x);
@@ -250,9 +279,10 @@ const char *test_jacobian_left_matmul_pd_param(void)
     A_x->forward(A_x, x_vals);
     eval_jacobian(A_x);
 
-    mu_assert("Jacobian still PD after refresh", A_x->jacobian->is_permuted_dense);
+    mu_assert("Jacobian still PD after refresh",
+              A_x->jacobian->kind == MATRIX_PERMUTED_DENSE);
     double expected_X2[6] = {7.0, 8.0, 9.0, 10.0, 11.0, 12.0};
-    mu_assert("X values (param 2)", cmp_double_array(pd->X, expected_X2, 6));
+    mu_assert("X values (param 2)", cmp_double_array(jac->x, expected_X2, 6));
 
     mu_assert("numerical check (param 2)",
               check_jacobian_num(A_x, x_vals, NUMERICAL_DIFF_DEFAULT_H));

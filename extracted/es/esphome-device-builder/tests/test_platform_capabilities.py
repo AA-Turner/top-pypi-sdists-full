@@ -29,7 +29,10 @@ from esphome_device_builder.definitions import (
     load_platform_capabilities_index,
 )
 from script._board_mcus import board_mcus  # type: ignore[import-not-found]
-from script.sync_components import _logger_interface_snapshot  # type: ignore[import-not-found]
+from script.sync_components import (  # type: ignore[import-not-found]
+    _logger_interface_snapshot,
+    _nrf52_board_bootloaders,
+)
 
 from .conftest import catalog_releases_ahead as _catalog_releases_ahead
 
@@ -78,6 +81,8 @@ def test_index_within_installed_esphome() -> None:
         (set(caps.libretiny_families), set(FAMILY_COMPONENT.values())),
         (set(caps.rp2040_no_wifi_boards), installed_no_wifi_boards),
         (set(caps.esp32_board_variants), set(ESP32_BOARDS)),
+        # ``.items()``: a board both sides list is the same bootloader on both.
+        (set(caps.nrf52_board_bootloaders.items()), set(_nrf52_board_bootloaders().items())),
     ]
     installed_mcus = board_mcus()
     assert set(caps.board_mcus) == set(installed_mcus)

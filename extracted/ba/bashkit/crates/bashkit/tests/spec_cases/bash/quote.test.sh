@@ -338,3 +338,81 @@ show "${x}"
 ### expect
 $'a\nb'
 ### end
+
+### quote_backslash_escape_after_quoted_segment
+# `'\''` (close, escaped quote, reopen) and other escapes right after a
+# quoted segment.
+echo 'a'\''b'
+echo 'it'\''s' "x"\'
+echo "a"\$HOME 'a'\$HOME
+echo "a"\ b 'c'\ d
+echo "g"\* 'h'\?
+echo 'p'\"q
+### expect
+a'b
+it's x'
+a$HOME a$HOME
+a b c d
+g* h?
+p"q
+### end
+
+### quote_nested_sh_c_quote_idiom
+sh -c 'sh -c '\''echo deep'\'''
+sh -c 'echo '\''one two'\'''
+### expect
+deep
+one two
+### end
+
+### quote_backslash_newline_after_quoted_segment
+echo 'a'\
+'b'
+### expect
+ab
+### end
+
+### quote_single_then_double_quoted_expansion
+# a single-quoted segment does not stop the double-quoted one after it
+# from expanding
+set -- p q
+x="1  2"
+c() { echo "$#:$(printf '[%s]' "$@")"; }
+c ''"$@"
+c 'a'"$1"
+c '$HOME'"$x"
+c 'a'"`echo q`"
+y=''"$x"; c "$y"
+### expect
+2:[p][q]
+1:[ap]
+1:[$HOME1  2]
+1:[aq]
+1:[1  2]
+### end
+
+### quote_empty_quoted_beside_empty_at
+# with no positional parameters, an empty quoted string next to "$@" still
+# makes one empty field
+c() { echo "$#:$(printf '[%s]' "$@")"; }
+set --
+c ""$@
+c "$@"""
+c ''"$@"
+c "${@}"''
+c "$@"
+a=()
+c "${a[@]}"""
+c "${a[@]}"
+e=
+c "$e"""
+### expect
+1:[]
+1:[]
+1:[]
+1:[]
+0:[]
+1:[]
+0:[]
+1:[]
+### end

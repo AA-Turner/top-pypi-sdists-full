@@ -1,6 +1,48 @@
 use std::collections::HashMap;
 
-use crate::params::parse_threat_detection_risk_levels;
+use crate::params::{parse_client_size, parse_threat_detection_risk_levels};
+
+// ---------------------------------------------------------------------------
+// parse_client_size
+// ---------------------------------------------------------------------------
+
+/// The form a browser actually sends: `sendSize(width, height)`, no layer.
+#[test]
+fn test_client_size_two_arguments_is_width_height() {
+    assert_eq!(parse_client_size(&["1280", "800"]), Some((1280, 800)));
+}
+
+/// The server-to-client form, which a guacd-style relay may echo back.
+#[test]
+fn test_client_size_three_arguments_skips_the_layer() {
+    assert_eq!(parse_client_size(&["0", "1280", "800"]), Some((1280, 800)));
+    // A non-zero layer is still ignored rather than mistaken for a dimension.
+    assert_eq!(parse_client_size(&["7", "640", "480"]), Some((640, 480)));
+}
+
+/// Extra trailing arguments must not change which two are the dimensions.
+#[test]
+fn test_client_size_extra_arguments_are_ignored() {
+    assert_eq!(
+        parse_client_size(&["0", "1280", "800", "96"]),
+        Some((1280, 800))
+    );
+}
+
+#[test]
+fn test_client_size_rejects_too_few_arguments() {
+    assert_eq!(parse_client_size(&[]), None);
+    assert_eq!(parse_client_size(&["1280"]), None);
+}
+
+#[test]
+fn test_client_size_rejects_non_numeric_dimensions() {
+    assert_eq!(parse_client_size(&["wide", "800"]), None);
+    assert_eq!(parse_client_size(&["1280", "tall"]), None);
+    assert_eq!(parse_client_size(&["0", "1280", "tall"]), None);
+    // Negative dimensions are not representable and must not wrap.
+    assert_eq!(parse_client_size(&["-1280", "800"]), None);
+}
 
 // ---------------------------------------------------------------------------
 // parse_threat_detection_risk_levels

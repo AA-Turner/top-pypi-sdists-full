@@ -278,6 +278,10 @@ _SNOWFLAKE_PRIVATE_KEY_B64_NAME = "SNOWFLAKE_PRIVATE_KEY_B64"
 _SNOWFLAKE_UNLOAD_STAGE_NAME = "SNOWFLAKE_UNLOAD_STAGE"
 _SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION_NAME = "SNOWFLAKE_UNLOAD_STORAGE_INTEGRATION"
 _SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION_NAME = "SNOWFLAKE_UNLOAD_EXTERNAL_LOCATION"
+_SNOWFLAKE_WAREHOUSE_BY_RESOURCE_GROUP_NAME = "SNOWFLAKE_WAREHOUSE_BY_RESOURCE_GROUP"
+# The default resource group has several spellings, and a process outside any resource group has none.
+# The fixed order keeps a mapping with several default spellings resolving the same way everywhere.
+_DEFAULT_RESOURCE_GROUP_KEYS = ("default", "default_resource_group", "")
 
 
 def _load_integration_engine_args(name: Optional[str], override: Optional[Mapping[str, str]]) -> dict[str, Any]:
@@ -289,6 +293,15 @@ def _load_integration_engine_args(name: Optional[str], override: Optional[Mappin
     if not isinstance(engine_args, dict):
         raise ValueError(f"ENGINE_ARGUMENTS for integration {name!r} must be a JSON object")
     return cast("dict[str, Any]", engine_args)
+
+
+def _parse_warehouse_by_resource_group(raw: str) -> dict[str, str]:
+    if not raw.strip():
+        return {}
+    parsed = json.loads(raw)
+    if not isinstance(parsed, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in parsed.items()):
+        raise ValueError(f"{_SNOWFLAKE_WAREHOUSE_BY_RESOURCE_GROUP_NAME} must be a JSON object of strings to strings")
+    return cast("dict[str, str]", parsed)
 
 
 class SnowflakeCancellableQuery(CancellableQuery):
@@ -321,6 +334,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
         executor: Optional[concurrent.futures.ThreadPoolExecutor] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
         permission_tags: list[str] | None = None,
+        warehouse_by_resource_group: Optional[Mapping[str, str]] = None,
     ):
         try:
             import snowflake.connector  # noqa
@@ -336,6 +350,16 @@ class SnowflakeSourceImpl(BaseSQLSource):
         )
         self.warehouse = warehouse or load_integration_variable(
             integration_name=name, name=_SNOWFLAKE_WAREHOUSE_NAME, override=integration_variable_override
+        )
+        self.warehouse_by_resource_group: dict[str, str] = dict(
+            warehouse_by_resource_group
+            or load_integration_variable(
+                integration_name=name,
+                name=_SNOWFLAKE_WAREHOUSE_BY_RESOURCE_GROUP_NAME,
+                override=integration_variable_override,
+                parser=_parse_warehouse_by_resource_group,
+            )
+            or {}
         )
         self.user = user or load_integration_variable(
             integration_name=name, name=_SNOWFLAKE_USER_NAME, override=integration_variable_override
@@ -440,6 +464,18 @@ class SnowflakeSourceImpl(BaseSQLSource):
 
     kind = SQLSourceKind.snowflake
 
+    def warehouse_for_resource_group(self, resource_group: str | None) -> str | None:
+        """This resource group's entry in `warehouse_by_resource_group`, falling back to `warehouse`."""
+        if resource_group is None or resource_group in _DEFAULT_RESOURCE_GROUP_KEYS:
+            keys = _DEFAULT_RESOURCE_GROUP_KEYS
+        else:
+            keys = (resource_group,)
+        for key in keys:
+            warehouse = self.warehouse_by_resource_group.get(key)
+            if warehouse and warehouse.strip():
+                return warehouse
+        return self.warehouse
+
     def resolve_unload_stage(self, query_execution_parameters: QueryExecutionParameters) -> str | None:
         return self.unload_stage or query_execution_parameters.snowflake.snowflake_unload_stage
 
@@ -461,7 +497,7 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 {
                     "database": self.db,
                     "schema": self.schema,
-                    "warehouse": self.warehouse,
+                    "warehouse": self.warehouse_for_resource_group(os.getenv("CHALK_RESOURCE_GROUP")),
                     "role": self.role,
                 }
             ).items()
@@ -996,6 +1032,12 @@ class SnowflakeSourceImpl(BaseSQLSource):
             for k, v in [
                 create_integration_variable(_SNOWFLAKE_ACCOUNT_ID_NAME, self.name, self.account_identifier),
                 create_integration_variable(_SNOWFLAKE_WAREHOUSE_NAME, self.name, self.warehouse),
+                create_integration_variable(
+                    _SNOWFLAKE_WAREHOUSE_BY_RESOURCE_GROUP_NAME,
+                    self.name,
+                    self.warehouse_by_resource_group or None,
+                    serializer=json.dumps,
+                ),
                 create_integration_variable(_SNOWFLAKE_USER_NAME, self.name, self.user),
                 create_integration_variable(_SNOWFLAKE_PASSWORD_NAME, self.name, self.password),
                 create_integration_variable(_SNOWFLAKE_DATABASE_NAME, self.name, self.db),

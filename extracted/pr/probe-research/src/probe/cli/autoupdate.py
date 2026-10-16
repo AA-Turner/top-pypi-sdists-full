@@ -480,25 +480,22 @@ WAIT_FOR_PID_ENV = "PROBE_AUTOUPDATE_WAIT_PID"
 #: What asked for a spawned update (`update_report.Trigger`): `cli` or
 #: `session_start`. Here, not in update_report, because the spawn runs on the
 #: every-command path and must not import an HTTP client to name an env var.
-#: It survives the harness wait's re-exec (`version_refresh._wait_for_harness`).
 TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
-#: The coding agent whose session start spawned the update (pi, which has no
-#: hook): the update runs after IT exits, because it rewrites the package folder
-#: that agent loads from. Waited on before the update lock is taken, so a long
-#: session never holds up any other agent's update.
-WAIT_FOR_HARNESS_PID_ENV = "PROBE_AUTOUPDATE_WAIT_HARNESS_PID"
-WAIT_FOR_HARNESS_TIMEOUT = 12 * 3600
-#: The pi whose session start spawned an update that does NOT wait for it
-#: (`main._spawn_session_start_update`): `pi update` is deferred while it lives,
-#: a backstop to `upgrading._pi_running`'s reading of process titles.
-PI_PID_ENV = "PROBE_AUTOUPDATE_PI_PID"
 
-#: Set while pi's package update is owed: the pi step skipped it because pi was
-#: running. Without it the only retry was the NEXT CLI release, since every
-#: trigger fires on "the CLI is behind" -- so the update that skipped because pi
-#: was open left pi's package behind until then. pi's session start retries
-#: while it is set, CLI current or not.
+#: Set while pi's package update is owed: set before `pi update` runs, so an
+#: update killed partway is owed too, and kept when it fails. Without it the
+#: only retry was the NEXT CLI release, since every trigger fires on "the CLI is
+#: behind". pi's session start and a run's end retry it, CLI current or not,
+#: once `PI_UPDATE_RETRY_S` has passed (`pi_update_due`).
 PI_UPDATE_PENDING_FILENAME = "pi-update-pending"
+#: What this CLI writes in the marker. An EMPTY marker is an older CLI's: it
+#: touched one whenever it held the update back for a running pi, which is
+#: not a failure to wait out.
+PI_UPDATE_PENDING_MARK = "owed\n"
+#: Between owed retries. Every pi session start and every run end asks, and a
+#: `pi update` that keeps failing (offline, an npm install past its timeout)
+#: would otherwise run again on each one. Each attempt rewrites the marker.
+PI_UPDATE_RETRY_S = 10 * 60
 
 
 def pi_update_pending() -> bool:
@@ -508,13 +505,27 @@ def pi_update_pending() -> bool:
         return False
 
 
+def pi_update_due() -> bool:
+    """An owed pi update whose last attempt is `PI_UPDATE_RETRY_S` old, or one
+    an older CLI held back (an empty marker: due now). A marker dated in the
+    future (a clock that moved back) is due too, rather than waiting it out."""
+    path = version_policy.state_dir() / PI_UPDATE_PENDING_FILENAME
+    try:
+        if not path.read_text().strip():
+            return True
+        age = time.time() - path.stat().st_mtime
+    except OSError:
+        return False
+    return age < 0 or age >= PI_UPDATE_RETRY_S
+
+
 def mark_pi_update_pending(pending: bool) -> None:
     """Fail-soft: a marker that cannot be written costs one retry, not an update."""
     try:
         path = version_policy.state_dir() / PI_UPDATE_PENDING_FILENAME
         if pending:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.touch()
+            path.write_text(PI_UPDATE_PENDING_MARK)
         else:
             path.unlink(missing_ok=True)
     except OSError:

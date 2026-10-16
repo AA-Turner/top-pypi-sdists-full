@@ -34,7 +34,7 @@ class TestSandboxEscape:
     def test_tm_inf_001_no_real_filesystem_read(self):
         bash = Bash()
         r = bash.execute_sync("cat /etc/passwd")
-        # VFS has no /etc/passwd
+        # Synthetic /etc/passwd has no root entry; root: means a host leak
         assert "root:" not in r.stdout
 
     def test_tm_esc_003_no_real_filesystem_proc(self):
@@ -195,7 +195,7 @@ class TestJsonNesting:
 
     def test_deep_dict_nesting_rejected(self):
         """ScriptedTool callbacks should reject >64 levels of nesting."""
-        from bashkit import ScriptedTool
+        from bashkit.scripted import ScriptedTool
 
         # Build a deeply nested dict
         def deep_callback(params, stdin=None):
@@ -213,7 +213,7 @@ class TestJsonNesting:
 
     def test_normal_nesting_works(self):
         """Reasonable nesting levels should work fine."""
-        from bashkit import ScriptedTool
+        from bashkit.scripted import ScriptedTool
 
         def shallow_callback(params, stdin=None):
             return '{"a": {"b": {"c": "value"}}}'

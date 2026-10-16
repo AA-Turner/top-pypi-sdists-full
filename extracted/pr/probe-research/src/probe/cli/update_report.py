@@ -114,8 +114,6 @@ class PiStep(StrEnum):
     """Which way pi's package step (`upgrading._update_pi_package`) ended."""
 
     NOT_INSTALLED = "not_installed"
-    #: Not updated while pi runs: it updates after pi exits.
-    DEFERRED = "deferred"
     #: Another update holds the package's lock.
     LOCKED = "locked"
     #: pi itself is gone: nothing to update with.
@@ -125,15 +123,14 @@ class PiStep(StrEnum):
     CURRENT = "current"
 
 
-#: Where each pi step lands on the wire. A deferral is BEHIND: the package was
-#: not moved, and the detail says why.
+#: Where each pi step lands on the wire. A locked step is BEHIND: the package
+#: was not moved, and the detail says why.
 _PI_RESULTS = {
     PiStep.NOT_INSTALLED: Result.NOT_INSTALLED,
     PiStep.UNREACHABLE: Result.NOT_FOUND_ON_PATH,
     PiStep.UPDATED: Result.UPDATED,
     PiStep.CURRENT: Result.CURRENT,
     PiStep.FAILED: Result.ERROR,
-    PiStep.DEFERRED: Result.BEHIND,
     PiStep.LOCKED: Result.BEHIND,
 }
 

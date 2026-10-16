@@ -4,13 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "Timer.h"
 #include "atoms/affine.h"
 #include "atoms/bivariate_full_dom.h"
 #include "atoms/elementwise_full_dom.h"
 #include "expr.h"
 #include "minunit.h"
 #include "subexpr.h"
-#include "utils/Timer.h"
 
 /* Profile Jacobian + Hessian of:
      obj = sum( w ∘ logistic( -(y ∘ (A·theta)) ) )

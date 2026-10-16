@@ -20,8 +20,9 @@ offers a provider for a digest only if that digest is in the set AND still in th
 The old spelling read digests OUT of `tensorfs.seed_digests()` by ALIAS, which meant a new,
 semantically different spec filed under `mxfp8/1` would have INHERITED this file's decoder
 the moment the registry grew it. Transcribing the digests is the cost of making that
-impossible: a registry change that moves a digest now breaks selection loudly at launch
-(`spec_unreviewed`) instead of decoding unreviewed bytes. Alias is display, and only display.
+impossible: a digest the installed registry lacks gets no provider (one warning at launch),
+and its bytes refuse at bind instead of being decoded unreviewed. Alias is display, and only
+display.
 
 **The decode target is the CENSUS's dtype, and the census cannot express an encoding.**
 A derived `LogicalTensor` names a destination and nothing else — no parts, no scale_of, no
@@ -47,6 +48,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Protocol, runtime_checkable
 
 from cozy_runtime.author._loader import TORCH_DTYPES as _TORCH_DTYPES
@@ -130,10 +132,8 @@ def digests_of(alias: str) -> tuple[str, ...]:
 # "reviewed" means the exact vector object this spec digest names was decoded bit-for-bit,
 # not that somebody read the prose.
 #
-# A digest that leaves the registry, or a registry that files a NEW digest under one of
-# these aliases, changes this file's answer LOUDLY: the first case refuses `spec_unreviewed`
-# at launch, the second acquires no provider at all. Both are the intended behaviour; the
-# alias-keyed spelling had neither.
+# A digest the installed registry lacks (an older TensorFS) is warned once at launch and serves
+# nothing; a registry that files a NEW digest under one of these aliases acquires no provider.
 
 #: `plain/1` — one `value` role carrying the logical bytes verbatim.
 SPEC_PLAIN = "sha256:1fb882a7e46d0aff520f9d8a28cefd643954c19371737443101ba3c5fcc3613f"
@@ -159,6 +159,15 @@ SPEC_SCALED_SCALAR_WEIGHT_ONLY = (
 #: `mxfp8/1` — E4M3 elements, one E8M0 byte per 32-element block along the last axis.
 SPEC_MXFP8 = "sha256:7e9b1ad8f2e5ddd236a4d4303042d632a96eadef4f25d44eb0fb63124cec7cfd"
 
+#: `int8-convrot256/1` — int8 rows of each weight rotated by the orthonormal regular Hadamard per
+#: 256 input channels (ComfyUI's ConvRot), one f32 scale per output row.
+SPEC_INT8_CONVROT256 = "sha256:ac25d323baebfdf1fd0ce3fdfd9f26400ce57914fdc442d0ade8cb187aef183f"
+
+#: `nvfp4-w4a4/1`, the base role set (NVIDIA ModelOpt's NVFP4): `weight` u8 `[out, in/2]` with
+#: element 2k in the LOW nibble, `weight_scale` E4M3 `[out, in/16]`, `weight_scale_2` f32 scalar.
+#: `value = e2m1(nibble) * e4m3(weight_scale) * weight_scale_2`, in f32, then the logical cast.
+SPEC_NVFP4 = "sha256:f2e718c521634876830f9c2647bddfbbccafc744decc88adb345d33d73bf5b1a"
+
 #: Reviewed digest -> (vendored fixture filename, exact vector-byte digest) from that nested spec.
 #: Qualification checks both before executing a case. `plain/1`'s route decodes nothing, so it
 #: has no entry — its evidence is the fill plane's byte-identity proof.
@@ -182,6 +191,14 @@ SPEC_VECTORS: dict[str, tuple[str, str]] = {
     SPEC_MXFP8: (
         "mxfp8.json",
         "sha256:9950f32248a14b37267c17d8d8e1fd9c8a281c8291183ee390908e2f00326a22",
+    ),
+    SPEC_INT8_CONVROT256: (
+        "int8-convrot256.json",
+        "sha256:351ee32c9c7e1e01a1b61a39d6bd7f11399636a2e763c76a35d97bde4c6f8201",
+    ),
+    SPEC_NVFP4: (
+        "nvfp4-w4a4.json",
+        "sha256:ffc364c5657cd5620662a11aa454706f3a942906b1f1e83344f7eb3febfd4c5d",
     ),
 }
 
@@ -245,6 +262,9 @@ class Encoded:
 
 
 # ------------------------------------------------------------------------ the providers
+
+#: A torch tensor, spelled once: torch is absent from the check venv.
+type Tensor = Any
 
 
 class Provider(Protocol):
@@ -319,7 +339,9 @@ class Provider(Protocol):
         """
         ...
 
-    def decode(self, torch: Any, parts: Mapping[str, Any], destination: Any) -> None: ...
+    def decode(
+        self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor
+    ) -> None: ...
 
 
 @runtime_checkable
@@ -412,7 +434,7 @@ class Verbatim:
         # Any rank, any extent: a verbatim copy has no arithmetic to have a geometry.
         return ""
 
-    def decode(self, torch: Any, parts: Mapping[str, Any], destination: Any) -> None:
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
         raise AssertionError("a verbatim role is streamed straight into its destination")
 
 
@@ -484,7 +506,7 @@ class ScaledScalarDequant:
         # header is checked against the spec by TensorFS, so this route adds nothing.
         return ""
 
-    def decode(self, torch: Any, parts: Mapping[str, Any], destination: Any) -> None:
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
         data = parts["data"]
         weight_scale = parts["weight_scale"]
         # The scale is a rank-0 f32. Multiplying in the DESTINATION dtype rather than in
@@ -627,7 +649,7 @@ class MicroScaledDequant:
         mult = bits.view(torch.float32).to(dtype)
         return torch.where(scale == E8M0_NAN, torch.full_like(mult, float("nan")), mult)
 
-    def decode(self, torch: Any, parts: Mapping[str, Any], destination: Any) -> None:
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
         data = parts["data"]
         scale = parts["scale"]
         dtype = destination.dtype
@@ -733,7 +755,7 @@ class RowwiseDequant:
         # Rank 2 is the spec's own. A row scale has no block structure, so no K constraint.
         return _rank2(shape)
 
-    def decode(self, torch: Any, parts: Mapping[str, Any], destination: Any) -> None:
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
         data = parts["data"]
         scale = parts["scale"]
         rows = int(destination.shape[0])
@@ -757,3 +779,172 @@ class RowwiseDequant:
             block = payload[start:stop].to(torch.float32)
             block.mul_(rowscale[start:stop])
             destination[start:stop].copy_(block)
+
+
+#: ConvRot's group: the regular Hadamard H4⊗H4⊗H4⊗H4 rotates each 256 input channels.
+CONVROT_GROUP = 256
+
+
+def hadamard256(torch: ModuleType, values: Tensor) -> Tensor:
+    """`[..., K]` -> each 256-group times the UNNORMALIZED regular Hadamard (entries ±1),
+    in four 4-point stages of additions: integers stay exact. H is symmetric, H·H = 256·I."""
+    shape = values.shape
+    work = values.reshape(-1, 4, 4, 4, 4)
+    for axis in range(1, 5):
+        a, b, c, d = work.unbind(axis)
+        work = torch.stack((a + b + c - d, a + b - c + d, a - b + c + d, b + c + d - a), axis)
+    return work.reshape(shape)
+
+
+@dataclass(frozen=True, slots=True)
+class Int8ConvRotDequant:
+    """`int8-convrot256/1` -> float, weight-only: `value = scale[i] * (data[i] · H) / 16`.
+
+    The spec's own law: the Hadamard sum of int8 is an exact integer (int32 here), it is
+    multiplied by the f32 scale in f32 and by 1/16 exactly, then cast once into the
+    destination. Row chunks bound the int32/f32 transient like `RowwiseDequant`'s."""
+
+    encoding: str
+
+    @property
+    def name(self) -> str:
+        return "cozy.int8-convrot256.dequant/1"
+
+    @property
+    def route(self) -> str:
+        return "decoded_float"
+
+    @property
+    def device_predicate(self) -> str:
+        return "any"
+
+    @property
+    def reviewed_specs(self) -> frozenset[str]:
+        return frozenset({SPEC_INT8_CONVROT256})
+
+    @property
+    def code_revision(self) -> str:
+        return "1"
+
+    @property
+    def suite(self) -> str:
+        return "int8-convrot256-decode"
+
+    @property
+    def required(self) -> frozenset[str]:
+        return frozenset({"data", "scale"})
+
+    @property
+    def optional(self) -> frozenset[str]:
+        return frozenset()
+
+    def supports(self, shape: Sequence[int]) -> str:
+        rank = _rank2(shape)
+        if rank or int(shape[1]) % CONVROT_GROUP == 0:
+            return rank
+        return (
+            f"int8-convrot256 rotates whole {CONVROT_GROUP}-column groups; "
+            f"this tensor has {shape[1]} columns"
+        )
+
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
+        rows, cols = int(destination.shape[0]), int(destination.shape[1])
+        payload = parts["data"].view(rows, cols)
+        scale = parts["scale"].to(torch.float32).reshape(rows, 1)
+        stride = max(1, _CHUNK_BYTES // max(cols * 4, 1))
+        for start in range(0, rows, stride):
+            stop = min(start + stride, rows)
+            block = hadamard256(torch, payload[start:stop].to(torch.int32)).to(torch.float32)
+            block.mul_(scale[start:stop]).mul_(0.0625)
+            destination[start:stop].copy_(block)
+
+
+#: NVFP4's block: one E4M3 scale per 16 elements along the input axis.
+NVFP4_BLOCK = 16
+
+#: E2M1 by nibble: bit 3 is the sign, bits 0-2 index the magnitudes.
+E2M1_VALUES = (
+    0.0,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    3.0,
+    4.0,
+    6.0,
+    -0.0,
+    -0.5,
+    -1.0,
+    -1.5,
+    -2.0,
+    -3.0,
+    -4.0,
+    -6.0,
+)
+
+
+def nvfp4_values(torch: ModuleType, weight: Tensor, scale: Tensor, scale_2: Tensor) -> Tensor:
+    """`nvfp4-w4a4/1` rows -> f32: `(e2m1 * e4m3) * scale_2`, the reference decoder's order."""
+    rows, cols = int(weight.shape[0]), int(weight.shape[1]) * 2
+    codes = torch.stack((weight & 0x0F, weight >> 4), dim=-1).reshape(rows, cols)
+    lut = torch.tensor(E2M1_VALUES, dtype=torch.float32, device=weight.device)
+    blocks = lut[codes.long()].view(rows, cols // NVFP4_BLOCK, NVFP4_BLOCK)
+    blocks.mul_(scale.to(torch.float32).view(rows, cols // NVFP4_BLOCK, 1))
+    return blocks.view(rows, cols).mul_(scale_2.to(torch.float32).reshape(()))
+
+
+@dataclass(frozen=True, slots=True)
+class Nvfp4Dequant:
+    """`nvfp4-w4a4/1` -> float, weight-only: the decode floor on every device. Row chunks bound
+    the f32 transient like `RowwiseDequant`'s."""
+
+    encoding: str
+
+    @property
+    def name(self) -> str:
+        return "cozy.nvfp4.dequant/1"
+
+    @property
+    def route(self) -> str:
+        return "decoded_float"
+
+    @property
+    def device_predicate(self) -> str:
+        return "any"
+
+    @property
+    def reviewed_specs(self) -> frozenset[str]:
+        return frozenset({SPEC_NVFP4})
+
+    @property
+    def code_revision(self) -> str:
+        return "1"
+
+    @property
+    def suite(self) -> str:
+        return "nvfp4-decode"
+
+    @property
+    def required(self) -> frozenset[str]:
+        return frozenset({"weight", "weight_scale", "weight_scale_2"})
+
+    @property
+    def optional(self) -> frozenset[str]:
+        return frozenset()
+
+    def supports(self, shape: Sequence[int]) -> str:
+        rank = _rank2(shape)
+        if rank or int(shape[1]) % NVFP4_BLOCK == 0:
+            return rank
+        return f"nvfp4 scales whole {NVFP4_BLOCK}-column blocks; this tensor has {shape[1]} columns"
+
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
+        rows, cols = int(destination.shape[0]), int(destination.shape[1])
+        weight = parts["weight"].view(rows, cols // 2)
+        scale = parts["weight_scale"].view(rows, cols // NVFP4_BLOCK)
+        stride = max(1, _CHUNK_BYTES // max(cols * 8, 1))
+        for start in range(0, rows, stride):
+            stop = min(start + stride, rows)
+            destination[start:stop].copy_(
+                nvfp4_values(torch, weight[start:stop], scale[start:stop], parts["weight_scale_2"])
+            )

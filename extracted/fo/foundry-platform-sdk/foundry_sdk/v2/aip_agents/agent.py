@@ -91,6 +91,9 @@ class AgentClient:
         List all conversation sessions between the calling user and all accessible Agents that were created by this client.
         Sessions are returned in order of most recently updated first.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param page_size: The maximum number of sessions to return in a single page. The maximum allowed value is 100. Defaults to 100 if not specified.
         :type page_size: Optional[PageSize]
         :param page_token:
@@ -144,6 +147,9 @@ class AgentClient:
     ) -> aip_agents_models.Agent:
         """
         Get details for an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param preview: Enables the use of preview functionality.
@@ -272,6 +278,9 @@ class AsyncAgentClient:
         List all conversation sessions between the calling user and all accessible Agents that were created by this client.
         Sessions are returned in order of most recently updated first.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param page_size: The maximum number of sessions to return in a single page. The maximum allowed value is 100. Defaults to 100 if not specified.
         :type page_size: Optional[PageSize]
         :param page_token:
@@ -325,6 +334,9 @@ class AsyncAgentClient:
     ) -> typing.Awaitable[aip_agents_models.Agent]:
         """
         Get details for an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param preview: Enables the use of preview functionality.

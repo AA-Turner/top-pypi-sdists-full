@@ -154,40 +154,51 @@ public:
     /// Assignment copies the pointer and length, not the data.
     constexpr span& operator= (const span &copy) = default;
 
-    /// Subspan containing the first Count elements of the span.
+    /// Subspan containing the first Count elements of the span. The count
+    /// must be be no more than the current size.
     template<size_type Count>
     constexpr span<element_type, Count> first () const {
+        OIIO_CONTRACT_ASSERT(Count <= m_size);
         return { m_data, Count };
     }
-    /// Subspan containing the last Count elements of the span.
+    /// Subspan containing the last Count elements of the span. The count must
+    /// be be no more than the current size.
     template<size_type Count>
     constexpr span<element_type, Count> last () const {
+        OIIO_CONTRACT_ASSERT(Count <= m_size);
         return { m_data + m_size - Count, Count };
     }
 
     /// Subspan starting at templated Offset and containing Count elements.
+    /// The requested subspan must lie within the current range of the span.
     template<size_type Offset, size_type Count = dynamic_extent>
     constexpr span<element_type, Count> subspan () const {
+        OIIO_CONTRACT_ASSERT(Offset <= m_size && (Count == dynamic_extent
+                                                  || Count <= m_size - Offset));
         return { m_data + Offset, Count != dynamic_extent ? Count : (Extent != dynamic_extent ? Extent - Offset : m_size - Offset) };
     }
 
-    /// Subspan containing just the first `count` elements. The count will be
-    /// clamped to be no more than the current size.
+    /// Subspan containing just the first `count` elements. The count must be
+    /// no more than the current size.
     constexpr span<element_type, dynamic_extent> first (size_type count) const {
+        OIIO_CONTRACT_ASSERT(count <= m_size);
         return { m_data, std::min(count, m_size) };
     }
 
-    /// Subspan containing just the last `count` elements. The count will be
-    /// clamped to be no more than the current size.
+    /// Subspan containing just the last `count` elements. The count must be
+    /// be no more than the current size.
     constexpr span<element_type, dynamic_extent> last (size_type count) const {
+        OIIO_CONTRACT_ASSERT(count <= m_size);
         count = std::min(count, m_size);
         return { m_data + ( m_size - count ), count };
     }
 
-    /// Subspan starting at offset and containing count elements. The range
-    /// requested will be clamped to the current size of the span.
+    /// Subspan starting at offset and containing count elements. The
+    /// requested subspan must lie within the current range of the span.
     constexpr span<element_type, dynamic_extent>
     subspan (size_type offset, size_type count = dynamic_extent) const {
+        OIIO_CONTRACT_ASSERT(offset <= m_size && (count == dynamic_extent
+                                                  || count <= m_size - offset));
         offset = std::min(offset, m_size);
         count = std::min(count, m_size - offset);
         return { m_data + offset, count };
@@ -207,28 +218,28 @@ public:
     /// optimized builds, there is no bounds check.  Note: this is different
     /// from C++ std::span, which never bounds checks `operator[]`.
     constexpr reference operator[] (size_type idx) const {
-        OIIO_DASSERT(idx < m_size && "OIIO::span::operator[] range check");
+        OIIO_CONTRACT_ASSERT(idx < m_size);
         return m_data[idx];
     }
     constexpr reference operator() (size_type idx) const {
-        OIIO_DASSERT(idx < m_size && "OIIO::span::operator() range check");
+        OIIO_CONTRACT_ASSERT(idx < m_size);
         return m_data[idx];
     }
     /// Bounds-checked access, throws an assertion if out of range.
     reference at (size_type idx) const {
         if (idx >= size())
-            throw (std::out_of_range ("OpenImageIO::span::at"));
+            throw (std::out_of_range ("OIIO::span::at"));
         return m_data[idx];
     }
 
     /// The first element of the span.
     constexpr reference front() const noexcept {
-        OIIO_DASSERT(m_size >= 1);
+        OIIO_CONTRACT_ASSERT(m_size >= 1);
         return m_data[0];
     }
     /// The last element of the span.
     constexpr reference back() const noexcept {
-        OIIO_DASSERT(m_size >= 1);
+        OIIO_CONTRACT_ASSERT(m_size >= 1);
         return m_data[size() - 1];
     }
 
@@ -374,14 +385,16 @@ public:
     constexpr stride_type stride() const noexcept { return m_stride; }
 
     constexpr reference operator[] (size_type idx) const {
+        OIIO_CONTRACT_ASSERT(idx < m_size);
         return m_data[m_stride*idx];
     }
     constexpr reference operator() (size_type idx) const {
+        OIIO_CONTRACT_ASSERT(idx < m_size);
         return m_data[m_stride*idx];
     }
     reference at (size_type idx) const {
         if (idx >= size())
-            throw (std::out_of_range ("OpenImageIO::span_strided::at"));
+            throw (std::out_of_range ("OIIO::span_strided::at"));
         return m_data[m_stride*idx];
     }
     constexpr reference front() const noexcept { return m_data[0]; }
@@ -717,6 +730,32 @@ check_span(span<SpanType> s, const PtrType* ptr, size_t len = 1)
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::as_bytes;
+using v3_1::as_bytes_ref;
+using v3_1::as_writable_bytes;
+using v3_1::check_span;
+using v3_1::cspan;
+using v3_1::cspan_strided;
+using v3_1::dynamic_extent;
+using v3_1::make_cspan;
+using v3_1::make_span;
+using v3_1::oiio_span_size_type;
+using v3_1::span;
+using v3_1::span_cast;
+using v3_1::span_memcpy;
+using v3_1::span_size_t;
+using v3_1::span_strided;
+using v3_1::span_within;
+using v3_1::spancpy;
+using v3_1::spanset;
+using v3_1::spanzero;
+#endif
+OIIO_NAMESPACE_END
 
 
 /// OIIO_ALLOCASPAN is used to allocate smallish amount of memory on the

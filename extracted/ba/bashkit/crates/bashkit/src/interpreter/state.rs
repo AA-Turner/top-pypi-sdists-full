@@ -13,6 +13,11 @@ pub enum ControlFlow {
     Return(i32),
     /// Exit the shell (with exit code)
     Exit(i32),
+    /// Abandon the rest of the current command line (bash `DISCARD`): an
+    /// arithmetic error in `$((...))`, a failed compound declaration, ...
+    /// Unwinds through functions, `eval` and `source`; a subshell turns it
+    /// into status 1; the shell's top level resumes at the next line.
+    Abort,
 }
 
 /// Structured side-effect channel for builtins that need to communicate
@@ -33,7 +38,8 @@ pub enum BuiltinSideEffect {
     SetPositional(Vec<String>),
     /// Populate an indexed array variable (replaces `_ARRAY_READ_*`).
     SetArray { name: String, elements: Vec<String> },
-    /// Populate an indexed array with index->value pairs (for mapfile).
+    /// Set index->value pairs in an indexed array, keeping its other elements
+    /// (for mapfile, which sends `RemoveArray` first unless `-O` is given).
     SetIndexedArray {
         name: String,
         entries: Vec<(usize, String)>,
@@ -46,6 +52,12 @@ pub enum BuiltinSideEffect {
     SetLastExitCode(i32),
     /// Set a shell variable (respects local scoping via `set_variable`).
     SetVariable { name: String, value: String },
+    /// The shell signalled itself (`kill -SIG $$`): run that signal's trap if
+    /// one is set, otherwise end the script with status 128 + signal.
+    SignalSelf(i32),
+    /// A builtin discarded the line (`exit 1 2`, `shift 1 2`): bash ends a
+    /// child `bash -c` string there, where an expansion error resumes.
+    DiscardCommandString,
 }
 
 /// Result of executing a bash script.
@@ -193,6 +205,7 @@ impl LoopAccumulator {
             ControlFlow::Exit(code) => {
                 LoopAction::Exit(Box::new(self.build_exit(ControlFlow::Exit(code))))
             }
+            ControlFlow::Abort => LoopAction::Exit(Box::new(self.build_exit(ControlFlow::Abort))),
             ControlFlow::None => LoopAction::None,
         }
     }

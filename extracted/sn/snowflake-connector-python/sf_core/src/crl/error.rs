@@ -1,0 +1,153 @@
+use crate::logging::url_for_log;
+use snafu::{Location, Snafu};
+
+#[derive(Snafu, Debug, error_trace::ErrorTrace)]
+#[snafu(visibility(pub))]
+pub enum CrlError {
+    #[snafu(display("Failed to download CRL from {url_safe}", url_safe = url_for_log(url)))]
+    CrlDownload {
+        url: String,
+        source: reqwest::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to parse CRL data"))]
+    CrlDataParse {
+        source: x509_parser::nom::Err<x509_parser::error::X509Error>,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Invalid CRL signature"))]
+    InvalidCrlSignature {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("CRL violates policy/profile requirements"))]
+    CrlPolicyViolation {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Unsupported CRL signature algorithm: {oid}"))]
+    UnsupportedSignatureAlgorithm {
+        oid: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("CRL issuer does not match certificate issuer"))]
+    CrlIssuerMismatch {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to read CRL from disk cache"))]
+    DiskCacheRead {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to write CRL to disk cache"))]
+    DiskCacheWrite {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to create cache directory"))]
+    CacheDirectoryCreation {
+        source: std::io::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("CRL has expired"))]
+    CrlExpired {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Certificate chain is revoked or indeterminate"))]
+    ChainRevoked {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("End-entity certificate is revoked"))]
+    EndEntityRevoked {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Certificate has no CRL distribution points"))]
+    NoCrlDistributionPoints {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to parse URL ({url_safe})", url_safe = url_for_log(url)))]
+    InvalidUrl {
+        url: String,
+        source: url::ParseError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("HTTP timeout while fetching CRL"))]
+    HttpTimeout {
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("CRL download from {url} exceeded max size: {size} bytes > {max_size} bytes"))]
+    DownloadSizeExceeded {
+        url: String,
+        size: u64,
+        max_size: usize,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Mutex poisoned: {message}"))]
+    MutexPoisoned {
+        message: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("CRL verification task did not complete"))]
+    VerificationTask {
+        source: tokio::task::JoinError,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to build HTTP client for CRL requests"))]
+    HttpClientBuild {
+        source: reqwest::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to build TLS configuration for CRL downloads"))]
+    TlsConfigBuild {
+        #[snafu(source(from(crate::tls::error::TlsError, Box::new)))]
+        source: Box<crate::tls::error::TlsError>,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to parse CRL using x509-cert"))]
+    CrlListParse {
+        source: x509_cert::der::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to encode CRL TBS to DER"))]
+    CrlToDer {
+        source: x509_cert::der::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    #[snafu(display("Failed to parse certificate using x509-cert"))]
+    CertificateParse {
+        source: x509_cert::der::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
+    /// Wrapper that adds CRL distribution-point URL context to any other CrlError
+    /// raised while verifying a specific CRL. Propagated from the multi-DP loop in
+    /// CrlCache::check_revocation so callers can identify which URL failed without
+    /// parsing log output. The inner error is boxed to keep the enum size small.
+    #[snafu(display("CRL verification failed for distribution point {url_safe}: {source}", url_safe = url_for_log(url)))]
+    CrlDistributionPoint {
+        url: String,
+        source: Box<CrlError>,
+        #[snafu(implicit)]
+        location: Location,
+    },
+}

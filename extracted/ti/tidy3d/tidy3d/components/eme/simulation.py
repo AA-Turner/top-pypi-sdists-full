@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from pydantic import Field, NonNegativeFloat, field_validator, model_validator
 
-from tidy3d.components.base import cached_property
+from tidy3d._runtime import always_validate, fast_validation_active
+from tidy3d.components.base import cached_property, keyed_cache
 from tidy3d.components.boundary import BoundarySpec, PECBoundary
 from tidy3d.components.data.monitor_data import ElectromagneticFieldData, ModeSolverData
 from tidy3d.components.geometry.base import Box
@@ -923,8 +924,14 @@ class EMESimulation(AbstractYeeGridSimulation):
         )
 
     @model_validator(mode="after")
+    @always_validate
     def _run_after_validators(self) -> Self:
         """Run post-init validations in an explicit, dependency-aware order."""
+        if fast_validation_active():
+            # fast mode keeps only the step that changes the model; every other call
+            # in this chain checks and would be skipped by the class-level guard
+            call_wrapped_validator(validate_boundaries_for_zero_dims, self, warn_on_change=False)
+            return self
         self._structures_not_at_edges()
         self._validate_scene()
         call_wrapped_validator(validate_boundaries_for_zero_dims, self, warn_on_change=False)
@@ -1189,6 +1196,7 @@ class EMESimulation(AbstractYeeGridSimulation):
             freqs_by_cell.append(np.asarray(sorted(freqs), dtype=float))
         return tuple(freqs_by_cell)
 
+    @keyed_cache()
     def _plane_anisotropic_media(self, plane: Box) -> tuple[EMEAnisotropicMedium, ...]:
         """Anisotropic media intersecting ``plane``."""
         total_structures = [self.scene.background_structure, *list(self.volumetric_structures)]
@@ -1204,6 +1212,7 @@ class EMESimulation(AbstractYeeGridSimulation):
             )
         )
 
+    @keyed_cache()
     def _plane_custom_media(self, plane: Box) -> tuple[AbstractCustomMedium, ...]:
         """Custom media intersecting ``plane``."""
         total_structures = [self.scene.background_structure, *list(self.volumetric_structures)]
@@ -1262,14 +1271,15 @@ class EMESimulation(AbstractYeeGridSimulation):
                 lengths=lengths,
             )
         )
-        for plane, rotation in zip(eme_grid.mode_planes, real_rotations):
+        mode_planes = eme_grid.mode_planes
+        for plane, rotation in zip(mode_planes, real_rotations):
             # ``cell_center_rotations_from_lengths()`` returns identity for co-rotating cells,
             # so any nontrivial rotation here means global-frame custom-medium remapping.
             if not self._rotation_is_identity(rotation) and self._plane_custom_media(plane):
                 return True
         for real_cell_index, rotation in zip(virtual_cell_indices, virtual_rotations):
             if not self._rotation_is_identity(rotation) and self._plane_custom_media(
-                eme_grid.mode_planes[real_cell_index]
+                mode_planes[real_cell_index]
             ):
                 return True
         return False
@@ -1347,11 +1357,15 @@ class EMESimulation(AbstractYeeGridSimulation):
         virtual_cell_indices: tuple[int, ...],
         virtual_rotations: tuple[TensorReal, ...],
         reference_rotations: tuple[TensorReal, ...],
+        mode_planes: Sequence[Box] | None = None,
     ) -> bool:
         """Whether reused modes would require different anisotropic tensors."""
+        # Supplied planes must come from a grid with identical geometry.
+        if mode_planes is None:
+            mode_planes = eme_grid.mode_planes
         for real_cell_index, virtual_rotation in zip(virtual_cell_indices, virtual_rotations):
             if not self._plane_rotated_tensors_match(
-                plane=eme_grid.mode_planes[real_cell_index],
+                plane=mode_planes[real_cell_index],
                 freqs=self._anisotropic_validation_freqs_by_cell[real_cell_index],
                 reference_rotation=reference_rotations[real_cell_index],
                 comparison_rotation=virtual_rotation,
@@ -1366,6 +1380,7 @@ class EMESimulation(AbstractYeeGridSimulation):
         size: Size,
         reference_rotations: tuple[TensorReal, ...],
         lengths: ArrayFloat1D | None = None,
+        mode_planes: Sequence[Box] | None = None,
     ) -> bool:
         """Whether reused modes would require different anisotropic tensors."""
         eme_grid, _, _, virtual_cell_indices, virtual_rotations = (
@@ -1381,6 +1396,7 @@ class EMESimulation(AbstractYeeGridSimulation):
             virtual_cell_indices=virtual_cell_indices,
             virtual_rotations=virtual_rotations,
             reference_rotations=reference_rotations,
+            mode_planes=mode_planes,
         )
 
     def _length_sweep_scaled_lengths(self, base_lengths: ArrayFloat1D) -> tuple[ArrayFloat1D, ...]:
@@ -1398,10 +1414,16 @@ class EMESimulation(AbstractYeeGridSimulation):
 
     def _validate_anisotropic_bend_repetitions(self) -> Self:
         """Reject repeated bent units when each repetition would need a distinct anisotropy frame."""
+        # Keep this marker here because ``copy(validate=False)`` clears cached properties.
+        cache_key = "_anisotropic_bend_repetitions_validated"
+        if self._cached_properties.get(cache_key, False):
+            return self
+
         if not any(
             isinstance(medium, AnisotropicMedium | FullyAnisotropicMedium)
             for medium in self.scene.mediums
         ):
+            self._cached_properties[cache_key] = True
             return self
 
         error_msg = (
@@ -1426,12 +1448,14 @@ class EMESimulation(AbstractYeeGridSimulation):
             center=center,
             size=size,
         )
+        base_mode_planes = tuple(base_grid.mode_planes)
 
         if self._has_incompatible_anisotropic_rotations_from_data(
             eme_grid=base_grid,
             virtual_cell_indices=base_virtual_cell_indices,
             virtual_rotations=base_virtual_rotations,
             reference_rotations=base_rotations,
+            mode_planes=base_mode_planes,
         ):
             self._raise_validation_error_at_loc(error_msg, "eme_grid_spec")
 
@@ -1469,6 +1493,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                     size=size,
                     reference_rotations=base_rotations,
                     lengths=lengths,
+                    mode_planes=base_mode_planes,
                 ):
                     invalid_length_sweep = True
                     break
@@ -1486,6 +1511,7 @@ class EMESimulation(AbstractYeeGridSimulation):
                     "scale_factors",
                 )
 
+        self._cached_properties[cache_key] = True
         return self
 
     def _validate_monitor_setup(self) -> Self:

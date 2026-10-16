@@ -444,7 +444,9 @@ class AsyncDAVClient(BaseDAVClient):
                     if auth_types:
                         msg += "\nSupported authentication types: {}".format(", ".join(auth_types))
                 log.warning(msg)
-            response = DAVResponse(r, self)
+            ## A 401/403 is raised from the raw response below, as on the sync
+            ## client: its body need not parse, even with an XML Content-Type
+            response = None if r.status_code in (401, 403) else DAVResponse(r, self)
         except Exception:
             # Workaround for servers that abort connection on unauthenticated requests
             # ref https://github.com/python-caldav/caldav/issues/158
@@ -479,7 +481,7 @@ class AsyncDAVClient(BaseDAVClient):
                 # Retry original request with auth
                 request_kwargs["auth"] = self.auth
                 r = await self.session.request(**request_kwargs)
-                response = DAVResponse(r, self)
+                response = None if r.status_code in (401, 403) else DAVResponse(r, self)
             elif self._should_attempt_unprompted_basic(
                 r.status_code,
                 r.headers,
@@ -534,9 +536,11 @@ class AsyncDAVClient(BaseDAVClient):
             return await self._async_request(url, method, body, headers)
 
         # Raise AuthorizationError for 401/403 responses
-        if response.status in (401, 403):
-            self._raise_authorization_error(str(url_obj), response)
+        if r.status_code in (401, 403):
+            self._raise_authorization_error(str(url_obj), r)
 
+        ## Only a 401/403 leaves response unset, and that has raised above
+        assert response is not None
         if error.debug_dump_communication:
             error._dump_communication(method, url, combined_headers, body, response)
 
@@ -861,9 +865,8 @@ class AsyncDAVClient(BaseDAVClient):
         )
 
         if response.status in (200, 207) and response._raw:
-            sync_result = response.parse_sync_collection()
-            response.results = sync_result.changed
-            response.sync_token = sync_result.sync_token
+            ## also sets response.sync_token and response.sync_truncated
+            response.results = response.parse_sync_collection().changed
 
         return response
 
@@ -986,16 +989,27 @@ class AsyncDAVClient(BaseDAVClient):
             props=self.CALENDAR_HOME_SET_PROPS,
             depth=0,
         )
-        calendar_home_url = self._calendar_home_url(response, principal)
-
-        # Fetch calendars via PROPFIND
-        response = await self.propfind(
-            calendar_home_url,
-            props=self.CALENDAR_LIST_PROPS,
-            depth=1,
-        )
-
-        return self._build_calendars_from_propfind(response)
+        # Fetch calendars via PROPFIND, from the first URL that has any
+        calendars = []
+        for n, calendar_home_url in enumerate(self._calendar_home_urls(response, principal)):
+            auth = (self.auth, self.auth_type)
+            try:
+                response = await self.propfind(
+                    calendar_home_url,
+                    props=self.CALENDAR_LIST_PROPS,
+                    depth=1,
+                )
+            except error.AuthorizationError:
+                # a refused guess means no calendars there; keep the auth
+                # that worked so far, which the refusal may have unwound
+                if not n:
+                    raise
+                self.auth, self.auth_type = auth
+                break
+            calendars = self._build_calendars_from_propfind(response, guess=n > 0)
+            if calendars:
+                break
+        return calendars
 
     async def search_calendar(
         self,
@@ -1084,7 +1098,11 @@ class AsyncDAVClient(BaseDAVClient):
         body = self._build_principal_search_query(name)
         response = await self.report(str(self.url), body)
         if response.status >= 300:
-            raise error.ReportError(f"{response.status} {response.reason} - {response.raw}")
+            raise error.error_from_response(
+                error.ReportError,
+                response,
+                f"{response.status} {response.reason} - {response.raw}",
+            )
         return self._parse_principal_search_response(response._find_objects_and_props())
 
     async def principals(self, name: str | None = None) -> list["Principal"]:

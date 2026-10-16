@@ -143,6 +143,7 @@ OpenAIChatCompatibleProvider = TypeAliasType(
         'github-copilot',
         'heroku',
         'litellm',
+        'meta',
         'moonshotai',
         'nebius',
         'ollama',
@@ -162,6 +163,7 @@ OpenAIResponsesCompatibleProvider = TypeAliasType(
         'azure',
         'deepseek',
         'fireworks',
+        'meta',
         'nebius',
         'openai-codex',
         'openrouter',
@@ -407,8 +409,9 @@ class ModelRequestContext:
     def _usage_responses(self) -> tuple[ModelResponse, ...]:
         """The model responses whose usage was counted for this request.
 
-        Empty until the model responds. It includes responses a hook later replaced, and can hold more
-        than one response when a continued response was partly billed before an error hook recovered.
+        Empty until the model responds. It includes responses a hook later replaced and the partial response
+        of a stream the consumer stopped, and can hold more than one response when a continued response was
+        partly billed before an error hook recovered.
         Request contexts copied with `dataclasses.replace()` see the same responses.
 
         Private for now: read by the `Instrumentation` capability and by the Pydantic AI Harness's
@@ -1935,7 +1938,9 @@ def infer_model(  # noqa: C901
         from .openai_codex import OpenAICodexModel
 
         return OpenAICodexModel(model_name, provider=provider)
-    elif model_kind in ('openai', 'openai-responses', 'azure-responses'):
+    # Meta's Chat Completions API doesn't return reasoning or accept the `phase` and encrypted reasoning that
+    # keep multi-turn Muse runs on track, so `meta:` uses the Responses API.
+    elif model_kind in ('openai', 'openai-responses', 'azure-responses', 'meta'):
         from .openai import OpenAIResponsesModel
 
         return OpenAIResponsesModel(model_name, provider=provider)

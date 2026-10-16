@@ -22,7 +22,7 @@ import asyncio
 import contextlib
 import inspect
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, cast, get_args
 from uuid import UUID, uuid4
 
@@ -183,11 +183,13 @@ class ThreadRunManager:
         runs: Any,
         threads: Any,
         send_event: EventSink | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         self._thread_id = thread_id
         self._runs = runs
         self._threads = threads
         self._send_event = send_event
+        self._headers = headers if headers is not None else {}
         self._session: EventStreamingSession | None = None
         self._current_run_id: str | None = None
         self._queued_events: list[dict[str, Any]] = []
@@ -852,7 +854,7 @@ class ThreadRunManager:
                     conn,
                     self._thread_id,
                     run_payload,
-                    {},
+                    self._headers,
                     run_id=run_id,
                 )
         except Exception:

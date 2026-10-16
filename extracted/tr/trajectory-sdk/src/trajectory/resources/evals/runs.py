@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any
+from typing import Any, Iterable, Literal
 
 import httpx2
 
@@ -27,6 +27,13 @@ class Runs(APIResource):
     self,
     bench_id: str,
     *,
+    status: Iterable[
+      Literal["pending", "registered", "running", "completed", "failed", "cancelled"]
+    ]
+    | None
+    | Omit = omit,
+    training_run_id: str | None | Omit = omit,
+    base_model_slug: str | None | Omit = omit,
     limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
@@ -38,6 +45,12 @@ class Runs(APIResource):
     snapshot.
 
     Args:
+      status: Return only runs in these statuses; repeat for each status.
+
+      training_run_id: Return only evaluations of this training run's checkpoints.
+
+      base_model_slug: Return only runs of this base model.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -57,6 +70,9 @@ class Runs(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
+            "status": status,
+            "training_run_id": training_run_id,
+            "base_model_slug": base_model_slug,
             "limit": limit,
             "cursor": cursor,
           }

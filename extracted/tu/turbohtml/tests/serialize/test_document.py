@@ -274,6 +274,8 @@ def test_document_html_round_trips() -> None:
         pytest.param('<!DOCTYPE o PUBLIC "p"><r>', id="doctype-public-id-no-system"),
         pytest.param("<!DOCTYPE o SYSTEM 'a\"b'><r>", id="doctype-system-id-with-quote"),
         pytest.param("<!DOCTYPE café><r>", id="doctype-non-ascii-name"),
+        pytest.param('<!DOCTYPE o SYSTEM "a\x01b"><r>', id="doctype-system-id-control"),
+        pytest.param('<!DOCTYPE o SYSTEM "a\uffffb"><r>', id="doctype-system-id-noncharacter"),
         pytest.param("<!DOCTYPE><p>", id="doctype-empty-name"),
         pytest.param("<!DOCTYPE 1><p>", id="doctype-invalid-name"),
         pytest.param("<div><template></template></div>", id="empty-template"),
@@ -286,8 +288,36 @@ def test_xml_serialization_re_reads_unchanged(source: str) -> None:
     assert parse_xml(once).serialize(Html(xml=True)) == once
 
 
-def test_xml_serialization_keeps_doctype_external_ids() -> None:
-    assert parse('<!DOCTYPE o SYSTEM "s"><r>').serialize(Html(xml=True)).startswith('<!DOCTYPE o SYSTEM "s">')
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param('<!DOCTYPE o SYSTEM "s"><r>', '<!DOCTYPE o SYSTEM "s">', id="system"),
+        pytest.param('<!DOCTYPE o PUBLIC "wxyzYZ" "s"><r>', '<!DOCTYPE o PUBLIC "wxyzYZ" "s">', id="public"),
+    ],
+)
+def test_xml_serialization_keeps_doctype_external_ids(source: str, expected: str) -> None:
+    assert parse(source).serialize(Html(xml=True)).startswith(expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param('<!DOCTYPE o PUBLIC "a<" "x&"><r>', '<!DOCTYPE o SYSTEM "x&">', id="less-than"),
+        pytest.param('<!DOCTYPE o PUBLIC "a<" ""><r>', '<!DOCTYPE o SYSTEM "">', id="empty-system"),
+        pytest.param('<!DOCTYPE o PUBLIC "a&"><r>', "<!DOCTYPE o>", id="ampersand-without-system"),
+        pytest.param('<!DOCTYPE o PUBLIC "café" "s"><r>', '<!DOCTYPE o SYSTEM "s">', id="non-ascii"),
+    ],
+)
+def test_xml_serialization_omits_invalid_public_id(source: str, expected: str) -> None:
+    serialized: Final = parse(source).serialize(Html(xml=True))
+    assert parse_xml(serialized).serialize(Html(xml=True)) == expected + "<html><head/><body><r/></body></html>"
+
+
+@pytest.mark.parametrize("invalid", [pytest.param("\x01", id="control"), pytest.param("\uffff", id="noncharacter")])
+def test_xml_serialization_drops_invalid_system_id_characters(invalid: str) -> None:
+    assert (
+        parse(f'<!DOCTYPE o SYSTEM "a{invalid}b"><r>').serialize(Html(xml=True)).startswith('<!DOCTYPE o SYSTEM "ab">')
+    )
 
 
 def test_xml_serialization_drops_a_doctype_without_an_xml_name() -> None:
@@ -864,6 +894,35 @@ def test_nested_foreign_element_does_not_redeclare_default() -> None:
     assert "xmlns=" not in node.serialize(_XML).split("<g", 1)[1]
 
 
+@pytest.mark.parametrize(
+    ("markup", "selector", "expected"),
+    [
+        pytest.param(
+            "<svg><foreignObject><div>x</div></foreignObject></svg>",
+            "svg",
+            '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><div xmlns="">x</div></foreignObject></svg>',
+            id="svg-to-html",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="text/html"><div>x</div></annotation-xml></math>',
+            "math",
+            '<math xmlns="http://www.w3.org/1998/Math/MathML"><annotation-xml encoding="text/html">'
+            '<div xmlns="">x</div></annotation-xml></math>',
+            id="mathml-to-html",
+        ),
+        pytest.param(
+            "<svg><foreignObject><p><svg><circle/></svg></p></foreignObject></svg>",
+            "svg",
+            '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><p xmlns="">'
+            '<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg></p></foreignObject></svg>',
+            id="svg-to-html-to-svg",
+        ),
+    ],
+)
+def test_html_subtree_clears_foreign_default_namespace(markup: str, selector: str, expected: str) -> None:
+    assert _fragment(markup, selector).serialize(_XML) == expected
+
+
 def test_detached_foreign_element_declares_namespace() -> None:
     svg = _fragment("<svg></svg>", "svg")
     svg.extract()
@@ -931,6 +990,35 @@ def test_xml_processing_instruction_closes_with_question_mark() -> None:
     assert node.serialize(Html(xml=True, layout=Indent(2))) == "<doc><?t d?></doc>"
 
 
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("xml", id="reserved-lowercase"),
+        pytest.param("Xml", id="reserved-mixed-case"),
+        pytest.param("1x", id="digit-start"),
+        pytest.param(":a", id="colon-start"),
+        pytest.param("a:b", id="colon"),
+        pytest.param("a?b", id="question-mark"),
+        pytest.param("a\u00d7", id="unicode-name-gap"),
+    ],
+)
+def test_xml_processing_instruction_omits_invalid_target(target: str) -> None:
+    assert Element("doc", children=[ProcessingInstruction(target, "d")]).serialize(_XML) == "<doc></doc>"
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        pytest.param("xml-stylesheet", id="reserved-prefix-is-allowed"),
+        pytest.param("é", id="unicode-start"),
+        pytest.param("a\u0301", id="unicode-continuation"),
+        pytest.param("😀", id="supplementary-start"),
+    ],
+)
+def test_xml_processing_instruction_keeps_valid_target(target: str) -> None:
+    assert Element("doc", children=[ProcessingInstruction(target, "d")]).serialize(_XML) == f"<doc><?{target} d?></doc>"
+
+
 _XML_ONLY_NODES: Final = "<r><![CDATA[a><b>c</b>]]><![CDATA[x < y]]><?pi a><i>p</i>--?><?ok x y?></r>"
 
 
@@ -986,6 +1074,23 @@ def test_output_is_well_formed_xml(markup: str) -> None:
     node = parse(markup).select_one("div,svg,math,script,p")
     assert node is not None
     ET.fromstring(node.serialize(_XML))  # ruff:ignore[suspicious-xml-element-tree-usage]  # our own serialized output, parsed only to assert well-formedness
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        pytest.param("\u00d7", "<p>x</p>", id="invalid-two-byte-start"),
+        pytest.param("a\u00d7", "<p>x</p>", id="invalid-two-byte-continued"),
+        pytest.param("\u0301", "<p>x</p>", id="invalid-three-byte-start"),
+        pytest.param("\U000f0000", "<p>x</p>", id="invalid-four-byte-start"),
+        pytest.param("é", '<p é="v">x</p>', id="valid-two-byte-start"),
+        pytest.param("a\u0301", '<p a\u0301="v">x</p>', id="valid-three-byte-continued"),
+        pytest.param("・", '<p ・="v">x</p>', id="valid-three-byte-start"),
+        pytest.param("😀", '<p 😀="v">x</p>', id="valid-four-byte-start"),
+    ],
+)
+def test_xml_attribute_name_unicode(name: str, expected: str) -> None:
+    assert _fragment(f'<p {name}="v">x', "p").serialize(_XML) == expected
 
 
 def test_round_trip_reparses_to_same_html() -> None:

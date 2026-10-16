@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from .._config_utils import load_toml_section
+from .._config_utils import load_toml_section, parse_embedding_dimensions
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,8 @@ class LLMProviderConfig:
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_region_name: Optional[str] = None
+    # Embedder の次元 (3.2 R32-072)。None = 1536 とみなし、API には渡さない
+    dimensions: Optional[int] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "LLMProviderConfig":
@@ -174,6 +176,7 @@ class LLMProviderConfig:
             aws_access_key_id=data.get("aws_access_key_id"),
             aws_secret_access_key=data.get("aws_secret_access_key"),
             aws_region_name=data.get("aws_region_name"),
+            dimensions=parse_embedding_dimensions(data.get("dimensions")),
         )
 
     @classmethod
@@ -354,12 +357,23 @@ def convert_llm_to_mem0(llm_config: LLMProviderConfig) -> Dict[str, Any]:
 def convert_embedder_to_mem0(embedder_config: LLMProviderConfig) -> Dict[str, Any]:
     """LLMProviderConfigからMem0形式のEmbedder設定に変換
 
+    次元 (dimensions) が設定されていれば Mem0 の ``embedding_dims`` に入れる (3.2 R32-072)。
+    Mem0 は OpenAI 互換・Bedrock では API に渡すが、Azure (azure_openai) では渡さない。
+
     Args:
         embedder_config: LLMProviderConfig instance
 
     Returns:
         Mem0形式のEmbedder設定dict
     """
+    converted = _convert_embedder_to_mem0(embedder_config)
+    dims = parse_embedding_dimensions(getattr(embedder_config, "dimensions", None))
+    if dims is not None:
+        converted["config"]["embedding_dims"] = dims
+    return converted
+
+
+def _convert_embedder_to_mem0(embedder_config: LLMProviderConfig) -> Dict[str, Any]:
     provider, model_name = parse_model_string(embedder_config.model)
     api_key = get_api_key(embedder_config)
 

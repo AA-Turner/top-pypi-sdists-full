@@ -21,6 +21,7 @@ from caldav import Event, FreeBusy, Todo
 from caldav.compatibility_hints import FeatureSet, write_delay
 from caldav.lib import error
 
+from .search_cache_delay import SearchCacheDelay
 from .test_caldav import (
     ev1 as ev1_static,  # old-date (2006); distinct from ev1() near-future generator
 )
@@ -41,23 +42,6 @@ from .test_caldav import todo5 as todo5_static
 from .test_caldav import todo6 as todo6_static
 from .test_caldav import todo8 as todo8_static
 from .test_servers import TestServer, get_available_servers
-
-
-def _async_delay_decorator(f, t=20):
-    """
-    Async decorator that adds a delay before calling the wrapped coroutine.
-
-    This is needed for servers like Bedework that have a search cache that
-    isn't immediately updated when objects are created/modified.
-    """
-
-    @wraps(f)
-    async def wrapper(*args, **kwargs):
-        await asyncio.sleep(t)
-        return await f(*args, **kwargs)
-
-    return wrapper
-
 
 ## HTTP methods that change server state; a server without "synchronous-write" settles each of
 ## these asynchronously, so we sleep AFTER every such request (the write-side
@@ -236,14 +220,14 @@ class AsyncFunctionalTestsBaseClass:
         # Apply search-cache delay if needed (similar to sync tests)
         # Use monkeypatch so it's automatically reverted after the test
         # (AsyncCalendar is an alias for Calendar, so we must restore it)
-        search_cache_config = client.features.is_supported("search-cache", dict)
-        if search_cache_config.get("behaviour") == "delay":
-            delay = search_cache_config.get("delay", 1.5)
+        ## A search waits only for what is left of the search-cache delay
+        ## since the last write (see search_cache_delay.py)
+        search_cache = SearchCacheDelay.from_features(client.features)
+        if search_cache:
             monkeypatch.setattr(
-                AsyncCalendar,
-                "search",
-                _async_delay_decorator(AsyncCalendar.search, t=delay),
+                AsyncCalendar, "search", search_cache.wrap_async_search(AsyncCalendar.search)
             )
+            monkeypatch.setattr(client, "request", search_cache.wrap_async_request(client.request))
 
         ## Sleep after every write for servers without synchronous writes.
         ## Wrapped on the client instance, so monkeypatch reverts it after the test.
@@ -1014,14 +998,23 @@ class AsyncFunctionalTestsBaseClass:
 
         if is_time_based:
             await asyncio.sleep(1)
-        await c.add_event(near_now_ics(ev3_static))
+        obj3 = await c.add_event(near_now_ics(ev3_static))
         if is_time_based:
             await asyncio.sleep(1)
         my_changed_objects = await c.get_objects_by_sync_token(
             sync_token=my_changed_objects.sync_token
         )
         if not is_fragile:
-            assert len(list(my_changed_objects)) == 1
+            ## Nextcloud may also report a trashed ev3 from an earlier run as
+            ## removed when the same UID is added again; don't count it
+            changed = [
+                o
+                for o in my_changed_objects
+                if o.url.canonical() not in my_changed_objects.deleted_urls
+            ]
+            assert len(changed) == 1
+            if self.is_supported("save-load.stable-url"):
+                assert changed[0].url.canonical() == obj3.url.canonical()
 
         if is_time_based:
             await asyncio.sleep(1)
@@ -1878,8 +1871,14 @@ class AsyncFunctionalTestsBaseClass:
         except (NotFoundError, AuthorizationError):
             pytest.skip("Cannot discover principal")
 
-        cal_id = "pythoncaldav-async-createdelete-test"
-        await adelete_calendar_if_present(principal, cal_id)
+        if self.is_supported("delete-calendar.free-namespace"):
+            cal_id = "pythoncaldav-async-createdelete-test"
+            await adelete_calendar_if_present(principal, cal_id)
+        else:
+            ## Deleting doesn't free the id (Nextcloud's trashbin), so a fixed
+            ## id can be created only once; a fresh id per run instead, as in
+            ## testCreateDeleteCalendar
+            cal_id = f"pythoncaldav-async-createdelete-{uuid.uuid4().hex[:8]}"
 
         c = await principal.make_calendar(name="Yep", cal_id=cal_id)
         try:
@@ -2014,12 +2013,19 @@ END:VCALENDAR
 
     @pytest.mark.asyncio
     async def test_issue_399_change_attendee_status(self, async_client: Any) -> None:
-        """change_attendee_status() works with username-as-email fallback (issue #399)."""
+        """change_attendee_status() auto-detects the current attendee (issue #399)."""
         self.skip_unless_support("scheduling")
+        principal = await async_client.principal()
         username = getattr(async_client, "username", None)
-        if not username or "@" not in str(username):
-            pytest.skip("Client username is not an email address; cannot build matching ATTENDEE")
-        my_email = "mailto:" + username
+        try:
+            my_email = str(await principal.get_vcal_address())
+        except error.NotFoundError:
+            if not username or "@" not in str(username):
+                pytest.skip(
+                    "Server has no calendar-user-address-set and the client username "
+                    "is not an email address"
+                )
+            my_email = "mailto:" + username
 
         invite_data = (
             "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Test//Test//EN\r\nMETHOD:REQUEST\r\n"
@@ -2034,9 +2040,7 @@ END:VCALENDAR
             "END:VEVENT\r\nEND:VCALENDAR\r\n"
         )
         ev = Event(client=async_client, data=invite_data)
-        ## Pass the email explicitly since change_attendee_status() without attendee
-        ## calls self.client.principal() which is async-only and can't work synchronously.
-        ev.change_attendee_status(attendee=username, partstat="ACCEPTED")
+        await ev.change_attendee_status(partstat="ACCEPTED")
         attendee = ev.icalendar_component["attendee"]
         assert attendee.params.get("PARTSTAT") == "ACCEPTED"
 
@@ -2123,7 +2127,8 @@ END:VCALENDAR"""
         ## search.time-range.event.old-dates) can still serve the time ranges.
         ## The integer passed to search()/summary_on() is a day offset from this
         ## anchor day; the values just need to be distinct future days.
-        base = (datetime.now() + timedelta(days=2)).replace(
+        ## UTC, as in the sync testEditSingleRecurrence (DST-safe there).
+        base = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
             hour=8, minute=7, second=6, microsecond=0
         )
 
@@ -2765,9 +2770,7 @@ class _AsyncTestSchedulingBase:
         assert tag_before is not None, "No Schedule-Tag on attendee's calendar event after accept"
 
         ## PARTSTAT-only change — tag must not move.
-        ## Pass attendee_addr explicitly: without an arg, change_attendee_status() resolves
-        ## the principal via self.client.principal(), which returns a coroutine in async mode.
-        attendee_event.change_attendee_status(str(attendee_addr), partstat="TENTATIVE")
+        await attendee_event.change_attendee_status(partstat="TENTATIVE")
         await attendee_event.save()
         await attendee_event.load()
         tag_after = attendee_event.schedule_tag

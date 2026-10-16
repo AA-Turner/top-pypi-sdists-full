@@ -186,8 +186,12 @@ class Device(DashboardModel):
     board_id: str = ""
     target_platform: str = ""
     address: str = ""  # mDNS hostname from StorageJSON (e.g. "my_device.local")
-    # Versioned digest of the config YAML text; out-of-band-edit detector.
+    # Versioned digest of the config YAML text and the files it pulls in;
+    # out-of-band-edit detector. Empty while the dependency list is unknown.
     content_fingerprint: str = field(default="", metadata={"serialize": "omit"})
+    # Files the YAML pulls in (``!include`` / ``packages:`` / secrets),
+    # relative to the config dir; ``None`` until a deep load discovers them.
+    dependencies: tuple[str, ...] | None = field(default=None, metadata={"serialize": "omit"})
     # Last-known resolved IP — primary IPv4 when available, else the
     # first scoped IPv6. Populated by mDNS resolution and DNS
     # pre-resolve in the ping sweep, persisted through the device-builder
@@ -379,6 +383,10 @@ class Device(DashboardModel):
     # only for a chip it can write. ``None`` ⇒ the platform needs no split
     # (esp32, esp8266, nrf52) or the YAML does not name the chip.
     mcu: str | None = None
+    # nrf52 only: ESPHome's ``nrf52: bootloader:``, else the board's default,
+    # else ``mcuboot``; picks the frontend's browser DFU flasher. ``None`` ⇒
+    # not nrf52, or no readable ``nrf52:`` block.
+    bootloader: str | None = None
     # esp32 whose ``ota: platform: esphome`` sets ``allow_partition_access``
     # — gates the install dialog's OTA bootloader-update action. Whether the
     # *running* firmware has it compiled in is the frontend's half of the

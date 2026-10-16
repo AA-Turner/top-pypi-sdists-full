@@ -141,9 +141,11 @@ def as_raw_html(
     the output format--like `inline_css=`, `make_page=`, and `all_important=`.
 
     Body cells that have not been processed by a `fmt_*()` method are automatically HTML-escaped to
-    prevent cross-site scripting (XSS). Cells that have been formatted (e.g., with `fmt_number()`,
-    `fmt_markdown()`, etc.) are trusted as safe HTML. To include raw HTML in unformatted cells, use
-    the `html()` helper (e.g., `html("<b>bold</b>")`) via a `fmt_*()` method or `text_transform()`.
+    prevent cross-site scripting (XSS). Cells that have been formatted (e.g., with
+    [`fmt_number()`](`great_tables.GT.fmt_number`),
+    [`fmt_markdown()`](`great_tables.GT.fmt_markdown`), etc.) are trusted as safe HTML. To include
+    raw HTML in unformatted cells, use the `html()` helper (e.g., `html("<b>bold</b>")`) via a
+    `fmt_*()` method or `text_transform()`.
 
     Parameters
     ----------
@@ -298,21 +300,40 @@ def as_latex(self: GT, use_longtable: bool = False, tbl_pos: str | None = None) 
     str
         A LaTeX fragment that contains the table.
 
+    LaTeX packages
+    --------------
+    The LaTeX fragment uses commands from these packages, which need to be loaded in the
+    document's preamble:
+
+    - `booktabs` (always)
+    - `longtable`, with `use_longtable=True`
+    - `hyperref`, if the table has links from [`fmt_url()`](`great_tables.GT.fmt_url`) or
+      [`fmt_email()`](`great_tables.GT.fmt_email`)
+    - `anyfontsize` (optional), so that a `table_font_size=` set with `tab_options()` is used at
+      exactly that size rather than the nearest available one
+
+    For example, `\\usepackage{booktabs}` and `\\usepackage{longtable}`. Some currency symbols
+    (e.g., `"₹"` for `"INR"`) need XeLaTeX or LuaLaTeX rather than pdfLaTeX (see
+    [`fmt_currency()`](`great_tables.GT.fmt_currency`)).
+
     Limitations
     -----------
     The `as_latex()` method is still experimental and has some limitations. The following
     functionality that is supported in HTML output tables is not currently supported in LaTeX
     output tables:
 
-    - footnotes (via the `tab_footnote()` method)
-    - the rendering of the stub and row group labels (via the `=rowname_col` and `=groupname_col`
-      args in the `GT()` class)
-    - the use of the `md()` helper function to signal conversion of Markdown text
-    - units notation within the `cols_labels()` and `tab_spanner()` methods
-    - the `fmt_markdown()`, `fmt_units()`, `fmt_image()`, and `fmt_nanoplot()` methods
-    - the `sub_missing()` and `sub_zero()` methods
+    - footnotes (via the `tab_footnote()` method), which raise an error
+    - the `fmt_nanoplot()` method, which raises an error
+    - the [`fmt_image()`](`great_tables.GT.fmt_image`), `fmt_flag()`, and `fmt_icon()` methods,
+      which issue a warning and leave the cell values unformatted
+    - styles, whether set with the `tab_style()` or `data_color()` methods (a warning is issued
+      and the table is rendered without them)
     - most options in the `tab_options()` method, particularly those that are specific to styling
-      text, borders, or adding fill colors to cells
+      text, borders, or adding fill colors to cells (the ones that are used are `table_width=`,
+      `table_font_size=`, `stub_indent_length=`, and `row_group_as_column=`), and so also the
+      `opt_*()` methods that set them, such as `opt_stylize()`
+    - interactive tables (via the `opt_interactive()` method), which are rendered as static
+      tables
 
     As development continues, we will work to expand the capabilities of the `as_latex()` method to
     reduce these limitations and more clearly document what is and is not supported.

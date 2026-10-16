@@ -1,5 +1,21 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "ast",
+    "configparser",
+    "importlib",
+    "json",
+    "packaging.requirements",
+    "packaging.utils",
+    "pathlib",
+    "pipx.requires_python",
+    "pipx.util",
+    "shutil",
+    "textwrap",
+    "tomllib",
+    "urllib.parse",
+]
+
 import ast
 import configparser
 import json
@@ -11,17 +27,19 @@ from importlib import metadata
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Final, NamedTuple, TypedDict
 from urllib.parse import urlparse
-from urllib.request import url2pathname
 
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 from pipx.constants import COMPLETION_SECTIONS, MAN_SECTIONS, WINDOWS
+from pipx.requires_python import unsatisfied_constraint
 from pipx.util import PipxError, run_subprocess
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Mapping
     from subprocess import CompletedProcess
+
+    from packaging.specifiers import SpecifierSet
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +69,7 @@ class VenvMetadata(NamedTuple):
     completion_paths_of_dependencies: dict[str, list[Path]]
     package_version: str
     python_version: str
+    unsupported_python: SpecifierSet | None
 
 
 def _distribution_name(dist: metadata.Distribution) -> str | None:
@@ -100,19 +119,22 @@ def get_required_dependency_names(dist: metadata.Distribution, env: dict[str, st
 
 
 def list_not_required_packages(venv_python: Path) -> set[str]:
+    venv_sys_path, venv_env, _ = fetch_info_in_venv(venv_python)
+    return not_required_packages(venv_sys_path, venv_env)
+
+
+def not_required_packages(sys_path: list[str], env: dict[str, str]) -> set[str]:
     """Canonical names of installed packages that no other installed package requires.
 
     Mirrors ``pip list --not-required`` from installed distribution metadata so every backend
     (including uv, which lacks the flag) computes the same result.
     """
-    venv_sys_path, venv_env, _ = fetch_info_in_venv(venv_python)
-    distributions = tuple(metadata.distributions(path=venv_sys_path))
     installed: set[str] = set()
     required: set[str] = set()
-    for dist in distributions:
+    for dist in metadata.distributions(path=sys_path):
         if (name := _distribution_name(dist)) is not None:
             installed.add(canonicalize_name(name))
-        required |= get_required_dependency_names(dist, venv_env)
+        required |= get_required_dependency_names(dist, env)
     return installed - required
 
 
@@ -255,6 +277,8 @@ def _get_editable_project_root(dist: metadata.Distribution) -> Path | None:
     parsed_url = urlparse(url)
     if parsed_url.scheme != "file":
         return None
+
+    from urllib.request import url2pathname  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
 
     url_path = f"//{parsed_url.netloc}{parsed_url.path}" if parsed_url.netloc else parsed_url.path
     return Path(url2pathname(url_path))
@@ -477,7 +501,7 @@ def fetch_info_in_venv(venv_python_path: Path) -> tuple[list[str], dict[str, str
     return (
         venv_info["sys_path"],
         venv_info["environment"],
-        f"Python {venv_info['python_version']}",
+        venv_info["python_version"],
     )
 
 
@@ -563,7 +587,8 @@ def inspect_venv(  # ruff:ignore[too-many-locals]  # aggregates apps, man pages,
         completions_of_dependencies=completions_of_dependencies,
         completion_paths_of_dependencies=completion_paths_of_dependencies,
         package_version=root_dist.version,
-        python_version=venv_python_version,
+        python_version=f"Python {venv_env['python_full_version']}",
+        unsupported_python=unsatisfied_constraint(root_dist.metadata.get("Requires-Python"), venv_python_version),
     )
 
 
@@ -574,4 +599,5 @@ __all__ = [
     "get_required_dependency_names",
     "inspect_venv",
     "list_not_required_packages",
+    "not_required_packages",
 ]

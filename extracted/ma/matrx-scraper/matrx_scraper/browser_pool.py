@@ -106,6 +106,13 @@ _MOBILE_UA = (
 )
 
 
+def _solve_challenges_allowed() -> bool:
+    """`knowledge.scraper.solve_challenges` - default True (KNOB MIRROR); an org may turn it off."""
+    from matrx_scraper.parser.knobs import parser_knob
+
+    return bool(parser_knob("solve_challenges", True))
+
+
 @dataclass(frozen=True)
 class DeviceProfile:
     """Browser-context emulation for one device class.
@@ -704,10 +711,14 @@ class PlaywrightBrowserPool:
             try:
                 deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
                 resp = await page.goto(url, timeout=timeout_ms, wait_until="domcontentloaded")
-                if await page.title() == "Client Challenge":
+                if await page.title() == "Client Challenge" and _solve_challenges_allowed():
                     # Let the provider's normal JavaScript finish. DOMContentLoaded
-                    # is the challenge document, not the requested page. Never click,
-                    # spoof browser identity, or extend the caller's render budget.
+                    # is the challenge document, not the requested page. Arman,
+                    # 2026-10-15: we do not refuse to pass interstitial/challenge
+                    # checks - `knowledge.scraper.solve_challenges` ships ON, and the
+                    # old "never click, never spoof browser identity" refusal is gone
+                    # (the stealth/click solver is the Scrapling step, a separate
+                    # lane). The caller's render budget is still never extended.
                     remaining_ms = int((deadline - asyncio.get_running_loop().time()) * 1000)
                     if remaining_ms <= 0:
                         raise TimeoutError("provider challenge exhausted browser render budget")

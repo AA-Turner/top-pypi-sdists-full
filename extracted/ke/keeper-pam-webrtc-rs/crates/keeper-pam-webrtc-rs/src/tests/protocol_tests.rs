@@ -144,3 +144,113 @@ fn test_protocol_ping_pong() {
         println!("Frame parsing test completed - custom stats replaced with WebRTC native stats");
     });
 }
+
+/// Guacd routing decision.
+///
+/// The load-bearing case is `use_guacr=true` with no handler registry: falling
+/// through to external guacd there produces a session that connects and paints
+/// nothing, because the client is running a guacr viewer that reads
+/// terminal-data/IMAGE frames guacd never sends. That has to fail loudly, which
+/// matters now that `builtin-handlers` is opt-in rather than a default feature.
+mod guacd_route_tests {
+    use crate::channel::protocol::{decide_guacd_route, GuacdRoute};
+
+    #[test]
+    fn guacr_requested_without_registry_is_unavailable_not_external_guacd() {
+        assert_eq!(
+            decide_guacd_route(true, false, true),
+            GuacdRoute::GuacrUnavailable,
+            "a guacr session must not be silently served by external guacd"
+        );
+    }
+
+    #[test]
+    fn guacr_requested_without_conversation_type_is_unavailable() {
+        assert_eq!(
+            decide_guacd_route(true, true, false),
+            GuacdRoute::GuacrUnavailable,
+            "without a conversation type there is no handler to pick"
+        );
+    }
+
+    #[test]
+    fn guacr_requested_with_registry_uses_builtin() {
+        assert_eq!(decide_guacd_route(true, true, true), GuacdRoute::Builtin);
+    }
+
+    #[test]
+    fn guacr_not_requested_uses_external_guacd() {
+        // Registry presence is irrelevant when the session did not ask for guacr.
+        assert_eq!(
+            decide_guacd_route(false, true, true),
+            GuacdRoute::ExternalGuacd
+        );
+        assert_eq!(
+            decide_guacd_route(false, false, false),
+            GuacdRoute::ExternalGuacd
+        );
+    }
+}
+
+/// Which shipped wheel carries the handler registry.
+///
+/// `builtin-handlers` is opt-in, so the registry a session needs is decided in the wheels'
+/// manifests rather than in code, and `decide_guacd_route` above only reports the
+/// consequence at runtime. Both directions are load-bearing and neither fails at build
+/// time, which is why they are asserted here:
+///
+/// - The gateway wheel (`keeper-pam-connections-py`, crates/python-bindings) must enable it.
+///   Without it every guacr session on a gateway hits `GuacrUnavailable` and refuses to
+///   connect -- a total outage for guacr users, with a build that compiled cleanly.
+/// - The transport-only wheel (`keeper-pam-webrtc-rs-py`, crates/webrtc-bindings) must not.
+///   It ships transport, not protocol handling; pulling in the guacr tree would bloat the
+///   wheel and silently make it look like a gateway. A guacr session reaching it fails
+///   loudly instead, which is the behaviour the tests above pin.
+mod wheel_feature_tests {
+    /// The dependency edge each wheel declares on this crate.
+    fn webrtc_dep_line(wheel_dir: &str) -> String {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("crates/ is the parent of this crate")
+            .join(wheel_dir)
+            .join("Cargo.toml");
+        let text = std::fs::read_to_string(&manifest)
+            .unwrap_or_else(|e| panic!("{} must be readable: {e}", manifest.display()));
+
+        text.lines()
+            .find(|l| l.contains(r#"path = "../keeper-pam-webrtc-rs""#))
+            .unwrap_or_else(|| {
+                panic!(
+                    "{} must depend on this crate by path; if that edge moved, this guard \
+                     no longer checks anything",
+                    manifest.display()
+                )
+            })
+            .to_string()
+    }
+
+    #[test]
+    fn the_gateway_wheel_enables_the_builtin_handlers() {
+        assert!(
+            webrtc_dep_line("python-bindings").contains("builtin-handlers"),
+            "crates/python-bindings is the gateway wheel: without `builtin-handlers` it \
+             builds fine and then refuses every guacr session at runtime"
+        );
+    }
+
+    #[test]
+    fn the_transport_only_wheel_does_not_enable_the_builtin_handlers() {
+        let dep = webrtc_dep_line("webrtc-bindings");
+        assert!(
+            !dep.contains("builtin-handlers"),
+            "crates/webrtc-bindings ships transport only; enabling `builtin-handlers` \
+             pulls the whole guacr protocol tree into a wheel that does not serve \
+             protocol sessions. Got: {dep}"
+        );
+        assert!(
+            dep.contains("default-features = false"),
+            "the transport-only wheel must opt out of defaults explicitly, or a future \
+             default feature silently pulls the guacr tree back in. Got: {dep}"
+        );
+    }
+}

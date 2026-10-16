@@ -18,6 +18,7 @@ from ..services.skill import SkillService
 from ..services.task import TaskService
 from ..services.user import UserService
 from ..services.workflow import WorkflowService
+from ..services.workspace import WorkspaceService
 from ..services.files import FileOperationService
 from ..services.webhook import WebhookService
 from ..services.vendor_assistant import VendorAssistantService
@@ -183,6 +184,9 @@ class CodeMieClient:
             self._api_domain, _token_source, verify_ssl=self._verify_ssl
         )
         self.a2a = A2AService(
+            self._api_domain, _token_source, verify_ssl=self._verify_ssl
+        )
+        self.workspaces = WorkspaceService(
             self._api_domain, _token_source, verify_ssl=self._verify_ssl
         )
 

@@ -12,6 +12,8 @@ This mixin is designed to work with classes decorated with @functional.
 import json
 from typing import Any, Optional
 
+from tmo.types.enums import ValueEnum
+
 
 class BaseEntityMixin:
     """
@@ -206,6 +208,10 @@ class BaseEntityMixin:
         if value is None:
             return None
 
+        # Handle Enums (before str: ValueEnum members are also str instances)
+        if hasattr(value, "value") and hasattr(value, "name"):
+            return value.value
+
         # Handle strings, numbers, booleans
         if isinstance(value, (str, int, float, bool)):
             return value
@@ -213,10 +219,6 @@ class BaseEntityMixin:
         # Handle UUIDs
         if hasattr(value, "hex"):
             return str(value)
-
-        # Handle Enums
-        if hasattr(value, "value") and hasattr(value, "name"):
-            return value.value
 
         # Handle lists
         if isinstance(value, list):
@@ -295,6 +297,12 @@ class BaseEntityMixin:
         Returns:
             str or None: Formatted string if primitive, None otherwise
         """
+        # Handle Enums (before str: ValueEnum members are also str instances)
+        if hasattr(value, "value") and hasattr(value, "name"):
+            if isinstance(value, ValueEnum):
+                return f"'{value}'"
+            return f"{value.__class__.__name__}.{value.name}"
+
         # Handle strings
         if isinstance(value, str):
             if len(value) > 100:
@@ -304,10 +312,6 @@ class BaseEntityMixin:
         # Handle UUIDs (but exclude numeric types that also have .hex() method)
         if hasattr(value, "hex") and not isinstance(value, (int, float, bool)):
             return f"'{str(value)}'"
-
-        # Handle Enums
-        if hasattr(value, "value") and hasattr(value, "name"):
-            return f"{value.__class__.__name__}.{value.name}"
 
         return None
 

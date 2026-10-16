@@ -5,11 +5,14 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+import pytest
 import tensorfs
 
 from cozy_runtime.derive import quantization
 from cozy_runtime.internal.encoding import (
+    SPEC_INT8_CONVROT256,
     SPEC_MXFP8,
+    SPEC_NVFP4,
     SPEC_PLAIN,
     SPEC_ROWWISE,
     SPEC_ROWWISE_KEEPDIM,
@@ -18,6 +21,7 @@ from cozy_runtime.internal.encoding import (
     SPEC_VECTORS,
     RolePart,
     launch_providers,
+    selection,
 )
 from cozy_runtime.internal.encoding.leaves import MicroScaledNativeLeaf
 
@@ -41,21 +45,32 @@ def test_every_provider_is_reviewed_against_the_exact_tensorfs_03_seed() -> None
         SPEC_SCALED_SCALAR,
         SPEC_SCALED_SCALAR_WEIGHT_ONLY,
         SPEC_MXFP8,
+        SPEC_INT8_CONVROT256,
+        SPEC_NVFP4,
     }
-    assert reviewed <= set(seeds)
+    # TensorFS before 0.9.2 carries no int8-convrot256/1; that one provider is then not served.
+    assert reviewed - {SPEC_INT8_CONVROT256} <= set(seeds)
     assert RETIRED.isdisjoint(seeds)
     assert quantization.PLAIN_SPEC == SPEC_PLAIN
-    assert set(quantization._ARTIFACT_SPECS.values()) == {SPEC_ROWWISE, SPEC_MXFP8}
+    assert set(quantization._ARTIFACT_SPECS.values()) == {
+        SPEC_ROWWISE,
+        SPEC_MXFP8,
+        SPEC_INT8_CONVROT256,
+        SPEC_NVFP4,
+    }
 
     providers = launch_providers()
-    assert set(providers) == reviewed
+    assert set(providers) == reviewed & set(seeds)
     assert all(
         provider.reviewed_specs <= set(seeds)
         for implementations in providers.values()
         for provider in implementations
     )
+    # nvfp4's three other role sets (input_scale, pre_quant_scale) have no mined vectors.
     unsupported = {
-        digest for digest, alias in seeds.items() if alias in {"svdq-microscale/1", "nvfp4-w4a4/1"}
+        digest
+        for digest, alias in seeds.items()
+        if alias == "svdq-microscale/1" or (alias == "nvfp4-w4a4/1" and digest != SPEC_NVFP4)
     }
     assert unsupported and unsupported.isdisjoint(providers)
 
@@ -69,6 +84,8 @@ def test_reviewed_roles_and_vector_bytes_did_not_move() -> None:
         SPEC_SCALED_SCALAR: ({"data", "weight_scale"}, {"input_scale"}),
         SPEC_SCALED_SCALAR_WEIGHT_ONLY: ({"data", "weight_scale"}, {"input_scale"}),
         SPEC_MXFP8: ({"data", "scale"}, set()),
+        SPEC_INT8_CONVROT256: ({"data", "scale"}, set()),
+        SPEC_NVFP4: ({"weight", "weight_scale", "weight_scale_2"}, set()),
     }
     for digest, implementations in providers.items():
         required, optional = expected_roles[digest]
@@ -89,3 +106,16 @@ def test_mxfp8_padded_scale_storage_has_one_provider_price() -> None:
     assert provider.resident_bytes(parts) == 2112 + 128 * 36
     assert provider.fill_scratch_bytes(parts) == 3 * 128 * 36
     assert provider.resident_bits_per_element(parts, 2112) == 8 * (2112 + 128 * 36) / 2112
+
+
+def test_a_spec_the_installed_tensorfs_lacks_is_skipped_with_one_warning(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    older = selection.registry_digests() - {SPEC_INT8_CONVROT256}
+    monkeypatch.setattr(selection, "registry_digests", lambda: older)
+    monkeypatch.setattr(selection, "_ABSENT", set())
+    for _ in range(2):
+        providers = launch_providers()
+        assert SPEC_INT8_CONVROT256 not in providers and SPEC_ROWWISE in providers
+    warned = capsys.readouterr().err.splitlines()
+    assert len(warned) == 1 and SPEC_INT8_CONVROT256 in warned[0]  # once, not per call

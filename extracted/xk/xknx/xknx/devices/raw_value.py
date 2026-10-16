@@ -18,7 +18,7 @@ from xknx.remote_value import GroupAddressesType, RemoteValueRaw
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -28,8 +28,9 @@ class RawValue(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
         payload_length: int,
+        name: str | None = None,
         group_address: GroupAddressesType = None,
         group_address_state: GroupAddressesType = None,
         respond_to_read: bool = False,
@@ -37,8 +38,8 @@ class RawValue(Device):
         always_callback: bool = False,
         device_updated_cb: DeviceCallbackType[RawValue] | None = None,
     ) -> None:
-        """Initialize Sensor class."""
-        super().__init__(xknx, name, device_updated_cb)
+        """Initialize RawValue class."""
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
         self.always_callback = always_callback
         self.respond_to_read = respond_to_read
         self.remote_value = RemoteValueRaw(
@@ -56,15 +57,15 @@ class RawValue(Device):
         yield self.remote_value
 
     @property
-    def last_telegram(self) -> Telegram | None:
+    def last_telegram(self) -> GroupValueTelegram | None:
         """Return the last telegram received from the RemoteValue."""
         return self.remote_value.telegram
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.remote_value.process(telegram, always_callback=self.always_callback)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GroupValueResponse telegrams."""
         if (
             self.respond_to_read

@@ -162,8 +162,8 @@ def test_top_sampling_references_survive_model_input_wire_serialization():
             ForwardBackwardRequest(
                 forward_backward_input=ForwardBackwardInput(
                     data=[datum],
-                    loss_fn="importance_sampling",
-                    loss_fn_config={"train_inference_correction": "score_centering"},
+                    loss_fn="reinforce",
+                    loss_fn_config={"score_centering": True},
                 ),
                 model_id="model",
                 seq_id=1,
@@ -174,7 +174,8 @@ def test_top_sampling_references_survive_model_input_wire_serialization():
         mode="json",
     )
     wire_input = body["forward_backward_input"]["data"][0]["model_input"]
-    assert body["forward_backward_input"]["loss_fn_config"] == {"train_inference_correction": "score_centering"}
+    assert body["forward_backward_input"]["loss_fn"] == "reinforce"
+    assert body["forward_backward_input"]["loss_fn_config"] == {"score_centering": True}
     assert RoutingReferences.from_dict(wire_input["top_sampling_references"]) == references
     assert wire_input["routing_references"] == refs(3).to_dict()
     assert "top_sampling_references" not in tinker.ModelInput.from_ints([1]).model_dump(exclude_unset=True)

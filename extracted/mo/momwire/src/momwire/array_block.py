@@ -72,15 +72,16 @@ import warnings
 
 import numpy as np
 from scipy.fft import fftn, ifftn, next_fast_len
-from scipy.linalg import lu_factor, lu_solve
 
 from ._aca import aca_partial
+from . import _lapack
 from ._cancel import _Cancelable
 from .hmatrix import (
     _HAVE_OFFEDGE_BLOCK_ACCEL,
     _OFFEDGE_BLOCK_ACCEL_MAX_D,
     HMatrixSolver,
 )
+from ._vec3 import norm3
 
 
 # ----------------------------------------------------------------------
@@ -571,16 +572,16 @@ def _detect_lattice(cen, tol=1e-6):
     if P < 4:
         return None
     d = cen - cen[0]
-    norms = np.linalg.norm(d, axis=1)
+    norms = norm3(d)
     nz = np.argsort(norms)
     nz = nz[norms[nz] > tol]
     if nz.size == 0:
         return None
     v1 = d[nz[0]]
     v2 = None
-    n1 = np.linalg.norm(v1)
+    n1 = norm3(v1)
     for idx in nz[1:]:
-        if np.linalg.norm(np.cross(v1, d[idx])) > 1e-9 * n1 * norms[idx]:
+        if norm3(np.cross(v1, d[idx])) > 1e-9 * n1 * norms[idx]:
             v2 = d[idx]
             break
     A = np.array([v1]) if v2 is None else np.array([v1, v2])
@@ -790,7 +791,7 @@ class _LatticeFloquetAugPrecond:
             Maug[..., :n_e, n_e:] = A_ref.T
             Maug[..., n_e:, :n_e] = A_ref
             M = Maug
-        self.Minv = np.linalg.inv(M.reshape((-1, d, d))).reshape(M.shape)
+        self.Minv = _lapack.inv_stacked(M.reshape((-1, d, d))).reshape(M.shape)
 
     def solve(self, R):
         R = np.asarray(R)
@@ -870,7 +871,7 @@ class _BlockJacobiAugPrecond:
                     M[Ns:, :Ns] = A_e
                 else:
                     M = np.ascontiguousarray(S)
-                grp = {"fac": lu_factor(M), "Ns": Ns, "members": []}
+                grp = {"fac": _lapack.lu_factor(M), "Ns": Ns, "members": []}
                 by_key[key] = grp
             grp["members"].append((g, rows))
         self._shapes = list(by_key.values())
@@ -892,7 +893,7 @@ class _BlockJacobiAugPrecond:
                 rhs[:Ns, j * s : (j + 1) * s] = R[g]
                 if nce:
                     rhs[Ns:, j * s : (j + 1) * s] = R[n + rows]
-            sol = lu_solve(fac, rhs, check_finite=False, overwrite_b=True)
+            sol = _lapack.lu_solve(fac, rhs, check_finite=False, overwrite_b=True)
             for j, (g, rows) in enumerate(members):
                 out[g] = sol[:Ns, j * s : (j + 1) * s]
                 if nce:

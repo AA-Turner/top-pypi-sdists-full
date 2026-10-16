@@ -1,6 +1,6 @@
 [project]
 name = "abx-plugins"
-version = "1.13.260"
+version = "1.13.413"
 description = "ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "abxbus==2.5.77",
-    "abxpkg==1.13.47",
+    "abxpkg==1.13.54",
     "imagesize>=2.0.0",
     "rich-click>=1.9.7",
     "uv>=0.8.22",
@@ -114,6 +114,7 @@ exclude = [
     "**/*.pyi",
     "**/node_modules",
     "**/__pycache__",
+    "abx_plugins/plugins/papersdl/papers-dl-patches",
 ]
 reportMissingImports = true
 reportMissingTypeStubs = false
@@ -132,5 +133,8 @@ rules = { unresolved-import = "ignore" }
 
 [tool.codespell]
 # OT is oblivious transfer in the vendored TLSNotary cryptographic code.
-ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo,ot"
+ignore-words-list = "abx,bu,wit,dont,cant,wont,re-use,re-used,re-using,re-usable,thats,doesnt,fith,FitH,doubleclick,administrar,te,fo,ot,cros"
 skip = "*.json"
+
+[tool.ty.src]
+exclude = ["abx_plugins/plugins/papersdl/papers-dl-patches/**"]

@@ -27,6 +27,8 @@ flow_execute_live/org_id,ws_id,flow_folder_id:
 flow_editor/org_id,ws_id,flow_folder_id:
     - flow_viewer/org_id,ws_id,flow_folder_id
     - flow_execute_sandbox/org_id,ws_id,flow_folder_id
+    # the Add Node pane lists connections; workspace-wide, as connections have no folder
+    - connection_viewer/org_id,ws_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
     - w:jobs/org_id,ws_id,flow_folder_id

@@ -44,6 +44,7 @@ from . import (
     _sommerfeld_transmitted,
 )
 from ._quadrature import leggauss
+from ._vec3 import norm3
 
 # Gauss order for the buried fill's THREE field-form blocks. See
 # `n_qp_buried_field` for the measurement that set it (momwire#553's fifth
@@ -72,6 +73,45 @@ BURIED_EXTENDED_KERNEL_REFUSAL = (
     "image of a buried source, which lands in the OTHER medium. "
     "Solve the buried deck with extended_kernel=False, which is the default"
 )
+# momwire#1170 stage 0. The B-spline family no longer draws the refusal
+# above: it serves the extended kernel on the pairs whose two segments are
+# both above ground and keeps the reduced kernel on every pair that touches
+# a buried segment. This sentence is what that family DECLARES in the
+# refusal's place (`Capabilities.partials`) and what its advisory opens with,
+# so a consumer reads one statement of what "extended" means on such a deck.
+BURIED_EXTENDED_KERNEL_ABOVE_ONLY = (
+    "extended_kernel=True + a wire below the ground plane is served in part: "
+    "the extended kernel acts on the pairs whose two segments are both above "
+    "the ground plane (and on their images), and every pair that touches a "
+    "segment below it keeps the reduced kernel, because the extended kernel "
+    "in the lower medium and across the interface is not derived yet "
+    "(momwire#1170). A wire that crosses the plane at a junction changes "
+    "kernel there"
+)
+
+
+class ExtendedKernelAboveGround(UserWarning):
+    """`extended_kernel=True` on a deck with buried wires acted on the
+    above-ground pairs only (momwire#1170 stage 0): the buried wires kept the
+    reduced kernel. Raised once per solver, at its first buried fill."""
+
+
+def extended_kernel_above_advisory(wire_extended):
+    """The advisory for a mixed-kernel buried solve: the declared sentence,
+    then WHICH wires kept the reduced kernel, by 0-based solver wire index.
+
+    `wire_extended` is `BSplineSolver.extended_kernel_wires()`'s tuple."""
+    reduced = [i for i, on in enumerate(wire_extended) if not on]
+    shown = ", ".join(str(i) for i in reduced[:12])
+    if len(reduced) > 12:
+        shown += f", ... ({len(reduced)} in all)"
+    return (
+        f"{BURIED_EXTENDED_KERNEL_ABOVE_ONLY}. On this deck {len(reduced)} of "
+        f"{len(wire_extended)} wires are below the plane and kept the reduced "
+        f"kernel (wire index {shown})"
+    )
+
+
 BURIED_DENSE_BUDGET_REFUSAL = (
     "a deck with buried wires is filled through the DENSE moment tensor on "
     "this build and this one does not fit: {n} segments need about {need:.0f} "
@@ -192,6 +232,28 @@ def grounded_junctions(polylines, ground_z, groups):
 # plan U9 (b), PB4 — the Z matrix within 2.0e-4 Ω of the free-space two-wire
 # truth at 1 m, as at 12 m). Closer nodes are refused by name.
 MIN_CROSSING_NODE_SEPARATION_M = 1.0
+
+
+def crossing_junction_port_refusal(j_idx):
+    """Why a junction port at CROSSING junction `j_idx` is refused, and what
+    serves the case instead (momwire#849).
+
+    The refusal used to quote the ground CONTACT's reason -- the node's
+    voltage pinned by its own image -- at a node that has no contact image:
+    the crossing fill carries the current across it. What is true there is
+    #813's adjudication: a junction port drives the node's potential against
+    a reference, and none can be taken at a node between two media, where
+    each medium's (A, Phi) is in its own gauge. A series source on the node
+    takes no reference and is served (momwire#1285)."""
+    return (
+        f"junction {j_idx} is a crossing node -- it joins a wire above the "
+        "ground interface to one below it -- and a junction port is not "
+        "served there: a junction port drives the node's potential against a "
+        "reference, and no potential reference can be taken at a node "
+        "between two media (momwire#813). A series source ON the node is "
+        "served instead: pass node_gaps at the node (momwire#1285), or feed "
+        "a segment beside it"
+    )
 
 
 def _closest_crossing_nodes(crossing, groups, polylines):
@@ -466,7 +528,7 @@ def crossing_node_members(
                 edge = np.asarray(pl[e + 1], dtype=float) - np.asarray(
                     pl[e], dtype=float
                 )
-                length = float(np.linalg.norm(edge))
+                length = float(norm3(edge))
                 h = length / int(npe[e])
                 if h_adjacent is None:
                     h_adjacent = h
@@ -532,15 +594,11 @@ def cross_pair_separation(seg_l, seg_r, a_idx, b_idx):
     c = 0.5 * (np.asarray(seg_l) + np.asarray(seg_r))
     ca = c[a_idx]
     cb = c[b_idx]
-    d = np.linalg.norm(ca[:, None, :] - cb[None, :, :], axis=-1)
+    d = norm3(ca[:, None, :] - cb[None, :, :])
     h = float(
         max(
-            np.linalg.norm(
-                np.asarray(seg_r)[a_idx] - np.asarray(seg_l)[a_idx], axis=-1
-            ).max(),
-            np.linalg.norm(
-                np.asarray(seg_r)[b_idx] - np.asarray(seg_l)[b_idx], axis=-1
-            ).max(),
+            norm3(np.asarray(seg_r)[a_idx] - np.asarray(seg_l)[a_idx]).max(),
+            norm3(np.asarray(seg_r)[b_idx] - np.asarray(seg_l)[b_idx]).max(),
         )
     )
     return float(d.min()), h

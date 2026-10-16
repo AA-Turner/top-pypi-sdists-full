@@ -691,15 +691,18 @@ repos:
       # OMN-14515: every Pydantic model must resolve to an explicit extra="forbid".
       # ABSENCE IS A VIOLATION — Pydantic's default is extra="ignore", which SILENTLY
       # DROPS unknown fields (four live data-loss bugs: OMN-14490/14506/14513/14514).
-      # New models block outright; --enforce-modified :staged also blocks a BASELINED
+      # New models block outright; --enforce-modified :worktree also blocks a BASELINED
       # model whose body you just edited — touching it is your chance to fix it.
+      # OMN-17572: :worktree diffs the working tree against HEAD (staged AND unstaged),
+      # so `pre-commit run --all-files` on an unstaged edit is as strict as a commit;
+      # :staged alone passed that run while the same edit staged failed.
       # language: system so the validator runs in the repo venv and can introspect the
       # real cls.model_config (which Pydantic has already merged down the MRO) instead
       # of approximating inheritance statically.
       - id: pydantic-extra-forbid
         name: Pydantic extra="forbid" ratchet (OMN-14515)
         entry: uv run --frozen python -m omnibase_core.validators.pydantic_extra_forbid --enforce-modified
-          :staged src/omnibase_core
+          :worktree src/omnibase_core
         language: system
         types: [python]
         files: ^src/omnibase_core/.*\.py$
@@ -2370,7 +2373,7 @@ repos:
   # OMN-19677: the debt baseline itself is a shrink-only contract. The same
   # immutable omniclaude commit supplies this hook and the required CI job.
   - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 3faefdcd5750b05f69d2efcb8cf200bc359483c3  # pragma: allowlist secret
+    rev: cc59bc1087f96c268e797995e17bf5d9bdc0c2db  # pragma: allowlist secret
     hooks:
       - id: anti-growth-baseline
         require_serial: true
@@ -2383,6 +2386,26 @@ repos:
           - --base-ref
           - origin/dev
         files: ^src/omnibase_core/validators/extra_forbid_baseline\.yaml$
+
+  # OMN-20780: warn on a push to main. `main` is release-synced and never a
+  # feature pull-request target (operator ruling 2026-10-10T16:52:56Z); the hosted
+  # `main-target-guard` check refuses a PR whose base is main. A PR's base is not
+  # known at push time, so the one local signal is the remote ref being pushed
+  # (pre-commit exports it as PRE_COMMIT_REMOTE_BRANCH). It warns and exits 0:
+  # the hosted check is the refusal. Pinned by
+  # tests/ci/test_main_target_guard_prepush_omn20780.py.
+  - repo: local
+    hooks:
+      - id: main-target-guard
+        name: "main-target-guard: warn on a push to main (OMN-20780)"
+        entry: bash -c 'if [ "${PRE_COMMIT_REMOTE_BRANCH:-}" = "refs/heads/main" ]; then echo "WARNING
+          main-target-guard (OMN-20780) - you are pushing to main. main is release-synced and no feature
+          PR may target it; push a branch and open the PR against dev." >&2; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [pre-push]
 
 # ---------------------------------------------------------------------------
 # RETIRED 2026-09-11 (OMN-18176): the governed impacted-test selector

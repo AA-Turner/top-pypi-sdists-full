@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
 
-macro_rules! ob_type {
-    ($obj:expr) => {
-        unsafe { (*$obj.cast::<pyo3::ffi::PyObject>()).ob_type }
-    };
-}
+// TODO: replace with core::hint::cold_path once 1.95.0 is old enough
+#[inline(always)]
+#[cold]
+pub const fn cold_path() {}
 
-#[cfg(feature = "unstable-simd")]
-macro_rules! unlikely {
-    ($exp:expr) => {
-        core::intrinsics::unlikely($exp)
-    };
-}
-
-#[cfg(not(feature = "unstable-simd"))]
-macro_rules! unlikely {
-    ($exp:expr) => {
-        $exp
-    };
+#[inline(always)]
+pub const fn unlikely(b: bool) -> bool {
+    if b {
+        cold_path();
+    }
+    b
 }

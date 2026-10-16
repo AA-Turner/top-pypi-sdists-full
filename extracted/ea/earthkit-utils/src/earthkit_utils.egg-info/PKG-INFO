@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-utils
-Version: 1.0.2
+Version: 1.0.3
 Summary: Utilities for the Earthkit ecosystem
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License-Expression: Apache-2.0

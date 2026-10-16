@@ -64,10 +64,12 @@ pub struct Converter {
 
 /// The header config an output's [`Converter::normalization`] is recorded under.
 pub const NORMALIZATION: &str = "normalization";
+/// SDXL's Diffusers repository with its `CLIPTextModel` in the Transformers 5 spelling.
+pub const SDXL_DIFFUSERS: &str = "sdxl.diffusers/1";
 /// The converter for a source no reviewed profile recognizes: its keys, stored as they are.
 pub const IDENTITY: &str = "identity/1";
 
-pub const CONVERTERS: [Converter; 7] = [
+pub const CONVERTERS: [Converter; 8] = [
     Converter {
         name: "diffusers.identity/1",
         dialect: "safetensors.diffusers",
@@ -75,6 +77,20 @@ pub const CONVERTERS: [Converter; 7] = [
         doc: "Diffusers component spelling IS the canonical logical key spelling. Each key \
               becomes one logical tensor; `.weight_scale` siblings fold into their base as \
               encoding ROLES; marker tensors are dropped. Bytes stream through untouched.",
+        validated_on_real_bytes: true,
+        normalization: None,
+        lane: None,
+        reference: None,
+    },
+    Converter {
+        name: SDXL_DIFFUSERS,
+        dialect: "safetensors.diffusers",
+        class: Class::Identity,
+        doc: "SDXL's Diffusers repository in the spelling Runtime constructs: `text_encoder` \
+              (`CLIPTextModel`, saved by Transformers 4 under `text_model.`) loses that prefix \
+              as Transformers 5's own conversion does; `text_encoder_2` \
+              (`CLIPTextModelWithProjection`), the UNet and the VAE keep their keys. Bytes \
+              stream through untouched.",
         validated_on_real_bytes: true,
         normalization: None,
         lane: None,
@@ -1253,7 +1269,7 @@ fn plan_carrier(
                 .unwrap_or(usize::MAX)
         });
 
-        let out_key = rekey(conv, &t.key);
+        let out_key = rekey(conv, component, &t.key);
         let effect = if conv.name == "h3.native/2"
             && (t.key.ends_with(".mlp.fc1.weight") || t.key.ends_with(".mlp.fc1.bias"))
         {
@@ -1453,7 +1469,7 @@ fn plan_seam(
     for (i, leaf) in seam.members.iter().enumerate() {
         p.ops.push(Op {
             component: component.to_string(),
-            out_key: rekey(conv, &format!("{base}{leaf}")),
+            out_key: rekey(conv, component, &format!("{base}{leaf}")),
             encoding: "plain/1".to_string(),
             encoding_id: plain.object_id(),
             logical_dtype: t.dtype,
@@ -1481,7 +1497,7 @@ fn plan_seam(
 
 /// The dialect's key mapping. Identity converters keep the spelling (diffusers spelling IS
 /// the canonical spelling); a renaming dialect declares its map here and nowhere else.
-fn rekey(conv: &Converter, key: &str) -> String {
+fn rekey(conv: &Converter, component: &str, key: &str) -> String {
     match conv.name {
         // Leaf first, then the block prefix — the two halves of the ratified map's own
         // `rekey` block, applied in the order it lists them.
@@ -1499,6 +1515,9 @@ fn rekey(conv: &Converter, key: &str) -> String {
                 .find(|(from, _)| leafed.starts_with(*from))
                 .map(|(from, to)| format!("{to}{}", &leafed[from.len()..]))
                 .unwrap_or(leafed)
+        }
+        SDXL_DIFFUSERS if component == "text_encoder" => {
+            key.strip_prefix("text_model.").unwrap_or(key).to_string()
         }
         _ => key.to_string(),
     }

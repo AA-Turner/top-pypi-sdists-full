@@ -5,39 +5,15 @@ from great_tables import GT, exibble, html, loc, md, style
 from great_tables._utils_render_html import (
     create_body_component_h,
     create_columns_component_h,
-    create_heading_component_h,
     create_source_notes_component_h,
+)
+from tests.utils import (
+    assert_rendered_body,
+    assert_rendered_columns,
+    assert_rendered_source_notes,
 )
 
 small_exibble = exibble[["num", "char"]].head(3)
-
-
-def assert_rendered_source_notes(snapshot, gt):
-    built = gt._build_data("html")
-    source_notes = create_source_notes_component_h(built)
-
-    assert snapshot == source_notes
-
-
-def assert_rendered_heading(snapshot, gt):
-    built = gt._build_data("html")
-    heading = create_heading_component_h(built)
-
-    assert snapshot == heading
-
-
-def assert_rendered_columns(snapshot, gt):
-    built = gt._build_data("html")
-    columns = create_columns_component_h(built)
-
-    assert snapshot == str(columns)
-
-
-def assert_rendered_body(snapshot, gt):
-    built = gt._build_data("html")
-    body = create_body_component_h(built)
-
-    assert snapshot == body
 
 
 def test_source_notes_snap(snapshot):
@@ -558,3 +534,523 @@ def test_spanner_covering_all_columns_else_branch():
 
     assert result is not None
     assert "All" in str(result)
+
+
+def _get_body_html(gt: GT) -> str:
+    built = gt._build_data("html")
+    return create_body_component_h(built)
+
+
+def _get_columns_html(gt: GT) -> str:
+    built = gt._build_data("html")
+    return str(create_columns_component_h(built))
+
+
+def test_multi_col_stub_data_model_two_levels():
+    """A rowname_col list sets the stub levels; the last column is the primary row identifier."""
+    df = pd.DataFrame({"ticker": ["AAPL"], "sector": ["Tech"], "price": [150]})
+    gt = GT(df, rowname_col=["sector", "ticker"])
+
+    stub_cols = gt._boxhead._get_stub_columns()
+    assert [c.var for c in stub_cols] == ["sector", "ticker"]
+    assert [c.stub_level for c in stub_cols] == [0, 1]
+    assert gt._boxhead._get_stub_column().var == "ticker"
+    assert [row.rowname for row in gt._stub.rows] == ["AAPL"]
+
+
+def test_multi_col_stub_layout_length():
+    """_get_stub_layout returns one entry per stub column."""
+    df = pd.DataFrame({"sector": ["Tech"], "ticker": ["AAPL"], "price": [150]})
+    gt = GT(df, rowname_col=["sector", "ticker"])
+    built = gt._build_data("html")
+    layout = built._stub._get_stub_layout(
+        has_summary_rows=False, options=built._options, boxhead=built._boxhead
+    )
+    assert len(layout) == 2
+    assert all(e == "rowname" for e in layout)
+
+
+def test_multi_col_stub_header_colspan():
+    """Column header emits colspan=2 for a two-column stub."""
+    df = pd.DataFrame({"sector": ["Tech"], "ticker": ["AAPL"], "price": [150]})
+    gt = GT(df, rowname_col=["sector", "ticker"])
+    col_html = _get_columns_html(gt)
+    assert 'colspan="2"' in col_html
+
+
+def test_multi_col_stub_three_levels_header_colspan():
+    """Column header emits colspan=3 for a three-column stub."""
+    df = pd.DataFrame({"a": ["x"], "b": ["y"], "c": ["z"], "val": [1]})
+    gt = GT(df, rowname_col=["a", "b", "c"])
+    col_html = _get_columns_html(gt)
+    assert 'colspan="3"' in col_html
+
+
+def test_multi_col_stub_renders_all_columns_in_body():
+    """All stub column values appear in the body HTML."""
+    df = pd.DataFrame({"sector": ["Tech"], "ticker": ["AAPL"], "price": [150]})
+    gt = GT(df, rowname_col=["sector", "ticker"])
+    body = _get_body_html(gt)
+    assert "Tech" in body
+    assert "AAPL" in body
+    assert "150" in body
+
+
+def test_multi_col_stub_rowspan_collapse():
+    """Repeated outer-level values get rowspan > 1; inner values are not collapsed."""
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech", "Tech", "Finance"],
+            "ticker": ["AAPL", "MSFT", "JPM"],
+            "price": [150, 280, 140],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"])
+    body = _get_body_html(gt)
+
+    # "Tech" should appear with rowspan="2"
+    assert 'rowspan="2"' in body
+    # The second Tech row should NOT repeat the sector cell
+    # (it is omitted because covered by the rowspan)
+    tech_count = body.count(">Tech<")
+    assert tech_count == 1
+
+    # All ticker values still appear
+    assert "AAPL" in body
+    assert "MSFT" in body
+    assert "JPM" in body
+
+
+def test_multi_col_stub_no_spurious_collapse_when_values_differ():
+    """Non-repeating outer values each get their own cell (rowspan=1)."""
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech", "Finance", "Healthcare"],
+            "ticker": ["AAPL", "JPM", "JNJ"],
+            "price": [150, 140, 90],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"])
+    body = _get_body_html(gt)
+
+    # No rowspan attribute should appear
+    assert 'rowspan="' not in body
+
+
+def test_multi_col_stub_group_boundary_resets_rowspan():
+    """The same outer value in different groups is NOT collapsed across the boundary."""
+    df = pd.DataFrame(
+        {
+            "region": ["North", "North", "South", "South"],
+            "sector": ["Tech", "Finance", "Tech", "Finance"],
+            "ticker": ["AAPL", "JPM", "NVDA", "BAC"],
+            "price": [150, 140, 430, 33],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"], groupname_col="region")
+    body = _get_body_html(gt)
+
+    # "Tech" appears in both groups — should NOT have rowspan="2" across groups
+    # Each group's Tech gets its own cell (rowspan=1, no attribute)
+    assert 'rowspan="2"' not in body
+    # Both Tech and Finance appear (once per group)
+    assert body.count(">Tech<") == 2
+    assert body.count(">Finance<") == 2
+
+
+def test_multi_col_stub_rowspan_within_group():
+    """When using row_group_as_column, rowspan collapsing still works within each group."""
+    df = pd.DataFrame(
+        {
+            "region": ["North", "North", "South"],
+            "sector": ["Tech", "Tech", "Tech"],
+            "ticker": ["AAPL", "MSFT", "NVDA"],
+            "price": [150, 280, 430],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"], groupname_col="region")
+    body = _get_body_html(gt)
+
+    # North group has 2 Tech rows → sector should get rowspan="2"
+    assert 'rowspan="2"' in body
+    # South group has 1 Tech row → no rowspan
+    assert body.count(">Tech<") == 2  # once with rowspan, once without
+
+
+def test_multi_col_stub_single_col_unchanged():
+    """Single string rowname_col behaves exactly as before."""
+    df = pd.DataFrame({"ticker": ["AAPL", "MSFT"], "price": [150, 280]})
+    gt = GT(df, rowname_col="ticker")
+
+    assert [c.var for c in gt._boxhead._get_stub_columns()] == ["ticker"]
+    body = _get_body_html(gt)
+    # No rowspan attributes for single-column stub
+    assert 'rowspan="' not in body
+
+
+def test_multi_col_stub_list_with_one_element_same_as_string():
+    """A list with one column gives the same table as a string."""
+    df = pd.DataFrame({"ticker": ["AAPL"], "price": [150]})
+    assert (
+        GT(df, rowname_col=["ticker"], id="t").as_raw_html()
+        == GT(df, rowname_col="ticker", id="t").as_raw_html()
+    )
+
+
+def test_multi_col_stub_overlap_with_groupname_col_raises():
+    """A column name cannot appear in both rowname_col list and groupname_col."""
+    df = pd.DataFrame({"sector": ["Tech"], "ticker": ["AAPL"], "price": [150]})
+    with pytest.raises(ValueError):
+        GT(df, rowname_col=["sector", "ticker"], groupname_col="sector")
+
+
+def test_text_transform_stub_applies_to_all_stub_cols():
+    """text_transform(loc.stub()) must transform every stub column, not just the first."""
+    from great_tables import loc
+
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech", "Finance"],
+            "ticker": ["AAPL", "JPM"],
+            "price": [150, 140],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"]).text_transform(
+        locations=loc.stub(),
+        fn=lambda x: x.upper(),
+    )
+    body = _get_body_html(gt)
+
+    # Both stub columns should be upper-cased
+    assert "TECH" in body
+    assert "FINANCE" in body
+    assert "AAPL" in body
+    assert "JPM" in body
+    # Original casing should not appear
+    assert ">Tech<" not in body
+    assert ">Finance<" not in body
+
+
+def test_text_transform_stub_no_stub_is_noop():
+    """text_transform(loc.stub()) on a table with no stub should not error."""
+    from great_tables import loc
+
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    gt = GT(df).text_transform(locations=loc.stub(), fn=str.upper)
+    assert gt.as_raw_html()  # should render without error
+
+
+def test_text_transform_stub_skips_na_values():
+    """text_transform(loc.stub()) must skip cells that are NA in both body and source data."""
+    import numpy as np
+    from great_tables import loc
+
+    df = pd.DataFrame({"name": ["Alice", np.nan, "Bob"], "value": [1, 2, 3]})
+    gt = GT(df, rowname_col="name").text_transform(locations=loc.stub(), fn=str.upper)
+    body = _get_body_html(gt)
+    assert "ALICE" in body
+    assert "BOB" in body
+
+
+def test_cols_width_stub_sentinel_no_stub_is_noop():
+    """cols_width({stub: ...}) on a table with no stub should not error."""
+    from great_tables import stub
+
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    gt = GT(df).cols_width({stub: "120px"})
+    assert gt.as_raw_html()  # should render without error
+
+
+def test_cols_width_stub_sentinel_applies_to_all_stub_cols():
+    """cols_width(stub) must set width on every stub column for multi-col stubs."""
+    from great_tables import stub
+
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech"],
+            "ticker": ["AAPL"],
+            "price": [150],
+        }
+    )
+    gt = GT(df, rowname_col=["sector", "ticker"]).cols_width({stub: "120px"})
+
+    # Both stub columns should have the width recorded in the boxhead
+    stub_cols = gt._boxhead._get_stub_columns()
+    assert len(stub_cols) == 2
+    assert all(c.column_width == "120px" for c in stub_cols)
+
+
+def test_list_stubhead_with_spanner_renders_separate_th_cells():
+    """tab_stubhead(list) + tab_spanner: each stub column gets its own <th> in the spanner row."""
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech", "Finance"],
+            "ticker": ["AAPL", "JPM"],
+            "price": [150.0, 140.0],
+            "mkt_cap": [2.94, 0.57],
+        }
+    )
+    gt = (
+        GT(df, rowname_col=["sector", "ticker"])
+        .tab_stubhead(label=["Sector", "Ticker"])
+        .tab_spanner(label="Financials", columns=["price", "mkt_cap"])
+    )
+    col_html = _get_columns_html(gt)
+    assert "Sector" in col_html
+    assert "Ticker" in col_html
+
+
+def test_list_stubhead_with_nested_spanners_renders_placeholders():
+    """tab_stubhead(list) + 2 spanner levels: blank placeholders emitted for higher rows."""
+    df = pd.DataFrame(
+        {
+            "sector": ["Tech", "Finance"],
+            "ticker": ["AAPL", "JPM"],
+            "price": [150.0, 140.0],
+            "mkt_cap": [2.94, 0.57],
+        }
+    )
+    gt = (
+        GT(df, rowname_col=["sector", "ticker"])
+        .tab_stubhead(label=["Sector", "Ticker"])
+        .tab_spanner(label="Inner", columns=["price", "mkt_cap"])
+        .tab_spanner(label="Outer", spanners=["Inner"])
+    )
+    col_html = _get_columns_html(gt)
+    assert "Sector" in col_html
+    assert "Ticker" in col_html
+
+
+def test_grand_summary_colspan_correct_for_multi_col_stub_with_group():
+    """Grand summary row colspan must cover group col + all row stub cols."""
+    df = pd.DataFrame(
+        {
+            "region": ["North", "North"],
+            "sector": ["Tech", "Finance"],
+            "ticker": ["AAPL", "JPM"],
+            "price": [150.0, 140.0],
+        }
+    )
+    gt = (
+        GT(df, rowname_col=["sector", "ticker"], groupname_col="region")
+        .tab_options(row_group_as_column=True)
+        .grand_summary_rows(
+            fns={"Total": lambda x: x.sum()},
+        )
+    )
+    body = _get_body_html(gt)
+
+    # With row_group_as_column=True: 1 group col + 2 row stub cols = colspan 3
+    assert 'colspan="3"' in body
+    # The old hardcoded colspan="2" must NOT appear in the grand summary row
+    assert 'colspan="2"' not in body
+
+
+def _header_cells(html_str: str) -> list[tuple[str, str]]:
+    """Get the (class, scope) of each stub and group heading `<th>` in the table body."""
+    import re
+
+    body = html_str.split('class="gt_table_body"')[1]
+    cells = re.findall(r"<th\b([^>]*)>", body)
+    out = []
+    for attrs in cells:
+        classes = re.search(r'class="([^"]*)"', attrs).group(1).split()
+        kind = next(
+            k
+            for k in ("gt_summary_row", "gt_stub_row_group", "gt_group_heading", "gt_stub")
+            if k in classes
+        )
+        scope = re.search(r'scope="([^"]*)"', attrs)
+        out.append((kind, scope.group(1) if scope else ""))
+    return out
+
+
+def test_stub_cells_scope_hierarchical_stub():
+    # Stub cells are row headers; a merged outer cell is the header of the rows it spans
+    df = pl.DataFrame(
+        {"a": ["A", "A", "B"], "b": ["x", "y", "z"], "g": ["G", "G", "H"], "n": [1, 2, 3]}
+    )
+    html_str = GT(df, rowname_col=["a", "b"], groupname_col="g").as_raw_html()
+
+    assert _header_cells(html_str) == [
+        ("gt_group_heading", "colgroup"),
+        ("gt_stub", "rowgroup"),
+        ("gt_stub", "row"),
+        ("gt_stub", "row"),
+        ("gt_group_heading", "colgroup"),
+        ("gt_stub", "row"),
+        ("gt_stub", "row"),
+    ]
+
+
+def test_stub_cells_scope_row_group_as_column_and_summary():
+    df = pl.DataFrame({"b": ["x", "y", "z"], "g": ["G", "G", "H"], "n": [1, 2, 3]})
+    html_str = (
+        GT(df, rowname_col="b", groupname_col="g")
+        .summary_rows(fns={"Sum": pl.col("n").sum()})
+        .tab_options(row_group_as_column=True)
+        .as_raw_html()
+    )
+
+    assert _header_cells(html_str) == [
+        ("gt_stub_row_group", "rowgroup"),
+        ("gt_stub", "row"),
+        ("gt_stub", "row"),
+        ("gt_summary_row", "row"),
+        ("gt_stub_row_group", "rowgroup"),
+        ("gt_stub", "row"),
+        ("gt_summary_row", "row"),
+    ]
+
+
+def test_group_heading_scope_single_column():
+    # A group heading over a single column is a column header (as in R gt)
+    html_str = GT(pl.DataFrame({"g": ["G"], "n": [1]}), groupname_col="g").as_raw_html()
+    assert _header_cells(html_str) == [("gt_group_heading", "col")]
+
+
+# Header ids and `headers` attributes ---------------------------------------------------------
+
+
+def _header_attrs(html_str: str) -> tuple[list[str], list[list[str]]]:
+    """Get the ids in the table, and the `headers` (split) of each body data cell."""
+    import re
+
+    table = html_str.split("<table", 1)[1]
+    body = table.split('class="gt_table_body"', 1)[1]
+    ids = re.findall(r'\bid="([^"]*)"', table)
+    headers = [m.split() for m in re.findall(r'<td\b[^>]*\bheaders="([^"]*)"', body)]
+    return ids, headers
+
+
+_HEADER_DF = pl.DataFrame(
+    {
+        "a": ["A", "A", "B", "B"],
+        "b": ["x", "y", "z", "w"],
+        "g": ["G 1", "G 1", "H", "H"],
+        "num": [1.0, 2.0, 3.0, 4.0],
+        "n2": [5, 6, 7, 8],
+    }
+)
+
+
+@pytest.mark.parametrize(
+    "make_gt",
+    [
+        lambda df: GT(df.select("num", "n2")),
+        lambda df: GT(df, rowname_col=["a", "b"], groupname_col="g"),
+        lambda df: GT(df, rowname_col="b", groupname_col="g").tab_options(row_group_as_column=True),
+        lambda df: GT(df.select("g", "num"), groupname_col="g"),
+        lambda df: (
+            GT(df, rowname_col="b")
+            .tab_spanner("Inner", ["num", "n2"])
+            .tab_spanner("Outer", ["num", "n2"], level=2)
+        ),
+        lambda df: (
+            GT(df, rowname_col=["a", "b"], groupname_col="g")
+            .summary_rows(fns={"Sum": pl.col("num").sum()}, side="top")
+            .grand_summary_rows(fns={"Total": pl.col("num").sum()})
+            .tab_options(row_group_as_column=True)
+        ),
+        lambda df: GT(df, rowname_col="b", groupname_col="g", id="my table"),
+    ],
+)
+def test_body_cell_headers_refer_to_unique_ids(make_gt):
+    # Every data cell lists its headers, and each of those is the id of a cell in the table
+    ids, headers = _header_attrs(make_gt(_HEADER_DF).as_raw_html())
+
+    assert len(ids) == len(set(ids))
+    assert headers and all(cell_headers for cell_headers in headers)
+    assert all(h in ids for cell_headers in headers for h in cell_headers)
+
+
+def test_body_cell_headers_list_group_stub_spanners_and_column():
+    gt = GT(_HEADER_DF, rowname_col=["a", "b"], groupname_col="g").tab_spanner("S", ["num", "n2"])
+    _, headers = _header_attrs(gt.as_raw_html())
+
+    # The second row's outer stub cell is merged with the first row's, which heads both rows
+    assert headers[0] == ["G-1", "stub-1-1", "stub-1-2", "S", "num"]
+    assert headers[2] == ["G-1", "stub-1-1", "stub-2-2", "S", "num"]
+
+
+def test_summary_cell_headers_refer_to_summary_label():
+    gt = GT(_HEADER_DF, rowname_col="b", groupname_col="g").summary_rows(
+        fns={"Sum": pl.col("num").sum()}
+    )
+    _, headers = _header_attrs(gt.as_raw_html())
+
+    assert ["G-1", "summary-G-1-Sum", "num"] in headers
+
+
+def test_header_ids_are_sanitized_and_deduplicated():
+    gt = (
+        GT(_HEADER_DF.select("num", "n2"), id="t 1")
+        .tab_spanner(md("**num**"), ["num", "n2"])
+        .tab_spanner("A & B", ["num"], level=2)
+    )
+    ids, _ = _header_attrs(gt.as_raw_html())
+
+    # Ids have no spaces or markup, are prefixed by the (sanitized) table id, and a spanner
+    # labelled like a column gets a suffix
+    assert set(ids) == {"t-1-num", "t-1-n2", "t-1-num-2", "t-1-A-B"}
+
+
+def test_numeric_group_ids():
+    df = pl.DataFrame({"g": [0, 0, 1], "n": [1, 2, 3]})
+    ids, headers = _header_attrs(GT(df, groupname_col="g").as_raw_html())
+
+    assert {"0", "1"} <= set(ids)
+    assert headers[0] == ["0", "n"]
+
+
+def test_hidden_column_labels_have_no_header_ids():
+    # Without column labels, body cells are headed by their row headers only
+    gt = GT(_HEADER_DF, rowname_col="b", groupname_col="g").tab_options(column_labels_hidden=True)
+    _, headers = _header_attrs(gt.as_raw_html())
+
+    assert headers[0] == ["G-1", "stub-1"]
+
+
+# The table's accessible name (title) and description (subtitle) ------------------------------
+
+
+def _table_aria(html_str: str) -> dict[str, str]:
+    import re
+
+    table_tag = re.search(r"<table\b[^>]*>", html_str).group(0)
+    return dict(re.findall(r'(aria-labelledby|aria-describedby)="([^"]*)"', table_tag))
+
+
+def _heading_ids(html_str: str) -> dict[str, str]:
+    import re
+
+    return {
+        kind: id_
+        for kind, id_ in re.findall(r'<td\b[^>]*gt_(title|subtitle)\b[^>]*\bid="([^"]*)"', html_str)
+    }
+
+
+def test_table_named_by_title_and_described_by_subtitle():
+    html_str = GT(pl.DataFrame({"x": [1]})).tab_header("Title", "Subtitle").as_raw_html()
+
+    assert _heading_ids(html_str) == {"title": "title", "subtitle": "subtitle"}
+    assert _table_aria(html_str) == {"aria-labelledby": "title", "aria-describedby": "subtitle"}
+
+
+def test_table_title_id_avoids_column_ids():
+    # A column named `title` keeps its id; the title cell's id gets a suffix
+    gt = GT(pl.DataFrame({"title": [1]}), id="t 1").tab_header(md("**Title**"))
+    html_str = gt.as_raw_html()
+
+    assert _heading_ids(html_str) == {"title": "t-1-title-2"}
+    assert _table_aria(html_str) == {"aria-labelledby": "t-1-title-2"}
+    assert 'id="t-1-title"' in html_str
+
+
+def test_table_without_title_has_no_name():
+    assert _table_aria(GT(pl.DataFrame({"x": [1]})).as_raw_html()) == {}
+
+
+def test_table_named_by_title_with_column_labels_hidden():
+    gt = GT(pl.DataFrame({"x": [1]})).tab_header("Title").tab_options(column_labels_hidden=True)
+    assert _table_aria(gt.as_raw_html()) == {"aria-labelledby": "title"}

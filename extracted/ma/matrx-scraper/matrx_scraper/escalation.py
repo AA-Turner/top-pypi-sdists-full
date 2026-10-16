@@ -38,6 +38,10 @@ ESCALATABLE_REASONS: frozenset[str] = frozenset(
     {
         # The site's edge refused our HTTP client (403/429/999/bot-wall status).
         "bad_status",
+        # The server answered 401/403 with its own "blocked" class. The trail
+        # lists a browser step for it, so it MUST be able to run (2026-10-15
+        # audit: omitted here, every 403 wall skipped the browser).
+        "blocked",
         # A WAF interstitial — a real browser runs the challenge script.
         "cloudflare_block",
         # HTML arrived but the text is a JS shell (Airbnb, Reddit, Best Buy,
@@ -97,6 +101,10 @@ def escalation_sentence(reason: str) -> str:
     """One plain-English line a non-technical person can read on a screen."""
     return {
         "bad_status": (
+            "The site refused our normal request, so we opened the page in our "
+            "server browser instead."
+        ),
+        "blocked": (
             "The site refused our normal request, so we opened the page in our "
             "server browser instead."
         ),

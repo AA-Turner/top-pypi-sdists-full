@@ -9,4 +9,8 @@ class CompleteTrajectoryResponse(BaseModel):
   trajectory_id: str
 
   status: str
-  """Terminal trajectory status after completion."""
+  """
+    Trajectory status after completion was accepted: `completed` once its capture is
+    readable, or `finalizing` while the capture is still being built. Finalization continues
+    durably; poll the trajectory until its status is `completed`.
+    """

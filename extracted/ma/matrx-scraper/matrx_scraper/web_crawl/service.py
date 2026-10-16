@@ -9,13 +9,14 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from matrx_utils import utcnow
+from matrx_utils import detached_task, utcnow
 from urllib.parse import urlparse
 
 from matrx_connect import AppContext, Emitter, RequestControlRegistry, system_app_context
 from matrx_orm import IntegrityError
 
 from matrx_scraper._ext import get_ext, has_ext
+from matrx_scraper.cpu_lane import LANE_BULK, LANE_INTERACTIVE
 from matrx_scraper.parser.knobs import KnobScope
 from matrx_scraper.crawler import (
     RENDER_BROWSER_ALWAYS,
@@ -151,6 +152,26 @@ RESUME_MAX_ATTEMPTS = 3
 # ceiling bounds total lives regardless.
 RESUME_HARD_CAP = 100
 CRASH_RESUME_LOOKBACK = timedelta(hours=24)
+
+# Resumed runs this process holds, by session id — the sweep's concurrency cap
+# counts these, and shutdown stops them (stop_crash_resumed_runs).
+_CRASH_RESUMED_RUNS: dict[str, asyncio.Task] = {}
+
+
+def _forget_finished_resumed_runs() -> None:
+    for session_id in [sid for sid, task in _CRASH_RESUMED_RUNS.items() if task.done()]:
+        _CRASH_RESUMED_RUNS.pop(session_id, None)
+
+
+async def stop_crash_resumed_runs() -> None:
+    """Shutdown: cancel every resumed run this process holds and wait for each
+    to write its WORKER_STOPPED terminal mark, so the next process resumes it."""
+    tasks = list(_CRASH_RESUMED_RUNS.values())
+    for task in tasks:
+        task.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+    _CRASH_RESUMED_RUNS.clear()
 
 # Only runs with a durable frontier are resumable (short single-page runs
 # deliberately skip it — see _resolve_durable_queue).
@@ -729,26 +750,41 @@ class WebCrawlService:
         limit: int = 5,
         lookback: timedelta = CRASH_RESUME_LOOKBACK,
     ) -> int:
-        """Boot-time crash recovery: continue recently-reaped sessions from
-        their durable frontiers, SEQUENTIALLY (a restart must never stampede N
-        concurrent crawls). Each session runs under its own creator's identity
+        """Crash recovery: continue recently-reaped sessions from their durable
+        frontiers. Each resumed run is DETACHED, so one sweep restarts every
+        crawl a restart killed — `limit` caps how many resumed runs this process
+        holds at once (a restart must never stampede); a later sweep fills slots
+        as resumed runs finish. Each runs under its own creator's identity
         (`system_app_context`) with a console emitter — headless, no client.
         Non-resumable candidates (cancelled, finished, attempt-capped, short
         runs) are skipped quietly; real failures are loud and move on.
+
+        Returns how many runs this sweep started.
+
+        Never await a resumed run here: until 2026-10-15 the sweep did, so after
+        a restart exactly ONE killed crawl resumed and the rest waited for it to
+        finish — past the next release, which killed it again (MKT-156). Pinned
+        by `tests/test_crash_resume_after_restart.py`.
         """
         # Only the deployment that last held a session's run lease continues it;
         # an unnamed process resumes nothing (persistence.set_run_deployment).
         deployment = run_deployment()
         if deployment is None:
             return 0
+        _forget_finished_resumed_runs()
+        capacity = limit - len(_CRASH_RESUMED_RUNS)
+        if capacity <= 0:
+            return 0
         candidates = await WebCrawlRepository.list_crash_resumable_sessions(
-            lookback=lookback, limit=max(limit * 3, limit), deployment=deployment
+            lookback=lookback, limit=capacity * 3, deployment=deployment
         )
-        resumed = 0
+        started = 0
         for session in candidates:
-            if resumed >= limit:
+            if started >= capacity:
                 break
             session_id = str(session.id)
+            if session_id in _CRASH_RESUMED_RUNS:
+                continue
             try:
                 async with system_app_context(
                     "web_crawl_crash_resume",
@@ -756,31 +792,52 @@ class WebCrawlService:
                     organization_id=str(session.organization_id),
                 ) as ctx:
                     prepared = await self.prepare_resume(ctx, session_id)
-                    resumed += 1
-                    logger.warning(
-                        "crash-resume: continuing crawl session %s (site %s)",
-                        session_id,
-                        prepared.site_id,
-                    )
-                    await self.run_prepared(ctx.emitter, prepared)
             except asyncio.CancelledError:
                 raise
             except ValueError as exc:
                 logger.info("crash-resume: session %s not resumable: %s", session_id, exc)
+                continue
             except RuntimeError as exc:
                 if "already active" not in str(exc):
                     logger.exception("crash-resume failed for crawl session %s", session_id)
                     continue
                 # Another container's sweep (or a user's resume) won the lease
-                # — exactly what the lease is for, not an error. `resumed` is
-                # only incremented after a successful prepare, so this session
-                # correctly never counted against the sweep's budget.
+                # — exactly what the lease is for, not an error.
                 logger.info(
                     "crash-resume: session %s claimed by another process: %s", session_id, exc
                 )
+                continue
             except Exception:
                 logger.exception("crash-resume failed for crawl session %s", session_id)
-        return resumed
+                continue
+            started += 1
+            logger.warning(
+                "crash-resume: continuing crawl session %s (site %s)",
+                session_id,
+                prepared.site_id,
+            )
+            _CRASH_RESUMED_RUNS[session_id] = detached_task(
+                self._run_crash_resumed(session, prepared),
+                name=f"crash-resume-{session_id[:8]}",
+            )
+        return started
+
+    async def _run_crash_resumed(self, session: object, prepared: PreparedCrawl) -> None:
+        """One resumed run, detached: it starts with EMPTY contextvars, so it
+        establishes its own context as the session's creator. Failure is the
+        session's own terminal state (`run_prepared` writes it)."""
+        session_id = str(getattr(session, "id", ""))
+        try:
+            async with system_app_context(
+                "web_crawl_crash_resume",
+                user_id=str(getattr(session, "created_by", "")),
+                organization_id=str(getattr(session, "organization_id", "")),
+            ) as ctx:
+                await self.run_prepared(ctx.emitter, prepared)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 — a detached run must never take the loop down
+            logger.exception("crash-resumed crawl session %s failed", session_id)
 
     async def prepare_bootstrap(self, ctx: AppContext, site_id: str) -> PreparedCrawl:
         request = CrawlStartRequest(
@@ -1943,6 +2000,7 @@ class WebCrawlService:
                 screenshot_scope=request.screenshot_scope,
                 screenshot_urls=list(request.screenshot_urls),
                 browser_navigation_timeout_ms=8_000 if short_homepage_run else 45_000,
+                lane=LANE_INTERACTIVE if short_homepage_run else LANE_BULK,
                 browser_settle_timeout_ms=2_500 if short_homepage_run else 5_000,
                 seed_urls=request.seed_urls,
                 list_mode=request.list_mode,
@@ -2147,6 +2205,7 @@ class WebCrawlService:
             prepared.state,
             prepared.broker,
             emitter,
+            hold_completion=True,
         )
         body_persister: CanonicalBodyPersister | None = None
         cancel_watcher: asyncio.Task[None] | None = None
@@ -2600,6 +2659,11 @@ class WebCrawlService:
                     status="failed",
                     message=f"Site summary update failed: {type(exc).__name__}: {exc}",
                 )
+            # The session ends WITH the command: the homepage crawl's held
+            # terminal event lands only now, after every step. A failed
+            # homepage already marked the session failed (nothing to release).
+            if capture_ok:
+                await sink.release_held_completion()
             await emitter.send_end()
         except asyncio.CancelledError:
             try:

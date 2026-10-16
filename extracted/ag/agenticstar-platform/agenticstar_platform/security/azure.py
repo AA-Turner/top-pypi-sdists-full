@@ -193,6 +193,22 @@ def _utf8_safe_windows(
     return windows, clipped
 
 
+#: 3.2 R32-064: 受け取った言語を Azure AI Language の言語コードに写す (zh-Hans → zh-hans、zh-Hant → zh-hant など)。
+#: ここに無い値はそのまま送る (既定の "ja" を含め、呼び手の値を変えない)
+_AZURE_PII_LANGUAGE_CODES = {
+    "zh-hans": "zh-hans", "zh-cn": "zh-hans", "zh-sg": "zh-hans",
+    "zh-hant": "zh-hant", "zh-tw": "zh-hant", "zh-hk": "zh-hant", "zh-mo": "zh-hant",
+    "pt-br": "pt-BR",
+}
+
+
+def _azure_pii_language(language: Any) -> Any:
+    """製品の言語コード (zh-Hant 等) を Azure の言語コードに写す。写す表に無い値・文字列でない値はそのまま。"""
+    if not isinstance(language, str):
+        return language
+    return _AZURE_PII_LANGUAGE_CODES.get(language.strip().replace("_", "-").lower(), language)
+
+
 # Azure Language Service PII Categories (全189種)
 AZURE_PII_CATEGORIES = [
     "ABARoutingNumber", "ARNationalIdentityNumber", "AUBankAccountNumber",
@@ -720,6 +736,7 @@ class AzureSecurityClient(SecurityClientBase):
         if not self._azure_config.pii_enabled:
             return [PIIDetectionResult(success=True, masked_text=t) for t in texts]
 
+        azure_language = _azure_pii_language(language)  # 3.2 R32-064: zh-Hant → zh-hant など
         results: List[Optional[PIIDetectionResult]] = [None] * len(texts)
         failures: Dict[int, Tuple[str, str]] = {}  # text_idx -> (error, error_code)
         entities_by_text: Dict[int, List[PIIEntity]] = {}
@@ -761,7 +778,7 @@ class AzureSecurityClient(SecurityClientBase):
                     },
                     "analysisInput": {
                         "documents": [
-                            {"id": f"{ti}:{win_start}", "language": language, "text": window_text}
+                            {"id": f"{ti}:{win_start}", "language": azure_language, "text": window_text}
                             for ti, win_start, window_text in chunk
                         ]
                     },

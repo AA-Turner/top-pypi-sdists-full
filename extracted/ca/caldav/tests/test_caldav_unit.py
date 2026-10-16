@@ -25,11 +25,20 @@ from caldav import (
     Principal,
     Todo,
 )
+from caldav.collection import SynchronizableCalendarObjectCollection
 from caldav.davclient import DAVClient, DAVResponse
 from caldav.elements import cdav, dav
 from caldav.lib import error
 from caldav.lib.python_utilities import to_normal_str, to_wire
 from caldav.lib.url import URL
+
+from .public_share_fixtures import (
+    GMX_LIKE_PRINCIPAL_DEPTH1_XML,
+    PUBLIC_SHARE_PRINCIPAL_DEPTH1_XML,
+    PUBLIC_SHARE_PRINCIPAL_URL,
+    PUBLIC_SHARE_URL,
+    public_share_propfind_xml,
+)
 
 ## Note on the imports - those two lines are equivalent:
 # from caldav.objects import foo
@@ -357,6 +366,23 @@ class GetRefusedDAVClient(DAVClient):
         return MockedDAVResponse(self.report_xml)
 
 
+class PublicShareDAVClient(DAVClient):
+    """
+    For unit testing - a mocked DAVClient pointed at a public calendar share,
+    recording the PROPFIND requests it receives.
+    """
+
+    def __init__(self, principal_depth1_xml=PUBLIC_SHARE_PRINCIPAL_DEPTH1_XML):
+        self.principal_depth1_xml = principal_depth1_xml
+        self.requests = []
+        DAVClient.__init__(self, url=PUBLIC_SHARE_URL)
+
+    def request(self, url, method="GET", body="", headers=None):
+        depth = headers["Depth"]
+        self.requests.append((str(url), depth))
+        return MockedDAVResponse(public_share_propfind_xml(url, depth, self.principal_depth1_xml))
+
+
 class TestCalDAV:
     """
     Test class for "pure" unit tests (small internal tests, testing that
@@ -406,6 +432,41 @@ class TestCalDAV:
             end=datetime(2025, 6, 5),
         )
         assert len(mytasks) == 9
+
+    def testSearchUnrequestedEtag(self):
+        """GMX includes getetag in a REPORT reply that asked only for
+        calendar-data; it must be cached as text, not as an XML element"""
+        xml = """<D:multistatus xmlns:D="DAV:"><D:response>
+<D:href>/calendar/test1.ics</D:href><D:propstat><D:prop>
+<D:getetag>"z+n+T2Fun"</D:getetag>
+<C:calendar-data xmlns:C="urn:ietf:params:xml:ns:caldav">BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//python-caldav//caldav//en_DK
+BEGIN:VEVENT
+SUMMARY:daily test
+DTSTART:20261013T060706Z
+DTEND:20261013T070706Z
+DTSTAMP:20261011T154549Z
+UID:test1
+END:VEVENT
+END:VCALENDAR
+</C:calendar-data></D:prop><D:status>HTTP/1.1 200 OK</D:status>
+</D:propstat></D:response></D:multistatus>"""
+        client = MockedDAVClient(xml)
+        calendar = Calendar(client, url="/calendar/")
+        (event,) = calendar.search(event=True)
+        assert event.etag == '"z+n+T2Fun"'
+        assert event._precondition_headers() == {"if-match": '"z+n+T2Fun"'}
+
+        client = MockedDAVClient(
+            xml.replace(
+                "<D:prop>",
+                '<D:prop><C:schedule-tag xmlns:C="urn:ietf:params:xml:ns:caldav">"s1"</C:schedule-tag>',
+            )
+        )
+        (event,) = Calendar(client, url="/calendar/").search(event=True)
+        assert event.schedule_tag == '"s1"'
+        assert event._precondition_headers() == {"if-schedule-tag-match": '"s1"'}
 
     def testSearcherReuseConsistency_Issue650(self):
         """
@@ -503,6 +564,45 @@ END:VCALENDAR
     <D:status>HTTP/1.1 403 Forbidden</D:status>
   </D:response>
 </D:multistatus>"""
+
+    MULTIGET_ETAG = MULTIGET_FOUND.replace("<D:prop>", '<D:prop><D:getetag>"tag-1"</D:getetag>')
+
+    def testMultigetRequestsEtag(self):
+        """The calendar-multiget asks for getetag, so save() after a batch load can send If-Match."""
+        root = Calendar(MockedDAVClient(""), url="/calendar/robur/")._build_multiget_root(
+            [URL("/calendar/robur/found.ics")]
+        )
+        assert "getetag" in str(root)
+        assert "schedule-tag" in str(root)
+
+    def testMultigetCachesEtag(self):
+        calendar = Calendar(MockedDAVClient(self.MULTIGET_ETAG), url="/calendar/robur/")
+        (event,) = calendar.multiget([URL("/calendar/robur/found.ics")])
+        assert event.etag == '"tag-1"'
+
+        event = Event(url="/calendar/robur/found.ics", parent=calendar)
+        event.load_by_multiget()
+        assert event.etag == '"tag-1"'
+
+        event = Event(client=calendar.client, url=calendar.url.join("found.ics"), parent=calendar)
+        calendar._batch_load_objects([event])
+        assert event.etag == '"tag-1"'
+
+    def testMultigetCachesScheduleTag(self):
+        """With a Schedule-Tag at hand, save() sends If-Schedule-Tag-Match
+        (RFC 6638 section 3.2), so an attendee reply that only changed the
+        ETag does not make the update fail."""
+        xml = self.MULTIGET_ETAG.replace(
+            "<D:prop>", '<D:prop><C:schedule-tag>"stag-1"</C:schedule-tag>'
+        )
+        calendar = Calendar(MockedDAVClient(xml), url="/calendar/robur/")
+        (event,) = calendar.multiget([URL("/calendar/robur/found.ics")])
+        assert event.schedule_tag == '"stag-1"'
+        assert event._precondition_headers() == {"if-schedule-tag-match": '"stag-1"'}
+
+        event = Event(client=calendar.client, url=calendar.url.join("found.ics"), parent=calendar)
+        calendar._batch_load_objects([event])
+        assert event.schedule_tag == '"stag-1"'
 
     def _robur_object(self, report_xml, path):
         client = GetRefusedDAVClient(report_xml)
@@ -874,10 +974,12 @@ END:VCALENDAR
 """
         client = MockedDAVClient(xml)
         calendar = Calendar(client, url="/principals/calendar/home@petroski.example.com/963/")
-        ## expand=False does no client-side time-range filtering, so all three
-        ## server-returned hrefs are returned regardless of the search window.
+        ## The results are filtered client-side, so search for tasks (the data
+        ## is todo6) in a window covering an occurrence of the yearly todo6.
         with pytest.deprecated_call():
-            results = calendar.date_search(datetime(2021, 2, 1), datetime(2021, 2, 7), expand=False)
+            results = calendar.date_search(
+                datetime(2021, 5, 1), datetime(2021, 5, 7), compfilter="VTODO", expand=False
+            )
             assert len(results) == 3
 
     def testCalendar(self):
@@ -1016,6 +1118,52 @@ END:VCALENDAR
         client = MockedDAVClient(xml)
         calendar_home_set = CalendarSet(client, url="/dav/tobias%40redpill-linpro.com/")
         assert len(calendar_home_set.get_calendars()) == 1
+
+    def test_get_calendars_client_url_is_calendar_without_home_set(self):
+        """
+        No calendar-home-set and no calendars below the principal: the
+        calendar at the client URL is returned (Nextcloud public share).
+        """
+        client = PublicShareDAVClient()
+        principal = Principal(client=client, url=PUBLIC_SHARE_PRINCIPAL_URL)
+        calendars = client.get_calendars(principal)
+        assert [str(c.url) for c in calendars] == [PUBLIC_SHARE_URL + "/"]
+
+    def test_get_calendars_without_home_set_prefers_principal(self):
+        """
+        A synthetic no-home response has calendars below the principal: those
+        are returned and the client URL is not queried.
+        """
+        client = PublicShareDAVClient(principal_depth1_xml=GMX_LIKE_PRINCIPAL_DEPTH1_XML)
+        principal = Principal(client=client, url=PUBLIC_SHARE_PRINCIPAL_URL)
+        calendars = client.get_calendars(principal)
+        assert [str(c.url) for c in calendars] == [PUBLIC_SHARE_PRINCIPAL_URL + "work/"]
+        assert all(PUBLIC_SHARE_URL not in url for url, _ in client.requests)
+
+    def test_missing_home_set_uses_principal_without_discovery_for_lookup_and_creation(self):
+        """A missing home is the principal itself when discovery cannot use depth 1."""
+        client = DAVClient(url="https://cal.example.com/dav/")
+        principal = Principal(client=client, url="https://cal.example.com/dav/principals/user/")
+        original_client_url = str(client.url)
+
+        with (
+            mock.patch.object(principal, "get_property", return_value=None) as get_property,
+            mock.patch.object(
+                principal,
+                "get_calendars",
+                side_effect=AssertionError("missing-home access must not discover calendars"),
+            ) as get_calendars,
+            mock.patch.object(Calendar, "_create", autospec=True),
+        ):
+            looked_up = principal.calendar(cal_id="work")
+            created = principal.make_calendar(cal_id="new")
+
+        assert str(looked_up.url) == str(principal.url) + "work/"
+        assert str(created.parent.url) == str(principal.url)
+        assert principal._calendar_home_set is not None
+        get_property.assert_called_once()
+        get_calendars.assert_not_called()
+        assert str(client.url) == original_client_url
 
     def test_xml_parsing(self):
         """
@@ -2033,6 +2181,112 @@ END:VCALENDAR"""
         # 10) pickle
         assert pickle.loads(pickle.dumps(url1)) == url1
 
+    def testURLJoinHostAlias(self):
+        """An href on an aliased host is joined by path onto self's host,
+        ref https://github.com/python-caldav/caldav/issues/730"""
+        base = URL("https://p49-caldav.example.com:443/123/calendars/").with_host_alias(
+            "caldav.example.com"
+        )
+        joined = base.join("https://caldav.example.com/123/calendars/cal/event.ics")
+        assert str(joined) == "https://p49-caldav.example.com:443/123/calendars/cal/event.ics"
+        ## The alias travels with every URL derived from the base
+        cal = base.join("cal/")
+        assert cal.join("https://caldav.example.com/123/calendars/cal/x.ics") == URL(
+            "https://p49-caldav.example.com:443/123/calendars/cal/x.ics"
+        )
+        assert pickle.loads(pickle.dumps(cal)).host_aliases == cal.host_aliases
+        ## Any other host, or a scheme change, still refuses to join
+        with pytest.raises(ValueError):
+            base.join("https://evil.example.org/123/calendars/cal/event.ics")
+        with pytest.raises(ValueError):
+            base.join("http://caldav.example.com/123/calendars/cal/event.ics")
+        ## Without the alias, nothing changes
+        with pytest.raises(ValueError):
+            URL("https://p49-caldav.example.com/").join("https://caldav.example.com/x.ics")
+        ## Moving back to the original host must not make it an alias of
+        ## itself - that would bypass the port check
+        back = base.relocate("https://caldav.example.com:443/123/calendars/")
+        assert back.host_aliases == {"p49-caldav.example.com"}
+        with pytest.raises(ValueError):
+            back.join("https://caldav.example.com:8443/123/calendars/x.ics")
+        ## A URL pickled before host_aliases existed still works
+        old = URL("https://caldav.example.com/123/")
+        del old.__dict__["host_aliases"]
+        old = pickle.loads(pickle.dumps(old))
+        assert str(old.join("cal/")) == "https://caldav.example.com/123/cal/"
+
+    def testCalendarHomeSetOnOtherHost(self):
+        """iCloud puts calendar-home-set on a partition host, but may still
+        return hrefs on the host the client was configured with, ref
+        https://github.com/python-caldav/caldav/issues/730"""
+        client = DAVClient(url="https://caldav.example.com/")
+        client.url = client.url.with_alias_at(False)
+        principal = Principal(client=client, url="https://caldav.example.com/123/principal/")
+        ## A calendar built before the root moved, as client.get_calendars()
+        ## did - responses carry paths only, so it lands on the generic host
+        early_calendar = Calendar(client, url="/123/calendars/cal/")
+        principal.calendar_home_set = "https://p49-caldav.example.com:443/123/calendars/"
+        assert client.url.hostname == "p49-caldav.example.com"
+        ## The rewritten root keeps the client's settings
+        assert client.url.alias_at is False
+        event = Event(client, url="https://caldav.example.com/123/calendars/cal/event.ics")
+        assert str(event.url) == "https://p49-caldav.example.com:443/123/calendars/cal/event.ics"
+        calendar = Calendar(client, url="https://caldav.example.com/123/calendars/cal/")
+        assert calendar.url.hostname == "p49-caldav.example.com"
+
+        ## The traceback in issue 730: a search on the early calendar.  The
+        ## hrefs are reduced to paths when parsed, and joined onto the
+        ## calendar URL - which is on the generic host.
+        client.request = lambda *a, **kw: MockedDAVResponse(
+            """<multistatus xmlns="DAV:">
+  <response>
+    <href>https://caldav.example.com/123/calendars/cal/event.ics</href>
+    <propstat>
+      <prop><calendar-data xmlns="urn:ietf:params:xml:ns:caldav">%s</calendar-data></prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"""
+            % ev1
+        )
+        _, objects = early_calendar._request_report_build_resultlist("<report/>")
+        assert [str(o.url) for o in objects] == [
+            "https://p49-caldav.example.com:443/123/calendars/cal/event.ics"
+        ]
+
+    def testGetCalendarsOnOtherHost(self):
+        """client.get_calendars() takes the calendar-home-set without the
+        Principal setter, and must relocate the client root the same way,
+        ref https://github.com/python-caldav/caldav/issues/730"""
+        home_set = """<multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <response>
+    <href>/123/principal/</href>
+    <propstat>
+      <prop><C:calendar-home-set><href>https://p49-caldav.example.com:443/123/calendars/</href></C:calendar-home-set></prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"""
+        calendar_list = """<multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <response>
+    <href>https://p49-caldav.example.com:443/123/calendars/cal/</href>
+    <propstat>
+      <prop><resourcetype><collection/><C:calendar/></resourcetype><displayname>cal</displayname></prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>"""
+        client = DAVClient(url="https://caldav.example.com/")
+        responses = iter([home_set, calendar_list])
+        client.request = lambda *a, **kw: MockedDAVResponse(next(responses))
+        principal = Principal(client=client, url="https://caldav.example.com/123/principal/")
+        calendars = client.get_calendars(principal)
+        assert [str(c.url) for c in calendars] == [
+            "https://p49-caldav.example.com:443/123/calendars/cal/"
+        ]
+        assert client.url.hostname == "p49-caldav.example.com"
+        assert "caldav.example.com" in client.url.host_aliases
+
     def testFilters(self):
         filter = cdav.Filter().append(
             cdav.CompFilter("VCALENDAR").append(
@@ -2389,7 +2643,9 @@ END:VCALENDAR"""
         """save(only_this_recurrence=None) calls _create() rather than raising when master absent."""
         event, _ = self._make_orphan_event()
         created = []
-        event._create = lambda id=None, path=None, retry_on_failure=True: created.append(True)
+        event._create = lambda id=None, path=None, retry_on_failure=True, precondition="auto": (
+            created.append(True)
+        )
         event.save(only_this_recurrence=None)
         assert created, "_create() must be called (PUT as-is) when master not found"
 
@@ -2397,7 +2653,9 @@ END:VCALENDAR"""
         """save(only_this_recurrence=False) skips the master lookup entirely and PUTs directly."""
         event, mock_calendar = self._make_orphan_event()
         created = []
-        event._create = lambda id=None, path=None, retry_on_failure=True: created.append(True)
+        event._create = lambda id=None, path=None, retry_on_failure=True, precondition="auto": (
+            created.append(True)
+        )
         event.save(only_this_recurrence=False)
         mock_calendar.get_event_by_uid.assert_not_called()
         assert created, "_create() must be called when only_this_recurrence=False"
@@ -2410,8 +2668,10 @@ END:VCALENDAR"""
 
         created = []
         original_create = CalendarObjectResource._create
-        CalendarObjectResource._create = lambda self_, id=None, path=None, retry_on_failure=True: (
-            created.append(True)
+        CalendarObjectResource._create = (
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+                created.append(True)
+            )
         )
         try:
             calendar.add_object(Event, self._orphan_ical)
@@ -2438,7 +2698,9 @@ END:VCALENDAR"""
         with mock.patch.object(
             CalendarObjectResource,
             "_create",
-            lambda self_, id=None, path=None, retry_on_failure=True: created.append(self_),
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+                created.append(self_)
+            ),
         ):
             event.save()
         assert len(created) == 1
@@ -2467,7 +2729,9 @@ END:VCALENDAR"""
         )
         created = []
 
-        async def fake_create(self_, id=None, path=None, retry_on_failure=True):
+        async def fake_create(
+            self_, id=None, path=None, retry_on_failure=True, precondition="auto"
+        ):
             created.append(self_)
 
         with mock.patch.object(CalendarObjectResource, "_create", fake_create):
@@ -2772,6 +3036,70 @@ END:VCALENDAR"""
         result.close()
 
 
+class TestCompleteRruleMode:
+    """complete(handle_rrule=True) accepts both spellings of the
+    thisandfuture rrule_mode, for sync and async clients alike.
+    https://github.com/python-caldav/caldav/issues/735"""
+
+    recurring_todo = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+UID:rrule-mode-test@example.com
+DTSTAMP:20260101T000000Z
+DTSTART:20260101T090000Z
+DUE:20260101T100000Z
+RRULE:FREQ=WEEKLY;COUNT=5
+SUMMARY:Weekly chore
+STATUS:NEEDS-ACTION
+END:VTODO
+END:VCALENDAR"""
+
+    def _todo(self, client):
+        return Todo(
+            client=client,
+            url="/calendar/todo1.ics",
+            data=self.recurring_todo,
+            parent=Calendar(client, url="/calendar/"),
+        )
+
+    def _assert_thisandfuture(self, todo):
+        ranges = [
+            c["RECURRENCE-ID"].params.get("RANGE")
+            for c in todo.icalendar_instance.walk("VTODO")
+            if "RECURRENCE-ID" in c
+        ]
+        assert "THISANDFUTURE" in ranges
+
+    @pytest.mark.parametrize("mode", ["this_and_future", "thisandfuture"])
+    def test_thisandfuture_sync(self, mode):
+        todo = self._todo(MockedDAVClient(""))
+        saves = []
+        todo.save = lambda **kwargs: saves.append(kwargs)
+        todo.complete(handle_rrule=True, rrule_mode=mode)
+        assert saves == [{"increase_seqno": False}]
+        self._assert_thisandfuture(todo)
+
+    @pytest.mark.parametrize("mode", ["this_and_future", "thisandfuture"])
+    def test_thisandfuture_async(self, mode):
+        import asyncio
+
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = MockedDAVClient("")
+        client.__class__ = type("MockedAsyncDAVClient", (MockedDAVClient, AsyncDAVClient), {})
+        todo = self._todo(client)
+        saves = []
+
+        async def fake_save(**kwargs):
+            saves.append(kwargs)
+
+        todo.save = fake_save
+        asyncio.run(todo.complete(handle_rrule=True, rrule_mode=mode))
+        assert saves == [{"increase_seqno": False}]
+        self._assert_thisandfuture(todo)
+
+
 class TestReverseRelationSaves:
     """add_object() fixes up reverse relations.  It should PUT only the objects
     that actually change - not a related object that already points back, and
@@ -2835,6 +3163,286 @@ class TestReverseRelationSaves:
         with mock.patch.object(Todo, "save", save):
             asyncio.run(child._handle_reverse_relations(fix=True))
         assert saved == ([] if parent_has_reverse else ["parent"])
+
+
+class TestSequenceOnSave:
+    """SEQUENCE handling on the save paths, see
+    https://github.com/python-caldav/caldav/issues/739
+
+    save() bumps SEQUENCE by default; every public path that ends up in
+    save() must honour ``increase_seqno``, and paths that are not an
+    organizer revision must not bump it."""
+
+    _ical = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//test//EN\nBEGIN:VEVENT\n"
+        "UID:seq-test@example.com\nDTSTAMP:20260101T000000Z\n"
+        "DTSTART:20260601T100000Z\nDURATION:PT1H\nSEQUENCE:3\nSUMMARY:seq\n"
+        "END:VEVENT\nEND:VCALENDAR\n"
+    )
+
+    _recurring = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//test//EN\nBEGIN:VEVENT\n"
+        "UID:seq-rec@example.com\nDTSTAMP:20260101T000000Z\n"
+        "DTSTART:20260601T100000Z\nDURATION:PT1H\nRRULE:FREQ=DAILY;COUNT=5\n"
+        "SEQUENCE:2\nSUMMARY:master\nEND:VEVENT\nEND:VCALENDAR\n"
+    )
+
+    _override = (
+        "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//test//EN\nBEGIN:VEVENT\n"
+        "UID:seq-rec@example.com\nDTSTAMP:20260101T000000Z\n"
+        "RECURRENCE-ID:20260602T100000Z\n"
+        "DTSTART:20260602T120000Z\nDURATION:PT1H\n"
+        "SEQUENCE:2\nSUMMARY:moved\nEND:VEVENT\nEND:VCALENDAR\n"
+    )
+
+    @staticmethod
+    def _async_client():
+        from caldav.async_davclient import AsyncDAVClient
+
+        client = MockedDAVClient("")
+        client.__class__ = type("MockedAsyncDAVClient", (MockedDAVClient, AsyncDAVClient), {})
+        return client
+
+    @staticmethod
+    def _sequences(obj):
+        return [
+            int(c["SEQUENCE"])
+            for c in obj.icalendar_instance.subcomponents
+            if not isinstance(c, icalendar.Timezone)
+        ]
+
+    @staticmethod
+    def _put_sync(func):
+        put = []
+        with mock.patch.object(
+            CalendarObjectResource,
+            "_create",
+            lambda self_, id=None, path=None, retry_on_failure=True, precondition="auto": (
+                put.append(self_)
+            ),
+        ):
+            func()
+        assert len(put) == 1
+        return put[0]
+
+    @staticmethod
+    def _put_async(coro_func):
+        import asyncio
+
+        put = []
+
+        async def fake_create(
+            self_, id=None, path=None, retry_on_failure=True, precondition="auto"
+        ):
+            put.append(self_)
+
+        with mock.patch.object(CalendarObjectResource, "_create", fake_create):
+            asyncio.run(coro_func())
+        assert len(put) == 1
+        return put[0]
+
+    def _event(self, client):
+        return Event(
+            client,
+            url="/calendar/x.ics",
+            data=self._ical,
+            parent=Calendar(client, url="/calendar/"),
+        )
+
+    def test_save_default_bumps(self):
+        event = self._event(MockedDAVClient(""))
+        assert self._sequences(self._put_sync(event.save)) == [4]
+
+    def test_save_increase_seqno_false(self):
+        event = self._event(MockedDAVClient(""))
+        put = self._put_sync(lambda: event.save(increase_seqno=False))
+        assert self._sequences(put) == [3]
+
+    @pytest.mark.parametrize("method", ["add_event", "save_event", "add_object", "save_object"])
+    def test_add_object_passes_increase_seqno(self, method):
+        client = MockedDAVClient("")
+        calendar = Calendar(client, url="/calendar/")
+        largs = (Event,) if method.endswith("object") else ()
+        put = self._put_sync(
+            lambda: getattr(calendar, method)(*largs, self._ical, increase_seqno=False)
+        )
+        assert self._sequences(put) == [3]
+        assert "SEQNO" not in put.data.upper()
+
+    def test_add_event_default_bumps(self):
+        ## Documents the (unchanged) default
+        client = MockedDAVClient("")
+        calendar = Calendar(client, url="/calendar/")
+        put = self._put_sync(lambda: calendar.add_event(self._ical))
+        assert self._sequences(put) == [4]
+
+    def test_add_event_passes_increase_seqno_async(self):
+        client = self._async_client()
+        calendar = Calendar(client, url="/calendar/")
+        put = self._put_async(lambda: calendar.add_event(self._ical, increase_seqno=False))
+        assert self._sequences(put) == [3]
+        assert "SEQNO" not in put.data.upper()
+
+    def test_save_with_invites_passes_increase_seqno(self):
+        client = MockedDAVClient("")
+        calendar = Calendar(client, url="/calendar/")
+        with mock.patch.object(CalendarObjectResource, "add_organizer"):
+            put = self._put_sync(
+                lambda: calendar.save_with_invites(self._ical, [], increase_seqno=False)
+            )
+        assert self._sequences(put) == [3]
+
+    def test_save_with_invites_passes_increase_seqno_async(self):
+        client = self._async_client()
+        calendar = Calendar(client, url="/calendar/")
+
+        async def add_organizer(self_):
+            pass
+
+        with mock.patch.object(CalendarObjectResource, "add_organizer", add_organizer):
+            put = self._put_async(
+                lambda: calendar.save_with_invites(self._ical, [], increase_seqno=False)
+            )
+        assert self._sequences(put) == [3]
+
+    def _override_setup(self, client, calendar):
+        master = Event(client, url="/calendar/rec.ics", data=self._recurring, parent=calendar)
+        override = Event(client, url="/calendar/rec.ics", data=self._override, parent=calendar)
+        return master, override
+
+    @pytest.mark.parametrize("increase_seqno", [True, False])
+    def test_save_recurrence_bumps_the_override_not_the_master(self, increase_seqno):
+        client = MockedDAVClient("")
+        calendar = Calendar(client, url="/calendar/")
+        master, override = self._override_setup(client, calendar)
+        calendar.get_event_by_uid = lambda uid: master
+        put = self._put_sync(lambda: override.save(increase_seqno=increase_seqno))
+        assert self._sequences(put) == [2, 3 if increase_seqno else 2]
+
+    @pytest.mark.parametrize("increase_seqno", [True, False])
+    def test_save_recurrence_bumps_the_override_not_the_master_async(self, increase_seqno):
+        client = self._async_client()
+        calendar = Calendar(client, url="/calendar/")
+        master, override = self._override_setup(client, calendar)
+
+        async def get_event_by_uid(uid):
+            return master
+
+        calendar.get_event_by_uid = get_event_by_uid
+        put = self._put_async(lambda: override.save(increase_seqno=increase_seqno))
+        assert self._sequences(put) == [2, 3 if increase_seqno else 2]
+
+    @pytest.mark.parametrize("increase_seqno", [True, False])
+    def test_save_recurrence_override_without_sequence(self, increase_seqno):
+        ## An override without SEQUENCE under a master that has one gets
+        ## the master's SEQUENCE + 1, so the change is still announced.
+        client = MockedDAVClient("")
+        calendar = Calendar(client, url="/calendar/")
+        master, override = self._override_setup(client, calendar)
+        override.icalendar_component.pop("SEQUENCE")
+        calendar.get_event_by_uid = lambda uid: master
+        put = self._put_sync(lambda: override.save(increase_seqno=increase_seqno))
+        comps = [c for c in put.icalendar_instance.subcomponents if "RECURRENCE-ID" in c]
+        assert int(put.icalendar_instance.subcomponents[0]["SEQUENCE"]) == 2
+        if increase_seqno:
+            assert int(comps[0]["SEQUENCE"]) == 3
+        else:
+            assert "SEQUENCE" not in comps[0]
+
+    @pytest.mark.parametrize("increase_seqno", [True, False])
+    def test_save_recurrence_override_without_sequence_async(self, increase_seqno):
+        client = self._async_client()
+        calendar = Calendar(client, url="/calendar/")
+        master, override = self._override_setup(client, calendar)
+        override.icalendar_component.pop("SEQUENCE")
+
+        async def get_event_by_uid(uid):
+            return master
+
+        calendar.get_event_by_uid = get_event_by_uid
+        put = self._put_async(lambda: override.save(increase_seqno=increase_seqno))
+        comps = [c for c in put.icalendar_instance.subcomponents if "RECURRENCE-ID" in c]
+        assert int(put.icalendar_instance.subcomponents[0]["SEQUENCE"]) == 2
+        if increase_seqno:
+            assert int(comps[0]["SEQUENCE"]) == 3
+        else:
+            assert "SEQUENCE" not in comps[0]
+
+    def _invite(self, client):
+        data = self._ical.replace("PRODID:-//test//EN\n", "PRODID:-//test//EN\nMETHOD:REQUEST\n")
+        return Event(client, url="/inbox/x.ics", data=data)
+
+    def test_reply_to_invite_does_not_bump(self):
+        """An attendee's PARTSTAT reply is not an organizer revision"""
+        client = MockedDAVClient("")
+        invite = self._invite(client)
+        target = mock.MagicMock()
+        with (
+            mock.patch.object(client.features, "is_supported", return_value=False),
+            mock.patch.object(client, "principal"),
+            mock.patch.object(Event, "change_attendee_status"),
+        ):
+            invite.accept_invite(calendar=target)
+        target.add_event.assert_called_once()
+        assert target.add_event.call_args.kwargs.get("increase_seqno") is False
+
+    def test_reply_to_invite_does_not_bump_auto_schedule(self):
+        client = MockedDAVClient("")
+        invite = self._invite(client)
+        existing = mock.MagicMock()
+        cal = mock.MagicMock()
+        cal.event_by_uid.return_value = existing
+        principal = mock.MagicMock()
+        principal.calendars.return_value = [cal]
+        with (
+            mock.patch.object(client.features, "is_supported", return_value=True),
+            mock.patch.object(client, "principal", return_value=principal),
+            mock.patch.object(Event, "change_attendee_status"),
+        ):
+            invite.accept_invite(calendar=mock.MagicMock())
+        existing.save.assert_called_once_with(increase_seqno=False)
+
+    def test_reply_to_invite_does_not_bump_async(self):
+        import asyncio
+
+        client = self._async_client()
+        client.username = "attendee@example.com"
+        invite = self._invite(client)
+        target = mock.MagicMock()
+        target.add_event = mock.AsyncMock()
+        principal = mock.MagicMock()
+        principal.get_property = mock.AsyncMock(return_value=None)
+        with (
+            mock.patch.object(client.features, "is_supported", return_value=False),
+            mock.patch.object(client, "principal", mock.AsyncMock(return_value=principal)),
+            mock.patch.object(Event, "change_attendee_status", mock.AsyncMock()),
+        ):
+            asyncio.run(invite.accept_invite(calendar=target))
+        target.add_event.assert_awaited_once()
+        assert target.add_event.call_args.kwargs.get("increase_seqno") is False
+
+    def test_reply_to_invite_does_not_bump_auto_schedule_async(self):
+        import asyncio
+
+        client = self._async_client()
+        client.username = "attendee@example.com"
+        invite = self._invite(client)
+        existing = mock.MagicMock()
+        existing.load = mock.AsyncMock()
+        existing.save = mock.AsyncMock()
+        existing.change_attendee_status = mock.AsyncMock()
+        cal = mock.MagicMock()
+        cal.event_by_uid = mock.AsyncMock(return_value=existing)
+        principal = mock.MagicMock()
+        principal.get_property = mock.AsyncMock(return_value=None)
+        principal.calendars = mock.AsyncMock(return_value=[cal])
+        with (
+            mock.patch.object(client.features, "is_supported", return_value=True),
+            mock.patch.object(client, "principal", mock.AsyncMock(return_value=principal)),
+            mock.patch.object(Event, "change_attendee_status", mock.AsyncMock()),
+        ):
+            asyncio.run(invite.accept_invite(calendar=mock.MagicMock()))
+        existing.save.assert_awaited_once_with(increase_seqno=False)
 
 
 class TestFreeBusyScheduleResponse:
@@ -3309,6 +3917,314 @@ class TestUnpromptedBasicAuth:
         assert client.auth_type is None  # negotiation doesn't set auth_type, only auth
 
 
+VALID_SYNC_TOKEN_BODY = (
+    b'<?xml version="1.0" encoding="utf-8"?>\n'
+    b'<D:error xmlns:D="DAV:"><D:valid-sync-token/></D:error>'
+)
+
+
+class TestAuthorizationErrorPreconditions:
+    """Issue https://github.com/python-caldav/caldav/issues/738: a 403 may carry
+    its reason as a precondition in a DAV:error body (RFC 4918 section 16).
+    RFC 6578 section 3.2 answers an expired sync token that way, so the body
+    must survive onto the AuthorizationError for a caller to tell "resync"
+    from "forbidden".
+    """
+
+    def _make_response(self, status_code, body=b"", content_type="application/xml"):
+        r = mock.MagicMock()
+        r.status_code = status_code
+        r.headers = {"Content-Type": content_type} if body else {}
+        r.reason = "Forbidden"
+        r.content = body
+        r.text = body.decode() if body else ""
+        return r
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_403_precondition_is_kept(self, mocked):
+        mocked.return_value = self._make_response(403, VALID_SYNC_TOKEN_BODY)
+        client = DAVClient(url="https://cal.example.com/", username="user", password="pass")
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            client.request("/")
+        assert exc_info.value.preconditions == [dav.ValidSyncToken.tag]
+        assert exc_info.value.body == VALID_SYNC_TOKEN_BODY
+        assert exc_info.value.reason == "Forbidden"
+
+    @pytest.mark.parametrize(
+        "body,content_type",
+        [
+            (b"", "application/xml"),
+            (b"<html><body>Forbidden</body></html>", "text/html"),
+            (b"not xml at all <", "text/plain"),
+            (b"<html>forbidden", "application/xml"),
+            (b"<?xml version='1.0'?><foo><bar/></foo>", "application/xml"),
+        ],
+    )
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_403_without_precondition(self, mocked, body, content_type):
+        mocked.return_value = self._make_response(403, body, content_type)
+        client = DAVClient(url="https://cal.example.com/", username="user", password="pass")
+        with pytest.raises(error.AuthorizationError) as exc_info:
+            client.request("/")
+        assert exc_info.value.preconditions == []
+
+    def test_parse_preconditions_is_robust(self):
+        assert error.parse_preconditions(None) == []
+        assert error.parse_preconditions(b"") == []
+        assert error.parse_preconditions(mock.MagicMock()) == []
+        assert error.parse_preconditions(b"<<<") == []
+        assert error.parse_preconditions(VALID_SYNC_TOKEN_BODY.decode()) == [dav.ValidSyncToken.tag]
+        assert error.parse_preconditions(
+            b'<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+            b"<C:no-uid-conflict><D:href>/x.ics</D:href></C:no-uid-conflict>"
+            b"</D:error>"
+        ) == ["{urn:ietf:params:xml:ns:caldav}no-uid-conflict"]
+
+    def test_authorization_error_defaults(self):
+        e = error.AuthorizationError(url="/", reason="Forbidden")
+        assert e.preconditions == []
+        assert e.body is None
+
+    def _calendar(self, report_error, sync_token_support=None):
+        client = DAVClient(url="https://cal.example.com/")
+        if sync_token_support:
+            client.features.set_feature("sync-token", sync_token_support)
+        calendar = Calendar(client=client, url="https://cal.example.com/cal/")
+        report = mock.patch.object(
+            Calendar, "_request_report_build_resultlist", side_effect=report_error
+        )
+        search = mock.patch.object(Calendar, "search", return_value=[])
+        return calendar, report, search
+
+    def test_sync_token_expired_falls_back(self):
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=[dav.ValidSyncToken.tag]
+        )
+        calendar, report, search = self._calendar(e)
+        with report, search as mocked_search:
+            result = calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_called_once()
+        assert result.sync_token.startswith("fake-")
+
+    def test_bare_403_propagates_when_sync_token_is_known_to_work(self):
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support="full")
+        with report, search as mocked_search:
+            with pytest.raises(error.AuthorizationError):
+                calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_not_called()
+
+    @pytest.mark.parametrize("support", [None, "fragile"])
+    def test_bare_403_falls_back_unless_sync_token_is_known_to_work(self, support):
+        """A 403 without a body from a server whose sync-token support is
+        not configured as full (unconfigured, or fragile like Zimbra) is
+        taken as "can't sync", not as a permission problem."""
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            result = calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_called_once()
+        assert result.sync_token.startswith("fake-")
+
+    @pytest.mark.parametrize("support", [None, "full"])
+    def test_403_unsupported_report_falls_back(self, support):
+        """Zimbra answers the sync REPORT with 403 and DAV:supported-report:
+        the report is not supported, which is no permission problem."""
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=[dav.SupportedReport.tag]
+        )
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            result = calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_called_once()
+        assert result.sync_token.startswith("fake-")
+
+    @pytest.mark.parametrize("support", [None, "full"])
+    def test_403_with_other_precondition_propagates(self, support):
+        e = error.AuthorizationError(
+            url="/cal/", reason="Forbidden", preconditions=["{DAV:}need-privileges"]
+        )
+        calendar, report, search = self._calendar(e, sync_token_support=support)
+        with report, search as mocked_search:
+            with pytest.raises(error.AuthorizationError):
+                calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_not_called()
+
+    def test_collection_sync_propagates_genuine_403(self):
+        """SynchronizableCalendarObjectCollection.sync() must not hide what
+        get_objects_by_sync_token() raises."""
+        from caldav.collection import SynchronizableCalendarObjectCollection
+
+        e = error.AuthorizationError(url="/cal/", reason="Forbidden")
+        calendar, report, search = self._calendar(e, sync_token_support="full")
+        collection = SynchronizableCalendarObjectCollection(
+            calendar, [], "http://example.com/sync/1"
+        )
+        with report, search:
+            with pytest.raises(error.AuthorizationError):
+                collection.sync()
+
+    @pytest.mark.parametrize("support,raises", [("full", True), (None, False)])
+    def test_collection_sync_load_403(self, support, raises):
+        """A 401/403 while loading a changed object inside sync() is raised
+        when it is a permission problem, else sync() falls back."""
+        from caldav.collection import SynchronizableCalendarObjectCollection
+
+        e = error.AuthorizationError(url="/cal/x.ics", reason="Forbidden")
+        calendar, _, search = self._calendar(e, sync_token_support=support)
+        obj = Event(calendar.client, url="https://cal.example.com/cal/x.ics", parent=calendar)
+        page = SynchronizableCalendarObjectCollection(calendar, [obj], "tok-2")
+        collection = SynchronizableCalendarObjectCollection(calendar, [], "tok-1")
+        with (
+            search as mocked_search,
+            mock.patch.object(Calendar, "get_objects_by_sync_token", return_value=page),
+            mock.patch.object(Event, "load", side_effect=e),
+        ):
+            if raises:
+                with pytest.raises(error.AuthorizationError):
+                    collection.sync()
+                mocked_search.assert_not_called()
+            else:
+                collection.sync()
+                mocked_search.assert_called_once()
+
+    def test_sync_report_error_still_falls_back(self):
+        calendar, report, search = self._calendar(error.ReportError("nope"))
+        with report, search as mocked_search:
+            calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        mocked_search.assert_called_once()
+
+
+def _dav_response(status, body=b"", content_type="application/xml"):
+    """A DAVResponse for a REPORT answered with `status` and `body`."""
+    r = mock.MagicMock()
+    r.status_code = status
+    r.reason = "whatever"
+    r.headers = {"Content-Type": content_type} if body else {}
+    r.content = body
+    r.text = body.decode() if body else ""
+    return DAVResponse(r)
+
+
+SYNC_REPLY_WITH_REMOVAL = b"""<?xml version="1.0" encoding="utf-8"?>
+<D:multistatus xmlns:D="DAV:">
+  <D:response>
+    <D:href>/cal/changed.ics</D:href>
+    <D:propstat>
+      <D:prop><D:getetag>"2"</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>/cal/removed.ics</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+  <D:response>
+    <D:href>/cal/recreated.ics</D:href>
+    <D:status>HTTP/1.1 404 Not Found</D:status>
+  </D:response>
+  <D:response>
+    <D:href>/cal/recreated.ics</D:href>
+    <D:propstat>
+      <D:prop><D:getetag>"3"</D:getetag></D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:sync-token>http://example.com/sync/2</D:sync-token>
+</D:multistatus>"""
+
+
+class TestSyncReportsRemovals:
+    """RFC 6578 section 3.2 reports a removed member as a response with a
+    404 status and no propstat.  The library returns an object for it like
+    for any other member; ``deleted_urls`` says which ones were removed, so
+    a caller doesn't have to guess from a missing ETag.  Cyrus lists a
+    member removed and then changed; the change wins.
+    """
+
+    def _calendar(self):
+        client = DAVClient(url="https://cal.example.com/")
+        client.report = mock.MagicMock(return_value=_dav_response(207, SYNC_REPLY_WITH_REMOVAL))
+        return Calendar(client=client, url="https://cal.example.com:443/cal/")
+
+    def test_deleted_urls(self):
+        result = self._calendar().get_objects_by_sync_token("http://example.com/sync/1")
+        assert {str(u) for u in result.deleted_urls} == {
+            "https://cal.example.com:443/cal/removed.ics"
+        }
+        assert len(result) == 3
+
+    def test_sync_ignores_removal_of_unknown_member(self):
+        calendar = self._calendar()
+        collection = SynchronizableCalendarObjectCollection(
+            calendar=calendar, objects=[], sync_token="http://example.com/sync/1"
+        )
+        with mock.patch.object(CalendarObjectResource, "load") as mocked_load:
+            (updated, deleted) = collection.sync()
+        ## removed.ics was never in the collection, so there is nothing to
+        ## drop (Nextcloud reports purging a trashed object like this)
+        assert deleted == []
+        assert sorted(str(o.url) for o in updated) == [
+            "https://cal.example.com:443/cal/changed.ics",
+            "https://cal.example.com:443/cal/recreated.ics",
+        ]
+        assert mocked_load.call_count == 2
+
+    def test_sync_ignores_unknown_member_gone_on_load(self):
+        ## listed as changed, but gone by the time it is fetched
+        calendar = self._calendar()
+        collection = SynchronizableCalendarObjectCollection(
+            calendar=calendar, objects=[], sync_token="http://example.com/sync/1"
+        )
+        with mock.patch.object(
+            CalendarObjectResource, "load", side_effect=error.NotFoundError("404")
+        ):
+            (updated, deleted) = collection.sync()
+        assert updated == []
+        assert deleted == []
+
+    def _cached_collection(self, calendar):
+        """A collection that holds removed.ics from an earlier sync."""
+        cached = CalendarObjectResource(
+            calendar.client,
+            url="https://cal.example.com:443/cal/removed.ics",
+            parent=calendar,
+            props={dav.GetEtag.tag: '"1"'},
+        )
+        return SynchronizableCalendarObjectCollection(
+            calendar=calendar,
+            objects=[cached],
+            sync_token="http://example.com/sync/1",
+            deleted_urls=["https://cal.example.com:443/cal/stale.ics"],
+        )
+
+    def test_sync_drops_a_removed_member_from_the_cache(self):
+        collection = self._cached_collection(self._calendar())
+        with mock.patch.object(CalendarObjectResource, "load"):
+            (updated, deleted) = collection.sync()
+        assert [str(o.url) for o in deleted] == ["https://cal.example.com:443/cal/removed.ics"]
+        assert "https://cal.example.com:443/cal/removed.ics" not in {
+            str(o.url) for o in collection.objects
+        }
+        ## the removals were handed back and dropped, so none are left to report
+        assert collection.deleted_urls == set()
+
+    def test_load_objects_skips_a_removed_member(self):
+        with mock.patch.object(CalendarObjectResource, "load") as mocked_load:
+            self._calendar().get_objects_by_sync_token(
+                "http://example.com/sync/1", load_objects=True
+            )
+        assert mocked_load.call_count == 2
+
+    def test_fallback_reports_no_removals(self):
+        calendar = self._calendar()
+        calendar.client.report.side_effect = error.ReportError("500")
+        with mock.patch.object(Calendar, "search", return_value=[]):
+            result = calendar.get_objects_by_sync_token("http://example.com/sync/1")
+        assert result.sync_token.startswith("fake-")
+        assert result.deleted_urls == set()
+
+
 class TestAsyncProbeResponseNotReturnedAsReal:
     """§2.15: async _async_request: when the probe GET for issue-#158 workaround does
     not receive a 401+WWW-Authenticate response, the original exception must be re-raised.
@@ -3433,7 +4349,8 @@ class TestDateToUtcConversion:
 
         client = CapturingClient()
         calendar = Calendar(client, url="/cal/")
-        calendar.search(event=True, start=date(2026, 5, 1), end=date(2026, 6, 1))
+        ## post_filter=False, else the range is widened by a day on each side
+        calendar.search(event=True, start=date(2026, 5, 1), end=date(2026, 6, 1), post_filter=False)
 
         assert client.report_bodies, "expected at least one REPORT request"
         body = client.report_bodies[0]
@@ -4025,6 +4942,157 @@ END:VCALENDAR
         with pytest.raises(caldav_error.NotFoundError):
             ev.change_attendee_status(partstat="ACCEPTED")
 
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_auto_detects_async_principal(self):
+        """Async auto-detection updates only the current principal's attendee."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="not-an-email",
+            enable_rfc6764=False,
+        )
+        principal = Principal(client=client, url="https://calendar.example.com/principal/")
+        principal.calendar_user_address_set = mock.AsyncMock(
+            return_value=["mailto:attendee@example.com"]
+        )
+        client.principal = mock.AsyncMock(return_value=principal)
+        event_data = self._invite.replace(
+            "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:attendee@example.com",
+            "ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:attendee@example.com\n"
+            "ATTENDEE;PARTSTAT=TENTATIVE:mailto:other@example.com",
+        )
+        ev = Event(client=client, data=event_data)
+
+        try:
+            result = ev.change_attendee_status(partstat="ACCEPTED")
+            assert hasattr(result, "__await__")
+            await result
+        finally:
+            await client.close()
+
+        attendees = ev.icalendar_component.get("attendee")
+        assert isinstance(attendees, list)
+        assert attendees[0].params["PARTSTAT"] == "ACCEPTED"
+        assert attendees[1].params["PARTSTAT"] == "TENTATIVE"
+        principal.calendar_user_address_set.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_async_principal_argument_is_awaited(self):
+        """An explicit Principal is resolved asynchronously before matching."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="attendee@example.com",
+            enable_rfc6764=False,
+        )
+        principal = Principal(client=client, url="https://calendar.example.com/principal/")
+        principal.calendar_user_address_set = mock.AsyncMock(
+            return_value=["mailto:attendee@example.com"]
+        )
+        ev = Event(client=client, data=self._invite)
+
+        try:
+            await ev.change_attendee_status(principal, partstat="ACCEPTED")
+        finally:
+            await client.close()
+
+        attendee = ev.icalendar_component["attendee"]
+        assert attendee.params["PARTSTAT"] == "ACCEPTED"
+
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_async_falls_back_to_email_username(self):
+        """Async auto-detection falls back when address-set is unavailable."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="attendee@example.com",
+            enable_rfc6764=False,
+        )
+        principal = Principal(client=client, url="https://calendar.example.com/principal/")
+        principal.calendar_user_address_set = mock.AsyncMock(
+            side_effect=error.NotFoundError("calendar-user-address-set unavailable")
+        )
+        client.principal = mock.AsyncMock(return_value=principal)
+        ev = Event(client=client, data=self._invite)
+
+        try:
+            await ev.change_attendee_status(partstat="ACCEPTED")
+        finally:
+            await client.close()
+
+        attendee = ev.icalendar_component["attendee"]
+        assert attendee.params["PARTSTAT"] == "ACCEPTED"
+
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_async_missing_attendee_uses_principal_url(self):
+        """Async missing-attendee errors use the principal URL without sync I/O."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="attendee@example.com",
+            enable_rfc6764=False,
+        )
+        principal = Principal(client=client, url="https://calendar.example.com/principal/")
+        principal.calendar_user_address_set = mock.AsyncMock(
+            return_value=["mailto:not-in-event@example.com"]
+        )
+        client.principal = mock.AsyncMock(return_value=principal)
+        ev = Event(client=client, data=self._invite)
+
+        try:
+            with pytest.raises(error.NotFoundError, match=str(principal.url)):
+                await ev.change_attendee_status(partstat="ACCEPTED")
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_async_empty_addresses_do_not_false_succeed(self):
+        """Empty address hrefs fall back to the principal URL and still require a match."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="attendee@example.com",
+            enable_rfc6764=False,
+        )
+        principal = Principal(client=client, url="https://calendar.example.com/principal/")
+        principal.calendar_user_address_set = mock.AsyncMock(return_value=[None, ""])
+        client.principal = mock.AsyncMock(return_value=principal)
+        ev = Event(client=client, data=self._invite)
+
+        try:
+            with pytest.raises(error.NotFoundError) as exc_info:
+                await ev.change_attendee_status(partstat="ACCEPTED")
+        finally:
+            await client.close()
+
+        assert str(principal.url) in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_change_attendee_status_explicit_async_attendee_is_synchronous(self):
+        """An explicit attendee keeps the in-memory synchronous API on async clients."""
+        from caldav.aio import AsyncDAVClient
+
+        client = AsyncDAVClient(
+            url="https://calendar.example.com/",
+            username="attendee@example.com",
+            enable_rfc6764=False,
+        )
+        ev = Event(client=client, data=self._invite)
+
+        try:
+            result = ev.change_attendee_status("attendee@example.com", partstat="ACCEPTED")
+        finally:
+            await client.close()
+
+        assert result is None
+        attendee = ev.icalendar_component["attendee"]
+        assert attendee.params["PARTSTAT"] == "ACCEPTED"
+
 
 class TestAddAttendee:
     """§1.6: add_attendee() crashes with UnboundLocalError on uppercase MAILTO: scheme.
@@ -4519,6 +5587,32 @@ class TestRecurringCompleteHelpers:
             todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc)) is None
         )
 
+    def test_build_safe_completed_none_leaves_count_alone(self) -> None:
+        ## No next occurrence (here an RRULE carrying both COUNT and UNTIL,
+        ## invalid but seen in the wild): the caller falls back to a plain
+        ## completion, which must not save a COUNT lowered on the way.
+        todo = self._make_todo(
+            todo6.replace("RRULE:FREQ=YEARLY", "RRULE:FREQ=YEARLY;COUNT=3;UNTIL=19950101T000000Z")
+        )
+        assert (
+            todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc)) is None
+        )
+        assert todo.icalendar_component["RRULE"]["COUNT"] == [3]
+
+    def test_build_safe_completed_count_one_skips_next(self) -> None:
+        ## COUNT=1 is the last occurrence: return None before looking for a
+        ## next one, so inputs _next() cannot handle (here an all-day
+        ## DTSTART with BYDAY) still fall back to a plain completion.
+        data = todo6.replace("DTSTART:19920415T133000Z", "DTSTART;VALUE=DATE:19920414").replace(
+            "DUE:19920516T045959Z\n", ""
+        )
+        data = data.replace("RRULE:FREQ=YEARLY", "RRULE:FREQ=WEEKLY;COUNT=1;BYDAY=TU")
+        todo = self._make_todo(data)
+        assert (
+            todo._build_recurring_safe_completed(datetime(2026, 6, 14, tzinfo=timezone.utc)) is None
+        )
+        assert todo.icalendar_component["RRULE"]["COUNT"] == [1]
+
     def test_safe_completion_issues_two_puts(self, monkeypatch: Any) -> None:
         """The standalone completed copy must not be PUT twice.
 
@@ -4537,6 +5631,30 @@ class TestRecurringCompleteHelpers:
         todo._complete_recurring_safe(datetime(2026, 6, 14, tzinfo=timezone.utc))
         ## one PUT for the standalone completed copy, one for the advanced master
         assert len(saves) == 2
+
+    def test_safe_completion_count_one_keeps_timestamp(self, monkeypatch: Any) -> None:
+        """When the "safe" mode falls back to a plain completion (COUNT=1),
+        the caller's completion_timestamp must be kept, not replaced by now."""
+        monkeypatch.setattr(Todo, "save", lambda self, *a, **k: self)
+        todo = self._make_todo()
+        todo.icalendar_component["RRULE"]["COUNT"] = [1]
+        ts = datetime(2026, 6, 14, tzinfo=timezone.utc)
+        todo.complete(completion_timestamp=ts, handle_rrule=True, rrule_mode="safe")
+        assert todo.icalendar_component["COMPLETED"].dt == ts
+
+    def test_async_safe_completion_count_one_keeps_timestamp(self, monkeypatch: Any) -> None:
+        """Async twin of test_safe_completion_count_one_keeps_timestamp."""
+        import asyncio
+
+        async def fake_save(self: Todo, *a: Any, **k: Any) -> Todo:
+            return self
+
+        monkeypatch.setattr(Todo, "save", fake_save)
+        todo = self._make_todo()
+        todo.icalendar_component["RRULE"]["COUNT"] = [1]
+        ts = datetime(2026, 6, 14, tzinfo=timezone.utc)
+        asyncio.run(todo._async_complete(ts, handle_rrule=True, rrule_mode="safe"))
+        assert todo.icalendar_component["COMPLETED"].dt == ts
 
 
 class TestAdoptCanonicalUrl:
@@ -5056,6 +6174,259 @@ class TestDelayedCalendarDeletion:
         assert methods == ["DELETE", "PROPFIND", "PROPFIND", "PROPFIND"]
 
 
+class TestConditionalWrite:
+    """``delete(if_match=...)`` and ``save()`` send a precondition, so a
+    resource changed by someone else since it was last seen is not silently
+    deleted or overwritten.
+    https://github.com/python-caldav/caldav/issues/740
+    https://github.com/python-caldav/caldav/issues/762"""
+
+    URL = "http://cal.example.com/dav/user/mycal/"
+
+    @pytest.fixture(params=["sync", "async"])
+    def base(self, request):
+        if request.param == "sync":
+            return DAVClient
+        from caldav.async_davclient import AsyncDAVClient
+
+        return AsyncDAVClient
+
+    def _event(self, base, etag='"etag-a"', schedule_tag=None, status=204, data=ev1):
+        """``status`` may be a list, answered in turn (the last one repeats)."""
+        sent = []
+        client = base(url="http://cal.example.com/dav/")
+        statuses = list(status) if isinstance(status, list) else [status]
+
+        def request(url, method="GET", body="", headers=None):
+            sent.append((method.upper(), {k.lower(): v for k, v in (headers or {}).items()}))
+            resp = mock.MagicMock()
+            resp.status_code = statuses.pop(0) if len(statuses) > 1 else statuses[0]
+            resp.reason = "whatever"
+            resp.headers = {}
+            resp.content = b""
+            return DAVResponse(resp, client)
+
+        if base is DAVClient:
+            client.request = request
+        else:
+
+            async def async_request(*args, **kwargs):
+                return request(*args, **kwargs)
+
+            client.request = async_request
+        cal = Calendar(client, url=self.URL)
+        event = Event(client, url=self.URL + "ev1.ics", data=data, parent=cal)
+        if etag:
+            event.props[dav.GetEtag.tag] = etag
+        if schedule_tag:
+            event.props[cdav.ScheduleTag.tag] = schedule_tag
+        return event, sent
+
+    @staticmethod
+    def _run(event, **kwargs) -> None:
+        import asyncio
+
+        result = event.delete(**kwargs)
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def test_plain_delete_sends_no_precondition(self, base) -> None:
+        event, sent = self._event(base)
+        self._run(event)
+        assert sent == [("DELETE", {})]
+
+    def test_plain_delete_works_with_one_argument_client_delete(self, base) -> None:
+        """Subclasses or wrappers of ``client.delete(url)`` with the old
+        signature keep working for a plain delete()."""
+        event, sent = self._event(base)
+        real_delete = event.client.delete
+
+        if base is DAVClient:
+
+            def delete(url):
+                return real_delete(url)
+
+        else:
+
+            async def delete(url):
+                return await real_delete(url)
+
+        event.client.delete = delete
+        self._run(event)
+        assert sent == [("DELETE", {})]
+
+    @pytest.mark.parametrize("value", ["", None])
+    def test_empty_if_match_is_refused_or_plain(self, base, value) -> None:
+        """An empty string must not silently turn into an unconditional
+        delete; None means "no precondition", like False."""
+        event, sent = self._event(base)
+        if value == "":
+            with pytest.raises(ValueError):
+                self._run(event, if_match=value)
+            assert sent == []
+        else:
+            self._run(event, if_match=value)
+            assert sent == [("DELETE", {})]
+
+    def test_plain_delete_still_accepts_404(self, base) -> None:
+        event, sent = self._event(base, status=404)
+        self._run(event)
+        assert sent == [("DELETE", {})]
+
+    def test_if_match_true_sends_cached_etag(self, base) -> None:
+        event, sent = self._event(base)
+        self._run(event, if_match=True)
+        assert sent == [("DELETE", {"if-match": '"etag-a"'})]
+
+    def test_if_match_true_prefers_schedule_tag_like_save(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        self._run(event, if_match=True)
+        assert sent == [("DELETE", {"if-schedule-tag-match": '"stag-1"'})]
+
+    def test_if_match_string_sends_that_etag(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        self._run(event, if_match='"etag-b"')
+        assert sent == [("DELETE", {"if-match": '"etag-b"'})]
+
+    def test_if_match_true_without_known_tag_refuses(self, base) -> None:
+        event, sent = self._event(base, etag=None)
+        with pytest.raises(ValueError):
+            self._run(event, if_match=True)
+        assert sent == []
+
+    def test_if_match_true_with_only_weak_etag_refuses(self, base) -> None:
+        """A weak etag can never match If-Match (RFC 9110 section 13.1.1)."""
+        event, sent = self._event(base, etag='W/"etag-a"')
+        with pytest.raises(ValueError, match="weak"):
+            self._run(event, if_match=True)
+        assert sent == []
+
+    def test_412_raises_etag_mismatch(self, base) -> None:
+        event, _ = self._event(base, status=412)
+        with pytest.raises(error.ETagMismatchError):
+            self._run(event, if_match=True)
+
+    def test_412_with_schedule_tag_raises_schedule_tag_mismatch(self, base) -> None:
+        event, _ = self._event(base, schedule_tag='"stag-1"', status=412)
+        with pytest.raises(error.ScheduleTagMismatchError):
+            self._run(event, if_match=True)
+
+    def test_404_with_precondition_raises_not_found(self, base) -> None:
+        event, _ = self._event(base, status=404)
+        with pytest.raises(error.NotFoundError):
+            self._run(event, if_match=True)
+
+    ## precondition="etag": a sync client wants any change, also an
+    ## attendee's reply that keeps the Schedule-Tag (RFC 6638 section
+    ## 3.2.10), to fail the write.
+    ## https://github.com/python-caldav/caldav/issues/762
+
+    @staticmethod
+    def _save(event, **kwargs) -> None:
+        import asyncio
+
+        result = event.save(increase_seqno=False, **kwargs)
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
+
+    def test_delete_precondition_etag_ignores_schedule_tag(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        self._run(event, if_match=True, precondition="etag")
+        assert sent == [("DELETE", {"if-match": '"etag-a"'})]
+
+    def test_delete_precondition_etag_412_raises_etag_mismatch(self, base) -> None:
+        event, _ = self._event(base, schedule_tag='"stag-1"', status=412)
+        with pytest.raises(error.ETagMismatchError):
+            self._run(event, if_match=True, precondition="etag")
+
+    def test_delete_precondition_etag_without_etag_falls_back(self, base) -> None:
+        """A Schedule-Tag still beats no precondition at all."""
+        event, sent = self._event(base, etag=None, schedule_tag='"stag-1"')
+        self._run(event, if_match=True, precondition="etag")
+        assert sent == [("DELETE", {"if-schedule-tag-match": '"stag-1"'})]
+
+    def test_save_precondition_etag_without_etag_falls_back(self, base) -> None:
+        """A PUT answered without an ETag (RFC 4791 section 5.3.4) leaves only
+        the Schedule-Tag cached; the next save must not go out unconditionally."""
+        event, sent = self._event(base, etag=None, schedule_tag='"stag-1"')
+        self._save(event, precondition="etag")
+        assert sent[-1][1]["if-schedule-tag-match"] == '"stag-1"'
+        assert "if-match" not in sent[-1][1]
+
+    def test_save_precondition_etag_kept_on_retry(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"', status=[500, 204])
+        self._save(event, precondition="etag")
+        puts = [headers for method, headers in sent if method == "PUT"]
+        assert len(puts) == 2
+        for headers in puts:
+            assert headers["if-match"] == '"etag-a"'
+            assert "if-schedule-tag-match" not in headers
+
+    def test_save_precondition_etag_kept_on_recurrence_merge(self, base) -> None:
+        """Saving one recurrence PUTs the master, which carries its own tags."""
+        override = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VEVENT
+UID:20010712T182145Z-123401@example.com
+DTSTAMP:20060712T182145Z
+RECURRENCE-ID:20060714T170000Z
+DTSTART:20060714T180000Z
+DTEND:20060715T040000Z
+SUMMARY:Moved
+END:VEVENT
+END:VCALENDAR
+"""
+        master_data = ev1.replace("SUMMARY:", "RRULE:FREQ=DAILY;COUNT=3\nSUMMARY:")
+        event, sent = self._event(base, etag=None, data=override)
+        master = Event(
+            event.client,
+            url=self.URL + "ev1.ics",
+            data=master_data,
+            parent=event.parent,
+            props={dav.GetEtag.tag: '"etag-m"', cdav.ScheduleTag.tag: '"stag-m"'},
+        )
+        if base is DAVClient:
+            event.parent.get_event_by_uid = lambda uid: master
+        else:
+
+            async def get_event_by_uid(uid):
+                return master
+
+            event.parent.get_event_by_uid = get_event_by_uid
+        self._save(event, precondition="etag")
+        assert sent[-1][0] == "PUT"
+        assert sent[-1][1]["if-match"] == '"etag-m"'
+        assert "if-schedule-tag-match" not in sent[-1][1]
+
+    def test_save_prefers_schedule_tag_by_default(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        self._save(event)
+        assert sent[-1][1]["if-schedule-tag-match"] == '"stag-1"'
+        assert "if-match" not in sent[-1][1]
+
+    def test_save_precondition_etag_ignores_schedule_tag(self, base) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        self._save(event, precondition="etag")
+        assert sent[-1][0] == "PUT"
+        assert sent[-1][1]["if-match"] == '"etag-a"'
+        assert "if-schedule-tag-match" not in sent[-1][1]
+
+    def test_save_precondition_etag_412_raises_etag_mismatch(self, base) -> None:
+        event, _ = self._event(base, schedule_tag='"stag-1"', status=412)
+        with pytest.raises(error.ETagMismatchError):
+            self._save(event, precondition="etag")
+
+    @pytest.mark.parametrize("value", ["schedule-tag", "ETag", None])
+    def test_unknown_precondition_is_refused(self, base, value) -> None:
+        event, sent = self._event(base, schedule_tag='"stag-1"')
+        with pytest.raises(ValueError):
+            self._save(event, precondition=value)
+        with pytest.raises(ValueError):
+            self._run(event, if_match=True, precondition=value)
+        assert sent == []
+
+
 class TestDelayedPropertyWrite:
     """``synchronous-write.proppatch`` declared unsupported with a ``delay``:
     a PROPPATCH is answered at once but a PROPFIND keeps returning the old
@@ -5327,3 +6698,620 @@ class TestCompTypeFilterIgnored:
         client = self._client("unsupported")
         objs = Calendar(client, url="/cal/").search(event=True, compatibility_workarounds=False)
         assert len(objs) == 2
+
+
+class TestGetCalendarsPropfindErrors:
+    """A failing PROPFIND in ``get_calendars()`` must raise, not return ``[]``.
+
+    The principal-URL fallback is for servers that do not advertise a
+    calendar-home-set, not for failed requests, ref
+    https://github.com/python-caldav/caldav/issues/741
+    """
+
+    HOME_SET_XML = """
+<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">
+  <d:response>
+    <d:href>/principals/user/</d:href>
+    <d:propstat>
+      <d:prop><c:calendar-home-set><d:href>/calendars/user/</d:href></c:calendar-home-set></d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>
+"""
+
+    @staticmethod
+    def _response(status: int, text: str = "") -> DAVResponse:
+        resp = mock.MagicMock()
+        resp.status_code = status
+        resp.reason = "whatever"
+        resp.headers = {}
+        resp.content = text
+        return DAVResponse(resp)
+
+    def _get_calendars(self, *responses):
+        client = DAVClient(url="https://cal.example.com/")
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        with mock.patch.object(client, "propfind", side_effect=list(responses)):
+            return client.get_calendars(principal)
+
+    @pytest.mark.parametrize(
+        ("status", "exc"),
+        [
+            (503, error.PropfindError),
+            (500, error.PropfindError),
+            (405, error.PropfindError),
+            (404, error.NotFoundError),
+        ],
+    )
+    def test_home_set_propfind_failure_raises(self, status, exc):
+        with pytest.raises(exc):
+            self._get_calendars(self._response(status), self._response(207, "<multistatus/>"))
+
+    @pytest.mark.parametrize(
+        ("status", "exc"),
+        [
+            (503, error.PropfindError),
+            (500, error.PropfindError),
+            (405, error.PropfindError),
+            (404, error.NotFoundError),
+        ],
+    )
+    def test_calendar_list_propfind_failure_raises(self, status, exc):
+        with pytest.raises(exc):
+            self._get_calendars(self._response(207, self.HOME_SET_XML), self._response(status))
+
+    @pytest.mark.parametrize(
+        ("status", "exc"), [(503, error.PropfindError), (404, error.NotFoundError)]
+    )
+    def test_calendar_set_propfind_failure_raises(self, status, exc):
+        client = DAVClient(url="https://cal.example.com/")
+        calendar_set = CalendarSet(client, url="https://cal.example.com/calendars/user/")
+        with mock.patch.object(client, "propfind", return_value=self._response(status)):
+            with pytest.raises(exc):
+                calendar_set.get_calendars()
+
+    NO_HOME_SET_XML = "<d:multistatus xmlns:d='DAV:'/>"
+
+    @pytest.mark.parametrize("status", [403, 404, 405, 500])
+    def test_client_url_fallback_failure_returns_empty(self, status):
+        """Without a home-set, the client URL is only a guess (Nextcloud
+        public share); a refusal there means no calendars, not an error."""
+        assert (
+            self._get_calendars(
+                self._response(207, self.NO_HOME_SET_XML),
+                self._response(207, self.NO_HOME_SET_XML),
+                self._response(status),
+            )
+            == []
+        )
+
+    def test_principal_propfind_failure_without_home_set_raises(self):
+        with pytest.raises(error.PropfindError):
+            self._get_calendars(
+                self._response(207, self.NO_HOME_SET_XML),
+                self._response(503),
+                self._response(207, self.NO_HOME_SET_XML),
+            )
+
+    def test_client_url_fallback_refused_by_auth_returns_empty(self):
+        """The request layer raises AuthorizationError on 401/403 before
+        the response reaches get_calendars(); on the guessed client URL
+        that still means no calendars."""
+        refused = error.AuthorizationError(url="https://cal.example.com/", reason="Forbidden")
+        assert (
+            self._get_calendars(
+                self._response(207, self.NO_HOME_SET_XML),
+                self._response(207, self.NO_HOME_SET_XML),
+                refused,
+            )
+            == []
+        )
+
+    def test_principal_refused_by_auth_without_home_set_raises(self):
+        refused = error.AuthorizationError(url="https://cal.example.com/", reason="Forbidden")
+        with pytest.raises(error.AuthorizationError):
+            self._get_calendars(self._response(207, self.NO_HOME_SET_XML), refused)
+
+    def test_client_url_fallback_refusal_keeps_unprompted_basic_auth(self):
+        """A 401 on the guessed client URL must not drop an unprompted-Basic
+        guess (issue #713) that already worked for the principal URL."""
+        client = DAVClient(url="https://cal.example.com/")
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        client._unprompted_basic_tried = True
+        client.auth_type = "basic"
+        client.auth = auth = object()
+        responses = iter([self._response(207, self.NO_HOME_SET_XML)] * 2)
+
+        def propfind(*largs, **kwargs):
+            try:
+                return next(responses)
+            except StopIteration:
+                ## what _raise_authorization_error() does on a 401
+                client._unwind_unprompted_basic()
+                raise error.AuthorizationError(
+                    url="https://cal.example.com/", reason="no"
+                ) from None
+
+        with mock.patch.object(client, "propfind", side_effect=propfind):
+            assert client.get_calendars(principal) == []
+        assert (client.auth, client.auth_type) == (auth, "basic")
+
+    @pytest.mark.parametrize(
+        "client_url",
+        [
+            "https://cal.example.com/principals/user/",
+            "https://cal.example.com/principals/user",
+            "https://cal.example.com:443/principals/user/",
+            "https://user:pw@cal.example.com/principals/user/",
+        ],
+    )
+    def test_client_url_equal_to_principal_is_not_queried_twice(self, client_url):
+        client = DAVClient(url=client_url)
+        principal = Principal(client=client, url="https://cal.example.com/principals/user/")
+        responses = [self._response(207, self.NO_HOME_SET_XML)] * 2
+        with mock.patch.object(client, "propfind", side_effect=responses) as propfind:
+            assert client.get_calendars(principal) == []
+        assert propfind.call_count == 2
+
+
+def sync_page(
+    members: dict[str, str | None],
+    token: str | None,
+    truncated: bool,
+    base: str = "/dav/cal/",
+    status_507: str = "HTTP/1.1 507 Insufficient Storage",
+) -> bytes:
+    """A sync-collection reply for the calendar at ``base``.
+
+    ``members`` maps a member name to its etag, or to None for a deleted
+    member.  ``truncated`` adds the RFC 6578 section 3.6 507 response for
+    the collection itself.  Shared with the async twin in
+    test_async_davclient.py.
+    """
+    parts = ['<?xml version="1.0"?><D:multistatus xmlns:D="DAV:">']
+    for name, etag in members.items():
+        if etag is None:
+            parts.append(
+                f"<D:response><D:href>{base}{name}</D:href>"
+                "<D:status>HTTP/1.1 404 Not Found</D:status></D:response>"
+            )
+        else:
+            parts.append(
+                f"<D:response><D:href>{base}{name}</D:href><D:propstat>"
+                f"<D:prop><D:getetag>{etag}</D:getetag></D:prop>"
+                "<D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>"
+            )
+    if truncated:
+        parts.append(
+            f"<D:response><D:href>{base}</D:href>"
+            f"<D:status>{status_507}</D:status>"
+            "<D:error><D:number-of-matches-within-limits/></D:error></D:response>"
+        )
+    if token is not None:
+        parts.append(f"<D:sync-token>{token}</D:sync-token>")
+    parts.append("</D:multistatus>")
+    return "".join(parts).encode()
+
+
+class TestSyncCollectionTruncated:
+    """A truncated sync-collection reply (RFC 6578 section 3.6).
+
+    https://github.com/python-caldav/caldav/issues/737 - the members and
+    the token of a truncated page used to be thrown away in favour of a
+    full fetch.  The async twin is TestAsyncSyncCollectionTruncated in
+    test_async_davclient.py.
+    """
+
+    def _calendar(self, *pages: bytes, path: str = "/dav/cal/"):
+        client = DAVClient(url="https://caldav.example.com/dav/")
+        client.report = mock.Mock(side_effect=[DAVResponse.from_bytes(p) for p in pages])
+        calendar = Calendar(client=client, url="https://caldav.example.com" + path)
+        calendar.search = mock.Mock(side_effect=AssertionError("fell back to a full fetch"))
+        return client, calendar
+
+    def test_follows_the_token_until_complete(self):
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"', "b.ics": '"b1"'}, "tok-2", truncated=True),
+            sync_page({"c.ics": '"c1"', "a.ics": None}, "tok-3", truncated=False),
+        )
+        result = calendar.get_objects_by_sync_token("tok-1")
+
+        assert client.report.call_count == 2
+        bodies = [to_normal_str(c.args[1]) for c in client.report.call_args_list]
+        assert "tok-1" in bodies[0]
+        assert "tok-2" in bodies[1]
+        assert result.sync_token == "tok-3"
+        assert result.truncated is False
+        assert sorted(str(o.url.path) for o in result) == [
+            "/dav/cal/a.ics",
+            "/dav/cal/b.ics",
+            "/dav/cal/c.ics",
+        ]
+        ## the later page wins: a.ics was deleted after the first page
+        by_name = {str(o.url.path).rsplit("/", 1)[1]: o for o in result}
+        assert by_name["a.ics"].props.get(dav.GetEtag.tag) is None
+        assert by_name["c.ics"].props[dav.GetEtag.tag] == '"c1"'
+        assert [u.path for u in result.deleted_urls] == ["/dav/cal/a.ics"]
+
+    def test_a_member_removed_then_recreated_is_not_deleted(self):
+        client, calendar = self._calendar(
+            sync_page({"a.ics": None}, "tok-2", truncated=True),
+            sync_page({"a.ics": '"a2"'}, "tok-3", truncated=False),
+        )
+        result = calendar.get_objects_by_sync_token("tok-1")
+        assert result.deleted_urls == set()
+
+    def test_untruncated_reply_is_a_single_request(self):
+        client, calendar = self._calendar(sync_page({"a.ics": '"a1"'}, "tok-2", truncated=False))
+        result = calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.call_count == 1
+        assert result.truncated is False
+        assert result.sync_token == "tok-2"
+        assert len(result) == 1
+
+    def test_stops_when_the_token_does_not_move(self):
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-1", truncated=True),
+        )
+        result = calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.call_count == 1
+        assert result.truncated is True
+        assert result.sync_token == "tok-1"
+        assert len(result) == 1
+
+    def test_iteration_cap(self):
+        pages = [
+            sync_page({f"{i}.ics": f'"e{i}"'}, f"tok-{i + 2}", truncated=True)
+            for i in range(Calendar.sync_max_pages + 5)
+        ]
+        client, calendar = self._calendar(*pages)
+        result = calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.call_count == Calendar.sync_max_pages
+        assert result.truncated is True
+        assert result.sync_token == f"tok-{Calendar.sync_max_pages + 1}"
+        assert len(result) == Calendar.sync_max_pages
+
+    def test_at_sign_in_calendar_path(self):
+        """Nextcloud-style paths keep a literal @ in the calendar URL."""
+        base = "/dav/u@example.com/cal/"
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True, base=base),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False, base=base),
+            path=base,
+        )
+        result = calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+        assert client.report.call_count == 2
+        assert result.sync_token == "tok-3"
+        assert len(result) == 2
+
+    def test_507_without_reason_phrase(self):
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True, status_507="HTTP/1.1 507"),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False),
+        )
+        result = calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+        assert client.report.call_count == 2
+        assert result.sync_token == "tok-3"
+
+    def test_sync_max_pages_below_one_still_makes_one_request(self):
+        client, calendar = self._calendar(sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True))
+        calendar.sync_max_pages = 0
+        result = calendar.get_objects_by_sync_token("tok-1")
+        assert client.report.call_count == 1
+        assert result.truncated is True
+        assert result.sync_token == "tok-2"
+
+    def test_507_for_another_href_is_not_a_truncation(self):
+        """Only a 507 for the request URL marks the page truncated."""
+        page = sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True).replace(
+            b"<D:href>/dav/cal/</D:href>", b"<D:href>/dav/othercal/</D:href>"
+        )
+        _, calendar = self._calendar(page)
+        with pytest.raises(error.DAVError):
+            calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+
+    def test_truncated_initial_sync_on_stalwart_stops_short(self):
+        """Stalwart's checkpoint of a truncated initial sync skips members.
+
+        Stalwart lists a.ics, then answers its checkpoint (its newest
+        token) with nothing, so b.ics and c.ics would be lost for good.  The
+        page is returned flagged truncated, with the caller's own empty
+        token, so the next sync starts over instead of skipping them.  No
+        listing helps: Stalwart caps a PROPFIND at maxResults as well.
+        https://github.com/pycalendar/calendaring-sync/pull/19
+        """
+        from caldav.compatibility_hints import FeatureSet
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-9", truncated=True),
+            sync_page({}, "tok-9", truncated=False),
+        )
+        client.features = FeatureSet({"sync-token.limit.initial-sync": {"support": "broken"}})
+        client.propfind = mock.Mock(side_effect=AssertionError("listed by PROPFIND"))
+        result = calendar.get_objects_by_sync_token(disable_fallback=True)
+        assert client.report.call_count == 1
+        assert [str(o.url.path) for o in result] == ["/dav/cal/a.ics"]
+        assert result.truncated is True
+        assert result.sync_token is None
+
+    def test_stalwart_pages_from_an_issued_token(self):
+        """From an issued token Stalwart's checkpoints work."""
+        from caldav.compatibility_hints import FeatureSet
+
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False),
+        )
+        client.features = FeatureSet({"sync-token.limit.initial-sync": {"support": "broken"}})
+        result = calendar.get_objects_by_sync_token("tok-1", disable_fallback=True)
+        assert client.report.call_count == 2
+        assert result.truncated is False
+        assert result.sync_token == "tok-3"
+        assert len(result) == 2
+
+    def test_truncated_initial_sync_elsewhere_follows_the_checkpoint(self):
+        """Without the hint, a truncated initial sync is paged as usual."""
+        client, calendar = self._calendar(
+            sync_page({"a.ics": '"a1"'}, "tok-2", truncated=True),
+            sync_page({"b.ics": '"b1"'}, "tok-3", truncated=False),
+        )
+        result = calendar.get_objects_by_sync_token(disable_fallback=True)
+        assert client.report.call_count == 2
+        assert result.sync_token == "tok-3"
+        assert result.truncated is False
+        assert len(result) == 2
+
+
+NO_UID_CONFLICT_BODY = (
+    b'<?xml version="1.0" encoding="utf-8"?>\n'
+    b'<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+    b"<C:no-uid-conflict><D:href>/dav/user/mycal/other.ics</D:href></C:no-uid-conflict>"
+    b"</D:error>"
+)
+UNIQUE_SCHEDULING_BODY = (
+    b'<?xml version="1.0" encoding="utf-8"?>\n'
+    b'<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+    b"<C:unique-scheduling-object-resource/></D:error>"
+)
+
+
+LOCK_TOKEN_BODY = (
+    b'<?xml version="1.0" encoding="utf-8"?>\n'
+    b'<D:error xmlns:D="DAV:"><D:lock-token-submitted>'
+    b"<D:href>/dav/user/mycal/ev1.ics</D:href></D:lock-token-submitted></D:error>"
+)
+MKCALENDAR_TAG = "{urn:ietf:params:xml:ns:caldav}calendar-collection-location-ok"
+MKCALENDAR_BODY = (
+    b'<?xml version="1.0" encoding="utf-8"?>\n'
+    b'<D:error xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">'
+    b"<C:calendar-collection-location-ok/></D:error>"
+)
+
+
+class TestPreconditionsOnOtherStatuses:
+    """Issue https://github.com/python-caldav/caldav/issues/756: a server may
+    explain any failure with a DAV:error body (RFC 4918 section 16), not
+    only a 401/403.  Xandikos refuses an expired sync token with 412
+    DAV:valid-sync-token; Radicale (409), Xandikos and Stalwart (412) refuse
+    a create whose UID is taken with CALDAV:no-uid-conflict, and Cyrus (403)
+    with CALDAV:unique-scheduling-object-resource."""
+
+    URL = "http://cal.example.com/dav/user/mycal/"
+
+    @pytest.fixture(params=["sync", "async"])
+    def base(self, request):
+        if request.param == "sync":
+            return DAVClient
+        from caldav.async_davclient import AsyncDAVClient
+
+        return AsyncDAVClient
+
+    def _client(self, base, status, body=b"", exc=None):
+        sent = []
+        client = base(url="http://cal.example.com/dav/")
+
+        def request(url, method="GET", body_=None, headers=None, **kwargs):
+            sent.append((method.upper(), {k.lower(): v for k, v in (headers or {}).items()}))
+            if exc is not None:
+                raise exc
+            resp = mock.MagicMock()
+            resp.status_code = status
+            resp.reason = "whatever"
+            resp.headers = {"Content-Type": "application/xml"} if body else {}
+            resp.content = body
+            resp.text = body.decode()
+            return DAVResponse(resp, client)
+
+        if base is DAVClient:
+            client.request = lambda url, method="GET", body="", headers=None: request(
+                url, method, body, headers
+            )
+        else:
+
+            async def async_request(url, method="GET", body="", headers=None):
+                return request(url, method, body, headers)
+
+            client.request = async_request
+        return client, sent
+
+    @staticmethod
+    def _run(result):
+        import asyncio
+
+        if asyncio.iscoroutine(result):
+            return asyncio.run(result)
+        return result
+
+    def test_davError_defaults(self) -> None:
+        e = error.PutError("/x.ics")
+        assert e.preconditions == []
+        assert e.body is None
+
+    def test_report_412_keeps_valid_sync_token(self, base) -> None:
+        client, _ = self._client(base, 412, VALID_SYNC_TOKEN_BODY)
+        calendar = Calendar(client, url=self.URL)
+        with pytest.raises(error.ReportError) as exc_info:
+            self._run(calendar.get_objects_by_sync_token("tok-1", disable_fallback=True))
+        assert exc_info.value.preconditions == [dav.ValidSyncToken.tag]
+        assert exc_info.value.body
+
+    def _event(self, client, etag=None):
+        cal = Calendar(client, url=self.URL)
+        event = Event(client, url=self.URL + "ev1.ics", data=ev1, parent=cal)
+        if etag:
+            event.props[dav.GetEtag.tag] = etag
+        return event
+
+    @pytest.mark.parametrize("status", [409, 412])
+    @pytest.mark.parametrize("etag", [None, '"etag-a"'])
+    def test_put_no_uid_conflict(self, base, status, etag) -> None:
+        """Not a reason to retry the PUT.  Where 3.4 raised
+        ETagMismatchError (a 412 on a save carrying If-Match), the error
+        is that as well, so existing handlers keep catching it."""
+        client, sent = self._client(base, status, NO_UID_CONFLICT_BODY)
+        event = self._event(client, etag)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(event.save())
+        assert isinstance(exc_info.value, error.ETagMismatchError) == (
+            status == 412 and etag is not None
+        )
+        assert isinstance(exc_info.value, error.PutError)
+        assert exc_info.value.preconditions == ["{urn:ietf:params:xml:ns:caldav}no-uid-conflict"]
+        assert exc_info.value.body
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_put_412_uid_conflict_with_schedule_tag(self, base) -> None:
+        client, _ = self._client(base, 412, NO_UID_CONFLICT_BODY)
+        event = self._event(client)
+        event.props[cdav.ScheduleTag.tag] = '"stag-1"'
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(event.save())
+        assert isinstance(exc_info.value, error.ScheduleTagMismatchError)
+
+    def test_put_409_without_precondition_is_retried_once(self, base) -> None:
+        client, sent = self._client(base, 409)
+        event = self._event(client)
+        with pytest.raises(error.PutError) as exc_info:
+            self._run(event.save())
+        assert not isinstance(exc_info.value, error.UidConflictError)
+        assert [m for m, _ in sent] == ["PUT", "PUT"]
+
+    @mock.patch("caldav.davclient.requests.Session.request")
+    def test_put_403_body_reaches_uid_conflict(self, mocked) -> None:
+        """End to end: a real 403 body goes through the client's
+        AuthorizationError into a UidConflictError that still is one."""
+        r = mock.MagicMock()
+        r.status_code = 403
+        r.headers = {"Content-Type": "application/xml"}
+        r.reason = "Forbidden"
+        r.content = UNIQUE_SCHEDULING_BODY
+        r.text = UNIQUE_SCHEDULING_BODY.decode()
+        mocked.return_value = r
+        client = DAVClient(url="http://cal.example.com/dav/", username="u", password="p")
+        event = self._event(client)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            event.save()
+        assert isinstance(exc_info.value, error.AuthorizationError)
+        assert exc_info.value.body == UNIQUE_SCHEDULING_BODY
+        assert exc_info.value.preconditions == [
+            "{urn:ietf:params:xml:ns:caldav}unique-scheduling-object-resource"
+        ]
+
+    def test_put_403_unique_scheduling_object_resource(self, base) -> None:
+        """A 403 is raised by the client as AuthorizationError; save() turns
+        it into a UidConflictError when it names a UID precondition."""
+        tag = "{urn:ietf:params:xml:ns:caldav}unique-scheduling-object-resource"
+        exc = error.AuthorizationError(
+            url=self.URL + "ev1.ics",
+            reason="Forbidden",
+            preconditions=[tag],
+            body=UNIQUE_SCHEDULING_BODY,
+        )
+        client, sent = self._client(base, 403, exc=exc)
+        event = self._event(client)
+        with pytest.raises(error.UidConflictError) as exc_info:
+            self._run(event.save())
+        assert isinstance(exc_info.value, error.AuthorizationError)
+        assert exc_info.value.preconditions == [tag]
+        assert exc_info.value.body == UNIQUE_SCHEDULING_BODY
+        assert [m for m, _ in sent] == ["PUT"]
+
+    def test_put_403_without_uid_precondition_stays_authorization_error(self, base) -> None:
+        exc = error.AuthorizationError(url=self.URL + "ev1.ics", reason="Forbidden")
+        client, _ = self._client(base, 403, exc=exc)
+        event = self._event(client)
+        with pytest.raises(error.AuthorizationError):
+            self._run(event.save())
+
+    def test_put_412_plain_is_still_etag_mismatch(self, base) -> None:
+        client, _ = self._client(base, 412)
+        event = self._event(client, '"etag-a"')
+        with pytest.raises(error.ETagMismatchError) as exc_info:
+            self._run(event.save())
+        assert exc_info.value.preconditions == []
+
+    def test_delete_412_keeps_preconditions(self, base) -> None:
+        client, _ = self._client(base, 412, LOCK_TOKEN_BODY)
+        event = self._event(client, '"etag-a"')
+        with pytest.raises(error.ETagMismatchError) as exc_info:
+            self._run(event.delete(if_match=True))
+        assert exc_info.value.preconditions == ["{DAV:}lock-token-submitted"]
+
+    def test_report_412_falls_back_without_disable_fallback(self, base) -> None:
+        """Not an AuthorizationError, so the fallback still runs."""
+        client, _ = self._client(base, 412, VALID_SYNC_TOKEN_BODY)
+        calendar = Calendar(client, url=self.URL)
+        if base is DAVClient:
+            search = mock.patch.object(Calendar, "search", return_value=[])
+        else:
+
+            async def no_objects(*args, **kwargs):
+                return []
+
+            search = mock.patch.object(Calendar, "search", side_effect=no_objects)
+        with search as mocked_search:
+            result = self._run(calendar.get_objects_by_sync_token("tok-1"))
+        mocked_search.assert_called_once()
+        assert result.sync_token.startswith("fake-")
+
+    def _response(self, client, status, body=MKCALENDAR_BODY):
+        resp = mock.MagicMock()
+        resp.status_code = status
+        resp.reason = "whatever"
+        resp.headers = {"Content-Type": "application/xml"}
+        resp.content = body
+        resp.text = body.decode()
+        return DAVResponse(resp, client)
+
+    @pytest.mark.parametrize("method", ["mkcalendar", "mkcol"])
+    def test_mkcalendar_failure_keeps_preconditions(self, method) -> None:
+        from caldav.collection import _assert_created
+
+        response = self._response(DAVClient(url=self.URL), 403)
+        with pytest.raises(error.exception_by_method[method]) as exc_info:
+            _assert_created(response, method)
+        assert exc_info.value.preconditions == [MKCALENDAR_TAG]
+        assert exc_info.value.body
+
+    def test_proppatch_failure_keeps_preconditions(self) -> None:
+        client = DAVClient(url=self.URL)
+        with pytest.raises(error.PropsetError) as exc_info:
+            Calendar(client, url=self.URL)._post_set_properties(self._response(client, 409))
+        assert exc_info.value.preconditions == [MKCALENDAR_TAG]
+
+    @pytest.mark.parametrize("status,cls", [(404, error.NotFoundError), (409, error.PropfindError)])
+    def test_propfind_failure_keeps_preconditions(self, status, cls) -> None:
+        from caldav.base_client import _raise_unless_propfind_ok
+
+        with pytest.raises(cls) as exc_info:
+            _raise_unless_propfind_ok(self._response(DAVClient(url=self.URL), status))
+        assert exc_info.value.preconditions == [MKCALENDAR_TAG]
+
+    def test_principal_search_failure_keeps_preconditions(self, base) -> None:
+        client, _ = self._client(base, 403, MKCALENDAR_BODY)
+        with pytest.raises(error.ReportError) as exc_info:
+            self._run(client.search_principals())
+        assert exc_info.value.preconditions == [MKCALENDAR_TAG]
+        ## the message format of earlier versions is kept
+        assert " - <?xml" in str(exc_info.value)

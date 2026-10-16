@@ -92,7 +92,10 @@ async function closeOwnedExportPages(ownerTargetId) {
   await sweepExportPages({ chromeSessionDir: OUTPUT_DIR, cdpUrl: currentCdpUrl,
     ownerTargetId, puppeteer, closeAll: true });
 }
-const SNAPSHOT_PAGE_MARKER_FILES = ["target_id.txt", "url.txt"];
+// Removing the target marker publishes completed page invalidation to other
+// processes. Remove its dependent URL first so they cannot observe a stale URL
+// after observing that the target is gone.
+const SNAPSHOT_PAGE_MARKER_FILES = ["url.txt", "target_id.txt"];
 // The tab hook only owns page-level markers. Browser markers (`cdp_url.txt`,
 // `chrome.pid`, `browser.json`) can live in the same chrome dir in crawl and
 // snapshot isolation, and are still needed by the browser-owning launch hook to
@@ -101,6 +104,7 @@ const SNAPSHOT_ARTIFACT_FILES = [
   "target_id.txt",
   "url.txt",
   "navigation.json",
+  "frame_loads.json",
 ];
 
 function getPortFromCdpUrl(cdpUrl) {
@@ -171,6 +175,17 @@ async function cleanupOwnedSnapshotPageMarkers(expectedTargetId, reason) {
     if (getPublishedTargetId() !== expectedTargetId) {
       return false;
     }
+    const navigationFile = path.join(OUTPUT_DIR, "navigation.json");
+    if (!shuttingDown && !fs.existsSync(navigationFile)) {
+      // A target can die before chrome_navigate ever runs. Preserve that
+      // terminal outcome before removing its markers, otherwise every later
+      // hook mistakes the missing target for startup still in progress.
+      writeFileAtomic(navigationFile, JSON.stringify({
+        error: `Chrome target ${expectedTargetId}: ${reason}`,
+        targetId: expectedTargetId,
+        timestamp: new Date().toISOString(),
+      }));
+    }
     cleanupSnapshotPageMarkers(reason);
     return true;
   } finally {
@@ -183,6 +198,8 @@ async function stopTargetMonitor() {
     try {
       monitorPage.removeAllListeners("close");
       monitorPage.removeAllListeners("error");
+      monitorPage.removeAllListeners("frameattached");
+      monitorPage.removeAllListeners("framenavigated");
     } catch (error) {}
     monitorPage = null;
   }
@@ -210,6 +227,42 @@ async function startTargetMonitor() {
   });
   monitorBrowser = connection.browser;
   monitorPage = connection.page;
+  // Observe before navigation starts. A completed iframe navigation can retain
+  // about:blank (204/205, canceled navigation); its URL alone is not readiness.
+  // Keep this separate from the main-document navigation marker, which the
+  // foreground navigation hook owns.
+  const frames = {};
+  const publishFrames = () => {
+    if (shuttingDown || targetId !== expectedTargetId) return;
+    writeFileAtomic(path.join(OUTPUT_DIR, "frame_loads.json"), JSON.stringify({
+      targetId: expectedTargetId, frames,
+    }));
+  };
+  publishFrames();
+  const watched = new WeakSet();
+  const observeFrame = (frame) => {
+    // Cross-origin frames can live in another renderer/CDP session. Puppeteer
+    // enables Page events there before resuming that renderer.
+    const client = frame.client;
+    if (watched.has(client)) return;
+    watched.add(client);
+    client.on("Page.frameStartedLoading", ({frameId}) => {
+      frames[frameId] = "loading";
+      publishFrames();
+    });
+    client.on("Page.frameStoppedLoading", ({frameId}) => {
+      frames[frameId] = "stopped";
+      publishFrames();
+    });
+    client.on("Page.frameDetached", ({frameId, reason}) => {
+      if (reason === "swap") return;
+      delete frames[frameId];
+      publishFrames();
+    });
+  };
+  monitorPage.on("frameattached", observeFrame);
+  monitorPage.on("framenavigated", observeFrame);
+  for (const frame of monitorPage.frames()) observeFrame(frame);
   monitorPage.once("error", async (error) => {
     if (shuttingDown || targetId !== expectedTargetId) return;
     const crashedPage = monitorPage;
@@ -242,7 +295,7 @@ async function startTargetMonitor() {
       await closeOwnedExportPages(expectedTargetId);
       markersCleaned = await cleanupOwnedSnapshotPageMarkers(
         expectedTargetId,
-        `target ${expectedTargetId} disappeared`
+        `target ${expectedTargetId} closed`
       );
     } catch (error) {
       console.error(

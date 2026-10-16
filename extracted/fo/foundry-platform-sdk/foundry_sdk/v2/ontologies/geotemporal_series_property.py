@@ -87,6 +87,9 @@ class GeotemporalSeriesPropertyClient:
           Geotemporal series integrations with only "cold storage" enabled are not supported.
         :::
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -228,6 +231,9 @@ class AsyncGeotemporalSeriesPropertyClient:
         :::callout{theme=warning title=Warning}
           Geotemporal series integrations with only "cold storage" enabled are not supported.
         :::
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

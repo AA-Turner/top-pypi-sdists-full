@@ -7,7 +7,8 @@ holds is copied to page-locked host memory the GPU addresses directly (unified a
 and the storage is repointed there. Every tensor over it stays a CUDA tensor, read and
 written over the bus from then on, so whatever holds one is unchanged and nothing has to bring
 it back; its device bytes go back to torch. Least recently used first (`touch`), the op's
-own operands last.
+own operands last. Only a stage under pressure keeps that order: from its first spill or host
+result until its host blocks are gone, so a stage with room pays nothing per op.
 
 Locking new pages runs at about 1.6 GB/s, most of a spill's cost: a block no tensor holds any
 more stays locked for the next spill or host map of its size, until the stage closes.
@@ -43,6 +44,18 @@ HELD: dict[int, int] = {}
 USED: dict[int, tuple[int, weakref.ref[Tensor]]] = {}
 FORGET = 1 << 16
 _CLOCK = [0]
+#: whether ops are noted (`touch`): from a stage's first spill or host result until its host
+#: blocks are all gone (`release`)
+PRESSED = [False]
+
+
+def _size(nbytes: int) -> int:
+    return -(-max(nbytes, 1) // GRAIN) * GRAIN
+
+
+def reusable(nbytes: int) -> bool:
+    """Whether a free block can take `nbytes` without locking more."""
+    return bool(_FREE.get(_size(nbytes)))
 
 
 class _Host:
@@ -50,7 +63,7 @@ class _Host:
     block has its size; freed, it waits for the next one."""
 
     def __init__(self, torch: ModuleType, nbytes: int) -> None:
-        self.size = -(-max(nbytes, 1) // GRAIN) * GRAIN
+        self.size = _size(nbytes)
         free = _FREE.get(self.size)
         if free:
             self.data = free.pop()
@@ -75,7 +88,11 @@ class _Host:
 
 
 def release(torch: ModuleType) -> None:
-    """Free blocks go back to the host: a closed stage keeps none locked."""
+    """Free blocks go back to the host: a closed stage keeps none locked. Once no tensor is in
+    host memory, ops are no longer noted."""
+    if not HELD:
+        PRESSED[0] = False
+        USED.clear()
     if not _FREE:
         return
     cudart = torch.cuda.cudart()
@@ -85,33 +102,42 @@ def release(torch: ModuleType) -> None:
     _FREE.clear()
 
 
-def touch(tensors: Iterable[Tensor]) -> None:
-    """An op read or made `tensors`: their storages are the last to move."""
+def stored(values: Iterable[object]) -> Iterator[Tensor]:
+    """The tensors among `values` (one level of sequences) whose storage holds their bytes: a
+    plain strided tensor, or a traceable wrapper's inner ones (an AsyncCollectiveTensor, a
+    DTensor). A wrapper's own storage has no bytes (run 6349: `data_ptr` raises on it), nor
+    has another subclass's (a weight's unbound stand-in), a meta or a sparse tensor's."""
+    for value in values:
+        for item in value if isinstance(value, (tuple, list)) else (value,):
+            if type(item).__name__ in ("Tensor", "Parameter"):
+                if not item.is_meta and str(item.layout) == "torch.strided":
+                    yield cast("Tensor", item)
+            elif (flatten := getattr(item, "__tensor_flatten__", None)) is not None:
+                yield from stored([getattr(item, name) for name in flatten()[0]])
+
+
+def touch(values: Iterable[object]) -> None:
+    """An op read or made `values`: their device storages are the last to move."""
+    if not PRESSED[0]:
+        return
     clock = _CLOCK[0] = _CLOCK[0] + 1
-    for value in tensors:
-        try:
-            storage = value.untyped_storage()
-        except RuntimeError:  # a sparse or wrapper tensor has no storage of its own
-            continue
-        if storage.nbytes() >= SMALLEST:
+    for value in stored(values):
+        storage = value.untyped_storage()
+        if value.is_cuda and storage.nbytes() >= SMALLEST:
             USED[storage.data_ptr()] = (clock, weakref.ref(value))
     if len(USED) > FORGET:
         for key in [k for k, (at, _) in USED.items() if at < clock - FORGET]:
             del USED[key]
 
 
-def hosted(value: Tensor) -> bool:
+def hosted(value: object) -> bool:
     """Whether `value`'s bytes are in a host block."""
-    if not HELD:
-        return False
-    try:
-        return value.untyped_storage().data_ptr() in HELD
-    except RuntimeError:  # a sparse or wrapper tensor has no storage of its own
-        return False
+    return bool(HELD) and any(t.untyped_storage().data_ptr() in HELD for t in stored((value,)))
 
 
 def empty(torch: ModuleType, device: Device, like: Tensor) -> Tensor:
     """A CUDA tensor of `like`'s shape, strides and dtype whose bytes are a host block."""
+    PRESSED[0] = True
     span = 1 + sum((n - 1) * s for n, s in zip(like.shape, like.stride(), strict=True))
     nbytes = span * like.element_size() if like.numel() else 0
     raw = torch.as_tensor(_Host(torch, nbytes), device=device)
@@ -124,6 +150,7 @@ def spill(
     """Move this process's tensors on `device` to host memory, least recently used first,
     until `need` device bytes came back, the storages `operands` read last, at most `room`
     bytes. Returns the bytes moved."""
+    PRESSED[0] = True
     started = time.perf_counter_ns()
     torch.cuda.synchronize(device)
     segments = sorted(
@@ -132,7 +159,7 @@ def spill(
         if s["device"] == device.index
     )
     starts = [start for start, _ in segments]
-    read = {int(t.untyped_storage().data_ptr()) for t in _tensors(operands)}
+    read = {int(t.untyped_storage().data_ptr()) for t in stored(operands) if t.is_cuda}
     found: dict[int, UntypedStorage] = {}
 
     def add(values: Iterable[object]) -> int:
@@ -179,10 +206,3 @@ def _move(torch: ModuleType, device: Device, storage: UntypedStorage) -> int:
     alias = torch.as_tensor(host, device=device)
     storage._swap_data_ptr_(alias.untyped_storage())
     return nbytes
-
-
-def _tensors(operands: Iterable[object]) -> Iterator[Tensor]:
-    for value in operands:
-        for item in value if isinstance(value, (tuple, list)) else (value,):
-            if type(item).__name__ in ("Tensor", "Parameter") and getattr(item, "is_cuda", False):
-                yield cast("Tensor", item)

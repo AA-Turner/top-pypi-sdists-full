@@ -117,7 +117,7 @@ def _loop_that_bills_then(after_billing: str):
 
 
 def _agent() -> Any:
-    async def execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         return await executor_mod.execute_until_complete(
             initial_request=object(), client=object()
         )
@@ -325,7 +325,7 @@ async def test_a_run_the_loop_stopped_settles_cancelled_not_completed(
 
     history = [_billed_call()]
 
-    async def execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         return SimpleNamespace(
             output="partial answer",
             assistant_response=None,
@@ -433,7 +433,7 @@ async def test_a_stopped_agent_tool_child_settles_cancelled(
 async def test_a_dict_shaped_stop_error_settles_its_sentence(priced, app_ctx, tracker) -> None:
     from matrx_ai.agents.executor import run_agent
 
-    async def execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         return SimpleNamespace(
             output="partial", assistant_response=None,
             config=SimpleNamespace(model="m", metadata={}),

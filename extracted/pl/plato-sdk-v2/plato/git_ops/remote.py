@@ -12,12 +12,16 @@ import uuid
 from pathlib import Path
 
 from plato.git_ops.client import RemoteGitClient
-from plato.git_ops.models import GitOpRequest, GitOpResult
+from plato.git_ops.models import GitOpErrorKind, GitOpRequest, GitOpResult
 from plato.rpc.client.connection import AgentDaemonClient
 from plato.rpc.client.fallback import rpc_or_ssh
 from plato.rpc.protocol import CAP_GIT
 
 _CLIENTS: dict[tuple[str, str], RemoteGitClient] = {}
+
+
+class WorldGitSshTimeoutError(RuntimeError):
+    """A git op failed because ssh from the agent VM to world-git timed out."""
 
 
 def _client_key(ssh_key_path: Path, hostname: str) -> tuple[str, str]:
@@ -86,6 +90,8 @@ async def run_remote_git_checked(
     result = await run_remote_git_op(ssh_key_path, hostname, request, timeout=timeout)
     if not result.ok:
         detail = result.stderr or result.stdout or "unknown error"
+        if result.error_kind == GitOpErrorKind.WORLD_GIT_SSH_TIMEOUT:
+            raise WorldGitSshTimeoutError(f"{error_context}: {detail}")
         raise RuntimeError(f"{error_context}: {detail}")
     return result
 

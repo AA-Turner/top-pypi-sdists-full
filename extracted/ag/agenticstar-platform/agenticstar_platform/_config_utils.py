@@ -70,3 +70,28 @@ def load_toml_section(toml_path: str, section: str) -> dict:
         data = data[key]
 
     return expand_env_placeholders(data)
+
+
+def parse_embedding_dimensions(value: Any) -> "int | None":
+    """Embedding の設定の次元 (`dimensions`) を読む。無ければ None (既定の 1536 とみなし、API には渡さない)。
+
+    Raises:
+        ValueError: 正の整数でない (起動時に分かるエラーにする)
+    """
+    if value is None:
+        return None
+    if isinstance(value, str) and re.fullmatch(r"[0-9]+", value.strip()):  # isdigit() は ² なども通すので使わない
+        value = int(value.strip())
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        # 値はメッセージに入れない (誤って別の値を入れた設定がログや応答に出ないように)
+        raise ValueError("'dimensions' must be a positive integer")
+    return value
+
+
+# API に dimensions を渡せないモデル (渡すと 400)
+_MODELS_WITHOUT_DIMENSIONS = ("text-embedding-ada-002",)
+
+
+def model_accepts_dimensions(model: str) -> bool:
+    """Embedding の API に dimensions を渡せるモデルか (`azure/xxx` の接頭辞・デプロイ名の末尾で見る)。"""
+    return not (model or "").rsplit("/", 1)[-1].endswith(_MODELS_WITHOUT_DIMENSIONS)

@@ -103,8 +103,9 @@ private:
 
     // search for subimages: in FITS subimage is a header with SIMPLE keyword
     // or with XTENSION keyword with value 'IMAGE   '. Information about found
-    // subimages are stored in m_subimages
-    void subimage_search();
+    // subimages are stored in m_subimages. Return true for ok, false for
+    // error.
+    bool subimage_search();
 
     // set basic info (width, height) of subimage
     // add attributes to ImageSpec
@@ -114,6 +115,22 @@ private:
     // converts date in FITS format (YYYY-MM-DD or DD/MM/YY)
     // to DateTime format
     std::string convert_date(const std::string& date);
+
+    // Give m_spec.channelnames sensible values: generic defaults (R,G,B,...),
+    // improved with real per-plane names when the header tells us what the
+    // channel axis actually is (a STOKES polarization axis, or informal
+    // FILTERn/BANDn keywords).
+    void assign_channel_names();
+
+    // True if multi-channel pixel data is stored as separate per-channel
+    // blocks -- one full width * height (or width * height * depth for
+    // NAXIS=4) block per channel -- rather than interleaved. This is the only
+    // multi-channel layout we recognize; see the comments in
+    // read_fits_header().
+    bool planar_channels() const
+    {
+        return (m_naxes == 3 || m_naxes == 4) && m_spec.nchannels > 1;
+    }
 };
 
 
@@ -168,18 +185,16 @@ private:
 namespace fits_pvt {
 
 // converts given number to string
-std::string
-num2str(float val);
+std::string num2str(float val);
 
 
 // creates FITS card from given (keyname, value, comment) strings
-std::string
-create_card(std::string keyname, std::string value);
+std::string create_card(std::string keyname, std::string value);
 
 
 // retrieving keyname, value and comment from the given card
-void
-unpack_card(const std::string& card, std::string& keyname, std::string& value);
+void unpack_card(const std::string& card, std::string& keyname,
+                 std::string& value);
 
 }  // namespace fits_pvt
 

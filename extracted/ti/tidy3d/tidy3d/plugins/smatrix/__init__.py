@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
-
 from tidy3d.plugins.smatrix.component_modelers.base import (
     AbstractComponentModeler,
 )
@@ -30,13 +28,6 @@ from tidy3d.plugins.smatrix.ports.coaxial_lumped import CoaxialLumpedPort
 from tidy3d.plugins.smatrix.ports.modal import AstigmaticGaussianPort, GaussianPort, Port
 from tidy3d.plugins.smatrix.ports.rectangular_lumped import LumpedPort
 from tidy3d.plugins.smatrix.ports.wave import TerminalWavePort, WavePort
-
-# Instantiate on plugin import till we unite with toplevel
-warnings.filterwarnings(
-    "once",
-    message="RF simulations and functionality will require new license requirements in an upcoming release. All RF-specific classes are now available within the sub-package 'tidy3d.rf'.",
-    category=FutureWarning,
-)
 
 # Legacy type to support previous flows
 ComponentModeler = ModalComponentModeler

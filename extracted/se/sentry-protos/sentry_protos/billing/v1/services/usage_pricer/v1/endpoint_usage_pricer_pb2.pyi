@@ -148,6 +148,7 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     TOTAL_QUANTITY_FIELD_NUMBER: builtins.int
     RESERVED_SPEND_CENTS_FIELD_NUMBER: builtins.int
     HAS_REMAINING_CAPACITY_FIELD_NUMBER: builtins.int
+    NON_GRANTED_QUANTITY_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
@@ -177,6 +178,11 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     """True when this line item can continue accepting usage from any capacity
     source, including reserved, PAYG, or granted capacity.
     """
+    non_granted_quantity: builtins.int
+    """Total units consumed by this line item in the billing period after unit
+    grants are applied, but before reserved quantity is deducted. This includes
+    both reserved and PAYG usage (in the line item's units).
+    """
     def __init__(
         self,
         *,
@@ -188,8 +194,9 @@ class LineItemUsageSummary(google.protobuf.message.Message):
         total_quantity: builtins.int = ...,
         reserved_spend_cents: builtins.int = ...,
         has_remaining_capacity: builtins.bool = ...,
+        non_granted_quantity: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["has_remaining_capacity", b"has_remaining_capacity", "line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["has_remaining_capacity", b"has_remaining_capacity", "line_item_uid", b"line_item_uid", "non_granted_quantity", b"non_granted_quantity", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 

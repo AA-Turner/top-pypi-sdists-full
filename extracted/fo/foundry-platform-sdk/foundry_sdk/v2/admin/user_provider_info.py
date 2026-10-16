@@ -66,6 +66,9 @@ class UserProviderInfoClient:
     ) -> admin_models.UserProviderInfo:
         """
         Get the UserProviderInfo.
+
+        Required scopes: [api:admin-read]
+
         :param user_id:
         :type user_id: UserId
         :param request_timeout: timeout setting for this request in seconds.
@@ -116,6 +119,9 @@ class UserProviderInfoClient:
     ) -> admin_models.UserProviderInfo:
         """
         Replace the UserProviderInfo.
+
+        Required scopes: [api:admin-write]
+
         :param user_id:
         :type user_id: UserId
         :param provider_id: The ID of the User in the external authentication provider. This value is determined by the authentication provider. At most one User can have a given provider ID in a given Realm.
@@ -222,6 +228,9 @@ class AsyncUserProviderInfoClient:
     ) -> typing.Awaitable[admin_models.UserProviderInfo]:
         """
         Get the UserProviderInfo.
+
+        Required scopes: [api:admin-read]
+
         :param user_id:
         :type user_id: UserId
         :param request_timeout: timeout setting for this request in seconds.
@@ -272,6 +281,9 @@ class AsyncUserProviderInfoClient:
     ) -> typing.Awaitable[admin_models.UserProviderInfo]:
         """
         Replace the UserProviderInfo.
+
+        Required scopes: [api:admin-write]
+
         :param user_id:
         :type user_id: UserId
         :param provider_id: The ID of the User in the external authentication provider. This value is determined by the authentication provider. At most one User can have a given provider ID in a given Realm.

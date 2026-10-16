@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: minilog
-Version: 2.3.1
+Version: 2.4
 Summary: Minimalistic wrapper for Python logging.
-Home-page: https://pypi.org/project/minilog
 License: MIT
+License-File: LICENSE.md
 Keywords: logging
 Author: Jace Browning
 Author-email: jacebrowning@gmail.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -15,14 +15,15 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Topic :: System :: Logging
 Project-URL: Documentation, https://minilog.readthedocs.io
+Project-URL: Homepage, https://pypi.org/project/minilog
 Project-URL: Repository, https://github.com/jacebrowning/minilog
 Description-Content-Type: text/markdown
 

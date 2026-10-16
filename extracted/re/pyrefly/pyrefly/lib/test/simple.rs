@@ -850,7 +850,7 @@ testcase!(
     r#"
 def test_raise(exception_or_none: BaseException | None) -> None:
     raise
-    raise None  # E: expected `BaseException`
+    raise None  # E: This code is unreachable # E: expected `BaseException`
     raise BaseException
     raise BaseException()
     raise 42  # E: expected `BaseException`
@@ -964,6 +964,65 @@ def test(m: Mapping[str, int]) -> None:
     x1: dict[str, int] = {**m}
     x2: dict[int, int] = {**m} # E: `dict[str, int]` is not assignable to `dict[int, int]`
     assert_type({"foo": 1, **m}, dict[str, int])
+"#,
+);
+
+testcase!(
+    test_dict_unpack_duck_mapping,
+    r#"
+from collections.abc import Iterable
+from typing import Any, assert_type
+
+class DuckMapping:
+    def keys(self) -> Iterable[str]:
+        return ["a", "b"]
+
+    def __getitem__(self, key: str) -> Any:
+        return {"a": 1, "b": 2}[key]
+
+assert_type({**DuckMapping()}, dict[str, Any])
+assert_type({"x": 1, **DuckMapping()}, dict[str, int | Any])
+
+class GenericMapping[K, V]:
+    def keys(self) -> Iterable[K]: ...
+    def __getitem__(self, key: K) -> V: ...
+
+def test(mapping: GenericMapping[str, int], union: GenericMapping[str, int] | dict[str, str]):
+    assert_type({**mapping}, dict[str, int])
+    assert_type({"x": 1, **mapping}, dict[str, int])
+    assert_type({**union}, dict[str, int | str])
+    widened: dict[str, int | str] = {**mapping}
+    wrong_key: dict[int, int] = {**mapping}  # E: `dict[str, int]` is not assignable to `dict[int, int]`
+    wrong_value: dict[str, str] = {**mapping}  # E: `dict[str, int]` is not assignable to `dict[str, str]`
+
+def test_non_string_keys(mapping: GenericMapping[int, str]):
+    assert_type({**mapping}, dict[int, str])
+"#,
+);
+
+testcase!(
+    test_dict_unpack_invalid_duck_mapping,
+    r#"
+from collections.abc import Iterable
+
+class MissingKeys:
+    def __getitem__(self, key: str) -> int: ...
+
+class MissingGetItem:
+    def keys(self) -> Iterable[str]: ...
+
+class NonIterableKeys:
+    def keys(self) -> int: ...
+    def __getitem__(self, key: str) -> int: ...
+
+class IncompatibleKey:
+    def keys(self) -> Iterable[str]: ...
+    def __getitem__(self, key: int) -> int: ...
+
+{**MissingKeys()}  # E: Expected a mapping, got MissingKeys
+{**MissingGetItem()}  # E: Expected a mapping, got MissingGetItem
+{**NonIterableKeys()}  # E: Expected a mapping, got NonIterableKeys
+{**IncompatibleKey()}  # E: Expected a mapping, got IncompatibleKey
 "#,
 );
 
@@ -1523,7 +1582,7 @@ a = True if # E: Parse
 );
 
 testcase!(
-    test_syntax_error_resulting_in_empty_defintion,
+    test_syntax_error_resulting_in_empty_definition,
     r#"
 @:a=1 # E: Parse
     "#,
@@ -1681,6 +1740,44 @@ testcase!(
 from typing import assert_type, reveal_type, Literal
 assert_type(0, Literal[0], oops=1)  # E: `assert_type` got an unexpected keyword argument `oops`
 reveal_type(0, oops=1)  # E: revealed type: Literal[0]  # E: `reveal_type` got an unexpected keyword argument `oops`
+    "#,
+);
+
+// An `assert-type-unspellable-subtype` error is suppressed by its own ignore comment, while an
+// `assert-type` error is not.
+testcase!(
+    test_assert_type_unspellable_subtype,
+    r#"
+from typing import Any, Callable, assert_type, overload
+
+class A: ...
+class B: ...
+
+def f(x: A, y: tuple[Any]):
+    if isinstance(x, B):
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(x, B)
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type((x,), tuple[B])
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(x, int)  # E: assert_type(A & B, int) failed
+        assert_type(x, A)  # E: `A & B` is a subtype of `A`, but they are not equivalent
+    if isinstance(y, B):
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(y, tuple[object])
+        # Some materializations of `tuple[Any]` are not subtypes of `tuple[int]`.
+        # pyrefly: ignore[assert-type-unspellable-subtype]
+        assert_type(y, tuple[int])  # E: assert_type(B & tuple[Any], tuple[int]) failed
+
+@overload
+def g(x: int) -> int: ...
+@overload
+def g(x: str) -> str: ...
+def g(x: int | str) -> int | str: ...
+
+# A callback protocol can express an overloaded type.
+# pyrefly: ignore[assert-type-unspellable-subtype]
+assert_type(g, Callable[[int], int])  # E: (int) -> int) failed
     "#,
 );
 
@@ -2261,7 +2358,7 @@ while True:
     z = "" if True else ""
     break
 else:
-    exit(1)
+    exit(1)  # E: This code is unreachable
 
 def func() -> int:
     return 1

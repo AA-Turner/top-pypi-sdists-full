@@ -28,6 +28,7 @@ import grpc
 import numpy as np
 
 from river_client import __version__
+from river_client.capacity import CapacityStatus, _CapacityMonitor
 from river_client.losses import CustomLoss, Loss
 from river_client._nested_codec import from_bytes as _nested_from_bytes
 from river_client._nested_codec import to_bytes as _nested_to_bytes
@@ -55,6 +56,7 @@ from river_client.types import (
     ModelNotFoundError,
     OptimStepResult,
     PolicyVersion,
+    PolicySpan,
     PendingOp,
     PendingSample,
     RiverConnectionError,
@@ -67,6 +69,7 @@ from river_client.types import (
     TrainingDataAttestation,
     AttestedTrainingDataArtifact,
     TopLogprob,
+    failed_operation_error,
 )
 
 _SERVICE_CONFIG = _json.dumps(
@@ -414,7 +417,6 @@ def _grpc_channel_options(*, enable_retries: bool) -> list[tuple[str, object]]:
 _GRPC_CHANNEL_OPTIONS = _grpc_channel_options(enable_retries=True)
 
 _HEARTBEAT_INTERVAL_SECS = 2.0
-_HEARTBEAT_POLL_INTERVAL_SECS = 5.0
 # Per-call deadline for a single heartbeat RPC. Generous so that on a slow or
 # congested network a heartbeat that *would* succeed (just with high latency)
 # still completes and counts as a success, instead of being cut short and
@@ -762,6 +764,7 @@ _IMAGE_PAD_TOKEN_CANDIDATES = (
     "<|media_pad|>",
     "<|image|>",
     "<｜deepseek_image｜>",
+    "<image>",
 )
 
 
@@ -1049,6 +1052,7 @@ def _group_sample_dicts(
                     stop_reason=stop_reason,
                     model_step=model_step,
                     policy_version=r.get("policy_version"),
+                    policy_spans=r.get("policy_spans", []),
                     retained_kv=r.get("retained_kv", False),
                     kv_cache_policy_version=r.get("kv_cache_policy_version"),
                     cached_prompt_tokens=r.get("cached_prompt_tokens", 0),
@@ -1224,12 +1228,14 @@ class Model:
         training_run_id: str,
         base_model: str,
         tokenizer: Any,
+        full_weight: bool = False,
     ):
         self._session = session
         self._model_id = model_id
         self._training_run_id = training_run_id
         self._base_model = base_model
         self._tokenizer = tokenizer
+        self._full_weight = full_weight
         self._step = 0
         self._seq_id = 0
         # Metrics belong to this process, and `_river/runtime` counts from
@@ -1257,6 +1263,16 @@ class Model:
     @property
     def training_run_id(self) -> str:
         return self._training_run_id
+
+    @property
+    def full_weight(self) -> bool:
+        """Whether this model trains every weight rather than a LoRA adapter."""
+        return self._full_weight
+
+    @property
+    def tokenizer(self) -> Any:
+        """The tokenizer this model was created with; pass it to a renderer."""
+        return self._tokenizer
 
     @property
     def step(self) -> int:
@@ -1330,15 +1346,41 @@ class Model:
 
     def get_policy_version(self) -> PolicyVersion | None:
         """Read the last server-committed policy; legacy servers return None."""
-        response = self._session._client._rpc_with_retry(
-            lambda: self._session._live_stub.GetInfo(
-                pb2.GetInfoRequest(model_id=self._model_id),
-                metadata=self._session._live_metadata,
-            ),
-            context="Reading committed policy",
-            heartbeat_check=self._session._check_heartbeat_health,
+        return PolicyVersion.from_proto(
+            self._session._get_info(self._model_id).policy_version
         )
-        return PolicyVersion.from_proto(response.policy_version)
+
+    def sync_committed_policy(self) -> PolicyVersion | None:
+        """Read the server-committed policy and adopt its step as :attr:`step`.
+
+        A full-weight RL run whose trainer crew restarts resumes from its
+        newest auto checkpoint, so the committed step can fall below
+        :attr:`step`. The RL trainer calls this before resuming such a run.
+        """
+        policy = self.get_policy_version()
+        if policy is not None:
+            self._step = policy.step
+        return policy
+
+    def latest_auto_checkpoint(self) -> Checkpoint | None:
+        """The newest committed auto checkpoint of a full-weight run, SFT or
+        RL.
+
+        A new run on the same base model resumes from it with
+        ``load_weights(checkpoint, load_optimizer=True)``. The server keeps a
+        run's newest auto checkpoint for 7 days after the run ends. Returns
+        None until the run has committed one.
+        """
+        response = self._session._get_info(self._model_id)
+        if not response.HasField("latest_auto_checkpoint"):
+            return None
+        auto = response.latest_auto_checkpoint
+        return Checkpoint(
+            path=auto.path,
+            step=auto.policy_version.step,
+            checkpoint_type="training",
+            policy_version=PolicyVersion.from_proto(auto.policy_version),
+        )
 
     def _next_seq_id(self) -> int:
         self._seq_id += 1
@@ -1562,6 +1604,11 @@ class Model:
         gradient_scale: float | None = None,
     ) -> OptimStepResult:
         """Apply gradients with Adam optimizer.
+
+        On a full-weight run whose last automatic checkpoint failed, the
+        server saves again before the step's first ``forward_backward`` (or
+        before a step with none) and refuses it if that save fails too,
+        raising :class:`~river_client.types.AutoCheckpointFailedError`.
 
         Args:
             lr: Learning rate
@@ -2398,26 +2445,50 @@ class Model:
         ttl: datetime.timedelta | None = None,
         immutable: bool = False,
         expected_policy_id: str | None = None,
+        durable: bool = True,
     ) -> Checkpoint:
         """Save a checkpoint of the current model weights.
+
+        On a full-weight run, every ``"training"`` and ``"inference"`` save
+        requires ``immutable=True``, and the server refuses a save that would
+        leave less than its free-space floor free on shared storage: the
+        request fails with error category ``storage_floor`` and a message
+        stating the run's checkpoint usage. A full-weight training checkpoint
+        cannot be downloaded; download the run's HF export instead.
 
         Args:
             name: Checkpoint name (e.g. ``"final"`` or ``"step_000100"``).
             mode: ``"training"`` saves optimizer state (for training
-                continuation), ``"inference"`` saves PEFT format only (for
-                sampling/inference).
+                continuation). ``"inference"`` saves a checkpoint to sample
+                from: PEFT format on a LoRA run, a Hugging Face export on a
+                full-weight RL run (one at a time and, by default, at most one
+                per 30 minutes; a refusal carries the ``river-error-code``
+                ``export_in_progress`` or ``export_too_soon``). A full-weight
+                SFT run refuses it. ``"publish"`` pushes the current weights
+                of a full-weight RL run to the run's sampler and stores
+                nothing; the returned checkpoint has an empty path.
             timeout: Timeout in seconds.
             ttl: Lifetime before the checkpoint is reaped. Applies to explicit
                 user-saved checkpoints in both modes; when omitted, the server
-                default is 1 year. 1 year is also the maximum — the server
+                default is 1 year for durable saves and 24 hours for NFS-only
+                saves. 1 year is the maximum — the server
                 rejects a longer ``ttl``.
+            immutable: Save a distinct checkpoint version instead of overwriting
+                the name. Required for full-weight ``"training"`` and
+                ``"inference"`` saves; repeated names return different
+                checkpoint paths, each with its own retention.
+            durable: Upload to cloud storage. If False, keep the checkpoint
+                only on shared NFS until its TTL expires, with no cloud copy.
+                Changing durability requires a new name or ``immutable=True``.
+                A full-weight ``"training"`` save stays on NFS either way:
+                ``durable`` selects only its default TTL.
 
         Returns:
             Checkpoint object with ``river://`` path.
         """
-        if mode not in ("training", "inference"):
+        if mode not in ("training", "inference", "publish"):
             raise ValueError(
-                f"Invalid mode {mode!r}. Must be 'training' or 'inference'."
+                f"Invalid mode {mode!r}. Must be 'training', 'inference' or 'publish'."
             )
 
         ttl_seconds: int | None = None
@@ -2435,6 +2506,7 @@ class Model:
             timeout=timeout,
             step=self._step,
             ttl_seconds=ttl_seconds,
+            durable=durable,
             **({"immutable": True} if immutable else {}),
             **(
                 {"expected_policy_id": expected_policy_id}
@@ -2453,23 +2525,24 @@ class Model:
 
         Args:
             checkpoint: A ``river://`` path string or a :class:`Checkpoint` object.
-                If a ``Checkpoint`` is passed, its step is restored on the model.
+                The server's restored step is applied after the load succeeds.
             load_optimizer: Whether to load optimizer state.
             timeout: Timeout in seconds.
         """
         if isinstance(checkpoint, Checkpoint):
             path = checkpoint.path
-            self._step = checkpoint.step
         else:
             path = checkpoint
 
-        self._session._load_weights(
+        policy = self._session._load_weights(
             model_id=self._model_id,
             seq_id=self._next_seq_id(),
             path=path,
             load_optimizer=load_optimizer,
             timeout=timeout,
         )
+        if policy is not None:
+            self._step = policy.step
 
 
 def _advance_future_poll(polls):
@@ -2496,6 +2569,8 @@ class Session:
         self._stub = stub
         self._metadata = metadata
         self._before_poll = before_poll
+        self.capacity_hints = False
+        self._capacity = _CapacityMonitor()
         self._heartbeat_thread: threading.Thread | None = None
         self._heartbeat_stop = threading.Event()
         self._heartbeat_state_lock = threading.Lock()
@@ -2510,6 +2585,15 @@ class Session:
         self._image_scope_lock = threading.Lock()
         self._image_scope_used = False
         self._image_scope_closed = False
+
+    @property
+    def capacity_status(self) -> tuple[CapacityStatus, ...]:
+        """Cached heartbeat observations; empty means no observations are available.
+
+        Entries older than 30 seconds become ``unavailable``. Reading this
+        property makes no RPC and is safe from custom progress-display threads.
+        """
+        return self._capacity.snapshot()
 
     def _prepare_image_upload(self):
         with self._image_scope_lock:
@@ -2656,17 +2740,14 @@ class Session:
             self._heartbeat_last_error = error
 
     def _heartbeat_rpc(self, *, timeout: float) -> None:
-        req = pb2.SessionHeartbeatRequest(session_id=self._session_id)
-        response = self._client._rpc(
-            lambda: self._client._get_heartbeat_stub().SessionHeartbeat(
-                req,
-                metadata=self._client._get_metadata(),
-                timeout=timeout,
-            ),
-            context="Session heartbeat",
+        sequence = self._capacity.begin_heartbeat()
+        response = self._client._heartbeat_rpc(
+            self._session_id,
+            timeout=timeout,
         )
-        if not response.success:
-            raise SessionHeartbeatError("Session heartbeat rejected by server")
+        self._capacity.update(
+            response.capacity_status, hints=self.capacity_hints, sequence=sequence
+        )
 
     def _attempt_heartbeat(
         self,
@@ -2687,8 +2768,6 @@ class Session:
                     error,
                     message="Session heartbeat failed",
                 )
-                if last_error.status_code in _TRANSIENT_GRPC_STATUS_CODES:
-                    self._client._reset_heartbeat_channel()
 
             if attempt + 1 == max_attempts:
                 break
@@ -2844,24 +2923,40 @@ class Session:
             ],
         )
 
+    def _get_info(self, model_id: str) -> pb2.GetInfoResponse:
+        return self._client._rpc_with_retry(
+            lambda: self._live_stub.GetInfo(
+                pb2.GetInfoRequest(model_id=model_id),
+                metadata=self._live_metadata,
+            ),
+            context="Reading model info",
+            heartbeat_check=self._check_heartbeat_health,
+        )
+
     def create_model(
         self,
         base_model: str,
-        lora: LoraConfig,
+        lora: LoraConfig | None = None,
         tokenizer: str | Any | None = None,
         checkpoint: str | Checkpoint | None = None,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
         training_data_attestation: TrainingDataAttestation | str | None = None,
+        *,
+        full_weight: bool = False,
     ) -> Model:
         """Create a new model for training.
 
         Args:
             base_model: Base model name (e.g., "Qwen/Qwen3.6-35B-A3B-FP8")
-            lora: LoRA configuration for the run (required). River training
-                is LoRA-only — no base model supports full fine-tuning — so
-                the server rejects ``create_model`` without one.
-            tokenizer: Tokenizer name (defaults to base_model) or an already-loaded
-                tokenizer object
+            lora: LoRA configuration. Mutually exclusive with full_weight.
+            full_weight: Train the GLM 5.3 Flash backbone and experts on a
+                dedicated full-weight pool. Configure AdamW through optim_step;
+                checkpoints include optimizer state. Only an RL model (feature
+                ``full_weight_rl_v1``) can sample: its run owns a sampler that
+                ``save_weights(mode="publish")`` refreshes.
+            tokenizer: Tokenizer name or an already-loaded tokenizer object.
+                Defaults to base_model; a full-weight model defaults to the
+                tokenizer the server names for it.
             checkpoint: Optional checkpoint to load after creation. Can be a
                 ``river://`` path string or a :class:`Checkpoint` object.
                 If a ``Checkpoint`` is passed, its step is restored and
@@ -2875,12 +2970,8 @@ class Session:
         Returns:
             Model object for training
         """
-        if lora is None:
-            raise ValueError(
-                "lora is required: River training is LoRA-only (no base "
-                "model supports full fine-tuning) — pass e.g. "
-                "river.LoraConfig(rank=16)"
-            )
+        if (lora is not None) == full_weight:
+            raise ValueError("select exactly one of lora or full_weight=True")
 
         self._model_seq_id += 1
 
@@ -2889,6 +2980,7 @@ class Session:
             session_id=self._session_id,
             model_seq_id=self._model_seq_id,
             base_model=base_model,
+            full_weight=full_weight,
         )
 
         if isinstance(training_data_attestation, TrainingDataAttestation):
@@ -2902,16 +2994,17 @@ class Session:
                 "training_data_attestation must be a TrainingDataAttestation, str, or None"
             )
 
-        req.lora_config.CopyFrom(
-            pb2.LoraConfig(
-                rank=lora.rank,
-                train_attn=lora.train_attn,
-                train_mlp=lora.train_mlp,
-                train_unembed=lora.train_unembed,
+        if lora is not None:
+            req.lora_config.CopyFrom(
+                pb2.LoraConfig(
+                    rank=lora.rank,
+                    train_attn=lora.train_attn,
+                    train_mlp=lora.train_mlp,
+                    train_unembed=lora.train_unembed,
+                )
             )
-        )
-        if lora.seed is not None:
-            req.lora_config.seed = lora.seed
+            if lora.seed is not None:
+                req.lora_config.seed = lora.seed
 
         # Send request and wait for result
         response = self._client._rpc_with_retry(
@@ -2928,6 +3021,11 @@ class Session:
 
         create_model_result = result.create_model
 
+        if full_weight and tokenizer is None:
+            # A full-weight model key (e.g. an RL trainer's own key) need not
+            # name a Hugging Face repository; the server names its tokenizer.
+            info = self._get_info(create_model_result.model_id)
+            tokenizer = info.model_data.tokenizer_id
         tok = load_tokenizer(tokenizer, base_model=base_model)
 
         model = Model(
@@ -2936,6 +3034,7 @@ class Session:
             training_run_id=create_model_result.training_run_id,
             base_model=base_model,
             tokenizer=tok,
+            full_weight=full_weight,
         )
         self._models.append(model)
 
@@ -3285,12 +3384,11 @@ class Session:
     ) -> Generator[float, None, pb2.RetrieveFutureResponse]:
         """Advance blocking RPCs, yielding only the delay until the next poll.
 
-        Both wait adapters use this state machine for retries and heartbeats.
+        Both wait adapters use this state machine for retries and liveness checks.
         The generator returns the completed response through StopIteration.
         """
         if deadline is None:
             deadline = time.monotonic() + timeout
-        next_heartbeat_poll = time.monotonic() + _HEARTBEAT_POLL_INTERVAL_SECS
         poll_retry_sleep = _POLL_RETRY_INITIAL_SLEEP_SECS
         poll_retries = 0
 
@@ -3303,10 +3401,6 @@ class Session:
                     f"Operation {request_id} timed out after {timeout}s",
                     request_id=request_id,
                 )
-
-            if time.monotonic() >= next_heartbeat_poll:
-                self._attempt_heartbeat()
-                next_heartbeat_poll = time.monotonic() + _HEARTBEAT_POLL_INTERVAL_SECS
 
             req = pb2.RetrieveFutureRequest(request_id=request_id)
             if model_id is not None:
@@ -3353,7 +3447,7 @@ class Session:
                 continue
             if response_type == "failed":
                 error = response.failed
-                raise RiverError(f"{error.error_category}: {error.message}")
+                raise failed_operation_error(error.error_category, error.message)
 
             return response
 
@@ -3982,6 +4076,7 @@ class Session:
         ttl_seconds: int | None = None,
         immutable: bool = False,
         expected_policy_id: str | None = None,
+        durable: bool = True,
     ) -> Checkpoint:
         """Save checkpoint (training or inference mode)."""
         req = pb2.SaveWeightsRequest(
@@ -3991,12 +4086,20 @@ class Session:
             mode=mode,
             immutable=immutable,
             expected_policy_id=expected_policy_id,
+            durable=durable,
         )
         if ttl_seconds is not None:
             req.ttl_seconds = ttl_seconds
 
+        def submit():
+            if not durable:
+                self._client.get_server_capabilities().require(
+                    "temporary_checkpoints_v1"
+                )
+            return self._live_stub.SaveWeights(req, metadata=self._live_metadata)
+
         response = self._client._rpc_with_retry(
-            lambda: self._live_stub.SaveWeights(req, metadata=self._live_metadata),
+            submit,
             context="Saving weights",
             heartbeat_check=self._check_heartbeat_health,
         )
@@ -4025,7 +4128,7 @@ class Session:
         path: str,
         load_optimizer: bool,
         timeout: float,
-    ) -> None:
+    ) -> PolicyVersion | None:
         """Load weights from checkpoint."""
         req = pb2.LoadWeightsRequest(
             model_id=model_id,
@@ -4039,11 +4142,12 @@ class Session:
             context="Loading weights",
             heartbeat_check=self._check_heartbeat_health,
         )
-        self._wait_for_future(
+        result = self._wait_for_future(
             response.request_id,
             timeout=timeout,
             model_id=model_id,
         )
+        return PolicyVersion.from_proto(result.load_weights.policy_version)
 
     @staticmethod
     def _prompts_to_proto(prompts: list[dict]) -> list[pb2.InferencePrompt]:
@@ -4115,6 +4219,10 @@ class Session:
         return [
             {
                 "text": r.text,
+                "policy_spans": [
+                    PolicySpan(span.end, PolicyVersion.from_proto(span.policy_version))
+                    for span in r.policy_spans
+                ],
                 **(
                     {"kv_cache_policy_version": anchor}
                     if (
@@ -4381,12 +4489,14 @@ class SessionContext:
         tags: dict[str, str],
         timeout: float,
         *,
+        capacity_hints: bool = False,
         before_poll: Callable[[], None] | None = None,
         on_session_creation_attempted: Callable[[], None] | None = None,
         on_session_created: Callable[[], None] | None = None,
         on_session_closed: Callable[[], None] | None = None,
     ):
         self._client = client
+        self._capacity_hints = capacity_hints
         self._tags = tags
         self._timeout = timeout
         self._before_poll = before_poll
@@ -4468,6 +4578,7 @@ class SessionContext:
             # Preserve compatibility with test doubles and older internal
             # clients that return without invoking the response-bound callback.
             self._report_session_created()
+            self._session.capacity_hints = self._capacity_hints
             self._session._start_heartbeat()
         except BaseException as error:
             self._close_session(error)
@@ -4523,6 +4634,7 @@ class Client:
         self._session_stub: pb2_grpc.RiverServiceStub | None = None
         self._heartbeat_channel: grpc.Channel | None = None
         self._heartbeat_stub: pb2_grpc.RiverServiceStub | None = None
+        self._heartbeat_lock = threading.Lock()
         self._upload_channels: list[grpc.Channel] = []
         self._upload_stubs: list[pb2_grpc.RiverServiceStub] = []
         self._metric_writers: weakref.WeakSet[_run_metrics._RunMetrics] = (
@@ -4669,6 +4781,38 @@ class Client:
             self._upload_stubs.append(pb2_grpc.RiverServiceStub(channel))
         return self._upload_stubs[:n]
 
+    def _heartbeat_rpc(
+        self, session_id: str, *, timeout: float
+    ) -> pb2.SessionHeartbeatResponse:
+        # Sessions share this transport. Reconnecting must not cancel another
+        # session's heartbeat, and waiting for it must fit the caller's deadline.
+        deadline = time.monotonic() + timeout
+        if not self._heartbeat_lock.acquire(timeout=timeout):
+            raise RiverConnectionError(
+                "Timed out waiting for the heartbeat channel",
+                status_code="DEADLINE_EXCEEDED",
+            )
+        try:
+            req = pb2.SessionHeartbeatRequest(session_id=session_id)
+            try:
+                response = self._rpc(
+                    lambda: self._get_heartbeat_stub().SessionHeartbeat(
+                        req,
+                        metadata=self._get_metadata(),
+                        timeout=max(0.0, deadline - time.monotonic()),
+                    ),
+                    context="Session heartbeat",
+                )
+            except RiverConnectionError as error:
+                if error.status_code in _TRANSIENT_GRPC_STATUS_CODES:
+                    self._reset_heartbeat_channel()
+                raise
+            if not response.success:
+                raise SessionHeartbeatError("Session heartbeat rejected by server")
+            return response
+        finally:
+            self._heartbeat_lock.release()
+
     def _get_heartbeat_channel(self) -> grpc.Channel:
         """Get or create dedicated heartbeat gRPC channel."""
         if self._heartbeat_channel is None:
@@ -4693,7 +4837,7 @@ class Client:
         return self._heartbeat_stub
 
     def _reset_heartbeat_channel(self) -> None:
-        """Force the next heartbeat onto a fresh gRPC connection."""
+        """Replace the transport while the caller holds ``_heartbeat_lock``."""
         channel = self._heartbeat_channel
         self._heartbeat_channel = None
         self._heartbeat_stub = None
@@ -4830,6 +4974,7 @@ class Client:
         self,
         *,
         timeout: float = _DEFAULT_TIMEOUT_SECS,
+        capacity_hints: bool = False,
         before_poll: Callable[[], None] | None = None,
         on_session_creation_attempted: Callable[[], None] | None = None,
         on_session_created: Callable[[], None] | None = None,
@@ -4840,6 +4985,9 @@ class Client:
 
         Args:
             timeout: End-to-end session-creation timeout in seconds.
+            capacity_hints: Print meaningful capacity changes to stderr when
+                enabled (default False). ``session.capacity_status`` is always
+                available for custom displays.
             **tags: Optional tags for the session
 
         Returns:
@@ -4849,6 +4997,7 @@ class Client:
             self,
             tags,
             timeout,
+            capacity_hints=capacity_hints,
             before_poll=before_poll,
             on_session_creation_attempted=on_session_creation_attempted,
             on_session_created=on_session_created,
@@ -4922,7 +5071,7 @@ class Client:
                 continue
             if response_type == "failed":
                 error = response.failed
-                raise RiverError(f"{error.error_category}: {error.message}")
+                raise failed_operation_error(error.error_category, error.message)
 
             return response
 
@@ -5617,7 +5766,8 @@ class Client:
             channel.close()
         self._upload_channels = []
         self._upload_stubs = []
-        self._reset_heartbeat_channel()
+        with self._heartbeat_lock:
+            self._reset_heartbeat_channel()
         with self._metric_writers_lock:
             writers = list(self._metric_writers)
         _run_metrics.drain(writers)

@@ -6,16 +6,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "Timer.h"
 #include "atoms/affine.h"
 #include "atoms/elementwise_full_dom.h"
 #include "expr.h"
 #include "minunit.h"
-#include "utils/CSR_matrix.h"
-#include "utils/Timer.h"
-#include "utils/permuted_dense.h"
-#include "utils/stacked_pd.h"
-#include "utils/stacked_pd_linalg.h"
-#include "utils/tracked_alloc.h"
+#include "sparsediff_linalg/CSR_matrix.h"
+#include "sparsediff_linalg/matmul.h"
+#include "sparsediff_linalg/matrix.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 
 /* Profile and validate two ways to compute the Hessian of
    w^T exp(A @ X) for n x n matrices A, X with n = 50.
@@ -27,9 +26,9 @@
    - Approach 2: manually construct the Jacobian
      J = ∂vec(A @ X)/∂vec(X) = I_n ⊗ A as a stacked_pd with n blocks
      (each block carries A's values at the corresponding row/col
-     window). Call ATA_spd_alloc(J) (alloc) and ATDA_spd_fill_values(J,
-     d, H) (fill), where d_k = w_k * exp((A@X)_k). The AX compute is
-     done OUTSIDE the timer per user request.
+     window). Call ATA_matrices_alloc(J) (alloc) and ATDA_matrices_fill_values(J, d,
+   H) (fill), where d_k = w_k * exp((A@X)_k). The AX compute is done OUTSIDE the
+   timer per user request.
 
    Both Hessians are densified to a 2500x2500 row-major buffer and
    compared via max-abs diff (asserted < 1e-9). */
@@ -128,12 +127,12 @@ const char *profile_hessian_exp_AX(void)
     free(row_perm);
     matrix *J = new_stacked_pd(n_vars, n_vars, n, j_blocks, NULL, NULL);
     free(j_blocks);
-    matrix *H2 = ATA_spd_alloc((stacked_pd *) J);
+    matrix *H2 = ATA_matrices_alloc(J);
     clock_gettime(CLOCK_MONOTONIC, &t2a.end);
 
     Timer t2f;
     clock_gettime(CLOCK_MONOTONIC, &t2f.start);
-    ATDA_spd_fill_values((stacked_pd *) J, d, (stacked_pd *) H2);
+    ATDA_matrices_fill_values(J, d, H2);
     clock_gettime(CLOCK_MONOTONIC, &t2f.end);
 
     /* ------------------------------------------------------------ */
@@ -152,19 +151,12 @@ const char *profile_hessian_exp_AX(void)
         }
     }
 
-    stacked_pd *H2s = (stacked_pd *) H2;
-    for (int k = 0; k < H2s->n_blocks; k++)
+    CSR_matrix *csr2 = H2->to_csr(H2);
+    for (int i = 0; i < csr2->m; i++)
     {
-        permuted_dense *blk = H2s->blocks[k];
-        for (int i = 0; i < blk->m0; i++)
+        for (int kk = csr2->p[i]; kk < csr2->p[i + 1]; kk++)
         {
-            for (int j = 0; j < blk->n0; j++)
-            {
-                int gi = blk->row_perm[i];
-                int gj = blk->col_perm[j];
-                D2[(size_t) gi * (size_t) n_vars + (size_t) gj] =
-                    blk->X[i * blk->n0 + j];
-            }
+            D2[(size_t) i * (size_t) n_vars + (size_t) csr2->i[kk]] = csr2->x[kk];
         }
     }
 

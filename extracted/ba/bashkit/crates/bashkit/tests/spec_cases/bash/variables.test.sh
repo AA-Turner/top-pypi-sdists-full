@@ -508,11 +508,25 @@ uid_set
 ### end
 
 ### var_seconds
-# $SECONDS is set (always 0 in bashkit)
-### bash_diff
+# $SECONDS counts whole seconds since the shell started
 test -n "$SECONDS" && echo "seconds_set"
+s=$SECONDS
+sleep 1.1
+[ $((SECONDS - s)) -ge 1 ] && echo advanced
 ### expect
 seconds_set
+advanced
+### end
+
+### var_seconds_assign
+# Assigning SECONDS restarts the count from that value
+SECONDS=100
+[ "$SECONDS" -ge 100 ] && [ "$SECONDS" -le 101 ] && echo assigned
+(SECONDS=5000)
+[ "$SECONDS" -lt 5000 ] && echo subshell_kept_own
+### expect
+assigned
+subshell_kept_own
 ### end
 
 ### var_pwd_updates_with_cd
@@ -615,13 +629,12 @@ exit:1
 
 ### shopt_show_specific
 # shopt shows status of named option
-### bash_diff
 shopt nullglob
 shopt -s nullglob
 shopt nullglob
 ### expect
-nullglob                        off
-nullglob                        on
+nullglob       	off
+nullglob       	on
 ### end
 
 ### shopt_nullglob_no_matches
@@ -766,4 +779,22 @@ result=$(trap -p EXIT)
 echo "after reset:${result}end"
 ### expect
 after reset:end
+### end
+
+### transform_unset_quotes_to_nothing
+empty=''
+x=x
+echo ${x@Q} ${empty@Q} ${undef@Q} ${x@K} ${undef@k} ${x@A} ${undef@A}
+hello1=1 hello=()
+echo ${!hello@}
+### expect
+'x' '' 'x' x='x'
+hello hello1
+### end
+
+### transform_unset_with_nounset
+set -u
+(echo ${undef@Q}); echo "stat: $?"
+### expect
+stat: 1
 ### end

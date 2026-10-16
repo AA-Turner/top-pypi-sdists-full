@@ -1,0 +1,478 @@
+"""Async PEP 249 Connection implementation."""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import platform
+import warnings
+
+from collections.abc import AsyncGenerator, Callable, Iterable, Iterator
+from io import StringIO
+from typing import Any
+
+from ..._common.telemetry import AsyncTelemetryClient
+from ..._internal.api_client.client_api import async_core_driver, core_driver
+from ..._internal.config_utils import create_config_settings_from_dict
+from ..._internal.connection import (
+    APPLICATION_NAME,
+    COMMIT_SQL,
+    CURRENT_VERSION_SQL,
+    ROLLBACK_SQL,
+    SET_AUTOCOMMIT_SQL,
+    SET_CLIENT_PREFETCH_THREADS_SQL,
+    ConnectionMixin,
+    clamp_client_prefetch_threads,
+    requires_open,
+    validate_query_id,
+)
+from ..._internal.connection.freezable_proxy import ConnectionInfoProxy as _ConnectionInfoProxy
+from ..._internal.connection.freezable_proxy import SessionParametersProxy as _SessionParametersProxy
+from ..._internal.decorators import (
+    api_telemetry,
+    backward_compatibility,
+    internal_api,
+    pep249,
+)
+from ..._internal.errorcode import ER_INVALID_VALUE, ER_INVALID_WIF_SETTINGS
+from ..._internal.logging import get_logger
+from ..._internal.logout_config_mapping import (
+    LogoutOptionKeys,
+    logout_config_options_modifier,
+)
+from ..._internal.protobuf_gen.database_driver_v1_pb2 import (
+    VALIDATION_CODE_CONFLICTING_WIF_PARAMETERS,
+    ConnectionGetQueryStatusResponse,
+    ConnectionHandle,
+    DatabaseHandle,
+    WrapperIdentity,
+)
+from ..._internal.text_utils import split_statements
+from ..._internal.utils import get_application_path
+from ...connection_config import ConnectionConfig
+from ...constants import QueryStatus
+from ...errors import Error, ProgrammingError
+from ...version import __version__
+from ..cursor import CursorInstance, CursorType, DictCursor, SnowflakeCursor
+
+
+logger = get_logger(__name__)
+
+
+# Both WIF cross-param guards in sf_core's validate_settings emit a dedicated
+# ValidationCode, so the wrapper can key on the code alone without matching
+# parameter names or message text.
+def _is_wif_conflict(exc: ProgrammingError) -> bool:
+    return exc.validation_code == VALIDATION_CODE_CONFLICTING_WIF_PARAMETERS
+
+
+_CALLBACK_EXHAUSTED = object()
+
+
+def _next_or_exhausted(iterator: Iterator[None]) -> object:
+    return next(iterator, _CALLBACK_EXHAUSTED)
+
+
+class Connection(ConnectionMixin[CursorInstance]):
+    """Async connection objects represent a database connection."""
+
+    _session_parameters: _SessionParametersProxy
+    _connection_info: _ConnectionInfoProxy
+    _default_cursor_class = SnowflakeCursor
+
+    # ------------------------------------------------------------------
+    # Initialization
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    def __init__(
+        self,
+        *,
+        connection_name: str | None = None,
+        connections_file_path: str | os.PathLike[str] | None = None,
+        config: ConnectionConfig | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize configuration for a new async connection object.
+
+        Unlike :class:`~snowflake.connector.connection.Connection`, this does not
+        perform any I/O.  Call :meth:`connect`, use
+        :func:`~snowflake.connector.aio.connect`, or ``async with`` to
+        establish the session.
+        """
+        super().__init__(
+            connection_name=connection_name,
+            connections_file_path=connections_file_path,
+            config=config,
+            **kwargs,
+        )
+
+        self.db_handle: DatabaseHandle | None = None
+        self.conn_handle: ConnectionHandle | None = None
+        self._ever_opened = False
+        self._close_lock = asyncio.Lock()
+        self._session_parameters = _SessionParametersProxy(None)
+        self._connection_info = _ConnectionInfoProxy(None)
+        self._telemetry_client: AsyncTelemetryClient | None = None
+
+    # ------------------------------------------------------------------
+    # Connection setup
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    async def connect(self) -> None:
+        """Establish the connection to Snowflake via the Rust core."""
+        if self.conn_handle is not None:
+            return
+
+        db_handle = (await async_core_driver.database_new()).db_handle
+        await async_core_driver.database_init(db_handle=db_handle)
+        conn_handle = (await async_core_driver.connection_new()).conn_handle
+
+        options = self.config.to_proto_options(
+            options_modifiers=[logout_config_options_modifier],
+        )
+
+        if options:
+            response = await async_core_driver.connection_set_options(
+                conn_handle=conn_handle,
+                options=options,
+                no_connection_details=self.config._no_connection_details,
+                connections_file_path=self.config.connections_file_path,
+            )
+            for warning in response.warnings:
+                warnings.warn(warning.message, stacklevel=2)
+
+        session_params = self.config.session_parameters
+        if session_params:
+            await async_core_driver.connection_set_session_parameters(
+                conn_handle=conn_handle,
+                parameters=session_params,
+            )
+
+        try:
+            if self.config.mfa_callback is None:
+                await self._initialize_core_connection(conn_handle, db_handle)
+            else:
+                await self._initialize_core_connection_with_mfa_callback(
+                    conn_handle, db_handle, self.config.mfa_callback
+                )
+        except ProgrammingError as e:
+            # The WIF cross-param guards fire in sf_core only via connection_init
+            # (ConnectionConfig::build -> validate_settings), surfaced as errno
+            # ER_INVALID_VALUE. Re-map to ER_INVALID_WIF_SETTINGS for legacy parity.
+            if _is_wif_conflict(e):
+                raise ProgrammingError(
+                    msg=str(e),
+                    errno=ER_INVALID_WIF_SETTINGS,
+                    parameter=e.parameter,
+                    validation_code=e.validation_code,
+                ) from e
+            raise
+
+        self.conn_handle = conn_handle
+        self.db_handle = db_handle
+        self._ever_opened = True
+        self._session_parameters = _SessionParametersProxy(conn_handle)
+        self._connection_info = _ConnectionInfoProxy(conn_handle)
+        self._telemetry_client = AsyncTelemetryClient(conn_handle)
+
+    async def _initialize_core_connection(self, conn_handle: ConnectionHandle, db_handle: DatabaseHandle) -> None:
+        await async_core_driver.connection_init(
+            conn_handle=conn_handle,
+            db_handle=db_handle,
+            wrapper_identity=WrapperIdentity(
+                driver_name=APPLICATION_NAME,
+                driver_version=__version__,
+                language_runtime=platform.python_implementation(),
+                language_version=platform.python_version(),
+                language_compiler=platform.python_compiler(),
+                application_path=get_application_path(),
+            ),
+        )
+
+    async def _initialize_core_connection_with_mfa_callback(
+        self,
+        conn_handle: ConnectionHandle,
+        db_handle: DatabaseHandle,
+        mfa_callback: Callable[[], Iterator[None]],
+    ) -> None:
+        callback = mfa_callback()
+        init_task = asyncio.create_task(self._initialize_core_connection(conn_handle, db_handle))
+        try:
+            while not init_task.done():
+                item = await asyncio.to_thread(_next_or_exhausted, callback)
+                if item is _CALLBACK_EXHAUSTED:
+                    break
+        finally:
+            await init_task
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    @pep249
+    @api_telemetry
+    async def close(self, retry: bool = True) -> None:
+        """Close the connection, send logout, and release handles."""
+        if self.conn_handle is None or self.is_closed():
+            self._close_telemetry_client()
+            return
+
+        session_parameters = self._session_parameters
+        connection_info = self._connection_info
+        session_parameters.freeze()
+        connection_info.freeze()
+
+        async with self._close_lock:
+            del self._messages[:]
+            conn_handle, self.conn_handle = self.conn_handle, None
+            db_handle, self.db_handle = self.db_handle, None
+            self._close_telemetry_client()
+
+        try:
+            if conn_handle and not retry:
+                await async_core_driver.connection_set_options(
+                    conn_handle=conn_handle,
+                    options=create_config_settings_from_dict({LogoutOptionKeys.LOGOUT_MAX_ATTEMPTS: 1}),
+                )
+            if conn_handle:
+                await async_core_driver.connection_close(conn_handle=conn_handle)
+        finally:
+            if conn_handle:
+                self._release_connection_handle(conn_handle)
+            if db_handle:
+                self._release_database_handle(db_handle)
+
+    # ------------------------------------------------------------------
+    # Transactions
+    # ------------------------------------------------------------------
+
+    @pep249
+    @api_telemetry
+    @requires_open
+    async def commit(self) -> None:
+        cur = self.cursor()
+        try:
+            await cur.execute(COMMIT_SQL)
+        finally:
+            cur.close()
+
+    @pep249
+    @api_telemetry
+    @requires_open
+    async def rollback(self) -> None:
+        cur = self.cursor()
+        try:
+            await cur.execute(ROLLBACK_SQL)
+        finally:
+            cur.close()
+
+    # ------------------------------------------------------------------
+    # Context manager
+    # ------------------------------------------------------------------
+
+    async def __aenter__(self) -> Connection:
+        await self.connect()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        try:
+            if not self.is_closed() and not self._autocommit_enabled():
+                if exc_type is None:
+                    await self.commit()
+                else:
+                    try:
+                        await self.rollback()
+                    except Exception:
+                        logger.warning("Rollback failed during exception handling", exc_info=True)
+        finally:
+            await self.close()
+
+    # ------------------------------------------------------------------
+    # Autocommit
+    # ------------------------------------------------------------------
+
+    @requires_open
+    @api_telemetry
+    async def set_autocommit(self, autocommit: bool) -> None:
+        if not isinstance(autocommit, bool):
+            raise ProgrammingError(msg=f"Invalid autocommit parameter: {autocommit!r}", errno=ER_INVALID_VALUE)
+        cur = self.cursor()
+        try:
+            await cur.execute(SET_AUTOCOMMIT_SQL.format(autocommit=str(autocommit).lower()))
+        except Error as e:
+            logger.warning("Autocommit feature is not enabled for this connection. Ignored: %s", e)
+        finally:
+            cur.close()
+
+    @pep249
+    @api_telemetry
+    async def autocommit(self, value: bool) -> None:
+        await self.set_autocommit(value)
+
+    # ------------------------------------------------------------------
+    # Client prefetch threads
+    # ------------------------------------------------------------------
+
+    @requires_open
+    @api_telemetry
+    async def set_client_prefetch_threads(self, value: int) -> None:
+        """Set the number of concurrent chunk-prefetch threads.
+
+        Executes ``ALTER SESSION SET CLIENT_PREFETCH_THREADS`` so the change
+        takes effect on subsequent result-set fetches. The inherited
+        ``client_prefetch_threads`` property setter cannot do this itself —
+        a synchronous property setter can't ``await`` — so call this method
+        directly for the same immediate effect the legacy connector's setter
+        has.
+        """
+        value = clamp_client_prefetch_threads(value)
+        self.config.client_prefetch_threads = value
+        cur = self.cursor()
+        try:
+            await cur.execute(SET_CLIENT_PREFETCH_THREADS_SQL.format(value=value))
+        finally:
+            cur.close()
+
+    # ------------------------------------------------------------------
+    # Connection state
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    def is_closed(self) -> bool:
+        # Kept on the async Connection (not ConnectionMixin): lazy connect leaves
+        # conn_handle=None until connect(), so we use _ever_opened to distinguish
+        # "never opened" (False) from "opened then closed" (True). Sync Connection
+        # allocates a handle in __init__ and does not need this guard.
+        if self.conn_handle is None:
+            return self._ever_opened
+        try:
+            response = core_driver.connection_is_closed(conn_handle=self.conn_handle)
+            return bool(response.is_closed)
+        except Exception:
+            return True
+
+    async def is_valid(self) -> bool:
+        if self.conn_handle is None or self.is_closed():
+            return False
+        try:
+            response = await async_core_driver.connection_heartbeat(conn_handle=self.conn_handle)
+            return bool(response.valid)
+        except Exception:
+            return False
+
+    # ------------------------------------------------------------------
+    # Multi-statement execution
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    async def execute_string(
+        self,
+        sql_text: str,
+        remove_comments: bool = False,
+        return_cursors: bool = True,
+        cursor_class: CursorType = SnowflakeCursor,
+        **kwargs: Any,
+    ) -> Iterable[CursorInstance]:
+        stream = StringIO(sql_text)
+        stream_generator = self.execute_stream(
+            stream,
+            remove_comments=remove_comments,
+            cursor_class=cursor_class,
+            **kwargs,
+        )
+        if return_cursors:
+            return [cursor async for cursor in stream_generator]
+        async for _ in stream_generator:
+            pass
+        return []
+
+    @api_telemetry
+    async def execute_stream(
+        self,
+        stream: StringIO,
+        remove_comments: bool = False,
+        cursor_class: CursorType = SnowflakeCursor,
+        **kwargs: Any,
+    ) -> AsyncGenerator[CursorInstance, None]:
+        for sql, is_put_or_get in split_statements(stream, remove_comments=remove_comments):
+            if not sql:
+                continue
+            cur = self.cursor(cursor_class=cursor_class)
+            await cur.execute(sql, _is_put_get=is_put_or_get, **kwargs)
+            yield cur
+
+    # ------------------------------------------------------------------
+    # Internal API
+    # ------------------------------------------------------------------
+
+    @property
+    @internal_api
+    @backward_compatibility
+    def _telemetry(self) -> AsyncTelemetryClient | None:
+        return self._telemetry_client
+
+    # ------------------------------------------------------------------
+    # Session info
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    def fetch_info(self, field: str) -> Any:
+        """Fetch a single connection-info field by name."""
+        return self._connection_info[field]
+
+    @property
+    def _errorhandler_connection(self) -> Connection:
+        return self
+
+    # ------------------------------------------------------------------
+    # Server metadata
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    async def snowflake_version(self) -> str:
+        cur = self.cursor(DictCursor)
+        async with cur:
+            await cur.execute(CURRENT_VERSION_SQL)
+            row: dict[str, Any] = await cur.fetchone()  # type: ignore[assignment]
+        return str(row["VERSION"]).split(" ")[0]
+
+    # ------------------------------------------------------------------
+    # Query status
+    # ------------------------------------------------------------------
+
+    @api_telemetry
+    async def get_query_status(self, sf_qid: str) -> QueryStatus:
+        status, _ = await self._get_query_status_with_response(sf_qid)
+        return status
+
+    @api_telemetry
+    async def get_query_status_throw_if_error(self, sf_qid: str) -> QueryStatus:
+        status, response = await self._get_query_status_with_response(sf_qid)
+        if self.is_an_error(status):
+            message = response.error_message if response.HasField("error_message") else f"Query {sf_qid} failed"
+            errno = response.error_code if response.HasField("error_code") else -1
+            raise ProgrammingError(msg=message, errno=errno, sfqid=sf_qid)
+        return status
+
+    async def _get_query_status_with_response(
+        self, sf_qid: str
+    ) -> tuple[QueryStatus, ConnectionGetQueryStatusResponse]:
+        validate_query_id(sf_qid)
+        if self.conn_handle is None or self.is_closed():
+            return QueryStatus.DISCONNECTED, ConnectionGetQueryStatusResponse()
+        response = await async_core_driver.connection_get_query_status(
+            conn_handle=self.conn_handle,
+            query_id=sf_qid,
+        )
+        try:
+            status = QueryStatus[response.status_name]
+        except KeyError:
+            logger.warning("Unknown query status %r; treating as NO_DATA", response.status_name)
+            status = QueryStatus.NO_DATA
+        return status, response
+
+
+SnowflakeConnection = Connection

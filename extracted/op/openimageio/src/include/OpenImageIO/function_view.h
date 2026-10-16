@@ -106,3 +106,9 @@ public:
 
 
 OIIO_NAMESPACE_3_1_END
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+using v3_1::function_view;
+OIIO_NAMESPACE_END

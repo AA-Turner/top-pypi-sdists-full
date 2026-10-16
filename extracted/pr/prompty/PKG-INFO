@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prompty
-Version: 2.0.2
+Version: 2.0.3
 Summary: Prompty is an asset class and format for LLM prompts
 Author-email: Seth Juarez <seth.juarez@microsoft.com>
 Requires-Python: >=3.11
@@ -74,16 +74,16 @@ executes these files. Every `.prompty` file becomes a typed
 
 ```bash
 # Core + Jinja2 renderer + OpenAI provider
-pip install prompty[jinja2,openai]
+uv pip install "prompty[jinja2,openai]"
 
 # Core + Microsoft Foundry provider
-pip install prompty[jinja2,foundry]
+uv pip install "prompty[jinja2,foundry]"
 
 # Core + Anthropic provider
-pip install prompty[jinja2,anthropic]
+uv pip install "prompty[jinja2,anthropic]"
 
 # Everything (all renderers, providers, OpenTelemetry)
-pip install prompty[all]
+uv pip install "prompty[all]"
 ```
 
 ### Extras

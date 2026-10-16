@@ -68,6 +68,9 @@ class TransactionClient:
         Aborts an open Transaction. File modifications made on this Transaction are not preserved and the Branch is
         not updated.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid
         :param transaction_rid: The Resource Identifier (RID) of the Transaction.
@@ -123,6 +126,9 @@ class TransactionClient:
         Commits an open Transaction. File modifications made on this Transaction are preserved and the Branch is
         updated to point to the Transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid
         :param transaction_rid: The Resource Identifier (RID) of the Transaction.
@@ -177,6 +183,9 @@ class TransactionClient:
     ) -> datasets_models.Transaction:
         """
         Creates a Transaction on a Branch of a Dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid: The Resource Identifier (RID) of the Dataset on which to create the Transaction.
         :type dataset_rid: DatasetRid
@@ -239,6 +248,9 @@ class TransactionClient:
     ) -> datasets_models.Transaction:
         """
         Gets a Transaction of a Dataset.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid
@@ -347,6 +359,9 @@ class AsyncTransactionClient:
         Aborts an open Transaction. File modifications made on this Transaction are not preserved and the Branch is
         not updated.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid
         :param transaction_rid: The Resource Identifier (RID) of the Transaction.
@@ -402,6 +417,9 @@ class AsyncTransactionClient:
         Commits an open Transaction. File modifications made on this Transaction are preserved and the Branch is
         updated to point to the Transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid
         :param transaction_rid: The Resource Identifier (RID) of the Transaction.
@@ -456,6 +474,9 @@ class AsyncTransactionClient:
     ) -> typing.Awaitable[datasets_models.Transaction]:
         """
         Creates a Transaction on a Branch of a Dataset.
+
+
+        Required scopes: [api:datasets-write]
 
         :param dataset_rid: The Resource Identifier (RID) of the Dataset on which to create the Transaction.
         :type dataset_rid: DatasetRid
@@ -518,6 +539,9 @@ class AsyncTransactionClient:
     ) -> typing.Awaitable[datasets_models.Transaction]:
         """
         Gets a Transaction of a Dataset.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid: The Resource Identifier (RID) of the Dataset that contains the Transaction.
         :type dataset_rid: DatasetRid

@@ -2,9 +2,8 @@
 This module contains the schema to configure Keycloak.
 """
 
-from typing import Union
+from typing import Any, Union
 
-from jwcrypto import jwk
 from pydantic import BaseModel, ConfigDict, Field
 
 from fastapi_keycloak_middleware.schemas.authorization_methods import (
@@ -29,34 +28,29 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
     :param client_secret: Client secret of the client used to validate the token.
         The client secret is only needed if you use the introspection endpoint.
     :type client_secret: str, optional
-    :param claims: List of claims that should be extracted from the access token.
-        Defaults to
-        ``["sub", "name", "family_name", "given_name", "preferred_username", "email"]``.
-    :type claims: list[str], optional
-    :param reject_on_missing_claim: Whether to reject the request if a claim is missing.
-        Defaults to ``True``.
-    :type reject_on_missing_claim: bool, optional
+    :param required_claims: Claims that must be present in every access token, otherwise
+        the request is rejected. Nested claims can be referenced with a dot separated
+        path. The user and service mappers always receive all claims of the token.
+        Defaults to ``["sub"]``.
+    :type required_claims: list[str], optional
     :param authentication_scheme: Authentication scheme to use. Defaults to ``Bearer``.
     :type authentication_scheme: str, optional
     :param authorization_method: Authorization method to use. Defaults to ``NONE``.
     :type authorization_method: AuthorizationMethod, optional
     :param authorization_claim: Claim to use for extracting authorization scopes.
-        Defaults to ``roles``.
+        Nested claims can be referenced with a dot separated path, e.g.
+        ``realm_access.roles``. Space delimited string values (like the OAuth 2.0
+        ``scope`` claim) are split into a list. Defaults to ``roles``.
     :type authorization_claim: str, optional
     :param use_introspection_endpoint: Whether to use the introspection endpoint
         for token validation. Should not be needed for Keycloak in general
         as Keycloak doesn't support opaque tokens. Defaults to ``False``.
     :type use_introspection_endpoint: bool, optional
-    :param enable_device_authentication: Whether to enable device authentication.
-        If device authentication is enabled, the middleware will ignore required user
-        claims and not attempt to map the user. The token will be validated and then the
-        request forwarded unmodified. Defaults to ``False``.
-    :type enable_device_authentication: bool, optional
-    :param device_authentication_claim: This claim will be used to check if the token
-        is a device token. Defaults to ``is_device``. This is only used if
-        ``enable_device_authentication`` is set to ``True``. The value
-        is extracted from the claim and checked if its a truthy value.
-        To be specific, ``bool(value)`` must evaluate to ``True``.
+    :param jwks_refresh_interval: Minimum number of seconds between two fetches of the
+        realm key set (JWKS). The key set is fetched on the first request and refetched
+        when a token is signed with an unknown key, e.g. after the realm keys have been
+        rotated. Defaults to ``30``.
+    :type jwks_refresh_interval: float, optional
     :param verify: Whether to verify SSL connection. Defaults to ``True``
     :type verify: Union[bool,str], optional
     :param validate_token: Whether to validate the token. Defaults to ``True``.
@@ -64,8 +58,9 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
     :param validation_options: Decode options that are passed to `JWCrypto`'s JWT
         constructor. Defaults to ``{}``. See the following project for an overview of
         acceptable options: https://jwcrypto.readthedocs.io/en/latest/jwt.html
-    :type validation_options: dict[str, Union[str, dict[str, Union[None, str]], list[str]]],
-        optional
+        A ``key`` (``jwk.JWK`` or ``jwk.JWKSet``) passed here is used instead of the
+        realm key set, which is then never fetched.
+    :type validation_options: dict[str, Any], optional
     :param enable_websocket_support: Whether to enable WebSocket support. Defaults to ``True``.
     :type enable_websocket_support: bool, optional
     :param websocket_cookie_name: Name of the cookie that contains the access token.
@@ -73,7 +68,9 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
     :type websocket_cookie_name: str, optional
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    # Unknown options are rejected, so options removed in a major release are not
+    # silently ignored
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     realm: str = Field(title="Realm", description="The realm to use.")
     url: str = Field(title="URL", description="The URL of the Keycloak server.")
@@ -84,22 +81,10 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
     client_secret: str | None = Field(
         default=None, title="Client Secret", description="The client secret."
     )
-    claims: list[str] = Field(
-        default=[
-            "sub",
-            "name",
-            "family_name",
-            "given_name",
-            "preferred_username",
-            "email",
-        ],
-        title="Claims",
-        description="The claims to add to the user object.",
-    )
-    reject_on_missing_claim: bool = Field(
-        default=True,
-        title="Reject on Missing Claim",
-        description="Whether to reject the request if a claim is missing.",
+    required_claims: list[str] = Field(
+        default=["sub"],
+        title="Required Claims",
+        description="Claims that must be present in every access token.",
     )
     authentication_scheme: str = Field(
         default="Bearer",
@@ -121,19 +106,11 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
         title="Use Introspection Endpoint",
         description="Whether to use the introspection endpoint.",
     )
-    enable_device_authentication: bool = Field(
-        default=False,
-        title="Enable Device Authentication",
-        description="Whether to enable device authentication. If device authentication"
-        " is enabled, the middleware will ignore required user claims and not attempt"
-        " to map the user. The token will be validated and then the request"
-        " forwarded unmodified.",
-    )
-    device_authentication_claim: str = Field(
-        default="is_device",
-        title="Device Authentication Claim",
-        description="The claim that will be checked. If present and if it evaluates to"
-        " true, the device authentication will be applied for the request.",
+    jwks_refresh_interval: float = Field(
+        default=30,
+        ge=0,
+        title="JWKS Refresh Interval",
+        description="Minimum number of seconds between two fetches of the realm key set.",
     )
     verify: Union[bool, str] = Field(
         default=True,
@@ -145,9 +122,9 @@ class KeycloakConfiguration(BaseModel):  # pylint: disable=too-few-public-method
         title="Validate Token",
         description="Whether to validate the token.",
     )
-    validation_options: dict[
-        str, Union[str, dict[str, Union[None, str]], list[str], jwk.JWK, jwk.JWKSet]
-    ] = Field(
+    # Values are passed to jwcrypto unchanged. A narrower type would make pydantic copy
+    # keys (jwk.JWK is a dict subclass) into plain dicts and reject valid options.
+    validation_options: dict[str, Any] = Field(
         default={},
         title="JWCrypto JWT Options",
         description="Decode options that are passed to jwcrypto's JWT constructor.",

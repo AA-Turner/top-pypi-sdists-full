@@ -444,7 +444,7 @@ async def _create_single_client_dependency_mount(
 ): ...
 async def _create_client_dependency_mounts(
     client=None,
-    python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"],
+    python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
     builder_versions: list[str] = ["2025.06"],
     check_if_exists=True,
     dry_run=False,
@@ -455,7 +455,7 @@ class __create_client_dependency_mounts_spec(typing_extensions.Protocol):
         self,
         /,
         client=None,
-        python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"],
+        python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
         builder_versions: list[str] = ["2025.06"],
         check_if_exists=True,
         dry_run=False,
@@ -464,7 +464,7 @@ class __create_client_dependency_mounts_spec(typing_extensions.Protocol):
         self,
         /,
         client=None,
-        python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"],
+        python_versions: list[str] = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t"],
         builder_versions: list[str] = ["2025.06"],
         check_if_exists=True,
         dry_run=False,

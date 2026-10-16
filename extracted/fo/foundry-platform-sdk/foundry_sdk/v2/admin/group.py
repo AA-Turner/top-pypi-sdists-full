@@ -104,6 +104,9 @@ class GroupClient:
     ) -> admin_models.Group:
         """
         Creates a new Group.
+
+        Required scopes: [api:admin-write]
+
         :param attributes: A map of the Group's attributes. Attributes prefixed with "multipass:" are reserved for internal use by Foundry and are subject to change.
         :type attributes: Dict[AttributeName, AttributeValues]
         :param name: The name of the Group.
@@ -163,6 +166,9 @@ class GroupClient:
     ) -> None:
         """
         Delete the Group with the specified id.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -206,6 +212,9 @@ class GroupClient:
     ) -> admin_models.Group:
         """
         Get the Group with the specified id.
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -254,6 +263,9 @@ class GroupClient:
         Execute multiple get requests on Group.
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:admin-read]
+
         :param body: Body of the request
         :type body: List[GetGroupsBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -295,6 +307,9 @@ class GroupClient:
         Lists all Groups.
 
         This is a paged endpoint. Each page may be smaller or larger than the requested page size. However, it is guaranteed that if there are more results available, the `nextPageToken` field will be populated. To get the next page, make the same request again, but set the value of the `pageToken` query parameter to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field in the response, you are on the last page.
+
+        Required scopes: [api:admin-read]
+
         :param page_size: The page size to use for the endpoint.
         :type page_size: Optional[PageSize]
         :param page_token: The page token indicates where to start paging. This should be omitted from the first page's request. To fetch the next page, clients should take the value from the `nextPageToken` field of the previous response and use it to populate the `pageToken` field of the next request.
@@ -346,6 +361,9 @@ class GroupClient:
         does not require any particular scopes and can be used by any authenticated user to retrieve their own
         group memberships.
 
+
+        Required scopes: []
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
@@ -393,6 +411,9 @@ class GroupClient:
     ) -> admin_models.Group:
         """
         When replacing groups, you must send all attributes that begin with `multipass:` exactly as they appear when calling the Get Group endpoint.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param attributes: A map of the Group's attributes. Attributes prefixed with "multipass:" are reserved for internal use by Foundry and are subject to change.
@@ -460,6 +481,9 @@ class GroupClient:
     ) -> admin_models.SearchGroupsResponse:
         """
         Perform a case-insensitive prefix search for groups based on group name.
+
+
+        Required scopes: [api:admin-read]
 
         :param where:
         :type where: GroupSearchFilter
@@ -618,6 +642,9 @@ class AsyncGroupClient:
     ) -> typing.Awaitable[admin_models.Group]:
         """
         Creates a new Group.
+
+        Required scopes: [api:admin-write]
+
         :param attributes: A map of the Group's attributes. Attributes prefixed with "multipass:" are reserved for internal use by Foundry and are subject to change.
         :type attributes: Dict[AttributeName, AttributeValues]
         :param name: The name of the Group.
@@ -677,6 +704,9 @@ class AsyncGroupClient:
     ) -> typing.Awaitable[None]:
         """
         Delete the Group with the specified id.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -720,6 +750,9 @@ class AsyncGroupClient:
     ) -> typing.Awaitable[admin_models.Group]:
         """
         Get the Group with the specified id.
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param request_timeout: timeout setting for this request in seconds.
@@ -768,6 +801,9 @@ class AsyncGroupClient:
         Execute multiple get requests on Group.
 
         The maximum batch size for this endpoint is 500.
+
+        Required scopes: [api:admin-read]
+
         :param body: Body of the request
         :type body: List[GetGroupsBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -809,6 +845,9 @@ class AsyncGroupClient:
         Lists all Groups.
 
         This is a paged endpoint. Each page may be smaller or larger than the requested page size. However, it is guaranteed that if there are more results available, the `nextPageToken` field will be populated. To get the next page, make the same request again, but set the value of the `pageToken` query parameter to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field in the response, you are on the last page.
+
+        Required scopes: [api:admin-read]
+
         :param page_size: The page size to use for the endpoint.
         :type page_size: Optional[PageSize]
         :param page_token: The page token indicates where to start paging. This should be omitted from the first page's request. To fetch the next page, clients should take the value from the `nextPageToken` field of the previous response and use it to populate the `pageToken` field of the next request.
@@ -860,6 +899,9 @@ class AsyncGroupClient:
         does not require any particular scopes and can be used by any authenticated user to retrieve their own
         group memberships.
 
+
+        Required scopes: []
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
@@ -907,6 +949,9 @@ class AsyncGroupClient:
     ) -> typing.Awaitable[admin_models.Group]:
         """
         When replacing groups, you must send all attributes that begin with `multipass:` exactly as they appear when calling the Get Group endpoint.
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param attributes: A map of the Group's attributes. Attributes prefixed with "multipass:" are reserved for internal use by Foundry and are subject to change.
@@ -974,6 +1019,9 @@ class AsyncGroupClient:
     ) -> typing.Awaitable[admin_models.SearchGroupsResponse]:
         """
         Perform a case-insensitive prefix search for groups based on group name.
+
+
+        Required scopes: [api:admin-read]
 
         :param where:
         :type where: GroupSearchFilter

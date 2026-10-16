@@ -53,7 +53,9 @@ class ApiIterator(object):
 
             # Handle both legacy dict and new list results
             if self._is_legacy_dict_result(next_page_result):
-                self._cache = next_page_result[self.entities_container][self._entities]
+                self._cache = self._parse_legacy_entities(
+                    next_page_result[self.entities_container][self._entities]
+                )
             elif isinstance(next_page_result, list):
                 self._cache = next_page_result
             else:
@@ -220,7 +222,19 @@ class ApiIterator(object):
         page_info = result["page"]
         self._total_elements = page_info["totalElements"]
         self._total_pages = page_info["totalPages"]
-        self._cache = result[self.entities_container][entities]
+        self._cache = self._parse_legacy_entities(
+            result[self.entities_container][entities]
+        )
+
+    def _parse_legacy_entities(self, entities_data: list) -> list:
+        """Parse raw dict entities with the API's parser (a no-op for APIs returning dicts)."""
+        parser = getattr(self._api_instance, "_parse_entity_from_dictionary", None)
+        if not callable(parser):
+            return entities_data
+        parsed = [
+            parser(item) if isinstance(item, dict) else item for item in entities_data
+        ]
+        return [item for item in parsed if item is not None]
 
     def _process_list_result(self, result, api_instance):
         """

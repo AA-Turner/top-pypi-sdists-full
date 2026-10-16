@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: agent-framework-core
-Version: 1.21.0
+Version: 1.22.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: msgspec>=0.20.0,<0.23
@@ -24,40 +25,41 @@ Requires-Dist: opentelemetry-api>=1.39.0,<2
 Requires-Dist: pyyaml>=6.0,<7.0
 Requires-Dist: regex>=2024.11.6
 Requires-Dist: mcp>=1.24.0,<2 ; extra == "all"
-Requires-Dist: agent-framework-a2a>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-ag-ui>=1.5.1,<2 ; extra == "all"
-Requires-Dist: agent-framework-anthropic>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-azure-ai-search>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-azure-contentunderstanding>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-azure-cosmos>=1.0.0b261002,<2 ; extra == "all"
+Requires-Dist: agent-framework-a2a>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-ag-ui>=1.6.0,<2 ; extra == "all"
+Requires-Dist: agent-framework-anthropic>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-azure-ai-search>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-azure-contentunderstanding>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-azure-cosmos>=1.0.0b261015,<2 ; extra == "all"
 Requires-Dist: agent-framework-azurefunctions>=1.0.0b260922,<2 ; extra == "all"
-Requires-Dist: agent-framework-bedrock>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-chatkit>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-claude>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-copilotstudio>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-declarative>=1.2.1,<2 ; extra == "all"
-Requires-Dist: agent-framework-devui>=1.0.0b261008,<2 ; extra == "all"
+Requires-Dist: agent-framework-bedrock>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-chatkit>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-claude>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-copilotstudio>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-declarative>=1.3.0,<2 ; extra == "all"
+Requires-Dist: agent-framework-devui>=1.0.0b261015,<2 ; extra == "all"
 Requires-Dist: agent-framework-durabletask>=1.0.0b260922,<2 ; extra == "all"
-Requires-Dist: agent-framework-foundry>=1.14.1,<2 ; extra == "all"
-Requires-Dist: agent-framework-foundry-hosting>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-foundry-local>=1.0.0b260730,<2 ; extra == "all"
-Requires-Dist: agent-framework-gemini>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-github-copilot>=2.0.2,<3 ; extra == "all" and ( python_version >= '3.11')
-Requires-Dist: agent-framework-hyperlight>=1.0.0b261008,<2 ; extra == "all" and ( python_version < '3.15' and ((sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')))
-Requires-Dist: agent-framework-mem0>=1.0.0b261002,<2 ; extra == "all"
-Requires-Dist: agent-framework-mistral>=1.0.0b260918,<2 ; extra == "all"
-Requires-Dist: agent-framework-monty>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-ollama>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-openai>=1.16.0,<2 ; extra == "all"
-Requires-Dist: agent-framework-orchestrations>=1.3.1,<2 ; extra == "all"
-Requires-Dist: agent-framework-purview>=1.0.0b261008,<2 ; extra == "all"
-Requires-Dist: agent-framework-redis>=1.0.0b261002,<2 ; extra == "all" and ( python_version < '3.15')
-Requires-Dist: agent-framework-tools>=1.0.0b261008,<2 ; extra == "all"
+Requires-Dist: agent-framework-foundry>=1.15.0,<2 ; extra == "all"
+Requires-Dist: agent-framework-foundry-hosting>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-foundry-local>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-gemini>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-github-copilot>=2.1.0,<3 ; extra == "all" and ( python_version >= '3.11')
+Requires-Dist: agent-framework-hyperlight>=1.0.0b261015,<2 ; extra == "all" and ( python_version < '3.15' and ((sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')))
+Requires-Dist: agent-framework-mem0>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-mistral>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-monty>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-ollama>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-openai>=1.17.0,<2 ; extra == "all"
+Requires-Dist: agent-framework-orchestrations>=1.3.2,<2 ; extra == "all"
+Requires-Dist: agent-framework-purview>=1.0.0b261015,<2 ; extra == "all"
+Requires-Dist: agent-framework-redis>=1.0.0b261015,<2 ; extra == "all" and ( python_version < '3.15')
+Requires-Dist: agent-framework-tools>=1.0.0b261015,<2 ; extra == "all"
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
 Provides-Extra: all
+Import-Name: agent_framework
 
 # Get Started with Microsoft Agent Framework
 
@@ -83,8 +85,13 @@ pip install agent-framework-openai
 
 Supported Platforms:
 
-- Python: 3.10+
+- Python: 3.10–3.15
 - OS: Windows, macOS, Linux
+
+Python 3.10 remains supported and tested for this release, but it is deprecated
+because upstream Python 3.10 has reached end of life. New environments should
+use Python 3.11 or later. Removing Python 3.10 support will be handled in a
+future release rather than by this compatibility update.
 
 ## 1. Setup API Keys
 

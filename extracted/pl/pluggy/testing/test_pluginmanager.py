@@ -3,7 +3,9 @@
 """
 
 import importlib.metadata
+import types
 from typing import Any
+from typing import cast
 
 import pytest
 
@@ -25,6 +27,13 @@ def test_plugin_double_register(pm: PluginManager) -> None:
         pm.register(42, name="abc")
     with pytest.raises(ValueError):
         pm.register(42, name="def")
+
+
+def test_register_ignores_none(pm: PluginManager) -> None:
+    """``None`` collides with the blocked-name sentinel and must be ignored."""
+    assert pm.register(None) is None
+    assert pm.get_plugins() == set()
+    assert not pm.is_registered(None)
 
 
 def test_pm(pm: PluginManager) -> None:
@@ -68,7 +77,7 @@ def test_register_dynamic_attr(he_pm: PluginManager) -> None:
             raise AttributeError(name)
 
     a = A()
-    a.test
+    _ = a.test
 
     he_pm.register(a)
     assert not he_pm.get_hookcallers(a)
@@ -124,6 +133,216 @@ def test_set_blocked(pm: PluginManager) -> None:
     assert pm.register(A(), "somename")
 
 
+def test_register_ignores_properties(he_pm: PluginManager) -> None:
+    class ClassWithProperties:
+        property_was_executed: bool = False
+
+        @property
+        def some_func(self):
+            self.property_was_executed = True  # pragma: no cover
+
+    # Registering the class is harmless (getattr returns the property object).
+    he_pm.register(ClassWithProperties)
+    # Registering an instance must not evaluate the property getter.
+    test_plugin = ClassWithProperties()
+    he_pm.register(test_plugin)
+    assert not test_plugin.property_was_executed
+
+
+def test_register_ignores_cached_property(he_pm: PluginManager) -> None:
+    from functools import cached_property
+
+    class ClassWithCachedProperty:
+        cached_was_executed: bool = False
+
+        @cached_property
+        def some_func(self) -> None:
+            self.cached_was_executed = True  # pragma: no cover
+
+    test_plugin = ClassWithCachedProperty()
+    he_pm.register(test_plugin)
+    assert not test_plugin.cached_was_executed
+    assert "some_func" not in test_plugin.__dict__
+
+
+def test_register_ignores_raising_descriptors(he_pm: PluginManager) -> None:
+    """Descriptor attrs are skipped without accessing them via getattr."""
+
+    class RaisingDescriptor:
+        def __get__(self, obj: object, owner: type | None = None) -> object:
+            raise AttributeError("descriptor access failed")
+
+    class PluginWithRaisingDescriptor:
+        weird_attr = RaisingDescriptor()
+
+        @hookimpl
+        def he_method1(self, arg: object) -> list[object]:
+            return [arg]
+
+    plugin = PluginWithRaisingDescriptor()
+    assert "weird_attr" in dir(plugin)
+    with pytest.raises(AttributeError):
+        _ = plugin.weird_attr
+
+    he_pm.register(plugin)
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_hookimpl_above_classmethod(he_pm: PluginManager) -> None:
+    """@hookimpl applied above @classmethod is discoverable via static lookup."""
+
+    class Plugin:
+        @hookimpl
+        @classmethod
+        def he_method1(cls, arg: object) -> list[object]:
+            return [arg]
+
+    he_pm.register(Plugin())
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_hookimpl_above_staticmethod(he_pm: PluginManager) -> None:
+    """@hookimpl applied above @staticmethod is discoverable via static lookup."""
+
+    class Plugin:
+        @hookimpl
+        @staticmethod
+        def he_method1(arg: object) -> list[object]:
+            return [arg]
+
+    he_pm.register(Plugin())
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_instance_attribute_function_is_not_bound(
+    he_pm: PluginManager,
+) -> None:
+    """A function stored on the instance is called unbound, as ``getattr`` does."""
+
+    class Plugin:
+        def __init__(self) -> None:
+            @hookimpl
+            def he_method1(arg: object) -> list[object]:
+                return [arg]
+
+            # Instance attributes bypass the descriptor protocol, so no ``self``
+            # is injected and the hook must keep its declared signature.
+            self.he_method1 = he_method1
+
+    he_pm.register(Plugin())
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_instance_attribute_bound_method(he_pm: PluginManager) -> None:
+    """A bound method stored on the instance stays bound to its own object."""
+
+    class Impl:
+        @hookimpl
+        def he_method1(self, arg: object) -> list[object]:
+            return [self, arg]
+
+    impl = Impl()
+
+    class Plugin:
+        pass
+
+    plugin = Plugin()
+    plugin.he_method1 = impl.he_method1  # type: ignore[attr-defined]
+
+    he_pm.register(plugin)
+    assert he_pm.hook.he_method1(arg=1) == [[impl, 1]]
+
+
+def test_register_slot_attribute_function_is_not_bound(he_pm: PluginManager) -> None:
+    """A function stored in a ``__slots__`` slot is found and called unbound."""
+
+    class Plugin:
+        __slots__ = ("he_method1", "unset")
+
+        def __init__(self) -> None:
+            @hookimpl
+            def he_method1(arg: object) -> list[object]:
+                return [arg]
+
+            self.he_method1 = he_method1
+
+    plugin = Plugin()
+    # ``dir()`` lists ``unset`` too; an unassigned slot must be skipped quietly.
+    assert "unset" in dir(plugin)
+    he_pm.register(plugin)
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_module_level_bound_method(he_pm: PluginManager) -> None:
+    """A bound method assigned onto a module namespace is hookable."""
+
+    class Impl:
+        @hookimpl
+        def he_method1(self, arg: object) -> list[object]:
+            return [self, arg]
+
+    impl = Impl()
+    module = types.ModuleType("module_plugin")
+    module.he_method1 = impl.he_method1  # type: ignore[attr-defined]
+
+    he_pm.register(module)
+    assert he_pm.hook.he_method1(arg=1) == [[impl, 1]]
+
+
+def test_register_ignores_unmarked_class_and_static_methods(
+    he_pm: PluginManager,
+) -> None:
+    """Undecorated classmethods/staticmethods carry no marker on either side."""
+
+    class Plugin:
+        @classmethod
+        def not_a_hook_cm(cls) -> None: ...
+
+        @staticmethod
+        def not_a_hook_sm() -> None: ...
+
+        @hookimpl
+        def he_method1(self, arg: object) -> list[object]:
+            return [arg]
+
+    plugin = Plugin()
+    assert he_pm.parse_hookimpl_opts(plugin, "not_a_hook_cm") is None
+    assert he_pm.parse_hookimpl_opts(plugin, "not_a_hook_sm") is None
+
+    he_pm.register(plugin)
+    assert he_pm.hook.he_method1(arg=1) == [[1]]
+
+
+def test_register_ignores_non_callable_instance_attributes(pm: PluginManager) -> None:
+    """Instance attributes that are not routines are never hook candidates."""
+
+    class Plugin:
+        def __init__(self) -> None:
+            self.some_value = 42
+
+    assert pm.parse_hookimpl_opts(Plugin(), "some_value") is None
+
+
+def test_hookspec_lookup_ignores_properties(pm: PluginManager) -> None:
+    """Hookspec discovery must not evaluate descriptors either."""
+
+    class Spec:
+        was_executed = False
+
+        @property
+        def not_a_spec(self) -> None:
+            type(self).was_executed = True  # pragma: no cover
+
+        @hookspec
+        def he_method1(self, arg: object) -> object: ...
+
+    # Spec instances are supported at runtime, see the ``he_pm`` fixture.
+    spec = cast(Any, Spec())
+    pm.add_hookspecs(spec)
+    assert not Spec.was_executed
+    assert pm.parse_hookspec_opts(spec, "not_a_spec") is None
+
+
 def test_register_mismatch_method(he_pm: PluginManager) -> None:
     class hello:
         @hookimpl
@@ -149,6 +368,63 @@ def test_register_mismatch_arg(he_pm: PluginManager) -> None:
     with pytest.raises(PluginValidationError) as excinfo:
         he_pm.register(plugin)
     assert excinfo.value.plugin is plugin
+
+
+def test_register_validation_failure_leaves_no_state(he_pm: PluginManager) -> None:
+    """The invalid impl sorts last in dir(), after a valid impl and an impl
+    for an unknown hook; a failed register must install none of them (#733)."""
+
+    class hello:
+        @hookimpl
+        def a_new_hook(self):
+            pass  # pragma: no cover
+
+        @hookimpl
+        def he_method1(self, arg):
+            pass  # pragma: no cover
+
+        @hookimpl(specname="he_method1")
+        def he_method1_invalid(self, qlwkje):
+            pass  # pragma: no cover
+
+    plugin = hello()
+
+    with pytest.raises(PluginValidationError) as excinfo:
+        he_pm.register(plugin)
+    assert excinfo.value.plugin is plugin
+    assert not he_pm.is_registered(plugin)
+    assert he_pm.hook.he_method1.get_hookimpls() == []
+    assert not hasattr(he_pm.hook, "a_new_hook")
+
+
+def test_register_verifies_spec_added_by_historic_replay(pm: PluginManager) -> None:
+    """A spec added while replaying one impl's historic call must still be
+    checked for the impls registered after it."""
+
+    class Specs:
+        @hookspec(historic=True)
+        def configure(self):
+            pass  # pragma: no cover
+
+    class LateSpecs:
+        @hookspec
+        def late(self, arg):
+            pass  # pragma: no cover
+
+    pm.add_hookspecs(Specs)
+    pm.hook.configure.call_historic()
+
+    class hello:
+        @hookimpl
+        def configure(self):
+            pm.add_hookspecs(LateSpecs)
+
+        @hookimpl
+        def late(self, qlwkje):
+            pass  # pragma: no cover
+
+    with pytest.raises(PluginValidationError, match="qlwkje"):
+        pm.register(hello())
 
 
 def test_register_hookwrapper_not_a_generator_function(he_pm: PluginManager) -> None:
@@ -241,7 +517,7 @@ def test_register_historic(pm: PluginManager) -> None:
 
     pm.add_hookspecs(Hooks)
 
-    pm.hook.he_method1.call_historic(kwargs=dict(arg=1))
+    pm.hook.he_method1.call_historic(kwargs={"arg": 1})
     out = []
 
     class Plugin:
@@ -259,7 +535,7 @@ def test_register_historic(pm: PluginManager) -> None:
 
     pm.register(Plugin2())
     assert out == [1, 10]
-    pm.hook.he_method1.call_historic(kwargs=dict(arg=12))
+    pm.hook.he_method1.call_historic(kwargs={"arg": 12})
     assert out == [1, 10, 120, 12]
 
 
@@ -286,7 +562,7 @@ def test_historic_with_subset_hook_caller(pm: PluginManager) -> None:
             out.append(arg * 10)
 
     shc = pm.subset_hook_caller("he_method1", remove_plugins=[plugin])
-    shc.call_historic(kwargs=dict(arg=1))
+    shc.call_historic(kwargs={"arg": 1})
 
     pm.register(Plugin2())
     assert out == [10]
@@ -324,7 +600,7 @@ def test_with_result_memorized(pm: PluginManager, result_callback: bool) -> None
     pm.register(Plugin1())
 
     he_method1 = pm.hook.he_method1
-    he_method1.call_historic(result_callback=callback, kwargs=dict(arg=1))
+    he_method1.call_historic(result_callback=callback, kwargs={"arg": 1})
 
     class Plugin2:
         @hookimpl
@@ -366,7 +642,7 @@ def test_with_callbacks_immediately_executed(pm: PluginManager) -> None:
     pm.register(Plugin2())
 
     he_method1 = pm.hook.he_method1
-    he_method1.call_historic(lambda res: out.append(res), dict(arg=1))
+    he_method1.call_historic(lambda res: out.append(res), {"arg": 1})
     assert out == [20, 10]
     pm.register(Plugin3())
     assert out == [20, 10, 30]
@@ -419,7 +695,7 @@ def test_call_extra(pm: PluginManager) -> None:
     def he_method1(arg):
         return arg * 10
 
-    out = pm.hook.he_method1.call_extra([he_method1], dict(arg=1))
+    out = pm.hook.he_method1.call_extra([he_method1], {"arg": 1})
     assert out == [10]
 
 
@@ -434,15 +710,14 @@ def test_call_with_too_few_args(pm: PluginManager) -> None:
     class Plugin1:
         @hookimpl
         def he_method1(self, arg):
-            0 / 0
+            raise ZeroDivisionError
 
     pm.register(Plugin1())
     with pytest.raises(ZeroDivisionError):
         pm.hook.he_method1(arg="works")
 
-    with pytest.raises(HookCallError):
-        with pytest.warns(UserWarning):
-            pm.hook.he_method1()
+    with pytest.raises(HookCallError), pytest.warns(UserWarning):
+        pm.hook.he_method1()
 
 
 def test_subset_hook_caller(pm: PluginManager) -> None:
@@ -495,6 +770,44 @@ def test_subset_hook_caller(pm: PluginManager) -> None:
     assert out == [10]
 
     assert repr(hc) == "<_SubsetHookCaller 'he_method1'>"
+
+
+def test_subset_hook_caller_with_specname(pm: PluginManager) -> None:
+    """Test that subset_hook_caller doesn't get confused by specname."""
+
+    class Hooks:
+        @hookspec
+        def he_method1(self):
+            pass
+
+        @hookspec
+        def he_method2(self):
+            pass
+
+    pm.add_hookspecs(Hooks)
+
+    class Plugin1:
+        @hookimpl(specname="he_method1")
+        def alias(self):
+            return 1  # pragma: no cover
+
+    class Plugin2:
+        @hookimpl
+        def he_method1(self):
+            return 2
+
+    class Plugin3:
+        @hookimpl(specname="he_method2")
+        def he_method1(self):
+            return 3  # pragma: no cover
+
+    plugin1, plugin2, plugin3 = Plugin1(), Plugin2(), Plugin3()
+    pm.register(plugin1)
+    pm.register(plugin2)
+    pm.register(plugin3)
+
+    hc = pm.subset_hook_caller("he_method1", remove_plugins=[plugin1])
+    assert hc() == [2]
 
 
 def test_get_hookimpls(pm: PluginManager) -> None:
@@ -583,22 +896,38 @@ def test_add_hookspecs_nohooks(pm: PluginManager) -> None:
         pm.add_hookspecs(NoHooks)
 
 
-def test_load_setuptools_instantiation(monkeypatch, pm: PluginManager) -> None:
+@pytest.mark.parametrize(
+    "plugin_truth", [True, False, None], ids=["truthy", "falsey", "bool-raises"]
+)
+def test_load_setuptools_instantiation(
+    monkeypatch: pytest.MonkeyPatch, pm: PluginManager, plugin_truth: bool | None
+) -> None:
+    load_calls = 0
+
     class EntryPoint:
         name = "myname"
         group = "hello"
         value = "myname:foo"
 
         def load(self):
+            nonlocal load_calls
+            load_calls += 1
+
             class PseudoPlugin:
                 x = 42
+
+                def __bool__(self) -> bool:
+                    if plugin_truth is None:
+                        raise AssertionError("Plugin truthiness must not be evaluated")
+                    return plugin_truth
 
             return PseudoPlugin()
 
     class Distribution:
         entry_points = (EntryPoint(),)
 
-    dist = Distribution()
+    # Cast mock Distribution to satisfy mypy type checking
+    dist = cast(importlib.metadata.Distribution, Distribution())
 
     def my_distributions():
         return (dist,)
@@ -609,14 +938,25 @@ def test_load_setuptools_instantiation(monkeypatch, pm: PluginManager) -> None:
     plugin = pm.get_plugin("myname")
     assert plugin is not None
     assert plugin.x == 42
+    if plugin_truth is None:
+        with pytest.raises(
+            AssertionError, match="Plugin truthiness must not be evaluated"
+        ):
+            bool(plugin)
+    else:
+        assert bool(plugin) is plugin_truth
     ret = pm.list_plugin_distinfo()
     # poor man's `assert ret == [(plugin, mock.ANY)]`
     assert len(ret) == 1
     assert len(ret[0]) == 2
     assert ret[0][0] == plugin
-    assert ret[0][1]._dist == dist  # type: ignore[comparison-overlap]
+    assert ret[0][1]._dist == dist
     num = pm.load_setuptools_entrypoints("hello")
     assert num == 0  # no plugin loaded by this call
+    assert load_calls == 1
+
+    ret_distributions = pm.list_plugin_distributions()
+    assert ret_distributions == [(plugin, dist)]
 
 
 def test_add_tracefuncs(he_pm: PluginManager) -> None:
@@ -693,6 +1033,77 @@ def test_hook_tracing(he_pm: PluginManager) -> None:
         assert saveindent[0] > indent
     finally:
         undo()
+
+
+def test_hook_tracing_escapes_surrogate_values(pm: PluginManager) -> None:
+    """Surrogates in traced arguments and results never reach the writer.
+
+    Regression test for #681 (pytest-dev/pytest#13750).
+    """
+
+    class Hooks:
+        @hookspec(firstresult=True)
+        def he_method1(self, arg: object) -> object:
+            raise NotImplementedError()
+
+    class Plugin:
+        @hookimpl
+        def he_method1(self, arg: object) -> object:
+            return arg
+
+    out: list[str] = []
+
+    def write(message: str) -> None:
+        message.encode()
+        out.append(message)
+
+    pm.add_hookspecs(Hooks)
+    pm.register(Plugin())
+    pm.trace.root.setwriter(write)
+    undo = pm.enable_tracing()
+    try:
+        result = pm.hook.he_method1(arg="\ud800")
+    finally:
+        undo()
+
+    assert result == "\ud800"
+    assert out == [
+        "  he_method1 [hook]\n      arg: '\\ud800'\n",
+        "  finish he_method1 --> \\ud800 [hook]\n",
+    ]
+
+
+def test_hook_tracing_with_broken_repr(he_pm: PluginManager) -> None:
+    """A broken ``__repr__`` does not break the hook call.
+
+    Regression test for #424 (kedro-org/kedro#2630).
+    """
+
+    class BrokenRepr:
+        def __repr__(self) -> str:
+            raise RuntimeError("repr is broken")
+
+    class api1:
+        @hookimpl
+        def he_method1(self, arg):
+            return arg
+
+    he_pm.register(api1())
+    out: list[str] = []
+    he_pm.trace.root.setwriter(out.append)
+    undo = he_pm.enable_tracing()
+    arg = BrokenRepr()
+    try:
+        result = he_pm.hook.he_method1(arg=arg)
+    finally:
+        undo()
+
+    assert result == [arg]
+    assert len(out) == 2
+    assert "he_method1" in out[0]
+    assert "RuntimeError('repr is broken') raised in str()" in out[0]
+    assert "BrokenRepr object at 0x" in out[0]
+    assert "finish" in out[1]
 
 
 @pytest.mark.parametrize("historic", [False, True])
@@ -814,3 +1225,127 @@ def test_check_pending_nonspec_hook(
         PluginValidationError, match="unknown hook 'a_hook' in plugin .*"
     ):
         pm.check_pending()
+
+
+def test_unregister_plugin_with_multi_hookimpls(pm: PluginManager) -> None:
+    """Verify that unregistering a plugin with multiple hookimpls on the
+    same hook (via specname) removes all of them (#431)."""
+
+    class Api:
+        @hookspec
+        def hello(self, arg: object) -> object: ...
+
+    pm.add_hookspecs(Api)
+
+    class Plugin:
+        @hookimpl
+        def hello(self, arg: object) -> int:
+            return arg + 1  # type: ignore[operator]
+
+        @hookimpl(specname="hello")
+        def hello_again(self, arg: object) -> int:
+            return arg + 100  # type: ignore[operator]
+
+    plugin = Plugin()
+    pm.register(plugin)
+
+    # Both implementations should be registered.
+    impls = pm.hook.hello.get_hookimpls()
+    assert len(impls) == 2
+
+    # Both implementations should run.
+    out = pm.hook.hello(arg=3)
+    assert sorted(out) == [4, 103]
+
+    # After unregister, no implementations should remain.
+    pm.unregister(plugin)
+    assert pm.hook.hello(arg=3) == []
+    assert pm.hook.hello.get_hookimpls() == []
+
+
+def test_get_hookcallers_no_duplicates(pm: PluginManager) -> None:
+    """Verify that get_hookcallers does not return duplicate HookCaller
+    entries when a plugin has multiple hookimpls on the same hook (#431)."""
+
+    class Api:
+        @hookspec
+        def hello(self, arg: object) -> object: ...
+
+        @hookspec
+        def goodbye(self, arg: object) -> object: ...
+
+    pm.add_hookspecs(Api)
+
+    class Plugin:
+        @hookimpl
+        def hello(self, arg: object) -> int:
+            return arg + 1  # type: ignore[operator]
+
+        @hookimpl(specname="hello")
+        def hello_again(self, arg: object) -> int:
+            return arg + 100  # type: ignore[operator]
+
+        @hookimpl
+        def goodbye(self, arg: object) -> int:
+            return arg + 200  # type: ignore[operator]
+
+    plugin = Plugin()
+    pm.register(plugin)
+
+    hookcallers = pm.get_hookcallers(plugin)
+    assert hookcallers is not None
+    # Should return 2 unique callers (hello + goodbye), not 3.
+    assert len(hookcallers) == 2
+    caller_names = {hc.name for hc in hookcallers}
+    assert caller_names == {"hello", "goodbye"}
+    # Both hello impls are still wired up, and each caller works.
+    assert pm.hook.hello(arg=1) == [101, 2]
+    assert pm.hook.goodbye(arg=1) == [201]
+
+
+def test_unregister_plugin_and_name_must_agree(pm: PluginManager) -> None:
+    class Plugin:
+        @hookimpl
+        def he_method1(self, arg):
+            return arg
+
+    a, b, c = Plugin(), Plugin(), Plugin()
+    pm.register(a, "a")
+    pm.register(b, "b")
+    # Both registered, but under different names.
+    with pytest.raises(ValueError, match="do not agree"):
+        pm.unregister(a, "b")
+    # Plugin not registered, name belongs to another plugin.
+    with pytest.raises(ValueError, match="do not agree"):
+        pm.unregister(c, "b")
+    # Plugin registered, name unknown.
+    with pytest.raises(ValueError, match="do not agree"):
+        pm.unregister(a, "unknown")
+    # Rejected calls leave everything untouched.
+    assert pm.get_plugin("a") is a
+    assert pm.get_plugin("b") is b
+    assert pm.hook.he_method1(arg=1) == [1, 1]
+    # Agreeing arguments still work.
+    assert pm.unregister(a, "a") is a
+    assert not pm.is_registered(a)
+
+
+def test_unregister_falsy_plugin(pm: PluginManager) -> None:
+    class FalsyPlugin:
+        def __len__(self) -> int:
+            return 0
+
+        @hookimpl
+        def he_method1(self, arg):
+            return arg
+
+    plugin = FalsyPlugin()
+    assert not plugin
+    pm.register(plugin, "falsy")
+    assert pm.hook.he_method1(arg=1) == [1]
+    assert pm.unregister(plugin) is plugin
+    assert not pm.is_registered(plugin)
+    assert pm.get_plugin("falsy") is None
+    # The name is free again.
+    pm.register(plugin, "falsy")
+    assert pm.is_registered(plugin)

@@ -312,5 +312,12 @@ basic_ofstream<_CharT, _Traits>::close()
 OIIO_NAMESPACE_3_1_END
 
 
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#    ifndef OIIO_DOXYGEN
+using v3_1::basic_ifstream;
+using v3_1::basic_ofstream;
+#    endif
+OIIO_NAMESPACE_END
 
 #endif  // #if defined(_WIN32) && defined(__GLIBCXX__)

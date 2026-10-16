@@ -741,7 +741,10 @@ class TmoClient(object):
 
     def __create_oauth_session_bearer(self):
         self.session = requests.session()
-        self.session.headers.update({"Authorization": self.__bearer_token})
+        token = self.__bearer_token or ""
+        if not token.lower().startswith("bearer "):
+            token = f"Bearer {token}"
+        self.session.headers.update({"Authorization": token})
         self.__set_session_tls()
 
     def __get_device_code(self):

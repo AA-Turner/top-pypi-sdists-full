@@ -6,7 +6,8 @@
 //! by interpreter state fields).
 //!
 //! Redirection failures are reported as `bash: <path>: <reason>` via
-//! [`redirect_error_reason`] — never as the `Display` of a [`crate::Error`],
+//! [`crate::error::io_error_reason`] — never as the `Display` of a
+//! [`crate::Error`],
 //! whose `io error: ` prefix is a Rust enum shape no shell ever prints.
 //!
 //! The reason text matters beyond cosmetics: the fuzz/proptest leak detector
@@ -18,86 +19,450 @@
 //! TM-INF-016 host-path leak instead of an echo.
 
 use super::*;
+use crate::error::io_error_reason;
 
-/// VFS messages that only restate their `io::ErrorKind`.
-///
-/// These carry nothing the errno does not, so redirection diagnostics swap
-/// them for the `strerror` text real bash prints. Every other message —
-/// `filesystem is read-only`, a custom [`crate::FileSystem`] backend's own
-/// wording — tells the caller *why* in a way the bare errno cannot, and is
-/// kept verbatim.
-const ERRNO_RESTATING_MESSAGES: &[&str] = &["file not found", "parent directory not found"];
+/// A redirect target that brace expansion, word splitting or pathname
+/// expansion could turn into other than one word (`> $f`, `> out-*`,
+/// `> a-{1,2}`), or one with a quoted expansion. Plain words skip the
+/// field pass.
+fn redirect_target_may_split(redirect: &Redirect) -> bool {
+    if !matches!(
+        redirect.kind,
+        RedirectKind::Output
+            | RedirectKind::Clobber
+            | RedirectKind::Append
+            | RedirectKind::OutputBoth
+            | RedirectKind::Input
+            | RedirectKind::ReadWrite
+            | RedirectKind::DupOutput
+            | RedirectKind::DupInput
+    ) || redirect.fd_var.is_some()
+    {
+        return false;
+    }
+    let word = &redirect.target;
+    if word.quoted && !word.has_unquoted_glob {
+        // Quoted expansions resolve up front too: `"$@"` may still give
+        // several words (ambiguous), and a compound's or function's target
+        // expands before its body runs (`f() {..} >"f$((i++))"`).
+        return word
+            .parts
+            .iter()
+            .any(|p| !matches!(p, WordPart::Literal(_)));
+    }
+    word.parts.iter().any(|part| match part {
+        WordPart::Literal(text) => text.contains(['*', '?', '[', '{', '(', '\\']),
+        _ => true,
+    })
+}
 
-/// Render a filesystem error the way bash renders a redirection failure.
-///
-/// `ls < /nope` reports `bash: /nope: No such file or directory`, matching
-/// real bash, rather than the Rust error-enum `Display`
-/// (`bash: /nope: io error: file not found`).
-pub(super) fn redirect_error_reason(e: &crate::error::Error) -> String {
-    let io = match e {
-        crate::error::Error::Io(io) => io,
-        other => return other.to_string(),
-    };
-    let message = io.to_string();
-    // Errors straight from the OS stringify as `<strerror> (os error N)`;
-    // bash prints only the strerror half.
-    let restates_errno =
-        io.raw_os_error().is_some() || ERRNO_RESTATING_MESSAGES.contains(&message.as_str());
-    if !restates_errno {
-        return message;
+// Read admission, any excess backend capacity, and cached text travel together.
+type InputStorage = [Option<crate::limits::ExecutionBudgetLease>; 3];
+type StdinSlot = Option<(crate::StreamData, InputStorage)>;
+
+/// Assign the stdin slot, dropping any previous buffer and its clone lease
+/// together, including fresh materializations as well as copies.
+fn set_stdin_slot(slot: &mut StdinSlot, value: Option<crate::StreamData>, lease: InputStorage) {
+    *slot = value.map(|data| (data, lease));
+}
+
+/// Result of input-redirection processing: the stdin buffer plus the
+/// live-bytes leases for both representations.
+/// Callers hold `stdin_lease` for as long as they retain `stdin`.
+pub(crate) struct StdinSetup {
+    pub stdin: Option<crate::StreamData>,
+    pub stdin_lease: InputStorage,
+}
+
+/// Numbered-fd table with replace semantics: re-redirecting an fd drops the
+/// superseded buffer — and its live-bytes lease — instead of piling clones.
+/// Aggregate input consumption stays cumulative.
+type OwnFdEntry = (i32, crate::StreamData, InputStorage);
+
+fn replace_own_fd(
+    own_fds: &mut Vec<OwnFdEntry>,
+    fd: i32,
+    data: crate::StreamData,
+    lease: InputStorage,
+) {
+    if let Some(slot) = own_fds.iter_mut().find(|(existing, _, _)| *existing == fd) {
+        *slot = (fd, data, lease);
+    } else {
+        own_fds.push((fd, data, lease));
     }
-    match io.kind() {
-        std::io::ErrorKind::NotFound => "No such file or directory",
-        std::io::ErrorKind::PermissionDenied => "Permission denied",
-        std::io::ErrorKind::IsADirectory => "Is a directory",
-        std::io::ErrorKind::NotADirectory => "Not a directory",
-        std::io::ErrorKind::AlreadyExists => "File exists",
-        std::io::ErrorKind::Unsupported => "Operation not supported",
-        _ => return message,
-    }
-    .to_string()
+}
+
+/// `N<<EOF` / `N<<<word` with N >= 3: a readable fd for the command's body.
+fn high_fd_here(redirect: &Redirect) -> bool {
+    matches!(
+        redirect.kind,
+        RedirectKind::HereDoc | RedirectKind::HereDocStrip | RedirectKind::HereString
+    ) && redirect.fd_var.is_none()
+        && redirect.fd.is_some_and(|fd| fd >= 3)
+}
+
+/// A boxed interpreter future (kept off the caller's poll stack).
+type BoxedFuture<'a, T> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + 'a>>;
+
+/// Readable fds a command's here-documents opened, and what they replaced.
+pub(super) struct HereFdScope {
+    saved: Vec<(i32, Option<coproc::InputFd>)>,
+}
+
+/// Whether a simple command's redirects need resolving before it runs:
+/// a target that may split, `1<&M`, or (except for `exec`) a here-doc fd.
+pub(super) fn needs_redirect_prep(name: &str, redirects: &[Redirect]) -> bool {
+    redirects.iter().any(|r| {
+        redirect_target_may_split(r) || output_dup_input(r) || (name != "exec" && high_fd_here(r))
+    })
+}
+
+/// `1<&M` / `2<&M`: a dup written with the input arrow on an output fd.
+fn output_dup_input(redirect: &Redirect) -> bool {
+    redirect.kind == RedirectKind::DupInput
+        && redirect.fd_var.is_none()
+        && matches!(redirect.fd, Some(1 | 2))
 }
 
 impl Interpreter {
-    /// Process input redirections (< file, <<< string)
+    /// Open the `N<<EOF` / `N<<<w` (N >= 3) fds of `redirects` for the
+    /// command's duration, so a function, script or group body reads them
+    /// with `<&N` (`f 3<<E`, `read_from_fd.py 8 8<<EOF`). Returns the scope
+    /// to close and the redirects left to apply, or `None` when there are
+    /// none.
+    pub(super) fn open_here_fds<'a>(
+        &'a mut self,
+        redirects: &'a [Redirect],
+    ) -> BoxedFuture<'a, Option<(HereFdScope, Vec<Redirect>)>> {
+        Box::pin(async move {
+            if !redirects.iter().any(high_fd_here) {
+                return Ok(None);
+            }
+            let mut saved = Vec::new();
+            let mut remaining = Vec::with_capacity(redirects.len());
+            for redirect in redirects {
+                let Some(fd) = redirect.fd.filter(|_| high_fd_here(redirect)) else {
+                    remaining.push(redirect.clone());
+                    continue;
+                };
+                // A failure closes what this command already opened.
+                let opened = match self.expand_word(&redirect.target).await {
+                    Ok(content) => self.ensure_persistent_fd_capacity(fd).map(|()| content),
+                    Err(e) => Err(e),
+                };
+                let mut content = match opened {
+                    Ok(content) => content,
+                    Err(e) => {
+                        self.close_here_fds(HereFdScope { saved });
+                        return Err(e);
+                    }
+                };
+                if redirect.kind == RedirectKind::HereString {
+                    content.push('\n');
+                }
+                let lines = coproc::InputFd::Lines(reversed_lines(&content));
+                saved.push((fd, self.coproc_buffers.insert(fd, lines)));
+            }
+            Ok(Some((HereFdScope { saved }, remaining)))
+        })
+    }
+
+    /// Close the fds `open_here_fds` opened, restoring what they shadowed.
+    pub(super) fn close_here_fds(&mut self, scope: HereFdScope) {
+        for (fd, previous) in scope.saved.into_iter().rev() {
+            match previous {
+                Some(buf) => {
+                    self.coproc_buffers.insert(fd, buf);
+                }
+                None => {
+                    self.coproc_buffers.remove(&fd);
+                }
+            }
+        }
+    }
+
+    /// bash expands a redirect target like a command word (braces, splitting,
+    /// globbing) and needs exactly one word back: none or several is an
+    /// "ambiguous redirect", an unmatched glob under `failglob` is "no match".
+    /// Either way the command does not run (`Err` carries its result).
+    /// Targets that may split are expanded here once and replaced by the
+    /// resulting literal, so later stages do not expand them again.
+    pub(super) fn resolve_split_redirect_targets<'a>(
+        &'a mut self,
+        redirects: &'a [Redirect],
+    ) -> BoxedFuture<'a, std::result::Result<Option<Vec<Redirect>>, ExecResult>> {
+        Box::pin(async move {
+            if !redirects
+                .iter()
+                .any(|r| redirect_target_may_split(r) || output_dup_input(r))
+            {
+                return Ok(Ok(None));
+            }
+            let mut resolved = redirects.to_vec();
+            for redirect in resolved.iter_mut() {
+                // `1<&2` duplicates like `1>&2` (bash's dup2 does not care
+                // about the arrow on an output fd).
+                if output_dup_input(redirect) {
+                    redirect.kind = RedirectKind::DupOutput;
+                }
+                if !redirect_target_may_split(redirect) {
+                    continue;
+                }
+                let word = redirect.target.clone();
+                let mut words = Vec::new();
+                let braced = self.brace_expand_word(&word);
+                for part in braced.as_deref().unwrap_or(std::slice::from_ref(&word)) {
+                    let fields = self.expand_word_to_fields(part).await?;
+                    if part.quoted && !part.has_unquoted_glob {
+                        words.extend(fields);
+                        continue;
+                    }
+                    for field in fields {
+                        match self
+                            .expand_glob_item(&field, part.quoted && part.has_unquoted_glob)
+                            .await
+                        {
+                            Ok(items) => words.extend(items),
+                            Err(pat) => {
+                                return Ok(Err(ExecResult::err(
+                                    self.diag(format!("no match: {pat}\n")),
+                                    1,
+                                )));
+                            }
+                        }
+                    }
+                }
+                if words.len() != 1 {
+                    let label = redirect_target_label(&word);
+                    return Ok(Err(ExecResult::err(
+                        self.redirect_error(&label, "ambiguous redirect"),
+                        1,
+                    )));
+                }
+                redirect.target = Word::quoted_literal(words.pop().unwrap_or_default());
+            }
+            Ok(Ok(Some(resolved)))
+        })
+    }
+
+    /// A target written with a trailing slash names a directory, so an
+    /// output redirect to it fails without creating anything. `resolve_path`
+    /// drops the slash, so the check has to run on the word as written.
+    fn rejects_directory_target(&self, target: &str, result: &mut ExecResult) -> bool {
+        if !target.ends_with('/') {
+            return false;
+        }
+        result.stdout = crate::StreamData::new();
+        result.stderr = self.redirect_error(target, "Is a directory").into();
+        result.exit_code = 1;
+        true
+    }
+
+    /// `$0: line N: PATH: reason` — the shape bash uses for a redirection
+    /// that could not be opened.
+    fn redirect_error(&self, path: &str, reason: &str) -> String {
+        self.diag(format!("{path}: {reason}\n"))
+    }
+
+    /// Admit a backend read before loading and retain its capacity through decoding.
+    // THREAT[TM-DOS-103]: metadata and device ceilings precede VFS allocation.
+    async fn read_input_stream(
+        &self,
+        path: &Path,
+        create: bool,
+    ) -> Result<(crate::StreamData, InputStorage)> {
+        let budget = &self.execution_budget;
+        // Open substitution links describe a pipe, not a VFS symlink target.
+        // Its owner supplies the buffered size before read_file copies it.
+        let buffered = self.proc_subs.input_len(path);
+        let source = if buffered.is_some() {
+            path.to_path_buf()
+        } else {
+            match budget.run(crate::fs::canonicalize(&*self.fs, path)).await? {
+                Ok(source) => source,
+                Err(crate::Error::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                    // Mounted backends can serve a path without synthetic
+                    // parent entries. Its stat/read below decide existence.
+                    path.to_path_buf()
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        // Preserve the configured VFS's following policy for actual I/O;
+        // canonical resolution above only identifies bounded device reads.
+        let size = match budget.run(self.fs.stat(path)).await? {
+            Ok(metadata) => metadata.size,
+            Err(crate::Error::Io(error))
+                if create && error.kind() == std::io::ErrorKind::NotFound =>
+            {
+                0
+            }
+            Err(error) => return Err(error),
+        };
+        let reported = usize::try_from(size)
+            .map_err(|_| LimitExceeded::Memory("input redirection size overflow".into()))?;
+        let device = match source.to_str() {
+            // InMemoryFs devices report zero size but materialize these bounded reads.
+            Some("/dev/zero") => 1 << 20,
+            Some("/dev/random" | "/dev/urandom") => 8192,
+            _ => 0,
+        };
+        let size = reported.max(device).max(buffered.unwrap_or(0));
+        budget.consume_input(size)?;
+        budget.consume_work(1 + size.div_ceil(1024) as u64)?;
+        let raw = budget.lease_bytes(size)?;
+        if create {
+            // An empty append may load an existing lazy file, so admission
+            // must precede opening as well as the subsequent read.
+            budget.run(self.fs.append_file(path, b"")).await??;
+        }
+        let bytes = budget.run(self.fs.read_file(path)).await??;
+        budget.consume_input(bytes.len().saturating_sub(size))?;
+        let extra = budget.lease_bytes(bytes.capacity().saturating_sub(size))?;
+        let (stream, text) = crate::StreamData::from_admitted_bytes(bytes, budget)?;
+        Ok((stream, [Some(raw), Some(extra), text]))
+    }
+
+    fn input_stream_from_text(
+        &self,
+        content: String,
+        newline: bool,
+    ) -> Result<(crate::StreamData, InputStorage)> {
+        let budget = &self.execution_budget;
+        let mut text = crate::limits::BudgetedString::try_from_string(content, Some(budget))?;
+        if newline {
+            text.try_push('\n')?;
+        }
+        budget.consume_input(
+            text.len()
+                .checked_mul(2)
+                .ok_or_else(|| LimitExceeded::Memory("input redirection size overflow".into()))?,
+        )?;
+        let (stream, [bytes, text]) = crate::StreamData::from_budgeted_string(text, Some(budget))?;
+        Ok((stream, [bytes, text, None]))
+    }
+
+    fn clone_input_stream(
+        &self,
+        content: &crate::StreamData,
+    ) -> Result<(crate::StreamData, InputStorage)> {
+        self.execution_budget
+            .consume_input(content.retained_len())?;
+        let (stream, [bytes, text]) = content.try_clone_budgeted(&self.execution_budget)?;
+        Ok((stream, [bytes, text, None]))
+    }
+
+    /// Process input redirections (< file, <<< string). `demand` is how
+    /// much the command reads, for stdin taken from a coproc's pipe.
     pub(super) async fn process_input_redirections(
         &mut self,
         existing_stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
-    ) -> Result<Option<crate::StreamData>> {
-        let mut stdin = existing_stdin;
+        demand: StdinDemand,
+        high_fd_stdin: HighFdStdin,
+    ) -> crate::error::Result<StdinSetup> {
+        // Stdin slot: a budgeted clone's live lease travels with the buffer
+        // so replacing stdin drops both together; the surviving lease is
+        // handed to the caller with stdin.
+        let mut stdin: StdinSlot = existing_stdin.map(|data| (data, [None, None, None]));
+        // Readable fds this command's own redirects open (`4<<E <&4`).
+        let mut own_fds: Vec<OwnFdEntry> = Vec::new();
 
         for redirect in redirects {
+            // Fd N >= 1 for an input-side redirect (`3<f`, `4<<<w`, `5<>f`).
+            let high_fd = redirect.fd.filter(|&fd| fd != 0);
             match redirect.kind {
+                RedirectKind::ReadWrite => {
+                    // `<>`: open (creating) the file read-write.
+                    let target_path = self.expand_word(&redirect.target).await?;
+                    let path = self.resolve_path(&target_path);
+                    let (content, storage) = if is_dev_null(&path) {
+                        (crate::StreamData::new(), [None, None, None])
+                    } else if !self.shell_features.has_file_redirects() {
+                        return Err(crate::error::Error::Execution(
+                            self.diag(format!("{}: filesystem redirection disabled", target_path)),
+                        ));
+                    } else {
+                        // Keep backend-admission state off recursive command frames.
+                        let opened = Box::pin(self.read_input_stream(&path, true)).await;
+                        match opened {
+                            Ok(content) => content,
+                            Err(e @ (crate::Error::ResourceLimit(_) | crate::Error::Cancelled)) => {
+                                return Err(e);
+                            }
+                            Err(e) => {
+                                return Err(crate::error::Error::CommandFailure(
+                                    self.diag(format!("{target_path}: {}\n", io_error_reason(&e))),
+                                ));
+                            }
+                        }
+                    };
+                    match high_fd {
+                        Some(fd) => {
+                            replace_own_fd(&mut own_fds, fd, content, storage);
+                        }
+                        None => set_stdin_slot(&mut stdin, Some(content), storage),
+                    }
+                }
                 RedirectKind::Input => {
-                    if self.shell_profile.is_logic_only()
+                    if !self.shell_features.has_file_redirects()
                         && !word_is_literal_dev_null(&redirect.target)
                     {
-                        return Err(crate::error::Error::Execution(format!(
-                            "bash: {}: filesystem redirection disabled",
+                        return Err(crate::error::Error::Execution(self.diag(format!(
+                            "{}: filesystem redirection disabled",
                             redirect_target_label(&redirect.target)
-                        )));
+                        ))));
                     }
                     let target_path = self.expand_word(&redirect.target).await?;
                     let path = self.resolve_path(&target_path);
                     // Handle /dev/null at interpreter level - cannot be bypassed
-                    if is_dev_null(&path) {
-                        stdin = Some(crate::StreamData::new()); // EOF
-                    } else if self.shell_profile.is_logic_only() {
-                        return Err(crate::error::Error::Execution(format!(
-                            "bash: {}: filesystem redirection disabled",
-                            target_path
-                        )));
+                    if self.fd_alias(&path) == Some(0) {
+                        // `< /dev/stdin` re-reads the current stdin: no-op.
+                    } else if is_dev_null(&path) {
+                        set_stdin_slot(
+                            &mut stdin,
+                            Some(crate::StreamData::new()),
+                            [None, None, None],
+                        ); // EOF
+                    } else if !self.shell_features.has_file_redirects() {
+                        return Err(crate::error::Error::Execution(
+                            self.diag(format!("{}: filesystem redirection disabled", target_path)),
+                        ));
                     } else {
-                        match self.fs.read_file(&path).await {
-                            Ok(content) => {
-                                stdin = Some(content.into());
+                        match Box::pin(self.read_input_stream(&path, false)).await {
+                            Ok((content, storage)) => {
+                                // WTF: on a compound `3<file` also feeds
+                                // stdin; loops like `while read -u 3 ...;
+                                // done 3<file` rely on it until per-command
+                                // fds are modelled. A simple command reads
+                                // fd N only as `read -u N` (`cat 3<f` reads
+                                // its own stdin, as bash).
+                                let feeds = match (high_fd, high_fd_stdin) {
+                                    (None, _) | (_, HighFdStdin::Any) => true,
+                                    (Some(fd), HighFdStdin::Fd(u)) => fd == u,
+                                    (Some(_), HighFdStdin::Never) => false,
+                                };
+                                if let Some(fd) = high_fd {
+                                    if feeds {
+                                        let (copy, copy_storage) =
+                                            self.clone_input_stream(&content)?;
+                                        replace_own_fd(&mut own_fds, fd, copy, copy_storage);
+                                        set_stdin_slot(&mut stdin, Some(content), storage);
+                                    } else {
+                                        replace_own_fd(&mut own_fds, fd, content, storage);
+                                    }
+                                } else {
+                                    set_stdin_slot(&mut stdin, Some(content), storage);
+                                }
+                            }
+                            Err(e @ (crate::Error::ResourceLimit(_) | crate::Error::Cancelled)) => {
+                                return Err(e);
                             }
                             Err(e) => {
-                                return Err(crate::error::Error::CommandFailure(format!(
-                                    "bash: {target_path}: {}\n",
-                                    redirect_error_reason(&e)
-                                )));
+                                return Err(crate::error::Error::CommandFailure(
+                                    self.redirect_error(&target_path, &io_error_reason(&e)),
+                                ));
                             }
                         }
                     }
@@ -105,24 +470,98 @@ impl Interpreter {
                 RedirectKind::HereString => {
                     // <<< string - use the target as stdin content
                     let content = self.expand_word(&redirect.target).await?;
-                    stdin = Some(format!("{}\n", content).into());
+                    let (content, storage) = self.input_stream_from_text(content, true)?;
+                    match high_fd {
+                        Some(fd) => {
+                            replace_own_fd(&mut own_fds, fd, content, storage);
+                        }
+                        None => set_stdin_slot(&mut stdin, Some(content), storage),
+                    }
                 }
                 RedirectKind::HereDoc | RedirectKind::HereDocStrip => {
-                    // << EOF / <<- EOF - use the heredoc content as stdin
+                    // << EOF / <<- EOF - use the heredoc content as stdin;
+                    // `3<<EOF` feeds fd 3.
                     let content = self.expand_word(&redirect.target).await?;
-                    stdin = Some(content.into());
+                    let (content, storage) = self.input_stream_from_text(content, false)?;
+                    match high_fd {
+                        Some(fd) => {
+                            replace_own_fd(&mut own_fds, fd, content, storage);
+                        }
+                        None => set_stdin_slot(&mut stdin, Some(content), storage),
+                    }
                 }
                 RedirectKind::DupInput => {
-                    // <&FD - if FD is a coproc read FD, consume next line
                     let target = self.expand_word(&redirect.target).await?;
-                    if let Ok(fd) = target.parse::<i32>()
-                        && let Some(buf) = self.coproc_buffers.get_mut(&fd)
+                    if target.is_empty() && high_fd.is_none() {
+                        // `<&${C[0]}` after the coproc was reaped: an error,
+                        // not a read of the shell's stdin.
+                        // WTF: quoted (`<&"${C[0]}"`) bash says `Bad file
+                        // descriptor` and names the word with its quotes;
+                        // the AST does not keep that quoting here.
+                        return Err(crate::error::Error::CommandFailure(self.redirect_error(
+                            &redirect_target_label(&redirect.target),
+                            "ambiguous redirect",
+                        )));
+                    }
+                    let Ok(src) = target.parse::<i32>() else {
+                        continue;
+                    };
+                    // `<&4` after this command's own `4<<E`: the clone below is
+                    // charged before allocation.
+                    if let Some((_, content, _)) =
+                        own_fds.iter().rev().find(|(fd, _, _)| *fd == src)
                     {
-                        if let Some(line) = buf.pop() {
-                            stdin = Some(format!("{}\n", line).into());
-                        } else {
-                            stdin = Some(crate::StreamData::new()); // EOF
+                        let (content, lease) = self.clone_input_stream(content)?;
+                        match high_fd {
+                            Some(fd) => replace_own_fd(&mut own_fds, fd, content, lease),
+                            None => set_stdin_slot(&mut stdin, Some(content), lease),
                         }
+                        continue;
+                    }
+                    if high_fd.is_some() {
+                        continue;
+                    }
+                    // <&FD on a readable fd: its next line, or what the
+                    // command reads of a coproc's output.
+                    match self.coproc_buffers.get_mut(&src) {
+                        Some(coproc::InputFd::Lines(buf)) => {
+                            // As much as the command reads: `read` a line,
+                            // `cat` the rest, `true` nothing.
+                            let take = match demand {
+                                StdinDemand::Nothing => 0,
+                                StdinDemand::Line => 1,
+                                StdinDemand::Lines(n) => n,
+                                StdinDemand::Bytes(_) | StdinDemand::All => buf.len(),
+                            };
+                            let mut text = String::new();
+                            for _ in 0..take.min(buf.len()) {
+                                if let Some(line) = buf.pop() {
+                                    text.push_str(&line);
+                                    text.push('\n');
+                                }
+                            }
+                            let (content, storage) = self.input_stream_from_text(text, false)?;
+                            set_stdin_slot(&mut stdin, Some(content), storage);
+                        }
+                        Some(coproc::InputFd::Pipe(end)) => {
+                            let pipe = Arc::clone(&end.0);
+                            set_stdin_slot(
+                                &mut stdin,
+                                Some(Box::pin(coproc::read_coproc_input(pipe, demand)).await),
+                                [None, None, None],
+                            );
+                        }
+                        // `<&5` with fd 5 never opened (or closed): bash
+                        // reports it and does not run the command.
+                        None if src >= 3
+                            && !self.exec_fd_table.contains_key(&src)
+                            && !self.exec_input_fds.contains(&src) =>
+                        {
+                            return Err(crate::error::Error::CommandFailure(
+                                self.redirect_error(&target, "Bad file descriptor"),
+                            ));
+                        }
+                        None => {}
                     }
                 }
                 _ => {
@@ -131,7 +570,12 @@ impl Interpreter {
             }
         }
 
-        Ok(stdin)
+        let mut stdin_lease = [None, None, None];
+        let stdin = stdin.map(|(data, lease)| {
+            stdin_lease = lease;
+            data
+        });
+        Ok(StdinSetup { stdin, stdin_lease })
     }
 
     /// Apply output redirections to command output
@@ -140,7 +584,7 @@ impl Interpreter {
         mut result: ExecResult,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
-        if let Some(stderr) = self.logic_only_redirect_error(redirects) {
+        if let Some(stderr) = self.disabled_redirect_error(redirects) {
             result.stdout = crate::StreamData::new();
             result.stderr = stderr.into();
             result.exit_code = 1;
@@ -161,7 +605,50 @@ impl Interpreter {
             )
         });
 
-        if has_dup_output && has_file_redirect {
+        // `>&N` with fd N not open: bash reports it and does not run the
+        // command, so none of its output may show.
+        for redirect in redirects {
+            // Side-effect-free targets only (`>&3`, `>&$fd`): the word is
+            // expanded again when the redirect is applied.
+            if redirect.kind != RedirectKind::DupOutput
+                || !redirect
+                    .target
+                    .parts
+                    .iter()
+                    .all(|p| matches!(p, WordPart::Literal(_) | WordPart::Variable(_)))
+            {
+                continue;
+            }
+            let target = self.expand_word(&redirect.target).await?;
+            if let Ok(fd) = target.parse::<i32>()
+                && fd >= 3
+                && !self.fd_is_open(fd)
+                && !redirects
+                    .iter()
+                    .any(|r| r.fd == Some(fd) && !matches!(r.kind, RedirectKind::DupOutput))
+            {
+                self.clear_pending_fd_redirect_state();
+                result.stdout = crate::StreamData::new();
+                result.stderr = self.diag(format!("{target}: Bad file descriptor\n")).into();
+                result.exit_code = 1;
+                return Ok(result);
+            }
+        }
+
+        // `N>&-` among other redirects (`2>&1 1>&-`) depends on their order,
+        // which only the fd-table path tracks.
+        let has_close = redirects.len() > 1
+            && redirects.iter().any(|r| {
+                r.kind == RedirectKind::DupOutput
+                    && matches!(r.target.parts.as_slice(), [WordPart::Literal(t)] if t == "-")
+            });
+
+        // `N>file` (N>=3) opens fd N without touching stdout; only the
+        // fd-table path keeps fd N separate from fd 1.
+        if (has_dup_output && has_file_redirect)
+            || has_close
+            || has_high_fd_file_redirect(redirects)
+        {
             return self.apply_redirections_fd_table(result, redirects).await;
         }
 
@@ -170,8 +657,14 @@ impl Interpreter {
             match redirect.kind {
                 RedirectKind::Output | RedirectKind::Clobber => {
                     let target_path = self.expand_word(&redirect.target).await?;
+                    if self.rejects_directory_target(&target_path, &mut result) {
+                        return Ok(result);
+                    }
                     let path = self.resolve_path(&target_path);
-                    if is_dev_null(&path) {
+                    if let Some(target_fd) = self.fd_alias(&path) {
+                        self.dup_output_fast(&mut result, redirect.fd.unwrap_or(1), target_fd)
+                            .await?;
+                    } else if is_dev_null(&path) {
                         match redirect.fd {
                             Some(2) => result.stderr = crate::StreamData::new(),
                             _ => result.stdout = crate::StreamData::new(),
@@ -179,12 +672,12 @@ impl Interpreter {
                     } else {
                         if redirect.kind == RedirectKind::Output
                             && self.scoped.variables.get("SHOPT_C").map(|v| v.as_str()) == Some("1")
-                            && self.fs.stat(&path).await.is_ok()
+                            && self.fs.stat(&path).await.is_ok_and(clobber_protected)
                         {
                             result.stdout = crate::StreamData::new();
-                            result.stderr =
-                                format!("bash: {}: cannot overwrite existing file\n", target_path)
-                                    .into();
+                            result.stderr = self
+                                .redirect_error(&target_path, "cannot overwrite existing file")
+                                .into();
                             result.exit_code = 1;
                             return Ok(result);
                         }
@@ -193,12 +686,9 @@ impl Interpreter {
                                 if let Err(e) =
                                     self.fs.write_file(&path, result.stderr.as_bytes()).await
                                 {
-                                    result.stderr = format!(
-                                        "bash: {}: {}\n",
-                                        target_path,
-                                        redirect_error_reason(&e)
-                                    )
-                                    .into();
+                                    result.stderr = self
+                                        .redirect_error(&target_path, &io_error_reason(&e))
+                                        .into();
                                     result.exit_code = 1;
                                     return Ok(result);
                                 }
@@ -209,12 +699,9 @@ impl Interpreter {
                                     self.fs.write_file(&path, result.stdout.as_bytes()).await
                                 {
                                     result.stdout = crate::StreamData::new();
-                                    result.stderr = format!(
-                                        "bash: {}: {}\n",
-                                        target_path,
-                                        redirect_error_reason(&e)
-                                    )
-                                    .into();
+                                    result.stderr = self
+                                        .redirect_error(&target_path, &io_error_reason(&e))
+                                        .into();
                                     result.exit_code = 1;
                                     return Ok(result);
                                 }
@@ -223,10 +710,19 @@ impl Interpreter {
                         }
                     }
                 }
-                RedirectKind::Append => {
+                // `<>` on stdin is input only (see process_input_redirections).
+                RedirectKind::ReadWrite if matches!(redirect.fd, None | Some(0)) => {}
+                // WTF: `1<>file` appends instead of writing at offset 0.
+                RedirectKind::Append | RedirectKind::ReadWrite => {
                     let target_path = self.expand_word(&redirect.target).await?;
+                    if self.rejects_directory_target(&target_path, &mut result) {
+                        return Ok(result);
+                    }
                     let path = self.resolve_path(&target_path);
-                    if is_dev_null(&path) {
+                    if let Some(target_fd) = self.fd_alias(&path) {
+                        self.dup_output_fast(&mut result, redirect.fd.unwrap_or(1), target_fd)
+                            .await?;
+                    } else if is_dev_null(&path) {
                         match redirect.fd {
                             Some(2) => result.stderr = crate::StreamData::new(),
                             _ => result.stdout = crate::StreamData::new(),
@@ -237,12 +733,9 @@ impl Interpreter {
                                 if let Err(e) =
                                     self.fs.append_file(&path, result.stderr.as_bytes()).await
                                 {
-                                    result.stderr = format!(
-                                        "bash: {}: {}\n",
-                                        target_path,
-                                        redirect_error_reason(&e)
-                                    )
-                                    .into();
+                                    result.stderr = self
+                                        .redirect_error(&target_path, &io_error_reason(&e))
+                                        .into();
                                     result.exit_code = 1;
                                     return Ok(result);
                                 }
@@ -253,12 +746,9 @@ impl Interpreter {
                                     self.fs.append_file(&path, result.stdout.as_bytes()).await
                                 {
                                     result.stdout = crate::StreamData::new();
-                                    result.stderr = format!(
-                                        "bash: {}: {}\n",
-                                        target_path,
-                                        redirect_error_reason(&e)
-                                    )
-                                    .into();
+                                    result.stderr = self
+                                        .redirect_error(&target_path, &io_error_reason(&e))
+                                        .into();
                                     result.exit_code = 1;
                                     return Ok(result);
                                 }
@@ -269,68 +759,27 @@ impl Interpreter {
                 }
                 RedirectKind::OutputBoth => {
                     let target_path = self.expand_word(&redirect.target).await?;
-                    let path = self.resolve_path(&target_path);
-                    if is_dev_null(&path) {
-                        result.stdout = crate::StreamData::new();
-                        result.stderr = crate::StreamData::new();
-                    } else {
-                        let mut combined = result.stdout.as_bytes().to_vec();
-                        combined.extend_from_slice(result.stderr.as_bytes());
-                        if let Err(e) = self.fs.write_file(&path, &combined).await {
-                            result.stderr =
-                                format!("bash: {}: {}\n", target_path, redirect_error_reason(&e))
-                                    .into();
-                            result.exit_code = 1;
-                            return Ok(result);
-                        }
-                        result.stdout = crate::StreamData::new();
-                        result.stderr = crate::StreamData::new();
+                    if !self.output_both_fast(&mut result, &target_path).await? {
+                        return Ok(result);
                     }
                 }
                 RedirectKind::DupOutput => {
                     let target = self.expand_word(&redirect.target).await?;
-                    let target_fd: i32 = target.parse().unwrap_or(1);
                     let src_fd = redirect.fd.unwrap_or(1);
-
-                    // Check exec_fd_table for persistent fd targets
-                    if let Some(fd_target) = self.exec_fd_table.get(&target_fd).cloned() {
-                        let data = if src_fd == 2 {
-                            std::mem::take(&mut result.stderr)
-                        } else {
-                            std::mem::take(&mut result.stdout)
-                        };
-                        match &fd_target {
-                            FdTarget::Stdout => result.stdout.append(&data),
-                            FdTarget::Stderr => result.stderr.append(&data),
-                            FdTarget::DevNull => {}
-                            FdTarget::WriteFile(path, _) | FdTarget::AppendFile(path, _) => {
-                                self.fs.append_file(path, data.as_bytes()).await?;
+                    match DupTarget::parse(&target) {
+                        DupTarget::Fd(target_fd) => {
+                            self.dup_output_fast(&mut result, src_fd, target_fd).await?;
+                        }
+                        DupTarget::Close => self.close_output_fast(&mut result, src_fd),
+                        // `>&file` / `1>&file`: bash's spelling of `&>file`.
+                        DupTarget::File if src_fd == 1 => {
+                            if !self.output_both_fast(&mut result, &target).await? {
+                                return Ok(result);
                             }
                         }
-                    } else {
-                        match (src_fd, target_fd) {
-                            (2, 1) => {
-                                result.stdout.append(&result.stderr);
-                                result.stderr = crate::StreamData::new();
-                            }
-                            (1, 2) => {
-                                result.stderr.append(&result.stdout);
-                                result.stdout = crate::StreamData::new();
-                            }
-                            (src, dst) if dst >= 3 => {
-                                let data = if src == 2 {
-                                    std::mem::take(&mut result.stderr)
-                                } else {
-                                    std::mem::take(&mut result.stdout)
-                                };
-                                if self.pending_fd_capture_depth > 0 {
-                                    // Move content to pending_fd_output for compound
-                                    // redirect routing (e.g. `echo msg 1>&3` inside
-                                    // `{ ... } 3>&1 >file`).
-                                    self.append_pending_fd_output(dst, &data);
-                                }
-                            }
-                            _ => {}
+                        DupTarget::File => {
+                            self.ambiguous_dup_target(&mut result, &target);
+                            return Ok(result);
                         }
                     }
                 }
@@ -345,29 +794,184 @@ impl Interpreter {
         Ok(result)
     }
 
-    pub(super) fn logic_only_redirect_error(&self, redirects: &[Redirect]) -> Option<String> {
-        if !self.shell_profile.is_logic_only() {
-            return None;
+    /// `&>file` on the fast path: both streams go to the file. Returns
+    /// false when the file could not be opened (the command's output is
+    /// dropped and the error reported, as bash never runs it).
+    async fn output_both_fast(
+        &mut self,
+        result: &mut ExecResult,
+        target_path: &str,
+    ) -> Result<bool> {
+        let path = self.resolve_path(target_path);
+        if let Some(target_fd) = self.fd_alias(&path) {
+            // `&> /dev/fd/N` == `>&N 2>&N`, resolved against the
+            // original descriptors.
+            if target_fd == 2 {
+                let mut combined = std::mem::take(&mut result.stdout);
+                combined.append(&result.stderr);
+                result.stderr = combined;
+            } else {
+                self.dup_output_fast(result, 1, target_fd).await?;
+                self.dup_output_fast(result, 2, target_fd).await?;
+            }
+        } else if is_dev_null(&path) {
+            result.stdout = crate::StreamData::new();
+            result.stderr = crate::StreamData::new();
+        } else if self.clobber_refused(&path).await {
+            result.stdout = crate::StreamData::new();
+            result.stderr = self
+                .redirect_error(target_path, "cannot overwrite existing file")
+                .into();
+            result.exit_code = 1;
+            return Ok(false);
+        } else {
+            let mut combined = result.stdout.as_bytes().to_vec();
+            combined.extend_from_slice(result.stderr.as_bytes());
+            if let Err(e) = self.fs.write_file(&path, &combined).await {
+                result.stdout = crate::StreamData::new();
+                result.stderr = self
+                    .redirect_error(target_path, &io_error_reason(&e))
+                    .into();
+                result.exit_code = 1;
+                return Ok(false);
+            }
+            result.stdout = crate::StreamData::new();
+            result.stderr = crate::StreamData::new();
         }
+        Ok(true)
+    }
 
+    /// `set -C`: `&>file` (like `>file`) may not truncate an existing file.
+    async fn clobber_refused(&self, path: &Path) -> bool {
+        self.scoped.variables.get("SHOPT_C").map(String::as_str) == Some("1")
+            && self.fs.stat(path).await.is_ok_and(clobber_protected)
+    }
+
+    /// `N>&-` on the fast path: fd N is closed for the command. Writes to
+    /// a closed stderr vanish; output to a closed stdout fails the command
+    /// with a write error, as in bash.
+    // WTF: bash names the writing command (`echo: write error`); the
+    // redirect is applied after the command ran, so the name is not known.
+    fn close_output_fast(&self, result: &mut ExecResult, src_fd: i32) {
+        match src_fd {
+            1 if !result.stdout.is_empty() => {
+                result.stdout = crate::StreamData::new();
+                result
+                    .stderr
+                    .append(&crate::StreamData::from(self.closed_stdout_error()));
+                result.exit_code = 1;
+            }
+            2 => result.stderr = crate::StreamData::new(),
+            // Nothing written to stdout; closing fd 3+ for one command
+            // routes nothing.
+            _ => {}
+        }
+    }
+
+    fn closed_stdout_error(&self) -> String {
+        self.diag("write error: Bad file descriptor\n")
+    }
+
+    /// `N>&word` with N other than 1 and a word that is neither a number
+    /// nor `-`: bash refuses it without running the command.
+    fn ambiguous_dup_target(&self, result: &mut ExecResult, word: &str) {
+        result.stdout = crate::StreamData::new();
+        result.stderr = self.redirect_error(word, "ambiguous redirect").into();
+        result.exit_code = 1;
+    }
+
+    /// `src_fd>&target_fd` on the fast (single-pass) redirect path.
+    async fn dup_output_fast(
+        &mut self,
+        result: &mut ExecResult,
+        src_fd: i32,
+        target_fd: i32,
+    ) -> Result<()> {
+        // Check exec_fd_table for persistent fd targets. Fd 1 and 2 are the
+        // current streams here: `exec >log` is applied where the shell's
+        // own output leaves (top level), so `$(cmd 2>&1)` still captures.
+        if target_fd >= 3
+            && let Some(fd_target) = self.exec_fd_table.get(&target_fd).cloned()
+        {
+            let data = if src_fd == 2 {
+                std::mem::take(&mut result.stderr)
+            } else {
+                std::mem::take(&mut result.stdout)
+            };
+            // A saved copy of the original stream (`exec 3>&1 >log`) skips
+            // the `exec` routing of fd 1/2.
+            let passthrough = match &fd_target {
+                FdTarget::Stdout => self.exec_fd_table.contains_key(&1),
+                FdTarget::Stderr => self.exec_fd_table.contains_key(&2),
+                _ => false,
+            };
+            match &fd_target {
+                FdTarget::Stdout if passthrough => self.exec_passthrough.0.append(&data),
+                FdTarget::Stderr if passthrough => self.exec_passthrough.1.append(&data),
+                FdTarget::Stdout => result.stdout.append(&data),
+                FdTarget::Stderr => result.stderr.append(&data),
+                // A closed descriptor accepts nothing.
+                FdTarget::DevNull | FdTarget::Closed => {}
+                FdTarget::WriteFile(path, _) | FdTarget::AppendFile(path, _) => {
+                    self.fs.append_file(path, data.as_bytes()).await?;
+                }
+                FdTarget::Coproc(w) => {
+                    w.write(data.as_bytes());
+                    coproc::coproc_backpressure(w).await;
+                }
+            }
+        } else {
+            match (src_fd, target_fd) {
+                (2, 1) => {
+                    result.stdout.append(&result.stderr);
+                    result.stderr = crate::StreamData::new();
+                }
+                (1, 2) => {
+                    result.stderr.append(&result.stdout);
+                    result.stdout = crate::StreamData::new();
+                }
+                (src, dst) if dst >= 3 => {
+                    let data = if src == 2 {
+                        std::mem::take(&mut result.stderr)
+                    } else {
+                        std::mem::take(&mut result.stdout)
+                    };
+                    if self.pending_fd_capture_depth > 0 {
+                        // Move content to pending_fd_output for compound
+                        // redirect routing (e.g. `echo msg 1>&3` inside
+                        // `{ ... } 3>&1 >file`).
+                        self.append_pending_fd_output(dst, &data);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn disabled_redirect_error(&self, redirects: &[Redirect]) -> Option<String> {
         for redirect in redirects {
-            if word_has_process_substitution(&redirect.target) {
-                return Some("bash: process substitution disabled in logic-only shell".to_string());
+            if !self.shell_features.has_process_substitution()
+                && word_has_process_substitution(&redirect.target)
+            {
+                return Some(self.diag("process substitution disabled\n"));
             }
 
-            if matches!(
-                redirect.kind,
-                RedirectKind::Output
-                    | RedirectKind::Clobber
-                    | RedirectKind::Append
-                    | RedirectKind::Input
-                    | RedirectKind::OutputBoth
-            ) && !word_is_literal_dev_null(&redirect.target)
+            if !self.shell_features.has_file_redirects()
+                && matches!(
+                    redirect.kind,
+                    RedirectKind::Output
+                        | RedirectKind::Clobber
+                        | RedirectKind::Append
+                        | RedirectKind::Input
+                        | RedirectKind::OutputBoth
+                )
+                && !word_is_literal_dev_null(&redirect.target)
             {
-                return Some(format!(
-                    "bash: {}: filesystem redirection disabled\n",
+                return Some(self.diag(format!(
+                    "{}: filesystem redirection disabled\n",
                     redirect_target_label(&redirect.target)
-                ));
+                )));
             }
         }
         None
@@ -389,17 +993,25 @@ impl Interpreter {
             match redirect.kind {
                 RedirectKind::Output | RedirectKind::Clobber => {
                     let target_path = self.expand_word(&redirect.target).await?;
+                    if self.rejects_directory_target(&target_path, &mut result) {
+                        return Ok(result);
+                    }
                     let path = self.resolve_path(&target_path);
+                    if let Some(target_fd) = self.fd_alias(&path) {
+                        let src_fd = redirect.fd.unwrap_or(1);
+                        self.dup_output_fd_table(src_fd, target_fd, &mut fd1, &mut fd2);
+                        continue;
+                    }
 
                     if redirect.kind == RedirectKind::Output
                         && self.scoped.variables.get("SHOPT_C").map(|v| v.as_str()) == Some("1")
                         && !is_dev_null(&path)
-                        && self.fs.stat(&path).await.is_ok()
+                        && self.fs.stat(&path).await.is_ok_and(clobber_protected)
                     {
                         result.stdout = crate::StreamData::new();
-                        result.stderr =
-                            format!("bash: {}: cannot overwrite existing file\n", target_path)
-                                .into();
+                        result.stderr = self
+                            .redirect_error(&target_path, "cannot overwrite existing file")
+                            .into();
                         result.exit_code = 1;
                         self.clear_pending_fd_redirect_state();
                         return Ok(result);
@@ -412,12 +1024,22 @@ impl Interpreter {
                     };
                     match redirect.fd {
                         Some(2) => fd2 = target,
+                        Some(n) if n >= 3 => self.pending_fd_targets.push((n, target)),
                         _ => fd1 = target,
                     }
                 }
-                RedirectKind::Append => {
+                RedirectKind::ReadWrite if matches!(redirect.fd, None | Some(0)) => {}
+                RedirectKind::Append | RedirectKind::ReadWrite => {
                     let target_path = self.expand_word(&redirect.target).await?;
+                    if self.rejects_directory_target(&target_path, &mut result) {
+                        return Ok(result);
+                    }
                     let path = self.resolve_path(&target_path);
+                    if let Some(target_fd) = self.fd_alias(&path) {
+                        let src_fd = redirect.fd.unwrap_or(1);
+                        self.dup_output_fd_table(src_fd, target_fd, &mut fd1, &mut fd2);
+                        continue;
+                    }
                     let target = if is_dev_null(&path) {
                         FdTarget::DevNull
                     } else {
@@ -425,12 +1047,27 @@ impl Interpreter {
                     };
                     match redirect.fd {
                         Some(2) => fd2 = target,
+                        Some(n) if n >= 3 => self.pending_fd_targets.push((n, target)),
                         _ => fd1 = target,
                     }
                 }
                 RedirectKind::OutputBoth => {
                     let target_path = self.expand_word(&redirect.target).await?;
                     let path = self.resolve_path(&target_path);
+                    if let Some(target_fd) = self.fd_alias(&path) {
+                        self.dup_output_fd_table(1, target_fd, &mut fd1, &mut fd2);
+                        self.dup_output_fd_table(2, 1, &mut fd1, &mut fd2);
+                        continue;
+                    }
+                    if self.clobber_refused(&path).await {
+                        result.stdout = crate::StreamData::new();
+                        result.stderr = self
+                            .redirect_error(&target_path, "cannot overwrite existing file")
+                            .into();
+                        result.exit_code = 1;
+                        self.clear_pending_fd_redirect_state();
+                        return Ok(result);
+                    }
                     let target = if is_dev_null(&path) {
                         FdTarget::DevNull
                     } else {
@@ -441,32 +1078,36 @@ impl Interpreter {
                 }
                 RedirectKind::DupOutput => {
                     let target = self.expand_word(&redirect.target).await?;
-                    let target_fd: i32 = target.parse().unwrap_or(1);
                     let src_fd = redirect.fd.unwrap_or(1);
-
-                    // Look up exec_fd_table for persistent fd targets
-                    if let Some(exec_target) = self.exec_fd_table.get(&target_fd).cloned() {
-                        match src_fd {
-                            2 => fd2 = exec_target,
-                            _ => fd1 = exec_target,
+                    match DupTarget::parse(&target) {
+                        DupTarget::Fd(target_fd) => {
+                            self.dup_output_fd_table(src_fd, target_fd, &mut fd1, &mut fd2);
                         }
-                    } else {
-                        // Resolve target from current fd table state
-                        let resolved = match target_fd {
-                            1 => Some(fd1.clone()),
-                            2 => Some(fd2.clone()),
-                            _ => None,
-                        };
-                        if let Some(target) = resolved {
-                            match src_fd {
-                                1 => fd1 = target,
-                                2 => fd2 = target,
-                                n if n >= 3 => {
-                                    // Store fd3+ target for routing pending_fd_output later
-                                    self.pending_fd_targets.push((n, target));
-                                }
-                                _ => {}
+                        DupTarget::Close => match src_fd {
+                            1 => fd1 = FdTarget::Closed,
+                            2 => fd2 = FdTarget::Closed,
+                            n => self.pending_fd_targets.push((n, FdTarget::Closed)),
+                        },
+                        // `>&file`: both streams to the file, like `&>file`.
+                        DupTarget::File if src_fd == 1 => {
+                            if target.ends_with('/') {
+                                self.clear_pending_fd_redirect_state();
+                                self.rejects_directory_target(&target, &mut result);
+                                return Ok(result);
                             }
+                            let path = self.resolve_path(&target);
+                            let file = if is_dev_null(&path) {
+                                FdTarget::DevNull
+                            } else {
+                                FdTarget::WriteFile(path, target)
+                            };
+                            fd1 = file.clone();
+                            fd2 = file;
+                        }
+                        DupTarget::File => {
+                            self.clear_pending_fd_redirect_state();
+                            self.ambiguous_dup_target(&mut result, &target);
+                            return Ok(result);
                         }
                     }
                 }
@@ -480,7 +1121,14 @@ impl Interpreter {
 
         // Route stdout/stderr/fd3+ to their targets (non-async to avoid state machine bloat)
         let orig_stdout = std::mem::take(&mut result.stdout);
-        let orig_stderr = std::mem::take(&mut result.stderr);
+        let mut orig_stderr = std::mem::take(&mut result.stderr);
+        if matches!(fd1, FdTarget::Closed) && !orig_stdout.is_empty() {
+            // Writing to the closed stdout fails; the report goes to fd 2.
+            let mut report = crate::StreamData::from(self.closed_stdout_error());
+            report.append(&orig_stderr);
+            orig_stderr = report;
+            result.exit_code = 1;
+        }
         let (new_stdout, mut new_stderr, file_writes) = route_fd_table_content(
             &orig_stdout,
             &orig_stderr,
@@ -489,6 +1137,15 @@ impl Interpreter {
             &self.pending_fd_targets,
             &self.pending_fd_output,
         );
+        // A coproc fed past its pipe's capacity drains first.
+        for target in [&fd1, &fd2]
+            .into_iter()
+            .chain(self.pending_fd_targets.iter().map(|(_, t)| t))
+        {
+            if let FdTarget::Coproc(w) = target {
+                coproc::coproc_backpressure(w).await;
+            }
+        }
         self.clear_pending_fd_redirect_state();
 
         // Write files
@@ -499,8 +1156,9 @@ impl Interpreter {
                 self.fs.write_file(path, content.as_bytes()).await
             };
             if let Err(e) = write_result {
-                new_stderr =
-                    format!("bash: {}: {}\n", display_path, redirect_error_reason(&e)).into();
+                new_stderr = self
+                    .redirect_error(display_path, &io_error_reason(&e))
+                    .into();
                 result.exit_code = 1;
                 result.stdout = new_stdout;
                 result.stderr = new_stderr;
@@ -511,5 +1169,798 @@ impl Interpreter {
         result.stdout = new_stdout;
         result.stderr = new_stderr;
         Ok(result)
+    }
+
+    /// `src_fd>&target_fd` on the fd-table redirect path.
+    fn dup_output_fd_table(
+        &mut self,
+        src_fd: i32,
+        target_fd: i32,
+        fd1: &mut FdTarget,
+        fd2: &mut FdTarget,
+    ) {
+        // Look up exec_fd_table for persistent fd targets (fd 1/2: see
+        // `dup_output_fast`).
+        if target_fd >= 3
+            && let Some(exec_target) = self.exec_fd_table.get(&target_fd).cloned()
+        {
+            match src_fd {
+                2 => *fd2 = exec_target,
+                _ => *fd1 = exec_target,
+            }
+        } else {
+            // Resolve target from current fd table state
+            let resolved = match target_fd {
+                1 => Some(fd1.clone()),
+                2 => Some(fd2.clone()),
+                _ => None,
+            };
+            if let Some(target) = resolved {
+                match src_fd {
+                    1 => *fd1 = target,
+                    2 => *fd2 = target,
+                    n if n >= 3 => {
+                        // Store fd3+ target for routing pending_fd_output later
+                        self.pending_fd_targets.push((n, target));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+/// Whether any redirect opens a file on fd 3 or above (`3>f`, `9>>lock`).
+/// Whether `redirects` leave fd 1 and fd 2 writing to the same place
+/// (`2>&1`, `>f 2>&1`, `&>f`, `>&f`), worked out in order on the words as
+/// written. `None` when none of them touches fd 1 or 2 (the caller's state
+/// stands); a target only known after expansion (`>&$fd`) counts as apart.
+pub(super) fn stdout_stderr_joined(redirects: &[Redirect]) -> Option<bool> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum Dest {
+        Fd(i32),
+        Opened(usize),
+        Unknown,
+    }
+    let mut fds = [Dest::Fd(1), Dest::Fd(2)];
+    let mut touched = false;
+    for (i, r) in redirects.iter().enumerate() {
+        if r.fd_var.is_some() {
+            continue;
+        }
+        let literal = match r.target.parts.as_slice() {
+            [WordPart::Literal(t)] => Some(t.as_str()),
+            _ => None,
+        };
+        let (fd, dest) = match r.kind {
+            RedirectKind::Output | RedirectKind::Clobber | RedirectKind::Append => {
+                (r.fd.unwrap_or(1), Dest::Opened(i))
+            }
+            RedirectKind::ReadWrite => (r.fd.unwrap_or(0), Dest::Opened(i)),
+            RedirectKind::OutputBoth => {
+                fds = [Dest::Opened(i); 2];
+                touched = true;
+                continue;
+            }
+            RedirectKind::DupOutput | RedirectKind::DupInput => {
+                let default = if r.kind == RedirectKind::DupOutput {
+                    1
+                } else {
+                    0
+                };
+                let fd = r.fd.unwrap_or(default);
+                let dest = match literal.map(DupTarget::parse) {
+                    Some(DupTarget::Fd(n @ (1 | 2))) => fds[(n - 1) as usize],
+                    Some(DupTarget::Fd(n)) => Dest::Fd(n),
+                    Some(DupTarget::File) if fd == 1 && r.kind == RedirectKind::DupOutput => {
+                        fds = [Dest::Opened(i); 2];
+                        touched = true;
+                        continue;
+                    }
+                    _ => Dest::Unknown,
+                };
+                (fd, dest)
+            }
+            _ => continue,
+        };
+        if let 1 | 2 = fd {
+            fds[(fd - 1) as usize] = dest;
+            touched = true;
+        }
+    }
+    touched.then(|| fds[0] == fds[1] && fds[0] != Dest::Unknown)
+}
+
+pub(super) fn has_high_fd_file_redirect(redirects: &[Redirect]) -> bool {
+    redirects.iter().any(|r| {
+        matches!(
+            r.kind,
+            RedirectKind::Output
+                | RedirectKind::Clobber
+                | RedirectKind::Append
+                | RedirectKind::ReadWrite
+        ) && r.fd.is_some_and(|fd| fd >= 3)
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Persistent descriptors: `exec` redirections and `{var}` named fds.
+//
+// Important decisions:
+// - The shell's descriptors are virtual, per interpreter (tenant isolation):
+//   output fds live in `exec_fd_table`, readable fds in `coproc_buffers`
+//   (remaining lines, or a coproc's output pipe: `coproc.rs`), and dups of
+//   stdin in `exec_input_fds`. No host fd is ever touched.
+// - `{var}>file` allocates the lowest free fd >= 10 (bash's
+//   `fcntl(F_DUPFD, 10)`) and stores it in `var`. bash never undoes a
+//   `{var}` redirection, so on any command (not just `exec`) the fd stays
+//   open: it is applied here persistently and removed from the command's own
+//   redirect list.
+// - `>&N` / `<&N` with N closed is `bash: N: Bad file descriptor` (status 1),
+//   unless an enclosing command's redirections provide N
+//   (`fd_redirect_scope`), whose routing the pending-fd machinery handles.
+// - `N<>file` reads the file and appends writes to it. WTF: the shared
+//   read/write offset is not modelled; bash writes at the current offset
+//   (overwriting from the start of an existing file).
+// ---------------------------------------------------------------------------
+
+/// First fd handed out by `{var}` redirections (bash keeps 0-9 for the user).
+const NAMED_FD_BASE: i32 = 10;
+/// First coproc read fd; coproc pairs are handed out downward from here.
+pub(super) const COPROC_FIRST_FD: i32 = 63;
+
+/// Record the fds (>= 3) a command's own redirections open, so commands
+/// running inside it may use them (`f 3>&1`, `{ ...; } 3>log`).
+pub(super) fn push_redirect_scope_fds(scope: &mut Vec<i32>, redirects: &[Redirect]) {
+    for r in redirects {
+        if let Some(fd) = r.fd
+            && fd >= 3
+            && r.fd_var.is_none()
+            && !matches!(r.target.parts.as_slice(), [WordPart::Literal(t)] if t == "-")
+        {
+            scope.push(fd);
+        }
+    }
+}
+
+/// What the word of `N>&word` names once expanded.
+enum DupTarget {
+    /// A descriptor number: duplicate it.
+    Fd(i32),
+    /// `-`: close fd N.
+    Close,
+    /// Anything else: a file (`>&file` means `&>file`).
+    File,
+}
+
+impl DupTarget {
+    fn parse(word: &str) -> Self {
+        // `N>&M-` moves M: for one command that is a plain dup of M (the
+        // close only lasts as long as the command).
+        let word = match word.strip_suffix('-') {
+            Some(fd) if !fd.is_empty() => fd,
+            _ => word,
+        };
+        if word == "-" {
+            Self::Close
+        } else if !word.is_empty() && word.bytes().all(|b| b.is_ascii_digit()) {
+            word.parse().map_or(Self::File, Self::Fd)
+        } else {
+            Self::File
+        }
+    }
+}
+
+fn bad_fd_error(prefix: &str, word: &str) -> ExecResult {
+    ExecResult::err(format!("{prefix}{word}: Bad file descriptor\n"), 1)
+}
+
+fn ambiguous_redirect_error(prefix: &str, word: &str) -> ExecResult {
+    ExecResult::err(format!("{prefix}{word}: ambiguous redirect\n"), 1)
+}
+
+/// Remaining coproc-buffer lines (stored reversed) as stdin text.
+fn buffer_text(lines: &[String]) -> crate::StreamData {
+    let mut text = String::new();
+    for line in lines.iter().rev() {
+        text.push_str(line);
+        text.push('\n');
+    }
+    text.into()
+}
+
+/// `set -C`: `>` may not truncate an existing file. A pipe (FIFO, process
+/// substitution) is not truncated, so it stays writable.
+fn clobber_protected(meta: crate::fs::Metadata) -> bool {
+    meta.file_type != crate::fs::FileType::Fifo
+}
+
+/// Lines of `text`, reversed so `pop()` yields the first.
+fn reversed_lines(text: &str) -> Vec<String> {
+    text.lines().rev().map(str::to_string).collect()
+}
+
+impl Interpreter {
+    /// Descriptor a `/dev/...` redirect target aliases (`dev_fd_alias`),
+    /// except an open process substitution's `/dev/fd/N`: that is a pipe
+    /// end, opened through the fs like a file (`ProcSubFs`).
+    pub(super) fn fd_alias(&self, path: &Path) -> Option<i32> {
+        dev_fd_alias(path).filter(|&fd| fd < 3 || !self.proc_subs.is_open(fd))
+    }
+
+    /// Whether `fd` is open in this shell (or provided by an enclosing
+    /// command's redirections).
+    pub(super) fn fd_is_open(&self, fd: i32) -> bool {
+        if matches!(self.exec_fd_table.get(&fd), Some(FdTarget::Closed)) {
+            return false;
+        }
+        (0..=2).contains(&fd)
+            || self.exec_fd_table.contains_key(&fd)
+            || self.coproc_buffers.contains_key(&fd)
+            || self.exec_input_fds.contains(&fd)
+            || self.fd_redirect_scope.contains(&fd)
+    }
+
+    fn close_fd(&mut self, fd: i32) {
+        self.exec_fd_table.remove(&fd);
+        self.coproc_buffers.remove(&fd);
+        self.exec_input_fds.remove(&fd);
+    }
+
+    /// `N>&M` / `N<&M` for N >= 3: N becomes a copy of M.
+    fn dup_fd(&mut self, n: i32, m: i32) {
+        if n == m {
+            return;
+        }
+        let out = (matches!(m, 1 | 2) || self.exec_fd_table.contains_key(&m))
+            .then(|| self.exec_fd_alias_target(m));
+        let buf = self.coproc_buffers.get(&m).cloned();
+        let input = m == 0 || self.exec_input_fds.contains(&m);
+        self.close_fd(n);
+        if let Some(target) = out {
+            self.exec_fd_table.insert(n, target);
+        }
+        if let Some(buf) = buf {
+            self.coproc_buffers.insert(n, buf);
+        }
+        if input {
+            self.exec_input_fds.insert(n);
+        }
+    }
+
+    /// Lowest free fd >= 10, as bash allocates for `{var}` redirections.
+    fn allocate_named_fd(&self) -> Result<i32> {
+        let mut fd = NAMED_FD_BASE;
+        while self.fd_is_open(fd) {
+            fd += 1;
+        }
+        self.ensure_persistent_fd_capacity(fd)?;
+        Ok(fd)
+    }
+
+    /// Apply a command's `{var}` redirections persistently and return the
+    /// rest, or the failed redirection's result.
+    pub(super) async fn apply_named_fd_redirects(
+        &mut self,
+        redirects: &[Redirect],
+    ) -> Result<std::result::Result<Vec<Redirect>, ExecResult>> {
+        let mut remaining = Vec::with_capacity(redirects.len());
+        for redirect in redirects {
+            if redirect.fd_var.is_some() {
+                if let Some(err) = self.apply_persistent_redirect(redirect).await? {
+                    return Ok(Err(err));
+                }
+            } else {
+                remaining.push(redirect.clone());
+            }
+        }
+        Ok(Ok(remaining))
+    }
+
+    /// Apply one redirection to the shell itself (as `exec` does). Returns
+    /// the error result when it fails.
+    pub(super) async fn apply_persistent_redirect(
+        &mut self,
+        redirect: &Redirect,
+    ) -> Result<Option<ExecResult>> {
+        let Some(var) = redirect.fd_var.as_deref() else {
+            return self.open_persistent_fd(redirect, redirect.fd).await;
+        };
+        let dup;
+        let mut redirect = redirect;
+        if matches!(
+            redirect.kind,
+            RedirectKind::DupOutput | RedirectKind::DupInput
+        ) {
+            let target = self.expand_word(&redirect.target).await?;
+            if target == "-" {
+                // `{var}>&-` closes the fd named by `$var`.
+                let value = self.expand_name_or_array_element(var);
+                if value.is_empty() {
+                    return Ok(Some(ambiguous_redirect_error(&self.diag_prefix(), var)));
+                }
+                if let Ok(fd) = value.trim().parse::<i32>()
+                    && fd >= 0
+                {
+                    self.close_fd(fd);
+                }
+                return Ok(None);
+            }
+            if target.parse::<i32>().is_err() {
+                return Ok(Some(ambiguous_redirect_error(&self.diag_prefix(), var)));
+            }
+            dup = Redirect {
+                target: Word::quoted_literal(target),
+                ..redirect.clone()
+            };
+            redirect = &dup;
+        }
+        let fd = self.allocate_named_fd()?;
+        if let Some(err) = self.open_persistent_fd(redirect, Some(fd)).await? {
+            return Ok(Some(err));
+        }
+        let base = var.split('[').next().unwrap_or(var);
+        let resolved = self.resolve_nameref(base).to_string();
+        if self.var_attrs_get(&resolved).contains(VarAttrs::READONLY) {
+            self.close_fd(fd);
+            return Ok(Some(ExecResult::err(
+                format!(
+                    "{p}{base}: readonly variable\n{p}{var}: cannot assign fd to variable\n",
+                    p = self.diag_prefix()
+                ),
+                1,
+            )));
+        }
+        self.set_parameter_expansion_target(var, fd.to_string());
+        Ok(None)
+    }
+
+    /// Open `redirect` on `fd` (its default fd when `None`) for the rest of
+    /// the shell's life.
+    async fn open_persistent_fd(
+        &mut self,
+        redirect: &Redirect,
+        fd: Option<i32>,
+    ) -> Result<Option<ExecResult>> {
+        // `exec 0<f` is `exec <f`.
+        let fd = fd.filter(|&n| n != 0 || !redirect_reads(redirect.kind));
+        match redirect.kind {
+            RedirectKind::Input | RedirectKind::ReadWrite => {
+                let target_path = self.expand_word(&redirect.target).await?;
+                let path = self.resolve_path(&target_path);
+                let read_write = redirect.kind == RedirectKind::ReadWrite;
+                if is_dev_null(&path) {
+                    match fd {
+                        Some(n) => {
+                            self.ensure_persistent_fd_capacity(n)?;
+                            self.close_fd(n);
+                            self.coproc_buffers
+                                .insert(n, coproc::InputFd::Lines(Vec::new()));
+                            if read_write {
+                                self.exec_fd_table.insert(n, FdTarget::DevNull);
+                            }
+                        }
+                        None => self.pipeline_stdin = Some(crate::StreamData::new()),
+                    }
+                    return Ok(None);
+                }
+                if read_write && let Err(e) = self.fs.append_file(&path, b"").await {
+                    return Ok(Some(ExecResult::err(
+                        self.diag(format!("{target_path}: {}\n", io_error_reason(&e))),
+                        1,
+                    )));
+                }
+                let content = match self.fs.read_file(&path).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return Ok(Some(ExecResult::err(
+                            self.diag(format!("{target_path}: {}\n", io_error_reason(&e))),
+                            1,
+                        )));
+                    }
+                };
+                let text = decode_file_bytes_for_path(&path, &content);
+                match fd {
+                    Some(n) => {
+                        self.ensure_persistent_fd_capacity(n)?;
+                        self.close_fd(n);
+                        self.coproc_buffers
+                            .insert(n, coproc::InputFd::Lines(reversed_lines(&text)));
+                        if read_write {
+                            self.exec_fd_table
+                                .insert(n, FdTarget::AppendFile(path, target_path));
+                        }
+                    }
+                    // exec < file: redirect stdin for subsequent commands
+                    None => self.pipeline_stdin = Some(text.into()),
+                }
+            }
+            RedirectKind::HereString | RedirectKind::HereDoc | RedirectKind::HereDocStrip => {
+                let mut content = self.expand_word(&redirect.target).await?;
+                if redirect.kind == RedirectKind::HereString {
+                    content.push('\n');
+                }
+                match fd {
+                    Some(n) => {
+                        self.ensure_persistent_fd_capacity(n)?;
+                        self.close_fd(n);
+                        self.coproc_buffers
+                            .insert(n, coproc::InputFd::Lines(reversed_lines(&content)));
+                    }
+                    None => self.pipeline_stdin = Some(content.into()),
+                }
+            }
+            RedirectKind::DupInput | RedirectKind::DupOutput => {
+                let mut target = self.expand_word(&redirect.target).await?;
+                // `exec N>&M-` moves fd M to N: dup, then close M.
+                let moved = target.len() > 1
+                    && target.ends_with('-')
+                    && target[..target.len() - 1]
+                        .bytes()
+                        .all(|b| b.is_ascii_digit());
+                if moved {
+                    target.pop();
+                }
+                let default_fd = i32::from(redirect.kind == RedirectKind::DupOutput);
+                let n = fd.unwrap_or(default_fd);
+                if target == "-" || target == "&-" {
+                    // `N>&-` and `N<&-` both close fd N. For 1 and 2 the
+                    // entry stays so a later write reports a closed
+                    // descriptor instead of reaching the caller.
+                    if matches!(n, 1 | 2) {
+                        self.ensure_persistent_fd_capacity(n)?;
+                        self.exec_fd_table.insert(n, FdTarget::Closed);
+                    } else if n >= 3 {
+                        self.close_fd(n);
+                    }
+                    return Ok(None);
+                }
+                let Ok(m) = target.parse::<i32>() else {
+                    if redirect.kind == RedirectKind::DupInput {
+                        return Ok(Some(ambiguous_redirect_error(&self.diag_prefix(), &target)));
+                    }
+                    // WTF: `exec >&file` (bash: `exec &>file`) is not
+                    // implemented; it is ignored.
+                    return Ok(None);
+                };
+                if !self.fd_is_open(m) {
+                    return Ok(Some(bad_fd_error(&self.diag_prefix(), &target)));
+                }
+                match n {
+                    0 => {
+                        // `exec <&N`: stdin reads what is left of fd N
+                        // (a coproc's output: as commands read it).
+                        match self.coproc_buffers.get(&m) {
+                            Some(coproc::InputFd::Lines(buf)) => {
+                                self.pipeline_stdin = Some(buffer_text(buf));
+                            }
+                            Some(coproc::InputFd::Pipe(end)) => {
+                                self.pipeline_stdin = None;
+                                self.pipe_in = Some(Arc::clone(&end.0));
+                            }
+                            None => {}
+                        }
+                    }
+                    1 | 2 => {
+                        // `exec N>&M` duplicates fd M to fd N
+                        let target_entry = self.exec_fd_alias_target(m);
+                        self.exec_fd_table.insert(n, target_entry);
+                    }
+                    _ => {
+                        self.ensure_persistent_fd_capacity(n)?;
+                        self.dup_fd(n, m);
+                    }
+                }
+                if moved && m != n {
+                    if matches!(m, 1 | 2) {
+                        self.exec_fd_table.insert(m, FdTarget::Closed);
+                    } else if m >= 3 {
+                        self.close_fd(m);
+                    }
+                }
+            }
+            RedirectKind::Output | RedirectKind::Clobber | RedirectKind::Append => {
+                let n = fd.unwrap_or(1);
+                let append = redirect.kind == RedirectKind::Append;
+                let target_path = self.expand_word(&redirect.target).await?;
+                let path = self.resolve_path(&target_path);
+                self.ensure_persistent_fd_capacity(n)?;
+                let entry = if let Some(target_fd) = self.fd_alias(&path) {
+                    self.exec_fd_alias_target(target_fd)
+                } else if is_dev_null(&path) {
+                    FdTarget::DevNull
+                } else if crate::fs::proc_sub_fd(&path).is_some_and(|fd| self.proc_subs.is_open(fd))
+                {
+                    // WTF: `exec 3> >(cmd)` would need `cmd` to outlive the
+                    // `exec` and read fd 3 as it is written; it runs right
+                    // after the `exec` instead (no input), so later writes to
+                    // fd 3 are dropped rather than failing on the closed fd.
+                    FdTarget::DevNull
+                } else {
+                    // Truncate (or create) the file on open, like real
+                    // `exec >file`; a failed open leaves the fd as it was.
+                    let opened = if append {
+                        self.fs.append_file(&path, b"").await
+                    } else {
+                        self.fs.write_file(&path, b"").await
+                    };
+                    if let Err(e) = opened {
+                        return Ok(Some(ExecResult::err(
+                            self.diag(format!("{target_path}: {}\n", io_error_reason(&e))),
+                            1,
+                        )));
+                    }
+                    if append {
+                        FdTarget::AppendFile(path, target_path)
+                    } else {
+                        FdTarget::WriteFile(path, target_path)
+                    }
+                };
+                if n >= 3 {
+                    self.close_fd(n);
+                }
+                self.exec_fd_table.insert(n, entry);
+            }
+            // WTF: `exec &>file` is not implemented; it is ignored.
+            RedirectKind::OutputBoth => {}
+        }
+        Ok(None)
+    }
+}
+
+/// Whether the redirection's default fd is 0.
+fn redirect_reads(kind: RedirectKind) -> bool {
+    !matches!(
+        kind,
+        RedirectKind::Output
+            | RedirectKind::Clobber
+            | RedirectKind::Append
+            | RedirectKind::DupOutput
+            | RedirectKind::OutputBoth
+    )
+}
+
+#[cfg(test)]
+mod input_admission_tests {
+    use super::*;
+
+    fn ordinary_input(kind: RedirectKind) -> Redirect {
+        Redirect {
+            kind,
+            fd: None,
+            fd_var: None,
+            target: Word::quoted_literal("/a"),
+            heredoc_delim: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_mount_refuses_lazy_before_loading() {
+        let loads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed = Arc::clone(&loads);
+        let mounted = Arc::new(crate::InMemoryFs::new());
+        mounted.add_lazy_file(
+            "/a",
+            2,
+            0o644,
+            Arc::new(move || {
+                observed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                b"ab".to_vec()
+            }),
+        );
+        let fs = crate::MountableFs::new(Arc::new(crate::InMemoryFs::new()));
+        fs.mount("/mnt/input", mounted).unwrap();
+        let mut bash = crate::Bash::builder()
+            .fs(Arc::new(fs))
+            .limits(crate::ExecutionLimits::new().max_live_intermediate_bytes(1))
+            .build();
+        bash.interpreter.begin_execution_budget();
+        let result = bash
+            .interpreter
+            .read_input_stream(Path::new("/mnt/input/a"), false)
+            .await;
+        assert!(matches!(result, Err(crate::Error::ResourceLimit(_))));
+        assert_eq!(loads.load(std::sync::atomic::Ordering::Relaxed), 0);
+        assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+    }
+
+    #[tokio::test]
+    async fn input_admission_tiny_buffered_pipe() {
+        for (cap, succeeds) in [(1, false), (4, true)] {
+            let mut bash = crate::Bash::builder()
+                .limits(crate::ExecutionLimits::new().max_live_intermediate_bytes(cap))
+                .build();
+            bash.interpreter.begin_execution_budget();
+            bash.interpreter
+                .proc_subs
+                .open(63, crate::fs::ProcSubData::Input(Arc::from(&b"ab"[..])));
+            let path = Path::new("/dev/fd/63");
+            assert_eq!(bash.interpreter.fs.stat(path).await.unwrap().size, 0);
+            let result = bash.interpreter.read_input_stream(path, false).await;
+            if succeeds {
+                let (stream, storage) = result.unwrap();
+                assert_eq!(stream.as_bytes(), b"ab");
+                assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 4);
+                drop((stream, storage));
+            } else {
+                assert!(matches!(result, Err(crate::Error::ResourceLimit(_))));
+            }
+            assert!(bash.interpreter.proc_subs.is_open(63));
+            assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_readwrite_refuses_lazy_load_before_open() {
+        let loads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed = Arc::clone(&loads);
+        let fs = Arc::new(crate::InMemoryFs::new());
+        fs.add_lazy_file(
+            "/a",
+            2,
+            0o644,
+            Arc::new(move || {
+                observed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                b"ab".to_vec()
+            }),
+        );
+        let mut bash = crate::Bash::builder()
+            .fs(fs)
+            .limits(crate::ExecutionLimits::new().max_aggregate_input_bytes(1))
+            .build();
+        bash.interpreter.begin_execution_budget();
+        let redirect = ordinary_input(RedirectKind::ReadWrite);
+        let result = bash
+            .interpreter
+            .process_input_redirections(None, &[redirect], StdinDemand::All, HighFdStdin::Never)
+            .await;
+        assert!(matches!(result, Err(crate::Error::ResourceLimit(_))));
+        assert_eq!(loads.load(std::sync::atomic::Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn input_admission_preserves_cancellation_during_tiny_read() {
+        for kind in [RedirectKind::Input, RedirectKind::ReadWrite] {
+            let fs = Arc::new(crate::InMemoryFs::new());
+            let mut bash = crate::Bash::builder().fs(fs.clone()).build();
+            bash.interpreter.begin_execution_budget();
+            let token = bash.interpreter.cancellation_token();
+            fs.add_lazy_file(
+                "/a",
+                2,
+                0o644,
+                Arc::new(move || {
+                    token.store(true, std::sync::atomic::Ordering::Relaxed);
+                    b"ab".to_vec()
+                }),
+            );
+            let redirect = ordinary_input(kind);
+            let result = bash
+                .interpreter
+                .process_input_redirections(None, &[redirect], StdinDemand::All, HighFdStdin::Never)
+                .await;
+            assert!(
+                matches!(result, Err(crate::Error::Cancelled)),
+                "cancellation must not become a command failure"
+            );
+            assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_refuses_lazy_read_before_loading() {
+        for limits in [
+            crate::ExecutionLimits::new().max_aggregate_input_bytes(1),
+            crate::ExecutionLimits::new().max_live_intermediate_bytes(1),
+        ] {
+            let loads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let observed = Arc::clone(&loads);
+            let fs = Arc::new(crate::InMemoryFs::new());
+            fs.add_lazy_file(
+                "/a",
+                2,
+                0o644,
+                Arc::new(move || {
+                    observed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    b"ab".to_vec()
+                }),
+            );
+            let mut bash = crate::Bash::builder().fs(fs).limits(limits).build();
+            bash.interpreter.begin_execution_budget();
+            let result = bash
+                .interpreter
+                .read_input_stream(Path::new("/a"), false)
+                .await;
+            assert!(matches!(result, Err(crate::Error::ResourceLimit(_))));
+            assert_eq!(loads.load(std::sync::atomic::Ordering::Relaxed), 0);
+            assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_tiny_read_exact_boundary_and_failure_refund() {
+        for (cap, succeeds) in [(3, false), (4, true)] {
+            let mut bash = crate::Bash::builder()
+                .limits(crate::ExecutionLimits::new().max_live_intermediate_bytes(cap))
+                .build();
+            bash.fs().write_file(Path::new("/a"), b"ab").await.unwrap();
+            bash.interpreter.begin_execution_budget();
+            let result = bash
+                .interpreter
+                .read_input_stream(Path::new("/a"), false)
+                .await;
+            if succeeds {
+                let (stream, storage) = result.unwrap();
+                assert_eq!(stream.as_bytes(), b"ab");
+                assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 4);
+                drop((stream, storage));
+            } else {
+                assert!(matches!(result, Err(crate::Error::ResourceLimit(_))));
+            }
+            assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_preserves_missing_file_error() {
+        let mut bash = crate::Bash::new();
+        bash.interpreter.begin_execution_budget();
+        assert!(
+            bash.interpreter
+                .read_input_stream(Path::new("/absent"), false)
+                .await
+                .is_err()
+        );
+        assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+    }
+
+    #[test]
+    fn input_admission_text_and_clone_hold_both_representations() {
+        for newline in [false, true] {
+            let mut bash = crate::Bash::new();
+            bash.interpreter.begin_execution_budget();
+            let (stream, storage) = bash
+                .interpreter
+                .input_stream_from_text("a".into(), newline)
+                .unwrap();
+            let expected = if newline {
+                b"a\n".as_slice()
+            } else {
+                b"a".as_slice()
+            };
+            assert_eq!(stream.as_bytes(), expected);
+            let original_live = bash.interpreter.execution_budget.live_bytes_for_test();
+            assert!(original_live >= (2 * expected.len()) as u64);
+            let (copy, copy_storage) = bash.interpreter.clone_input_stream(&stream).unwrap();
+            assert_eq!(copy, stream);
+            assert_eq!(
+                bash.interpreter.execution_budget.live_bytes_for_test(),
+                original_live + (2 * expected.len()) as u64
+            );
+            drop((copy, copy_storage));
+            assert_eq!(
+                bash.interpreter.execution_budget.live_bytes_for_test(),
+                original_live
+            );
+            drop((stream, storage));
+            assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn input_admission_retains_fresh_stdin_storage() {
+        let mut bash = crate::Bash::new();
+        bash.fs().write_file(Path::new("/a"), b"ab").await.unwrap();
+        bash.interpreter.begin_execution_budget();
+        let redirect = ordinary_input(RedirectKind::Input);
+        let setup = bash
+            .interpreter
+            .process_input_redirections(None, &[redirect], StdinDemand::All, HighFdStdin::Never)
+            .await
+            .unwrap();
+        assert_eq!(setup.stdin.as_ref().unwrap().as_bytes(), b"ab");
+        assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 4);
+        drop(setup);
+        assert_eq!(bash.interpreter.execution_budget.live_bytes_for_test(), 0);
     }
 }

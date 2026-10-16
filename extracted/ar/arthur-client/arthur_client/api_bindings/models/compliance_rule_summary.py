@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -26,10 +26,11 @@ class ComplianceRuleSummary(BaseModel):
     """
     ComplianceRuleSummary
     """ # noqa: E501
-    id: StrictStr = Field(description="The policy rule definition ID (policy_alert_rules or policy_attestation_rules).")
+    id: StrictStr = Field(description="The policy rule definition ID (policy_alert_rules or policy_attestation_rules). For a deleted alert rule, the materialized rule ID, since its definition no longer exists.")
     materialized_rule_id: Optional[StrictStr] = None
     name: StrictStr = Field(description="The rule name.")
-    __properties: ClassVar[List[str]] = ["id", "materialized_rule_id", "name"]
+    is_deleted: Optional[StrictBool] = Field(default=False, description="True when the rule has been deleted from its policy since this check. The row is kept for audit: it no longer counts toward current compliance, and neither the rule nor its alert can be fetched.")
+    __properties: ClassVar[List[str]] = ["id", "materialized_rule_id", "name", "is_deleted"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +90,8 @@ class ComplianceRuleSummary(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "materialized_rule_id": obj.get("materialized_rule_id"),
-            "name": obj.get("name")
+            "name": obj.get("name"),
+            "is_deleted": obj.get("is_deleted") if obj.get("is_deleted") is not None else False
         })
         return _obj
 

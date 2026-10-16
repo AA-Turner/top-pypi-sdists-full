@@ -402,6 +402,16 @@ class Workspace:
                 f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before materializing."
             )
 
+        from plato.transports.git import GitTransport
+
+        # ``snapshot_to_mirror`` rewrites ``.git-bare`` without this method's lock, so an
+        # rsync over it fails with "file has vanished". Each commit rewrites the mirror into
+        # the overlay itself. ``--exclude=.git`` does not match ``.git-bare``, and an
+        # excluded path is also safe from ``--delete``.
+        excludes = ["--exclude=.git"]
+        if isinstance(self._transport, GitTransport):
+            excludes.append("--exclude=/.git-bare")
+
         for mount in self._lazy_mounts.values():
             overlay_dir = mount.overlay_dir
             mountpoint = mount.mountpoint
@@ -412,7 +422,7 @@ class Workspace:
                         "rsync",
                         "-a",
                         "--delete",
-                        "--exclude=.git",
+                        *excludes,
                         f"{mountpoint}/",
                         f"{overlay_dir}/",
                     ]

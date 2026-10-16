@@ -3,6 +3,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
+from mistralai.workflows.models import WorkflowSpecWithTaskQueue
 from mistralai.workflows.protocol.v1.workflow import (
     WorkerHeartbeatRequest,
     WorkflowRegistrationRef,
@@ -19,6 +20,40 @@ def test_workflow_specs_register_request_rejects_empty_definitions() -> None:
         WorkflowSpecsRegisterRequest(
             definitions=[],
             deployment_name="test-deployment",
+            worker_name="test-worker",
+        )
+
+
+def test_deployment_name_rejects_non_string_input() -> None:
+    with pytest.raises(ValidationError):
+        WorkflowSpecsRegisterRequest(
+            definitions=[
+                WorkflowSpecWithTaskQueue(
+                    name="test",
+                    description="",
+                    input_schema={},
+                    output_schema={},
+                    task_queue="default",
+                )
+            ],
+            deployment_name=123,
+            worker_name="test-worker",
+        )
+
+
+def test_deployment_name_rejects_invalid_string() -> None:
+    with pytest.raises(ValidationError):
+        WorkflowSpecsRegisterRequest(
+            definitions=[
+                WorkflowSpecWithTaskQueue(
+                    name="test",
+                    description="",
+                    input_schema={},
+                    output_schema={},
+                    task_queue="default",
+                )
+            ],
+            deployment_name="bad name!",
             worker_name="test-worker",
         )
 

@@ -1275,6 +1275,52 @@ def test_gate_decision_fields_are_strings_or_none():
     assert gd == {"gate_id": GATE_ID, "decision": "proceed", "decided_by": "human", "note": None, "decided_at": None}
 
 
+async def test_start_input_of_an_api_run_reaches_the_agent(tmp_path: Path):
+    """外から呼んだ run の依頼文は context.start_input で読める（書き換えられない）。起動の記録（context.manifest）には入れない。"""
+    fake = FakeRuntime()
+    fake.start_input = {"kind": "api", "payload": {"text": "見積書を作ってください", "fileIds": ["f-1"]},
+                        "subject": None, "text": None, "external": True, "extra": "x"}
+    res = await run_with(fake, "run_start_input", tmp_path)
+    assert res.exit_code == 0 and (res.outcome, res.outcome_reason_code) == ("completed", "completed")
+    out = json.loads((tmp_path / "output" / "reply.md").read_text(encoding="utf-8"))
+    assert out == {"kind": "api", "payload": {"text": "見積書を作ってください", "fileIds": ["f-1"]}, "subject": None,
+                   "text": None, "external": True, "writable": False, "in_manifest": False}
+
+
+async def test_start_input_of_a_mail_run_reaches_the_agent(tmp_path: Path):
+    """メールで始まった run は件名と本文（subject / text）。payload は無い。"""
+    fake = FakeRuntime()
+    fake.start_input = {"kind": "mail", "payload": None, "subject": "見積の依頼", "text": "A 社向けに 3 件", "external": False}
+    res = await run_with(fake, "run_start_input", tmp_path)
+    assert res.exit_code == 0 and res.outcome == "completed"
+    out = json.loads((tmp_path / "output" / "reply.md").read_text(encoding="utf-8"))
+    assert out == {"kind": "mail", "payload": None, "subject": "見積の依頼", "text": "A 社向けに 3 件", "external": False,
+                   "writable": False, "in_manifest": False}
+
+
+@pytest.mark.parametrize("start_input", [
+    None,                                                              # 外から呼んでいない / 最初の工程でない
+    {"kind": "api", "payload": {"text": "x"}},                         # external が無い
+    {"kind": "api", "payload": {"text": "x"}, "external": "true"},     # external が真偽値でない
+    {"payload": {"text": "x"}, "external": True},                      # kind が無い
+    "見積書を作ってください",
+])
+async def test_start_input_absent_or_malformed_is_none(tmp_path: Path, start_input):
+    """形の合わない値は None（front が返す前の SDK と同じ動き）。"""
+    fake = FakeRuntime()
+    fake.start_input = start_input
+    res = await run_with(fake, "run_start_input", tmp_path)
+    assert res.exit_code == 0 and res.outcome == "completed"
+    assert (tmp_path / "output" / "reply.md").read_text(encoding="utf-8").strip() == "none"
+
+
+def test_start_input_text_fields_are_strings_or_none():
+    from agenticstar_platform.workflow.runner import _start_input
+
+    si = _start_input({"start_input": {"kind": "mail", "subject": 3, "text": ["x"], "external": True, "recipient": "a@b"}})
+    assert si == {"kind": "mail", "payload": None, "subject": None, "text": None, "external": True}
+
+
 def test_token_expiring_rules():
     from datetime import datetime, timedelta, timezone
 

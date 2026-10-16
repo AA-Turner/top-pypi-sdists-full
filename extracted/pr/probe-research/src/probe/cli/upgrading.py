@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-import subprocess
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -322,8 +321,8 @@ def _report_attempt(build: Callable[[], dict], *, base_url: str | None = None) -
 @dataclass(frozen=True)
 class _PiUpdate:
     """What the pi step did: its lines, and whether an ATTEMPTED update failed
-    (skipped -- not installed, pi running, another update holding the lock --
-    is not a failure)."""
+    (skipped -- not installed, another update holding the lock -- is not a
+    failure)."""
 
     lines: list[str]
     ok: bool = True
@@ -345,63 +344,6 @@ def _package_harness() -> str | None:
     return next(
         (h.id for h in get_registry().installable() if h.family == FAMILY_EXTENSION), None
     )
-
-
-def _pi_running() -> bool:
-    """A pi process is running. `pi update` resets the package folder (git reset
-    and clean, then npm install) that a running pi loaded its extension and
-    capture from. This user's processes only (someone else's pi on a shared
-    machine runs from their own folder). False when neither `ps` nor `/proc`
-    can be asked."""
-    from probe.harness import FAMILY_EXTENSION, get_registry
-
-    names: set[str] = set()
-    for harness in get_registry().installable():
-        if harness.family == FAMILY_EXTENSION and harness.binary:
-            # pi titles its process with its binary's name, `--mode rpc` with `<name>-rpc`.
-            names |= {harness.binary, f"{harness.binary}-rpc"}
-    if not hasattr(os, "getuid"):
-        return False
-    commands = _own_process_commands(os.getuid())
-    return any(os.path.basename(command.split(" ", 1)[0]) in names for command in commands)
-
-
-def _spawning_pi_alive() -> bool:
-    """The pi whose session start spawned this update is still running
-    (`autoupdate.PI_PID_ENV`): a backstop to `_pi_running`, which knows pi only
-    by its process title."""
-    raw = os.environ.get(autoupdate.PI_PID_ENV, "")
-    return raw.isdigit() and int(raw) > 1 and autoupdate.pid_is_alive(int(raw))
-
-
-def _own_process_commands(uid: int) -> list[str]:
-    """Every command line `uid` runs: `ps`, else Linux's `/proc` (a slim
-    container has no `ps`, and busybox's refuses `-U`)."""
-    try:
-        listing = subprocess.run(  # noqa: S603 - fixed binary, no shell
-            ["ps", "-U", str(uid), "-o", "command="],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-        if listing.returncode == 0:
-            return [line.strip() for line in listing.stdout.splitlines() if line.strip()]
-    except (OSError, subprocess.SubprocessError):
-        pass
-    commands = []
-    try:
-        entries = [entry for entry in os.scandir("/proc") if entry.name.isdigit()]
-    except OSError:
-        return []
-    for entry in entries:
-        try:
-            if entry.stat().st_uid != uid:
-                continue
-            with open(os.path.join(entry.path, "cmdline"), "rb") as handle:
-                argv0 = handle.read().split(b"\0", 1)[0].decode(errors="replace").strip()
-        except OSError:
-            continue  # exited between the listing and the read
-        if argv0:
-            commands.append(argv0)
-    return commands
 
 
 @contextmanager
@@ -438,21 +380,25 @@ def _pi_update_lock():
 
 def _update_pi_package() -> _PiUpdate:
     """`pi update` for Probe's pi package when pi has it installed; nothing
-    otherwise. Says the versions it moved between, or how to do it by hand."""
+    otherwise. Says the versions it moved between, or how to do it by hand.
+
+    It runs while pi does, as pi's own `pi update` does. It used to wait until
+    no pi process was left, and a researcher running pi agents around the
+    clock never got the package at all (strand-ai, 2026-10-15). A running pi
+    keeps the extension and capture watcher it loaded: in real pi 1.0.0, with
+    the package's `node_modules` deleted and then `pi update`d from 0.4.0 to
+    0.5.0 under it, turns, `/probe-status`, `/probe-mcp-login` and the watcher
+    process carried on, `/new` started a session, and `/reload` loaded 0.5.0
+    (a running session's capture watcher keeps its old code until pi restarts).
+    Killed mid-`npm install`, the orphaned npm still finished `node_modules`.
+    Only a pi STARTED during the second or two in which `pi update` has removed
+    `node_modules` fails to load the package, and exits 1."""
     from probe.cli import pi_config
 
     directory = pi_config.installed_package_dir()
     if directory is None or not directory.is_dir():
         autoupdate.mark_pi_update_pending(False)
         return _PiUpdate([], code=update_report.PiStep.NOT_INSTALLED)
-    if _pi_running() or _spawning_pi_alive():
-        # Owed, not dropped: pi's next session start retries it after pi exits.
-        autoupdate.mark_pi_update_pending(True)
-        return _PiUpdate([
-            "pi package:",
-            "  not updated while pi is running (the update rewrites the folder pi loads it from); "
-            "it updates after pi exits",
-        ], code=update_report.PiStep.DEFERRED)
     with _pi_update_lock() as held:
         if not held:
             return _PiUpdate(
@@ -460,6 +406,9 @@ def _update_pi_package() -> _PiUpdate:
                 code=update_report.PiStep.LOCKED,
             )
         before = pi_config.installed_package_version()
+        # Owed until it is known to have worked: an updater killed mid-update
+        # (it removes and reinstalls `node_modules`) is retried, not forgotten.
+        autoupdate.mark_pi_update_pending(True)
         result = pi_config.update_package()
         after = pi_config.installed_package_version()
 
@@ -479,7 +428,7 @@ def _update_pi_package() -> _PiUpdate:
             code=update_report.PiStep.UNREACHABLE,
             **versions_seen,
         )
-    # A failure stays owed too, so pi's next session start tries again.
+    # A failure stays owed, so pi's next session start tries again.
     autoupdate.mark_pi_update_pending(not result.ok)
     if not result.ok:
         return _PiUpdate(
@@ -491,8 +440,10 @@ def _update_pi_package() -> _PiUpdate:
             **versions_seen,
         )
     if before != after:
+        # One line: the attempt record (`update_owed_pi_package`) and the update
+        # report read the last line as what happened.
         return _PiUpdate(
-            ["pi package:", f"  updated {shown(before)} → {shown(after)}"],
+            ["pi package:", f"  updated {shown(before)} → {shown(after)} (open pi sessions pick it up when restarted)"],
             ran=True, code=update_report.PiStep.UPDATED, **versions_seen,
         )
     return _PiUpdate(
@@ -502,11 +453,11 @@ def _update_pi_package() -> _PiUpdate:
 
 
 def update_owed_pi_package() -> None:
-    """Run ONLY the pi step, for a pi update a running pi deferred
+    """Run ONLY the pi step, for a pi package update that failed
     (`autoupdate.PI_UPDATE_PENDING_FILENAME`) while the CLI itself is current.
     The caller holds the update lock. Records the attempt only when `pi update`
-    ran: a second deferral is not news, and overwriting `last_attempt` with it
-    would hide the real one."""
+    ran: a skip is not news, and overwriting `last_attempt` with it would hide
+    the real one."""
     step = _update_pi_package()
     if not step.ran:
         return

@@ -38,6 +38,41 @@ use super::connect_as::{
     decrypt_connect_as_payload, patch_keeperdb_url_credentials, stage_keeperdb_url_via_handoff,
 };
 
+/// How an incoming `ActiveProtocol::Guacd` connection should be serviced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum GuacdRoute {
+    /// Hand the connection to the built-in guacr handler registry.
+    Builtin,
+    /// Connect out to an external guacd server over TCP.
+    ExternalGuacd,
+    /// The session asked for guacr, but this build has no handler registry (or the
+    /// conversation type is unknown). External guacd is not a substitute: the client
+    /// is running a guacr viewer, which reads terminal-data/IMAGE frames guacd never
+    /// sends, so the session would connect and paint nothing. Fail instead.
+    GuacrUnavailable,
+}
+
+/// Decides how to service a Guacd-protocol connection.
+///
+/// `use_guacr` is the session's request, read from `guacd_params`. The two `has_*`
+/// flags describe what this build and channel can actually satisfy: the registry is
+/// absent when the `builtin-handlers` feature is off, and the conversation type is
+/// absent when the peer never told us which protocol it wants.
+pub(crate) fn decide_guacd_route(
+    use_guacr: bool,
+    has_registry: bool,
+    has_conversation_type: bool,
+) -> GuacdRoute {
+    if !use_guacr {
+        return GuacdRoute::ExternalGuacd;
+    }
+    if has_registry && has_conversation_type {
+        GuacdRoute::Builtin
+    } else {
+        GuacdRoute::GuacrUnavailable
+    }
+}
+
 // Constants for ConnectAs, similar to those in connections.rs
 const CONNECT_AS_DETAILS_LEN_FIELD_BYTES: usize = 4;
 const CONNECT_AS_PUBLIC_KEY_BYTES: usize = 65; // As per Python: 65-byte public key
@@ -796,56 +831,87 @@ impl Channel {
                         .unwrap_or(false);
                     drop(guacd_params); // Release lock
 
-                    // Only use built-in handlers if use_guacr=true
-                    if use_guacr {
-                        if let (Some(registry), Some(conv_type)) =
-                            (&self.handler_registry, &self.conversation_type)
-                        {
-                            // Use built-in protocol handlers instead of external guacd
+                    let route = decide_guacd_route(
+                        use_guacr,
+                        self.handler_registry.is_some(),
+                        self.conversation_type.is_some(),
+                    );
 
-                            // Spawn handler and return result - will fall through to send ConnectionOpened
-                            return match super::handler_connections::invoke_builtin_handler(
-                                self,
-                                conv_type,
-                                registry,
-                                target_connection_no,
-                                Arc::clone(&self.spawned_task_completion_tx),
-                            )
-                            .await
-                            {
-                                Ok(()) => {
-                                    debug!("Handler spawned successfully, sending ConnectionOpened (channel: {}, conversation_id: {}, conn: {})",
+                    if route == GuacdRoute::GuacrUnavailable {
+                        let reason = if self.handler_registry.is_none() {
+                            "this build has no built-in handler registry (the \
+                             'builtin-handlers' feature is disabled)"
+                        } else {
+                            "the conversation type is unknown"
+                        };
+                        error!(
+                            "Session requested guacr but {reason} (channel: {}, conversation_id: {}, conn: {}). \
+                             Refusing to fall back to external guacd: the client is running a guacr \
+                             viewer and would render nothing.",
+                            self.channel_id, self.conversation_id, target_connection_no
+                        );
+                        let mut payload = self.buffer_pool.acquire();
+                        payload.put_u32(target_connection_no);
+                        payload.put_u8(CloseConnectionReason::ConnectionFailed as u8);
+                        let result = self
+                            .send_control_message(ControlMessage::CloseConnection, &payload)
+                            .await;
+                        self.buffer_pool.release(payload);
+                        return result
+                            .and(Err(anyhow!("guacr requested but unavailable: {reason}")));
+                    }
+
+                    if route == GuacdRoute::Builtin {
+                        // Both were checked by decide_guacd_route.
+                        let registry = self
+                            .handler_registry
+                            .as_ref()
+                            .expect("Builtin route implies a handler registry");
+                        let conv_type = self
+                            .conversation_type
+                            .as_ref()
+                            .expect("Builtin route implies a conversation type");
+
+                        // Use built-in protocol handlers instead of external guacd.
+                        // Spawn handler and return result - will fall through to send ConnectionOpened
+                        return match super::handler_connections::invoke_builtin_handler(
+                            self,
+                            conv_type,
+                            registry,
+                            target_connection_no,
+                            Arc::clone(&self.spawned_task_completion_tx),
+                        )
+                        .await
+                        {
+                            Ok(()) => {
+                                debug!("Handler spawned successfully, sending ConnectionOpened (channel: {}, conversation_id: {}, conn: {})",
                                     self.channel_id, self.conversation_id, target_connection_no);
-                                    let mut payload = self.buffer_pool.acquire();
-                                    payload.put_u32(target_connection_no);
-                                    let result = self
-                                        .send_control_message(
-                                            ControlMessage::ConnectionOpened,
-                                            &payload,
-                                        )
-                                        .await;
-                                    self.buffer_pool.release(payload);
-                                    result
-                                }
-                                Err(e) => {
-                                    error!(
-                                        "Handler failed to start (channel: {}, conversation_id: {}, conn: {}): {}",
-                                        self.channel_id, self.conversation_id, target_connection_no, e
-                                    );
-                                    let mut payload = self.buffer_pool.acquire();
-                                    payload.put_u32(target_connection_no);
-                                    payload.put_u8(CloseConnectionReason::ConnectionFailed as u8);
-                                    let result = self
-                                        .send_control_message(
-                                            ControlMessage::CloseConnection,
-                                            &payload,
-                                        )
-                                        .await;
-                                    self.buffer_pool.release(payload);
-                                    result.and(Err(e))
-                                }
-                            };
-                        }
+                                let mut payload = self.buffer_pool.acquire();
+                                payload.put_u32(target_connection_no);
+                                let result = self
+                                    .send_control_message(
+                                        ControlMessage::ConnectionOpened,
+                                        &payload,
+                                    )
+                                    .await;
+                                self.buffer_pool.release(payload);
+                                result
+                            }
+                            Err(e) => {
+                                error!(
+                                    "Handler failed to start (channel: {}, conversation_id: {}, conn: {}): {}",
+                                    self.channel_id, self.conversation_id, target_connection_no, e
+                                );
+                                let mut payload = self.buffer_pool.acquire();
+                                payload.put_u32(target_connection_no);
+                                payload.put_u8(CloseConnectionReason::ConnectionFailed as u8);
+                                let result = self
+                                    .send_control_message(ControlMessage::CloseConnection, &payload)
+                                    .await;
+                                self.buffer_pool.release(payload);
+                                result.and(Err(e))
+                            }
+                        };
                     }
                 }
 

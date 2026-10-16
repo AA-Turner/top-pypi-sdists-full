@@ -1163,7 +1163,8 @@ class TimeBase(MaskableShapedLikeNDArray):
         # For non-Time object, use numpy to help figure out the length.  (Note annoying
         # case of a string input that has a length which is not the length we want).
         if not isinstance(values, self.__class__):
-            values = np.asarray(values)
+            # asanyarray, not asarray, so that a Masked input keeps its mask.
+            values = np.asanyarray(values)
         n_values = len(values) if values.shape else 1
 
         # Finally make the new object with the correct length and set values for the
@@ -1172,12 +1173,17 @@ class TimeBase(MaskableShapedLikeNDArray):
             [self], len(self) + n_values, name=self.info.name
         )
 
-        out._time.jd1[:idx0] = self._time.jd1[:idx0]
-        out._time.jd2[:idx0] = self._time.jd2[:idx0]
+        # Copy the initial elements of self to out. ``new_like`` always makes an
+        # unmasked object, but copying `self` here using the full Time slice will
+        # upgrade ``out`` as needed.
+        out[:idx0] = self[:idx0]
 
         # This uses the Time setting machinery to coerce and validate as necessary.
         out[idx0 : idx0 + n_values] = values
 
+        # Finally we can just do a direct copy of the jd1/2 values since we know the
+        # masking is already handled.  This is more efficient than using the Time
+        # setting machinery.
         out._time.jd1[idx0 + n_values :] = self._time.jd1[idx0:]
         out._time.jd2[idx0 + n_values :] = self._time.jd2[idx0:]
 
@@ -1204,11 +1210,7 @@ class TimeBase(MaskableShapedLikeNDArray):
                 delattr(self, attr)
 
         if value is np.ma.masked or value is np.nan:  # noqa: PLW0177, RUF100
-            if not isinstance(self._time.jd2, Masked):
-                self._time.jd1 = Masked(self._time.jd1, copy=False)
-                self._time.jd2 = Masked(
-                    self._time.jd2, mask=self._time.jd1.mask, copy=False
-                )
+            self._time._ensure_masked()
             self._time.jd2.mask[item] = True
             return
 
@@ -1222,6 +1224,13 @@ class TimeBase(MaskableShapedLikeNDArray):
         # Finally directly set the jd1/2 values.  Locations are known to match.
         if self.scale is not None:
             value = getattr(value, self.scale)
+
+        # If the value carries a mask but we do not, we have to upgrade our
+        # internal jd1/jd2 to Masked first, otherwise the mask of the value
+        # would be silently dropped (gh-20173).
+        if value.masked:
+            self._time._ensure_masked()
+
         self._time.jd1[item] = value._time.jd1
         self._time.jd2[item] = value._time.jd2
 

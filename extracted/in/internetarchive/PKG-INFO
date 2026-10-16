@@ -1,11 +1,14 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: internetarchive
-Version: 5.11.1
+Version: 5.12.0
 Summary: A Python interface to archive.org.
-Home-page: https://github.com/jjjake/internetarchive
-Author: Jacob M. Johnson
-Author-email: jake@archive.org
-License: AGPL-3.0
+Project-URL: Homepage, https://github.com/jjjake/internetarchive
+Project-URL: Documentation, https://archive.org/developers/internetarchive/
+Project-URL: Source, https://github.com/jjjake/internetarchive
+Project-URL: Changelog, https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst
+Author-email: "Jacob M. Johnson" <jake@archive.org>
+License-Expression: AGPL-3.0-only
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -15,54 +18,50 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
 Requires-Dist: jsonpatch>=0.4
 Requires-Dist: requests<3.0.0,>=2.25.0
 Requires-Dist: tqdm>=4.0.0
 Requires-Dist: urllib3>=1.26.0
 Provides-Extra: all
-Requires-Dist: mypy; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: setuptools; extra == "all"
-Requires-Dist: twine; extra == "all"
-Requires-Dist: pytest==9.0.3; extra == "all"
-Requires-Dist: responses==0.26.1; extra == "all"
-Requires-Dist: ruff==0.14.1; extra == "all"
-Requires-Dist: tqdm-stubs>=0.2.0; extra == "all"
-Requires-Dist: types-colorama; extra == "all"
-Requires-Dist: types-jsonpatch>=0.1.0a0; extra == "all"
-Requires-Dist: types-pygments; extra == "all"
-Requires-Dist: types-requests<3.0.0,>=2.25.0; extra == "all"
-Requires-Dist: types-setuptools; extra == "all"
-Requires-Dist: types-ujson>=4.2.0; extra == "all"
-Requires-Dist: types-urllib3>=1.26.0; extra == "all"
+Requires-Dist: alabaster==1.0.0; extra == 'all'
+Requires-Dist: mypy; extra == 'all'
+Requires-Dist: pre-commit; extra == 'all'
+Requires-Dist: pytest; extra == 'all'
+Requires-Dist: pytest==9.0.3; extra == 'all'
+Requires-Dist: responses==0.26.1; extra == 'all'
+Requires-Dist: ruff==0.14.1; extra == 'all'
+Requires-Dist: sphinx-autodoc-typehints==3.0.0; extra == 'all'
+Requires-Dist: sphinx==8.1.3; extra == 'all'
+Requires-Dist: tqdm-stubs>=0.2.0; extra == 'all'
+Requires-Dist: types-colorama; extra == 'all'
+Requires-Dist: types-jsonpatch>=0.1.0a0; extra == 'all'
+Requires-Dist: types-pygments; extra == 'all'
+Requires-Dist: types-requests<3.0.0,>=2.25.0; extra == 'all'
+Requires-Dist: types-ujson>=4.2.0; extra == 'all'
+Requires-Dist: types-urllib3>=1.26.0; extra == 'all'
+Requires-Dist: typing-extensions; extra == 'all'
 Provides-Extra: dev
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: setuptools; extra == "dev"
-Requires-Dist: twine; extra == "dev"
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: alabaster==1.0.0; extra == "docs"
-Requires-Dist: sphinx==8.1.3; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints==3.0.0; extra == "docs"
-Requires-Dist: typing-extensions; extra == "docs"
+Requires-Dist: alabaster==1.0.0; extra == 'docs'
+Requires-Dist: sphinx-autodoc-typehints==3.0.0; extra == 'docs'
+Requires-Dist: sphinx==8.1.3; extra == 'docs'
+Requires-Dist: typing-extensions; extra == 'docs'
 Provides-Extra: test
-Requires-Dist: pytest==9.0.3; extra == "test"
-Requires-Dist: responses==0.26.1; extra == "test"
-Requires-Dist: ruff==0.14.1; extra == "test"
+Requires-Dist: pytest==9.0.3; extra == 'test'
+Requires-Dist: responses==0.26.1; extra == 'test'
+Requires-Dist: ruff==0.14.1; extra == 'test'
 Provides-Extra: types
-Requires-Dist: tqdm-stubs>=0.2.0; extra == "types"
-Requires-Dist: types-colorama; extra == "types"
-Requires-Dist: types-jsonpatch>=0.1.0a0; extra == "types"
-Requires-Dist: types-pygments; extra == "types"
-Requires-Dist: types-requests<3.0.0,>=2.25.0; extra == "types"
-Requires-Dist: types-setuptools; extra == "types"
-Requires-Dist: types-ujson>=4.2.0; extra == "types"
-Requires-Dist: types-urllib3>=1.26.0; extra == "types"
-Dynamic: license-file
+Requires-Dist: tqdm-stubs>=0.2.0; extra == 'types'
+Requires-Dist: types-colorama; extra == 'types'
+Requires-Dist: types-jsonpatch>=0.1.0a0; extra == 'types'
+Requires-Dist: types-pygments; extra == 'types'
+Requires-Dist: types-requests<3.0.0,>=2.25.0; extra == 'types'
+Requires-Dist: types-ujson>=4.2.0; extra == 'types'
+Requires-Dist: types-urllib3>=1.26.0; extra == 'types'
+Description-Content-Type: text/x-rst
 
 A Python and Command-Line Interface to Archive.org
 ==================================================

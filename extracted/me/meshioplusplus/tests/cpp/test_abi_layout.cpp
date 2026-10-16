@@ -380,7 +380,8 @@ MIO_ABI_LAYOUT(meshioplusplus::FitPrimitivesOptions, 72, 8);
 // fit_cad's options (roadmap 6.3.3), the same rule; FitCadResult embeds a Mesh.
 // ABI 27 added the freeform options (roadmap 6.3.2): 32 -> 48 bytes; ABI 28
 // added mFreeformSplit, mFillets and mThreads (roadmap 6.3.1, 6.3.2): 48 -> 56.
-// ABI 29 grew FitCadResult only (three counts), so the options are unchanged.
+// ABI 29 grew FitCadResult only (three counts), so the options are unchanged;
+// ABI 30 grew it by five more (roadmap 6.3, v17.2.0), the options again unchanged.
 MIO_ABI_LAYOUT(meshioplusplus::FitCadOptions, 56, 8);
 // The isogeometric layer (roadmap 6.2.2, operations/iga.hpp): the options are passed by
 // const-ref through the exported `iga_refine()` and `iga_sample()`, pinned from
@@ -414,6 +415,8 @@ MIO_ABI_LAYOUT(meshioplusplus::TextGrid, 32, 8);
 // GltfWriteOptions is passed by const-ref through the exported `write_gltf()`,
 // pinned from the release that introduces it (the "pin in advance" lesson).
 MIO_ABI_LAYOUT(meshioplusplus::GltfWriteOptions, 168, 8);
+// GltfReadOptions is passed by const-ref through the exported `read_gltf()`.
+MIO_ABI_LAYOUT(meshioplusplus::GltfReadOptions, 1, 1);
 
 // The v10.38.0 trio, pinned from the release that introduces them for the
 // same reason. RepairOptions: five bools, an int64 and a double (24/8).

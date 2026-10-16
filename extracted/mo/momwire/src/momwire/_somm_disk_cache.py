@@ -18,6 +18,14 @@ What is persisted, per family:
   every region the last one reached.
 * below->above (transmitted) -- the physical grid (`get_grid_below_above`).
 
+Beside the grids (momwire#1471): the below family's sweep ANCHORS are grids
+like any other and live here under their own keys, and a `seen-*.json` file
+lists the frequencies a soil has been asked for (`note_seen`), so the worker
+processes of one resident server act as one sweep. There are no lock files:
+fills are deterministic and stores atomic, so two workers filling the same
+table cost time and nothing else, and a worker killed mid-fill leaves nothing
+behind for the others to wait on.
+
 Contract:
 
 * **A hit is bit-identical to a fresh fill.** Arrays go to `.npz` exactly (no
@@ -597,6 +605,102 @@ def fetch_or_fill(key, fill, *, extra=(), track=False):
         except TypeError:
             pass
     return obj
+
+
+def fetch(key, *, extra=(), track=False):
+    """The grid for `key` if it is on disk, else None. Never fills.
+
+    For a caller that has a cheaper way to get the grid than its own fill
+    when the file is absent (the below family's sweep anchors, momwire#1471).
+    """
+    if not enabled():
+        return None
+    try:
+        named = _identity(key, extra)
+    except Exception:  # noqa: BLE001 — no identity means no disk, never an error
+        named = None
+    if named is None:
+        return None
+    name, ident = named
+    path = cache_dir() / name
+    obj = _load(path, ident)
+    if obj is None:
+        return None
+    STATS["hits"] += 1
+    if track:
+        try:
+            _TRACKED[obj] = (path, ident)
+        except TypeError:
+            pass
+    return obj
+
+
+def store(key, obj, *, extra=()) -> None:
+    """Write `obj` as the grid for `key`, replacing what is there. For a
+    caller that changed a grid it got from `fetch` (an anchor that grew)."""
+    if not enabled():
+        return
+    try:
+        named = _identity(key, extra)
+        if named is not None:
+            _store(cache_dir() / named[0], named[1], obj)
+    except Exception:  # noqa: BLE001 — the disk is an optimization; the grid stands
+        pass
+
+
+def present(key, *, extra=()) -> bool:
+    """True when a file for `key` exists under this code and state. The file
+    is not read, so a corrupt one still answers True and is a miss later."""
+    if not enabled():
+        return False
+    try:
+        named = _identity(key, extra)
+        return named is not None and (cache_dir() / named[0]).exists()
+    except Exception:  # noqa: BLE001 — the disk is an optimization
+        return False
+
+
+# ---------------------------------------------------------------------------
+# What a crew has asked for (momwire#1471)
+# ---------------------------------------------------------------------------
+#
+# The resident server solves a crew's frames in separate worker PROCESSES
+# (momwire#1418) that share nothing but this directory. For a frequency sweep
+# to cost one set of anchor tables rather than one set per worker, the crew's
+# count of nearby frequencies has to cross that boundary; this file carries it.
+_SEEN_MAX = 64
+
+
+def note_seen(tag: str, value: tuple) -> list:
+    """Record `value` (a tuple of floats) under `tag` in a small file every
+    process sharing this directory reads, and return the values recorded so
+    far (this one included). Lost updates between racing writers are
+    harmless: the list is advice about what has been asked for, never data."""
+    value = tuple(float(v) for v in value)
+    if not enabled():
+        return [value]
+    digest = hashlib.sha256(tag.encode()).hexdigest()[:40]
+    path = cache_dir() / f"seen-{digest}.json"
+    try:
+        seen = [
+            tuple(float.fromhex(v) for v in row) for row in json.loads(path.read_text())
+        ]
+    except (OSError, ValueError, TypeError):
+        seen = []
+    if value in seen:
+        return seen
+    seen = (seen + [value])[-_SEEN_MAX:]
+    tmp = path.parent / f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps([[v.hex() for v in row] for row in seen]))
+        os.replace(tmp, path)
+    except OSError:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+    return seen
 
 
 def note_mutated(obj) -> None:

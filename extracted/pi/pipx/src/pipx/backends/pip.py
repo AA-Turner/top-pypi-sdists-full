@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["json", "pipx.shared_libs", "pipx.util"]
+
 import json
 import logging
 from typing import TYPE_CHECKING, Final
@@ -16,9 +18,9 @@ from pipx.util import (
     subprocess_post_check,
     subprocess_post_check_handle_pip_error,
 )
-from pipx.venv_inspect import list_not_required_packages
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
     from subprocess import CompletedProcess
 
@@ -93,12 +95,16 @@ class PipBackend(Backend):
         if verbose or progress:
             cmd.append("--progress-bar=on")
         cmd += [*pip_args, *requirements]
-        process = run_subprocess(
-            cmd,
-            log_stdout=not log_pip_errors,
-            log_stderr=not log_pip_errors,
-            run_dir=str(venv_root),
-            stream_output=verbose or progress,
+        process = shared_libs.run_repairing_pip(
+            lambda: run_subprocess(
+                cmd,
+                log_stdout=not log_pip_errors,
+                log_stderr=not log_pip_errors,
+                run_dir=str(venv_root),
+                stream_output=verbose or progress,
+            ),
+            pip_args=pip_args,
+            verbose=verbose,
         )
         if log_pip_errors:
             subprocess_post_check_handle_pip_error(process)
@@ -113,13 +119,15 @@ class PipBackend(Backend):
         *,
         venv_root: Path,
         venv_python: Path,
-        package: str,
+        packages: Sequence[str],
         verbose: bool,
     ) -> CompletedProcess[str]:
-        cmd = [str(venv_python), "-m", "pip", "uninstall", "-y", package]
+        cmd = [str(venv_python), "-m", "pip", "uninstall", "-y", *packages]
         if not verbose:
             cmd.append("-q")
-        process = run_subprocess(cmd, run_dir=str(venv_root))
+        process = shared_libs.run_repairing_pip(
+            lambda: run_subprocess(cmd, run_dir=str(venv_root)), pip_args=[], verbose=verbose
+        )
         subprocess_post_check(process)
         return process
 
@@ -132,9 +140,11 @@ class PipBackend(Backend):
     ) -> set[str]:
         del venv_root
         if not_required:
+            from pipx.venv_inspect import list_not_required_packages  # ruff:ignore[import-outside-top-level]  # pulls in packaging.requirements, slows startup
+
             return list_not_required_packages(venv_python)
         cmd = [str(venv_python), "-m", "pip", "list", "--format=json"]
-        process = run_subprocess(cmd)
+        process = shared_libs.run_repairing_pip(lambda: run_subprocess(cmd), pip_args=[], verbose=False)
         if process.returncode != 0:
             msg = (
                 f"Failed to execute {process.args}.\n"
@@ -150,10 +160,24 @@ class PipBackend(Backend):
         venv_root: Path,
         venv_python: Path,
         index_args: list[str],
+        exclude: list[str],
     ) -> tuple[OutdatedPackage, ...]:
-        process = run_subprocess(
-            [str(venv_python), "-m", "pip", "list", "--outdated", "--format=json", *index_args],
-            run_dir=str(venv_root),
+        process = shared_libs.run_repairing_pip(
+            lambda: run_subprocess(
+                [
+                    str(venv_python),
+                    "-m",
+                    "pip",
+                    "list",
+                    "--outdated",
+                    "--format=json",
+                    *index_args,
+                    *(f"--exclude={name}" for name in exclude),
+                ],
+                run_dir=str(venv_root),
+            ),
+            pip_args=index_args,
+            verbose=False,
         )
         return outdated_packages_from_process(process)
 
@@ -170,11 +194,17 @@ class PipBackend(Backend):
         cmd = [str(venv_python), "-m", "pip", *args]
         if not verbose:
             cmd.append("-q")
-        return run_subprocess(
-            cmd,
-            capture_stdout=capture_stdout,
-            capture_stderr=capture_stderr,
-            run_dir=str(venv_root),
+        return shared_libs.run_repairing_pip(
+            lambda: run_subprocess(
+                cmd,
+                capture_stdout=capture_stdout,
+                capture_stderr=capture_stderr,
+                run_dir=str(venv_root),
+                # uncaptured, it talks to the user's terminal, as under `pipx runpip`
+                interactive=not (capture_stdout or capture_stderr),
+            ),
+            pip_args=[],
+            verbose=verbose,
         )
 
 

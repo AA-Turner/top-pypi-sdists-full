@@ -235,6 +235,8 @@ def test_registry_progressive_rollout_finalize_marker_help() -> None:
     assert result.returncode == 0
     assert "outcome" in result.stdout
     assert "version" in result.stdout
+    assert "version-yank.yml" in result.stdout
+    assert "latest" in result.stdout
 
 
 @pytest.mark.unit

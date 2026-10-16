@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiopnsense
-Version: 1.2.1
+Version: 1.3.0
 Summary: Async Python client library for OPNsense
 Author: Snuffy2
 License-Expression: Apache-2.0
@@ -41,12 +41,13 @@ The client currently includes helpers for:
 - firmware version checks, update status, and upgrade actions
 - interface, gateway, CPU, memory, filesystem, and temperature telemetry
 - diagnostics traffic snapshots and live interface traffic stream samples
-- DHCP lease, IPv4 ARP table, and IPv6 NDP table access
+- DHCP lease, IPv4 ARP table, IPv6 NDP table, and timestamped host-observation access
 - firewall rules, NAT rules, alias toggling, and state killing
 - service status lookup and service start/stop/restart operations
 - SMART device listing and per-device SMART detail queries
 - Unbound blocklist management
 - OpenVPN and WireGuard status plus VPN instance toggling
+- IPsec phase 1 (IKE) connection status
 - vnStat metrics, captive portal vouchers, and speed test data
 
 ## Requirements
@@ -88,6 +89,14 @@ Both scripts read credentials from `scripts/aiopnsense.env` by default. Copy `sc
 [pypi]: https://pypi.org/project/aiopnsense/
 
 # Changelog
+
+## [1.3.0](https://github.com/Snuffy2/aiopnsense/compare/v1.2.1...v1.3.0) (2026-10-16)
+
+
+### Features
+
+* add IPsec phase 1 connection status via get_ipsec ([#149](https://github.com/Snuffy2/aiopnsense/issues/149)) ([97902cd](https://github.com/Snuffy2/aiopnsense/commit/97902cd93fd8d7a3e8d6e228f982bfc3b5eb084d))
+* expose timestamped MAC host observations ([#148](https://github.com/Snuffy2/aiopnsense/issues/148)) ([0480523](https://github.com/Snuffy2/aiopnsense/commit/0480523e0016813808744688fb931c066aaa9c59))
 
 ## [1.2.1](https://github.com/Snuffy2/aiopnsense/compare/v1.2.0...v1.2.1) (2026-10-12)
 

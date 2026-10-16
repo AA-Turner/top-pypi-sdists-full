@@ -12,27 +12,68 @@ use super::tokens::Token;
 pub struct SpannedToken {
     pub token: Token,
     pub span: Span,
+    /// Source text of a word token, only while raw capture is on (function
+    /// bodies, for `type`/`declare -f` printing).
+    pub raw: Option<String>,
+    /// A word lexed with no quoting or escapes (only tracked while alias
+    /// expansion is on): only such a word can name an alias.
+    pub plain: bool,
+    /// The word follows an alias whose value ends in a blank, so it is
+    /// checked for alias expansion too (bash `alias e='echo '`).
+    pub after_blank_alias: bool,
 }
 
 /// Maximum nesting depth for command substitution in the lexer.
 /// THREAT[TM-DOS-044]: Prevents stack overflow from deeply nested $() patterns.
 const DEFAULT_MAX_SUBST_DEPTH: usize = 50;
 
-// Important decision: markers preserve quoted segments only until expansion.
-// They let later unquoted continuations split without splitting the quoted prefix.
-// Marker insertion is one-pass, never repeated String::insert, to avoid parser DoS.
-const QUOTED_SEGMENT_START: char = '\x01';
-const QUOTED_SEGMENT_END: char = '\x02';
+// Important decision: a word that starts quoted and continues with an
+// unquoted expansion marks its quoted spans with the parser's quote-boundary
+// markers (`\u{1e}`/`\u{1f}`), which `parse_word` turns into per-part
+// quotedness (`Word::part_quoted`), so later unquoted continuations split
+// without splitting the quoted prefix. No in-band marker survives into
+// expansion, so data bytes like `\x01` stay data. Marker insertion is
+// one-pass, never repeated String::insert, to avoid parser DoS.
+const QUOTED_SEGMENT_START: char = '\u{1e}';
+const QUOTED_SEGMENT_END: char = '\u{1f}';
 
 #[derive(Default)]
 struct ContinuationFlags {
     has_unquoted_expansion: bool,
+    /// A double-quoted continuation segment holds an expansion
+    /// (`'a'"$1"`): the word must still be parsed, not kept literal.
+    has_quoted_expansion: bool,
     has_unquoted_glob: bool,
     quoted_ranges: Vec<(usize, usize)>,
     error: Option<String>,
 }
 
+/// Bash parses a backquoted command when it runs, so a syntax error there
+/// fails only that substitution (status 2), unlike `$(...)` which fails the
+/// whole command at parse time. A body that does not parse becomes
+/// `eval 'body'`, which reports the same error when (and only if) it runs.
+fn defer_backtick_syntax_error(buf: &mut String, body_start: usize) {
+    let Some(body) = buf.get(body_start..) else {
+        return;
+    };
+    if body.trim().is_empty() || super::Parser::new(body).parse().is_ok() {
+        return;
+    }
+    let deferred = format!("eval {}", super::raw::single_quote(body));
+    buf.truncate(body_start);
+    buf.push_str(&deferred);
+}
+
+/// Concrete (drop-free) type of [`Lexer::lookahead`], so borrows end early.
+type Lookahead<'s, 'a> = std::iter::Peekable<
+    std::iter::Chain<
+        std::iter::Copied<std::collections::vec_deque::Iter<'s, char>>,
+        std::iter::Peekable<std::str::Chars<'a>>,
+    >,
+>;
+
 /// Lexer for bash scripts.
+#[derive(Clone)]
 pub struct Lexer<'a> {
     #[allow(dead_code)] // Stored for error reporting in future
     input: &'a str,
@@ -44,6 +85,35 @@ pub struct Lexer<'a> {
     reinject_buf: VecDeque<char>,
     /// Maximum allowed nesting depth for command substitution
     max_subst_depth: usize,
+    /// Record each word token's source text (see [`SpannedToken::raw`]).
+    /// Important decision: captured from consumed chars, not span offsets,
+    /// so text re-injected after a heredoc body still maps to its own token.
+    capture_raw: bool,
+    raw_buf: String,
+    /// The next word may be an assignment (it follows an operator, a
+    /// reserved word or an assignment): `a[1 + 2]=x` keeps the blanks
+    /// inside its subscript.
+    spaced_subscript: bool,
+    /// Alias expansion is on: word tokens record whether they are plain.
+    track_plain: bool,
+    /// How many characters at the front of `reinject_buf` are alias text.
+    /// They do not move the source position (spans and `$LINENO` stay on
+    /// the line that named the alias).
+    alias_front: usize,
+    /// Aliases whose text is still being read: name, the `alias_front`
+    /// value under which that text is used up, and whether it ends in a blank.
+    alias_stack: Vec<(String, usize, bool)>,
+    /// A blank-ending alias was just used up: the next word is checked too.
+    blank_alias_pending: bool,
+    /// `!(` starts an extglob group. Off when the shell runs without
+    /// `shopt -s extglob`: then `!(a && b)` is `!` and a subshell. The other
+    /// groups (`@(`, `+(`, ...) always lex as patterns, where bash would
+    /// report a syntax error instead.
+    extglob_bang: bool,
+    /// While the rest of a here-document's command line is re-read, the
+    /// position walks that line again (spans and `$LINENO` stay on the
+    /// source text); this is where the input resumes after the body.
+    heredoc_resume: Option<Position>,
 }
 
 impl<'a> Lexer<'a> {
@@ -61,7 +131,21 @@ impl<'a> Lexer<'a> {
             chars: input.chars().peekable(),
             reinject_buf: VecDeque::new(),
             max_subst_depth: max_depth,
+            capture_raw: false,
+            raw_buf: String::new(),
+            spaced_subscript: true,
+            track_plain: false,
+            alias_front: 0,
+            alias_stack: Vec::new(),
+            blank_alias_pending: false,
+            extglob_bang: true,
+            heredoc_resume: None,
         }
+    }
+
+    /// Move the line count forward by `by` (for input embedded at a later line).
+    pub(crate) fn shift_lines(&mut self, by: usize) {
+        self.position.line += by;
     }
 
     /// Get the current position in the input.
@@ -75,6 +159,16 @@ impl<'a> Lexer<'a> {
         self.next_token_inner()
     }
 
+    /// Put `ch` (just read, not a newline) back in front of the remaining
+    /// input; the position moves back so it is not counted twice.
+    pub fn unread_char(&mut self, ch: char) {
+        if ch != '\n' {
+            self.position.offset = self.position.offset.saturating_sub(ch.len_utf8());
+            self.position.column = self.position.column.saturating_sub(1).max(1);
+        }
+        self.reinject_buf.push_front(ch);
+    }
+
     fn peek_char(&mut self) -> Option<char> {
         if let Some(&ch) = self.reinject_buf.front() {
             Some(ch)
@@ -84,26 +178,261 @@ impl<'a> Lexer<'a> {
     }
 
     fn advance(&mut self) -> Option<char> {
-        let ch = if !self.reinject_buf.is_empty() {
+        let mut from_alias = false;
+        let reinjected = !self.reinject_buf.is_empty();
+        let ch = if reinjected {
+            if self.alias_front > 0 {
+                self.alias_front -= 1;
+                from_alias = true;
+            }
             self.reinject_buf.pop_front()
         } else {
             self.chars.next()
         };
         if let Some(c) = ch {
-            self.position.advance(c);
+            if from_alias {
+                self.finish_used_aliases();
+            } else {
+                self.position.advance(c);
+            }
+            // The re-read rest of a here-document's command line is used
+            // up: continue at the input after the body.
+            if reinjected
+                && self.reinject_buf.is_empty()
+                && let Some(resume) = self.heredoc_resume.take()
+            {
+                self.position = resume;
+            }
+            if self.capture_raw || self.track_plain {
+                self.raw_buf.push(c);
+            }
         }
         ch
+    }
+
+    /// Whether `!(` starts an extglob group (`shopt -s extglob`).
+    pub(crate) fn set_extglob_bang(&mut self, on: bool) {
+        self.extglob_bang = on;
+    }
+
+    pub(crate) fn extglob_bang(&self) -> bool {
+        self.extglob_bang
+    }
+
+    /// Turn on plain-word tracking (alias expansion is on).
+    pub(crate) fn set_track_plain(&mut self, on: bool) {
+        self.track_plain = on;
+    }
+
+    /// Whether alias `name` is being expanded now (its text is still being
+    /// read): bash never expands an alias inside its own text.
+    pub(crate) fn alias_active(&self, name: &str) -> bool {
+        self.alias_stack
+            .iter()
+            .any(|(n, end, _)| n == name && self.alias_front > *end)
+    }
+
+    /// Read `text`, the value of alias `name`, before the rest of the input.
+    pub(crate) fn push_alias(&mut self, name: &str, text: &str) {
+        let end = self.alias_front;
+        let blank = text.ends_with([' ', '\t']);
+        // bash checks the first word of a blank-ending value as well as the
+        // word after it (`alias eye2='eye1 '`).
+        self.blank_alias_pending |= blank;
+        let mut n = 0;
+        for ch in text.chars().rev() {
+            self.reinject_buf.push_front(ch);
+            n += 1;
+        }
+        self.alias_front += n;
+        self.alias_stack.push((name.to_string(), end, blank));
+        // An empty value is used up at once.
+        self.finish_used_aliases();
+    }
+
+    /// Pop aliases whose text is fully read; a blank-ending one makes the
+    /// next word an alias candidate.
+    fn finish_used_aliases(&mut self) {
+        while let Some((_, end, blank)) = self.alias_stack.last() {
+            if self.alias_front > *end {
+                break;
+            }
+            if *blank {
+                self.blank_alias_pending = true;
+            }
+            self.alias_stack.pop();
+        }
+    }
+
+    /// Hand back alias text not read yet (a here-document body comes from
+    /// the input, never from the alias: bash reads the rest of the alias
+    /// as commands after the body).
+    fn detach_alias_text(&mut self) -> Vec<char> {
+        let n = self.alias_front.min(self.reinject_buf.len());
+        if n == 0 {
+            return Vec::new();
+        }
+        let mut text: Vec<char> = self.reinject_buf.drain(..n).collect();
+        self.alias_front = 0;
+        self.alias_stack.clear();
+        // The rest of the input line follows the alias text too; the body
+        // starts on the next input line.
+        while let Some(ch) = self.advance() {
+            text.push(ch);
+            if ch == '\n' {
+                break;
+            }
+        }
+        text
+    }
+
+    /// Upcoming characters without consuming them: re-injected text first
+    /// (the rest of a heredoc line), then the input.
+    fn lookahead(&self) -> Lookahead<'_, 'a> {
+        self.reinject_buf
+            .iter()
+            .copied()
+            .chain(self.chars.clone())
+            .peekable()
+    }
+
+    /// After `w`, is the next word still in assignment position? Yes after
+    /// a reserved word or an assignment word (`a=1 b[1 + 2]=x`).
+    fn keeps_assignment_position(w: &str) -> bool {
+        if matches!(
+            w,
+            "if" | "then" | "else" | "elif" | "do" | "while" | "until" | "!" | "{" | "time"
+        ) {
+            return true;
+        }
+        let Some(eq) = w.find('=') else {
+            return false;
+        };
+        let lhs = w[..eq].strip_suffix('+').unwrap_or(&w[..eq]);
+        let name = match lhs.find('[') {
+            Some(open) if lhs.ends_with(']') => &lhs[..open],
+            Some(_) => return false,
+            None => lhs,
+        };
+        let mut chars = name.chars();
+        chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    }
+
+    /// `word` is `name[` with the subscript still open, and the input
+    /// ahead closes it on this line followed by `=` or `+=`: bash reads
+    /// `a[1 + 2]=x` and `a[5&3]=x` as one assignment word, blanks and
+    /// operator characters included.
+    fn spaced_subscript_continues(&self, word: &str) -> bool {
+        let mut depth = Self::open_subscript_depth(word);
+        if depth <= 0 {
+            return false;
+        }
+        let mut ahead = self.lookahead();
+        let mut quote: Option<char> = None;
+        // Bounded scan: a subscript is short; never walk the whole script.
+        for _ in 0..4096 {
+            let Some(c) = ahead.next() else {
+                return false;
+            };
+            if let Some(q) = quote {
+                if c == q {
+                    quote = None;
+                }
+                continue;
+            }
+            match c {
+                '\'' | '"' => quote = Some(c),
+                '\\' => {
+                    ahead.next();
+                }
+                '\n' | ';' => return false,
+                '[' => depth += 1,
+                ']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return match ahead.next() {
+                            Some('=') => true,
+                            Some('+') => ahead.next() == Some('='),
+                            _ => false,
+                        };
+                    }
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// Unclosed `[` count of a word that starts `name[`; 0 otherwise.
+    fn open_subscript_depth(word: &str) -> i32 {
+        let Some(open) = word.find('[') else {
+            return 0;
+        };
+        let mut chars = word[..open].chars();
+        if !chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+            || !chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            return 0;
+        }
+        let mut depth = 0i32;
+        for c in word[open..].chars() {
+            match c {
+                '[' => depth += 1,
+                ']' => depth -= 1,
+                _ => {}
+            }
+        }
+        depth
+    }
+
+    /// Whether word-token source capture is on.
+    pub fn capture_raw(&self) -> bool {
+        self.capture_raw
+    }
+
+    /// Turn word-token source capture on or off.
+    pub fn set_capture_raw(&mut self, on: bool) {
+        self.capture_raw = on;
     }
 
     /// Get the next token with its source span.
     pub fn next_spanned_token(&mut self) -> Option<SpannedToken> {
         self.skip_whitespace();
         let start = self.position;
+        self.raw_buf.clear();
+        let after_blank_alias = std::mem::take(&mut self.blank_alias_pending);
         let token = self.next_token_inner()?;
+        // A word is lexed in assignment position after an operator, a
+        // reserved word or another assignment, never after a command name.
+        self.spaced_subscript = match &token {
+            Token::Word(w)
+            | Token::LiteralWord(w)
+            | Token::QuotedWord(w)
+            | Token::QuotedGlobWord(w) => Self::keeps_assignment_position(w),
+            _ => true,
+        };
         let end = self.position;
+        let plain = self.track_plain && matches!(&token, Token::Word(w) if *w == self.raw_buf);
+        let raw = (self.capture_raw
+            && matches!(
+                token,
+                Token::Word(_)
+                    | Token::LiteralWord(_)
+                    | Token::QuotedWord(_)
+                    | Token::QuotedGlobWord(_)
+            ))
+        .then(|| std::mem::take(&mut self.raw_buf));
         Some(SpannedToken {
             token,
             span: Span::from_positions(start, end),
+            raw,
+            plain,
+            after_blank_alias,
         })
     }
 
@@ -138,6 +467,9 @@ impl<'a> Lexer<'a> {
                 if self.peek_char() == Some('|') {
                     self.advance();
                     Some(Token::Or)
+                } else if self.peek_char() == Some('&') {
+                    self.advance();
+                    Some(Token::PipeBoth)
                 } else {
                     Some(Token::Pipe)
                 }
@@ -149,7 +481,12 @@ impl<'a> Lexer<'a> {
                     Some(Token::And)
                 } else if self.peek_char() == Some('>') {
                     self.advance();
-                    Some(Token::RedirectBoth)
+                    if self.peek_char() == Some('>') {
+                        self.advance();
+                        Some(Token::RedirectBothAppend)
+                    } else {
+                        Some(Token::RedirectBoth)
+                    }
                 } else {
                     Some(Token::Background)
                 }
@@ -191,6 +528,9 @@ impl<'a> Lexer<'a> {
                 } else if self.peek_char() == Some('&') {
                     self.advance();
                     Some(Token::DupInput)
+                } else if self.peek_char() == Some('>') {
+                    self.advance();
+                    Some(Token::RedirectReadWrite)
                 } else {
                     Some(Token::RedirectIn)
                 }
@@ -217,23 +557,42 @@ impl<'a> Lexer<'a> {
                 // Look ahead to see if this is a brace expansion like {a,b,c} or {1..5}
                 // vs a brace group like { cmd; }
                 // Note: { must be followed by space/newline to be a brace group
-                if self.looks_like_brace_expansion() {
-                    self.read_brace_expansion_word()
-                } else if self.is_brace_group_start() {
+                if self.is_brace_group_start() {
                     self.advance();
                     Some(Token::LeftBrace)
                 } else {
-                    // {single} without comma/dot-dot is kept as literal word
-                    self.read_brace_literal_word()
+                    // Any other `{` starts an ordinary word: braces are plain
+                    // word characters to the lexer, and brace expansion runs
+                    // on the parsed word (quotes and `$` handled as usual).
+                    self.read_word()
                 }
             }
             '}' => {
+                // `}` closes a brace group only as a standalone word, the way
+                // `{ cmd; }` writes it. Anything glued to it is an ordinary
+                // word: bash runs `}b` as a command named `}b`, and echoes
+                // `}b` as an argument.
+                let stands_alone = self.right_brace_stands_alone();
                 self.advance();
-                Some(Token::RightBrace)
+                if stands_alone {
+                    Some(Token::RightBrace)
+                } else {
+                    // `read_word_starting_with` seeds the word with the prefix
+                    // and reads from the cursor, so `}` must already be consumed.
+                    self.read_word_starting_with("}")
+                }
             }
             '[' => {
                 self.advance();
-                if self.peek_char() == Some('[') {
+                // `[[` is the keyword only as a whole word; `[[:digit:]]*` is
+                // a glob bracket expression.
+                let mut lookahead = self.lookahead();
+                let keyword = lookahead.next() == Some('[')
+                    && matches!(
+                        lookahead.next(),
+                        None | Some(' ' | '\t' | '\n' | ';' | '&' | '|' | '(' | ')')
+                    );
+                if keyword {
                     self.advance();
                     Some(Token::DoubleLeftBracket)
                 } else {
@@ -252,19 +611,46 @@ impl<'a> Lexer<'a> {
                             self.read_word_starting_with("[")
                         }
                         _ => {
-                            // Part of a glob bracket expression [abc], read the whole thing
-                            self.read_bracket_word()
+                            // A backslash inside the brackets is quoting
+                            // (`[\\]_` is the pattern `[\]` then `_`): read
+                            // it as an ordinary word, which removes quotes.
+                            let mut ahead = self.lookahead();
+                            let escaped = loop {
+                                match ahead.next() {
+                                    Some('\\') => break true,
+                                    None | Some(']' | ' ' | '\t' | '\n') => break false,
+                                    _ => {}
+                                }
+                            };
+                            if escaped {
+                                self.read_word_from("[".to_string())
+                            } else {
+                                // Part of a glob bracket expression [abc], read the whole thing
+                                self.read_bracket_word()
+                            }
                         }
                     }
                 }
             }
             ']' => {
+                // `]]` closes `[[` only as a whole word; `]]x` and `]x` are
+                // ordinary words, like bash.
+                let ends_word = |c: Option<char>| {
+                    matches!(
+                        c,
+                        None | Some(' ' | '\t' | '\n' | ';' | '|' | '&' | '(' | ')' | '<' | '>')
+                    )
+                };
                 self.advance();
-                if self.peek_char() == Some(']') {
+                let mut ahead = self.lookahead();
+                let double = ahead.next() == Some(']') && ends_word(ahead.next());
+                if double {
                     self.advance();
                     Some(Token::DoubleRightBracket)
-                } else {
+                } else if ends_word(self.peek_char()) {
                     Some(Token::Word("]".to_string()))
+                } else {
+                    self.read_word_starting_with("]")
                 }
             }
             '\'' => self.read_single_quoted_string(),
@@ -286,7 +672,7 @@ impl<'a> Lexer<'a> {
                 self.advance();
             } else if ch == '\\' {
                 // Check for backslash-newline (line continuation) between tokens
-                let mut lookahead = self.chars.clone();
+                let mut lookahead = self.lookahead();
                 lookahead.next(); // skip backslash
                 if lookahead.next() == Some('\n') {
                     self.advance(); // consume backslash
@@ -309,114 +695,171 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    /// Check if this is a file descriptor redirect (e.g., 2>, 2>>, 2>&1)
-    /// or just a regular word starting with a digit
+    /// Check if this is a file descriptor redirect (e.g., 2>, 2>>, 2>&1,
+    /// 10>file, 3<<<word, 4<>file) or just a regular word starting with a
+    /// digit. Bash accepts any decimal fd number; more than
+    /// `MAX_FD_PREFIX_DIGITS` digits (out of `int` range) is a plain word.
     fn read_word_or_fd_redirect(&mut self) -> Option<Token> {
-        // We need to look ahead to see if this is a fd redirect pattern
-        // Collect the leading digits
-        let mut fd_str = String::new();
-
-        // Peek at the first digit - we know it's a digit from the match
-        if let Some(ch) = self.peek_char()
-            && ch.is_ascii_digit()
-        {
-            fd_str.push(ch);
+        const MAX_FD_PREFIX_DIGITS: usize = 9;
+        // Only the digits plus a 3-char redirect operator (e.g. "<<<", ">>")
+        // matter, so bound the lookahead: collecting all remaining input here
+        // made every digit-initial word O(n) and the whole lex O(n^2)
+        // (TM-DOS-024).
+        let input_remaining: String = self.lookahead().take(MAX_FD_PREFIX_DIGITS + 4).collect();
+        let ndigits = input_remaining
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .count();
+        if ndigits == 0 || ndigits > MAX_FD_PREFIX_DIGITS {
+            return self.read_word();
         }
-
-        // Check if it's a single digit followed by > or <
-        // We need to peek further without consuming. Only the digit plus a
-        // 2-char redirect operator (e.g. ">>", "<&", "<<") matter, so bound the
-        // lookahead — collecting all remaining input here made every
-        // digit-initial word O(n) and the whole lex O(n^2) (TM-DOS-024).
-        let input_remaining: String = self.chars.clone().take(4).collect();
-
-        // Check patterns: "N>" "N>>" "N>&" "N<" "N<&"
-        if fd_str.len() == 1
-            && let Some(first_digit) = fd_str.chars().next()
-        {
-            let rest = input_remaining.get(1..).unwrap_or(""); // Skip the digit we already matched
-
-            if rest.starts_with(">>") {
-                // N>> - append redirect with fd
-                let fd: i32 = first_digit.to_digit(10).unwrap() as i32;
-                self.advance(); // consume digit
-                self.advance(); // consume >
-                self.advance(); // consume >
-                return Some(Token::RedirectFdAppend(fd));
-            } else if rest.starts_with(">&") {
-                // N>&M - duplicate fd
-                let fd: i32 = first_digit.to_digit(10).unwrap() as i32;
-                self.advance(); // consume digit
-                self.advance(); // consume >
-                self.advance(); // consume &
-
-                // Read the target fd number or '-'
-                let mut target_str = String::new();
-                while let Some(c) = self.peek_char() {
-                    if c.is_ascii_digit() || c == '-' {
-                        target_str.push(c);
-                        self.advance();
-                        if c == '-' {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-
-                if target_str == "-" {
-                    return Some(Token::DupFdCloseOut(fd));
-                }
-                if target_str.is_empty() {
-                    // Just N>& without target - treat as DupOutput with fd
-                    return Some(Token::RedirectFd(fd));
-                }
-
-                let target_fd: i32 = target_str.parse().unwrap_or(1);
-                return Some(Token::DupFd(fd, target_fd));
-            } else if rest.starts_with('>') {
-                // N> - redirect with fd
-                let fd: i32 = first_digit.to_digit(10).unwrap() as i32;
-                self.advance(); // consume digit
-                self.advance(); // consume >
-                return Some(Token::RedirectFd(fd));
-            } else if rest.starts_with("<&") {
-                // N<&M or N<&- - duplicate input fd
-                let fd: i32 = first_digit.to_digit(10).unwrap() as i32;
-                self.advance(); // consume digit
-                self.advance(); // consume <
-                self.advance(); // consume &
-
-                // Read the target fd number or '-'
-                let mut target_str = String::new();
-                while let Some(c) = self.peek_char() {
-                    if c.is_ascii_digit() || c == '-' {
-                        target_str.push(c);
-                        self.advance();
-                        if c == '-' {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-
-                if target_str == "-" {
-                    return Some(Token::DupFdClose(fd));
-                }
-                let target_fd: i32 = target_str.parse().unwrap_or(0);
-                return Some(Token::DupFdIn(fd, target_fd));
-            } else if rest.starts_with('<') && !rest.starts_with("<<") {
-                // N< - input redirect with fd
-                let fd: i32 = first_digit.to_digit(10).unwrap() as i32;
-                self.advance(); // consume digit
-                self.advance(); // consume <
-                return Some(Token::RedirectFdIn(fd));
+        let Ok(fd) = input_remaining[..ndigits].parse::<i32>() else {
+            return self.read_word();
+        };
+        let rest = &input_remaining[ndigits..];
+        // Consume the fd digits plus `op_len` operator chars.
+        let consume = |lexer: &mut Self, op_len: usize| {
+            for _ in 0..ndigits + op_len {
+                lexer.advance();
             }
+        };
+
+        if rest.starts_with("<(") || rest.starts_with(">(") {
+            // `2<(cmd)`: a word touching a process substitution, as bash.
+            return self.read_word();
+        } else if rest.starts_with(">>") {
+            // N>> - append redirect with fd
+            consume(self, 2);
+            return Some(Token::RedirectFdAppend(fd));
+        } else if rest.starts_with(">&") {
+            // N>&M - duplicate fd
+            consume(self, 2);
+
+            // `N>&M-` moves M: leave `M-` to be read as the target word.
+            let digits = self.lookahead().take_while(|c| c.is_ascii_digit()).count();
+            if digits > 0 && self.lookahead().nth(digits) == Some('-') {
+                return Some(Token::DupFdWord(fd));
+            }
+
+            // Read the target fd number or '-'
+            let mut target_str = String::new();
+            while let Some(c) = self.peek_char() {
+                if c.is_ascii_digit() || c == '-' {
+                    target_str.push(c);
+                    self.advance();
+                    if c == '-' {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if target_str == "-" {
+                return Some(Token::DupFdCloseOut(fd));
+            }
+            if target_str.is_empty() {
+                // `N>&word`: a descriptor, `-` or (for fd 1) a file, known
+                // only once the word is expanded.
+                return Some(Token::DupFdWord(fd));
+            }
+
+            let target_fd: i32 = target_str.parse().unwrap_or(1);
+            return Some(Token::DupFd(fd, target_fd));
+        } else if rest.starts_with('>') {
+            // N> - redirect with fd
+            consume(self, 1);
+            return Some(Token::RedirectFd(fd));
+        } else if rest.starts_with("<&") {
+            // N<&M or N<&- - duplicate input fd
+            consume(self, 2);
+
+            // Read the target fd number or '-'
+            let mut target_str = String::new();
+            while let Some(c) = self.peek_char() {
+                if c.is_ascii_digit() || c == '-' {
+                    target_str.push(c);
+                    self.advance();
+                    if c == '-' {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if target_str == "-" {
+                return Some(Token::DupFdClose(fd));
+            }
+            let target_fd: i32 = target_str.parse().unwrap_or(0);
+            return Some(Token::DupFdIn(fd, target_fd));
+        } else if rest.starts_with("<<<") {
+            // N<<<word - here string on fd N
+            consume(self, 3);
+            return Some(Token::HereStringFd(fd));
+        } else if rest.starts_with("<<") {
+            // N<<EOF / N<<-EOF - here document on fd N
+            consume(self, 2);
+            let strip = self.peek_char() == Some('-');
+            if strip {
+                self.advance();
+            }
+            return Some(Token::HereDocFd(fd, strip));
+        } else if rest.starts_with("<>") {
+            // N<>file - open file read-write on fd N
+            consume(self, 2);
+            return Some(Token::RedirectFdReadWrite(fd));
+        } else if rest.starts_with('<') {
+            // N< - input redirect with fd
+            consume(self, 1);
+            return Some(Token::RedirectFdIn(fd));
         }
 
         // Not a fd redirect pattern, read as regular word
         self.read_word()
+    }
+
+    /// Consume a backtick command substitution at the cursor and append it
+    /// to `word` as `$(cmd)`.
+    fn read_backtick_into(&mut self, word: &mut String) -> Result<(), String> {
+        self.advance(); // consume opening `
+        word.push_str("$(");
+        // `` `(cmd)` `` must not read as `$((`.
+        if self.peek_char() == Some('(') {
+            word.push(' ');
+        }
+        let body_start = word.len();
+        let mut closed = false;
+        while let Some(c) = self.peek_char() {
+            if c == '`' {
+                self.advance(); // consume closing `
+                closed = true;
+                break;
+            }
+            if c == '\\' {
+                // In backticks, backslash only escapes $, `, \, newline
+                self.advance();
+                if let Some(next) = self.peek_char() {
+                    if matches!(next, '$' | '`' | '\\' | '\n') {
+                        word.push(next);
+                        self.advance();
+                    } else {
+                        word.push('\\');
+                        word.push(next);
+                        self.advance();
+                    }
+                }
+            } else {
+                word.push(c);
+                self.advance();
+            }
+        }
+        if !closed {
+            return Err("unterminated backtick substitution".to_string());
+        }
+        defer_backtick_syntax_error(word, body_start);
+        word.push(')');
+        Ok(())
     }
 
     fn read_word_starting_with(&mut self, prefix: &str) -> Option<Token> {
@@ -467,8 +910,11 @@ impl<'a> Lexer<'a> {
                     }
                     // Track quoted expansions for IFS-split suppression
                     if c == '$' && quote_char == '"' {
-                        word.push(c);
                         self.advance();
+                        if self.take_dquote_dollar(&mut word) {
+                            has_quoted_expansion = true;
+                            continue;
+                        }
                         if self.peek_char().is_some_and(|nc| {
                             nc.is_ascii_alphanumeric()
                                 || nc == '_'
@@ -476,9 +922,22 @@ impl<'a> Lexer<'a> {
                         }) {
                             has_quoted_expansion = true;
                         }
+                        // Read `$(...)`/`${...}` whole so quotes inside them
+                        // keep their own meaning.
+                        if self.peek_char() == Some('(') {
+                            word.push('(');
+                            self.advance();
+                            self.read_command_subst_into(&mut word);
+                        } else if self.peek_char() == Some('{') {
+                            word.push('{');
+                            self.advance();
+                            if let Err(msg) = self.read_param_expansion_into(&mut word) {
+                                return Some(Token::Error(msg));
+                            }
+                        }
                         continue;
                     }
-                    if quote_char == '\'' && c == '$' {
+                    if quote_char == '\'' && matches!(c, '$' | '\u{1e}' | '\u{1f}') {
                         // Preserve literal '$' semantics from single-quoted
                         // segments when concatenated into an existing word
                         // (e.g. foo'$(id)' or VAR='${HOME}').
@@ -506,10 +965,16 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 // Read variable/expansion following $
                 if let Some(nc) = self.peek_char() {
-                    if nc == '{' || nc == '(' {
+                    if nc == '{' {
                         word.push(nc);
                         self.advance();
-                        let (open, close) = if nc == '{' { ('{', '}') } else { ('(', ')') };
+                        if let Err(e) = self.read_unquoted_param_body(&mut word) {
+                            return Some(Token::Error(e));
+                        }
+                    } else if nc == '(' {
+                        word.push(nc);
+                        self.advance();
+                        let (open, close) = ('(', ')');
                         let mut depth = 1;
                         while let Some(bc) = self.peek_char() {
                             word.push(bc);
@@ -542,7 +1007,15 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 continue;
-            } else if self.is_word_char(ch) || ch == ']' {
+            } else if ch == '`' {
+                if let Err(e) = self.read_backtick_into(&mut word) {
+                    return Some(Token::Error(e));
+                }
+            } else if self.is_word_char(ch) || matches!(ch, ']' | '{' | '}') {
+                // `}` included for the same reason as in `read_word`: it is a
+                // reserved word, not a metacharacter, so it stays inside the
+                // word unless it stands alone (`echo }}` prints `}}`). `{`
+                // keeps a brace tail in the word (`[k]="v"{1,2}`).
                 word.push(ch);
                 self.advance();
             } else {
@@ -557,7 +1030,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn read_word(&mut self) -> Option<Token> {
-        let mut word = String::new();
+        self.read_word_from(String::new())
+    }
+
+    /// `read_word` with `word` already holding unquoted text (a `[`).
+    fn read_word_from(&mut self, mut word: String) -> Option<Token> {
         // Track whether any double-quoted segment contained a variable/command
         // expansion.  When true the whole token is promoted to QuotedWord so
         // the interpreter suppresses IFS field splitting — matching POSIX
@@ -567,7 +1044,17 @@ impl<'a> Lexer<'a> {
         // unquoted portion of the word.  When both `has_quoted_expansion` and
         // this flag are true, the word needs IFS-splitting suppression (quoted)
         // *and* glob expansion on the unquoted portion — e.g. `"$var"*.ext`.
-        let mut has_unquoted_glob = false;
+        let mut has_unquoted_glob = word.contains(['*', '?', '[']);
+        // Byte ranges of quoted or backslash-escaped text, and whether an
+        // unquoted `$`/backtick expansion appears. Together they decide how
+        // quoted glob characters stay literal (see the end of this function).
+        let mut quoted_ranges: Vec<(usize, usize)> = Vec::new();
+        let mut has_unquoted_expansion = false;
+        // An extglob group held quoted or escaped text, kept as `\x`: the
+        // word must drop those escapes when it matches nothing.
+        let mut extglob_escaped = false;
+        // A blank inside `name[...]` was checked to close with `]=` ahead.
+        let mut spaced_ok = false;
 
         while let Some(ch) = self.peek_char() {
             // Handle quoted strings within words (e.g., a="Hello" or VAR="value")
@@ -582,9 +1069,11 @@ impl<'a> Lexer<'a> {
                 let quote_char = ch;
                 self.advance(); // consume opening quote
                 let mut closed = false;
-                if quote_char == '"' {
-                    word.push('\u{1e}');
-                }
+                // Both quote kinds mark their span, so the quoted text is
+                // never IFS-split (`$x'a b'`) and an empty pair still makes
+                // a field (`$x""`).
+                word.push('\u{1e}');
+                let seg_start = word.len();
                 while let Some(c) = self.peek_char() {
                     if c == quote_char {
                         self.advance(); // consume closing quote
@@ -622,8 +1111,11 @@ impl<'a> Lexer<'a> {
                     // Handle $(...) inside double-quoted word segments
                     // to preserve single-quoted strings within command substitutions
                     if c == '$' && quote_char == '"' {
-                        word.push(c);
                         self.advance();
+                        if self.take_dquote_dollar(&mut word) {
+                            has_quoted_expansion = true;
+                            continue;
+                        }
                         // Mark that this word contains a quoted expansion so IFS
                         // splitting is suppressed (e.g. +"$fmt" stays one field).
                         if self.peek_char().is_some_and(|nc| {
@@ -639,9 +1131,18 @@ impl<'a> Lexer<'a> {
                             self.read_command_subst_into(&mut word);
                             continue;
                         }
+                        if self.peek_char() == Some('{') {
+                            // `${...}` body in double-quote context, so a
+                            // `$'...'` operand inside it stays ANSI-C quoting.
+                            word.push('{');
+                            self.advance();
+                            if let Err(msg) = self.read_param_expansion_into(&mut word) {
+                                return Some(Token::Error(msg));
+                            }
+                        }
                         continue;
                     }
-                    if quote_char == '\'' && c == '$' {
+                    if quote_char == '\'' && matches!(c, '$' | '\u{1e}' | '\u{1f}') {
                         // Preserve literal '$' semantics from single-quoted
                         // segments when concatenated into an existing word
                         // (e.g. foo'$(id)' or VAR='${HOME}').
@@ -660,9 +1161,8 @@ impl<'a> Lexer<'a> {
                         }
                     )));
                 }
-                if quote_char == '"' {
-                    word.push('\u{1f}');
-                }
+                quoted_ranges.push((seg_start, word.len()));
+                word.push('\u{1f}');
                 continue;
             } else if ch == '$' {
                 // Handle variable references and command substitution
@@ -676,7 +1176,9 @@ impl<'a> Lexer<'a> {
                     if !closed {
                         return Some(Token::Error("unterminated single quote".to_string()));
                     }
+                    let seg_start = word.len();
                     Self::push_literal_with_escaped_dollar(&mut word, &content);
+                    quoted_ranges.push((seg_start, word.len()));
                     word.push('\u{1f}');
                     // ANSI-C quotes are single-quote semantics: quoted context.
                     has_quoted_expansion = true;
@@ -689,6 +1191,7 @@ impl<'a> Lexer<'a> {
                     // Locale quotes are double-quote semantics: quoted context.
                     has_quoted_expansion = true;
                     word.push('\u{1e}');
+                    let seg_start = word.len();
                     let mut closed = false;
                     while let Some(c) = self.peek_char() {
                         if c == '"' {
@@ -722,8 +1225,10 @@ impl<'a> Lexer<'a> {
                             }
                         }
                         if c == '$' {
-                            word.push(c);
                             self.advance();
+                            if self.take_dquote_dollar(&mut word) {
+                                continue;
+                            }
                             if let Some(nc) = self.peek_char() {
                                 if nc == '{' {
                                     word.push(nc);
@@ -777,10 +1282,12 @@ impl<'a> Lexer<'a> {
                     if !closed {
                         return Some(Token::Error("unterminated double quote".to_string()));
                     }
+                    quoted_ranges.push((seg_start, word.len()));
                     word.push('\u{1f}');
                     continue;
                 }
 
+                has_unquoted_expansion = true;
                 word.push(ch); // push the '$'
 
                 // Check for $( - command substitution or arithmetic
@@ -790,10 +1297,12 @@ impl<'a> Lexer<'a> {
 
                     // Check for $(( - arithmetic expansion
                     if self.peek_char() == Some('(') {
+                        let inner_open = word.len();
                         word.push('(');
                         self.advance();
                         // Read until ))
                         let mut depth = 2;
+                        let mut subshell = false;
                         while let Some(c) = self.peek_char() {
                             word.push(c);
                             self.advance();
@@ -801,75 +1310,39 @@ impl<'a> Lexer<'a> {
                                 depth += 1;
                             } else if c == ')' {
                                 depth -= 1;
+                                if depth == 1 && !subshell && self.peek_char() != Some(')') {
+                                    // `$(( cmd ) )`: the inner `(` closes
+                                    // alone, so this is `$( (cmd) )`, a
+                                    // command substitution of a subshell
+                                    // (bash reads it the same way).
+                                    word.insert(inner_open, ' ');
+                                    subshell = true;
+                                }
                                 if depth == 0 {
                                     break;
                                 }
                             }
                         }
                     } else {
-                        // THREAT[TM-DOS]: Track substitution nesting depth to
-                        // enforce max_subst_depth consistently in both quoted
-                        // and unquoted contexts (issue #996).
-                        let mut depth = 1;
-                        let mut subst_depth = 1usize;
-                        while let Some(c) = self.peek_char() {
-                            word.push(c);
-                            self.advance();
-                            if c == '$' && self.peek_char() == Some('(') {
-                                subst_depth += 1;
-                                if subst_depth > self.max_subst_depth {
-                                    // Depth limit exceeded — consume remaining
-                                    // parens and stop nesting deeper.
-                                    while let Some(ic) = self.peek_char() {
-                                        word.push(ic);
-                                        self.advance();
-                                        if ic == '(' {
-                                            depth += 1;
-                                        } else if ic == ')' {
-                                            depth -= 1;
-                                            if depth == 0 {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    break;
-                                }
-                            }
-                            if c == '(' {
-                                depth += 1;
-                            } else if c == ')' {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break;
-                                }
-                            }
-                        }
-                        if depth > 0 {
+                        // Quote/heredoc-aware end of the body (see subst_scan).
+                        // Nesting depth is bounded where bodies are parsed
+                        // (parser max_depth) and run (max_subst_depth).
+                        if !self.read_command_subst_body(&mut word) {
                             return Some(Token::Error(
                                 "unterminated command substitution".to_string(),
                             ));
                         }
                     }
+                } else if self.peek_char() == Some('[') {
+                    // `$[expr]`: bash's old synonym for `$((expr))`.
+                    self.read_dollar_bracket_arith(&mut word);
                 } else if self.peek_char() == Some('{') {
                     // ${VAR} format — track nested braces so ${a[${#b[@]}]}
                     // doesn't stop at the inner }.
                     word.push('{');
                     self.advance();
-                    let mut brace_depth = 1i32;
-                    while let Some(c) = self.peek_char() {
-                        word.push(c);
-                        self.advance();
-                        if c == '$' && self.peek_char() == Some('{') {
-                            // Nested ${...}
-                            word.push('{');
-                            self.advance();
-                            brace_depth += 1;
-                        } else if c == '}' {
-                            brace_depth -= 1;
-                            if brace_depth == 0 {
-                                break;
-                            }
-                        }
+                    if let Err(e) = self.read_unquoted_param_body(&mut word) {
+                        return Some(Token::Error(e));
                     }
                 } else {
                     // Check for special single-character variables ($?, $#, $@, $*, $!, $$, $-, $0-$9)
@@ -893,57 +1366,18 @@ impl<'a> Lexer<'a> {
                     }
                 }
             } else if ch == '{' {
-                // Brace expansion pattern - include entire {...} in word
+                // Brace expansion pattern - include entire {...} in word.
+                // Counts as unquoted glob syntax: a word mixing it with quoted
+                // text (`a{1,2}"*"`) must still reach brace expansion.
+                has_unquoted_glob = true;
                 word.push(ch);
                 self.advance();
-                let mut depth = 1;
-                while let Some(c) = self.peek_char() {
-                    word.push(c);
-                    self.advance();
-                    if c == '{' {
-                        depth += 1;
-                    } else if c == '}' {
-                        depth -= 1;
-                        if depth == 0 {
-                            break;
-                        }
-                    }
-                }
             } else if ch == '`' {
                 // Backtick command substitution: convert `cmd` to $(cmd)
-                self.advance(); // consume opening `
-                word.push_str("$(");
-                let mut closed = false;
-                while let Some(c) = self.peek_char() {
-                    if c == '`' {
-                        self.advance(); // consume closing `
-                        closed = true;
-                        break;
-                    }
-                    if c == '\\' {
-                        // In backticks, backslash only escapes $, `, \, newline
-                        self.advance();
-                        if let Some(next) = self.peek_char() {
-                            if matches!(next, '$' | '`' | '\\' | '\n') {
-                                word.push(next);
-                                self.advance();
-                            } else {
-                                word.push('\\');
-                                word.push(next);
-                                self.advance();
-                            }
-                        }
-                    } else {
-                        word.push(c);
-                        self.advance();
-                    }
+                has_unquoted_expansion = true;
+                if let Err(e) = self.read_backtick_into(&mut word) {
+                    return Some(Token::Error(e));
                 }
-                if !closed {
-                    return Some(Token::Error(
-                        "unterminated backtick substitution".to_string(),
-                    ));
-                }
-                word.push(')');
             } else if ch == '\\' {
                 self.advance();
                 if let Some(next) = self.peek_char() {
@@ -952,66 +1386,29 @@ impl<'a> Lexer<'a> {
                         self.advance();
                     } else {
                         // Escaped character: backslash quotes the next char
-                        // (quote removal — only the literal char survives)
+                        // (quote removal — only the literal char survives).
+                        // `\$` and `\`` must stay literal through parse_word, so
+                        // they carry the NUL sentinel like quoted `\$` does.
+                        // `\~` likewise must not tilde-expand.
+                        if matches!(next, '$' | '`' | '~') {
+                            word.push('\x00');
+                        }
+                        if Self::is_glob_escape_char(next) {
+                            quoted_ranges.push((word.len(), word.len() + next.len_utf8()));
+                        }
                         word.push(next);
                         self.advance();
                     }
                 } else {
                     word.push('\\');
                 }
-            } else if ch == '(' && word.ends_with('=') && self.looks_like_assoc_assign() {
-                // Associative compound assignment: var=([k]="v" ...) — keep entire
-                // (...) as part of word so declare -A m=([k]="v") stays one token.
-                word.push(ch);
-                self.advance();
-                let mut depth = 1;
-                while let Some(c) = self.peek_char() {
-                    word.push(c);
-                    self.advance();
-                    match c {
-                        '(' => depth += 1,
-                        ')' => {
-                            depth -= 1;
-                            if depth == 0 {
-                                break;
-                            }
-                        }
-                        '"' => {
-                            while let Some(qc) = self.peek_char() {
-                                word.push(qc);
-                                self.advance();
-                                if qc == '"' {
-                                    break;
-                                }
-                                if qc == '\\'
-                                    && let Some(esc) = self.peek_char()
-                                {
-                                    word.push(esc);
-                                    self.advance();
-                                }
-                            }
-                        }
-                        '\'' => {
-                            while let Some(qc) = self.peek_char() {
-                                word.push(qc);
-                                self.advance();
-                                if qc == '\'' {
-                                    break;
-                                }
-                            }
-                        }
-                        '\\' => {
-                            if let Some(esc) = self.peek_char() {
-                                word.push(esc);
-                                self.advance();
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            } else if ch == '(' && word.ends_with(['@', '?', '*', '+', '!']) {
+            } else if ch == '('
+                && (word.ends_with(['@', '?', '*', '+'])
+                    || (self.extglob_bang && word.ends_with('!')))
+            {
                 // Extglob: @(...), ?(...), *(...), +(...), !(...)
                 // Consume through matching ) including nested parens
+                let group_start = word.len();
                 word.push(ch);
                 self.advance();
                 let mut depth = 1;
@@ -1028,13 +1425,54 @@ impl<'a> Lexer<'a> {
                         }
                         '\\' => {
                             if let Some(esc) = self.peek_char() {
-                                word.push(esc);
+                                if matches!(esc, '$' | '`') {
+                                    // Keep `\$` literal through parse_word.
+                                    word.pop();
+                                    Self::push_extglob_literal(&mut word, esc);
+                                } else {
+                                    word.push(esc);
+                                }
                                 self.advance();
+                            }
+                        }
+                        // Quotes inside a group make their text literal:
+                        // `@(a|'b)')` has the alternative `b)`.
+                        '\'' | '"' => {
+                            word.pop();
+                            let quote = c;
+                            while let Some(q) = self.peek_char() {
+                                self.advance();
+                                if q == quote {
+                                    break;
+                                }
+                                if quote == '"'
+                                    && q == '\\'
+                                    && let Some(esc) = self.peek_char()
+                                    && matches!(esc, '"' | '\\' | '$' | '`')
+                                {
+                                    self.advance();
+                                    Self::push_extglob_literal(&mut word, esc);
+                                    continue;
+                                }
+                                if quote == '"' && matches!(q, '$' | '`') {
+                                    // Expansions still run inside "...".
+                                    word.push(q);
+                                    continue;
+                                }
+                                Self::push_extglob_literal(&mut word, q);
                             }
                         }
                         _ => {}
                     }
                 }
+                extglob_escaped |= word[group_start..].contains('\\');
+            } else if ch == '}' {
+                // An unmatched `}` inside a word is a literal. `}` is a
+                // reserved word, not a metacharacter, so it only terminates a
+                // word when it stands alone — bash prints `a}b`, not `a } b`.
+                // Brace expansion happens later, on the parsed word.
+                word.push(ch);
+                self.advance();
             } else if self.is_word_char(ch) {
                 // Track glob metacharacters in unquoted portions
                 if matches!(ch, '*' | '?' | '[') {
@@ -1042,9 +1480,59 @@ impl<'a> Lexer<'a> {
                 }
                 word.push(ch);
                 self.advance();
+            } else if matches!(ch, ' ' | '\t' | '&' | '|' | '<' | '>' | '(' | ')')
+                && self.spaced_subscript
+                && (if spaced_ok {
+                    Self::open_subscript_depth(&word) > 0
+                } else {
+                    spaced_ok = self.spaced_subscript_continues(&word);
+                    spaced_ok
+                })
+            {
+                word.push(ch);
+                self.advance();
             } else {
                 break;
             }
+        }
+
+        // `a[` / `a[5 +` in assignment position: bash reads on for the
+        // `]` that closes the subscript and hits end of input.
+        if self.spaced_subscript
+            && Self::open_subscript_depth(&word) > 0
+            && !self.lookahead().any(|c| c == ']')
+        {
+            return Some(Token::Error("unterminated subscript".to_string()));
+        }
+
+        // Quoted or escaped glob characters are literal (`a"*"`, `a\*`,
+        // `a'?'`). With an unquoted glob in the same word they are escaped
+        // in place, the QuotedGlobWord convention also used for words that
+        // start with a quote. Without one the word never globs, so it is
+        // simply quoted. A word with an unquoted expansion keeps the old
+        // classification: quoting it would suppress field splitting.
+        let quoted_glob = quoted_ranges.iter().any(|&(start, end)| {
+            // `(`, `)` and `|` count too: `*\(\)` must not become the
+            // extglob `*()`. So does `\`: `[\\]` stays one bracket.
+            word[start..end].contains(['*', '?', '[', ']', '{', '}', ',', '(', ')', '|', '\\'])
+        });
+        // A quoted `-` only matters next to an unquoted glob, where it must
+        // stay a literal inside a bracket: `*.[C\-D]` matches `foo.-`.
+        let quoted_dash =
+            has_unquoted_glob && quoted_ranges.iter().any(|&(s, e)| word[s..e].contains('-'));
+        if (quoted_glob || quoted_dash) && has_unquoted_glob {
+            return Some(Token::QuotedGlobWord(
+                Self::escape_glob_metas_in_quoted_ranges(&word, &quoted_ranges),
+            ));
+        }
+        if extglob_escaped && !has_unquoted_expansion && !has_quoted_expansion {
+            // `@(a|'*')` with no match prints `@(a|*)` (quote removal).
+            return Some(Token::QuotedGlobWord(
+                Self::escape_glob_metas_in_quoted_ranges(&word, &quoted_ranges),
+            ));
+        }
+        if quoted_glob && !has_unquoted_expansion {
+            return Some(Token::QuotedWord(word));
         }
 
         if word.is_empty() {
@@ -1084,21 +1572,67 @@ impl<'a> Lexer<'a> {
         }
 
         // If next char is another quote or word char, concatenate (e.g., 'EOF'"2" -> EOF2).
-        // Any quoting makes the whole token literal.
+        // An unquoted expansion or glob in the continuation keeps working
+        // (`'a'$x`, `'a'*`); otherwise the whole token is literal. The quoted
+        // prefix carries NUL sentinels so `parse_word` never expands its `$`.
+        let mut content = {
+            let mut escaped = String::with_capacity(content.len());
+            Self::push_literal_with_escaped_dollar(&mut escaped, &content);
+            escaped
+        };
+        let quoted_prefix_len = content.len();
         let flags = self.read_continuation_into(&mut content);
         if let Some(error) = flags.error {
             return Some(Token::Error(error));
+        }
+        // `'a'"$1"`: the double-quoted continuation still expands; the
+        // markers keep every segment quoted and end `$1` at its quote.
+        // With an unquoted glob the QuotedGlobWord path below keeps quoted
+        // results literal.
+        if flags.has_unquoted_expansion || (flags.has_quoted_expansion && !flags.has_unquoted_glob)
+        {
+            // `''"$@"` keeps its empty quoted part as a field of its own.
+            let has_empty_quoted =
+                quoted_prefix_len == 0 || flags.quoted_ranges.iter().any(|(s, e)| s == e);
+            let mut ranges = flags.quoted_ranges;
+            ranges.push((0, quoted_prefix_len));
+            if flags.has_unquoted_expansion
+                && ranges.iter().any(|&(start, end)| {
+                    let quoted = &content[start..end];
+                    quoted.contains(['*', '?', '[', ']', '{', '}', ',', '(', ')', '|', '\\'])
+                        || Self::has_unescaped_dollar(quoted)
+                })
+            {
+                // Preserve quoted glob text as well as IFS boundaries; an
+                // empty unquoted substitution must not activate quoted `*`.
+                ranges.sort_unstable_by_key(|&(start, _)| start);
+                return Some(Token::QuotedGlobWord(
+                    Self::escape_glob_metas_in_quoted_ranges(&content, &ranges),
+                ));
+            }
+            Self::apply_quote_markers(&mut content, ranges);
+            if !flags.has_unquoted_expansion && !flags.has_unquoted_glob && !has_empty_quoted {
+                // Nothing in it splits or globs: a quoted word whose
+                // markers only end names at quote boundaries.
+                return Some(Token::QuotedWord(content));
+            }
+            return Some(Token::Word(content));
+        }
+        if flags.has_unquoted_glob {
+            let mut ranges = flags.quoted_ranges;
+            ranges.push((0, quoted_prefix_len));
+            ranges.sort_unstable_by_key(|&(s, _)| s);
+            return Some(Token::QuotedGlobWord(
+                Self::escape_glob_metas_in_quoted_ranges(&content, &ranges),
+            ));
         }
 
         // Single-quoted strings are literal - no variable expansion. Quote-boundary
         // markers are only for parsed mixed words; LiteralWord keeps contents raw.
         // Also decode any NUL escape sentinels from continued double-quoted segments.
-        content.retain(|ch| ch != '\u{1e}' && ch != '\u{1f}');
-        Some(Token::LiteralWord(if content.contains('\x00') {
-            Self::decode_nul_escape_sentinel(&content)
-        } else {
-            content
-        }))
+        Some(Token::LiteralWord(Self::strip_markers_decode_sentinels(
+            &content,
+        )))
     }
 
     /// After a closing quote, read any adjacent quoted or unquoted word chars
@@ -1117,6 +1651,9 @@ impl<'a> Lexer<'a> {
                             closed = true;
                             break;
                         }
+                        if matches!(ch, '\x00' | '$') {
+                            content.push('\x00');
+                        }
                         content.push(ch);
                         self.advance();
                     }
@@ -1129,47 +1666,26 @@ impl<'a> Lexer<'a> {
                 Some('"') => {
                     self.advance(); // opening "
                     let start = content.len();
-                    let mut closed = false;
-                    while let Some(ch) = self.peek_char() {
-                        if ch == '"' {
-                            self.advance(); // closing "
-                            closed = true;
+                    match self.read_dquote_body(content) {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            flags.error = Some("unterminated double quote".to_string());
                             break;
                         }
-                        if ch == '\\' {
-                            self.advance();
-                            if let Some(next) = self.peek_char() {
-                                match next {
-                                    '$' => {
-                                        content.push('\x00');
-                                        content.push('$');
-                                        self.advance();
-                                    }
-                                    '"' | '\\' | '`' => {
-                                        content.push(next);
-                                        self.advance();
-                                    }
-                                    _ => {
-                                        content.push('\\');
-                                        content.push(next);
-                                        self.advance();
-                                    }
-                                }
-                                continue;
-                            }
+                        Err(msg) => {
+                            flags.error = Some(msg);
+                            break;
                         }
-                        content.push(ch);
-                        self.advance();
                     }
-                    if !closed {
-                        flags.error = Some("unterminated double quote".to_string());
-                        break;
+                    // `'a'"$x"`: the double-quoted segment still expands.
+                    if Self::has_unescaped_dollar(&content[start..]) {
+                        flags.has_quoted_expansion = true;
                     }
                     flags.quoted_ranges.push((start, content.len()));
                 }
                 Some('$') => {
                     // Check for $'...' ANSI-C quoting in continuation
-                    let mut lookahead = self.chars.clone();
+                    let mut lookahead = self.lookahead();
                     lookahead.next(); // skip $
                     if lookahead.next() == Some('\'') {
                         self.advance(); // consume $
@@ -1186,10 +1702,73 @@ impl<'a> Lexer<'a> {
                         flags.has_unquoted_expansion = true;
                         content.push('$');
                         self.advance();
+                        // `"a"$(cmd)`, `"a"$((n))`, `"a"${x:-a b}`: read the
+                        // whole expansion, as `read_word` does.
+                        if let Err(e) = self.read_continuation_expansion(content) {
+                            flags.error = Some(e);
+                            break;
+                        }
                     }
                 }
-                Some(ch) if self.is_word_char(ch) => {
-                    if matches!(ch, '*' | '?' | '[') {
+                Some('`') => {
+                    // `"a"`cmd``: the backquoted form of `"a"$(cmd)`.
+                    flags.has_unquoted_expansion = true;
+                    if let Err(e) = self.read_backtick_into(content) {
+                        flags.error = Some(e);
+                        break;
+                    }
+                }
+                Some('\\') => {
+                    // Backslash escape after a quoted segment: `'a'\''b'`.
+                    self.advance();
+                    match self.peek_char() {
+                        // Line continuation.
+                        Some('\n') => {
+                            self.advance();
+                        }
+                        Some(next) => {
+                            let start = content.len();
+                            if next == '$' {
+                                content.push('\x00');
+                            }
+                            content.push(next);
+                            self.advance();
+                            flags.quoted_ranges.push((start, content.len()));
+                        }
+                        None => content.push('\\'),
+                    }
+                }
+                Some('(')
+                    if content.ends_with(['@', '?', '*', '+'])
+                        || (self.extglob_bang && content.ends_with('!')) =>
+                {
+                    // `"$*"*@(.py|cc)`: an extglob group after a quoted start.
+                    let mut depth = 0usize;
+                    while let Some(c) = self.peek_char() {
+                        content.push(c);
+                        self.advance();
+                        match c {
+                            '(' => depth += 1,
+                            ')' => {
+                                depth -= 1;
+                                if depth == 0 {
+                                    break;
+                                }
+                            }
+                            '\\' => {
+                                if let Some(e) = self.peek_char() {
+                                    content.push(e);
+                                    self.advance();
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    flags.has_unquoted_glob = true;
+                }
+                Some(ch) if self.is_word_char(ch) || matches!(ch, '{' | '}') => {
+                    // `{` marks possible brace expansion, like a glob char.
+                    if matches!(ch, '*' | '?' | '[' | '{') {
                         flags.has_unquoted_glob = true;
                     }
                     content.push(ch);
@@ -1201,10 +1780,48 @@ impl<'a> Lexer<'a> {
         flags
     }
 
-    /// Add quote markers in one rebuild pass. Empty ranges carry no protected
-    /// bytes, and adjacent quoted ranges are equivalent to one quoted span.
+    /// After an unquoted `$` in a quoted word's continuation, read a
+    /// `$(...)`, `$((...))` or `${...}` body into `content`. Other forms
+    /// (`$name`, `$?`) are word chars the caller reads itself.
+    fn read_continuation_expansion(&mut self, content: &mut String) -> Result<(), String> {
+        match self.peek_char() {
+            Some('(') => {
+                content.push('(');
+                self.advance();
+                if self.peek_char() == Some('(') {
+                    content.push('(');
+                    self.advance();
+                    let mut depth = 2;
+                    while let Some(c) = self.peek_char() {
+                        content.push(c);
+                        self.advance();
+                        if c == '(' {
+                            depth += 1;
+                        } else if c == ')' {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                    }
+                } else if !self.read_command_subst_body(content) {
+                    return Err("unterminated command substitution".to_string());
+                }
+            }
+            Some('{') => {
+                content.push('{');
+                self.advance();
+                self.read_unquoted_param_body(content)?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Add quote markers in one rebuild pass. Adjacent quoted ranges are
+    /// equivalent to one quoted span. An empty range (`""$x`) keeps its
+    /// marker pair: an empty quoted part still makes a field.
     fn apply_quote_markers(content: &mut String, mut ranges: Vec<(usize, usize)>) {
-        ranges.retain(|(start, end)| start < end);
         if ranges.is_empty() {
             return;
         }
@@ -1212,8 +1829,15 @@ impl<'a> Lexer<'a> {
 
         let mut merged: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
         for (start, end) in ranges {
+            // Touching non-empty segments stay apart: `"$x"'c'` must end
+            // `$x` at the boundary between them. An empty one never merges
+            // (`"$@"""` and `''"$@"` keep their empty quoted part); repeated
+            // empty ranges at one spot (`""""`) collapse to one marker pair.
+            if start == end && merged.last() == Some(&(start, end)) {
+                continue;
+            }
             if let Some((_, last_end)) = merged.last_mut()
-                && start <= *last_end
+                && start < *last_end
             {
                 *last_end = (*last_end).max(end);
                 continue;
@@ -1236,10 +1860,171 @@ impl<'a> Lexer<'a> {
 
     /// Read ANSI-C quoted content ($'...').
     /// Opening $' already consumed. Returns the resolved string.
+    /// Read the body of an unquoted `${...}` after the opening `${`, through
+    /// the closing `}`.
+    ///
+    /// Important decision: quoting inside an unquoted expansion is resolved
+    /// here, where the context is known. `'...'` and `$'...'` become a
+    /// double-quoted span whose every char is NUL-escaped, so it stays literal
+    /// and quoted through operand expansion (no `$`, no glob) and a `}` or `/`
+    /// inside it never ends the operand. Inside `"..."` spans and after `\`,
+    /// braces are NUL-escaped for the same reason. Bash keeps `'` literal in a
+    /// double-quoted `${x:-'d'}`, which `read_param_expansion_into` handles.
+    ///
+    /// Field splitting of an unquoted `${x:-'a  b'}` keeps those quoted
+    /// spans whole (`Interpreter::split_word_segments`).
+    fn read_unquoted_param_body(&mut self, word: &mut String) -> Result<(), String> {
+        fn push_escaped(word: &mut String, content: &str) {
+            for ch in content.chars() {
+                word.push('\x00');
+                word.push(ch);
+            }
+        }
+        let mut depth = 1usize;
+        // Inside an array subscript (`${a['k']}`) quotes stay raw: subscript
+        // evaluation removes them itself.
+        let mut subscript = 0usize;
+        while let Some(c) = self.peek_char() {
+            self.advance();
+            match c {
+                '[' => {
+                    subscript += 1;
+                    word.push(c);
+                }
+                ']' => {
+                    subscript = subscript.saturating_sub(1);
+                    word.push(c);
+                }
+                '\'' if subscript > 0 => {
+                    word.push(c);
+                    while let Some(q) = self.peek_char() {
+                        self.advance();
+                        word.push(q);
+                        if q == '\'' {
+                            break;
+                        }
+                    }
+                }
+                '\\' => match self.peek_char() {
+                    Some(n @ ('{' | '}')) => {
+                        self.advance();
+                        word.push('\x00');
+                        word.push(n);
+                    }
+                    Some(n) => {
+                        self.advance();
+                        word.push('\\');
+                        word.push(n);
+                    }
+                    None => word.push('\\'),
+                },
+                '\'' => {
+                    let mut content = String::new();
+                    let mut closed = false;
+                    while let Some(q) = self.peek_char() {
+                        self.advance();
+                        if q == '\'' {
+                            closed = true;
+                            break;
+                        }
+                        content.push(q);
+                    }
+                    if !closed {
+                        return Err("unterminated single quote".to_string());
+                    }
+                    word.push('"');
+                    push_escaped(word, &content);
+                    word.push('"');
+                }
+                '"' => {
+                    word.push('"');
+                    // Nested `${` depth inside this span; bare braces are literal.
+                    let mut inner = 0usize;
+                    let mut closed = false;
+                    while let Some(q) = self.peek_char() {
+                        self.advance();
+                        match q {
+                            '"' => {
+                                closed = true;
+                                break;
+                            }
+                            '\\' => {
+                                word.push('\\');
+                                if let Some(n) = self.peek_char() {
+                                    self.advance();
+                                    word.push(n);
+                                }
+                                continue;
+                            }
+                            '$' if self.peek_char() == Some('{') => {
+                                self.advance();
+                                word.push_str("${");
+                                inner += 1;
+                                continue;
+                            }
+                            '}' if inner > 0 => inner -= 1,
+                            '{' | '}' => word.push('\x00'),
+                            _ => {}
+                        }
+                        word.push(q);
+                    }
+                    if !closed {
+                        return Err("unterminated double quote".to_string());
+                    }
+                    word.push('"');
+                }
+                '$' if self.peek_char() == Some('\'') => {
+                    self.advance();
+                    let (content, closed) = self.read_dollar_single_quoted_content();
+                    if !closed {
+                        return Err("unterminated single quote".to_string());
+                    }
+                    word.push('"');
+                    push_escaped(word, &content);
+                    word.push('"');
+                }
+                '$' if self.peek_char() == Some('{') => {
+                    self.advance();
+                    word.push_str("${");
+                    if depth >= self.max_subst_depth {
+                        return Err("parameter expansion nesting too deep".to_string());
+                    }
+                    depth += 1;
+                }
+                // `${x:-$(echo })}`: braces inside a command substitution
+                // belong to it.
+                '$' if self.peek_char() == Some('(') => {
+                    self.advance();
+                    word.push_str("$(");
+                    if !self.read_command_subst_body(word) {
+                        return Err("unterminated command substitution".to_string());
+                    }
+                }
+                '}' => {
+                    word.push('}');
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => word.push(c),
+            }
+        }
+        Ok(())
+    }
+
     fn read_dollar_single_quoted_content(&mut self) -> (String, bool) {
         let mut out = String::new();
+        // `\xHH` / `\NNN` give bytes: a run that is valid UTF-8 is that
+        // text (`$'\xc3\xa9'` is `é`, as bash prints it); other bytes keep
+        // their one-char-per-byte decoding (L-STREAM-001).
+        let mut bytes: Vec<u8> = Vec::new();
         let mut closed = false;
         while let Some(ch) = self.peek_char() {
+            let continues_bytes = ch == '\\' && self.next_is_byte_escape();
+            if !bytes.is_empty() && !continues_bytes {
+                Self::flush_escape_bytes(&mut out, &mut bytes);
+            }
             if ch == '\'' {
                 self.advance();
                 closed = true;
@@ -1262,6 +2047,17 @@ impl<'a> Lexer<'a> {
                         '\'' => out.push('\''),
                         '"' => out.push('"'),
                         '?' => out.push('?'),
+                        // `\cX`: the control character, X's low five bits;
+                        // `\c?` is DEL (0x7f), as in bash.
+                        'c' if self.peek_char().is_some_and(|c| c.is_ascii() && c != '\'') => {
+                            let ctl = self.peek_char().map_or(0, |c| c as u8);
+                            self.advance();
+                            // `\c\\` takes both backslashes.
+                            if ctl == b'\\' && self.peek_char() == Some('\\') {
+                                self.advance();
+                            }
+                            bytes.push(if ctl == b'?' { 0x7f } else { ctl & 0x1f });
+                        }
                         'x' => {
                             let mut hex = String::new();
                             for _ in 0..2 {
@@ -1274,8 +2070,11 @@ impl<'a> Lexer<'a> {
                                     }
                                 }
                             }
-                            if let Ok(val) = u8::from_str_radix(&hex, 16) {
-                                out.push(val as char);
+                            if hex.is_empty() {
+                                // bash keeps a `\x` with no hex digits as is.
+                                out.push_str("\\x");
+                            } else if let Ok(val) = u8::from_str_radix(&hex, 16) {
+                                bytes.push(val);
                             }
                         }
                         'u' => {
@@ -1290,7 +2089,10 @@ impl<'a> Lexer<'a> {
                                     }
                                 }
                             }
-                            if let Ok(val) = u32::from_str_radix(&hex, 16)
+                            if hex.is_empty() {
+                                // bash keeps `\u` with no hex digits as is.
+                                out.push_str("\\u");
+                            } else if let Ok(val) = u32::from_str_radix(&hex, 16)
                                 && let Some(c) = char::from_u32(val)
                             {
                                 out.push(c);
@@ -1308,7 +2110,10 @@ impl<'a> Lexer<'a> {
                                     }
                                 }
                             }
-                            if let Ok(val) = u32::from_str_radix(&hex, 16)
+                            if hex.is_empty() {
+                                // bash keeps `\U` with no hex digits as is.
+                                out.push_str("\\U");
+                            } else if let Ok(val) = u32::from_str_radix(&hex, 16)
                                 && let Some(c) = char::from_u32(val)
                             {
                                 out.push(c);
@@ -1328,7 +2133,7 @@ impl<'a> Lexer<'a> {
                                 }
                             }
                             if let Ok(val) = u8::from_str_radix(&oct, 8) {
-                                out.push(val as char);
+                                bytes.push(val);
                             }
                         }
                         _ => {
@@ -1344,43 +2149,201 @@ impl<'a> Lexer<'a> {
             out.push(ch);
             self.advance();
         }
+        Self::flush_escape_bytes(&mut out, &mut bytes);
+        // bash strings are C strings: a decoded NUL ends the text
+        // (`$'x\0y'` is `x`).
+        if let Some(nul) = out.find('\0') {
+            out.truncate(nul);
+        }
         (out, closed)
+    }
+
+    /// After a `\` at the current position: is it `\xH` or `\N` (octal)?
+    fn next_is_byte_escape(&self) -> bool {
+        let mut it = self.reinject_buf.iter().copied().chain(self.chars.clone());
+        it.next();
+        match it.next() {
+            Some('x') => it.next().is_some_and(|h| h.is_ascii_hexdigit()),
+            Some(c) => ('0'..='7').contains(&c),
+            None => false,
+        }
+    }
+
+    fn flush_escape_bytes(out: &mut String, bytes: &mut Vec<u8>) {
+        match std::str::from_utf8(bytes) {
+            Ok(text) => out.push_str(text),
+            Err(_) => out.extend(bytes.iter().map(|&b| b as char)),
+        }
+        bytes.clear();
     }
 
     /// Append a literal segment while protecting sentinel-sensitive bytes from parse_word expansion.
     fn push_literal_with_escaped_dollar(dst: &mut String, segment: &str) {
         for ch in segment.chars() {
-            if matches!(ch, '\x00' | '$') {
+            // `\x1e`/`\x1f` are this lexer's quote-boundary markers; a decoded
+            // `$'\x1f'` byte must stay data (`SEP=$'\x1f'` is a common idiom).
+            if matches!(ch, '\x00' | '$' | '\u{1e}' | '\u{1f}') {
                 dst.push('\x00');
             }
             dst.push(ch);
         }
     }
 
-    /// Decode NUL-based escape sentinels: each `\x00` followed by a char is
-    /// collapsed to that char. Used for literal-token paths that bypass `parse_word()`.
-    fn decode_nul_escape_sentinel(segment: &str) -> String {
-        let mut decoded = String::with_capacity(segment.len());
-        let mut chars = segment.chars();
-
-        while let Some(ch) = chars.next() {
-            if ch == '\x00' {
-                if let Some(literal_ch) = chars.next() {
-                    decoded.push(literal_ch);
-                }
-            } else {
-                decoded.push(ch);
-            }
-        }
-
-        decoded
+    /// Characters `escape_glob_metas_in_quoted_ranges` backslash-escapes.
+    /// Decode the body of `$'...'` at the start of `s` (just after `$'`):
+    /// the resolved text and the bytes consumed through the closing `'`.
+    pub(crate) fn decode_ansi_c_body(s: &str) -> Option<(String, usize)> {
+        let mut lexer = Lexer::new(s);
+        let (text, closed) = lexer.read_dollar_single_quoted_content();
+        closed.then_some((text, lexer.position.offset))
     }
 
-    fn read_double_quoted_string(&mut self) -> Option<Token> {
-        self.advance(); // consume opening "
-        let mut content = String::new();
-        let mut closed = false;
+    /// Push a `$` just consumed inside double quotes. Before `'`
+    /// (`"$'q'"`) or the closing `"` it starts no expansion, so it gets the
+    /// NUL sentinel and stays a literal `$` even when quoted text follows
+    /// (`"$"'q'`). `$$` is consumed whole (returns true) so its second `$`
+    /// is not mistaken for a lone one before `"`.
+    /// After `$` (already in `word`) at `[`: read `[expr]` up to the
+    /// matching `]` and append it as `((expr))`, so `$[i + 1]` is the
+    /// arithmetic expansion `$((i + 1))` (bash's deprecated synonym).
+    fn read_dollar_bracket_arith(&mut self, word: &mut String) {
+        self.advance(); // '['
+        word.push_str("((");
+        let mut depth = 1usize;
+        while let Some(c) = self.peek_char() {
+            self.advance();
+            match c {
+                '[' => depth += 1,
+                ']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            word.push(c);
+        }
+        word.push_str("))");
+    }
 
+    fn take_dquote_dollar(&mut self, word: &mut String) -> bool {
+        let next = self.peek_char();
+        if matches!(next, Some('\'' | '"') | None) {
+            word.push('\x00');
+        }
+        word.push('$');
+        if next == Some('$') {
+            word.push('$');
+            self.advance();
+            return true;
+        }
+        false
+    }
+
+    /// Push one quoted character of an extglob group so it stays literal:
+    /// pattern metacharacters get a backslash, `$`/`` ` `` the NUL sentinel.
+    fn push_extglob_literal(word: &mut String, ch: char) {
+        if Self::is_glob_escape_char(ch) || matches!(ch, '"' | '\'') {
+            word.push('\\');
+        } else if matches!(ch, '$' | '`') {
+            word.push('\\');
+            word.push('\x00');
+        }
+        word.push(ch);
+    }
+
+    fn is_glob_escape_char(ch: char) -> bool {
+        matches!(
+            ch,
+            '\\' | '*'
+                | '?'
+                | '['
+                | ']'
+                | '{'
+                | '}'
+                | ','
+                | '@'
+                | '!'
+                | '+'
+                | '('
+                | ')'
+                | '|'
+                | '-'
+        )
+    }
+
+    /// Whether `content` holds a `$` not escaped by the NUL sentinel.
+    fn has_unescaped_dollar(content: &str) -> bool {
+        let mut prev = None;
+        for ch in content.chars() {
+            if ch == '$' && prev != Some('\x00') {
+                return true;
+            }
+            prev = Some(ch);
+        }
+        false
+    }
+
+    /// Drop quote-boundary markers and decode NUL escape sentinels in one
+    /// pass, so a NUL-escaped marker byte survives as data.
+    fn strip_markers_decode_sentinels(segment: &str) -> String {
+        let mut out = String::with_capacity(segment.len());
+        let mut chars = segment.chars();
+        while let Some(ch) = chars.next() {
+            match ch {
+                '\x00' => {
+                    if let Some(next) = chars.next() {
+                        out.push(next);
+                    }
+                }
+                '\u{1e}' | '\u{1f}' => {}
+                c => out.push(c),
+            }
+        }
+        out
+    }
+
+    /// Read a backquoted command inside double quotes (opening `` ` `` not
+    /// yet consumed) into `content` as `$(...)`.
+    fn read_dquote_backtick_into(&mut self, content: &mut String) {
+        self.advance(); // consume opening `
+        content.push_str("$(");
+        if self.peek_char() == Some('(') {
+            content.push(' ');
+        }
+        let body_start = content.len();
+        while let Some(c) = self.peek_char() {
+            if c == '`' {
+                self.advance();
+                break;
+            }
+            if c == '\\' {
+                self.advance();
+                if let Some(next) = self.peek_char() {
+                    if matches!(next, '$' | '`' | '\\' | '"') {
+                        content.push(next);
+                        self.advance();
+                    } else {
+                        content.push('\\');
+                        content.push(next);
+                        self.advance();
+                    }
+                }
+            } else {
+                content.push(c);
+                self.advance();
+            }
+        }
+        defer_backtick_syntax_error(content, body_start);
+        content.push(')');
+    }
+
+    /// Read a double-quoted body after the opening `"` (consumed) up to
+    /// and including the closing `"`, appending it to `content` in the
+    /// form `parse_word` expands. Returns whether the quote closed.
+    fn read_dquote_body(&mut self, content: &mut String) -> std::result::Result<bool, String> {
+        let mut closed = false;
         while let Some(ch) = self.peek_char() {
             match ch {
                 '"' => {
@@ -1417,57 +2380,43 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '$' => {
-                    content.push('$');
                     self.advance();
-                    if self.peek_char() == Some('(') {
+                    if self.take_dquote_dollar(content) {
+                        continue;
+                    }
+                    if self.peek_char() == Some('[') {
+                        self.read_dollar_bracket_arith(content);
+                    } else if self.peek_char() == Some('(') {
                         // $(...) command substitution — track paren depth
                         content.push('(');
                         self.advance();
-                        self.read_command_subst_into(&mut content);
+                        self.read_command_subst_into(content);
                     } else if self.peek_char() == Some('{') {
                         // ${...} parameter expansion — track brace depth so
                         // inner quotes (e.g. ${arr["key"]}) don't end the string
                         content.push('{');
                         self.advance();
-                        if let Err(msg) = self.read_param_expansion_into(&mut content) {
-                            return Some(Token::Error(msg));
-                        }
+                        self.read_param_expansion_into(content)?;
                     }
                 }
-                '`' => {
-                    // Backtick command substitution inside double quotes
-                    self.advance(); // consume opening `
-                    content.push_str("$(");
-                    while let Some(c) = self.peek_char() {
-                        if c == '`' {
-                            self.advance();
-                            break;
-                        }
-                        if c == '\\' {
-                            self.advance();
-                            if let Some(next) = self.peek_char() {
-                                if matches!(next, '$' | '`' | '\\' | '"') {
-                                    content.push(next);
-                                    self.advance();
-                                } else {
-                                    content.push('\\');
-                                    content.push(next);
-                                    self.advance();
-                                }
-                            }
-                        } else {
-                            content.push(c);
-                            self.advance();
-                        }
-                    }
-                    content.push(')');
-                }
+                '`' => self.read_dquote_backtick_into(content),
                 _ => {
                     content.push(ch);
                     self.advance();
                 }
             }
         }
+
+        Ok(closed)
+    }
+
+    fn read_double_quoted_string(&mut self) -> Option<Token> {
+        self.advance(); // consume opening "
+        let mut content = String::new();
+        let closed = match self.read_dquote_body(&mut content) {
+            Ok(closed) => closed,
+            Err(msg) => return Some(Token::Error(msg)),
+        };
 
         if !closed {
             return Some(Token::Error("unterminated double quote".to_string()));
@@ -1480,19 +2429,51 @@ impl<'a> Lexer<'a> {
         // suppresses IFS splitting (the double-quoted segment) while still
         // performing glob expansion on the unquoted portion.
         if let Some(ch) = self.peek_char()
-            && (self.is_word_char(ch) || ch == '\'' || ch == '"' || ch == '$')
+            && (self.is_word_char(ch) || matches!(ch, '\'' | '"' | '$' | '{' | '}'))
         {
             let quoted_prefix_len = content.len();
             let flags = self.read_continuation_into(&mut content);
             if let Some(error) = flags.error {
                 return Some(Token::Error(error));
             }
-            if flags.has_unquoted_expansion {
+            // `"$@"""`: an empty quoted segment next to an expansion makes
+            // a field even when `"$@"` expands to nothing, so the segments
+            // must stay separate parts (markers) instead of one QuotedWord.
+            let empty_quoted_beside_expansion = Self::has_unescaped_dollar(&content)
+                && (quoted_prefix_len == 0 || flags.quoted_ranges.iter().any(|(s, e)| s == e));
+            // `"$x"c`, `"a"'b'"$x"`: an expansion in a quoted segment needs
+            // the markers too, or `$x` would read on into `$xc`. With an
+            // unquoted glob and no unquoted expansion the QuotedGlobWord
+            // path below keeps quoted results literal.
+            if flags.has_unquoted_expansion
+                || empty_quoted_beside_expansion
+                || (!flags.has_unquoted_glob
+                    && (flags.has_quoted_expansion
+                        || Self::has_unescaped_dollar(&content[..quoted_prefix_len])))
+            {
                 let mut ranges = flags.quoted_ranges;
                 ranges.push((0, quoted_prefix_len));
+                if flags.has_unquoted_expansion
+                    && ranges.iter().any(|&(start, end)| {
+                        let quoted = &content[start..end];
+                        quoted.contains(['*', '?', '[', ']', '{', '}', ',', '(', ')', '|', '\\'])
+                            || Self::has_unescaped_dollar(quoted)
+                    })
+                {
+                    ranges.sort_unstable_by_key(|&(start, _)| start);
+                    return Some(Token::QuotedGlobWord(
+                        Self::escape_glob_metas_in_quoted_ranges(&content, &ranges),
+                    ));
+                }
                 // Build marker-delimited quoted spans in one pass so hostile
                 // many-continuation words cannot trigger quadratic insertion work.
                 Self::apply_quote_markers(&mut content, ranges);
+                if !flags.has_unquoted_expansion
+                    && !flags.has_unquoted_glob
+                    && !empty_quoted_beside_expansion
+                {
+                    return Some(Token::QuotedWord(content));
+                }
                 return Some(Token::Word(content));
             }
             if flags.has_unquoted_glob {
@@ -1516,25 +2497,20 @@ impl<'a> Lexer<'a> {
 
     /// Escape glob metacharacters within quoted byte ranges so that the glob
     /// expander treats them as literal characters rather than active patterns.
+    /// Each range is also wrapped in quote-segment markers: `parse_word` then
+    /// ends a variable name at the closing quote (`"$x"zz*` reads `$x`, not
+    /// `$xzz`) and records which parts were quoted for field splitting.
     /// Ranges must be sorted and non-overlapping.
     fn escape_glob_metas_in_quoted_ranges(s: &str, quoted_ranges: &[(usize, usize)]) -> String {
         if quoted_ranges.is_empty() {
             return s.to_string();
         }
-        // Collect chars with their byte positions for range-boundary checks.
-        let char_vec: Vec<(usize, char)> = {
-            let mut pos = 0usize;
-            s.chars()
-                .map(|c| {
-                    let p = pos;
-                    pos += c.len_utf8();
-                    (p, c)
-                })
-                .collect()
-        };
-
-        let mut result = String::with_capacity(s.len() + 8);
-        let mut range_idx = 0usize;
+        // Reuse the one-pass marker builder: adjacent spans still end variable
+        // names, and empty quoted spans retain a field without quadratic work.
+        let mut marked = s.to_string();
+        Self::apply_quote_markers(&mut marked, quoted_ranges.to_vec());
+        let char_vec: Vec<char> = marked.chars().collect();
+        let mut result = String::with_capacity(marked.len() + 8);
         // Stack of opening delimiters ('{'  or  '(') for active ${ } / $( ) constructs.
         // While non-empty we are inside an expansion and must NOT escape anything,
         // because the content is still unexpanded at parse time and characters like
@@ -1542,26 +2518,48 @@ impl<'a> Lexer<'a> {
         let mut expansion_stack: Vec<char> = Vec::new();
         let n = char_vec.len();
         let mut i = 0usize;
+        let mut marked_quoted = false;
 
         while i < n {
-            let (byte_pos, ch) = char_vec[i];
-            let ch_end = byte_pos + ch.len_utf8();
-
-            // Advance past quoted-range entries that ended before this char.
-            while range_idx < quoted_ranges.len() && quoted_ranges[range_idx].1 <= byte_pos {
-                range_idx += 1;
+            let ch = char_vec[i];
+            // Sentinel pairs are indivisible; escaped NUL/marker bytes stay data.
+            if ch == '\x00'
+                && let Some(&next) = char_vec.get(i + 1)
+                && matches!(
+                    next,
+                    '\x00' | '$' | QUOTED_SEGMENT_START | QUOTED_SEGMENT_END
+                )
+            {
+                result.push(ch);
+                result.push(next);
+                i += 2;
+                continue;
             }
-            let in_quoted = range_idx < quoted_ranges.len()
-                && byte_pos >= quoted_ranges[range_idx].0
-                && ch_end <= quoted_ranges[range_idx].1;
 
+            if matches!(ch, QUOTED_SEGMENT_START | QUOTED_SEGMENT_END) {
+                marked_quoted = ch == QUOTED_SEGMENT_START;
+                result.push(ch);
+                i += 1;
+                continue;
+            }
+            let in_quoted = marked_quoted;
             if in_quoted {
                 if expansion_stack.is_empty() && ch == '$' {
                     // Peek at next char to detect ${ or $(
-                    if let Some(&(_, next)) = char_vec.get(i + 1)
+                    if let Some(&next) = char_vec.get(i + 1)
                         && (next == '{' || next == '(')
                     {
                         expansion_stack.push(next);
+                        result.push(ch);
+                        result.push(next);
+                        i += 2;
+                        continue;
+                    }
+                    // `"$*"*`, `"$@"x*`, `"$?"`: a special parameter's
+                    // name is not a glob character.
+                    if let Some(&next) = char_vec.get(i + 1)
+                        && matches!(next, '*' | '@' | '?' | '!' | '-')
+                    {
                         result.push(ch);
                         result.push(next);
                         i += 2;
@@ -1594,12 +2592,14 @@ impl<'a> Lexer<'a> {
                             | ']'
                             | '{'
                             | '}'
+                            | ','
                             | '@'
                             | '!'
                             | '+'
                             | '('
                             | ')'
                             | '|'
+                            | '-'
                     )
                 {
                     result.push('\\');
@@ -1612,112 +2612,38 @@ impl<'a> Lexer<'a> {
         result
     }
 
-    /// Read command substitution content after `$(`, handling nested parens and quotes.
-    /// Appends chars to `content` and adds the closing `)`.
-    /// THREAT[TM-DOS-044]: `subst_depth` tracks nesting to prevent stack overflow.
+    /// Read command substitution content after `$(`, handling nested parens,
+    /// quotes, comments and heredoc bodies (see `subst_scan`). Appends chars
+    /// to `content` and adds the closing `)`.
     fn read_command_subst_into(&mut self, content: &mut String) {
-        self.read_command_subst_into_depth(content, 0);
+        self.read_command_subst_body(content);
     }
 
-    fn read_command_subst_into_depth(&mut self, content: &mut String, subst_depth: usize) {
-        if subst_depth >= self.max_subst_depth {
-            // Depth limit exceeded — consume until matching ')' and emit error token
-            let mut depth = 1;
-            while let Some(c) = self.peek_char() {
-                self.advance();
-                match c {
-                    '(' => depth += 1,
-                    ')' => {
-                        depth -= 1;
-                        if depth == 0 {
-                            content.push(')');
-                            return;
-                        }
-                    }
-                    _ => {}
-                }
+    /// Like `read_command_subst_into`; returns whether the closing `)` was
+    /// found. The scanner is iterative, so deep nesting cannot overflow the
+    /// host stack here (TM-DOS-044).
+    fn read_command_subst_body(&mut self, content: &mut String) -> bool {
+        let mut scanner = super::subst_scan::SubstScanner::new();
+        while let Some(c) = self.advance() {
+            content.push(c);
+            if scanner.feed(c) == super::subst_scan::Step::Close {
+                return true;
             }
-            return;
         }
+        false
+    }
 
-        let mut depth = 1;
-        while let Some(c) = self.peek_char() {
-            match c {
-                '(' => {
-                    depth += 1;
-                    content.push(c);
-                    self.advance();
-                }
-                ')' => {
-                    depth -= 1;
-                    self.advance();
-                    if depth == 0 {
-                        content.push(')');
-                        break;
-                    }
-                    content.push(c);
-                }
-                '"' => {
-                    // Nested double-quoted string inside $()
-                    content.push('"');
-                    self.advance();
-                    while let Some(qc) = self.peek_char() {
-                        match qc {
-                            '"' => {
-                                content.push('"');
-                                self.advance();
-                                break;
-                            }
-                            '\\' => {
-                                content.push('\\');
-                                self.advance();
-                                if let Some(esc) = self.peek_char() {
-                                    content.push(esc);
-                                    self.advance();
-                                }
-                            }
-                            '$' => {
-                                content.push('$');
-                                self.advance();
-                                if self.peek_char() == Some('(') {
-                                    content.push('(');
-                                    self.advance();
-                                    self.read_command_subst_into_depth(content, subst_depth + 1);
-                                }
-                            }
-                            _ => {
-                                content.push(qc);
-                                self.advance();
-                            }
-                        }
-                    }
-                }
-                '\'' => {
-                    // Single-quoted string inside $()
-                    content.push('\'');
-                    self.advance();
-                    while let Some(qc) = self.peek_char() {
-                        content.push(qc);
-                        self.advance();
-                        if qc == '\'' {
-                            break;
-                        }
-                    }
-                }
-                '\\' => {
-                    content.push('\\');
-                    self.advance();
-                    if let Some(esc) = self.peek_char() {
-                        content.push(esc);
-                        self.advance();
-                    }
-                }
-                _ => {
-                    content.push(c);
-                    self.advance();
-                }
+    /// Consume a `<(...)`/`>(...)` body after its opening token, through the
+    /// closing `)`, with the same scanner as `$(...)`. Nothing is copied; the
+    /// caller slices the source. Returns whether the `)` was found.
+    pub fn skip_subst_body(&mut self) -> bool {
+        let mut scanner = super::subst_scan::SubstScanner::new();
+        while let Some(c) = self.advance() {
+            if scanner.feed(c) == super::subst_scan::Step::Close {
+                return true;
             }
         }
+        false
     }
 
     /// Read parameter expansion content after `${`, handling nested braces and quotes.
@@ -1746,13 +2672,65 @@ impl<'a> Lexer<'a> {
                     }
                 }
                 '"' => {
-                    // Quotes inside ${...} are part of the expansion, not string delimiters
+                    // Quotes inside ${...} are part of the expansion, not string
+                    // delimiters. Braces inside them are literal
+                    // (`"${v-"}"}"` is `}`) unless they belong to a nested `${`.
                     content.push('"');
                     self.advance();
+                    let mut inner = 0usize;
+                    while let Some(q) = self.peek_char() {
+                        self.advance();
+                        match q {
+                            '"' => {
+                                content.push('"');
+                                break;
+                            }
+                            '\\' => {
+                                content.push('\\');
+                                if let Some(n) = self.peek_char() {
+                                    self.advance();
+                                    content.push(n);
+                                }
+                            }
+                            '$' if self.peek_char() == Some('{') => {
+                                self.advance();
+                                content.push_str("${");
+                                inner += 1;
+                            }
+                            '}' if inner > 0 => {
+                                inner -= 1;
+                                content.push('}');
+                            }
+                            '{' | '}' => {
+                                content.push('\x00');
+                                content.push(q);
+                            }
+                            _ => content.push(q),
+                        }
+                    }
                 }
                 '\'' => {
+                    // Bash keeps `'` literal in "${x:-'d'}" but still matches
+                    // braces past it: "${x:-'}'}" is `'}'`. NUL-escape braces in
+                    // the span so the parser does not close the operand early.
+                    let ansi_c = content.ends_with('$');
                     content.push('\'');
                     self.advance();
+                    while let Some(q) = self.peek_char() {
+                        self.advance();
+                        if matches!(q, '{' | '}') {
+                            content.push('\x00');
+                        }
+                        content.push(q);
+                        if ansi_c && q == '\\' {
+                            if let Some(n) = self.peek_char() {
+                                self.advance();
+                                content.push(n);
+                            }
+                        } else if q == '\'' {
+                            break;
+                        }
+                    }
                 }
                 '\\' => {
                     // Inside ${...} within double quotes, same escape rules apply:
@@ -1777,9 +2755,14 @@ impl<'a> Lexer<'a> {
                                 self.advance();
                             }
                             '}' => {
-                                // \} should be a literal } without closing the expansion
-                                content.push('\\');
+                                // \} is a literal } without closing the expansion
+                                // (`"${v-\}}"` is `}`, `"${v#\}}"` strips one).
+                                content.push('\x00');
                                 content.push('}');
+                                self.advance();
+                            }
+                            // Line continuation.
+                            '\n' => {
                                 self.advance();
                             }
                             _ => {
@@ -1817,57 +2800,9 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
-    /// Check if the content starting with { looks like a brace expansion
-    /// Brace expansion: {a,b,c} or {1..5} (contains , or ..)
-    /// Brace group: { cmd; } (contains spaces, semicolons, newlines)
-    /// THREAT[TM-DOS]: Caps lookahead to prevent O(n^2) scanning when input
-    /// contains many unmatched `{` characters (issue #997).
-    fn looks_like_brace_expansion(&self) -> bool {
-        const MAX_LOOKAHEAD: usize = 10_000;
-
-        // Clone the iterator to peek ahead without consuming
-        let mut chars = self.chars.clone();
-
-        // Skip the opening {
-        if chars.next() != Some('{') {
-            return false;
-        }
-
-        let mut depth = 1;
-        let mut has_comma = false;
-        let mut has_dot_dot = false;
-        let mut prev_char = None;
-        let mut scanned = 0usize;
-
-        for ch in chars {
-            scanned += 1;
-            if scanned > MAX_LOOKAHEAD {
-                return false;
-            }
-            match ch {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        // Found matching }, check if we have brace expansion markers
-                        return has_comma || has_dot_dot;
-                    }
-                }
-                ',' if depth == 1 => has_comma = true,
-                '.' if prev_char == Some('.') && depth == 1 => has_dot_dot = true,
-                // Brace groups have whitespace/newlines/semicolons at depth 1
-                ' ' | '\t' | '\n' | ';' if depth == 1 => return false,
-                _ => {}
-            }
-            prev_char = Some(ch);
-        }
-
-        false
-    }
-
     /// Check if { is followed by whitespace (brace group start)
     fn is_brace_group_start(&self) -> bool {
-        let mut chars = self.chars.clone();
+        let mut chars = self.lookahead();
         // Skip the opening {
         if chars.next() != Some('{') {
             return false;
@@ -1876,109 +2811,25 @@ impl<'a> Lexer<'a> {
         matches!(chars.next(), Some(' ') | Some('\t') | Some('\n') | None)
     }
 
-    /// Read a {literal} pattern without comma/dot-dot as a word
-    fn read_brace_literal_word(&mut self) -> Option<Token> {
-        let mut word = String::new();
-
-        // Read the opening {
-        if let Some('{') = self.peek_char() {
-            word.push('{');
-            self.advance();
-        } else {
-            return None;
+    /// Whether the `}` at the cursor is a word of its own, and so the
+    /// reserved word that closes a brace group.
+    ///
+    /// Mirrors [`Self::is_brace_group_start`] for the opening side. bash's
+    /// metacharacters are space, tab, newline, `|`, `&`, `;`, `(`, `)`, `<`
+    /// and `>`; `}` is not among them, so it delimits a word only when a
+    /// metacharacter or EOF already follows it.
+    fn right_brace_stands_alone(&self) -> bool {
+        let mut chars = self.lookahead();
+        if chars.next() != Some('}') {
+            return false;
         }
-
-        // Read until matching }
-        let mut depth = 1;
-        while let Some(ch) = self.peek_char() {
-            word.push(ch);
-            self.advance();
-            match ch {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                _ => {}
-            }
+        match chars.next() {
+            None => true,
+            Some(c) => matches!(
+                c,
+                ' ' | '\t' | '\n' | ';' | '|' | '&' | '(' | ')' | '<' | '>'
+            ),
         }
-
-        // Continue reading any suffix
-        while let Some(ch) = self.peek_char() {
-            if self.is_word_char(ch) {
-                word.push(ch);
-                self.advance();
-            } else {
-                break;
-            }
-        }
-
-        Some(Token::Word(word))
-    }
-
-    /// Read a brace expansion pattern as a word
-    fn read_brace_expansion_word(&mut self) -> Option<Token> {
-        let mut word = String::new();
-
-        // Read the opening {
-        if let Some('{') = self.peek_char() {
-            word.push('{');
-            self.advance();
-        } else {
-            return None;
-        }
-
-        // Read until matching }
-        let mut depth = 1;
-        while let Some(ch) = self.peek_char() {
-            word.push(ch);
-            self.advance();
-            match ch {
-                '{' => depth += 1,
-                '}' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Continue reading any suffix after the brace pattern
-        while let Some(ch) = self.peek_char() {
-            if self.is_word_char(ch) || ch == '{' {
-                if ch == '{' {
-                    // Another brace pattern - include it
-                    word.push(ch);
-                    self.advance();
-                    let mut inner_depth = 1;
-                    while let Some(c) = self.peek_char() {
-                        word.push(c);
-                        self.advance();
-                        match c {
-                            '{' => inner_depth += 1,
-                            '}' => {
-                                inner_depth -= 1;
-                                if inner_depth == 0 {
-                                    break;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                } else {
-                    word.push(ch);
-                    self.advance();
-                }
-            } else {
-                break;
-            }
-        }
-
-        Some(Token::Word(word))
     }
 
     /// Read a word starting with [ (glob bracket expression like [abc] or [a-z])
@@ -1986,8 +2837,39 @@ impl<'a> Lexer<'a> {
     fn read_bracket_word(&mut self) -> Option<Token> {
         let mut word = String::from("[");
 
-        // Read until we find the closing ] (handle nested correctly)
+        // Read until we find the closing ]. A metacharacter ends the word
+        // first: `[bin;` is the word `[bin`, not a bracket expression.
         while let Some(ch) = self.peek_char() {
+            if matches!(ch, ' ' | '\t' | '\n' | ';' | '&' | '|' | '<' | '>') {
+                break;
+            }
+            if matches!(ch, '"' | '\'' | '$' | '`') {
+                // `[hello"]"`, `[$(echo abc)]`: quotes and expansions are
+                // read as in any word (a quoted `]` closes nothing).
+                return self.read_word_starting_with(&word);
+            }
+            if ch == '(' && word.ends_with(['@', '?', '*', '+', '!']) {
+                // `[+(])`: an extglob group inside the brackets.
+                let mut depth = 0usize;
+                while let Some(c) = self.peek_char() {
+                    if c == '\n' {
+                        break;
+                    }
+                    word.push(c);
+                    self.advance();
+                    match c {
+                        '(' => depth += 1,
+                        ')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                continue;
+            }
             word.push(ch);
             self.advance();
             if ch == ']' {
@@ -1997,7 +2879,13 @@ impl<'a> Lexer<'a> {
 
         // Continue reading any remaining word characters (e.g., [abc]def)
         while let Some(ch) = self.peek_char() {
-            if self.is_word_char(ch) {
+            if matches!(ch, '"' | '\'' | '$' | '`') {
+                // A quoted or expanded tail stays in the same word:
+                // `[k]="v w"` or `[k]=`cmd arg`` in a compound array is one
+                // element.
+                return self.read_word_starting_with(&word);
+            } else if self.is_word_char(ch) || matches!(ch, '{' | '}') {
+                // Braces are word text too (`[k]=v{1,2}`, `[ab]{x,y}`).
                 word.push(ch);
                 self.advance();
             } else {
@@ -2008,48 +2896,144 @@ impl<'a> Lexer<'a> {
         Some(Token::Word(word))
     }
 
-    /// Peek ahead (without consuming) to see if `=(` starts an associative
-    /// compound assignment like `([key]=val ...)`.  Returns true when the
-    /// first non-whitespace char after `(` is `[`.
-    fn looks_like_assoc_assign(&self) -> bool {
-        // Cap the lookahead like looks_like_brace_expansion: an uncapped scan
-        // over leading whitespace made `x=(` followed by megabytes of spaces
-        // O(n) per call (TM-DOS-024).
-        const MAX_LOOKAHEAD: usize = 10_000;
-        let mut chars = self.chars.clone();
-        // Skip the `(` we haven't consumed yet
-        if chars.next() != Some('(') {
-            return false;
+    /// Read the body of `(( ... ))` as written, after the opening `((`,
+    /// through the matching `))` (consumed, not returned). Parentheses nest;
+    /// quoted text is kept verbatim. Bash reads the arithmetic command this
+    /// way, so `<<` is a shift and spacing survives for `type`. Returns
+    /// `None` when input ends first.
+    pub fn read_dparen_body(&mut self) -> Option<String> {
+        self.read_dparen_body_checked().ok()
+    }
+
+    /// [`Self::read_dparen_body`], telling why it failed: `Err(true)` when
+    /// a `)` closed the inner `(` alone (`((cmd) )`), which bash reads as
+    /// nested subshells; `Err(false)` when input ran out.
+    pub fn read_dparen_body_checked(&mut self) -> Result<String, bool> {
+        let mut body = String::new();
+        let mut depth = 0usize;
+        while let Some(c) = self.advance() {
+            match c {
+                '(' => depth += 1,
+                ')' if depth == 0 && self.peek_char() == Some(')') => {
+                    self.advance();
+                    return Ok(body);
+                }
+                ')' if depth == 0 => return Err(true),
+                ')' => depth -= 1,
+                '\\' => {
+                    body.push(c);
+                    if let Some(n) = self.advance() {
+                        body.push(n);
+                    }
+                    continue;
+                }
+                '\'' | '"' => {
+                    body.push(c);
+                    while let Some(n) = self.advance() {
+                        body.push(n);
+                        if n == c {
+                            break;
+                        }
+                        if n == '\\'
+                            && c == '"'
+                            && let Some(e) = self.advance()
+                        {
+                            body.push(e);
+                        }
+                    }
+                    continue;
+                }
+                _ => {}
+            }
+            body.push(c);
         }
-        // Skip optional whitespace
-        for ch in chars.take(MAX_LOOKAHEAD) {
+        Err(false)
+    }
+
+    /// Read the raw source of a `[[ ... =~ REGEX ]]` operand, as bash does:
+    /// one word that ends at unquoted whitespace or `;&<>` outside
+    /// parentheses. Inside parentheses spaces belong to the regex; `|` and
+    /// `#` are ordinary characters (`^(#+) (.+)$`, `x|y`). Quotes and
+    /// backslashes are kept verbatim for the caller to interpret. Returns
+    /// `None` when no operand follows.
+    pub fn read_cond_regex(&mut self) -> Option<String> {
+        self.read_cond_regex_checked().0
+    }
+
+    /// [`Self::read_cond_regex`], also telling whether input ran out inside
+    /// an unclosed `(` group (bash: `unexpected EOF while looking for
+    /// matching `)'`).
+    pub(crate) fn read_cond_regex_checked(&mut self) -> (Option<String>, bool) {
+        while matches!(self.peek_char(), Some(' ' | '\t')) {
+            self.advance();
+        }
+        let mut raw = String::new();
+        let mut depth = 0usize;
+        while let Some(ch) = self.peek_char() {
+            if depth == 0 {
+                if matches!(ch, ' ' | '\t' | '\n' | ';' | '&' | '<' | '>') {
+                    break;
+                }
+                if ch == ')' {
+                    break;
+                }
+                if ch == '|' {
+                    // `||` ends the operand; a lone `|` is alternation.
+                    let mut ahead = self.lookahead();
+                    ahead.next();
+                    if self.reinject_buf.is_empty() && ahead.peek() == Some(&'|') {
+                        break;
+                    }
+                }
+            }
             match ch {
-                ' ' | '\t' => continue,
-                '[' => return true,
-                _ => return false,
+                '(' => depth += 1,
+                ')' => depth -= 1,
+                '\n' => {} // only reachable inside parentheses
+                _ => {}
+            }
+            raw.push(ch);
+            self.advance();
+            match ch {
+                '\\' => {
+                    if let Some(next) = self.peek_char() {
+                        raw.push(next);
+                        self.advance();
+                    }
+                }
+                '\'' => {
+                    while let Some(c) = self.advance() {
+                        raw.push(c);
+                        if c == '\'' {
+                            break;
+                        }
+                    }
+                }
+                '"' => {
+                    while let Some(c) = self.advance() {
+                        raw.push(c);
+                        if c == '\\' {
+                            if let Some(n) = self.advance() {
+                                raw.push(n);
+                            }
+                        } else if c == '"' {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
             }
         }
-        false
+        ((!raw.is_empty()).then_some(raw), depth > 0)
     }
 
     fn is_word_char(&self, ch: char) -> bool {
         !matches!(
             ch,
-            ' ' | '\t'
-                | '\n'
-                | ';'
-                | '|'
-                | '&'
-                | '>'
-                | '<'
-                | '('
-                | ')'
-                | '{'
-                | '}'
-                | '\''
-                | '"'
-                | '#'
+            ' ' | '\t' | '\n' | ';' | '|' | '&' | '>' | '<' | '(' | ')' | '{' | '}' | '\'' | '"'
         )
+        // `#` is a word char: it starts a comment only at the start of a
+        // word (`echo a#b` prints `a#b`), handled in `next_token_inner`.
     }
 
     /// Read here document content until the delimiter line is found.
@@ -2085,6 +3069,7 @@ impl<'a> Lexer<'a> {
         //
         // Quoted strings may span multiple lines (e.g., `cat <<EOF; echo "two\nthree"`),
         // so we track quoting state and continue across newlines until quotes close.
+        let rest_start = self.position;
         let mut rest_of_line = String::new();
         let mut in_double_quote = false;
         let mut in_single_quote = false;
@@ -2097,8 +3082,13 @@ impl<'a> Lexer<'a> {
                 in_double_quote = !in_double_quote;
             } else if ch == '\'' && !in_double_quote {
                 in_single_quote = !in_single_quote;
-            } else if ch == '\\' && in_double_quote {
-                // Escaped char inside double quotes — skip the next char too
+            } else if ch == '\\' && !in_single_quote && self.peek_char() == Some('\n') {
+                // `\<newline>` continues the command line: the body starts
+                // after the logical line (`cat <<EOF \` / `; echo two`).
+                self.advance();
+                continue;
+            } else if ch == '\\' && !in_single_quote {
+                // Escaped char (outside single quotes) — skip the next char too
                 rest_of_line.push(ch);
                 if let Some(next) = self.peek_char() {
                     rest_of_line.push(next);
@@ -2108,6 +3098,7 @@ impl<'a> Lexer<'a> {
             }
             rest_of_line.push(ch);
         }
+        let alias_rest = self.detach_alias_text();
 
         // Read lines until we find the delimiter
         loop {
@@ -2152,13 +3143,17 @@ impl<'a> Lexer<'a> {
 
         // Re-inject saved rest-of-line so subsequent tokens (pipes, commands, etc.)
         // are visible to the parser. Add a newline so the tokenizer sees the line break.
+        // The line break always comes back: it ends the command even when
+        // nothing followed the delimiter (`cat <<A <<B`).
         let rest_of_line_chars = rest_of_line.chars().count();
-        if !rest_of_line.is_empty() {
-            for ch in rest_of_line.chars() {
-                self.reinject_buf.push_back(ch);
-            }
-            self.reinject_buf.push_back('\n');
+        // Re-read the line from where it was first read (see `advance`).
+        self.heredoc_resume = Some(self.position);
+        self.position = rest_start;
+        for ch in rest_of_line.chars() {
+            self.reinject_buf.push_back(ch);
         }
+        self.reinject_buf.push_back('\n');
+        self.reinject_buf.extend(alias_rest);
 
         (content, rest_of_line_chars)
     }
@@ -2167,6 +3162,23 @@ impl<'a> Lexer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quoted_glob_markers_do_not_split_sentinel_pairs() {
+        assert_eq!(
+            Lexer::escape_glob_metas_in_quoted_ranges("*\x00\x00*", &[(0, 3)]),
+            "\x1e\\*\x00\x00\x1f*"
+        );
+        assert_eq!(
+            Lexer::escape_glob_metas_in_quoted_ranges("*\x00\x1fx", &[(0, 3)]),
+            "\x1e\\*\x00\x1f\x1fx"
+        );
+        let quoted = "\x00\x00$(printf '*')";
+        assert_eq!(
+            Lexer::escape_glob_metas_in_quoted_ranges(&format!("{quoted}*"), &[(0, quoted.len())]),
+            format!("\x1e{quoted}\x1f*")
+        );
+    }
 
     #[test]
     fn test_simple_words() {
@@ -2214,9 +3226,44 @@ mod tests {
         let mut lexer = Lexer::new(&script);
         assert_eq!(
             lexer.next_token(),
-            Some(Token::Word("\x01a\x02$x".to_string()))
+            Some(Token::Word("\u{1e}a\u{1f}\u{1e}\u{1f}$x".to_string()))
         );
         assert_eq!(lexer.next_token(), None);
+    }
+
+    #[test]
+    fn test_single_quoted_then_double_quoted_expansion_is_parsed() {
+        // `'a'"$1"` must expand `$1`, not stay a literal word.
+        let mut lexer = Lexer::new("'a\\b'\"$1\"");
+        assert_eq!(
+            lexer.next_token(),
+            Some(Token::QuotedWord(
+                "\u{1e}a\\b\u{1f}\u{1e}$1\u{1f}".to_string()
+            ))
+        );
+        // No expansion: still one literal word.
+        let mut lexer = Lexer::new("'a$'\"b\"");
+        assert_eq!(
+            lexer.next_token(),
+            Some(Token::LiteralWord("a$b".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_empty_quoted_beside_at_keeps_marker_pair() {
+        let mut lexer = Lexer::new("\"$@\"\"\"");
+        assert_eq!(
+            lexer.next_token(),
+            Some(Token::Word("\u{1e}$@\u{1f}\u{1e}\u{1f}".to_string()))
+        );
+        let mut lexer = Lexer::new("''\"$@\"");
+        assert_eq!(
+            lexer.next_token(),
+            Some(Token::Word("\u{1e}\u{1f}\u{1e}$@\u{1f}".to_string()))
+        );
+        // No expansion: plain quoted word.
+        let mut lexer = Lexer::new("\"a\"\"\"");
+        assert_eq!(lexer.next_token(), Some(Token::QuotedWord("a".to_string())));
     }
 
     #[test]
@@ -2248,7 +3295,9 @@ mod tests {
         assert_eq!(lexer.next_token(), Some(Token::Word("echo".to_string())));
         assert_eq!(
             lexer.next_token(),
-            Some(Token::Word("foo\x00$(id)".to_string()))
+            // Quote markers bound the single-quoted span; `(`/`)` inside it
+            // make the word quoted-literal.
+            Some(Token::QuotedWord("foo\u{1e}\x00$(id)\u{1f}".to_string()))
         );
         assert_eq!(lexer.next_token(), None);
     }
@@ -2386,13 +3435,13 @@ mod tests {
 
     #[test]
     fn test_assoc_compound_assignment() {
-        // declare -A m=([foo]="bar" [baz]="qux") should keep the compound
-        // assignment as a single Word token
-        let mut lexer = Lexer::new(r#"m=([foo]="bar" [baz]="qux")"#);
-        assert_eq!(
-            lexer.next_token(),
-            Some(Token::Word(r#"m=([foo]="bar" [baz]="qux")"#.to_string()))
-        );
+        // m=([foo]="bar") lexes like any compound: the parser collects the
+        // element tokens between the parentheses.
+        let mut lexer = Lexer::new(r#"m=([foo]="bar")"#);
+        assert_eq!(lexer.next_token(), Some(Token::Word("m=".to_string())));
+        assert_eq!(lexer.next_token(), Some(Token::LeftParen));
+        assert!(matches!(lexer.next_token(), Some(Token::Word(_))));
+        assert_eq!(lexer.next_token(), Some(Token::RightParen));
         assert_eq!(lexer.next_token(), None);
     }
 
@@ -2434,6 +3483,47 @@ mod tests {
     fn test_simple_brace_expansion_unchanged() {
         let mut lexer = Lexer::new("${foo}");
         assert_eq!(lexer.next_token(), Some(Token::Word("${foo}".to_string())));
+        assert_eq!(lexer.next_token(), None);
+    }
+
+    /// `}` is a reserved word, not a metacharacter: it stays inside the word
+    /// unless a metacharacter or EOF follows it.
+    #[test]
+    fn close_brace_does_not_split_a_word() {
+        for src in ["a}b", "a}", "}b", "}}", "a}b}c", "a}{b"] {
+            let mut lexer = Lexer::new(src);
+            assert_eq!(
+                lexer.next_token(),
+                Some(Token::Word(src.to_string())),
+                "{src:?} should lex as one word"
+            );
+            assert_eq!(lexer.next_token(), None, "{src:?} left trailing tokens");
+        }
+    }
+
+    /// Standing alone, it is still the reserved word that closes a group.
+    #[test]
+    fn lone_close_brace_is_the_reserved_word() {
+        for src in ["}", "} ", "};", "}\n", "})", "}|", "}&", "}<", "}>"] {
+            let mut lexer = Lexer::new(src);
+            assert_eq!(
+                lexer.next_token(),
+                Some(Token::RightBrace),
+                "{src:?} should open with RightBrace"
+            );
+        }
+    }
+
+    /// The closing token of a brace group survives, whether or not a space
+    /// precedes it.
+    #[test]
+    fn brace_group_still_lexes_as_a_group() {
+        let mut lexer = Lexer::new("{ echo hi; }");
+        assert_eq!(lexer.next_token(), Some(Token::LeftBrace));
+        assert_eq!(lexer.next_token(), Some(Token::Word("echo".to_string())));
+        assert_eq!(lexer.next_token(), Some(Token::Word("hi".to_string())));
+        assert_eq!(lexer.next_token(), Some(Token::Semicolon));
+        assert_eq!(lexer.next_token(), Some(Token::RightBrace));
         assert_eq!(lexer.next_token(), None);
     }
 }

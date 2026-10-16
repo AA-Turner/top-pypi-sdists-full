@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use enumset::{EnumSet, EnumSetType, enum_set, enum_set_union};
 
 #[cfg(doc)]
-use super::node::{Element, Modifier, Node};
+use super::node::{Block, Inline};
 
 use super::grammar::{Grammar, GrammarSet};
 
@@ -17,10 +17,10 @@ use super::grammar::{Grammar, GrammarSet};
 /// [`MODIFIER_RULES`] are resolved from delimiters after the parse (see [`crate::range`]), and
 /// [`GATE_RULES`] widen another rule.
 ///
-/// A rule maps roughly 1:1 with [`Node`] and can broadly be considered the content-less form of
-/// a node. However, there are some nodes that do not have a corresponding rule; these nodes are
-/// considered base nodes and have no semantic meaning as a rule. Current base nodes are
-/// [`Element::Text`], [`Element::Paragraph`], and [`Element::Empty`]. The inverse also exists: a
+/// A rule maps roughly 1:1 with [`Block`] and [`Inline`] variants and can broadly be considered
+/// the content-less form of a node. However, there are some nodes that do not have a corresponding
+/// rule; these nodes are considered base nodes and have no semantic meaning as a rule. Current base
+/// nodes are [`Inline::Text`], [`Block::Paragraph`], and [`Block::Empty`]. The inverse also exists: a
 /// [`GATE_RULES`] member has no node and gates a variant of another rule.
 ///
 /// See [`RuleSet`] for information about what a collection of Rules means.
@@ -151,7 +151,7 @@ impl ParsedRule {
 /// Set of [`Rule`]s that are considered "inline".
 ///
 /// Inline rules can appear anywhere, although a top-level inline rule will get wrapped in a
-/// [`Element::Paragraph`] which is the base "block" node.
+/// [`Block::Paragraph`] which is the base "block" node.
 pub const INLINE_RULES: RuleSet = enum_set_union!(
 	Rule::Emoji,
 	Rule::Link,
@@ -163,9 +163,8 @@ pub const INLINE_RULES: RuleSet = enum_set_union!(
 
 /// Set of [`Rule`]s that are considered "modifier".
 ///
-/// A modifier takes on the kind of the position it opens in: mid-line it wraps inline content, and
-/// at the start of a line it wraps block content -- so `*1. foo\n2. bar*` is an italic list. See
-/// [`Modifier`].
+/// A modifier wraps only inline content. Covering several blocks, it splits into a fragment inside
+/// each -- so `*1. foo\n2. bar*` is a list of two italics. See [`Inline::modifier_kind`].
 pub const MODIFIER_RULES: RuleSet = enum_set_union!(
 	Rule::Bold,
 	Rule::Italic,

@@ -468,6 +468,33 @@ def alloc_sweep() -> Callable[..., list[str]]:
     return sweep
 
 
+@pytest.mark.fuzz_build
+def test_xpath_compilation_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(lambda document: document.xpath("./r/value"), lambda: parse_xml("<r><value>x</value></r>"))
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_xslt_compilation_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    stylesheet = parse_xml(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        '<xsl:template match="/"><xsl:value-of select="/r/value"/></xsl:template>'
+        "</xsl:stylesheet>"
+    )
+    assert set(alloc_sweep(Transform(stylesheet), lambda: parse_xml("<r><value>x</value></r>"))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_xslt_number_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    stylesheet = parse_xml(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        '<xsl:template match="/"><xsl:for-each select="/r/p"><xsl:number count="p"/></xsl:for-each></xsl:template>'
+        "</xsl:stylesheet>"
+    )
+    assert set(alloc_sweep(Transform(stylesheet), lambda: parse_xml("<r><p/><p/></r>"))) == {"MemoryError"}
+
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -613,7 +640,7 @@ assert windows[1][1], windows
 
 _LIST: Final = """
 import json
-from fuzz.atheris_generation_targets import encoding_observation, generation_targets
+from fuzz.generation_targets import encoding_observation, generation_targets
 assert encoding_observation(b"<p>\\xe9</p>", "windows-1252") == "é"
 assert [target.name for target in generation_targets("windows-1252")] == [
     "markdown-source", "markdown-html", "encoding-bytes"

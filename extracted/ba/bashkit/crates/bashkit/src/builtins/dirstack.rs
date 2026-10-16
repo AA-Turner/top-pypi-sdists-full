@@ -24,15 +24,69 @@ fn normalize_path(base: &std::path::Path, target: &str) -> PathBuf {
     super::resolve_path(&PathBuf::from("/"), &path.to_string_lossy())
 }
 
-/// Format the stack as bash's `dirs` default: current dir followed by the
-/// stack from top (most recent) to bottom.
-fn format_stack(ctx: &Context<'_>) -> String {
-    let cwd = ctx.cwd.to_string_lossy().to_string();
-    let mut parts = vec![cwd];
-    if let Some(shell) = ctx.shell.as_ref() {
-        parts.extend(shell.dir_stack.iter().rev().cloned());
+/// bash `polite_directory_format`: a directory under `$HOME` is shown as
+/// `~` plus the rest (`$HOME` of `/` or unset disables it).
+fn polite(dir: &str, home: Option<&str>) -> String {
+    if let Some(home) = home.filter(|h| h.len() > 1)
+        && let Some(rest) = dir.strip_prefix(home)
+        && (rest.is_empty() || rest.starts_with('/'))
+    {
+        return format!("~{rest}");
     }
-    parts.join(" ")
+    dir.to_string()
+}
+
+/// Current dir followed by the stack from top (most recent) to bottom,
+/// `~`-abbreviated unless `long`.
+fn stack_entries(ctx: &Context<'_>, long: bool) -> Vec<String> {
+    let home = if long {
+        None
+    } else {
+        ctx.variables.get("HOME").map(String::as_str)
+    };
+    let cwd = ctx.cwd.to_string_lossy();
+    let mut parts = vec![polite(&cwd, home)];
+    if let Some(shell) = ctx.shell.as_ref() {
+        parts.extend(shell.dir_stack.iter().rev().map(|d| polite(d, home)));
+    }
+    parts
+}
+
+/// Format the stack as bash's `dirs` default: one line, `~`-abbreviated.
+fn format_stack(ctx: &Context<'_>) -> String {
+    stack_entries(ctx, false).join(" ")
+}
+
+/// Operands of `pushd`/`popd` after `--`; a `-x`/`+x` that is no number is
+/// a usage error (status 2), as in bash. `+N`/`-N` stack rotation is not
+/// supported and is treated as an operand.
+fn stack_operands<'a>(
+    args: &'a [String],
+    name: &str,
+    usage: &str,
+) -> std::result::Result<Vec<&'a String>, Box<ExecResult>> {
+    let mut out = Vec::new();
+    let mut opts = true;
+    for arg in args {
+        if opts && arg == "--" {
+            opts = false;
+            continue;
+        }
+        if opts && arg.len() > 1 && arg.starts_with(['-', '+']) {
+            if arg == "-n" {
+                continue;
+            }
+            if !arg[1..].bytes().all(|b| b.is_ascii_digit()) {
+                return Err(Box::new(ExecResult::err(
+                    format!("{name}: {arg}: invalid number\n{name}: usage: {usage}\n"),
+                    2,
+                )));
+            }
+        }
+        opts = false;
+        out.push(arg);
+    }
+    Ok(out)
 }
 
 /// The pushd builtin - push directory onto stack and cd.
@@ -46,7 +100,17 @@ pub struct Pushd;
 #[async_trait]
 impl Builtin for Pushd {
     async fn execute(&self, mut ctx: Context<'_>) -> Result<ExecResult> {
-        if ctx.args.is_empty() {
+        let operands = match stack_operands(ctx.args, "pushd", "pushd [-n] [+N | -N | dir]") {
+            Ok(o) => o,
+            Err(e) => return Ok(*e),
+        };
+        if operands.len() > 1 {
+            return Ok(ExecResult::err(
+                "pushd: too many arguments\n".to_string(),
+                1,
+            ));
+        }
+        if operands.is_empty() {
             // Swap current dir with the top of the stack.
             let Some(top) = ctx.shell.as_ref().and_then(|s| s.dir_stack.last()).cloned() else {
                 return Ok(ExecResult::err(
@@ -69,7 +133,7 @@ impl Builtin for Pushd {
             *ctx.cwd = new_path;
             Ok(ExecResult::ok(format!("{}\n", format_stack(&ctx))))
         } else {
-            let target = ctx.args[0].clone();
+            let target = operands[0].clone();
             let new_path = normalize_path(ctx.cwd, &target);
 
             // Single stat: distinguish "not found" from "not a directory" without
@@ -118,6 +182,16 @@ pub struct Popd;
 #[async_trait]
 impl Builtin for Popd {
     async fn execute(&self, mut ctx: Context<'_>) -> Result<ExecResult> {
+        let operands = match stack_operands(ctx.args, "popd", "popd [-n] [+N | -N]") {
+            Ok(o) => o,
+            Err(e) => return Ok(*e),
+        };
+        if let Some(arg) = operands.first() {
+            return Ok(ExecResult::err(
+                format!("popd: {arg}: invalid argument\npopd: usage: popd [-n] [+N | -N]\n"),
+                2,
+            ));
+        }
         let Some(dir) = ctx.shell.as_mut().and_then(|s| s.dir_stack.pop()) else {
             return Ok(ExecResult::err(
                 "popd: directory stack empty\n".to_string(),
@@ -145,6 +219,7 @@ impl Builtin for Dirs {
         let mut clear = false;
         let mut per_line = false;
         let mut verbose = false;
+        let mut long = false;
 
         for arg in ctx.args.iter() {
             match arg.as_str() {
@@ -154,7 +229,13 @@ impl Builtin for Dirs {
                     verbose = true;
                     per_line = true;
                 }
-                "-l" => {} // long listing (we don't do ~ substitution anyway)
+                "-l" => long = true,
+                a if !a.starts_with(['-', '+']) => {
+                    return Ok(ExecResult::err(
+                        format!("dirs: {a}: invalid option\ndirs: usage: dirs [-clpv] [+N] [-N]\n"),
+                        2,
+                    ));
+                }
                 _ => {}
             }
         }
@@ -166,28 +247,18 @@ impl Builtin for Dirs {
             return Ok(ExecResult::ok(String::new()));
         }
 
-        if !verbose && !per_line {
-            // Default output doesn't need to walk the stack separately.
-            return Ok(ExecResult::ok(format!("{}\n", format_stack(&ctx))));
-        }
-
-        let cwd = ctx.cwd.to_string_lossy().to_string();
-        // Stack from top (most recent) to bottom, borrowed (no clone).
-        let empty: Vec<String> = Vec::new();
-        let stack = ctx.shell.as_ref().map(|s| &*s.dir_stack).unwrap_or(&empty);
-
-        if verbose {
-            let mut output = format!(" 0  {}\n", cwd);
-            for (n, dir) in stack.iter().rev().enumerate() {
-                output.push_str(&format!(" {}  {}\n", n + 1, dir));
-            }
-            Ok(ExecResult::ok(output))
+        let entries = stack_entries(&ctx, long);
+        let output = if verbose {
+            entries
+                .iter()
+                .enumerate()
+                .map(|(n, dir)| format!(" {n}  {dir}\n"))
+                .collect()
+        } else if per_line {
+            entries.iter().map(|dir| format!("{dir}\n")).collect()
         } else {
-            let mut output = format!("{}\n", cwd);
-            for dir in stack.iter().rev() {
-                output.push_str(&format!("{}\n", dir));
-            }
-            Ok(ExecResult::ok(output))
-        }
+            format!("{}\n", entries.join(" "))
+        };
+        Ok(ExecResult::ok(output))
     }
 }

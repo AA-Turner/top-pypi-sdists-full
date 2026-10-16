@@ -12,7 +12,9 @@ import mistralai.workflows.core.graph_summaries as _summaries_mod
 from mistralai.workflows.core.graph_summaries import (
     _DEFAULT_MODEL,
     GraphSummaryInput,
+    SummariseBlockedError,
     SummariseError,
+    SummariseRateLimitError,
     SummariseTimeoutError,
     _bottom_up_order,
     _build_user_message,
@@ -314,6 +316,47 @@ def test_graph_summary_input_ignores_legacy_prompt_fields():
     assert id_map == {"node_0": "a"}
 
 
+def test_batched_user_message_sanitizes_activity_names_from_other_batches():
+    summary_input = GraphSummaryInput(
+        workflow_name="MyWF",
+        entrypoint={
+            "name": "run",
+            "body": "def run(self):\n    first_activity()\n    second_activity()",
+        },
+        activities=[
+            {"name": "first_activity", "body": "def first_activity():\n    return 1"},
+            {"name": "second_activity", "body": "def second_activity():\n    return 2"},
+        ],
+        nodes=[
+            {"id": "first", "type": "activity", "name": "first_activity"},
+            {"id": "second", "type": "activity", "name": "second_activity"},
+        ],
+    )
+
+    prompt, _, id_map = _build_user_message_from_input(summary_input, [summary_input.nodes[0]])
+
+    assert "first_activity" not in prompt
+    assert "second_activity" not in prompt
+    assert id_map == {"node_0": "first"}
+
+
+def test_summary_batches_respect_message_budget(monkeypatch):
+    monkeypatch.setattr(_summaries_mod, "_SUMMARY_BATCH_SIZE", 10)
+    monkeypatch.setattr(_summaries_mod, "_TOTAL_MESSAGE_BUDGET", 220)
+    summary_input = GraphSummaryInput(
+        workflow_name="MyWF",
+        nodes=[{"id": f"node-{index}", "type": "unknown", "name": "...", "source": "x" * 100} for index in range(3)],
+    )
+
+    batches = _summaries_mod._batch_summary_nodes(summary_input)
+
+    assert [[node.id for node in batch] for batch in batches] == [
+        ["node-0"],
+        ["node-1"],
+        ["node-2"],
+    ]
+
+
 def test_graph_summary_input_rejects_duplicate_node_ids():
     with pytest.raises(ValueError, match="unique ids"):
         GraphSummaryInput(
@@ -393,6 +436,60 @@ async def test_summarise_workflow_returns_summaries():
     assert result.summaries["a"].short == "fetch data"
     assert result.summaries["a"].long == "Fetches data from the API."
     assert result.summaries["b"].short == "send result"
+
+
+async def test_summarise_graph_summary_input_batches_nodes_with_bounded_concurrency(monkeypatch):
+    monkeypatch.setattr(_summaries_mod, "_SUMMARY_BATCH_SIZE", 2)
+    monkeypatch.setattr(_summaries_mod, "_SUMMARY_BATCH_CONCURRENCY", 2)
+    summary_input = GraphSummaryInput(
+        workflow_name="MyWF",
+        nodes=[
+            {"id": f"node-{index}", "type": "unknown", "name": "...", "source": f"value = {index}"}
+            for index in range(5)
+        ],
+    )
+    active_calls = 0
+    peak_calls = 0
+    system_prompts: list[str] = []
+    workflow_user_prompts: list[str] = []
+
+    async def complete(**kwargs):
+        nonlocal active_calls, peak_calls
+        active_calls += 1
+        peak_calls = max(peak_calls, active_calls)
+        try:
+            await asyncio.sleep(0.01)
+            system_prompt = kwargs["messages"][0].content
+            user_prompt = kwargs["messages"][1].content
+            assert isinstance(system_prompt, str)
+            assert isinstance(user_prompt, str)
+            system_prompts.append(system_prompt)
+            if "exactly one key" in system_prompt:
+                workflow_user_prompts.append(user_prompt)
+                payload = {"workflow": _WF_SUMMARY}
+            else:
+                payload = {
+                    f"node_{index}": {"short": "Process value", "long": "Processes a value."}
+                    for index in reversed(range(user_prompt.count('<summary id="')))
+                }
+            return _response(payload)
+        finally:
+            active_calls -= 1
+
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=complete)
+
+    result = await summarise_graph_summary_input(summary_input, client=client)
+
+    assert list(result.summaries) == [f"node-{index}" for index in range(5)]
+    assert result.workflow_summary is not None
+    assert result.workflow_summary.short == _WF_SUMMARY["short"]
+    assert client.chat.complete_async.await_count == 4
+    assert peak_calls == 2
+    assert sum("exactly one key" in prompt for prompt in system_prompts) == 1
+    assert "value = 0" in workflow_user_prompts[0]
+    assert "value = 4" in workflow_user_prompts[0]
+    assert "value = 2" not in result.user_prompt
 
 
 async def test_summarise_workflow_retries_on_validation_error():
@@ -513,21 +610,65 @@ async def test_summarise_workflow_omits_metadata_by_default():
     assert client.chat.complete_async.call_args.kwargs["metadata"] is UNSET
 
 
-async def test_summarise_workflow_raises_on_persistent_rate_limit():
+async def test_summarise_graph_summary_input_raises_rate_limit_without_client_retries():
     wire = _wire(_node("a"))
 
     raw_response = MagicMock()
     raw_response.status_code = 429
     raw_response.text = "rate limited"
-    raw_response.headers = {}
+    raw_response.headers = {"retry-after": "17"}
     rate_limit_exc = MistralError("Too Many Requests", raw_response)
 
     client = MagicMock()
     client.chat.complete_async = AsyncMock(side_effect=rate_limit_exc)
 
-    with pytest.raises(SummariseError):
-        await summarise_workflow(wire, client=client)
+    with pytest.raises(SummariseRateLimitError) as exc_info:
+        await summarise_graph_summary_input(
+            _summaries_mod.prepare_graph_summary_input(wire),
+            client=client,
+            retry_api_errors=False,
+        )
 
+    # mistralai 2.9.3 copies the upstream httpx response headers onto MistralError.
+    assert exc_info.value.retry_after == "17"
+    assert client.chat.complete_async.call_count == 1
+    assert client.chat.complete_async.call_args.kwargs["retries"] is None
+
+
+@pytest.mark.parametrize(
+    ("status_code", "body", "expected"),
+    [
+        (
+            403,
+            '{"object":"error","message":"Request blocked by guardrail policy","type":"guardrail_violation",'
+            '"param":null,"code":"1920","raw_status_code":403}',
+            SummariseBlockedError,
+        ),
+        (403, '{"object":"error","message":"Forbidden","type":"forbidden"}', SummariseError),
+        (403, "not json", SummariseError),
+        (500, '{"type":"guardrail_violation"}', SummariseError),
+    ],
+)
+async def test_summarise_graph_summary_input_classifies_guardrail_blocks(
+    status_code: int, body: str, expected: type[SummariseError]
+):
+    wire = _wire(_node("a"))
+
+    raw_response = MagicMock()
+    raw_response.status_code = status_code
+    raw_response.text = body
+    raw_response.headers = {}
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=MistralError("API error occurred", raw_response))
+
+    with pytest.raises(SummariseError) as exc_info:
+        await summarise_graph_summary_input(
+            _summaries_mod.prepare_graph_summary_input(wire),
+            client=client,
+            retry_api_errors=False,
+        )
+
+    assert type(exc_info.value) is expected
     assert client.chat.complete_async.call_count == 1
 
 
@@ -848,6 +989,33 @@ async def test_summarise_graph_summary_input_returns_partial_results_at_deadline
     result = await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
 
     assert result.summaries["c"].short == "Check for empty list"
+    assert client.chat.complete_async.await_count == 2
+
+
+async def test_summarise_graph_summary_input_fails_if_a_batch_misses_the_shared_deadline(monkeypatch):
+    monkeypatch.setattr(_summaries_mod, "_SUMMARY_BATCH_SIZE", 1)
+    monkeypatch.setattr(_summaries_mod, "_SUMMARY_BATCH_CONCURRENCY", 1)
+    summary_input = GraphSummaryInput(
+        workflow_name="MyWF",
+        nodes=[
+            {"id": "first", "type": "unknown", "name": "...", "source": "first = 1"},
+            {"id": "second", "type": "unknown", "name": "...", "source": "second = 2"},
+        ],
+    )
+
+    async def complete(**kwargs):
+        if client.chat.complete_async.await_count == 1:
+            return _response(
+                {"node_0": {"short": "Process value", "long": "Processes a value."}, "workflow": _WF_SUMMARY}
+            )
+        await asyncio.sleep(1)
+
+    client = MagicMock()
+    client.chat.complete_async = AsyncMock(side_effect=complete)
+
+    with pytest.raises(SummariseTimeoutError):
+        await summarise_graph_summary_input(summary_input, client=client, deadline_s=0.01)
+
     assert client.chat.complete_async.await_count == 2
 
 

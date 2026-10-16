@@ -441,6 +441,7 @@ class AlexaLogin:
         """Set up initial connection and log in."""
         oauth = oauth or {}
 
+        self.reported_account_domain: str | None = None
         self._hass_domain: str = "alexa_media"
         self._prefix: str = "https://alexa."
         self._url: str = url
@@ -1749,19 +1750,47 @@ class AlexaLogin:
             "current_version": "6.12.4",
             "previous_version": "6.12.4",
         }
+         # Ensure data dictionary is compiled...
         try:
+            # Check explicitly if the session was closed outside of our scope
+            if self._session is None or self._session.closed:
+                _LOGGER.debug(
+                    "Detected a closed or missing ClientSession. "
+                    "Initializing a new session."
+                )
+                self._session = aiohttp.ClientSession()
+
             response = await self._session.post(
                 "https://api." + self.url + "/auth/token",
                 data=data,
             )
-        except aiohttp.ClientConnectionError:
+        except (aiohttp.ClientConnectionError, RuntimeError) as e:
+            # Catch the "Session is closed" RuntimeError explicitly
+            if isinstance(e, RuntimeError) and "Session is closed" not in str(e):
+                raise
+
             _LOGGER.debug(
-                "Fallback attempt to refresh access token with api.amazon.com"
+                "Fallback attempt to refresh access token with api.amazon.com due to "
+                "connection error or closed session."
             )
-            response = await self._session.post(
-                "https://api.amazon.com/auth/token",
-                data=data,
-            )
+
+            # Safe fallback: create a brand new session context if it completely died
+            if self._session is None or self._session.closed:
+                self._session = aiohttp.ClientSession()
+
+            try:
+                response = await self._session.post(
+                    "https://amazon.com",
+                    data=data,
+                )
+            except RuntimeError as fallback_err:
+                if "Session is closed" in str(fallback_err):
+                    # Raise an exception that the caller can safely intercept
+                    raise ValueError(
+                        "Alexa API ClientSession is closed and unrecoverable."
+                    ) from fallback_err
+                raise
+
         _redacted = {
             **data,
             "source_token": "[REDACTED]" if data.get("source_token") else "",
@@ -1940,25 +1969,36 @@ class AlexaLogin:
             f"{self._prefix}{self.url}/api/users/me?platform=ios&version={CALL_VERSION}",
             headers=headers,
         )
+
         if response.status != 200:
             if self._debug:
                 _LOGGER.debug("Unable to check for domain; proceeding:\n%s", response)
             return True
+
         try:
             response = await response.json(content_type=None)
         except JSONDecodeError:
             if self._debug:
                 _LOGGER.debug("Unable to check for domain; proceeding:\n%s", response)
             return True
+
         domain = URL(response.get("marketPlaceDomainName")).host.replace("www.", "", 1)
+        self.reported_account_domain = domain
+
         if self.url != domain:
             _LOGGER.warning(
-                "Domain %s does not match reported account domain %s; functionality is not likely to work, please fix",  # noqa: E501
+                "Domain %s does not match reported account domain %s; "
+                "functionality is not likely to work, please fix",
                 self.url,
                 domain,
             )
             return False
-        _LOGGER.debug("Domain %s matches reported account domain: %s", self.url, domain)
+
+        _LOGGER.debug(
+            "Domain %s matches reported account domain: %s",
+            self.url,
+            domain
+        )
         return True
 
     async def _process_resp(self, resp) -> str:

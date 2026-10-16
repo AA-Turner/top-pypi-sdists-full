@@ -11,7 +11,8 @@ import threading
 
 import pytest
 
-from bashkit import Bash, BashTool, ScriptedTool
+from bashkit import Bash, BashTool
+from bashkit.scripted import ScriptedTool
 
 # ===========================================================================
 # Multi-step workflows
@@ -415,6 +416,15 @@ def test_bashtool_system_prompt_includes_username():
     tool = BashTool(username="agent007")
     sp = tool.system_prompt()
     assert "agent007" in sp
+
+
+def test_package_version_matches_native_and_distribution():
+    """Every public version surface identifies the installed release."""
+    from importlib.metadata import version
+
+    import bashkit
+
+    assert bashkit.__version__ == bashkit.get_version() == version("bashkit")
 
 
 def test_bashtool_version_format():

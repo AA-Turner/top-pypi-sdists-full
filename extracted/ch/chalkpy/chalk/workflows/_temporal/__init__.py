@@ -15,7 +15,9 @@ except ImportError as e:
     raise missing_dependency_exception("chalkpy[workflows]", e) from e
 
 from chalk.workflows._temporal.runtime import (
+    TASK_RUNNER_PREFIX,
     build_activity,
+    build_task_runner_workflow,
     build_workflow_class,
     connect_workflow_orchestrator,
     create_worker,
@@ -24,7 +26,9 @@ from chalk.workflows._temporal.runtime import (
 )
 
 __all__ = (
+    "TASK_RUNNER_PREFIX",
     "build_activity",
+    "build_task_runner_workflow",
     "build_workflow_class",
     "connect_workflow_orchestrator",
     "create_worker",

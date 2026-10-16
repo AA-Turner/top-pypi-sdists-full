@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: bernstein
-Version: 3.21.0
+Version: 3.22.0
 Summary: The open-source governance layer for AI agents. No model in the coordination loop, so replaying a plan reproduces its task graph byte-identically, and run receipts are byte-identical across independent builds. Signed lineage plus an opt-in HMAC audit chain a reviewer checks offline, without rerunning it. Runs Claude Code, Codex, Gemini CLI, and 40+ CLI agents; governs any deliverable from code to research to audit evidence packs. Cluster mode, air-gap deploy.
 Project-URL: Homepage, https://bernstein.run
 Project-URL: Documentation, https://docs.bernstein.run
@@ -114,6 +114,7 @@ Requires-Dist: types-psutil>=7.2.2.20260518; extra == 'dev'
 Requires-Dist: types-pyyaml>=6.0.12.20260724; extra == 'dev'
 Requires-Dist: types-qrcode>=8.2.0.20260518; extra == 'dev'
 Requires-Dist: types-reportlab>=4.5.1.20260724; extra == 'dev'
+Requires-Dist: vulture==2.14; extra == 'dev'
 Provides-Extra: discord
 Requires-Dist: discord-py>=2.4; extra == 'discord'
 Provides-Extra: docker

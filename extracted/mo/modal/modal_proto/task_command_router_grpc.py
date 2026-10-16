@@ -89,7 +89,7 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def TaskSetOutboundPolicy(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest, modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse]') -> None:
+    async def TaskSetOutboundPolicy(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyRequest, modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyResponse]') -> None:
         pass
 
     @abc.abstractmethod
@@ -221,8 +221,8 @@ class TaskCommandRouterBase(abc.ABC):
             '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy': grpclib.const.Handler(
                 self.TaskSetOutboundPolicy,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
-                modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
+                modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyRequest,
+                modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskSnapshotDirectory': grpclib.const.Handler(
                 self.TaskSnapshotDirectory,
@@ -365,8 +365,8 @@ class TaskCommandRouterStub:
         self.TaskSetOutboundPolicy = grpclib.client.UnaryUnaryMethod(
             channel,
             '/modal.task_command_router.TaskCommandRouter/TaskSetOutboundPolicy',
-            modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
-            modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
+            modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyRequest,
+            modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyResponse,
         )
         self.TaskSnapshotDirectory = grpclib.client.UnaryUnaryMethod(
             channel,

@@ -29,6 +29,7 @@ mod assert;
 mod atomic_write;
 mod awk;
 mod base64;
+mod basenc;
 mod bc;
 mod caller;
 mod cat;
@@ -36,13 +37,16 @@ mod checksum;
 mod clap_cache;
 mod clap_env;
 mod clear;
+mod cmp;
 mod column;
 mod comm;
 mod compgen;
+mod coreutils_extra;
 mod csv;
 mod curl;
 mod cuttr;
 mod date;
+mod dd;
 mod diff;
 mod dirstack;
 mod disk;
@@ -53,37 +57,51 @@ mod envsubst;
 mod expand;
 mod export;
 mod expr;
+mod factor;
 mod fc;
 mod fileops;
+mod find;
 mod flow;
+mod fmt;
 mod fold;
 mod generated;
 mod glob_cmd;
 mod grep;
+mod grep_pattern;
 mod headtail;
 mod help;
 mod hextools;
 mod http;
 mod iconv;
 mod inspect;
+mod install;
 mod introspect;
+mod jobctl;
 mod join;
 #[cfg(feature = "jq")]
 mod jq;
 mod json;
 mod log;
 mod ls;
+mod make;
+mod man;
 mod mapfile;
 mod mkfifo;
+#[cfg(feature = "terminal")]
+mod nano;
 mod navigation;
 mod nl;
 mod numfmt;
+#[cfg(feature = "terminal")]
+mod pager;
 mod parallel;
 mod paste;
 mod patch;
 mod path;
 mod pipeline;
+mod pr;
 mod printf;
+pub(crate) mod random;
 mod read;
 mod retry;
 mod rg;
@@ -91,12 +109,14 @@ pub(crate) mod search_common;
 mod sed;
 mod semver;
 mod seq;
+mod shellenv;
 mod shuf;
 mod sleep;
 mod sortuniq;
 mod source;
 mod split;
 mod strings;
+mod sysextra;
 mod system;
 mod template;
 mod test;
@@ -106,8 +126,11 @@ mod tomlq;
 mod trap;
 mod tree;
 mod truncate;
+mod tsort;
 mod vars;
 mod verify;
+#[cfg(feature = "terminal")]
+mod vi;
 mod wait;
 mod wc;
 mod yes;
@@ -126,9 +149,11 @@ pub(crate) mod git;
 
 pub(crate) mod ssh;
 
-#[cfg(any(feature = "python", feature = "typescript"))]
+#[cfg(any(feature = "python", feature = "typescript", feature = "cpython"))]
 mod runtime_limits;
 
+#[cfg(feature = "cpython")]
+mod cpython;
 #[cfg(feature = "python")]
 mod python;
 
@@ -143,18 +168,21 @@ pub use archive::{Bunzip2, Bzcat, Bzip2, Gunzip, Gzip, Tar};
 pub use assert::Assert;
 pub use awk::Awk;
 pub use base64::Base64;
+pub use basenc::{Base32, Basenc};
 pub use bc::Bc;
 pub use caller::Caller;
 pub use cat::Cat;
-pub use checksum::{Md5sum, Sha1sum, Sha256sum};
+pub use checksum::{B2sum, Cksum, Md5sum, Sha1sum, Sha224sum, Sha256sum, Sha384sum, Sha512sum};
 pub use clear::Clear;
+pub use cmp::Cmp;
 pub use column::Column;
 pub use comm::Comm;
-pub use compgen::Compgen;
+pub use compgen::{Compgen, ShellOnly};
 pub use csv::Csv;
 pub use curl::{Curl, Wget};
 pub use cuttr::{Cut, Tr};
 pub use date::Date;
+pub use dd::Dd;
 pub use diff::Diff;
 pub use dirstack::{Dirs, Popd, Pushd};
 pub use disk::{Df, Du};
@@ -165,9 +193,12 @@ pub use envsubst::Envsubst;
 pub use expand::{Expand, Unexpand};
 pub use export::Export;
 pub use expr::Expr;
+pub use factor::Factor;
 pub use fc::Fc;
-pub use fileops::{Chmod, Chown, Cp, Kill, Ln, Mkdir, Mktemp, Mv, Rm, Touch};
+pub use fileops::{Chmod, Chown, Cp, Ln, Mkdir, Mktemp, Mv, Rm, Touch};
+pub use find::Find;
 pub use flow::{Break, Colon, Continue, Exit, False, Return, True};
+pub use fmt::Fmt;
 pub use fold::Fold;
 pub use glob_cmd::GlobCmd;
 pub use grep::Grep;
@@ -177,14 +208,19 @@ pub use hextools::{Hexdump, Od, Xxd};
 pub use http::Http;
 pub use iconv::Iconv;
 pub use inspect::{File, Less, Stat};
+pub use install::Install;
+pub(crate) use introspect::CommandHash;
 pub use introspect::{Hash, Type, Which};
+pub(crate) use jobctl::signal_name;
 pub use join::Join;
 #[cfg(feature = "jq")]
 pub use jq::Jq;
 pub use json::Json;
 pub use log::Log;
-pub(crate) use ls::glob_match;
-pub use ls::{Find, Ls, Rmdir};
+pub use ls::{Ls, Rmdir};
+pub(crate) use ls::{fnmatch, glob_match};
+pub use make::Make;
+pub use man::Man;
 pub use mapfile::Mapfile;
 pub use mkfifo::Mkfifo;
 pub use navigation::{Cd, Pwd};
@@ -195,21 +231,34 @@ pub use paste::Paste;
 pub use patch::Patch;
 pub use path::{Basename, Dirname, Readlink, Realpath};
 pub use pipeline::{Tee, Watch, Xargs};
+pub use pr::Pr;
 pub use printf::Printf;
+pub use random::{Openssl, Uuidgen};
 pub use read::Read;
+pub(crate) use read::consumed_len as read_consumed_len;
 pub use retry::Retry;
 pub use rg::Rg;
 pub use sed::Sed;
 pub use semver::Semver;
 pub use seq::Seq;
+pub use shellenv::{Enable, Locale, Ulimit, Umask};
 pub use shuf::Shuf;
+pub use tsort::Tsort;
 
+pub use coreutils_extra::{Chgrp, GrepAlias, Link, Shasum, Sum};
+pub use jobctl::{Bg, Disown, Fg, Jobs, Kill, Pgrep, Ps};
+#[cfg(feature = "terminal")]
+pub use nano::Nano;
+#[cfg(feature = "terminal")]
+pub use pager::More;
 pub use sleep::Sleep;
 pub use sortuniq::{Sort, Uniq};
 pub use source::Source;
 pub use split::Split;
 pub use strings::Strings;
-pub use system::{DEFAULT_HOSTNAME, DEFAULT_USERNAME, Hostname, Id, Uname, Whoami};
+pub use sysextra::{Arch, Free, Getconf, Hostid, RunAs, SyncCmd, Tty, Uptime, UserInfo};
+pub use system::{DEFAULT_HOSTNAME, DEFAULT_USERNAME, Hostname, Id, Nproc, Uname, Whoami};
+pub(crate) use system::{VIRTUAL_KERNEL_RELEASE, VIRTUAL_KERNEL_VERSION, VIRTUAL_NPROC};
 pub use template::Template;
 pub use test::{Bracket, Test};
 pub use textrev::{Rev, Tac};
@@ -219,7 +268,15 @@ pub use trap::Trap;
 pub use tree::Tree;
 pub use truncate::Truncate;
 pub use vars::{Eval, Local, Readonly, Set, Shift, Shopt, Times, Unset};
+pub(crate) use vars::{
+    SET_O_OPTIONS, SHOPT_OPTIONS, bashopts_value, dollar_dash, set_o_var_by_letter,
+    set_o_var_by_name, shellopts_value, shopt_known, shopt_on,
+};
 pub use verify::Verify;
+#[cfg(feature = "terminal")]
+pub use vi::Vi;
+#[cfg(all(feature = "terminal", feature = "git"))]
+pub(crate) use vi::edit_file;
 pub use wait::Wait;
 pub use wc::Wc;
 pub use yes::Yes;
@@ -233,9 +290,13 @@ pub use git::Git;
 #[cfg(feature = "ssh")]
 pub use ssh::{Scp, Sftp, Ssh};
 
-#[cfg(any(feature = "python", feature = "typescript"))]
+#[cfg(any(feature = "python", feature = "typescript", feature = "cpython"))]
 pub use runtime_limits::RuntimeLimits;
 
+#[cfg(feature = "cpython")]
+pub(crate) use cpython::check_http_request_invariants;
+#[cfg(feature = "cpython")]
+pub use cpython::{CPython, CPythonLimits};
 #[cfg(feature = "python")]
 pub(crate) use python::PythonInprocessOptIn;
 #[cfg(feature = "python")]
@@ -280,7 +341,18 @@ pub(crate) async fn read_stream_file(
     fs.read_file(path)
         .await
         .map(crate::StreamData::from)
-        .map_err(|e| ExecResult::err(format!("{cmd_name}: {}: {e}\n", path.display()), 1))
+        .map_err(|e| {
+            // Never the `Display` of a `crate::Error`: `io error: ` is a Rust
+            // enum shape no tool prints. See `error::io_error_reason`.
+            ExecResult::err(
+                format!(
+                    "{cmd_name}: {}: {}\n",
+                    path.display(),
+                    crate::error::io_error_reason(&e)
+                ),
+                1,
+            )
+        })
 }
 
 /// Check args for `--help` and optionally `--version`.
@@ -548,6 +620,203 @@ pub struct SubCommand {
     pub assignments: Vec<(String, String)>,
 }
 
+/// Builtins of GNU bash 5.2 (`enable -a`). Every other registered command
+/// stands in for a program, so `type`/`which`/`command -v` report it at its
+/// `/usr/bin` path when the root filesystem provides one.
+pub(crate) const BASH_BUILTIN_NAMES: &[&str] = &[
+    ".",
+    ":",
+    "[",
+    "alias",
+    "bg",
+    "bind",
+    "break",
+    "builtin",
+    "caller",
+    "cd",
+    "command",
+    "compgen",
+    "complete",
+    "compopt",
+    "continue",
+    "declare",
+    "dirs",
+    "disown",
+    "echo",
+    "enable",
+    "eval",
+    "exec",
+    "exit",
+    "export",
+    "false",
+    "fc",
+    "fg",
+    "getopts",
+    "hash",
+    "help",
+    "history",
+    "jobs",
+    "kill",
+    "let",
+    "local",
+    "logout",
+    "mapfile",
+    "popd",
+    "printf",
+    "pushd",
+    "pwd",
+    "read",
+    "readarray",
+    "readonly",
+    "return",
+    "set",
+    "shift",
+    "shopt",
+    "source",
+    "suspend",
+    "test",
+    "times",
+    "trap",
+    "true",
+    "type",
+    "typeset",
+    "ulimit",
+    "umask",
+    "unalias",
+    "unset",
+    "wait",
+];
+
+/// Search `PATH` (shell variable, then environment) on the VFS for an
+/// executable regular file named `name`.
+pub(crate) async fn search_path(ctx: &Context<'_>, name: &str) -> Option<String> {
+    search_path_all(ctx, name, true).await.into_iter().next()
+}
+
+/// Every executable `name` along `PATH`, in order (`type -a`); stops at the
+/// first when `first_only`. A relative `PATH` entry (`_tmp`, or an empty one,
+/// which means `.`) is looked up from the current directory but reported as
+/// written (`_tmp/pwd`), as bash does.
+pub(crate) async fn search_path_all(
+    ctx: &Context<'_>,
+    name: &str,
+    first_only: bool,
+) -> Vec<String> {
+    search_path_with(ctx, name, first_only, false).await
+}
+
+/// bash's `find_user_command`: the first executable `name` along `PATH`, or
+/// failing that the first regular file of that name (`type -t` says `file`,
+/// running it fails with "Permission denied").
+pub(crate) async fn search_path_or_file(ctx: &Context<'_>, name: &str) -> Option<String> {
+    search_path_with(ctx, name, true, true)
+        .await
+        .into_iter()
+        .next()
+}
+
+async fn search_path_with(
+    ctx: &Context<'_>,
+    name: &str,
+    first_only: bool,
+    file_fallback: bool,
+) -> Vec<String> {
+    let mut found = Vec::new();
+    let mut fallback = None;
+    if name.is_empty() || name.contains('/') {
+        return found;
+    }
+    let path_var = ctx
+        .variables
+        .get("PATH")
+        .or_else(|| ctx.env.get("PATH"))
+        .cloned()
+        .unwrap_or_default();
+    for dir in path_var.split(':') {
+        let candidate = path_candidate(dir, name);
+        let resolved = resolve_path(ctx.cwd, &candidate);
+        let Ok(meta) = ctx.fs.stat(&resolved).await else {
+            continue;
+        };
+        if !meta.file_type.is_file() || found.contains(&candidate) {
+            continue;
+        }
+        if meta.mode & 0o111 == 0 {
+            if file_fallback && fallback.is_none() {
+                fallback = Some(candidate);
+            }
+            continue;
+        }
+        found.push(candidate);
+        if first_only {
+            break;
+        }
+    }
+    if found.is_empty()
+        && let Some(file) = fallback
+    {
+        found.push(file);
+    }
+    found
+}
+
+/// `dir/name` for one `PATH` entry; an empty entry is the current directory.
+pub(crate) fn path_candidate(dir: &str, name: &str) -> String {
+    if dir.is_empty() {
+        format!("./{name}")
+    } else {
+        format!("{}/{name}", dir.trim_end_matches('/'))
+    }
+}
+
+/// One step requested by a [`PlanDriver`].
+pub enum PlanStep {
+    /// Run `command` (in `cwd` when set, restoring the shell cwd afterwards)
+    /// and pass its result to the next [`PlanDriver::next`] call.
+    Run {
+        /// The command to execute.
+        command: SubCommand,
+        /// Working directory for this command only.
+        cwd: Option<PathBuf>,
+    },
+    /// Like [`PlanStep::Run`], but the command's output is only returned to
+    /// the driver, never streamed (`$(shell ...)` in make).
+    Capture {
+        /// The command to execute.
+        command: SubCommand,
+        /// Working directory for this command only.
+        cwd: Option<PathBuf>,
+    },
+    /// Stream output the driver produced itself (progress lines, errors)
+    /// now, ordered before the next command's output. The driver still
+    /// returns its full output in [`PlanStep::Done`] for callers that
+    /// capture instead of stream. The next call is `next(None)`.
+    Emit {
+        /// Standard output to stream.
+        stdout: crate::StreamData,
+        /// Standard error to stream.
+        stderr: crate::StreamData,
+    },
+    /// The plan is finished; this is the builtin's result.
+    Done(ExecResult),
+}
+
+/// Resumable sub-command driver for [`ExecutionPlan::Driver`].
+///
+/// The interpreter calls `next(None)` first, then `next(Some(result))` after
+/// each [`PlanStep::Run`], until the driver returns [`PlanStep::Done`].
+#[async_trait]
+pub trait PlanDriver: Send {
+    /// Advance the plan with the previous command's result.
+    async fn next(&mut self, last: Option<ExecResult>) -> Result<PlanStep>;
+}
+
+impl std::fmt::Debug for dyn PlanDriver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("PlanDriver")
+    }
+}
+
 /// Execution plan returned by builtins that need to run sub-commands.
 ///
 /// Instead of executing commands directly (which would require interpreter
@@ -563,11 +832,28 @@ pub enum ExecutionPlan {
         /// The command to execute.
         command: SubCommand,
     },
+    /// Run one command in a modified copy of the environment (`env`).
+    /// Changes are scoped to the command, like a child process.
+    Env {
+        /// The command to execute.
+        command: SubCommand,
+        /// Start from an empty environment (`env -i`).
+        clear: bool,
+        /// Names to remove (`env -u NAME`).
+        unset: Vec<String>,
+        /// Assignments to apply (`env NAME=VALUE`).
+        set: Vec<(String, String)>,
+        /// Working directory for the command (`env -C DIR`).
+        chdir: Option<String>,
+    },
     /// Run a sequence of commands, collecting their output.
     Batch {
         /// Commands to execute in order.
         commands: Vec<SubCommand>,
     },
+    /// Step-wise driver: the builtin decides each next command from the
+    /// previous one's result (e.g. `find -exec ... \;` as a predicate).
+    Driver(Box<dyn PlanDriver>),
     /// Run a sequence of commands, then merge builtin-generated stderr/exit semantics.
     BatchWithStatus {
         /// Commands to execute in order.
@@ -684,7 +970,7 @@ pub struct Context<'a> {
     /// a [`NetworkAllowlist`](crate::NetworkAllowlist) is configured via
     /// [`BashBuilder::network`](crate::BashBuilder::network).
     #[cfg(feature = "http_client")]
-    pub http_client: Option<&'a crate::network::HttpClient>,
+    pub http_client: Option<&'a std::sync::Arc<crate::network::HttpClient>>,
 
     /// Git client for git operations.
     ///
@@ -715,6 +1001,126 @@ pub struct Context<'a> {
     /// with no invariants. Arrays use [`BuiltinSideEffect`] because they need
     /// budget checking. History uses side effects for VFS persistence.
     pub(crate) shell: Option<ShellRef<'a>>,
+}
+
+/// Stdin pipe of a streaming filter stage, see [`Context::stdin_stream`].
+pub(crate) struct StdinStream(std::sync::Arc<crate::interpreter::pipe::Pipe>);
+
+impl StdinStream {
+    /// Next chunk of input; empty at end of input.
+    pub(crate) async fn read(&self) -> Vec<u8> {
+        self.0.read_some().await
+    }
+
+    /// Everything left, for filters that need their whole input.
+    pub(crate) async fn read_to_end(&self) -> Vec<u8> {
+        self.0.read_to_end().await
+    }
+}
+
+/// Bytes a streaming filter handles per step (one pipe's capacity).
+pub(crate) const STREAM_CHUNK_BYTES: usize = 4 * 1024;
+
+/// Input of a streaming filter cut into pieces the filter can handle one at
+/// a time: the data buffered before the stage started, then the stdin pipe
+/// as it fills (or one file's bytes). Each piece ends where `cut` says (a
+/// record end, a UTF-8 boundary) and is at most about
+/// [`STREAM_CHUNK_BYTES`] unless one record is longer; the tail comes at
+/// end of input.
+pub(crate) struct InputChunks<'c> {
+    buf: Vec<u8>,
+    pos: usize,
+    buffered: Option<&'c [u8]>,
+    input: Option<StdinStream>,
+    eof: bool,
+}
+
+impl<'c> InputChunks<'c> {
+    /// Stdin of this builtin: `ctx.stdin`, then the streaming pipe if any.
+    pub(crate) fn stdin(ctx: &Context<'c>) -> Self {
+        Self {
+            buf: Vec::new(),
+            pos: 0,
+            buffered: ctx.stdin.map(|s| s.as_bytes()),
+            input: ctx.stdin_stream(),
+            eof: false,
+        }
+    }
+
+    /// Input that is already all in memory (a file's contents).
+    pub(crate) fn bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            buf: bytes,
+            pos: 0,
+            buffered: None,
+            input: None,
+            eof: true,
+        }
+    }
+
+    /// Next piece, or `None` at end of input. `cut(data)` returns how many
+    /// leading bytes of `data` can be handled now (0 for "need more").
+    pub(crate) async fn next(&mut self, cut: impl Fn(&[u8]) -> usize) -> Option<Vec<u8>> {
+        loop {
+            let rest = &self.buf[self.pos..];
+            let window = rest.len().min(STREAM_CHUNK_BYTES);
+            let mut n = cut(&rest[..window]);
+            if n == 0 && rest.len() > window {
+                n = cut(rest);
+            }
+            if n == 0 && self.eof {
+                n = rest.len();
+            }
+            if n > 0 {
+                let piece = rest[..n].to_vec();
+                self.pos += n;
+                return Some(piece);
+            }
+            if self.eof {
+                return None;
+            }
+            self.buf.drain(..self.pos);
+            self.pos = 0;
+            if let Some(buffered) = self.buffered.take() {
+                self.buf.extend_from_slice(buffered);
+                continue;
+            }
+            let more = match &self.input {
+                Some(input) => input.read().await,
+                None => Vec::new(),
+            };
+            if more.is_empty() {
+                self.eof = true;
+            } else {
+                self.buf.extend_from_slice(&more);
+            }
+        }
+    }
+}
+
+/// [`InputChunks`] cut after the last `term`-terminated record.
+pub(crate) fn cut_records(term: u8) -> impl Fn(&[u8]) -> usize {
+    move |data| data.iter().rposition(|&b| b == term).map_or(0, |p| p + 1)
+}
+
+/// [`InputChunks`] cut at the last complete UTF-8 character; invalid bytes
+/// are passed through so the filter can treat them as bytes.
+pub(crate) fn cut_utf8(data: &[u8]) -> usize {
+    match std::str::from_utf8(data) {
+        Err(e) if e.error_len().is_none() => e.valid_up_to(),
+        _ => data.len(),
+    }
+}
+
+/// Stdout pipe of a streaming pipeline stage, see [`Context::stdout_stream`].
+pub(crate) struct StdoutStream(std::sync::Arc<crate::interpreter::pipe::Pipe>);
+
+impl StdoutStream {
+    /// Wait for room in the pipe, then write. False once nobody reads.
+    pub(crate) async fn write(&self, data: &[u8]) -> bool {
+        self.0.writable().await;
+        self.0.write(data)
+    }
 }
 
 impl<'a> Context<'a> {
@@ -771,8 +1177,10 @@ impl<'a> Context<'a> {
     }
 
     /// Run async boundary work under this request's cancellation/lifecycle gate.
-    #[cfg(any(feature = "http_client", feature = "scripted_tool"))]
-    pub(crate) async fn run_budgeted<F>(&self, future: F) -> Result<F::Output>
+    ///
+    /// Host callbacks invoked from a builtin should run through this so a
+    /// cancelled or over-budget request drops the callback future.
+    pub async fn run_budgeted<F>(&self, future: F) -> Result<F::Output>
     where
         F: std::future::Future,
     {
@@ -795,6 +1203,55 @@ impl<'a> Context<'a> {
         self.shell
             .as_ref()
             .and_then(|shell| shell.execution_extensions.get::<T>())
+    }
+
+    /// Streaming stdout when this builtin is a producer stage of a
+    /// concurrent pipeline (`yes | head -1`). Write chunks as they are made
+    /// instead of returning them in `ExecResult::stdout`; when a write
+    /// reports the reader gone, stop and exit 141 (SIGPIPE).
+    pub(crate) fn stdout_stream(&self) -> Option<StdoutStream> {
+        self.shell
+            .as_ref()
+            .and_then(|shell| shell.stdout_pipe.clone())
+            .map(StdoutStream)
+    }
+
+    /// Streaming stdin when this builtin is a filter stage of a concurrent
+    /// pipeline (`loop | cat | head -1`). `ctx.stdin` then holds only data
+    /// already buffered before the stage started; read the rest here.
+    pub(crate) fn stdin_stream(&self) -> Option<StdinStream> {
+        self.shell
+            .as_ref()
+            .and_then(|shell| shell.stdin_pipe.clone())
+            .map(StdinStream)
+    }
+
+    /// All of stdin, including what is still in a streaming stdin pipe, for
+    /// a filter stage that needs its whole input before it can write.
+    pub(crate) async fn stdin_to_end(&self) -> Option<crate::StreamData> {
+        let Some(input) = self.stdin_stream() else {
+            return self.stdin.cloned();
+        };
+        let mut all = self
+            .stdin
+            .map(|s| s.as_bytes().to_vec())
+            .unwrap_or_default();
+        all.extend_from_slice(&input.read_to_end().await);
+        Some(all.into())
+    }
+
+    /// Remaining wall-clock budget of the current `exec*` call, if limited.
+    pub fn remaining_deadline(&self) -> Option<std::time::Duration> {
+        self.execution_extension::<ExecutionDeadline>()?
+            .try_with(ExecutionDeadline::remaining)
+            .ok()
+    }
+
+    #[cfg(any(feature = "python", feature = "typescript"))]
+    pub(crate) fn execution_extensions(&self) -> Option<std::sync::Arc<ExecutionExtensions>> {
+        self.shell
+            .as_ref()
+            .map(|shell| shell.execution_extensions.clone())
     }
 
     /// Bind a host value to the current execution lease.
@@ -1810,6 +2267,7 @@ mod tests {
             "column",
             "join",
             "split",
+            "fmt",
             "fold",
             "expand",
             "unexpand",
@@ -1826,6 +2284,19 @@ mod tests {
             "md5sum",
             "sha1sum",
             "sha256sum",
+            "sha224sum",
+            "sha384sum",
+            "sha512sum",
+            "b2sum",
+            "cksum",
+            "base32",
+            "basenc",
+            "cmp",
+            "nproc",
+            "tsort",
+            "factor",
+            "install",
+            "locale",
             "tar",
             "gzip",
             "gunzip",
@@ -1839,6 +2310,7 @@ mod tests {
             "bc",
             "numfmt",
             "test",
+            "pr",
             "printf",
             "echo",
             "env",

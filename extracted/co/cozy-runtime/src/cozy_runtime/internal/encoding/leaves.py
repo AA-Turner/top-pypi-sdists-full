@@ -23,15 +23,29 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any
 
-from cozy_runtime.author.kernels import PreQuantized, readable
+from cozy_runtime.author.kernels import (
+    INT8_CONVROT,
+    ROWWISE_FP8,
+    PreQuantized,
+    readable,
+    shared_operand,
+)
+from cozy_runtime.internal import int8_linear, nvfp4_linear
 from cozy_runtime.internal.encoding.formats import (
     E4M3_MAX,
     E8M0_BIAS,
     MX_BLOCK,
+    NVFP4_BLOCK,
+    SPEC_INT8_CONVROT256,
+    SPEC_NVFP4,
+    Int8ConvRotDequant,
     MicroScaledDequant,
+    Nvfp4Dequant,
     RolePart,
+    Tensor,
     _rank2,
     refuse,
 )
@@ -196,6 +210,19 @@ def to_blocked(torch: Any, scales: Any) -> Any:
     return tiles.reshape(-1, 4, 32, 4).transpose(1, 2).reshape(-1).contiguous()
 
 
+def from_blocked(torch: ModuleType, blocked: Tensor, rows: int, cols: int) -> Tensor:
+    """`to_blocked`'s inverse: the `[rows, cols]` row-major grid of a blocked scale layout."""
+    padded_rows, padded_cols = _blocked_shape(rows, cols)
+    row_blocks, col_blocks = padded_rows // 128, padded_cols // 4
+    tiles = blocked.reshape(-1, 32, 4, 4).transpose(1, 2).reshape(row_blocks, col_blocks, 128, 4)
+    return tiles.permute(0, 2, 1, 3).reshape(padded_rows, padded_cols)[:rows, :cols]
+
+
+def _rowwise(torch: ModuleType, x: Tensor) -> PreQuantized:
+    payload, scale = quantize_activation_rowwise(torch, x)
+    return PreQuantized(payload, scale, tuple(x.shape))
+
+
 def _leaf_class(torch: Any) -> Any:
     """The `nn.Module` subclass every encoded leaf is an instance of, built ONCE, lazily.
 
@@ -261,9 +288,18 @@ def _leaf_class(torch: Any) -> Any:
 
         def forward(self, x: Any, *, prequantized: PreQuantized | None = None) -> Any:
             # Semantic hooks still see the original positional float operand.
-            out = self._cozy_forward(self, x if prequantized is None else prequantized)
+            if prequantized is None and torch.is_autocast_enabled(x.device.type):
+                # As the replaced `nn.Linear` does under autocast: compute from, and return,
+                # the autocast dtype, whatever the stored weight's logical dtype is.
+                dtype = torch.get_autocast_dtype(x.device.type)
+                out = self._cozy_forward(self, x.to(dtype), dtype)
+            else:
+                if prequantized is None and self.provider == ROWWISE_FP8:
+                    prequantized = shared_operand(x, ROWWISE_FP8, lambda: _rowwise(torch, x))
+                operand = x if prequantized is None else prequantized
+                out = self._cozy_forward(self, operand, self.out_dtype)
             if self.bias is not None:
-                out = out + self.bias
+                out = out + self.bias.to(out.dtype)
             return out
 
         def extra_repr(self) -> str:
@@ -275,6 +311,61 @@ def _leaf_class(torch: Any) -> Any:
 
     _leaf_class._cached = EncodedLinear  # type: ignore[attr-defined]
     return EncodedLinear
+
+
+def _int8_leaf_class(torch: Any) -> Any:
+    """`EncodedLinear` whose forward is one `int8_linear.linear` call, the bias in its epilogue."""
+    cached = getattr(_int8_leaf_class, "_cached", None)
+    if cached is not None:
+        return cached
+
+    class Int8ConvRotLinear(_leaf_class(torch)):  # type: ignore[misc]
+        def forward(self, x: Any, *, prequantized: PreQuantized | None = None) -> Any:
+            out_dtype = self.out_dtype
+            if isinstance(x, PreQuantized):
+                # A producer's prologue (`kernels.int8_rows`) hands the operand in place of x.
+                if torch.is_autocast_enabled(x.payload.device.type):
+                    out_dtype = torch.get_autocast_dtype(x.payload.device.type)
+                return int8_linear.gemm(torch, x, self.data, self.scale, self.bias, out_dtype)
+            cast = x
+            if torch.is_autocast_enabled(x.device.type):
+                # As the replaced `nn.Linear` does: from and to the autocast dtype.
+                out_dtype = torch.get_autocast_dtype(x.device.type)
+                cast = x.to(out_dtype)
+            if prequantized is None or prequantized.provider != INT8_CONVROT:
+                prequantized = shared_operand(
+                    x, INT8_CONVROT, lambda: int8_linear.quantize(torch, cast)
+                )
+            if prequantized is not None:
+                return int8_linear.gemm(
+                    torch, prequantized, self.data, self.scale, self.bias, out_dtype
+                )
+            return int8_linear.linear(torch, cast, self.data, self.scale, self.bias, out_dtype)
+
+        def int8_prologue(
+            self,
+            x: Tensor,
+            consumers: tuple[object, ...],
+            norm: str | None,
+            eps: float,
+            scale: Tensor | None,
+            shift: Tensor | None,
+            activation: str | None,
+        ) -> PreQuantized | None:
+            """`kernels.int8_rows` for consumers led by this leaf."""
+            return int8_linear.prologue(
+                torch,
+                x,
+                consumers,
+                norm=norm,
+                eps=eps,
+                scale=scale,
+                shift=shift,
+                activation=activation,
+            )
+
+    _int8_leaf_class._cached = Int8ConvRotLinear  # type: ignore[attr-defined]
+    return Int8ConvRotLinear
 
 
 def _leaf_geometry(replaced: Any, data: Any) -> tuple[int, int, Any]:
@@ -384,7 +475,7 @@ class RowwiseNativeLeaf:
         return 0
 
     @staticmethod
-    def _forward(leaf: Any, x: Any) -> Any:
+    def _forward(leaf: Any, x: Any, out_dtype: Any) -> Any:
         import torch
 
         payload, scale = leaf.data, leaf.scale
@@ -398,7 +489,7 @@ class RowwiseNativeLeaf:
             payload.t(),
             scale_a=xs,
             scale_b=scale.to(torch.float32).reshape(1, -1),
-            out_dtype=leaf.out_dtype,
+            out_dtype=out_dtype,
             use_fast_accum=True,
         )
         return out.reshape(*x.shape[:-1], -1)
@@ -536,7 +627,7 @@ class MicroScaledNativeLeaf:
         return 3 * rows * cols
 
     @staticmethod
-    def _forward(leaf: Any, x: Any) -> Any:
+    def _forward(leaf: Any, x: Any, out_dtype: Any) -> Any:
         import torch
 
         xq, xbytes = quantize_activation_mx(torch, x)
@@ -545,7 +636,7 @@ class MicroScaledNativeLeaf:
             leaf.data.t(),
             scale_a=to_blocked(torch, xbytes).view(torch.float8_e8m0fnu),
             scale_b=leaf.scale,
-            out_dtype=leaf.out_dtype,
+            out_dtype=out_dtype,
         )
         return out.reshape(*x.shape[:-1], -1)
 
@@ -568,6 +659,222 @@ class MicroScaledNativeLeaf:
             MicroScaledNativeLeaf._forward,
             {"data": data, "scale": blocked},
             bias,
+            out_dtype,
+            self.name,
+            self.encoding,
+            in_features,
+            out_features,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Int8ConvRotNativeLeaf:
+    """`int8-convrot256/1` ENCODED GEMM: W8A8 on the int8 tensor cores (`int8_linear`).
+
+    The weight rows were rotated by the orthonormal Hadamard per 256 input channels before
+    they were quantized, so each activation row is rotated by the same H at dispatch and
+    quantized per token; the rotation cancels in the product. On Qwen-Image-2.1's real
+    activations that rotation cuts the per-linear error of W8A8 from 1.7-4.4% to 0.5-1.4%
+    (weight-only int8: 0.5-1.0%). On consumer cards int8 runs at 2x their fp8 rate with fp32
+    accumulation and 3-4x their bf16 rate, so this is the fast lane there.
+    """
+
+    encoding: str
+
+    @property
+    def name(self) -> str:
+        return "cozy.int8-convrot256.native-leaf/1"
+
+    @property
+    def route(self) -> str:
+        return "encoded_gemm"
+
+    @property
+    def device_predicate(self) -> str:
+        return "cuda.sm80+"
+
+    @property
+    def reviewed_specs(self) -> frozenset[str]:
+        return frozenset({SPEC_INT8_CONVROT256})
+
+    @property
+    def code_revision(self) -> str:
+        return "1"
+
+    @property
+    def suite(self) -> str:
+        return "int8-convrot256-native"
+
+    @property
+    def required(self) -> frozenset[str]:
+        return frozenset({"data", "scale"})
+
+    @property
+    def optional(self) -> frozenset[str]:
+        return frozenset()
+
+    @property
+    def output_dtype_rule(self) -> str:
+        return "contract"
+
+    def supports(self, shape: Sequence[int]) -> str:
+        """The decode's group law, and cuBLASLt's 8-aligned N for the eager int8 GEMM."""
+        why = Int8ConvRotDequant("").supports(shape)
+        if why or int(shape[0]) % 8 == 0:
+            return why
+        return f"the int8 GEMM needs N divisible by 8 and this tensor has {shape[0]} rows"
+
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
+        raise AssertionError(
+            "an encoded_gemm provider REPLACES the leaf; it never writes a float "
+            "destination — see LeafProvider.leaf"
+        )
+
+    def resident_bytes(self, parts: Mapping[str, RolePart]) -> int:
+        return sum(p.nbytes for p in parts.values())
+
+    def resident_bits_per_element(self, parts: Mapping[str, RolePart], numel: int) -> float:
+        return 8.0 * self.resident_bytes(parts) / max(numel, 1)
+
+    def fill_scratch_bytes(self, parts: Mapping[str, RolePart]) -> int:
+        return 0
+
+    def leaf(
+        self, torch: ModuleType, parts: Mapping[str, Tensor], replaced: Tensor, out_dtype: Tensor
+    ) -> Tensor:
+        if (
+            torch.cuda.is_available()
+            and int8_linear.native(torch, torch.cuda.current_device()) is None
+        ):
+            # The op is built at boot; until it lands the reviewed comfy-kitchen binary serves
+            # (its build starts here, beside the weight fill), else the eager int8 GEMM.
+            int8_linear.kitchen(torch, torch.cuda.current_device())
+        data = parts["data"]
+        in_features, out_features, bias = _leaf_geometry(replaced, data)
+        return _int8_leaf_class(torch)(
+            None,
+            {"data": data, "scale": parts["scale"]},
+            bias,
+            out_dtype,
+            self.name,
+            self.encoding,
+            in_features,
+            out_features,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Nvfp4NativeLeaf:
+    """`nvfp4-w4a4/1` ENCODED GEMM: the stored E2M1 payload and E4M3 block scales stay resident
+    (0.56 bytes per weight) and are multiplied as they are (`nvfp4_linear`).
+
+    On Blackwell a product of more than 16 rows is W4A4 on the FP4 tensor cores: each activation is
+    quantized at dispatch against its own tensor amax, and on real FLUX.3 Klein activations that is
+    5-10% from bf16 per linear (int8-convrot: 0.5-1.2%) at 1.3-1.5x the int8 leaf's rate on an RTX
+    5090. Every other product, and every one before Blackwell, is W4A16: Triton decodes the weight
+    in registers onto the bf16 tensor cores, which is the bandwidth-bound decode loop of an LM.
+    """
+
+    encoding: str
+
+    @property
+    def name(self) -> str:
+        return "cozy.nvfp4.native-leaf/1"
+
+    @property
+    def route(self) -> str:
+        return "encoded_gemm"
+
+    @property
+    def device_predicate(self) -> str:
+        return "cuda.sm80+"
+
+    @property
+    def reviewed_specs(self) -> frozenset[str]:
+        return frozenset({SPEC_NVFP4})
+
+    @property
+    def code_revision(self) -> str:
+        return "1"
+
+    @property
+    def suite(self) -> str:
+        return "nvfp4-native"
+
+    @property
+    def required(self) -> frozenset[str]:
+        return frozenset({"weight", "weight_scale", "weight_scale_2"})
+
+    @property
+    def optional(self) -> frozenset[str]:
+        return frozenset()
+
+    @property
+    def output_dtype_rule(self) -> str:
+        return "contract"
+
+    def supports(self, shape: Sequence[int]) -> str:
+        """The decode's block law, and cuBLASLt's FP4 GEMM: K divisible by 32, N by 8."""
+        why = Nvfp4Dequant("").supports(shape)
+        if why:
+            return why
+        if int(shape[1]) % 32 or int(shape[0]) % 8:
+            return f"the FP4 GEMM needs K % 32 == 0 and N % 8 == 0; this tensor is {list(shape)}"
+        return ""
+
+    def decode(self, torch: ModuleType, parts: Mapping[str, Tensor], destination: Tensor) -> None:
+        raise AssertionError(
+            "an encoded_gemm provider REPLACES the leaf; it never writes a float "
+            "destination — see LeafProvider.leaf"
+        )
+
+    def resident_bytes(self, parts: Mapping[str, RolePart]) -> int:
+        rows, cols = _blocked_shape(*parts["weight_scale"].shape)
+        return parts["weight"].nbytes + rows * cols + 4
+
+    def resident_bits_per_element(self, parts: Mapping[str, RolePart], numel: int) -> float:
+        return 8.0 * self.resident_bytes(parts) / max(numel, 1)
+
+    def fill_scratch_bytes(self, parts: Mapping[str, RolePart]) -> int:
+        # As the MX leaf's: to_blocked's padded grid, reshape copy and final blocked copy.
+        rows, cols = _blocked_shape(*parts["weight_scale"].shape)
+        return 3 * rows * cols
+
+    @staticmethod
+    def _forward(leaf: Tensor, x: Tensor, out_dtype: Tensor) -> Tensor:
+        import torch
+
+        rows, cols = leaf.out_features, leaf.in_features // NVFP4_BLOCK
+        return nvfp4_linear.matmul(
+            torch,
+            x,
+            leaf.weight,
+            leaf.weight_scale,
+            lambda: from_blocked(torch, leaf.weight_scale, rows, cols),
+            leaf.weight_scale_2,
+            out_dtype,
+        )
+
+    def leaf(
+        self, torch: ModuleType, parts: Mapping[str, Tensor], replaced: Tensor, out_dtype: Tensor
+    ) -> Tensor:
+        if torch.cuda.is_available():
+            # Starts the kernel's build beside the weight fill; the first calls run eager.
+            int8_linear.kitchen(torch, torch.cuda.current_device())
+        weight = parts["weight"]
+        out_features, in_features = int(weight.shape[0]), 2 * int(weight.shape[1])
+        rows, cols = _blocked_shape(out_features, in_features // NVFP4_BLOCK)
+        # Swizzled once, at fill: the weight's grid never changes.
+        blocked = to_blocked(torch, parts["weight_scale"].view(torch.uint8))
+        blocked = blocked.view(rows, cols).view(torch.float8_e4m3fn)
+        return _leaf_class(torch)(
+            Nvfp4NativeLeaf._forward,
+            {
+                "weight": weight,
+                "weight_scale": blocked,
+                "weight_scale_2": parts["weight_scale_2"].to(torch.float32).reshape(1),
+            },
+            getattr(replaced, "bias", None),
             out_dtype,
             self.name,
             self.encoding,

@@ -8,8 +8,11 @@ if T.TYPE_CHECKING:
     from .manager import BotoSesManager
     import mypy_boto3_accessanalyzer
     import mypy_boto3_account
+    import mypy_boto3_account_access
     import mypy_boto3_acm
     import mypy_boto3_acm_pca
+    import mypy_boto3_agent_registry
+    import mypy_boto3_agent_registry_control
     import mypy_boto3_aiops
     import mypy_boto3_amp
     import mypy_boto3_amplify
@@ -82,6 +85,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_cloudtrail
     import mypy_boto3_cloudtrail_data
     import mypy_boto3_cloudwatch
+    import mypy_boto3_cloudwatchomni
     import mypy_boto3_codeartifact
     import mypy_boto3_codebuild
     import mypy_boto3_codecatalyst
@@ -154,8 +158,10 @@ if T.TYPE_CHECKING:
     import mypy_boto3_emr
     import mypy_boto3_emr_containers
     import mypy_boto3_emr_serverless
+    import mypy_boto3_endusermessaging
     import mypy_boto3_entityresolution
     import mypy_boto3_es
+    import mypy_boto3_eventbridgev2
     import mypy_boto3_events
     import mypy_boto3_evs
     import mypy_boto3_finspace
@@ -184,6 +190,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_health
     import mypy_boto3_healthlake
     import mypy_boto3_iam
+    import mypy_boto3_iam_toolbox
     import mypy_boto3_identitystore
     import mypy_boto3_imagebuilder
     import mypy_boto3_importexport
@@ -198,8 +205,6 @@ if T.TYPE_CHECKING:
     import mypy_boto3_iot_jobs_data
     import mypy_boto3_iot_managed_integrations
     import mypy_boto3_iotdeviceadvisor
-    import mypy_boto3_iotevents
-    import mypy_boto3_iotevents_data
     import mypy_boto3_iotfleetwise
     import mypy_boto3_iotsecuretunneling
     import mypy_boto3_iotsitewise
@@ -226,6 +231,9 @@ if T.TYPE_CHECKING:
     import mypy_boto3_kms
     import mypy_boto3_lakeformation
     import mypy_boto3_lambda
+    import mypy_boto3_lambda_core
+    import mypy_boto3_lambda_microvms
+    import mypy_boto3_lambda_web
     import mypy_boto3_launch_wizard
     import mypy_boto3_lex_models
     import mypy_boto3_lex_runtime
@@ -278,6 +286,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_neptune_graph
     import mypy_boto3_neptunedata
     import mypy_boto3_network_firewall
+    import mypy_boto3_network_security_manager
     import mypy_boto3_networkflowmonitor
     import mypy_boto3_networkmanager
     import mypy_boto3_networkmonitor
@@ -293,10 +302,10 @@ if T.TYPE_CHECKING:
     import mypy_boto3_organizations
     import mypy_boto3_osis
     import mypy_boto3_outposts
-    import mypy_boto3_panorama
     import mypy_boto3_partnercentral_account
     import mypy_boto3_partnercentral_benefits
     import mypy_boto3_partnercentral_channel
+    import mypy_boto3_partnercentral_revenue_measurement
     import mypy_boto3_partnercentral_selling
     import mypy_boto3_payment_cryptography
     import mypy_boto3_payment_cryptography_data
@@ -314,6 +323,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_pipes
     import mypy_boto3_polly
     import mypy_boto3_pricing
+    import mypy_boto3_pricing_plan_manager
     import mypy_boto3_proton
     import mypy_boto3_qapps
     import mypy_boto3_qbusiness
@@ -329,6 +339,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_rekognition
     import mypy_boto3_repostspace
     import mypy_boto3_resiliencehub
+    import mypy_boto3_resiliencehubv2
     import mypy_boto3_resource_explorer_2
     import mypy_boto3_resource_groups
     import mypy_boto3_resourcegroupstaggingapi
@@ -356,6 +367,8 @@ if T.TYPE_CHECKING:
     import mypy_boto3_sagemaker_geospatial
     import mypy_boto3_sagemaker_metrics
     import mypy_boto3_sagemaker_runtime
+    import mypy_boto3_sagemakerjobruntime
+    import mypy_boto3_sagemakertrainingsessionruntime
     import mypy_boto3_savingsplans
     import mypy_boto3_scheduler
     import mypy_boto3_schemas
@@ -377,7 +390,6 @@ if T.TYPE_CHECKING:
     import mypy_boto3_signer_data
     import mypy_boto3_signin
     import mypy_boto3_simpledbv2
-    import mypy_boto3_simspaceweaver
     import mypy_boto3_snow_device_management
     import mypy_boto3_snowball
     import mypy_boto3_sns
@@ -398,6 +410,7 @@ if T.TYPE_CHECKING:
     import mypy_boto3_supplychain
     import mypy_boto3_support
     import mypy_boto3_support_app
+    import mypy_boto3_supportauthz
     import mypy_boto3_sustainability
     import mypy_boto3_swf
     import mypy_boto3_synthetics
@@ -447,6 +460,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.Account)
     
     @property
+    def accountaccess_client(self: "BotoSesManager") -> "mypy_boto3_account_access.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account-access.html
+        """
+        return self.get_client(AwsServiceEnum.AccountAccess)
+    
+    @property
     def acm_client(self: "BotoSesManager") -> "mypy_boto3_acm.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm.html
@@ -459,6 +479,20 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm-pca.html
         """
         return self.get_client(AwsServiceEnum.ACMPCA)
+    
+    @property
+    def agentregistry_client(self: "BotoSesManager") -> "mypy_boto3_agent_registry.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry.html
+        """
+        return self.get_client(AwsServiceEnum.AgentRegistry)
+    
+    @property
+    def agentregistrycontrol_client(self: "BotoSesManager") -> "mypy_boto3_agent_registry_control.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/agent-registry-control.html
+        """
+        return self.get_client(AwsServiceEnum.AgentRegistryControl)
     
     @property
     def aiops_client(self: "BotoSesManager") -> "mypy_boto3_aiops.Client":
@@ -965,6 +999,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.CloudWatch)
     
     @property
+    def cloudwatchomni_client(self: "BotoSesManager") -> "mypy_boto3_cloudwatchomni.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatchomni.html
+        """
+        return self.get_client(AwsServiceEnum.CloudWatchOmni)
+    
+    @property
     def codeartifact_client(self: "BotoSesManager") -> "mypy_boto3_codeartifact.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/codeartifact.html
@@ -1469,6 +1510,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.EMRServerless)
     
     @property
+    def endusermessaging_client(self: "BotoSesManager") -> "mypy_boto3_endusermessaging.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/endusermessaging.html
+        """
+        return self.get_client(AwsServiceEnum.EndUserMessaging)
+    
+    @property
     def entityresolution_client(self: "BotoSesManager") -> "mypy_boto3_entityresolution.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/entityresolution.html
@@ -1481,6 +1529,13 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/es.html
         """
         return self.get_client(AwsServiceEnum.ElasticsearchService)
+    
+    @property
+    def eventbridgev2_client(self: "BotoSesManager") -> "mypy_boto3_eventbridgev2.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/eventbridgev2.html
+        """
+        return self.get_client(AwsServiceEnum.EventBridgeV2)
     
     @property
     def eventbridge_client(self: "BotoSesManager") -> "mypy_boto3_events.Client":
@@ -1679,6 +1734,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.IAM)
     
     @property
+    def iamtoolboxpreview_client(self: "BotoSesManager") -> "mypy_boto3_iam_toolbox.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam-toolbox.html
+        """
+        return self.get_client(AwsServiceEnum.IAMToolboxPreview)
+    
+    @property
     def identitystore_client(self: "BotoSesManager") -> "mypy_boto3_identitystore.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/identitystore.html
@@ -1775,20 +1837,6 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotdeviceadvisor.html
         """
         return self.get_client(AwsServiceEnum.IoTDeviceAdvisor)
-    
-    @property
-    def iotevents_client(self: "BotoSesManager") -> "mypy_boto3_iotevents.Client":
-        """
-        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotevents.html
-        """
-        return self.get_client(AwsServiceEnum.IoTEvents)
-    
-    @property
-    def ioteventsdata_client(self: "BotoSesManager") -> "mypy_boto3_iotevents_data.Client":
-        """
-        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotevents-data.html
-        """
-        return self.get_client(AwsServiceEnum.IoTEventsData)
     
     @property
     def iotfleetwise_client(self: "BotoSesManager") -> "mypy_boto3_iotfleetwise.Client":
@@ -1971,6 +2019,27 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html
         """
         return self.get_client(AwsServiceEnum.Lambda)
+    
+    @property
+    def lambdacore_client(self: "BotoSesManager") -> "mypy_boto3_lambda_core.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-core.html
+        """
+        return self.get_client(AwsServiceEnum.LambdaCore)
+    
+    @property
+    def lambdamicrovms_client(self: "BotoSesManager") -> "mypy_boto3_lambda_microvms.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-microvms.html
+        """
+        return self.get_client(AwsServiceEnum.LambdaMicroVMs)
+    
+    @property
+    def lambdaweb_client(self: "BotoSesManager") -> "mypy_boto3_lambda_web.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda-web.html
+        """
+        return self.get_client(AwsServiceEnum.LambdaWeb)
     
     @property
     def launchwizard_client(self: "BotoSesManager") -> "mypy_boto3_launch_wizard.Client":
@@ -2337,6 +2406,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.NetworkFirewall)
     
     @property
+    def networksecuritymanagercustomerapi_client(self: "BotoSesManager") -> "mypy_boto3_network_security_manager.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-security-manager.html
+        """
+        return self.get_client(AwsServiceEnum.NetworkSecurityManagerCustomerAPI)
+    
+    @property
     def networkflowmonitor_client(self: "BotoSesManager") -> "mypy_boto3_networkflowmonitor.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor.html
@@ -2442,13 +2518,6 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.Outposts)
     
     @property
-    def panorama_client(self: "BotoSesManager") -> "mypy_boto3_panorama.Client":
-        """
-        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/panorama.html
-        """
-        return self.get_client(AwsServiceEnum.Panorama)
-    
-    @property
     def partnercentralaccountapi_client(self: "BotoSesManager") -> "mypy_boto3_partnercentral_account.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-account.html
@@ -2468,6 +2537,13 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-channel.html
         """
         return self.get_client(AwsServiceEnum.PartnerCentralChannelAPI)
+    
+    @property
+    def partnercentralrevenuemeasurementapi_client(self: "BotoSesManager") -> "mypy_boto3_partnercentral_revenue_measurement.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-revenue-measurement.html
+        """
+        return self.get_client(AwsServiceEnum.PartnerCentralRevenueMeasurementAPI)
     
     @property
     def partnercentralsellingapi_client(self: "BotoSesManager") -> "mypy_boto3_partnercentral_selling.Client":
@@ -2589,6 +2665,13 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.Pricing)
     
     @property
+    def pricingplanmanager_client(self: "BotoSesManager") -> "mypy_boto3_pricing_plan_manager.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pricing-plan-manager.html
+        """
+        return self.get_client(AwsServiceEnum.PricingPlanManager)
+    
+    @property
     def proton_client(self: "BotoSesManager") -> "mypy_boto3_proton.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/proton.html
@@ -2692,6 +2775,13 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehub.html
         """
         return self.get_client(AwsServiceEnum.ResilienceHub)
+    
+    @property
+    def resiliencehubv2_client(self: "BotoSesManager") -> "mypy_boto3_resiliencehubv2.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2.html
+        """
+        return self.get_client(AwsServiceEnum.ResilienceHubV2)
     
     @property
     def resourceexplorer_client(self: "BotoSesManager") -> "mypy_boto3_resource_explorer_2.Client":
@@ -2883,6 +2973,20 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.SageMakerRuntime)
     
     @property
+    def sagemakerjobruntimeservice_client(self: "BotoSesManager") -> "mypy_boto3_sagemakerjobruntime.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemakerjobruntime.html
+        """
+        return self.get_client(AwsServiceEnum.SagemakerJobRuntimeService)
+    
+    @property
+    def sagemakertrainingsessionruntime_client(self: "BotoSesManager") -> "mypy_boto3_sagemakertrainingsessionruntime.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemakertrainingsessionruntime.html
+        """
+        return self.get_client(AwsServiceEnum.SageMakerTrainingSessionRuntime)
+    
+    @property
     def savingsplans_client(self: "BotoSesManager") -> "mypy_boto3_savingsplans.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/savingsplans.html
@@ -3030,13 +3134,6 @@ class ClientMixin:
         return self.get_client(AwsServiceEnum.SimpleDBv2)
     
     @property
-    def simspaceweaver_client(self: "BotoSesManager") -> "mypy_boto3_simspaceweaver.Client":
-        """
-        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/simspaceweaver.html
-        """
-        return self.get_client(AwsServiceEnum.SimSpaceWeaver)
-    
-    @property
     def snowdevicemanagement_client(self: "BotoSesManager") -> "mypy_boto3_snow_device_management.Client":
         """
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/snow-device-management.html
@@ -3175,6 +3272,13 @@ class ClientMixin:
         Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/support-app.html
         """
         return self.get_client(AwsServiceEnum.SupportApp)
+    
+    @property
+    def supportauthz_client(self: "BotoSesManager") -> "mypy_boto3_supportauthz.Client":
+        """
+        Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/supportauthz.html
+        """
+        return self.get_client(AwsServiceEnum.SupportAuthZ)
     
     @property
     def sustainability_client(self: "BotoSesManager") -> "mypy_boto3_sustainability.Client":

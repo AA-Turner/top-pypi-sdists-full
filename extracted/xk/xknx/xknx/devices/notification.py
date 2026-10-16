@@ -12,7 +12,7 @@ from xknx.typing import DPTParsable
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 
@@ -22,25 +22,26 @@ class Notification(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address: GroupAddressesType = None,
         group_address_state: GroupAddressesType = None,
         respond_to_read: bool = False,
         sync_state: bool | int | float | str = True,
-        value_type: DPTParsable | type[DPTString] | None = None,
+        value_type: DPTParsable | type[DPTString] = "string",
         device_updated_cb: DeviceCallbackType[Notification] | None = None,
     ) -> None:
         """Initialize notification class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self.respond_to_read = respond_to_read
         self.remote_value = RemoteValueString(
             xknx,
+            value_type=value_type,
             group_address=group_address,
             group_address_state=group_address_state,
             sync_state=sync_state,
-            value_type=value_type,
-            device_name=name,
+            device_name=self.name,
             feature_name="Text",
             after_update_cb=self.after_update,
         )
@@ -59,11 +60,11 @@ class Notification(Device):
         cropped_message = message[: self.remote_value.dpt_class.payload_length]
         self.remote_value.set(cropped_message)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.remote_value.process(telegram)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GroupValueResponse telegrams."""
         if (
             self.respond_to_read

@@ -464,10 +464,8 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
                         target_dtype=pl.Date,
                     )
             if datetime_col_to_dtype:
-                from polars.type_aliases import TimeUnit
-
                 for dt_col, dt_type in datetime_col_to_dtype.items():
-                    unit_to_precision: Dict[TimeUnit, str] = {
+                    unit_to_precision: Dict[str, str] = {
                         "ms": "%.3f",
                         "us": "%.6f",
                         "ns": "%.9f",

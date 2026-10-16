@@ -738,7 +738,7 @@ def list_audit_records(ctx, show_column, **kwargs):
 @click.pass_context
 def list_auth_audit_records(ctx, **kwargs):
     records = audits.query_auth_audits(ctx, **kwargs)
-    print(audits.format_auth_audit_list_as_text(ctx, records))
+    print(audits.format_auth_audit_list_as_text(ctx, records, **kwargs))
 
 
 @cli.command(name="list-users")

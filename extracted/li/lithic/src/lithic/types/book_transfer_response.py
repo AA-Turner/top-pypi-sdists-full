@@ -60,6 +60,7 @@ class Event(BaseModel):
         "INTEREST",
         "LATE_PAYMENT",
         "BILL_PAYMENT",
+        "PAYMENT_FEE",
         "CASH_BACK",
         "ACCOUNT_TO_ACCOUNT",
         "CARD_TO_CARD",
@@ -75,6 +76,8 @@ class Event(BaseModel):
         "SERVICE",
         "TRANSFER",
         "COLLECTION",
+        "LITHIC_PROGRAM_TRANSFER",
+        "BANK_PROGRAM_TRANSFER",
     ]
     """Type of the book transfer"""
 
@@ -104,6 +107,7 @@ class BookTransferResponse(BaseModel):
         "INTERNAL",
         "REWARD",
         "PROGRAM_FUNDING",
+        "PROGRAM_TRANSFER",
         "TRANSFER",
     ]
 

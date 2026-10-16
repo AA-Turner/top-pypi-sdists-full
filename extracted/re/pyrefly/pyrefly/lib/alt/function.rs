@@ -624,6 +624,55 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             );
         }
 
+        // A property getter runs with just the instance, and a setter with the instance
+        // and the assigned value, so any further required parameter is unreachable at
+        // runtime. The decorator path attaches property metadata without checking the
+        // signature against `property.__init__`, so validate it here.
+        // See https://github.com/facebook/pyrefly/issues/4918.
+        // Skip when custom (non-special) decorators remain between `@property` and
+        // the function, since they may reshape the signature before `@property`
+        // sees it (e.g. homeassistant Spotify's `@ensure_item` turns
+        // `(self, item)` into `(self)`). Special decorators like `@override`
+        // are already filtered out of `decorators`, so they don't suppress this.
+        if defining_cls.is_some()
+            && !flags.is_staticmethod
+            && !flags.is_classmethod
+            && decorators.is_empty()
+            && let Some(property) = &flags.property_metadata
+        {
+            let (kind, expected) = match property.role {
+                PropertyRole::Getter => ("getter", 1),
+                PropertyRole::Setter | PropertyRole::SetterDecorator => ("setter", 2),
+                PropertyRole::DeleterDecorator => ("deleter", 1),
+            };
+            let extra = def
+                .parameters
+                .posonlyargs
+                .iter()
+                .chain(def.parameters.args.iter())
+                .filter(|p| p.default.is_none())
+                .nth(expected)
+                .map(|p| &p.parameter)
+                .or_else(|| {
+                    def.parameters
+                        .kwonlyargs
+                        .iter()
+                        .find(|p| p.default.is_none())
+                        .map(|p| &p.parameter)
+                });
+            if let Some(param) = extra {
+                self.error(
+                    errors,
+                    param.range,
+                    ErrorKind::BadFunctionDefinition,
+                    format!(
+                        "Property {kind} cannot take extra required parameter `{}`",
+                        param.name
+                    ),
+                );
+            }
+        }
+
         let FunctionParamsResult {
             params,
             paramspec,
@@ -641,6 +690,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .iter()
             .filter_map(|key| self.get_idx(*key).parameter().cloned());
         tparams.extend(legacy_tparams);
+        // Validate written parameters before declaration-scoped dimensions are appended below.
         let tparams =
             Arc::new(self.validated_tparams(def.range, tparams, TParamsSource::Function, errors));
         let func_id = Arc::new(FuncDefId {
@@ -724,7 +774,11 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
             .clone();
         // `stmt.returns` is always set to None because the binding step calls `mem::take` on it
         let has_return_annotation = self.bindings().function_has_return_annotation(&stmt.name);
-        if !has_return_annotation && !def.metadata.flags.has_no_type_check {
+        if !has_return_annotation
+            && !def.metadata.flags.has_no_type_check
+            // don't report the error for `__init__` methods
+            && (stmt.name.id != dunder::INIT || def.defining_cls.is_none())
+        {
             self.error(
                 errors,
                 stmt.name.range(),
@@ -901,10 +955,18 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                 }
             }
         }
-        // Extend tparams with any implicit jaxtyping dimension TypeVars found
-        // in the signature, and detect mixing of native and jaxtyping syntax.
-        let tparams =
-            self.collect_jaxtyping_tparams(&callable, &def.tparams, stmt.name.range, errors);
+        // Extend tparams with the dimensions this function declares.
+        let class_tparams = def
+            .defining_cls
+            .as_ref()
+            .and_then(|cls| self.get_class_tparams(cls));
+        let tparams = self.collect_declared_dimensions(
+            &callable,
+            &def.tparams,
+            class_tparams,
+            stmt.name.range,
+            errors,
+        );
 
         self.validate_shape_extension_function_parameters(stmt, &def.params, &tparams, errors);
 
@@ -934,8 +996,24 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         })
         .forall(tparams);
         ty = self.move_return_tparams_of_type(ty);
-        for (x, range) in def.decorators.iter().rev() {
-            ty = self.apply_function_decorator(x.clone(), ty, &def.metadata, *range, errors);
+        for (decorator, range) in def.decorators.iter().rev() {
+            // Blame only the decorator that turns a known type into an unknown one. A decorator
+            // whose own type is `Any` is reported where the decorators are collected, and a
+            // decorator applied to an already-unknown type did not cause it.
+            let was_known = !ty.is_any() && !ty.has_top_level_implicit_any();
+            ty =
+                self.apply_function_decorator(decorator.clone(), ty, &def.metadata, *range, errors);
+            if was_known && !decorator.is_any() && ty.has_top_level_implicit_any() {
+                self.error(
+                    errors,
+                    *range,
+                    ErrorKind::UntypedFunctionDecorator,
+                    format!(
+                        "Untyped function decorator obscures the type of function `{}`",
+                        stmt.name
+                    ),
+                );
+            }
         }
         self.validate_singledispatch_dispatcher_signature(
             &ty,
@@ -1147,7 +1225,7 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                             // Check if the default is compatible with the parameter type.
                             let default_errors = self.error_collector();
                             self.expr_check(default, Some((&upper_ty, tcc)), &default_errors);
-                            if default_errors.is_empty() {
+                            if !default_errors.has_hard() {
                                 // The default is compatible; re-infer using the original expected
                                 // type so that Quantifieds (which will be freshened on each call)
                                 // end up in the default.
@@ -1909,28 +1987,32 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
         // and Self-rewritten fallback without double-reporting.
         let try_call = |arg: &Type| {
             let call_errors = ErrorCollector::new(errors.module().dupe(), errors.style());
-            let ret = self.call_infer(
-                application.call_target.clone(),
-                &[CallArg::ty(arg, range)],
-                &[],
-                range,
-                &call_errors,
-                None,
-                None,
-                None,
-            );
+            let ret = self
+                .call_infer(
+                    application.call_target.clone(),
+                    &[CallArg::ty(arg, range)],
+                    &[],
+                    range,
+                    &call_errors,
+                    None,
+                    None,
+                    None,
+                )
+                .ty;
             (ret, call_errors)
         };
         let (primary_return, primary_errors) = try_call(&application.decoratee_arg);
         // Many decorators can't accept Self but are semantically valid on the method;
         // retry with the receiver normalized to its bound class.
-        let raw_return = if primary_errors.is_empty() {
+        let raw_return = if !primary_errors.has_hard() {
+            errors.extend(primary_errors);
             primary_return
         } else if let Some(rewritten) =
             self.decorator_compatible_decoratee_arg(&application.decoratee_arg)
             && let (fallback_return, fallback_errors) = try_call(&rewritten)
-            && fallback_errors.is_empty()
+            && !fallback_errors.has_hard()
         {
+            errors.extend(fallback_errors);
             fallback_return
         } else {
             errors.extend(primary_errors);
@@ -2766,8 +2848,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 range,
                                 ErrorKind::InvalidAnnotation,
                                 format!(
-                                    "`{method_name}` method self type `{}` is not a superclass of class `{cls_name}`",
+                                    "`{method_name}` method self type `{}` refers to class `{}`, which is not a superclass of class `{cls_name}`",
                                     self.for_display(self_ty.clone()),
+                                    self.for_display((**inner).clone()),
                                 ),
                             )
                             .emit();
@@ -2808,8 +2891,9 @@ impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
                                 range,
                                 ErrorKind::InvalidAnnotation,
                                 format!(
-                                    "`{method_name}` method cls type `{}` is not a superclass of class `{cls_name}`",
+                                    "`{method_name}` method cls type `{}` refers to class `{}`, which is not a superclass of class `{cls_name}`",
                                     self.for_display(cls_ty.clone()),
+                                    self.for_display((**f).clone()),
                                 ),
                             )
                             .emit();

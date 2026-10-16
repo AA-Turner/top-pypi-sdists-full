@@ -193,7 +193,7 @@ LINT_TOOLS   = conflict ruff ruff-format mdformat clang-format \
                version-literals text-encoding cmake-script-policy \
                why-param doc-claims public-symbols curl-fail \
                warnings-exempt stock-images uv-pin uv-lock tlm-name-join \
-               ring-internals named-args
+               ring-internals named-args acq-pfa-split
 FORMAT_TOOLS = ruff-format ruff mdformat named-args clang-format
 
 # ruff reads its own excludes from pyproject's [tool.ruff] extend-exclude
@@ -381,6 +381,13 @@ LINT_gnu-flags = $(UV) run python scripts/check_gnu_flags.py
 # threads (#1260). dp_lgamma() in clib_common.h wraps lgamma_r() once; a
 # bare lgamma in library C is the next race. No allowlist.
 LINT_lgamma-reentrant = $(UV) run python scripts/check_lgamma_sites.py
+
+# The acquisition engine prices a gate at three sites, and only the commit
+# site has an exact pin (test_acq_core.c). Each must split pfa over the one
+# count, acq_band_cells(): a hand count of the native cells re-inlined at
+# the sizer or the non-coherent ascend fired the engine at about twice its
+# pfa and passed every test (doppler#2218).
+LINT_acq-pfa-split = $(UV) run python scripts/check_acq_pfa_split.py
 
 # Path.read_text() without an encoding decodes with the locale codec, which
 # is cp1252 on Windows: the first Windows run of the suite lost three test
@@ -1574,9 +1581,10 @@ PROJECT = DOPPLER
 
 define RELEASE_BRANCH_NOTES
 @echo "  - if perf-relevant code changed since the last release (release.md"
-@echo "    §2b): make bench-interleaved VERSION=$(VERSION) && make bench-docs"
-@echo "    (on a representative machine), then commit benchmarks/published +"
-@echo "    docs/benchmarks.md"
+@echo "    §2b), in the bench box's one clone: git fetch origin &&"
+@echo "    make bench-preflight && git checkout --detach origin/main, then"
+@echo "    make bench-interleaved VERSION=$(VERSION) && make bench-docs,"
+@echo "    then commit benchmarks/published + docs/benchmarks.md"
 endef
 
 # The script is VENDORED from canonical (just-buildit.github.io) and held to it
@@ -1680,8 +1688,8 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 check-wheel-tags release-wheel-tags \
                 release-smoke-packages \
                 bench-python \
-                bench-interleaved bench-publish bench-docs bench-stream \
-                bench-report bench-restamp \
+                bench-preflight bench-interleaved bench-publish bench-docs \
+                bench-stream bench-report bench-restamp \
                 docker-runtime docker-sdk docker-downstream docker-stream \
                 docker-examples smoke-image
 
@@ -3807,15 +3815,21 @@ test-examples-c: build ## Smoke-test every standalone C example
 	@bash scripts/smoke-c-examples.sh $(EXAMPLE_BIN_DIR) $(C_EXAMPLE_TIMEOUT)
 # Through the example's own Makefile, for the reason burst-pipeline-check
 # gives: its README tells a reader to run `make DOPPLER_BUILD_DIR=... run`, so
-# that is the command this has to prove still works.
+# that is the command this has to prove still works. Quiet on success, the
+# real configure/compiler/linker error on failure: this step printed only
+# FAIL when glibc 2.28 could not resolve pthread_once (doppler#2328), and the
+# cause had to be reconstructed from source.
 	@echo "Building standalone example..."
+	@mkdir -p $(STANDALONE_BUILD_DIR)
 	@printf "  %-24s" "awgn_example"; \
 	if $(MAKE) --no-print-directory -C example-projects/standalone \
 	       BUILD_DIR=$(abspath $(STANDALONE_BUILD_DIR)) \
-	       DOPPLER_BUILD_DIR=$(abspath $(BUILD_DIR)) run > /dev/null 2>&1; then \
+	       DOPPLER_BUILD_DIR=$(abspath $(BUILD_DIR)) run \
+	       > $(abspath $(STANDALONE_BUILD_DIR))/awgn_example.log 2>&1; then \
 	    echo "PASS"; \
 	else \
-	    echo "FAIL"; exit 1; \
+	    echo "FAIL"; cat $(abspath $(STANDALONE_BUILD_DIR))/awgn_example.log; \
+	    exit 1; \
 	fi
 	@$(MAKE) --no-print-directory test-example-downstream
 	@echo "All C example smoke tests passed."
@@ -4018,8 +4032,9 @@ abi-check: ## Verify the built libraries are portable and C++-free (Linux)
 # by hand ON PURPOSE: this target answers what a downstream typing the
 # command gets, so taking the flags from pkg-config would make it agree with
 # itself rather than with the docs. pthread joined the line when rs.c moved
-# to `pthread_once`; on glibc >= 2.34 it is folded into libc and omitting it
-# still links, which is exactly why a gate that names it is worth having.
+# to `pthread_once`, which dp_once (doppler#2328) now calls for every lazily
+# built table. On glibc >= 2.34 it is folded into libc and omitting it still
+# links, which is exactly why a gate that names it is worth having.
 # A consumer with its OWN cJSON / nats.c links doppler statically, and doppler
 # keeps its own copies (#1565). The archives embed both; before their symbols
 # were respelled dp__v_* this failed at the consumer's link -- `multiple
@@ -4686,9 +4701,24 @@ test-example-downstream-python: ## Build + test the downstream example (Python)
 bench-python: ## Time the Python microbenchmarks (serial; pytest-benchmark)
 	uv run pytest $(PYTEST_BENCH_DIRS) -v $(PYTEST_SELECT) $(PYTEST_ARGS)
 
+# The bench box keeps ONE clone, not one per release (docs/dev/release.md
+# §2b): fetch, then bench-preflight, then `git checkout --detach`, then
+# bench-interleaved. The preflight clears the previous release's snapshot
+# and rendered page once origin/main has the same content (compared as
+# `git status` does, line endings converted); `git checkout`
+# refuses while they are still there. Anything main lacks, anything staged
+# and not committed, and any symlink refuses instead, touching nothing.
+# bench-interleaved runs the same check first.
+bench-preflight: ## Clear the last release's bench outputs once main has them
+	uv run python scripts/bench_interleaved.py --preflight \
+	    --base $(BENCH_COMMIT_BASE)
+
 bench-interleaved: ## Measure portable + native alternately, denoised (VERSION=)
 ifndef VERSION
-	@echo "usage: make bench-interleaved VERSION=X.Y.Z [K=5]"; exit 1
+	@echo "usage: make bench-interleaved VERSION=X.Y.Z [K=5]"
+	@echo "  in the bench box's one clone, after: git fetch origin &&"
+	@echo "  make bench-preflight && git checkout --detach origin/main"
+	@exit 1
 endif
 	uv run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),) \
 	    --base $(BENCH_COMMIT_BASE)

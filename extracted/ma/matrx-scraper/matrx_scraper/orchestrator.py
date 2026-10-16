@@ -8,6 +8,8 @@ from typing import Any
 from collections.abc import AsyncGenerator
 
 from matrx_scraper._ext import get_ext, has_ext
+from matrx_scraper.markdown_variant import attach_markdown_variant
+from matrx_scraper.cpu_lane import run_cpu
 from matrx_scraper.content_sanity import assess as assess_content
 from matrx_scraper.escalation import (
     ENGINE_BROWSER,
@@ -138,6 +140,17 @@ class ScrapeResult:
     main_content_selector: str | None = None
     main_content_removal_details: list[dict] | None = None
     main_image: str | None = None
+    #: The site's OWN clean markdown version of this page, when it offers one
+    #: and it is clearly the same content (`matrx_scraper.markdown_variant`).
+    #: An ADDITION: the HTML-derived fields above are always still returned.
+    markdown: str | None = None
+    markdown_url: str | None = None
+    #: `link_alternate` | `sibling_md` | `accept_negotiation`.
+    markdown_source: str | None = None
+    #: One plain-English sentence saying the markdown version was found / used.
+    markdown_note: str | None = None
+    #: Site-level `llms.txt` / `llms-full.txt` addresses, when the host has them.
+    site_index: dict[str, str | None] | None = None
     structured_data: Any | None = None
     # URL buckets — internal/external/images/documents/audio/videos/archives/
     # others, each a list of bare URL strings. Persisted and read by hosts
@@ -531,7 +544,7 @@ async def _fetch_and_parse(
     # Parsing and extraction include CPU-heavy BeautifulSoup work and blocking
     # first-use helpers such as tldextract's suffix-list discovery. Keep the
     # entire response-to-result pipeline off the asyncio event loop.
-    result = await asyncio.to_thread(_build_result_from_response, response, fast)
+    result = await run_cpu(_build_result_from_response, response, fast)
     result.engine = ENGINE_BROWSER if request_type == RequestType.BROWSER else ENGINE_HTTP
     result.proxy_bypassed = bool(getattr(response, "proxy_bypassed", False))
     if proxy_override is not None:
@@ -698,14 +711,27 @@ async def _address_refused_result(url: str) -> ScrapeResult | None:
 
 
 def _ladder_reason(result: ScrapeResult) -> str | None:
-    """The one class name the ladder reasons about, from what we observed."""
+    """The one class name the ladder reasons about, from what we observed.
+
+    `login_wall` is claimed only on login evidence: a 401, or a response that
+    landed on a sign-in page. A bare 403 with a real failure class (`blocked`,
+    `bad_status`, `cloudflare_block`) is labelled by that class, so the trail
+    does not call a bot wall a sign-in page (2026-10-15 audit).
+    """
+    real = result.failure_reason or result.content_warning
+    if real and result.status_code == 403 and not classify_login_wall(
+        status_code=None,
+        response_url=result.response_url,
+        requested_url=result.url,
+    ):
+        return real
     if classify_login_wall(
         status_code=result.status_code,
         response_url=result.response_url,
         requested_url=result.url,
     ):
         return "login_wall"
-    return result.failure_reason or result.content_warning
+    return real
 
 
 # ── Residential egress: the person's own computer as the exit ───────────────
@@ -1299,6 +1325,9 @@ async def scrape(
         organization_id=organization_id,
         residential_entry=residential_entry,
     )
+
+    # The site's own markdown, when it has one — an addition, bounded, never raises.
+    await attach_markdown_variant(result, organization_id=organization_id)
 
     if cache is not None and result.success:
         from matrx_scraper.utils.url import get_url_info

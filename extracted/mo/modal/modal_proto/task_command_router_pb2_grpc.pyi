@@ -104,10 +104,12 @@ class TaskCommandRouterStub:
     ]
     """Replace the task's outbound network allowlist (domains + CIDRs)."""
     TaskSetOutboundPolicy: grpc.UnaryUnaryMultiCallable[
-        modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
-        modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse,
+        modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyRequest,
+        modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyResponse,
     ]
-    """Replace the task's outbound policy."""
+    """Replace the task's experimental outbound policy. The method keeps its
+    original name because gRPC sends method names on the wire.
+    """
     TaskSnapshotDirectory: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryRequest,
         modal_proto.task_command_router_pb2.TaskSnapshotDirectoryResponse,
@@ -266,10 +268,12 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def TaskSetOutboundPolicy(
         self,
-        request: modal_proto.task_command_router_pb2.TaskSetOutboundPolicyRequest,
+        request: modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyRequest,
         context: grpc.ServicerContext,
-    ) -> modal_proto.task_command_router_pb2.TaskSetOutboundPolicyResponse:
-        """Replace the task's outbound policy."""
+    ) -> modal_proto.task_command_router_pb2.TaskSetExperimentalOutboundPolicyResponse:
+        """Replace the task's experimental outbound policy. The method keeps its
+        original name because gRPC sends method names on the wire.
+        """
     @abc.abstractmethod
     def TaskSnapshotDirectory(
         self,

@@ -15,10 +15,12 @@ import httpx
 
 from heylead import __version__
 
+from ..timeutil import to_epoch
 from ..author_identity import parse_author_identity
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
 from ..guardrails import check_message, prepare_outbound_text, text_landed
 from ..services.nameless import is_nameless_profile
+from .message_attachments import attachment_summary, message_text
 from .message_sender import is_conversation_event, last_turn, sender_flag
 from .api_metrics import api_metrics
 from .relations import RelationsPage
@@ -521,15 +523,7 @@ def _classify_nested_response(
 
 def _parse_timestamp(ts_raw: Any) -> int:
     """Parse a timestamp from various formats into unix seconds."""
-    if isinstance(ts_raw, (int, float)):
-        return int(ts_raw)
-    if isinstance(ts_raw, str) and ts_raw:
-        try:
-            from datetime import datetime
-            return int(datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).timestamp())
-        except (ValueError, TypeError):
-            pass
-    return 0
+    return to_epoch(ts_raw) or 0
 
 
 def multipart_headers(base: dict[str, str]) -> dict[str, str]:
@@ -684,6 +678,7 @@ class BackendClient:
         json: dict | None = None,
         params: dict | None = None,
         no_retry: bool = False,
+        private_read: bool = False,
     ) -> httpx.Response:
         """HTTP request with retry on transient failures.
 
@@ -708,6 +703,9 @@ class BackendClient:
         # Derive a short endpoint label from the URL path for metrics
         endpoint_label = url.rsplit("/", 1)[-1] if "/" in url else url
 
+        # Chat reads may contain private provider IDs in URLs and private
+        # bodies in failures. Keep their logs and flushed metrics metadata-only.
+        retry_target = endpoint_label if private_read else url
         last_error: Exception | None = None
         for attempt in range(max_attempts):
             t0 = _time.monotonic()
@@ -734,7 +732,8 @@ class BackendClient:
                     endpoint_label,
                     status_code=resp.status_code,
                     duration_ms=elapsed,
-                    error=resp.text[:200] if resp.status_code >= 400 else "",
+                    error=(f"HTTP {resp.status_code}" if private_read else resp.text[:200])
+                    if resp.status_code >= 400 else "",
                     backend_ms=backend_ms,
                 )
                 if resp.status_code == 429:
@@ -757,7 +756,7 @@ class BackendClient:
                             delay = _RETRY_BACKOFF[attempt] * 2  # double backoff for rate limits
                         logger.info(
                             "Rate limited (429), retrying %s %s in %ds (attempt %d)",
-                            method, url, delay, attempt + 1,
+                            method, retry_target, delay, attempt + 1,
                         )
                         await asyncio.sleep(delay)
                         continue
@@ -765,7 +764,7 @@ class BackendClient:
                 if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < max_attempts - 1:
                     delay = _RETRY_BACKOFF[attempt]
                     logger.info(
-                        f"Retry {method} {url} (HTTP {resp.status_code}, "
+                        f"Retry {method} {retry_target} (HTTP {resp.status_code}, "
                         f"attempt {attempt + 1}, {delay}s)"
                     )
                     await asyncio.sleep(delay)
@@ -774,13 +773,14 @@ class BackendClient:
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 elapsed = int((_time.monotonic() - t0) * 1000)
                 api_metrics.record(
-                    endpoint_label, status_code=0, duration_ms=elapsed, error=str(e),
+                    endpoint_label, status_code=0, duration_ms=elapsed,
+                    error=type(e).__name__ if private_read else str(e),
                 )
                 last_error = e
                 if attempt < max_attempts - 1:
                     delay = _RETRY_BACKOFF[attempt]
                     logger.info(
-                        f"Retry {method} {url} ({type(e).__name__}, "
+                        f"Retry {method} {retry_target} ({type(e).__name__}, "
                         f"attempt {attempt + 1}, {delay}s)"
                     )
                     await asyncio.sleep(delay)
@@ -1804,13 +1804,8 @@ class BackendClient:
                 # Not a reaction: an event item is nobody's words (#2359).
                 last_msg = last_turn(chat_messages)
 
-                text = last_msg.get("text") or last_msg.get("body") or last_msg.get("content") or ""
-                # Extract URLs from attachments (LinkedIn link previews may not be in text)
-                for att in (last_msg.get("attachments") or []):
-                    if isinstance(att, dict):
-                        att_url = att.get("url") or att.get("link") or att.get("href") or ""
-                        if att_url and att_url not in text:
-                            text = f"{text} {att_url}".strip()
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(last_msg)
                 if not text:
                     # No embedded message — return lightweight entry using
                     # attendee_provider_id so check_replies can match contacts
@@ -1872,6 +1867,7 @@ class BackendClient:
                     "sender_id": str(sender_id),
                     "is_sender": sender_flag(last_msg),
                     "text": text,
+                    "attachments": attachment_summary(last_msg),
                     "timestamp": timestamp,
                     "conversation_urn": str(chat_id),
                     "attendee_ids": attendee_ids,
@@ -2053,7 +2049,7 @@ class BackendClient:
         params = {"limit": str(limit)}
         try:
             try:
-                resp = await self._retry_request("GET", url, params=params)
+                resp = await self._retry_request("GET", url, params=params, private_read=True)
             except (httpx.ConnectError, httpx.TimeoutException) as e:
                 raise _wrap_connection_error(e, self.base_url)
             if resp.status_code == 401:
@@ -2073,19 +2069,20 @@ class BackendClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
-                ts_raw = msg.get("timestamp") or msg.get("created_at") or msg.get("date") or ""
-                timestamp = 0
-                if isinstance(ts_raw, (int, float)):
-                    timestamp = int(ts_raw)
-                elif isinstance(ts_raw, str) and ts_raw:
-                    try:
-                        from datetime import datetime
-                        timestamp = int(datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).timestamp())
-                    except (ValueError, TypeError):
-                        pass
+                ts_raw = next((
+                    msg.get(key) for key in ("timestamp", "created_at", "date")
+                    if isinstance(msg.get(key), bool) or msg.get(key) not in (None, "", 0)
+                ), "")
+                timestamp = to_epoch(ts_raw)
+                # A malformed supplied date is not an unknown/fresh reply.
+                # Keep the legacy zero for truly absent timestamp fields.
+                if timestamp is None and ts_raw != "":
+                    continue
+                timestamp = timestamp or 0
                 message_id = str(msg.get("id") or msg.get("message_id") or "")
                 messages.append({
                     "message_id": message_id,
@@ -2093,6 +2090,7 @@ class BackendClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                 })
             return messages
@@ -2105,8 +2103,35 @@ class BackendClient:
             response = getattr(e, "response", None)
             if getattr(response, "status_code", None) == 404 and _is_gone_chat(response):
                 raise
-            logger.warning(f"Failed to fetch chat messages via backend: {e}")
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            logger.warning(
+                "Failed to fetch chat messages: error=%s status=%s chat=%s",
+                type(e).__name__, status, chat_id[:8],
+            )
             return []
+
+    async def get_message_attachment(
+        self, account_id: str, message_id: str, attachment_id: str,
+    ) -> tuple[bytes, str] | None:
+        """A file a message carries, through the api's owner-only route (#3077).
+
+        Returns the bytes and their content type, or None when the api says
+        there is no such file on this workspace's seat (404) or LinkedIn no
+        longer has it (410).
+        """
+        url = (f"{self.base_url}/api/v1/messages/{quote(message_id, safe='')}"
+               f"/attachments/{quote(attachment_id, safe='')}")
+        try:
+            resp = await self._retry_request("GET", url, private_read=True)
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            raise _wrap_connection_error(e, self.base_url)
+        if resp.status_code == 401:
+            raise UnipileAuthError()
+        if resp.status_code in (404, 410):
+            return None
+        _raise_proxy_refusal(resp, auth_on_403=True)
+        resp.raise_for_status()
+        return resp.content, str(resp.headers.get("content-type") or "")
 
     async def verify_message_sent(
         self,
@@ -3076,7 +3101,8 @@ class BackendClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
                 chat_id = msg.get("chat_id") or msg.get("conversation_id") or ""
@@ -3096,6 +3122,7 @@ class BackendClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                     "chat_id": str(chat_id),
                     "message_id": str(message_id),
@@ -3150,7 +3177,8 @@ class BackendClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 msg_sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
                 chat_id = msg.get("chat_id") or msg.get("conversation_id") or ""
@@ -3170,6 +3198,7 @@ class BackendClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                     "chat_id": str(chat_id),
                     "message_id": str(message_id),

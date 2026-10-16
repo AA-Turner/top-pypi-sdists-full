@@ -33,7 +33,14 @@ numfmt and tac on Linux; `diff` (not recursive); `find` without -exec -execdir -
 without output, temp-folder or helper-program options; `jq` without file-reading
 options (--rawfile --slurpfile -f/--from-file -L/--library-path, import/include);
 git read verbs: status, log, diff, show, blame, `branch --show-current`,
-rev-parse, ls-files.
+rev-parse, ls-files. The digest programs (shasum sha1sum sha224sum sha256sum
+sha384sum sha512sum md5sum b2sum cksum) with only the options that pick the
+algorithm, the digest length, the read mode and the line style: anything else
+asks, -c / --check first (it opens every file a checksum file names, which the
+check never sees), and so does a word starting with + (shasum, a Perl script,
+reads `+c` as -c).
+`du` without --files0-from, -X / --exclude-from (they read a file), -L -H -D
+--dereference (they follow symlinks out of the folders) or -0 / --null.
 
 How a command is read:
 - It is split on |, &&, ||, ; and newlines, and every piece must pass.
@@ -63,7 +70,7 @@ coding agent's own instructions and memory, read-only: ~/.claude/CLAUDE.md,
 ~/.claude/projects/*/memory/**, ~/.claude/skills/**, ~/.codex/AGENTS.md,
 ~/.pi/agent/AGENTS.md, and CLAUDE.md / CLAUDE.local.md / AGENTS.md anywhere in
 the working folders. Commands that read the current folder by themselves (`ls`
-with no path, `find` with no start folder, `rg`, git) need it inside. The
+or `du` with no path, `find` with no start folder, `rg`, git) need it inside. The
 checked-out Probe notes (`write_dirs`) may be read too, by any reader.
 
 Recursive readers. `grep -r` and `diff -r` read every file below a folder, keys
@@ -212,8 +219,28 @@ _NO_FILES = frozenset(
 #: else after it (`. ./x.sh`, `bash x.sh`, an `rg --pre`) could run the file
 #: the heredoc just wrote.
 _COPIES_ONLY_AFTER = frozenset({"cut", "grep", "head", "tail", "wc"})
+#: Print a digest of each file they are given. Their options are a list of what
+#: runs at once, as jq's are (one it doesn't hold asks): the algorithm, the
+#: digest length, the read mode, the line style. -c / --check opens every file a
+#: checksum file names, which the check never sees; the options that only matter
+#: with it (--quiet --status --strict --warn --ignore-missing) and the ones that
+#: frame or encode the lines differently (-z, shasum -0, cksum --raw --base64)
+#: are nothing the daemon needs. Each: (flag letters, letters that take a value,
+#: long options).
+_DIGESTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    **dict.fromkeys(("md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum"),
+                    ("bt", "", ("--binary", "--text", "--tag", "--help", "--version"))),
+    "b2sum": ("bt", "l", ("--binary", "--text", "--length", "--tag", "--help", "--version")),
+    "cksum": ("", "al", ("--algorithm", "--length", "--tag", "--untagged", "--help", "--version")),
+    # A Perl script (macOS's too) whose Getopt::Long also reads `+c` as -c and a long
+    # option in any case (`--CHECK`): the list matches exact case, and a `+` word asks
+    # of every program here (a `sha256sum` wrapper may run shasum).
+    "shasum": ("btU", "a", ("--algorithm", "--binary", "--text", "--UNIVERSAL", "--tag", "--help", "--version")),
+}  # fmt: skip
 #: Read the files they are given; no option writes or runs anything.
-_READERS = frozenset({"cat", "cut", "diff", "grep", "head", "ls", "nl", "paste", "stat", "tail", "wc"})
+_READERS = frozenset(
+    {"cat", "cut", "diff", "du", "grep", "head", "ls", "nl", "paste", "stat", "tail", "wc", *_DIGESTS}
+)
 #: Codex allows these on Linux only (their BSD versions differ).
 _LINUX_ONLY = frozenset({"numfmt", "tac"})
 #: Checked by their own method below.
@@ -236,6 +263,7 @@ _TEXT_OPTIONS: dict[str, tuple[str, ...]] = {
     "diff": ("-I", "--ignore-matching-lines", "--label", "-L", "--line-format", "--old-line-format",
              "--new-line-format", "--unchanged-line-format", "--old-group-format", "--new-group-format",
              "--changed-group-format", "--unchanged-group-format", "-F", "--show-function-line"),
+    "du": ("-B", "--block-size", "-d", "--max-depth", "-t", "--threshold", "--exclude", "--time-style"),
     "grep": ("-e", "--regexp", "--include", "--exclude", "--exclude-dir", "--label",
              "--group-separator"),
     "ls": ("-I", "--ignore", "--hide", "--time-style"),
@@ -274,6 +302,7 @@ _FIND_PATTERNS = (
 _GREP_VALUE_LETTERS = "efmABCdD"
 _RG_VALUE_LETTERS = "ABCEMTdefgjmrt"
 _SORT_VALUE_LETTERS = "koStT"
+_DU_VALUE_LETTERS = "BdtX"
 _JQ_SHORT_FLAGS = frozenset("nrjascCMSRehVb")
 _JQ_LONG_FLAGS = frozenset(
     {
@@ -1436,6 +1465,41 @@ class _Checker:
         self._slices(name, options, args)
         if name in ("wc", "sort") and any(_long(v, ("--files0-from",)) for v in options):
             raise _Refuse(f"`{name} --files0-from` reads a list of files the check never sees.")
+        if name in _DIGESTS:
+            flags, values, longs = _DIGESTS[name]
+            for v in options:
+                if v.startswith("+"):  # shasum's, and a wrapper's that runs it (`sha256sum` on a Mac)
+                    what = "shasum" if name == "shasum" else f"{name} (when it runs shasum)"
+                    raise _Refuse(f"{what} reads {v} as an option: `+c` is -c, which opens files the check never "
+                                  "sees.")
+                if not v.startswith("-") or v == "-":
+                    continue
+                letters = _short_letters(v, values)
+                if "c" in letters or _long(v, ("--check",)):
+                    raise _Refuse(f"{name} -c / --check opens every file a checksum file names, which the check never "
+                                  "sees.")
+                if not (_long(v, longs) if v.startswith("--") else set(letters) <= set(flags + values)):
+                    raise _Refuse(f"`{name} {v.split('=', 1)[0]}` isn't on the safe list: of its options only the "
+                                  "algorithm, the digest length, the read mode and the line style run at once.")
+        if name == "du":
+            for v in options:
+                bad = _long(v, ("--exclude-from", "--files0-from", "--dereference", "--dereference-args", "--null"))
+                if bad == "--exclude-from" and v.split("=", 1)[0] == "--exclude":
+                    bad = None  # spelled out, a pattern; any shorter spelling could be either
+                letters = _short_letters(v, _DU_VALUE_LETTERS)
+                if bad in ("--exclude-from", "--files0-from") or "X" in letters:
+                    raise _Refuse(f"du {bad or '-X'} reads names or patterns from a file the check never sees.")
+                if bad in ("--dereference", "--dereference-args") or set(letters) & {"L", "H", "D"}:
+                    raise _Refuse("du -L / -H / -D / --dereference follows symlinks out of the working folders.")
+                if bad == "--null" or "0" in letters:
+                    raise _Refuse("du -0 / --null prints its names NUL-separated on one line, past the line-based "
+                                  "checks on its output.")
+            # As for ls: every name du is given is a folder or file it reads; with none, the current folder.
+            names = _positionals(args, _TEXT_OPTIONS["du"])
+            for word in names:
+                self._check_path(word.value, word.tilde, cands)
+            if not names:
+                self._require_cwd(cands, "du")
         if name == "grep":
             for v in options:
                 letters = _short_letters(v, _GREP_VALUE_LETTERS)

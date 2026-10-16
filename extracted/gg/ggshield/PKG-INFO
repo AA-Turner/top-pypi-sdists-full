@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ggshield
-Version: 1.55.0
+Version: 1.56.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -42,6 +42,7 @@ Requires-Dist: python-dotenv<2,>=0.21.0
 Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: requests<3,>=2.32.0
 Requires-Dist: rich~=13.0
+Requires-Dist: ruamel-yaml<0.20,>=0.19
 Requires-Dist: sigstore<5,>=4.0.0
 Requires-Dist: tomli>=2.4.0; python_version < '3.11'
 Requires-Dist: tomlkit<0.14,>=0.13.3
@@ -244,6 +245,21 @@ pip install --user --upgrade ggshield
 To use `ggshield` you need to authenticate against GitGuardian servers. To do so, use the `ggshield auth login` command. This command automates the provisioning of a personal access token and its configuration on the local workstation.
 
 You can learn more about it from [`ggshield auth login` documentation](https://docs.gitguardian.com/internal-repositories-monitoring/ggshield/reference/auth/login).
+
+After authenticating, run `ggshield machine setup` to configure AI and git hooks,
+plant honeytokens, and register the machine on the Endpoints page before its first
+scan. Registration includes the current user, or all honeytoken target users when
+running as root. It is best effort, takes at most five seconds, and does not affect
+the command's exit code.
+
+The scans of `ggshield secret scan pre-commit`, `pre-push` and `ai-hook` also send
+the machine hostname, from which GitGuardian registers the users of these hooks.
+Other scan commands do not send it, nor does the native AI hook that standalone and
+platform-specific `pip` installs run.
+
+On CI, ggshield neither registers the machine nor sends the hostname. To turn both
+off elsewhere, set `endpoint_registration: false` in `.gitguardian.yaml`, or set
+`GGSHIELD_NO_ENDPOINT_REGISTRATION` to a non-empty value.
 
 ## Manual setup
 

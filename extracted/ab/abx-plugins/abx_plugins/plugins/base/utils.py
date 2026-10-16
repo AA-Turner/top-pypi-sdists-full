@@ -14,6 +14,7 @@ Import directly via the package path::
 
 from __future__ import annotations
 
+import base64
 import html
 import json
 import re
@@ -21,11 +22,14 @@ from html.parser import HTMLParser
 import os
 import stat
 import sys
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import quote, unquote, urldefrag, urljoin, urlparse, urlsplit
 from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
+
+if TYPE_CHECKING:
+    import urllib.request
 
 
 # ---------------------------------------------------------------------------
@@ -292,32 +296,102 @@ def resolve_alias(
     return key
 
 
+class _ResolvedConfigView(Mapping[str, Any]):
+    """One schema's view of the shared resolved config: base values plus its own writes.
+
+    Resolving a schema used to start by copying the whole shared config, once per
+    plugin per pass, which cost more than the resolution itself. Writes go to a
+    private layer so the caller's mapping is still never mutated. Every key looked
+    up (present or not) is recorded in ``reads``, so resolve_plugin_configs() can
+    tell whether a later change to the shared config could alter this result.
+    """
+
+    __slots__ = ("_base", "_local", "reads")
+
+    def __init__(self, base: Mapping[str, Any], reads: set[str]) -> None:
+        self._base = base
+        self._local: dict[str, Any] = {}
+        self.reads = reads
+
+    def __getitem__(self, key: str) -> Any:
+        self.reads.add(key)
+        if key in self._local:
+            return self._local[key]
+        return self._base[key]
+
+    def __contains__(self, key: object) -> bool:
+        self.reads.add(cast(str, key))
+        return key in self._local or key in self._base
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._local[key] = value
+
+    def __iter__(self):
+        self.reads.update(self._base)
+        return iter({**self._base, **self._local})
+
+    def __len__(self) -> int:
+        self.reads.update(self._base)
+        return len(self._base.keys() | self._local.keys())
+
+
+_NOT_FOUND = object()
+
+
 def _resolve_schema_payload(
     properties: dict[str, Any],
     *,
-    resolved_config: dict[str, Any] | None = None,
+    resolved_config: Mapping[str, Any] | None = None,
     explicit_config_keys: set[str] | None = None,
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
+    reads: set[str] | None = None,
 ) -> dict[str, Any]:
     environ = os.environ if environ is None else environ
-    resolved = dict(resolved_config or {})
+    resolved = _ResolvedConfigView(
+        resolved_config or {},
+        set() if reads is None else reads,
+    )
     if explicit_config_keys is None:
         explicit_config_keys = set()
     payload: dict[str, Any] = {}
 
-    for _ in range(max(len(properties), 1) + 1):
-        changed = False
-        for key, prop in properties.items():
-            alias_values = prop["x-aliases"] if "x-aliases" in prop else []
-            aliases = [key, *(str(alias) for alias in alias_values)]
-            raw_value, found, persisted = _lookup_raw_value(
-                aliases,
+    # Explicit env/user inputs do not change between passes, so look each property
+    # up and coerce it (often a json.loads) once instead of on every pass.
+    inputs: list[tuple[str, Any, Any, Any]] = []
+    for key, prop in properties.items():
+        alias_values = prop["x-aliases"] if "x-aliases" in prop else []
+        raw_value, found, persisted = _lookup_raw_value(
+            [key, *(str(alias) for alias in alias_values)],
+            environ=environ,
+            user_config=user_config,
+        )
+        explicit_value = (
+            _coerce_raw_value(raw_value, prop, persisted=persisted)
+            if found
+            else _NOT_FOUND
+        )
+        fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
+        fallback_value = _NOT_FOUND
+        if explicit_value is _NOT_FOUND and fallback_key:
+            fallback_raw_value, fallback_found, fallback_persisted = _lookup_raw_value(
+                [str(fallback_key)],
                 environ=environ,
                 user_config=user_config,
             )
-            if found:
-                resolved_value = _coerce_raw_value(raw_value, prop, persisted=persisted)
+            if fallback_found:
+                fallback_value = _coerce_raw_value(
+                    fallback_raw_value,
+                    prop,
+                    persisted=fallback_persisted,
+                )
+        inputs.append((key, prop, explicit_value, (fallback_key, fallback_value)))
+
+    for _ in range(max(len(properties), 1) + 1):
+        changed = False
+        for key, prop, explicit_value, (fallback_key, fallback_value) in inputs:
+            if explicit_value is not _NOT_FOUND:
+                resolved_value = explicit_value
                 if isinstance(resolved_value, str) and "{" in resolved_value:
                     resolved_value = _hydrate_value(resolved_value, resolved)
                 explicit_config_keys.add(key)
@@ -327,21 +401,8 @@ def _resolve_schema_payload(
                     changed = True
                 continue
 
-            fallback_key = prop["x-fallback"] if "x-fallback" in prop else None
             if fallback_key:
-                fallback_raw_value, fallback_found, fallback_persisted = (
-                    _lookup_raw_value(
-                        [str(fallback_key)],
-                        environ=environ,
-                        user_config=user_config,
-                    )
-                )
-                if fallback_found:
-                    fallback_value = _coerce_raw_value(
-                        fallback_raw_value,
-                        prop,
-                        persisted=fallback_persisted,
-                    )
+                if fallback_value is not _NOT_FOUND:
                     if isinstance(fallback_value, str) and "{" in fallback_value:
                         fallback_value = _hydrate_value(fallback_value, resolved)
                     explicit_config_keys.add(key)
@@ -350,6 +411,7 @@ def _resolve_schema_payload(
                         resolved[key] = fallback_value
                         changed = True
                     continue
+                resolved.reads.add(fallback_key)
                 if fallback_key in resolved and fallback_key in explicit_config_keys:
                     fallback_value = resolved[fallback_key]
                     explicit_config_keys.add(key)
@@ -394,7 +456,17 @@ def _resolve_schema_payload(
 
 def _hydrate_value(value: Any, context: Mapping[str, Any]) -> Any:
     if isinstance(value, str):
+        # Without braces str.format() can only return the string unchanged, and the
+        # resolver hydrates every default on every pass, so skip formatting then.
+        if "{" not in value and "}" not in value:
+            return value
         try:
+            # format(**context) copies the whole resolved config (hundreds of keys)
+            # into kwargs for every string; format_map() looks keys up in place.
+            # Only mappings without __missing__ take that path, since __missing__
+            # would answer lookups that format(**context) reports as missing.
+            if type(context) in (dict, _ResolvedConfigView):
+                return value.format_map(context)
             return value.format(**context)
         except Exception:
             return value
@@ -557,6 +629,7 @@ def load_required_binary(
         raise ValueError("required_binaries record is missing a name")
 
     min_version = hydrated_record.get("min_version")
+    max_version = hydrated_record.get("max_version")
     binary = Binary(
         name=name,
         binproviders=build_binproviders(
@@ -565,6 +638,7 @@ def load_required_binary(
             environ=environ,
         ),
         min_version=SemVer(min_version) if min_version else None,
+        max_version=SemVer(max_version) if max_version else None,
         min_release_age=hydrated_record.get("min_release_age"),
         postinstall_scripts=hydrated_record.get("postinstall_scripts"),
         overrides=abxpkg_native_overrides(hydrated_record.get("overrides")),
@@ -735,35 +809,61 @@ def resolve_plugin_configs(
     }
     explicit_config_keys: set[str] = set()
     resolved_payloads: dict[str, dict[str, Any]] = {}
+    # Each pass re-resolved every schema just to confirm nothing moved. A schema's
+    # payload is a pure function of the shared keys it read (values, presence and
+    # explicitness) plus the fixed user_config/environ, so it is recomputed only if
+    # one of those keys changed at or after the visit that last computed it; else
+    # it would equal resolved_payloads[plugin_name] and take the reuse path below.
+    visit = 0
+    key_changed_at: dict[str, int] = {}
+    payload_inputs: dict[str, tuple[int, set[str]]] = {}
 
     for _ in range(max(len(plugin_schemas), 1) + 1):
         changed = False
         for plugin_name, schema in sorted(plugin_schemas.items()):
-            properties = _schema_properties(schema)
-            payload = _resolve_schema_payload(
-                properties,
-                resolved_config=resolved_values,
-                explicit_config_keys=explicit_config_keys,
-                user_config=user_config,
-                environ=environ,
-            )
-            if (
-                plugin_name in resolved_sections
-                and resolved_payloads.get(plugin_name) == payload
+            visit += 1
+            previous_inputs = payload_inputs.get(plugin_name)
+            if previous_inputs is not None and not any(
+                key_changed_at.get(key, 0) >= previous_inputs[0]
+                for key in previous_inputs[1]
             ):
                 plugin_config = resolved_sections[plugin_name]
             else:
-                model = build_config_model(plugin_name, properties)
-                plugin_config = normalize_config_value(
-                    model.model_validate(payload).model_dump(mode="json"),
+                properties = _schema_properties(schema)
+                reads: set[str] = set()
+                not_yet_explicit = [
+                    key for key in properties if key not in explicit_config_keys
+                ]
+                payload = _resolve_schema_payload(
+                    properties,
+                    resolved_config=resolved_values,
+                    explicit_config_keys=explicit_config_keys,
+                    user_config=user_config,
+                    environ=environ,
+                    reads=reads,
                 )
-                resolved_payloads[plugin_name] = payload
+                for key in not_yet_explicit:
+                    if key in explicit_config_keys:
+                        key_changed_at[key] = visit
+                payload_inputs[plugin_name] = (visit, reads)
+                if (
+                    plugin_name in resolved_sections
+                    and resolved_payloads.get(plugin_name) == payload
+                ):
+                    plugin_config = resolved_sections[plugin_name]
+                else:
+                    model = build_config_model(plugin_name, properties)
+                    plugin_config = normalize_config_value(
+                        model.model_validate(payload).model_dump(mode="json"),
+                    )
+                    resolved_payloads[plugin_name] = payload
             if resolved_sections.get(plugin_name) != plugin_config:
                 resolved_sections[plugin_name] = plugin_config
                 changed = True
             for key, value in plugin_config.items():
                 if resolved_values.get(key) != value:
                     resolved_values[key] = value
+                    key_changed_at[key] = visit
                     changed = True
         if not changed:
             break
@@ -992,16 +1092,228 @@ def get_config(
 
 
 def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
-    """Return source text artifacts shared through the staticfile output dir."""
+    """Return imported text and the captured main document's raw text body."""
     base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
     staticfile_dir = base / "staticfile"
-    if not staticfile_dir.is_dir():
-        return ()
+    text_mime_types = {
+        "application/json",
+        "application/jsonl",
+        "application/x-ndjson",
+        "application/xml",
+        "application/rss+xml",
+        "application/atom+xml",
+        "application/xhtml+xml",
+    }
+    paths = set(staticfile_dir.glob("*.txt"))
+    stdout_log = staticfile_dir / "stdout.log"
+    if stdout_log.is_file():
+        for line in stdout_log.read_text(errors="replace").split("\n"):
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (
+                not isinstance(record, dict)
+                or record.get("type") != "ArchiveResult"
+                or record.get("status") != "succeeded"
+            ):
+                continue
+            content_type = (
+                str(record.get("content_type", "")).split(";", 1)[0].strip().lower()
+            )
+            output = record.get("output_str")
+            if not isinstance(output, str) or not (
+                content_type.startswith("text/") or content_type in text_mime_types
+            ):
+                continue
+            # Staticfile reuses the responses-owned body when available. Its
+            # portable result path must still remain inside this snapshot.
+            path = (base / output).resolve()
+            if path.is_relative_to(base):
+                paths.add(path)
+    # HTML deliberately has no staticfile result. Reuse the exact raw response,
+    # not DOM/SingleFile (which can transform feeds or bookmark exports). The
+    # response index is reset for each capture and records only completed bodies.
+    try:
+        navigation = json.loads((base / "chrome/navigation.json").read_text())
+        if isinstance(navigation, dict) and 200 <= navigation.get("status", 0) < 300:
+            final_url = urldefrag(navigation["finalUrl"])[0]
+            response_dir = base / "responses"
+            document_paths: set[Path] = set()
+            for line in (response_dir / "index.jsonl").read_text().split("\n"):
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                mime_type = str(entry.get("mimeType", "")).split(";", 1)[0].lower()
+                if (
+                    entry.get("resourceType") == "document"
+                    and entry.get("method") == "GET"
+                    and 200 <= entry.get("status", 0) < 300
+                    and urldefrag(entry.get("url", ""))[0] == final_url
+                    and (mime_type.startswith("text/") or mime_type in text_mime_types)
+                    and isinstance(entry.get("path"), str)
+                ):
+                    path = (response_dir / entry["path"]).resolve()
+                    if (
+                        path.is_relative_to(base)
+                        and path.is_file()
+                        and path.stat().st_size > 0
+                    ):
+                        document_paths.add(path)
+            # The index does not identify frames. Multiple same-URL documents
+            # can include an iframe, so retain HTTP fallback when ambiguous.
+            if len(document_paths) == 1:
+                paths.update(document_paths)
+    except (OSError, ValueError, TypeError, KeyError):
+        # Missing/malformed optional capture artifacts retain HTTP fallback.
+        pass
     return tuple(
         path
-        for path in sorted(staticfile_dir.glob("*.txt"))
-        if path.is_file() and path.stat().st_size > 0
+        for path in sorted(paths)
+        if path.resolve().is_relative_to(base)
+        and path.is_file()
+        and path.stat().st_size > 0
     )
+
+
+def has_failed_source_navigation(url: str, snap_dir: Path) -> bool:
+    """Whether this source already failed transport without an HTTP response."""
+    try:
+        navigation = json.loads((snap_dir / "chrome/navigation.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return (
+        isinstance(navigation, dict)
+        and navigation.get("url") == url
+        and navigation.get("status") is None
+        and "net::ERR_" in str(navigation.get("error", ""))
+    )
+
+
+def read_snapshot_source_text(
+    url: str,
+    *,
+    snap_dir: Path,
+    timeout: float,
+    user_agent: str,
+) -> str:
+    """Read captured/imported source, with HTTP fallback for standalone parsers.
+
+    A completed transport failure with no HTTP response leaves no input to
+    parse. Do not turn every postprocessor into another network retry. Saved
+    bodies still take precedence, and a failure for another URL is unrelated.
+    """
+    source_paths = iter_staticfile_text_inputs(snap_dir)
+    if source_paths:
+        return "\n".join(
+            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
+        )
+    file_content = read_file_url_text(url)
+    if file_content is not None:
+        return file_content
+    if not url.startswith(("http://", "https://")):
+        return ""
+    if has_failed_source_navigation(url, snap_dir):
+        return ""
+
+    import urllib.request
+
+    request = build_request(url, headers={"User-Agent": user_agent})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+# RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
+_URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
+# Inside a userinfo component ":" and "@" are data, not delimiters.
+_USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
+
+
+def _idna_host(host: str) -> str:
+    """Map Unicode hosts with the existing WHATWG URL parser's IDNA handling.
+
+    Pydantic's Rust URL parser preserves ß/ς and emoji, maps ignored code
+    points, and validates combining characters and joiners. Invalid labels
+    raise ValueError; no IDNA 2003 or handwritten mapping fallback is used.
+    """
+    from pydantic_core import Url
+
+    return cast(str, Url(f"https://{host}/").host)
+
+
+def iri_to_uri(url: str) -> str:
+    """Return an ASCII URI for an IRI, ready for urllib/http.client requests.
+
+    Snapshot URLs routinely contain non-ASCII text (https://example.com/über,
+    https://münchen.de/), but http.client encodes the request line as ASCII and
+    raises UnicodeEncodeError before anything is sent. Convert per RFC 3987
+    section 3.1: IDNA-encode the hostname and UTF-8 percent-encode every other
+    character outside the URI grammar. Reserved delimiters and existing %XX
+    escapes are left untouched, so already-valid URIs pass through unchanged
+    and the server sees the same resource a browser would request.
+
+    Userinfo is encoded per component, as browsers parse it: split at the last
+    "@" and the first ":", with any later "@" or ":" escaped so the encoded URL
+    keeps the same username, password, host and port.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, hostport = netloc.rpartition("@")
+    if at:
+        username, colon, password = userinfo.partition(":")
+        userinfo = (
+            quote(username, safe=_USERINFO_SAFE_CHARS)
+            + colon
+            + quote(password, safe=_USERINFO_SAFE_CHARS)
+        )
+    host, colon, port = hostport, "", ""
+    # IPv6 literals are ASCII, and their colons are not a port separator.
+    if not hostport.startswith("[") and ":" in hostport:
+        host, colon, port = hostport.rpartition(":")
+    if not host.isascii():
+        host = _idna_host(host)
+    ascii_netloc = f"{userinfo}{at}{host}{colon}{port}"
+    if ascii_netloc != netloc:
+        url = url.replace(netloc, ascii_netloc, 1)
+    return quote(url, safe=_URI_SAFE_CHARS)
+
+
+def build_request(
+    url: str,
+    headers: Mapping[str, str] | None = None,
+) -> urllib.request.Request:
+    """Build the urllib Request for fetching a snapshot/source URL.
+
+    Every Python hook fetches through this so non-ASCII URLs and URL
+    credentials behave the same everywhere. urllib cannot send either itself:
+    http.client rejects non-ASCII request lines, and urllib passes userinfo to
+    http.client as part of the hostname ("user:pw@host"), so the connection
+    fails. The userinfo is moved into a preemptive Basic Authorization header
+    (UTF-8, per RFC 7617, as browsers send it) and the rest of the URL is
+    sent as an ASCII URI. The header is unredirected: urllib copies ordinary
+    headers onto redirected requests, which would leak the credentials to
+    whatever origin the server redirects to.
+    """
+    # Imported here: most hooks import this module but never fetch, and
+    # urllib.request pulls in http.client, email and ssl at startup.
+    import urllib.request
+
+    uri = iri_to_uri(url)
+    parts = urlsplit(uri)
+    request_url = uri
+    authorization = None
+    if "@" in parts.netloc:
+        userinfo, _, hostport = parts.netloc.rpartition("@")
+        request_url = uri.replace(parts.netloc, hostport, 1)
+        username, _, password = userinfo.partition(":")
+        credentials = f"{unquote(username)}:{unquote(password)}".encode()
+        authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
+    request = urllib.request.Request(request_url, headers=dict(headers or {}))
+    if authorization:
+        request.add_unredirected_header("Authorization", authorization)
+    return request
 
 
 def read_file_url_text(url: str) -> str | None:
@@ -1167,6 +1479,7 @@ def emit_binary_request_record(
     binproviders: str,
     overrides: dict[str, Any] | None = None,
     min_version: str | None = None,
+    max_version: str | None = None,
 ) -> None:
     """Output BinaryRequest JSONL record for a dependency."""
     record: dict[str, Any] = {
@@ -1178,6 +1491,8 @@ def emit_binary_request_record(
         record["overrides"] = overrides
     if min_version:
         record["min_version"] = min_version
+    if max_version:
+        record["max_version"] = max_version
     print_and_flush(sys.stdout, json.dumps(merge_EXTRA_CONTEXT(record)))
 
 
@@ -1412,10 +1727,31 @@ def is_non_html_document(navigation_path: str = "../chrome/navigation.json") -> 
 
 
 def has_staticfile_output(staticfile_dir: str = "../staticfile") -> bool:
-    """Check if staticfile extractor already downloaded this URL."""
+    """Read portable completion metadata, or legacy logs from older captures."""
     sf_dir = Path(staticfile_dir)
     if not sf_dir.exists():
         return False
+    result_path = sf_dir / "result.json"
+    if result_path.exists():
+        try:
+            result = json.loads(result_path.read_text())
+            if (
+                not isinstance(result, dict)
+                or result.get("type") != "ArchiveResult"
+                or result.get("status") != "succeeded"
+                or not isinstance(result.get("output_str"), str)
+                or Path(result["output_str"]).is_absolute()
+            ):
+                return False
+            snapshot = sf_dir.parent.resolve()
+            output = (snapshot / result["output_str"]).resolve()
+            return (
+                output.is_relative_to(snapshot)
+                and output.is_file()
+                and output.stat().st_size > 0
+            )
+        except (ValueError, OSError):
+            return False
     stdout_log = sf_dir / "stdout.log"
     if not stdout_log.exists():
         return False

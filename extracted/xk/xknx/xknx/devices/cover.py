@@ -29,7 +29,7 @@ from .device import Device, DeviceCallbackType
 from .travelcalculator import TravelCalculator, TravelStatus
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.xknx import XKNX
 
 logger = logging.getLogger("xknx.log")
@@ -45,7 +45,8 @@ class Cover(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_long: GroupAddressesType = None,
         group_address_short: GroupAddressesType = None,
         group_address_stop: GroupAddressesType = None,
@@ -63,7 +64,7 @@ class Cover(Device):
         device_updated_cb: DeviceCallbackType[Cover] | None = None,
     ) -> None:
         """Initialize Cover class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
         # self.after_update for position changes is called after updating the
         # travelcalculator (in process_group_write and set_*) - angle changes
         # are updated from RemoteValue objects
@@ -335,7 +336,7 @@ class Cover(Device):
         await self.position_current.read_state(wait_for_result=wait_for_result)
         await self.angle.read_state(wait_for_result=wait_for_result)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         # call after_update to account for travelcalculator changes
         if self.updown.process(telegram):

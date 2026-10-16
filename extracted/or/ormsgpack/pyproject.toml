@@ -1,7 +1,7 @@
 [project]
 name = "ormsgpack"
-version = "1.12.2"
-requires-python = ">=3.10"
+version = "1.13.0"
+requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -11,11 +11,11 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: GraalPy",
     "Programming Language :: Python :: Implementation :: PyPy",
@@ -42,7 +42,6 @@ dev = [
     "pendulum",
     "pydantic",
     "pytest",
-    "pytest-benchmark",
     "python-dateutil",
     "pytz",
     "ruff",
@@ -51,13 +50,14 @@ dev = [
     "tzdata",
 ]
 
+dev-extra = [
+    "numpy; platform_python_implementation != 'GraalVM'",
+    "pytest-codspeed; platform_python_implementation != 'GraalVM'",
+]
+
 docs = [
     "furo",
     "sphinx",
-]
-
-numpy = [
-    "numpy; platform_python_implementation != 'GraalVM'",
 ]
 
 [build-system]
@@ -68,17 +68,19 @@ requires = ["maturin>=1.0,<2.0"]
 python-source = "python"
 
 [tool.mypy]
-exclude = "benchmarks"
 strict = true
 
 [[tool.mypy.overrides]]
 module = ["msgpack", "pendulum"]
 ignore_missing_imports = true
 
+[tool.pytest]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 88
 src = ["python"]
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["docs/examples"]
 
 [tool.ruff.lint]
@@ -104,7 +106,7 @@ cache-keys = [
     { file = "Cargo.toml" },
     { file = "pyproject.toml" },
 ]
-default-groups = ["dev", "numpy"]
+default-groups = ["dev", "dev-extra"]
 
 [project.entry-points.pyinstaller40]
 hook-dirs = "ormsgpack._pyinstaller:get_hook_dirs"

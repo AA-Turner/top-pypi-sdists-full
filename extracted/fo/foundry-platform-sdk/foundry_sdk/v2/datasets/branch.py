@@ -70,6 +70,9 @@ class BranchClient:
         """
         Creates a branch on an existing dataset. A branch may optionally point to a (committed) transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param name:
@@ -135,6 +138,9 @@ class BranchClient:
         """
         Deletes the Branch with the given BranchName.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -187,6 +193,9 @@ class BranchClient:
         """
         Get a Branch of a Dataset.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -237,6 +246,9 @@ class BranchClient:
     ) -> core.ResourceIterator[datasets_models.Branch]:
         """
         Lists the Branches of a Dataset.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -296,6 +308,9 @@ class BranchClient:
     ) -> core.ResourceIterator[datasets_models.Transaction]:
         """
         Get the Transaction history for the given Dataset. When requesting all transactions, the endpoint returns them in reverse chronological order.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -418,6 +433,9 @@ class AsyncBranchClient:
         """
         Creates a branch on an existing dataset. A branch may optionally point to a (committed) transaction.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param name:
@@ -483,6 +501,9 @@ class AsyncBranchClient:
         """
         Deletes the Branch with the given BranchName.
 
+
+        Required scopes: [api:datasets-write]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -535,6 +556,9 @@ class AsyncBranchClient:
         """
         Get a Branch of a Dataset.
 
+
+        Required scopes: [api:datasets-read]
+
         :param dataset_rid:
         :type dataset_rid: DatasetRid
         :param branch_name:
@@ -585,6 +609,9 @@ class AsyncBranchClient:
     ) -> core.AsyncResourceIterator[datasets_models.Branch]:
         """
         Lists the Branches of a Dataset.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid
@@ -644,6 +671,9 @@ class AsyncBranchClient:
     ) -> core.AsyncResourceIterator[datasets_models.Transaction]:
         """
         Get the Transaction history for the given Dataset. When requesting all transactions, the endpoint returns them in reverse chronological order.
+
+
+        Required scopes: [api:datasets-read]
 
         :param dataset_rid:
         :type dataset_rid: DatasetRid

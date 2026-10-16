@@ -121,3 +121,12 @@ OIIO_NAMESPACE_3_1_END
     struct Name : public StrongParam<Name, Basetype> { \
         using StrongParam::StrongParam;                \
     }
+
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::StrongParam;
+#endif
+OIIO_NAMESPACE_END

@@ -93,6 +93,13 @@ from .models.analytics import (
     UsersListResponse,
     AnalyticsQueryParams,
     PaginatedAnalyticsQueryParams,
+    CliAnalyticsQueryParams,
+    CliAnalyticsSessionsQueryParams,
+    CliAnalyticsCostResponse,
+    CliAnalyticsUsersResponse,
+    CliAnalyticsSessionsResponse,
+    CliAnalyticsSessionDetailResponse,
+    CliAnalyticsRepositoriesResponse,
 )
 from .services.customer_config_service import CustomerConfigService
 from .services.vendor_assistant import VendorAssistantService
@@ -253,6 +260,13 @@ __all__ = [
     "UsersListResponse",
     "AnalyticsQueryParams",
     "PaginatedAnalyticsQueryParams",
+    "CliAnalyticsQueryParams",
+    "CliAnalyticsSessionsQueryParams",
+    "CliAnalyticsCostResponse",
+    "CliAnalyticsUsersResponse",
+    "CliAnalyticsSessionsResponse",
+    "CliAnalyticsSessionDetailResponse",
+    "CliAnalyticsRepositoriesResponse",
     "AnalyticsService",
     "CustomerConfigService",
     "MermaidDiagramRequest",

@@ -46,3 +46,13 @@ struct has_subscript<T, std::void_t<decltype(std::declval<T&>()[0])>>
     : std::true_type { };
 
 OIIO_NAMESPACE_3_1_END
+
+
+
+// Compatibility
+OIIO_NAMESPACE_BEGIN
+#ifndef OIIO_DOXYGEN
+using v3_1::has_size_method;
+using v3_1::has_subscript;
+#endif
+OIIO_NAMESPACE_END

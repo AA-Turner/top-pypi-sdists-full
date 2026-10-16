@@ -14,7 +14,23 @@ from matrx_scraper.sitemaps import (
     crawl_sitemap_documents,
     parse_sitemap_document,
 )
-from matrx_scraper.web_crawl.sitemap_sync import sync_site_sitemaps
+from matrx_scraper.sitemaps import SitemapCrawl, SitemapDocumentResult
+from matrx_scraper.web_crawl import sitemap_sync
+from matrx_scraper.web_crawl.sitemap_sync import (
+    RetiredSitemaps,
+    retire_gone_sitemaps_and_memberships,
+    sync_site_sitemaps,
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_retirement_db(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sync tests that are not about retirement never touch its DB reads."""
+
+    async def _none(**_kwargs):
+        return RetiredSitemaps()
+
+    monkeypatch.setattr(sitemap_sync, "retire_gone_sitemaps_and_memberships", _none)
 
 
 def _response(url: str, status: int, body: str = "") -> httpx.Response:
@@ -887,3 +903,109 @@ async def test_failed_refetch_keeps_what_the_last_success_learned_and_success_cl
     assert (child["status_code"], child["fetch_error"]) == (500, "RuntimeError: HTTP 500")
     index = stored[f"{origin}/sitemap.xml"]
     assert (index["status_code"], index["fetch_error"], index["kind"]) == (200, None, "sitemapindex")
+
+
+# ---------------------------------------------------------------------------
+# Retirement — the stored picture follows what the site serves NOW (2026-10-14)
+# ---------------------------------------------------------------------------
+
+
+class _Rows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    async def values(self, *_fields):
+        return self._rows
+
+
+def _wire_retirement(monkeypatch, known_rows):
+    sitemap_updates: list[tuple[dict, dict]] = []
+    membership_updates: list[tuple[dict, dict]] = []
+
+    @contextlib.asynccontextmanager
+    async def fake_transaction(_db):
+        yield
+
+    async def sitemap_update(where, **fields):
+        sitemap_updates.append((where, fields))
+        return SimpleNamespace(rows_affected=1)
+
+    async def membership_update(where, **fields):
+        membership_updates.append((where, fields))
+        return SimpleNamespace(rows_affected=3)
+
+    monkeypatch.setattr(sitemap_sync, "transaction", fake_transaction)
+    monkeypatch.setattr(
+        sitemap_sync.WebSitemap, "filter", classmethod(lambda _c, **_k: _Rows(known_rows))
+    )
+    monkeypatch.setattr(sitemap_sync.WebSitemap, "update_where", sitemap_update)
+    monkeypatch.setattr(sitemap_sync.WebPageSitemap, "update_where", membership_update)
+    return sitemap_updates, membership_updates
+
+
+@pytest.mark.asyncio
+async def test_a_sitemap_the_rebuilt_site_no_longer_serves_goes_inactive(monkeypatch) -> None:
+    """iopbm.com, 2026-10: the site was rebuilt with NO sitemap, yet we still
+    held July's. A known sitemap that now 404s becomes inactive and its
+    memberships stop counting; one we cannot reach is never called gone."""
+    known = [
+        {"id": "sm-gone", "url": "https://x.test/sitemap_pages_1.xml"},
+        {"id": "sm-down", "url": "https://x.test/sitemap_blogs_1.xml"},
+    ]
+    sitemap_updates, membership_updates = _wire_retirement(monkeypatch, known)
+
+    async def probe(url: str):
+        return 404 if "pages" in url else None
+
+    out = await retire_gone_sitemaps_and_memberships(
+        site_id="site-1",
+        crawl=SitemapCrawl(),
+        sitemap_ids={},
+        pass_started=datetime(2026, 10, 14, tzinfo=UTC),
+        probe=probe,
+    )
+    assert out.inactive_sitemap_urls == ["https://x.test/sitemap_pages_1.xml"]
+    gone = [f for w, f in sitemap_updates if w == {"id": "sm-gone"}][0]
+    assert gone["is_active"] is False and gone["status_code"] == 404
+    down = [f for w, f in sitemap_updates if w == {"id": "sm-down"}][0]
+    assert "is_active" not in down
+    assert membership_updates[0][0] == {"sitemap_id__in": ["sm-gone"], "deleted_at__isnull": True}
+
+
+@pytest.mark.asyncio
+async def test_pages_a_re_read_sitemap_no_longer_lists_stop_counting(monkeypatch) -> None:
+    started = datetime(2026, 10, 14, tzinfo=UTC)
+    known = [{"id": "sm-1", "url": "https://x.test/sitemap.xml"}]
+    _, membership_updates = _wire_retirement(monkeypatch, known)
+    crawl = SitemapCrawl(
+        documents=[SitemapDocumentResult(url="https://x.test/sitemap.xml", kind="urlset")]
+    )
+    out = await retire_gone_sitemaps_and_memberships(
+        site_id="site-1",
+        crawl=crawl,
+        sitemap_ids={"https://x.test/sitemap.xml": "sm-1"},
+        pass_started=started,
+        probe=lambda _u: (_ for _ in ()).throw(AssertionError("no probe for a re-read sitemap")),
+    )
+    where, fields = membership_updates[0]
+    assert where["sitemap_id__in"] == ["sm-1"] and where["last_seen__lt"] == started
+    assert "deleted_at" in fields
+    assert out.retired_memberships == 3
+
+
+@pytest.mark.asyncio
+async def test_a_truncated_walk_retires_no_membership(monkeypatch) -> None:
+    known = [{"id": "sm-1", "url": "https://x.test/sitemap.xml"}]
+    _, membership_updates = _wire_retirement(monkeypatch, known)
+    crawl = SitemapCrawl(
+        documents=[SitemapDocumentResult(url="https://x.test/sitemap.xml", kind="urlset")],
+        truncated=True,
+    )
+    out = await retire_gone_sitemaps_and_memberships(
+        site_id="site-1",
+        crawl=crawl,
+        sitemap_ids={"https://x.test/sitemap.xml": "sm-1"},
+        pass_started=datetime(2026, 10, 14, tzinfo=UTC),
+    )
+    assert membership_updates == []
+    assert any("truncated" in note for note in out.notes)

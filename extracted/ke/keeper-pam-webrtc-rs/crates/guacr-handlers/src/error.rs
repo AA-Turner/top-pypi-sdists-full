@@ -40,6 +40,15 @@ pub enum HandlerError {
 
     #[error("Disconnected: {0}")]
     Disconnected(String),
+
+    /// A session that must be recorded cannot be recorded any more.
+    ///
+    /// Distinct from [`HandlerError::IoError`] on purpose: an ordinary I/O error on a
+    /// recording destination is advisory, this one means the operator's
+    /// `recording-allow-unrecorded=false` policy has been violated and the session has to
+    /// end. Raised from the recording seam, never from a protocol backend.
+    #[error("Recording failed: {0}")]
+    RecordingFailed(String),
 }
 
 pub type Result<T> = std::result::Result<T, HandlerError>;

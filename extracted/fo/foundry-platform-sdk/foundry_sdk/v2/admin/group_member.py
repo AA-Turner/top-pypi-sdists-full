@@ -69,6 +69,9 @@ class GroupMemberClient:
     ) -> None:
         """
 
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param principal_ids:
@@ -136,6 +139,9 @@ class GroupMemberClient:
         to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field
         in the response, you are on the last page.
 
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param include_expirations: When true, includes the expiration time of any temporary members of this group. `includeExpirations`  cannot be set to true if `transitive` is also set to true.  Defaults to false.
@@ -198,6 +204,9 @@ class GroupMemberClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> None:
         """
+
+
+        Required scopes: [api:admin-write]
 
         :param group_id:
         :type group_id: GroupId
@@ -300,6 +309,9 @@ class AsyncGroupMemberClient:
     ) -> typing.Awaitable[None]:
         """
 
+
+        Required scopes: [api:admin-write]
+
         :param group_id:
         :type group_id: GroupId
         :param principal_ids:
@@ -367,6 +379,9 @@ class AsyncGroupMemberClient:
         to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field
         in the response, you are on the last page.
 
+
+        Required scopes: [api:admin-read]
+
         :param group_id:
         :type group_id: GroupId
         :param include_expirations: When true, includes the expiration time of any temporary members of this group. `includeExpirations`  cannot be set to true if `transitive` is also set to true.  Defaults to false.
@@ -429,6 +444,9 @@ class AsyncGroupMemberClient:
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[None]:
         """
+
+
+        Required scopes: [api:admin-write]
 
         :param group_id:
         :type group_id: GroupId

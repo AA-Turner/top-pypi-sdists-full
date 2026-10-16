@@ -41,7 +41,6 @@ inline void
 get_default_quantize_(long long& quant_min, long long& quant_max) noexcept
 {
     OIIO_PRAGMA_WARNING_PUSH
-    OIIO_INTEL_PRAGMA(warning disable 173)
     if (std::numeric_limits<T>::is_integer) {
         quant_min = (long long)std::numeric_limits<T>::min();
         quant_max = (long long)std::numeric_limits<T>::max();
@@ -491,7 +490,7 @@ ImageSpec::find_attribute(string_view name, ParamValue& tmpparam,
     auto iter = extra_attribs.find(name, searchtype, casesensitive);
     if (iter != extra_attribs.end())
         return &(*iter);
-        // Check named items in the ImageSpec structs, not in extra_attrubs
+    // Check named items in the ImageSpec structs, not in extra_attrubs
 #define MATCH(n, t)                                 \
     (((!casesensitive && Strutil::iequals(name, n)) \
       || (casesensitive && name == n))              \

@@ -16,3 +16,14 @@ def test_clean_page_content_is_the_main_content_without_menu_or_footer():
 def test_contact_footer_is_kept_only_when_it_holds_contacts():
     assert "hello@acme.com" in (contact_footer_text(PAGE) or "")
     assert contact_footer_text("<html><body><main>x</main><footer>© 2026 Acme</footer></body></html>") is None
+
+
+def test_a_phone_split_across_tel_links_reads_as_one_number():
+    """MKT-071: joespizzanyc.com wraps "(" and "646) 559-4878" in two links; the text must keep the "("."""
+    html = ('<html><body><main><h1>Locations</h1><p>150 W 51st St<br>'
+            '<a href="tel:+17183882216">(</a><a href="tel:+16465594878">646) 559-4878</a></p>'
+            '<p><a href="tel:+12125550100">Call us</a></p></main></body></html>')
+    text = clean_page_content(html, "https://joespizzanyc.com/locations")
+    assert "(646) 559-4878" in text
+    assert "tel:" not in text and "[(]" not in text
+    assert "Call us +12125550100" in text

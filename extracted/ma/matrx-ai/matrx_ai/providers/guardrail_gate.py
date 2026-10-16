@@ -101,6 +101,9 @@ _every_call_tracked: Guarded | None = None
 _every_call_accrue: Accrue | None = None
 #: ``(ctx, usage) -> None`` — the provider's own token figures after a call (calibrates estimates).
 _every_call_usage: Callable[[Any, Any], None] | None = None
+#: ``(ctx, usage, estimate_usd) -> None`` — a paid call whose price is UNKNOWN (no resolvable
+#: catalog price). The host alarms; caps and run limits accrue ``estimate_usd`` (conservative).
+_every_call_unpriced: Callable[[Any, Any, float], None] | None = None
 _unwired_announced = False
 
 
@@ -113,6 +116,7 @@ def set_guardrail_host(
     every_call_tracked: Guarded | None = None,
     every_call_accrue: Accrue | None = None,
     every_call_usage: Callable[[Any, Any], None] | None = None,
+    every_call_unpriced: Callable[[Any, Any, float], None] | None = None,
 ) -> None:
     """Host wiring: SYNCHRONOUS memory reads/writes. ``None`` everywhere unwires.
 
@@ -120,7 +124,9 @@ def set_guardrail_host(
     ``every_call`` / ``every_call_tracked`` / ``every_call_accrue`` — platform-wide limits asked on
     every paid call (kill switch, account ceilings, input size)."""
     global _guarded, _resolver, _accrue, _every_call, _every_call_tracked, _every_call_accrue, _every_call_usage
+    global _every_call_unpriced
     _every_call_usage = every_call_usage
+    _every_call_unpriced = every_call_unpriced
     _guarded = guarded
     _resolver = resolver
     _accrue = accrue
@@ -205,8 +211,17 @@ def admit_guardrails(profile: Any = None, config: Any = None) -> None:
 
 
 async def note_paid_result(result: Any) -> None:
-    """After a paid call: add its catalog cost to the guarded run. Never raises."""
-    if _accrue is None and _every_call_accrue is None and _every_call_usage is None:
+    """After a paid call: add its catalog cost to the guarded run. Never raises.
+
+    An UNPRICED call (no resolvable catalog price) is never accrued as $0: it accrues a
+    conservative estimate (``conservative_unpriced_cost``) and is reported to the host's
+    ``every_call_unpriced`` hook, which alarms."""
+    if (
+        _accrue is None
+        and _every_call_accrue is None
+        and _every_call_usage is None
+        and _every_call_unpriced is None
+    ):
         return
     from matrx_ai.context.app_context import try_get_app_context
 
@@ -218,12 +233,30 @@ async def note_paid_result(result: Any) -> None:
             pass
     guarded = _accrue is not None and _is_guarded(ctx)
     tracked = _every_call_accrue is not None and _tracked(ctx)
-    if not (guarded or tracked):
+    if not (guarded or tracked or _every_call_unpriced is not None):
         return
     try:
-        from matrx_ai.providers.unified_client import _catalog_cost_of
+        from matrx_ai.providers.unified_client import catalog_cost_or_none
 
-        cost = float(await _catalog_cost_of(getattr(result, "usage", None)) or 0.0)
+        usage = getattr(result, "usage", None)
+        priced = await catalog_cost_or_none(usage)
+        if priced is None and usage is not None:
+            from matrx_ai.config.usage_config import conservative_unpriced_cost
+
+            cost = conservative_unpriced_cost(usage)
+            if _every_call_unpriced is not None:
+                try:
+                    _every_call_unpriced(ctx, usage, cost)
+                except Exception as exc:  # noqa: BLE001 — the alarm never breaks a finished call
+                    vcprint(
+                        f"[GuardrailGate] unpriced-call hook raised ({type(exc).__name__}: {exc}).",
+                        color="red",
+                        log_level="ERROR",
+                    )
+        else:
+            cost = float(priced or 0.0)
+        if not (guarded or tracked):
+            return
         if guarded:
             _accrue(ctx, cost)
         if tracked:

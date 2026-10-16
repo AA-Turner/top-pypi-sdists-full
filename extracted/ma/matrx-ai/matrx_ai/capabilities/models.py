@@ -158,6 +158,11 @@ class UserOverrides(BaseModel):
     when the agent allows them; ``None`` = defer to the agent. The user always wins
     (common-docs agent-tools/TOOL-SOURCES.md, rule A). Never stamped onto the agent's own
     policy: it is the person's, sent by the client on every turn."""
+    search_types: list[str] = Field(default_factory=list)
+    """The person's per-chat search pin: entity tokens (``note``, ``file``, ``workbook``…)
+    the AI may search all of for this chat. Non-empty ⇒ ``knowledge_search`` rides as the
+    person's pick (offered only while a pin is sent) and every call's ``types`` is limited
+    to these (TOOL-SOURCES.md rule P2). Sent by the client on every turn."""
 
 
 class CapabilityResolutionError(ValueError):

@@ -77,6 +77,9 @@ class GroupMembershipClient:
         to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field
         in the response, you are on the last page.
 
+
+        Required scopes: [api:admin-read]
+
         :param user_id:
         :type user_id: UserId
         :param page_size: The page size to use for the endpoint.
@@ -187,6 +190,9 @@ class AsyncGroupMembershipClient:
         To get the next page, make the same request again, but set the value of the `pageToken` query parameter
         to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field
         in the response, you are on the last page.
+
+
+        Required scopes: [api:admin-read]
 
         :param user_id:
         :type user_id: UserId

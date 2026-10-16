@@ -33,6 +33,13 @@ pub(crate) const AWK_MAX_GETLINE_CACHED_FILES: usize = 100;
 pub(crate) const AWK_MAX_GETLINE_FILE_BYTES: usize = 10_000_000;
 /// awk: max total bytes retained by all `getline < file` inputs.
 pub(crate) const AWK_MAX_GETLINE_CACHE_BYTES: usize = 10_000_000;
+/// awk: max bytes in one string value (concat, sub/gsub/gensub, sprintf,
+/// rebuilt `$0`). THREAT[TM-DOS-110].
+pub(crate) const AWK_MAX_STRING_BYTES: usize = 16 * 1024 * 1024;
+/// awk: max field index for `$N = ...`. THREAT[TM-DOS-110].
+pub(crate) const AWK_MAX_FIELD_INDEX: usize = 100_000;
+/// awk: accounted per-entry overhead for a variable or array element.
+pub(crate) const AWK_VARIABLE_OVERHEAD_BYTES: usize = 48;
 /// Max compiled runtime regexes retained by one evaluator.
 pub(crate) const RUNTIME_REGEX_CACHE_ENTRIES: usize = 64;
 
@@ -90,3 +97,31 @@ pub(crate) const TIMEOUT_MAX_SECONDS: u64 = 300;
 /// yes: max lines and total output bytes per invocation.
 pub(crate) const YES_MAX_LINES: usize = 10_000;
 pub(crate) const YES_MAX_OUTPUT_BYTES: usize = 1_048_576;
+
+/// seq: max lines per invocation.
+pub(crate) const SEQ_MAX_LINES: usize = 100_000;
+/// seq: max output bytes per invocation.
+pub(crate) const SEQ_MAX_OUTPUT_BYTES: usize = 1_048_576;
+
+/// dd: max bytes one invocation moves (THREAT[TM-DOS-003]: `/dev/zero`
+/// and `/dev/urandom` are unbounded sources).
+pub(crate) const DD_MAX_BYTES: usize = 64 * 1024 * 1024;
+
+/// Result for a builtin that stopped early at one of the caps above.
+///
+/// Decision (#2446): reaching a cap is never silent. The output produced so
+/// far is kept, stderr names the command and the cap, and the exit status is
+/// 1, so scripts and agents cannot mistake a cut result for a complete one.
+pub(crate) fn cap_exceeded(
+    cmd: &str,
+    stdout: impl Into<crate::StreamData>,
+    what: &str,
+    limit: impl std::fmt::Display,
+) -> crate::interpreter::ExecResult {
+    let mut result = crate::interpreter::ExecResult::err(
+        format!("{cmd}: {what} limit ({limit}) exceeded; output truncated\n"),
+        1,
+    );
+    result.stdout = stdout.into();
+    result
+}

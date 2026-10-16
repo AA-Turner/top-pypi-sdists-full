@@ -1,29 +1,28 @@
 Metadata-Version: 2.4
 Name: django-select2
-Version: 8.6.0
-Summary: This is a Django_ integration of Select2_.
-Keywords: Django,select2,autocomplete,typeahead
+Version: 8.6.1
+Summary: Django_ integration of Select2_.
+Keywords: autocomplete,Django,select2,typeahead
 Author-email: Johannes Maron <johannes@maron.family>
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Web Environment
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.15
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Django :: 6.1
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 License-File: LICENSE
 Requires-Dist: django>=5.2.13
-Requires-Dist: django-appconf>=1.2.0
+Requires-Dist: django-appconf>=1.2
 Project-URL: Changelog, https://github.com/codingjoe/django-select2/releases
 Project-URL: Documentation, https://django-select2.rtfd.io/
 Project-URL: Funding, https://github.com/sponsors/codingjoe

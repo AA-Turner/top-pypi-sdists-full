@@ -1,16 +1,24 @@
 """Benchmark-driven mean / std / mean_std for Albucore channel-last array layouts."""
 
-from typing import Literal, TypeGuard, cast
+from typing import Literal, TypeAlias, TypeGuard, TypeVar, cast, overload
 
 import cv2
 import numkong as nk
 import numpy as np
 import torch
-from numpy.typing import DTypeLike
+from numpy.typing import DTypeLike, NDArray
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.tensor_bridge import TensorLayout, dispatch_tensor_reduction, tensor_to_numpy_channel_last
 from albucore.torch_backend import reduce_sum_torch
-from albucore.utils import MAX_OPENCV_WORKING_CHANNELS, ImageFloat32, ImageType, ImageUInt8, get_opencv_max_channels
+from albucore.utils import (
+    MAX_OPENCV_WORKING_CHANNELS,
+    ImageFloat16,
+    ImageFloat32,
+    ImageType,
+    ImageUInt8,
+    get_opencv_max_channels,
+)
 from albucore.weighted import _NUMKONG_NEON_HALF
 
 DEFAULT_EPS = 1e-4
@@ -52,6 +60,10 @@ _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS = {
 }
 
 AxisSpec = None | int | tuple[int, ...] | Literal["global", "per_channel"]
+_GlobalAxis: TypeAlias = Literal["global"] | None
+_StatsScalar: TypeAlias = float | np.float64
+_StatsResult: TypeAlias = _StatsScalar | NDArray[np.float64]
+_OutputDTypeT = TypeVar("_OutputDTypeT", bound=np.generic)
 
 __all__ = ["DEFAULT_EPS", "mean", "mean_std", "reduce_sum", "std"]
 
@@ -196,7 +208,7 @@ def _reduce_sum_per_channel_float16_fastpath(
         and arr.flags.writeable
         and all(stride >= 0 for stride in arr.strides)
     ):
-        return cast("np.ndarray", torch.sum(torch.from_numpy(arr), dim=axes, dtype=torch.float64).numpy())
+        return np.asarray(torch.sum(torch.from_numpy(arr), dim=axes, dtype=torch.float64).numpy())
 
     if (
         arr.ndim not in (3, 4)
@@ -204,7 +216,7 @@ def _reduce_sum_per_channel_float16_fastpath(
         or arr.size <= _FLOAT16_PER_CHANNEL_TORCH_MAX_ELEMENTS_BY_CHANNELS[9]
     ):
         return None
-    result = _cv2_reduce_sum_per_channel(arr.astype(np.float32))
+    result = _cv2_reduce_sum_per_channel(_cast_float_numpy(arr, np.float32))
     if keepdims:
         return result.reshape((1,) * (arr.ndim - 1) + (arr.shape[-1],))
     return result
@@ -276,7 +288,7 @@ def _reduce_sum_tensor(
     tensor_result = _reduce_sum_float16_tensor(arr, axis, layout, keepdims=keepdims)
     if tensor_result is not None:
         return tensor_result
-    return cast("torch.Tensor", dispatch_tensor_reduction(arr, layout, reduce_sum, axis, {"keepdims": keepdims}))
+    return dispatch_tensor_reduction(arr, layout, reduce_sum, axis, {"keepdims": keepdims})
 
 
 def _reduce_sum_numpy(
@@ -293,6 +305,106 @@ def _reduce_sum_numpy(
         # signed integers and bool
         acc = np.int64
     return np.sum(arr, axis=axes, dtype=acc, keepdims=keepdims)
+
+
+@overload
+def reduce_sum(
+    arr: ImageUInt8,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    layout: TensorLayout | None = None,
+) -> np.uint64: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageUInt8,
+    axis: AxisSpec = None,
+    *,
+    keepdims: Literal[True],
+    layout: TensorLayout | None = None,
+) -> NDArray[np.uint64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageUInt8,
+    axis: Literal["per_channel"],
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.uint64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageUInt8,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> np.uint64 | NDArray[np.uint64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageFloat16 | ImageFloat32,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    layout: TensorLayout | None = None,
+) -> np.float64: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageFloat16 | ImageFloat32,
+    axis: AxisSpec = None,
+    *,
+    keepdims: Literal[True],
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageFloat16 | ImageFloat32,
+    axis: Literal["per_channel"],
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: ImageFloat16 | ImageFloat32,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> np.float64 | NDArray[np.float64]: ...
+
+
+@overload
+def reduce_sum(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> np.generic | np.ndarray: ...
+
+
+@overload
+def reduce_sum(
+    arr: torch.Tensor,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def reduce_sum(
@@ -426,7 +538,7 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
         np.subtract(magnitude_bits, np.uint16(1), out=magnitude_bits)
         has_subnormals = np.min(magnitude_bits) < 0x03FF
         if has_subnormals:
-            return _mean_std_per_channel_float32(cast("ImageFloat32", arr.astype(np.float32)), eps)
+            return _mean_std_per_channel_float32(_cast_float_numpy(arr, np.float32), eps)
 
     c = arr.shape[-1]
     n = arr.size // c
@@ -449,7 +561,7 @@ def _mean_std_per_channel_numkong(arr: ImageType, eps: float) -> tuple[np.ndarra
 def _mean_std_per_channel_opencv(arr: ImageType, eps: float) -> tuple[np.ndarray, np.ndarray]:
     """Widen half inputs because CV_16F statistics lose subnormal precision."""
     is_half = arr.dtype == np.float16
-    work = arr.astype(np.float32) if is_half else arr
+    work = _cast_float_numpy(arr, np.float32) if is_half else arr
     mean, std = cv2.meanStdDev(work)
     if is_half and np.any(np.square(std[:, 0]) <= _FLOAT16_MOMENTS_RELATIVE_VARIANCE_FLOOR * np.square(mean[:, 0])):
         return _mean_std_per_channel_numkong(arr, eps)
@@ -561,7 +673,7 @@ def _mean_global(arr: ImageType, *, keepdims: bool) -> np.floating | float | np.
             return np.array(m, dtype=np.float64).reshape(kd)
         return m
     if arr.dtype == np.float16 and arr.flags.c_contiguous and arr.size >= _FLOAT16_GLOBAL_MEAN_OPENCV_MIN_ELEMENTS:
-        wide = arr.astype(np.float32)
+        wide = _cast_float_numpy(arr, np.float32)
         mean_value = np.float64(cv2.mean(wide.reshape(-1, 1))[0])
         if keepdims:
             return mean_value.reshape((1,) * arr.ndim)
@@ -746,7 +858,7 @@ def _mean_per_channel(
     # HWC, C ≤ 4: cv2.mean is fastest; half inputs widen for accuracy.
     if arr.ndim == 3 and not keepdims and axes == spatial_axes and c <= MAX_OPENCV_WORKING_CHANNELS:
         # CV_16F mean can lose precision on skewed and subnormal inputs.
-        mu = cv2.mean(arr.astype(np.float32)) if arr.dtype == np.float16 else cv2.mean(arr)
+        mu = cv2.mean(_cast_float_numpy(arr, np.float32)) if arr.dtype == np.float16 else cv2.mean(arr)
         return np.asarray(mu[:c], dtype=np.float64)
     if arr.ndim == 4 and axes == spatial_axes and 1 <= c <= MAX_OPENCV_WORKING_CHANNELS:
         return _mean_per_channel_rank4(arr, axes, keepdims=keepdims)
@@ -761,7 +873,7 @@ def _mean_per_channel(
         ):
             result, _ = _mean_std_per_channel_opencv(arr, 0.0)
         else:
-            work = arr.astype(np.float32) if arr.dtype == np.float16 else arr
+            work = _cast_float_numpy(arr, np.float32) if arr.dtype == np.float16 else arr
             result = _cv2_reduce_mean_per_channel(work)
         if keepdims:
             return result.reshape((1,) * (arr.ndim - 1) + (c,))
@@ -806,6 +918,83 @@ def _std_per_channel(
         _, std = _mean_std_per_channel_numkong(arr, eps)
         return std
     return np.asarray(arr.std(axis=axes, dtype=np.float64, keepdims=keepdims) + eps, dtype=np.float64)
+
+
+@overload
+def mean_std(
+    arr: ImageFloat32,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[np.float64, np.float64]: ...
+
+
+@overload
+def mean_std(
+    arr: ImageUInt8 | ImageFloat16,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[float, float]: ...
+
+
+@overload
+def mean_std(
+    arr: np.ndarray,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[_StatsScalar, _StatsScalar]: ...
+
+
+@overload
+def mean_std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: Literal[True],
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]: ...
+
+
+@overload
+def mean_std(
+    arr: np.ndarray,
+    axis: Literal["per_channel"],
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]: ...
+
+
+@overload
+def mean_std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[_StatsResult, _StatsResult]: ...
+
+
+@overload
+def mean_std(
+    arr: torch.Tensor,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    layout: TensorLayout | None = None,
+) -> tuple[torch.Tensor, torch.Tensor]: ...
 
 
 def mean_std(
@@ -868,6 +1057,105 @@ def mean_std(
     return _mean_std_per_channel(arr, axes, keepdims=keepdims, eps=eps)
 
 
+@overload
+def mean(
+    arr: ImageUInt8,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> float: ...
+
+
+@overload
+def mean(
+    arr: ImageFloat16 | ImageFloat32,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> np.float64: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> _StatsScalar: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: Literal[True],
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: Literal["per_channel"],
+    *,
+    keepdims: bool = False,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
+    layout: TensorLayout | None = None,
+) -> NDArray[_OutputDTypeT]: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    dtype: DTypeLike,
+    layout: TensorLayout | None = None,
+) -> _StatsScalar | np.ndarray: ...
+
+
+@overload
+def mean(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> _StatsResult: ...
+
+
+@overload
+def mean(
+    arr: torch.Tensor,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    dtype: DTypeLike | None = None,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
+
+
 def mean(
     arr: ImageType | torch.Tensor,
     axis: AxisSpec = None,
@@ -927,6 +1215,90 @@ def mean(
     if dtype is not None:
         return np.asarray(m, dtype=dtype)
     return m
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: _GlobalAxis = None,
+    *,
+    keepdims: Literal[False] = False,
+    eps: float = DEFAULT_EPS,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> float: ...
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: Literal[True],
+    eps: float = DEFAULT_EPS,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: Literal["per_channel"],
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> NDArray[np.float64]: ...
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    dtype: np.dtype[_OutputDTypeT] | type[_OutputDTypeT],
+    layout: TensorLayout | None = None,
+) -> NDArray[_OutputDTypeT]: ...
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    dtype: DTypeLike,
+    layout: TensorLayout | None = None,
+) -> _StatsScalar | np.ndarray: ...
+
+
+@overload
+def std(
+    arr: np.ndarray,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    dtype: None = None,
+    layout: TensorLayout | None = None,
+) -> _StatsResult: ...
+
+
+@overload
+def std(
+    arr: torch.Tensor,
+    axis: AxisSpec = None,
+    *,
+    keepdims: bool = False,
+    eps: float = DEFAULT_EPS,
+    dtype: DTypeLike | None = None,
+    layout: TensorLayout | None = None,
+) -> torch.Tensor: ...
 
 
 def std(

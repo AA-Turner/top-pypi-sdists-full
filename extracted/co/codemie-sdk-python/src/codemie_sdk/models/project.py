@@ -176,6 +176,24 @@ class ProjectUpdateRequest(BaseModel):
     chargeback_attribution: str | None = None
 
 
+class ProjectOwnershipUpdateRequest(BaseModel):
+    """Request to transfer project ownership to another user."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    user_id: str
+
+
+class ProjectOwnershipUpdateResponse(BaseModel):
+    """Response after transferring project ownership."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    created_by: str
+    message: str
+
+
 class ProjectDeleteResponse(BaseModel):
     """Response after deleting a project."""
 

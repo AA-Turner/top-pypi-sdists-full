@@ -175,10 +175,10 @@ def provision_daemon(base_url: str, *, open_browser: bool = True,
     return lines
 
 
-def _session(session: str | None) -> str:
+def _session(session: str | None, *, read: bool = False) -> str:
     from .main import _resolve_agent_session
 
-    return _resolve_agent_session(session)
+    return _resolve_agent_session(session, read=read)
 
 
 def _fail(message: str) -> None:
@@ -288,7 +288,7 @@ def log_cmd(
     """Every decision the daemon made in a session, and why."""
     from .main import _print_json
 
-    resolved = _session(session)
+    resolved = _session(session, read=True)
     if not ledger_path(resolved).is_file():
         try:
             writes = read_daemon_log(resolved, status=status)
@@ -352,7 +352,7 @@ def trace_cmd(
     """Every cycle the daemon ran, or exactly what it sent the model in one and what came back."""
     from .main import _print_json
 
-    resolved = _session(session)
+    resolved = _session(session, read=True)
     try:
         conn = open_ledger(resolved)
     except LedgerUnreadable as exc:
@@ -379,7 +379,7 @@ def report_cmd(
 
     from .main import _print_json
 
-    resolved = _session(session)
+    resolved = _session(session, read=True)
     try:
         conn = open_ledger(resolved)
     except LedgerUnreadable as exc:

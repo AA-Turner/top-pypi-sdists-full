@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: code-standards
-Version: 8.60.0
+Version: 8.70.1
 Summary: One deterministic quality gate for Sarj Python, TypeScript, Swift, Kotlin, shell, SQL, IaC, and repository policy.
 Project-URL: Homepage, https://code-standards.sarj.ai/
 Project-URL: Documentation, https://code-standards.sarj.ai/cli/
@@ -28,12 +28,12 @@ Requires-Dist: pre-commit==4.7.0
 Requires-Dist: pydantic==2.14.1
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: referencing==0.37.0
-Requires-Dist: repo-standards==6.7.0
+Requires-Dist: repo-standards==6.7.2
 Requires-Dist: ruff==0.17.0
-Requires-Dist: sarj-iac-lint==0.21.0
-Requires-Dist: sarj-python-lint==1.37.0
+Requires-Dist: sarj-iac-lint==0.23.1
+Requires-Dist: sarj-python-lint==1.41.1
 Requires-Dist: sarj-rule-contracts==0.2.4
-Requires-Dist: sarj-sql-lint==0.20.0
+Requires-Dist: sarj-sql-lint==0.22.0
 Requires-Dist: shellcheck-py==0.11.0.1; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'darwin' and platform_machine == 'x86_64') or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')
 Requires-Dist: typer==0.27.3
 Description-Content-Type: text/markdown
@@ -98,6 +98,8 @@ DevOps execution blocks may sequence existing commands without helper scripts. K
 The source gate uses pinned actionlint, shared ShellCheck, offline Zizmor, Hadolint and Skaffold v4beta7 schema validation. Cloud Deploy validation is a documented partial structural contract. Terraform validation and TFLint require explicit repository trust and prepared local providers; analysis never initializes or downloads them. Compose requires an exact consumer `[devops].compose_version`; its source check does not resolve environment inputs.
 
 Release gates use `code-standards analyze --prepared-only --prepared-devops prepared.json --prepared-target TARGET_ID`. Declare exact `prepared_targets` under `[devops]` with an authored `source` path. Version-one receipts bind target IDs, authored input hashes, staged chart archives, ordered values, typed set arguments, manifests and a hashed local schema closure. Helm 4.3.0 strict lint and stage-specific rendering feed kubeconform 0.8.0 and kube-linter 0.8.3. Missing tools, schemas, targets and invalid receipts fail the gate. Prepared-only findings bypass source debt baselines; container exceptions require exact target, GVK, namespace, object, check, container kind, container name and a reason, and stale exceptions fail.
+
+Prepared YAML rejects duplicate parsed keys and cyclic aliases. Each document must stay below depth 64 and at or below 100,000 expanded nodes, including repeated aliases.
 
 Source-only checks report prepared validation as deferred. They do not certify generated manifests or replace Cloud Deploy, Cloud Build or Kubernetes admission validation. Run `setup --tools-only` in CI after installing the bundle and the pinned mise bootstrap. It requires an existing manifest, installs and attests the applicable native tools, and preserves repository wiring. Release analysis consumes prepared bytes without pulling charts.
 

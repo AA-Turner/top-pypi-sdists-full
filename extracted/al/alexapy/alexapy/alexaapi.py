@@ -1746,10 +1746,24 @@ class AlexaAPI:
         start_time: int | None = None,
         end_time: int | None = None,
         max_record_size: int | None = 1,
+        *,
+        max_pages: int = 1,
+        stop_on_usable_activity: bool = False,
     ) -> list[dict[str, Any]] | None:
-        """Get customer history records."""
+        """Get normalized customer history records, optionally across RVH pages.
+
+        Existing callers fetch one page. ``max_record_size`` remains the page
+        size; ``max_pages`` bounds the total requests (between one and ten).
+        Stop early on an activity usable for last_called when requested.
+        A failed page returns None, rather than presenting partial history as
+        complete. Missing or repeated continuation tokens end the search.
+        The default start time is seven days ago.
+        """
+        max_pages = max(1, min(max_pages, 10))
         start_time = (
-            int((time.time() - 24 * 3600) * 1000) if start_time is None else start_time
+            int((time.time() - 7 * 24 * 3600) * 1000)
+            if start_time is None
+            else start_time
         )
         end_time = (
             int((time.time() + 24 * 3600) * 1000) if end_time is None else end_time
@@ -1764,85 +1778,137 @@ class AlexaAPI:
         ):
             extra_headers["anti-csrftoken-a2z"] = await login.get_csrf_token()
 
-        response = await AlexaAPI._static_request(
-            "post",
-            login,
-            "/alexa-privacy/apd/rvh/customer-history-records-v2",
-            data={"previousRequestToken": None},
-            additional_headers=extra_headers,
-            query={
-                "startTime": start_time,
-                "endTime": end_time,
-                "recordType": "VOICE_HISTORY",
-                "maxRecordSize": max_record_size,
-            },
-            sub_domain="www",
-        )
         ret: list[dict[str, Any]] = []
-        customerHistoryRecords, valid = await get_json_value(
-            response, "customerHistoryRecords", (list, NoneType)
-        )
-        if customerHistoryRecords is None:
-            return ret if valid else None
+        previous_token: str | None = None
+        seen_tokens: set[str] = set()
 
-        for record in customerHistoryRecords:
-            o: dict[str, Any] = {}
-            conv_parts: dict[str, list[dict[str, Any]]] = {}
-
-            for item in record.get("voiceHistoryRecordItems") or []:
-                conv_parts.setdefault(item.get("recordItemType", ""), []).append(item)
-
-            if conv_parts:
-                o["conversionDetails"] = conv_parts
-
-            record_key = (record.get("recordKey") or "").split("#")
-            o["deviceType"] = (
-                record_key[2] if len(record_key) > 2 and record_key[2] else None
+        def log_stop(page_number: int, reason: str) -> None:
+            _LOGGER.debug(
+                "RVH pagination stopped: pages=%s, activities=%s, reason=%s",
+                page_number,
+                len(ret),
+                reason,
             )
-            o["creationTimestamp"] = record.get("timestamp")
-            o["deviceSerialNumber"] = record_key[3] if len(record_key) > 3 else None
-            o["utteranceType"] = record.get("utteranceType")
 
-            wake_word = (
-                await AlexaAPI.find_wake_word(login, o["deviceSerialNumber"])
-                if o.get("deviceSerialNumber")
-                else None
+        for page_number in range(1, max_pages + 1):
+            response = await AlexaAPI._static_request(
+                "post",
+                login,
+                "/alexa-privacy/apd/rvh/customer-history-records-v2",
+                data={"previousRequestToken": previous_token},
+                additional_headers=extra_headers,
+                query={
+                    "startTime": start_time,
+                    "endTime": end_time,
+                    "recordType": "VOICE_HISTORY",
+                    "maxRecordSize": max_record_size,
+                },
+                sub_domain="www",
             )
-            lw = wake_word.lower() if wake_word else None
+            payload, valid = await get_json_value(response, None, dict)
+            if not valid:
+                log_stop(page_number, "invalid or missing response")
+                return None
+            customerHistoryRecords = payload.get("customerHistoryRecords")
+            if customerHistoryRecords is None:
+                log_stop(page_number, "null or missing customerHistoryRecords")
+                return ret if "customerHistoryRecords" in payload else None
+            if not isinstance(customerHistoryRecords, list):
+                log_stop(page_number, "invalid customerHistoryRecords type")
+                return None
 
-            # -------- Summary (what the user said) --------
-            summary_parts: list[str] = []
-            for key in ("CUSTOMER_TRANSCRIPT", "ASR_REPLACEMENT_TEXT"):
-                for trans in conv_parts.get(key, []):
-                    text = (trans.get("transcriptText") or "").strip()
-                    if not text:
-                        continue
+            _LOGGER.debug(
+                "RVH page %s/%s: records=%s, continuation_token_present=%s",
+                page_number,
+                max_pages,
+                len(customerHistoryRecords),
+                bool(payload.get("encodedRequestToken")),
+            )
+            for record in customerHistoryRecords:
+                o = await AlexaAPI._normalize_history_record(login, record)
+                ret.append(o)
 
-                    text_l = text.lower()
-                    if lw and text_l.startswith(lw):
-                        # strip original-length wake_word, then punctuation/space
-                        text = text[len(wake_word) :].lstrip(" ,:").strip()
-                    elif text_l.startswith("alexa"):
-                        text = text[5:].lstrip(" ,:").strip()
+                if stop_on_usable_activity and AlexaAPI._is_usable_history_activity(o):
+                    log_stop(page_number, "usable activity found")
+                    return ret
 
-                    if text:
-                        summary_parts.append(text)
-
-            o["description"] = {"summary": ", ".join(summary_parts)}
-
-            # -------- Alexa response (what Alexa said / TTS) --------
-            response_parts: list[str] = []
-            for key in ("ALEXA_RESPONSE", "TTS_REPLACEMENT_TEXT"):
-                for trans in conv_parts.get(key, []):
-                    text = (trans.get("transcriptText") or "").strip()
-                    if text:
-                        response_parts.append(text)
-
-            o["alexaResponse"] = ", ".join(response_parts)
-
-            ret.append(o)
+            token = payload.get("encodedRequestToken")
+            if token is None or token == "":
+                log_stop(page_number, "no continuation token")
+                break
+            if not isinstance(token, str):
+                log_stop(page_number, "invalid continuation token type")
+                break
+            if token in seen_tokens:
+                log_stop(page_number, "repeated continuation token")
+                break
+            seen_tokens.add(token)
+            previous_token = token
+        else:
+            log_stop(max_pages, "page limit reached")
 
         return ret
+
+    @staticmethod
+    async def _normalize_history_record(
+        login: AlexaLogin, record: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Normalize one RVH record to the existing activity format."""
+        o: dict[str, Any] = {}
+        conv_parts: dict[str, list[dict[str, Any]]] = {}
+
+        for item in record.get("voiceHistoryRecordItems") or []:
+            conv_parts.setdefault(item.get("recordItemType", ""), []).append(item)
+
+        if conv_parts:
+            o["conversionDetails"] = conv_parts
+
+        record_key = (record.get("recordKey") or "").split("#")
+        o["deviceType"] = (
+            record_key[2] if len(record_key) > 2 and record_key[2] else None
+        )
+        o["creationTimestamp"] = record.get("timestamp")
+        o["deviceSerialNumber"] = record_key[3] if len(record_key) > 3 else None
+        o["utteranceType"] = record.get("utteranceType")
+
+        wake_word = (
+            await AlexaAPI.find_wake_word(login, o["deviceSerialNumber"])
+            if o.get("deviceSerialNumber")
+            else None
+        )
+        lw = wake_word.lower() if wake_word else None
+
+        # -------- Summary (what the user said) --------
+        summary_parts: list[str] = []
+        for key in ("CUSTOMER_TRANSCRIPT", "ASR_REPLACEMENT_TEXT"):
+            for trans in conv_parts.get(key, []):
+                text = (trans.get("transcriptText") or "").strip()
+                if not text:
+                    continue
+
+                text_l = text.lower()
+                if lw and text_l.startswith(lw):
+                    # strip original-length wake_word, then punctuation/space
+                    text = text[len(wake_word) :].lstrip(" ,:").strip()
+                elif text_l.startswith("alexa"):
+                    text = text[5:].lstrip(" ,:").strip()
+
+                if text:
+                    summary_parts.append(text)
+
+        o["description"] = {"summary": ", ".join(summary_parts)}
+
+        # -------- Alexa response (what Alexa said / TTS) --------
+        response_parts: list[str] = []
+        for key in ("ALEXA_RESPONSE", "TTS_REPLACEMENT_TEXT"):
+            for trans in conv_parts.get(key, []):
+                text = (trans.get("transcriptText") or "").strip()
+                if text:
+                    response_parts.append(text)
+
+        o["alexaResponse"] = ", ".join(response_parts)
+
+        return o
 
     @staticmethod
     @_catch_all_exceptions
@@ -1882,18 +1948,31 @@ class AlexaAPI:
         return response_json
 
     @staticmethod
+    def _is_usable_history_activity(activity: dict[str, Any]) -> bool:
+        """Identify voice history suitable for last_called."""
+        return bool(
+            activity.get("deviceSerialNumber")
+            and (activity.get("description") or {}).get("summary")
+            and activity.get("utteranceType") != "DEVICE_ARBITRATION"
+        )
+
+    @staticmethod
     @_catch_all_exceptions
     async def get_last_device_serial(
         login: AlexaLogin, items: int = 10
     ) -> dict[str, Any] | None:
         """Identify the last device's serial number and last summary.
 
-        This will search the [last items] activity records and find the latest
-        entry where Echo successfully responded.
+        Search up to ten RVH pages of ``items`` records for the latest
+        non-arbitration transcript with a device serial number. The existing
+        default history time window applies to every page.
         """
         try:
             response = await AlexaAPI.get_customer_history_records(
-                login, max_record_size=items
+                login,
+                max_record_size=items,
+                max_pages=10,
+                stop_on_usable_activity=True,
             )
         except TypeError as e:
             _LOGGER.debug("Customer history request failed: %s", e)
@@ -1903,17 +1982,14 @@ class AlexaAPI:
                 summary = ""
                 # Ignore empty description and summary
                 # Ignore utterance type DEVICE_ARBITRATION
-                if (
-                    last_activity["description"]
-                    and last_activity["description"]["summary"]
-                    and last_activity["utteranceType"] != "DEVICE_ARBITRATION"
-                ):
+                if AlexaAPI._is_usable_history_activity(last_activity):
                     with contextlib.suppress(AttributeError, JSONDecodeError):
                         summary = last_activity["description"]["summary"]
                     return {
                         "serialNumber": (last_activity["deviceSerialNumber"]),
                         "timestamp": last_activity["creationTimestamp"],
                         "summary": summary,
+                        "response": last_activity.get("alexaResponse", ""),
                     }
 
         return None

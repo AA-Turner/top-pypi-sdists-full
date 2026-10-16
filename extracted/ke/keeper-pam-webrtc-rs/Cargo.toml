@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/keeper-pam-webrtc-rs", "crates/webrtc-bindings", "crates/guacr", "crates/guacr-encoder", "crates/guacr-handlers", "crates/guacr-protocol", "crates/guacr-terminal", "crates/guacr-ssh", "crates/guacr-telnet", "crates/guacr-rdp", "crates/guacr-vnc", "crates/guacr-database", "crates/guacr-sftp", "crates/guacr-rbi", "crates/guacr-threat-detection", "crates/guacr-tn3270", "crates/guacr-tn5250", "crates/guacr-recording", "crates/guacr-recorder", "crates/guacr-guacd", "crates/pam-socks5"]
+members = ["crates/webrtc-bindings", "crates/keeper-pam-webrtc-rs", "crates/guacr-handlers", "crates/guacr-protocol", "crates/guacr-guacd", "crates/guacr-recording", "crates/guacr-terminal", "crates/pam-socks5"]
 resolver = "2"
 
 [workspace.package]
-version = "2.2.7"
+version = "2.2.8"
 edition = "2021"
 license = "MIT"
 authors = ["Keeper Security Engineering <pam@keepersecurity.com>"]
@@ -25,16 +25,6 @@ http = "1"
 h3-webtransport = "0.1.2"
 rcgen = "0.13"
 time = { version = "0.3", features = ["std"] }
-# KeeperDB SDK — git dep tracking the release branch (latest keeperdb). Cargo.lock pins
-# the exact commit for reproducible CI; run `cargo update -p keeperdb-core` to pull forward.
-# CI fetches over https via the ACCESS_TOKEN insteadOf rewrite in pr-tests.yml; deny.toml allows it.
-keeperdb-core = { git = "https://github.com/Keeper-Security/keeperdb.git", branch = "release" }
-# Unified driver registry — aggregates every keeperdb driver behind feature flags.
-# guacr connects via keeperdb_drivers::with_builtin_factories() + registry.connect(),
-# so adding a driver in keeperdb needs no guacr code change (only the feature list here).
-# Lean by design: depends on keeperdb-core + driver crates, NOT the full keeperdb-sdk
-# (which would drag in storage/AI/auth and reintroduce banned openssl/aws weight).
-keeperdb-drivers = { git = "https://github.com/Keeper-Security/keeperdb.git", branch = "release", features = ["all-drivers"] }
 secrecy = { version = "0.8", features = ["serde"] }
 
 # Core async
@@ -141,13 +131,6 @@ pyo3-log = "0.13.4"
 russh = "0.46"
 russh-keys = "0.46"
 ssh-key = "0.6"
-
-[patch.crates-io]
-# tiberius: match the fork keeperdb-driver-mssql is authored against. Keeper's fork
-# patches cross-platform NTLM (AuthMethod::windows on unix, prisma/tiberius#408) which
-# our old vendor/tiberius copy lacked. Must live in the ROOT [patch] because the root
-# workspace patch is the only one that applies to path-dep keeperdb crates.
-tiberius = { git = "https://github.com/Keeper-Security/tiberius", rev = "f012b7948be64dcc95d2a6d3f8db8dd7e8a916b2" }
 
 [profile.dev]
 incremental = false

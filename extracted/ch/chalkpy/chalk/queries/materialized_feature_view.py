@@ -90,8 +90,6 @@ class MaterializedFeatureView:
             name strings. Defaults to ``None``, which materializes every feature in the namespace
             that is eligible for the offline store.
 
-            This feature is not yet implemented on the engine.
-
             Naming a subset reduces the cost of the fill and of background compaction,
             which would otherwise process every column. Excluded features remain fully
             queryable: they are served from the observation tables, which return the same

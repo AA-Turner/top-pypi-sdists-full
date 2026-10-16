@@ -18,6 +18,22 @@ from typing import NamedTuple
 import numpy as np
 
 from ._junction_rule import coincident_end_groups
+from ._vec3 import norm3
+
+
+def format_numbers(values) -> str:
+    """Numbers for a message, spelled the same in every language: each one
+    printf-style ``%.12g``, comma-separated, in square brackets. A message
+    that embeds Python's or numpy's own printing (an array repr, a tuple
+    shape) cannot be reproduced by the C++ path without copying that
+    printing, so the shared refusals use this instead."""
+    return "[" + ", ".join("%.12g" % float(v) for v in values) + "]"
+
+
+def format_shape(shape) -> str:
+    """An array shape for a message: its extents joined by ``x`` (``3``,
+    ``2x3``; a 0-d value is ``scalar``), not Python's tuple repr."""
+    return "x".join(str(int(n)) for n in shape) if len(shape) else "scalar"
 
 
 def normalize_wire_radius(value, n_wires, *, per_wire_refusal=None):
@@ -49,11 +65,12 @@ def normalize_wire_radius(value, n_wires, *, per_wire_refusal=None):
     elif radius.shape != (n_wires,):
         raise ValueError(
             f"wire_radius: expected a scalar or a length-{n_wires} sequence "
-            f"(one entry per wire), got shape {radius.shape}"
+            f"(one entry per wire), got shape {format_shape(radius.shape)}"
         )
     if not np.all(np.isfinite(radius)) or np.any(radius <= 0.0):
         raise ValueError(
-            f"wire_radius entries must be positive and finite, got {radius}"
+            "wire_radius entries must be positive and finite, got "
+            + format_numbers(radius.ravel())
         )
     uniform = float(radius[0]) if np.all(radius == radius[0]) else None
     return radius, uniform
@@ -106,11 +123,11 @@ def check_junction_coincidence(wires_polylines, n_per_edge_per_wire, junctions):
             else:
                 anchor, edge, count = pl[-1], pl[-1] - pl[-2], npe[-1]
             anchors.append(anchor)
-            seg_lens.append(float(np.linalg.norm(edge)) / max(int(count), 1))
+            seg_lens.append(float(norm3(edge)) / max(int(count), 1))
         tol = max(_JUNCTION_COINCIDENCE_FLOOR, 1e-3 * min(seg_lens))
         w0, end0 = group[0]
         for (w, end), anchor in zip(group[1:], anchors[1:]):
-            dist = float(np.linalg.norm(anchor - anchors[0]))
+            dist = float(norm3(anchor - anchors[0]))
             if dist > tol:
                 raise ValueError(
                     f"junction {j}: members do not coincide - wire {w} {end} at "
@@ -235,7 +252,7 @@ def normalize_node_gaps(node_gaps, junctions, n_wires, *, junction_ports=()):
         j_idx = end_to_junction.get(member)
         if j_idx is None:
             raise ValueError(
-                f"node_gaps[{i}]: wire {wire} {end!r} is not a member "
+                f"node_gaps[{i}]: the {end} of wire {wire} is not a member "
                 "of any junction group — a series node gap lives at a "
                 "junction; for a feed inside a wire use feeds="
             )
@@ -246,7 +263,9 @@ def normalize_node_gaps(node_gaps, junctions, n_wires, *, junction_ports=()):
                 "with (a lone-end attachment is junction_ports=)"
             )
         if member in seen_members:
-            raise ValueError(f"node_gaps[{i}]: wire {wire} {end!r} listed twice")
+            raise ValueError(
+                f"node_gaps[{i}]: the {end} of wire {wire} is listed twice"
+            )
         if j_idx in seen_junctions and len(junctions[j_idx]) == 2:
             raise ValueError(
                 f"node_gaps[{i}]: junction {j_idx} already carries a "
@@ -761,16 +780,16 @@ GAP_DEPTH = {"point": 1, "knot": 0, "segment": 0}
 
 def _segment_lengths(polyline, npe):
     pl = np.asarray(polyline, dtype=float)
-    lengths = np.linalg.norm(np.diff(pl, axis=0), axis=1)
+    lengths = norm3(np.diff(pl, axis=0))
     return np.repeat(lengths / np.asarray(npe, dtype=float), np.asarray(npe))
 
 
 def _straight_segment_lengths(wires_polylines, n_per_edge_per_wire):
     """`_segment_lengths` of every wire, from one array expression, when every
     wire is a single straight edge (every EZNEC card); else ``None``
-    (momwire#1420). The edge length is `np.linalg.norm`'s own
-    ``sqrt(add.reduce(d * d, axis=1))`` and each segment that length over the
-    edge's count, so every entry is the per-wire call's, bit for bit."""
+    (momwire#1420). The edge length is `norm3`'s, as in the per-wire call,
+    and each segment that length over the edge's count, so every entry is the
+    per-wire call's, bit for bit."""
     pls = [np.asarray(pl, dtype=float) for pl in wires_polylines]
     counts = [np.asarray(npe) for npe in n_per_edge_per_wire]
     if (
@@ -782,7 +801,7 @@ def _straight_segment_lengths(wires_polylines, n_per_edge_per_wire):
         return None
     stacked = np.array(pls)
     d = stacked[:, 1] - stacked[:, 0]
-    lengths = np.sqrt(np.add.reduce(d * d, axis=1))
+    lengths = norm3(d)
     n = np.array([c[0] for c in counts])
     per = lengths / n.astype(float)
     return [np.repeat(per[w : w + 1], counts[w]) for w in range(len(pls))]

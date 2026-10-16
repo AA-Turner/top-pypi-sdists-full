@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import numbers
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from ._formats import fmt
-from ._gt_data import FormatterSkipElement
+from ._gt_data import FormatFns, FormatterSkipElement
 from ._helpers import html
 from ._tbl_data import DataFrameLike, SelectExpr, is_na
 from ._text import Text, _process_text
 
 if TYPE_CHECKING:
+    from ._locations import RowSelectExpr
     from ._types import GTSelf
 
 
@@ -32,7 +35,7 @@ def _convert_missing(context: Literal["html"], el: str):
 def sub_missing(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     missing_text: str | Text | None = None,
 ) -> GTSelf:
     """
@@ -52,7 +55,8 @@ def sub_missing(
     rows
         In conjunction with `columns=`, we can specify which of their rows should be scanned for
         missing values. The default is all rows, resulting in all rows in all targeted columns being
-        considered for this substitution. Alternatively, we can supply a list of row indices.
+        considered for this substitution. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     missing_text
         The text to be used in place of missing values in the rendered table. We can optionally use
         the [`md()`](`great_tables.md`) or [`html()`](`great_tables.html`) helper functions to style
@@ -92,13 +96,13 @@ def sub_missing(
     """
 
     subber = SubMissing(self._tbl_data, missing_text)
-    return fmt(self, fns=subber.to_html, columns=columns, rows=rows, is_substitution=True)
+    return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
 
 
 def sub_zero(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     zero_text: str = "nil",
 ) -> GTSelf:
     """
@@ -106,7 +110,8 @@ def sub_zero(
 
     Wherever there is numerical data that are zero in value, replacement text may be better for
     explanatory purposes. The `sub_zero()` function allows for this replacement through its
-    `zero_text=` argument.
+    `zero_text=` argument. Only numeric values are replaced, so `False` in a boolean column is left
+    as is.
 
     Parameters
     ----------
@@ -116,7 +121,8 @@ def sub_zero(
     rows
         In conjunction with `columns=`, we can specify which of their rows should be scanned for
         zeros. The default is all rows, resulting in all rows in all targeted columns being
-        considered for this substitution. Alternatively, we can supply a list of row indices.
+        considered for this substitution. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     zero_text
         The text to be used in place of zero values in the rendered table. We can optionally use the
         [`md()`](`great_tables.md`) or [`html()`](`great_tables.html`) functions to style the text
@@ -151,34 +157,58 @@ def sub_zero(
     ```
     """
 
-    subber = SubZero(zero_text)
-    return fmt(self, fns=subber.to_html, columns=columns, rows=rows, is_substitution=True)
+    subber = SubZero(self._tbl_data, zero_text)
+    return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
+
+
+class Substitution:
+    """Base class for substitutions, with the replacement text rendered for each output context."""
+
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
+        raise NotImplementedError
+
+    def to_html(self, x: Any) -> str | FormatterSkipElement:
+        return self.substitute(x, context="html")
+
+    def to_latex(self, x: Any) -> str | FormatterSkipElement:
+        return self.substitute(x, context="latex")
+
+    def format_fns(self) -> FormatFns:
+        return FormatFns(html=self.to_html, latex=self.to_latex, default=self.to_html)
 
 
 @dataclass
-class SubMissing:
+class SubMissing(Substitution):
     dispatch_frame: DataFrameLike
     missing_text: str | Text | None
 
     def __post_init__(self):
-        # TODO: we should use an alternative to html(), once we support formats like latex
         if self.missing_text is None:
             self.missing_text = html("&mdash;")
 
-    def to_html(self, x: Any) -> str | FormatterSkipElement:
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
         if is_na(self.dispatch_frame, x):
-            return _process_text(self.missing_text)
+            return _process_text(self.missing_text, context=context)
 
         return FormatterSkipElement()
 
 
 @dataclass
-class SubZero:
+class SubZero(Substitution):
+    dispatch_frame: DataFrameLike
     zero_text: str | Text
 
-    def to_html(self, x: Any) -> str | FormatterSkipElement:
-        if x == 0:
-            return _process_text(self.zero_text)
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
+        # Skip missing values first; comparing `pd.NA` with zero doesn't give a boolean
+        if is_na(self.dispatch_frame, x):
+            return FormatterSkipElement()
+
+        # Only numeric values are zero; `False == 0` is true in Python, but a boolean isn't
+        # replaced (see `_as_number()`)
+        x = _as_number(x)
+
+        if x is not None and x == 0:
+            return _process_text(self.zero_text, context=context)
 
         return FormatterSkipElement()
 
@@ -186,7 +216,7 @@ class SubZero:
 def sub_small_vals(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     threshold: int | float = 0.01,
     small_pattern: str | None = None,
     sign: str = "+",
@@ -210,13 +240,15 @@ def sub_small_vals(
     rows
         In conjunction with `columns=`, we can specify which of their rows should be scanned for
         small values. The default is all rows, resulting in all rows in all targeted columns being
-        considered for this substitution. Alternatively, we can supply a list of row indices.
+        considered for this substitution. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     threshold
         The threshold value with which values should be considered small enough for replacement.
     small_pattern
         The pattern text to be used in place of the suitably small values in the rendered table.
-        The `{x}` placeholder within the pattern will be replaced with the threshold value. If not
-        provided, the default is `"<{x}"` for positive values and `">-{x}"` for negative values.
+        The `{x}` placeholder within the pattern will be replaced with the threshold value
+        (written compactly, e.g., `0.01` or `1e-04`). If not provided, the default is `"<{x}"` for
+        positive values and `">-{x}"` for negative values.
     sign
         The sign of the numbers to be considered in the replacement. By default, we only consider
         positive values (`"+"`). The other option (`"-"`) can be used to consider only negative
@@ -281,13 +313,13 @@ def sub_small_vals(
             small_pattern = ">-{x}"
 
     subber = SubSmallVals(threshold=threshold, small_pattern=small_pattern, sign=sign)
-    return fmt(self, fns=subber.to_html, columns=columns, rows=rows, is_substitution=True)
+    return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
 
 
 def sub_large_vals(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     threshold: int | float = 1e12,
     large_pattern: str = ">={x}",
     sign: str = "+",
@@ -308,17 +340,21 @@ def sub_large_vals(
     rows
         In conjunction with `columns=`, we can specify which of their rows should be scanned for
         large values. The default is all rows, resulting in all rows in all targeted columns being
-        considered for this substitution. Alternatively, we can supply a list of row indices.
+        considered for this substitution. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     threshold
         The threshold value with which values should be considered large enough for replacement.
     large_pattern
         The pattern text to be used in place of the suitably large values in the rendered table.
-        The `{x}` placeholder within the pattern will be replaced with the threshold value.
+        The `{x}` placeholder within the pattern will be replaced with the threshold value
+        (written compactly, e.g., `1e+12` or `1000`). The default pattern, `">={x}"`, is shown with
+        a `≥` mark (e.g., `≥1e+12`).
     sign
         The sign of the numbers to be considered in the replacement. By default, we only consider
         positive values (`"+"`). The other option (`"-"`) can be used to consider only negative
         values. Note that when `sign="-"` and the default `large_pattern=">={x}"` is used, the
-        `">="` is automatically changed to `"<="`.
+        output is shown with a `≤` mark and the negative threshold (e.g., `≤−1e+12`); in a custom
+        pattern, `">="` is changed to `"<="`.
 
     Returns
     -------
@@ -345,8 +381,8 @@ def sub_large_vals(
     GT(single_vals_df).fmt_number(columns="numbers").sub_large_vals(threshold=1e10)
     ```
 
-    Large negative values can also be targeted with `sign="-"`. Notice the `">="` in the default
-    pattern is automatically changed to `"<="` when dealing with negative values.
+    Large negative values can also be targeted with `sign="-"`. Notice the default pattern is
+    automatically changed to `"<=-{x}"` when dealing with negative values.
 
     ```{python}
     from great_tables import GT
@@ -373,13 +409,13 @@ def sub_large_vals(
     threshold = abs(threshold)
 
     subber = SubLargeVals(threshold=threshold, large_pattern=large_pattern, sign=sign)
-    return fmt(self, fns=subber.to_html, columns=columns, rows=rows, is_substitution=True)
+    return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
 
 
 def sub_values(
     self: GTSelf,
     columns: SelectExpr = None,
-    rows: int | list[int] | None = None,
+    rows: RowSelectExpr = None,
     values: list[Any] | Any | None = None,
     pattern: str | None = None,
     fn: Callable[..., bool] | None = None,
@@ -399,7 +435,8 @@ def sub_values(
     rows
         In conjunction with `columns=`, we can specify which of their rows should be targeted for
         substitution. The default is all rows, resulting in all rows in all targeted columns being
-        considered for this substitution. Alternatively, we can supply a list of row indices.
+        considered for this substitution. Alternatively, we can supply a row index, a list of row
+        indices, or (for Polars DataFrames) a Polars expression such as `pl.col("x") > 0`.
     values
         The specific value or values that should be replaced with a `replacement` value. If
         `pattern` is also supplied then `values` will be ignored.
@@ -475,18 +512,37 @@ def sub_values(
         raise TypeError("A function must be provided to the `fn` argument.")
 
     subber = SubValues(values=values, pattern=pattern, fn=fn, replacement=replacement)
-    return fmt(self, fns=subber.to_html, columns=columns, rows=rows, is_substitution=True)
+    return fmt(self, fns=subber.format_fns(), columns=columns, rows=rows, is_substitution=True)
+
+
+def _as_number(x: Any) -> float | None:
+    """Get a cell value as a number for `sub_zero()`, `sub_small_vals()` and `sub_large_vals()`,
+    or `None`.
+
+    Real numbers (including NumPy scalars, e.g., from a pandas column) and `Decimal` values (e.g.,
+    from a polars `Decimal` column) are numbers. Booleans aren't, whether Python `bool` (polars,
+    PyArrow) or NumPy `bool_` (pandas), as in R gt where logical values aren't numeric.
+    """
+
+    if isinstance(x, bool) or getattr(getattr(x, "dtype", None), "kind", None) == "b":
+        return None
+    if isinstance(x, Decimal):
+        return float(x)
+    if isinstance(x, numbers.Real):
+        return x
+    return None
 
 
 @dataclass
-class SubSmallVals:
+class SubSmallVals(Substitution):
     threshold: float
     small_pattern: str
     sign: str
 
-    def to_html(self, x: Any) -> str | FormatterSkipElement:
-        # Only operate on numeric values
-        if not isinstance(x, (int, float)):
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
+        # Only operate on numeric values (see `_as_number()`)
+        x = _as_number(x)
+        if x is None:
             return FormatterSkipElement()
 
         # Skip NA/NaN values
@@ -500,28 +556,29 @@ class SubSmallVals:
         if self.sign == "+":
             # Value must be positive and less than threshold
             if x > 0 and x < self.threshold:
-                return self._format_text()
+                return self._format_text(context)
         else:
             # Value must be negative and greater than -threshold (closer to zero)
             if x < 0 and x > -self.threshold:
-                return self._format_text()
+                return self._format_text(context)
 
         return FormatterSkipElement()
 
-    def _format_text(self) -> str:
-        text = self.small_pattern.replace("{x}", str(self.threshold))
-        return _process_text(text)
+    def _format_text(self, context: str) -> str:
+        text = self.small_pattern.replace("{x}", _format_threshold(self.threshold))
+        return _process_text(text, context=context)
 
 
 @dataclass
-class SubLargeVals:
+class SubLargeVals(Substitution):
     threshold: float
     large_pattern: str
     sign: str
 
-    def to_html(self, x: Any) -> str | FormatterSkipElement:
-        # Only operate on numeric values
-        if not isinstance(x, (int, float)):
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
+        # Only operate on numeric values (see `_as_number()`)
+        x = _as_number(x)
+        if x is None:
             return FormatterSkipElement()
 
         # Skip NA/NaN values
@@ -531,35 +588,68 @@ class SubLargeVals:
         if self.sign == "+":
             # Value must be >= threshold
             if x >= self.threshold:
-                return self._format_text()
+                return self._format_text(context)
         else:
             # Value must be <= -threshold
             if x <= -self.threshold:
-                return self._format_text()
+                return self._format_text(context)
 
         return FormatterSkipElement()
 
-    def _format_text(self) -> str:
+    def _format_text(self, context: str) -> str:
         pattern = self.large_pattern
+        threshold = _format_threshold(self.threshold)
 
-        # When sign is "-", flip ">=" to "<=" in the pattern
+        # The default pattern is shown with a `≥` mark (or `≤` and a minus sign for `sign="-"`, e.g.
+        # `≤−1e+12`), as in R gt; the mark is added after the text is processed so that its LaTeX
+        # form (`$\geq$`) isn't escaped
+        if pattern == ">={x}":
+            if self.sign == "-":
+                minus_mark = "-" if context == "latex" else "\u2212"
+                return _context_inequality_mark("<=", context) + minus_mark + threshold
+            return _context_inequality_mark(">=", context) + threshold
+
+        # When sign is "-", flip ">=" to "<=" in a custom pattern
         if self.sign == "-":
             pattern = pattern.replace(">=", "<=")
 
-        text = pattern.replace("{x}", str(self.threshold))
-        return _process_text(text)
+        text = pattern.replace("{x}", threshold)
+        return _process_text(text, context=context)
+
+
+def _format_threshold(threshold: int | float) -> str:
+    """Write a `sub_small_vals()` / `sub_large_vals()` threshold compactly (e.g., `1e+12`).
+
+    As in R's default printing of numbers, exponent notation is used when it's shorter than fixed
+    notation (`1e+12` rather than `1000000000000`), and fixed notation otherwise (`0.01`, `1000`,
+    `123456789`). All of the threshold's significant digits are kept.
+    """
+    value = Decimal(repr(float(threshold))).normalize()
+    n_digits = len(value.as_tuple().digits)
+
+    fixed = format(value, "f")
+    scientific = f"{float(threshold):.{n_digits - 1}e}"
+
+    return scientific if len(scientific) < len(fixed) else fixed
+
+
+def _context_inequality_mark(mark: str, context: str) -> str:
+    """Get the `≥` / `≤` mark for `">="` / `"<="` in the output context."""
+    if context == "latex":
+        return "$\\geq$" if mark == ">=" else "$\\leq$"
+    return "\u2265" if mark == ">=" else "\u2264"
 
 
 @dataclass
-class SubValues:
+class SubValues(Substitution):
     values: list[Any] | Any | None
     pattern: str | None
     fn: Callable[..., bool] | None
     replacement: str | int | float
 
-    def to_html(self, x: Any) -> str | FormatterSkipElement:
+    def substitute(self, x: Any, context: str) -> str | FormatterSkipElement:
         if self._is_match(x):
-            return _process_text(str(self.replacement))
+            return _process_text(str(self.replacement), context=context)
 
         return FormatterSkipElement()
 

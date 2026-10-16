@@ -33,7 +33,12 @@ description = DESCRIPTION_TEMPLATE.format(
     docs_link="https://datarobot-public-api-client.readthedocs-hosted.com/en/latest-release/",
 )
 
-packages = find_packages(exclude=["tests*", "*_experimental*", "*_vendor*"])
+# `*_vendor*` is deliberately NOT excluded: pipelines went GA, so the stable
+# wheel has to carry the vendored covalent / covalent-cloud runtime it needs.
+# `make vendor` backfills __init__.py into the vendored namespace dirs so
+# find_packages picks all of them up. `*_experimental*` stays excluded -- the
+# rest of that tree is still pre-GA.
+packages = find_packages(exclude=["tests*", "*_experimental*"])
 
 common_setup_kwargs.update(
     name="datarobot",
@@ -43,4 +48,8 @@ common_setup_kwargs.update(
     classifiers=DEFAULT_CLASSIFIERS,
 )
 
-setup(**common_setup_kwargs)
+# Honor MANIFEST.in so the vendored covalent / covalent-cloud trees (including
+# the *.dist-info metadata that importlib.metadata.version("covalent") reads at
+# runtime) ship inside the wheel. Passed directly to setup() because the typed
+# value union on common_setup_kwargs doesn't allow bool. Mirrors setup_weekly.py.
+setup(**common_setup_kwargs, include_package_data=True)

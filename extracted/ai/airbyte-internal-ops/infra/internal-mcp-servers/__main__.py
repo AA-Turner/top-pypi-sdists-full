@@ -351,6 +351,8 @@ OIDC_CLIENT_STORAGE_FACTORY_ENV = "AIRBYTE_MCP_OIDC_CLIENT_STORAGE_FACTORY"
 CLOUD_MCP_STORAGE_FACTORY = "cloud_mcp_oidc_storage:build_store"
 CLOUD_MCP_FIRESTORE_DATABASE = "cloud-mcp-oauth"
 CLOUD_MCP_PREVIEW_FIRESTORE_DATABASE = "cloud-mcp-oauth-preview"
+MTX_MCP_FIRESTORE_DATABASE = "mtx-mcp-oauth"
+MTX_MCP_PREVIEW_FIRESTORE_DATABASE = "mtx-mcp-oauth-preview"
 
 
 def define_apis() -> list[gcp.projects.Service]:
@@ -458,10 +460,15 @@ def define_firestore(
 
 
 def define_firestore_iam(
+    resource_name: str,
     service_account: gcp.serviceaccount.Account,
     api_services: list[gcp.projects.Service],
+    database_prefix: str | None = None,
 ) -> gcp.projects.IAMMember:
     """Grant the runtime service account Firestore (Datastore) access.
+
+    `database_prefix` limits the grant, with an IAM condition, to databases whose
+    ID starts with it.
 
     `roles/datastore.user` lets the Cloud Run runtime SA read and write documents
     in the project's Firestore databases -- the passwordless, IAM-based grant that
@@ -469,10 +476,18 @@ def define_firestore_iam(
     preview databases.
     """
     return gcp.projects.IAMMember(
-        "internal-mcp-firestore-user",
+        resource_name,
         project=PROJECT,
         role="roles/datastore.user",
         member=service_account.email.apply(lambda email: f"serviceAccount:{email}"),
+        condition=gcp.projects.IAMMemberConditionArgs(
+            title=f"{database_prefix} databases only",
+            expression=(
+                f'resource.name.startsWith("projects/{PROJECT}/databases/{database_prefix}")'
+            ),
+        )
+        if database_prefix
+        else None,
         opts=pulumi.ResourceOptions(depends_on=[service_account, *api_services]),
     )
 
@@ -1215,8 +1230,9 @@ def main() -> None:
     # the cloud-mcp services (via PyAirbyte's storage-factory hook) build a
     # Fernet-encrypted store from the `AIRBYTE_MCP_FIRESTORE_*` env; agent-mcp runs
     # a separate image that does not yet construct the store, so it stays on the
-    # in-memory default. ops-mcp and cloud-mcp each get their own prod/preview
-    # databases so no OAuth state ever mixes across servers or environments. The
+    # in-memory default. ops-mcp, cloud-mcp, and mtx-mcp (defined below) each get
+    # their own prod/preview databases so no OAuth state ever mixes across servers
+    # or environments. The
     # runtime SA reaches Firestore over IAM (no VPC, no AUTH secret) via the
     # project-scoped `roles/datastore.user` grant.
     ops_mcp_firestore = define_firestore(OPS_MCP_FIRESTORE_DATABASE, api_services)
@@ -1227,7 +1243,9 @@ def main() -> None:
     cloud_mcp_preview_firestore = define_firestore(
         CLOUD_MCP_PREVIEW_FIRESTORE_DATABASE, api_services
     )
-    firestore_iam = define_firestore_iam(service_account, api_services)
+    firestore_iam = define_firestore_iam(
+        "internal-mcp-firestore-user", service_account, api_services
+    )
     telemetry_hmac_key = define_telemetry_hmac_key(service_account, api_services)
     # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
     # (GitHub PAT, Orb key, MotherDuck token, shared Slack token, Zendesk API
@@ -1396,15 +1414,23 @@ def main() -> None:
         member=mtx_mcp_sa.email.apply(lambda email: f"serviceAccount:{email}"),
         project=PROJECT,
     )
-    # Interactive OIDC state is in-memory for now (no Firestore), so a cold start
-    # or new revision asks users to log in again.
+    mtx_mcp_firestore = define_firestore(MTX_MCP_FIRESTORE_DATABASE, api_services)
+    mtx_mcp_preview_firestore = define_firestore(
+        MTX_MCP_PREVIEW_FIRESTORE_DATABASE, api_services
+    )
+    mtx_mcp_firestore_iam = define_firestore_iam(
+        f"{MTX_MCP_SERVICE_NAME}-firestore-user",
+        mtx_mcp_sa,
+        api_services,
+        database_prefix=MTX_MCP_FIRESTORE_DATABASE,
+    )
     mtx_mcp_common = {
         "container_image": MTX_MCP_CONTAINER_IMAGE,
         "oauth_client_id": OPS_MCP_OAUTH_CLIENT_ID,
         "oauth_client_secret_id": OPS_MCP_OAUTH_CLIENT_SECRET_ID,
         "service_account": mtx_mcp_sa,
         "api_services": api_services,
-        "extra_depends": [mtx_mcp_oauth_secret_accessor],
+        "extra_depends": [mtx_mcp_oauth_secret_accessor, mtx_mcp_firestore_iam],
     }
     mtx_mcp = define_mcp_cloud_run_service(
         service_name=MTX_MCP_SERVICE_NAME,
@@ -1413,6 +1439,8 @@ def main() -> None:
         extra_envs=[
             _env("MTX_PROJECT", MTX_MCP_PROJECT),
             _env("MTX_ENV", "bigquery_prod"),
+            _env(AUTH_USER_TOKEN_CLIENT_IDS_ENV, CLOUD_MCP_USER_TOKEN_CLIENT_IDS),
+            *_firestore_storage_envs(mtx_mcp_firestore),
         ],
         **mtx_mcp_common,
     )
@@ -1423,6 +1451,8 @@ def main() -> None:
         extra_envs=[
             _env("MTX_PROJECT", MTX_MCP_PROJECT),
             _env("MTX_ENV", "bigquery_preview"),
+            _env(AUTH_USER_TOKEN_CLIENT_IDS_ENV, CLOUD_MCP_USER_TOKEN_CLIENT_IDS),
+            *_firestore_storage_envs(mtx_mcp_preview_firestore),
         ],
         **mtx_mcp_common,
     )

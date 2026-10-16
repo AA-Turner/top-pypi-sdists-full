@@ -17,3 +17,4 @@ mod scroll_detector_tests;
 mod selection_point_tests;
 mod simd_tests;
 mod terminal_input_handler_tests;
+mod terminal_mouse_tests;

@@ -12,6 +12,7 @@ import numpy as np
 from autograd.extend import Box as AutogradBox
 from pydantic import Field, PositiveFloat, field_validator, model_validator
 
+from tidy3d._runtime import always_validate
 from tidy3d.config import config
 from tidy3d.constants import MICROMETER
 from tidy3d.exceptions import (
@@ -243,6 +244,7 @@ class AbstractStructure(Tidy3dBaseModel):
     )
 
     @model_validator(mode="after")
+    @always_validate
     def _handle_background_mediums(self) -> Self:
         """Handle background medium combinations, including deprecation."""
 
@@ -731,11 +733,71 @@ class Structure(AbstractStructure):
             List of ``gdstk.Polygon``
         """
 
+        return self._to_gdstk_within(
+            x=x,
+            y=y,
+            z=z,
+            permittivity_threshold=permittivity_threshold,
+            frequency=frequency,
+            gds_layer=gds_layer,
+            gds_dtype=gds_dtype,
+            pixel_exact=pixel_exact,
+        )
+
+    @staticmethod
+    def _limit_infinite_gdstk_extent(polygon: Any, lower: Any, upper: Any) -> Any:
+        """Replace infinite coordinates of a ``gdstk`` polygon by the bounds ``lower`` and ``upper``.
+
+        ``gdstk`` does not handle non-finite coordinates in boolean operations. Whatever lies beyond
+        the bounds is clipped away by the caller anyway.
+        """
+        points = np.asarray(polygon.points)
+        if np.isfinite(points).all():
+            return polygon
+        points = np.where(
+            np.isposinf(points),
+            np.asarray(upper, dtype=float),
+            np.where(np.isneginf(points), np.asarray(lower, dtype=float), points),
+        )
+        return gdstk.Polygon(points, layer=polygon.layer, datatype=polygon.datatype)
+
+    def _to_gdstk_within(
+        self,
+        x: float | None = None,
+        y: float | None = None,
+        z: float | None = None,
+        permittivity_threshold: NonNegativeFloat = 1,
+        frequency: PositiveFloat = 0,
+        gds_layer: NonNegativeInt = 0,
+        gds_dtype: NonNegativeInt = 0,
+        pixel_exact: bool = False,
+        bounds: tuple[tuple[float, float, float], tuple[float, float, float]] | None = None,
+    ) -> list[Any]:
+        """Convert a structure's planar slice to ``gdstk`` polygons within ``bounds``.
+
+        Same as :meth:`to_gdstk`. If ``bounds`` are given, they replace the infinite extent of a
+        structure that is infinite along an axis, so that the result is finite. They must contain
+        everything that is exported.
+        """
         polygons = self.geometry.to_gdstk(x=x, y=y, z=z, gds_layer=gds_layer, gds_dtype=gds_dtype)
+        axis, _ = self.geometry.parse_xyz_kwargs(x=x, y=y, z=z)
+
+        if bounds is not None:
+            _, lower = self.geometry.pop_axis(bounds[0], axis)
+            _, upper = self.geometry.pop_axis(bounds[1], axis)
+            polygons = [self._limit_infinite_gdstk_extent(poly, lower, upper) for poly in polygons]
 
         if isinstance(self.medium, AbstractCustomMedium):
-            axis, _ = self.geometry.parse_xyz_kwargs(x=x, y=y, z=z)
             bb_min, bb_max = self.geometry.bounds
+            if bounds is not None:
+                bb_min = tuple(
+                    limit if np.isneginf(value) else value
+                    for value, limit in zip(bb_min, bounds[0])
+                )
+                bb_max = tuple(
+                    limit if np.isposinf(value) else value
+                    for value, limit in zip(bb_max, bounds[1])
+                )
             position = (x, y, z)[axis]
             contours, _, _ = self.medium._gdstk_contours(
                 axis=axis,
@@ -1190,6 +1252,7 @@ class MeshOverrideStructure(AbstractStructure):
 
     @field_validator("geometry")
     @classmethod
+    @always_validate
     def _box_only(cls, val: GeometryType) -> GeometryType:
         """Ensure this is a box."""
         if isinstance(val, Geometry):

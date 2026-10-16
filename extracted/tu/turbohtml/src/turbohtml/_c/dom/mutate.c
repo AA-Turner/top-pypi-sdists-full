@@ -15,6 +15,7 @@
 
 #include "core/ascii.h" /* lower_ascii for the foreign case-insensitive attribute scan */
 #include "core/vec.h"   /* th_grow_cap for the shadow-table growth */
+#include "tokenizer/xml_names.h"
 
 #include <string.h>
 
@@ -136,6 +137,21 @@ th_node *th_tree_make_data_node(th_tree *tree, int type, const Py_UCS4 *data, Py
     return node;
 }
 
+TH_NOINLINE int th_pi_target_invalid_xml(const Py_UCS4 *target, Py_ssize_t target_len) {
+    if (target_len == 3 && (target[0] | 0x20) == 'x' && (target[1] | 0x20) == 'm' && (target[2] | 0x20) == 'l') {
+        return 1;
+    }
+    if (target[0] == ':' || !is_name_start(target[0])) {
+        return 1;
+    }
+    for (Py_ssize_t index = 1; index < target_len; index++) {
+        if (target[index] == ':' || !is_name_char(target[index])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* Construct a processing-instruction node. The target, a space, and the data are
    packed into one buffer (target_len marks the split, kept in attr_count) so the
    node carries both halves; serialization writes "<?" + buffer + ">". */
@@ -156,6 +172,9 @@ th_node *th_tree_make_pi(th_tree *tree, const Py_UCS4 *target, Py_ssize_t target
     node->text = owned;
     node->text_len = total;
     node->attr_count = target_len;
+    if (th_pi_target_invalid_xml(target, target_len)) {
+        node->tag_flags = TH_PI_XML_INVALID;
+    }
     return node;
 }
 
@@ -189,6 +208,7 @@ int th_node_rename(th_tree *tree, th_node *node, const Py_UCS4 *tag, Py_ssize_t 
         node->text_len = th_tag_table[atom - 1].name_len;
     }
     node->atom = atom;
+    node->css_name_safety = 0;
     th_src_loc *loc = tree->track_locations ? *node_loc(node) : NULL;
     if (loc != NULL) {
         loc->start_dirty = 1;

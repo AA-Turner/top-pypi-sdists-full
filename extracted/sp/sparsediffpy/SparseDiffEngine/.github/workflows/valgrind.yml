@@ -7,6 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
       - name: Install dependencies
         run: |
@@ -24,4 +26,10 @@ jobs:
           valgrind --leak-check=full --show-leak-kinds=all \
                    --track-origins=yes -s --show-reachable=yes \
                    --error-exitcode=1 build/all_tests
+
+      - name: Run sparsediff_linalg tests under Valgrind
+        run: |
+          valgrind --leak-check=full --show-leak-kinds=all \
+                   --track-origins=yes -s --show-reachable=yes \
+                   --error-exitcode=1 build/sparsediff_linalg/sparsediff_linalg_tests
 

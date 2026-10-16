@@ -66,6 +66,21 @@ fn collect_feature_class_asts(
         ) else {
             continue;
         };
+        let class_range_start = class_def
+            .decorator_list
+            .first()
+            .map(|decorator| decorator.range.start())
+            .unwrap_or_else(|| class_def.range().start());
+        let Some(class_range) = file_location_for_range(
+            &file.path,
+            byte_offsets_to_range(
+                class_range_start.to_usize(),
+                class_def.range().end().to_usize(),
+                &source_code,
+            ),
+        ) else {
+            continue;
+        };
         let field_stmts = collect_class_field_statements(&class_def.body);
         let field_comments = collect_feature_class_field_comments(
             &field_stmts,
@@ -122,6 +137,7 @@ fn collect_feature_class_asts(
             source,
             class_name_location: class_name_location.clone(),
             class_definition_location,
+            class_range,
             decorator_location,
             kwarg_names,
             kwargs,
@@ -143,41 +159,40 @@ fn collect_feature_class_fields(
     let mut annotations = Vec::new();
 
     for stmt in field_stmts {
-        match stmt {
-            Stmt::AnnAssign(ann) => {
-                let Expr::Name(name) = ann.target.as_ref() else {
-                    continue;
-                };
-                let field_name = name.id.as_str().to_string();
-                let comment_metadata = field_comments.get(&field_name).cloned().unwrap_or_default();
-                let field_name_location =
-                    file_location_for_range(file_path, expr_name_to_range(name, source_code))
-                        .expect("field name location should exist");
-                let mut field_definition = new_feature_field_ast(
-                    field_name.clone(),
-                    field_name_location,
-                    &comment_metadata,
-                );
-                field_definition.annotation =
-                    file_location_for_range(file_path, expr_to_range(&ann.annotation, source_code));
+        if let Stmt::AnnAssign(ann) = stmt {
+            let Expr::Name(name) = ann.target.as_ref() else {
+                continue;
+            };
+            let field_name = name.id.as_str().to_string();
+            let comment_metadata = field_comments.get(&field_name).cloned().unwrap_or_default();
+            let field_name_location =
+                file_location_for_range(file_path, expr_name_to_range(name, source_code))
+                    .expect("field name location should exist");
+            let mut field_definition = new_feature_field_ast(
+                field_name.clone(),
+                field_name_location,
+                &comment_metadata,
+            );
+            field_definition.annotation =
+                file_location_for_range(file_path, expr_to_range(&ann.annotation, source_code));
+            field_definition.referenced_feature_class =
+                referenced_feature_class_name(&ann.annotation);
 
-                let Some(value_expr) = ann.value.as_deref() else {
-                    annotations.push(field_definition);
-                    continue;
-                };
-                let Expr::Call(call) = value_expr else {
-                    annotations.push(field_definition);
-                    continue;
-                };
-                field_definition.feature_call =
-                    file_location_for_range(file_path, expr_to_range(value_expr, source_code));
-                let (kwarg_names, kwargs) =
-                    keyword_location_maps(&call.arguments.keywords, source, source_code, file_path);
-                field_definition.kwarg_names = kwarg_names.clone();
-                field_definition.kwargs = kwargs.clone();
+            let Some(value_expr) = ann.value.as_deref() else {
                 annotations.push(field_definition);
-            }
-            _ => {}
+                continue;
+            };
+            let Expr::Call(call) = value_expr else {
+                annotations.push(field_definition);
+                continue;
+            };
+            field_definition.feature_call =
+                file_location_for_range(file_path, expr_to_range(value_expr, source_code));
+            let (kwarg_names, kwargs) =
+                keyword_location_maps(&call.arguments.keywords, source, source_code, file_path);
+            field_definition.kwarg_names = kwarg_names.clone();
+            field_definition.kwargs = kwargs.clone();
+            annotations.push(field_definition);
         }
     }
 
@@ -335,7 +350,7 @@ fn collect_feature_class_field_comments(
         .copied()
         .filter(|comment| CommentRanges::is_own_line(comment.start(), source))
         .map(|comment| CommentLine {
-            line: source_code.line_column(comment.start()).line.get() as usize,
+            line: source_code.line_column(comment.start()).line.get(),
             text: normalize_comment_text(&source[comment]),
         })
         .peekable();
@@ -343,7 +358,7 @@ fn collect_feature_class_field_comments(
     let mut last_comment_line = None;
 
     for stmt in field_stmts {
-        let stmt_start_line = source_code.line_column(stmt.range().start()).line.get() as usize;
+        let stmt_start_line = source_code.line_column(stmt.range().start()).line.get();
 
         while comments
             .peek()
@@ -377,7 +392,7 @@ fn collect_feature_class_field_comments(
     comments_by_field
 }
 
-fn collect_class_field_statements<'a>(body: &'a [Stmt]) -> Vec<&'a Stmt> {
+fn collect_class_field_statements(body: &[Stmt]) -> Vec<&Stmt> {
     let mut collector = ClassFieldCollector::default();
     collector.visit_body(body);
     collector.field_stmts
@@ -431,6 +446,52 @@ fn new_feature_field_ast(
         feature_call: None,
         kwarg_names: HashMap::new(),
         kwargs: HashMap::new(),
+        referenced_feature_class: None,
+    }
+}
+
+/// Extract the leaf type name from an annotation expression, descending through
+/// subscripts (`DataFrame[Child]`, `Optional[Child]`, `list[Child]`), tuples,
+/// attribute accesses (`models.Child`), and forward-reference string literals
+/// (`"Child"`, `"DataFrame[Child]"`). Returns the bare identifier (e.g.
+/// `Child`). Best-effort and intentionally permissive: callers resolve the
+/// result against known feature classes, so a non-class leaf such as `int`
+/// simply fails to resolve rather than producing an incorrect match.
+fn referenced_feature_class_name(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Name(name) => Some(name.id.as_str().to_string()),
+        Expr::Attribute(attribute) => Some(attribute.attr.as_str().to_string()),
+        Expr::Subscript(subscript) => referenced_feature_class_name(&subscript.slice),
+        Expr::Tuple(tuple) => tuple.elts.iter().find_map(referenced_feature_class_name),
+        Expr::StringLiteral(_) => {
+            expr_string_literal_value(expr).and_then(|value| class_name_from_type_str(&value))
+        }
+        _ => None,
+    }
+}
+
+/// Pull the leaf class name out of a stringized type annotation such as
+/// `"DataFrame[Child]"` or `"Child"`.
+fn class_name_from_type_str(type_str: &str) -> Option<String> {
+    let inner = match type_str.rfind('[') {
+        Some(open) => {
+            let rest = &type_str[open + 1..];
+            let end = rest.find(']').unwrap_or(rest.len());
+            &rest[..end]
+        }
+        None => type_str,
+    };
+    let leaf = inner.trim().trim_matches(|c| c == '"' || c == '\'').trim();
+    let leaf = leaf.rsplit('.').next().unwrap_or(leaf).trim();
+    if !leaf.is_empty()
+        && leaf
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_')
+        && leaf.chars().next().is_some_and(|c| !c.is_numeric())
+    {
+        Some(leaf.to_string())
+    } else {
+        None
     }
 }
 
@@ -1359,6 +1420,65 @@ if True:
         assert_eq!(
             feature_class.source,
             "@passthrough\n@features(name=\"wrapped_customer\")\nclass Customer:\n    score: int = feature(default=0)  # keep the inline comment\n"
+        );
+    }
+
+    #[test]
+    fn captures_class_range_and_referenced_feature_classes() {
+        let typed = parse_fixture(
+            "/tmp/relationships.py",
+            r#"
+from chalk.features import features, DataFrame
+from typing import Optional
+
+@features
+class Child:
+    id: int
+    date: int
+
+@features
+class Parent:
+    id: int
+    children: "DataFrame[Child]"
+    best_child: Child
+    maybe_child: Optional[Child]
+    score: int
+"#,
+        );
+
+        let parent = typed
+            .feature_classes
+            .iter()
+            .find(|class| class.class_name == "Parent")
+            .expect("Parent feature class should be parsed");
+
+        // The class range should cover the whole `class Parent:` block, from the
+        // `@features` decorator (0-based line 9) through the last field (line 15).
+        assert_eq!(parent.class_range.range.start.line, 9);
+        assert!(parent.class_range.range.end.line >= 15);
+
+        assert_eq!(
+            parent.fields["children"]
+                .referenced_feature_class
+                .as_deref(),
+            Some("Child")
+        );
+        assert_eq!(
+            parent.fields["best_child"]
+                .referenced_feature_class
+                .as_deref(),
+            Some("Child")
+        );
+        assert_eq!(
+            parent.fields["maybe_child"]
+                .referenced_feature_class
+                .as_deref(),
+            Some("Child")
+        );
+        // Scalar annotations are recorded too but won't resolve to a class.
+        assert_eq!(
+            parent.fields["score"].referenced_feature_class.as_deref(),
+            Some("int")
         );
     }
 

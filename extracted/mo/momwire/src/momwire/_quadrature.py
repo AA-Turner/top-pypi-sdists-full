@@ -1,14 +1,32 @@
-"""Cached Gauss-Legendre quadrature nodes.
+"""Gauss-Legendre rules, frozen to the bit, and cached.
 
-`numpy.polynomial.legendre.leggauss(n)` computes its nodes/weights via an
-eigendecomposition of the Jacobi companion matrix — not free. The MoM
-kernels call it once per same-edge block per wavenumber across a swept-k
-solve (hundreds of times for a 41-point sweep), always with the same handful
-of `n` values. Memoize on `n`.
+`numpy.polynomial.legendre.leggauss(n)` finds its nodes by an eigensolve of
+the Jacobi companion matrix (LAPACK), then polishes them with one Newton
+step. Its last bits therefore depend on the host's LAPACK build: CI's macOS
+arm64 lane returns a different order-12 rule from Linux x86_64. A reference
+that a second implementation (the C++ standalone path, momwire#1479) must
+match bit for bit cannot depend on that, so every order 1..`_leggauss_table.
+N_MAX` is read from a frozen table instead of computed.
 
-The cached arrays are marked read-only so a shared entry can never be mutated
-by a caller; every kernel here only ever reads them (e.g. ``0.5 * (xi + 1)``),
-which allocates fresh arrays.
+The table was generated from numpy on Linux x86_64 (Skylake; Haswell and
+Rocketlake agree), so on that platform nothing moves: every tabled rule is
+numpy's own, bit for bit (`tests/test_leggauss_table.py` asserts it). On
+macOS the tabled rules are now Linux's, which DOES move bits there, by the
+eigensolver's last-ulp disagreement.
+
+Orders beyond the table fall back to numpy, deliberately: no deterministic
+algorithm reproduces numpy's eigensolve-then-one-Newton-step bits on Linux
+(a Newton iteration on the Legendre recurrence converges to the same nodes
+only to within an ulp or two), so generating them would move Linux results
+for those orders, while the fallback keeps Linux exact and only leaves them
+platform-dependent. No order momwire requests by default, or through any of
+its ladders and tiers, reaches the fallback; a caller that wants a larger
+order deterministically can regenerate the table with a larger `--max`.
+
+Memoized on `n`, because the kernels ask for the same handful of orders
+hundreds of times per swept solve. The cached arrays are read-only so a
+shared entry can never be mutated by a caller; every kernel here only reads
+them (e.g. ``0.5 * (xi + 1)``), which allocates fresh arrays.
 """
 
 import os
@@ -16,18 +34,39 @@ from functools import lru_cache
 
 import numpy as np
 
+from ._vec3 import norm3
+
+
+def _from_half(n, xs, ws):
+    """The full ``n``-point rule from its non-negative half (space-separated
+    hex floats). numpy symmetrises exactly (``x = (x - x[::-1]) / 2``, ``w = (w + w[::-1])
+    / 2``), so the lower half is the upper's mirror image to the bit."""
+    xh = np.array([float.fromhex(v) for v in xs.split()], dtype=np.float64)
+    wh = np.array([float.fromhex(v) for v in ws.split()], dtype=np.float64)
+    m = n // 2
+    x = np.concatenate([-xh[::-1][:m], xh])
+    w = np.concatenate([wh[::-1][:m], wh])
+    return x, w
+
 
 @lru_cache(maxsize=None)
 def _leggauss_cached(n: int):
-    xi, w = np.polynomial.legendre.leggauss(n)
+    from ._leggauss_table import HALVES
+
+    if n in HALVES:
+        xi, w = _from_half(n, *HALVES[n])
+    else:
+        xi, w = np.polynomial.legendre.leggauss(n)
     xi.setflags(write=False)
     w.setflags(write=False)
     return xi, w
 
 
 def leggauss(n):
-    """Memoized `numpy.polynomial.legendre.leggauss`. Returns read-only
-    `(nodes, weights)` arrays — do not mutate; derive new arrays instead."""
+    """The ``n``-point Gauss-Legendre rule on [-1, 1]: numpy's Linux x86_64
+    `leggauss` frozen to the bit for the tabled orders (see the module
+    docstring). Returns read-only `(nodes, weights)` arrays — do not mutate;
+    derive new arrays instead."""
     return _leggauss_cached(int(n))
 
 
@@ -84,7 +123,7 @@ def remainder_qp(obs_pts, src_l, src_r, ground_z, base, cap, c):
 
     d = mir_r - mir_l
     dd = np.einsum("ij,ij->i", d, d)
-    lengths = np.linalg.norm(src_r - src_l, axis=1)
+    lengths = norm3(src_r - src_l)
 
     # O(N) short-circuit before the O(N) numpy passes below, so a deck with
     # nothing near the plane pays nothing for a rule that cannot fire on it.
@@ -135,9 +174,7 @@ def remainder_qp(obs_pts, src_l, src_r, ground_z, base, cap, c):
             interior = (t_raw > 0.0) & (t_raw < 1.0)
             if not interior.any():
                 continue
-            r_min = float(
-                np.min(np.linalg.norm(obs[interior] - closest[interior], axis=1))
-            )
+            r_min = float(np.min(norm3(obs[interior] - closest[interior])))
         else:
             continue  # a degenerate mirror has no broadside to approach
         if r_min <= 0.0:
@@ -217,7 +254,7 @@ def remainder_qp_pairs(
     mir_r[:, 2] = 2.0 * ground_z - src_r[:, 2]
     d = mir_r - mir_l
     dd = np.einsum("ij,ij->i", d, d)
-    lengths = np.linalg.norm(src_r - src_l, axis=1)
+    lengths = norm3(src_r - src_l)
 
     # The scalar rule's short-circuit, unchanged: if even the deck-wide bound
     # asks for no more than `base`, no pair can.
@@ -272,7 +309,7 @@ def remainder_qp_pairs(
             continue
         t = np.clip(t_raw, 0.0, 1.0)
         closest = mir_l[j] + t[:, None] * d[j]
-        dist = np.where(interior, np.linalg.norm(obs - closest, axis=1), np.inf)
+        dist = np.where(interior, norm3(obs - closest), np.inf)
         r_min = dist.reshape(n_obs_seg, n_node).min(axis=1)
         hit = np.isfinite(r_min)
         with np.errstate(divide="ignore"):

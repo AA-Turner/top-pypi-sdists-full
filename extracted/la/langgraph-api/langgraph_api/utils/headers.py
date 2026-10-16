@@ -6,6 +6,9 @@ import urllib.parse
 from collections.abc import Mapping
 
 import orjson
+import structlog
+
+logger = structlog.stdlib.get_logger(__name__)
 
 LANGSMITH_METADATA = "langsmith-metadata"
 LANGSMITH_TAGS = "langsmith-tags"
@@ -38,6 +41,8 @@ def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
 
     This function handles special cases like langsmith-trace and baggage headers,
     while respecting the configurable header patterns.
+    Optional tracing metadata must be a JSON object; invalid values are skipped
+    with a warning so they cannot prevent run creation.
     """
     configurable = {}
     if not headers:
@@ -56,9 +61,16 @@ def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
                         baggage_key == LANGSMITH_METADATA
                         and baggage_key not in configurable
                     ):
-                        configurable[baggage_key] = orjson.loads(
-                            urllib.parse.unquote(baggage_value)
-                        )
+                        try:
+                            metadata = orjson.loads(urllib.parse.unquote(baggage_value))
+                        except orjson.JSONDecodeError:
+                            metadata = None
+                        if not isinstance(metadata, dict):
+                            logger.warning(
+                                "Ignoring malformed langsmith-metadata in tracing baggage"
+                            )
+                            continue
+                        configurable[baggage_key] = metadata
                     elif baggage_key == LANGSMITH_TAGS:
                         configurable[baggage_key] = urllib.parse.unquote(
                             baggage_value

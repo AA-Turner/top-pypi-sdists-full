@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spec-kitty-events
-Version: 10.5.0
+Version: 10.5.1
 Summary: Event log library with Lamport clocks and systematic error tracking
 Author-email: Robert Douglass <rob@example.com>
 License: MIT License
@@ -48,7 +48,7 @@ Dynamic: license-file
 
 Canonical event contracts for Spec Kitty mission state, mission runtime, conformance, and replay.
 
-**Package Version**: `10.5.0` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
+**Package Version**: `10.5.1` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
 
 ## What Changed In 8.0.0
 

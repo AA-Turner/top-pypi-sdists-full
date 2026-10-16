@@ -1,21 +1,21 @@
-use crate::{node::Node, span::Span};
+use crate::{node::Inline, span::Span};
 
-/// Iterator over nodes.
+/// Iterator over inline nodes.
 ///
-/// Created by [`Node::iter`].
+/// Created by [`Inline::iter`].
 pub struct Iter<'data, 'node, S>
 where
 	S: Span,
 {
-	pub(super) node: Option<&'node Node<'data, S>>,
-	pub(super) children: Option<Box<dyn Iterator<Item = &'node Node<'data, S>> + 'node>>,
+	pub(super) node: Option<&'node Inline<'data, S>>,
+	pub(super) children: Option<Box<dyn Iterator<Item = &'node Inline<'data, S>> + 'node>>,
 }
 
 impl<'data, 'node, S> std::iter::Iterator for Iter<'data, 'node, S>
 where
 	S: Span,
 {
-	type Item = &'node Node<'data, S>;
+	type Item = &'node Inline<'data, S>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(node) = self.node.take() {

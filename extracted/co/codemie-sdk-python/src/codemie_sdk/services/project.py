@@ -30,6 +30,8 @@ from ..models.project import (
     ProjectCreateResponse,
     ProjectDeleteResponse,
     ProjectDetailResponse,
+    ProjectOwnershipUpdateRequest,
+    ProjectOwnershipUpdateResponse,
     ProjectUpdateRequest,
     ProjectUpdateResponse,
 )
@@ -215,6 +217,33 @@ class ProjectService:
         return self._api.delete(
             f"/v1/projects/{project_name}",
             response_model=ProjectDeleteResponse,
+        )
+
+    def transfer_ownership(
+        self,
+        project_name: str,
+        user_id: str,
+    ) -> ProjectOwnershipUpdateResponse:
+        """Transfer ownership of a project to another active user.
+
+        Args:
+            project_name: Project name
+            user_id: ID of the user who becomes the new owner
+
+        Returns:
+            ProjectOwnershipUpdateResponse with the project name, new owner id and message
+
+        Raises:
+            HTTPException: 404 if the project or the target user is not found, or the
+                caller may not manage the project; 403 if the project is personal
+        """
+        payload = ProjectOwnershipUpdateRequest(user_id=user_id)
+
+        return self._api.put(
+            f"/v1/projects/{project_name}/ownership",
+            response_model=ProjectOwnershipUpdateResponse,
+            json_data=payload.model_dump(),
+            wrap_response=False,
         )
 
     # Assignment endpoints

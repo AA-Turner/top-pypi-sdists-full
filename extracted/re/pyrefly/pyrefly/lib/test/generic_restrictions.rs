@@ -82,6 +82,197 @@ test(C())
  "#,
 );
 
+// A gradual type argument in the expected type must not suppress the bounds
+// check on the corresponding class type parameter (ref: #3525).
+testcase!(
+    test_bound_checked_under_gradual_expected_type,
+    r#"
+from typing import Any
+
+class A: ...
+class B(A): ...
+
+class Container[T: B]:
+    def __init__(self, x: T) -> None: ...
+
+def bare(x: A) -> Container:  # implicitly Container[Any]
+    return Container(x)  # E: `A` is not assignable to upper bound `B` of type variable `T`
+
+def explicit_any(x: A) -> Container[Any]:
+    return Container(x)  # E: `A` is not assignable to upper bound `B` of type variable `T`
+
+def unrelated(x: str) -> Container[Any]:
+    return Container(x)  # E: `str` is not assignable to upper bound `B` of type variable `T`
+ "#,
+);
+
+// A gradual type argument still supplies the solution for its own type
+// parameter, so a well-bounded argument is accepted and `Any` is preserved.
+testcase!(
+    test_gradual_expected_type_still_solves_targ,
+    r#"
+from typing import Any, assert_type
+
+class B: ...
+
+class Container[T: B]:
+    def __init__(self, x: T) -> None: ...
+
+def f(x: B) -> None:
+    assert_type(Container(x), Container[B])
+    y: Container[Any] = Container(x)
+    assert_type(y, Container[Any])
+ "#,
+);
+
+// An `Any` argument is a real solution for the type parameter, unlike an `Any`
+// coming from the expected type, so the parameter is still solved to `Any`.
+testcase!(
+    test_gradual_argument_solves_restricted_targ,
+    r#"
+from typing import Any, assert_type
+
+def unknown() -> Any: ...
+
+class Container[T: str | None]:
+    def __init__(self, x: T = None) -> None: ...
+
+def f() -> None:
+    assert_type(Container(unknown()), Container[Any])
+    assert_type(next(Container(unknown()) for _ in range(3)), Container[Any])
+
+def g() -> Container[str]:
+    return Container(unknown())
+ "#,
+);
+
+// Constraints are checked under a gradual expected type just as bounds are, and a valid
+// argument still selects its constraint.
+testcase!(
+    test_constraints_checked_under_gradual_expected_type,
+    r#"
+from typing import Any, assert_type
+
+class Container[T: (int, str)]:
+    def __init__(self, x: T) -> None: ...
+
+def returned(x: float) -> Container[Any]:
+    return Container(x)  # E: `float` is not assignable to any of constraints `int`, `str`
+
+def assigned(x: float) -> None:
+    y: Container[Any] = Container(x)  # E: `float` is not assignable to any of constraints `int`, `str`
+
+def valid(x: int) -> Container[Any]:
+    assert_type(Container(x), Container[int])
+    return Container(x)
+ "#,
+);
+
+// A bound of `Any` or `object` accepts everything, so keeping such a parameter free buys no
+// checking and only discards the solution the expected type supplies.
+testcase!(
+    test_vacuous_bound_solved_from_gradual_expected_type,
+    r#"
+from typing import Any, assert_type
+
+class BoxAny[T: Any]:
+    def __init__(self, x: T) -> None: ...
+
+class BoxObj[T: object]:
+    def __init__(self, x: T) -> None: ...
+
+def f(x: str) -> None:
+    y: BoxAny[Any] = BoxAny(x)
+    assert_type(y, BoxAny[Any])
+    z: BoxObj[Any] = BoxObj(x)
+    assert_type(z, BoxObj[Any])
+ "#,
+);
+
+// The restriction check for a gradual expected type only produces a diagnostic, so it must not
+// solve anything. `v`'s element variable is reachable only through the answer for the nested
+// `list(...)` call, and the overloaded `__init__` keeps the argument from being expanded first.
+testcase!(
+    test_gradual_expected_type_restriction_check_is_rolled_back,
+    r#"
+from typing import Any, assert_type, overload
+
+class Container[T: list[list[int]]]:
+    @overload
+    def __init__(self, x: T) -> None: ...
+    @overload
+    def __init__(self, x: T, y: int) -> None: ...
+    def __init__(self, x: T, y: int = 0) -> None: ...
+
+def f() -> None:
+    v = []
+    c: Container[Any] = Container(list([v]))
+    assert_type(v, list[Any])
+    v.append("s")
+ "#,
+);
+
+// Modeled on `pd.Series(pd.NA, dtype="Int64")` under a bare `-> pd.Series` annotation.
+testcase!(
+    test_gradual_expected_type_restriction_violation_rejects_overload,
+    r#"
+from typing import Any, Self, assert_type, overload
+
+class NA: ...
+
+class Series[S: int | str]:
+    @overload
+    def __new__(cls, data: S, dtype: int) -> Self: ...
+    @overload
+    def __new__(cls, data: S, dtype: str | None = None) -> Self: ...
+    @overload
+    def __new__(cls, data: NA, dtype: str | None = None) -> Series: ...
+    def __new__(cls, data: Any, dtype: Any = None) -> Any: ...
+
+def unhinted() -> None:
+    assert_type(Series(NA(), dtype="Int64"), Series[Any])
+
+def hinted() -> Series:
+    return Series(NA(), dtype="Int64")
+ "#,
+);
+
+// A restriction violation discards the expected type, so the call reports what the unhinted call
+// reports.
+testcase!(
+    test_gradual_expected_type_restriction_violation_without_overloads,
+    r#"
+from typing import Any
+
+class Pair[T: (int, str)]:
+    def __init__(self, left: T, right: T) -> None: ...
+
+def unhinted(left: int | str, right: int | str | bytes) -> None:
+    Pair(left, right)  # E: `int | str` is not assignable to any of constraints `int`, `str`  # E: Argument `bytes | int | str` is not assignable to parameter `right`
+
+def hinted(left: int | str, right: int | str | bytes) -> Pair[Any]:
+    return Pair(left, right)  # E: `int | str` is not assignable to any of constraints `int`, `str`  # E: Argument `bytes | int | str` is not assignable to parameter `right`
+ "#,
+);
+
+// When every overload violates the restriction, the closest overload reports the violation once.
+testcase!(
+    test_gradual_expected_type_restriction_violation_in_every_overload,
+    r#"
+from typing import Self, overload
+
+class Box[S: int]:
+    @overload
+    def __new__(cls, data: S) -> Self: ...
+    @overload
+    def __new__(cls, data: S, extra: int) -> Self: ...
+    def __new__(cls, data: S, extra: int = 0) -> Self: ...
+
+def hinted() -> Box:
+    return Box("s")  # E: `str` is not assignable to upper bound `int` of type variable `S`
+ "#,
+);
+
 testcase!(
     test_any_bound_attribute_access,
     r#"
@@ -314,6 +505,20 @@ class C[T = int]:
 reveal_type(C.meth)  # E: [T = int](self: C[T], /) -> C[T]
 assert_type(C.attr, int)  # E: assert_type(Unknown, int) failed  # E: Generic attribute `attr` of class `C` is not visible on the class
  "#,
+);
+
+testcase!(
+    test_gradual_argument_overrides_typevar_default,
+    r#"
+from typing import Any, assert_type
+
+class C[T]: ...
+
+def f[T = int](value: C[T]) -> T: ...
+
+def check(value: C[Any]) -> None:
+    assert_type(f(value), Any)
+"#,
 );
 
 testcase!(
@@ -1585,4 +1790,59 @@ def h(x: Any):
     assert_type(f3(x, B()), B)
     assert_type(f3(B(), x), B)
     "#,
+);
+
+// A gradual type argument supplies the solution for its own type parameter, and keeping that
+// solution is the point of the expected type. Here `V` must stay `Any`: were it instead solved
+// from the first argument, it would become `bool` and reject the second one.
+testcase!(
+    test_gradual_expected_type_solution_is_kept,
+    r#"
+from typing import Any, MutableMapping
+
+class ChainMap[K, V: bool | dict]:
+    def __init__(self, *mappings: MutableMapping[K, V]): ...
+
+mapping: ChainMap[str, Any] = ChainMap(
+    {"flag": True},
+    {"nested": {"value": 1}},
+)
+ "#,
+);
+
+// The restriction is checked against each argument, so nesting the gradual type inside a container
+// does not suppress the check.
+testcase!(
+    test_nested_gradual_expected_type_checks_restriction,
+    r#"
+from typing import Any, assert_type
+
+class Nested[T: list[str]]:
+    def __init__(self, value: T) -> None: ...
+
+def bad(v: list[int]) -> None:
+    x: Nested[list[Any]] = Nested(v)  # E: `list[int]` is not assignable to upper bound `list[str]` of type variable `T`
+
+def good(v: list[str]) -> None:
+    y: Nested[list[Any]] = Nested(v)
+    assert_type(y, Nested[list[Any]])
+ "#,
+);
+
+// A container literal is contextually typed by the expected type before the restriction can be
+// checked: the element variable of `[1]` is pinned to `Any` by the `list[Any]` type argument, so
+// `list[int]` is never the argument type that argument matching sees. Passing an expression whose
+// type is already fixed, as in `test_nested_gradual_expected_type_checks_restriction`, is caught.
+testcase!(
+    bug = "the literal's element type is absorbed by the gradual type argument",
+    test_nested_gradual_expected_type_misses_literal,
+    r#"
+from typing import Any
+
+class Nested[T: list[str]]:
+    def __init__(self, value: T) -> None: ...
+
+def bad() -> None:
+    x: Nested[list[Any]] = Nested([1])  # Should be an error
+ "#,
 );

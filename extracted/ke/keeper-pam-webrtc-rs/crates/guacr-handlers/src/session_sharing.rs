@@ -18,10 +18,47 @@ use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc};
+use uuid::Uuid;
 
 /// Capacity of the broadcast channel buffer.
 /// Viewers that fall behind this many frames will be dropped (T-081 backpressure avoidance).
 pub const BROADCAST_CHANNEL_CAPACITY: usize = 256;
+
+/// A key/mouse instruction forwarded from a viewer into the owner's handler loop.
+///
+/// The identity travels with the bytes so the owner's handler can attribute the
+/// input in session recordings. Without it, a viewer's keystrokes are recorded as
+/// though the session owner had typed them, which defeats the point of recording
+/// a shared session.
+#[derive(Clone, Debug)]
+pub struct ViewerInput {
+    /// The raw Guacamole instruction as the viewer sent it.
+    pub bytes: Bytes,
+    /// Share participant GUID — stable identifier for audit correlation.
+    pub guid: Uuid,
+    /// Participant display name, recorded alongside the instruction.
+    pub display_name: String,
+}
+
+impl ViewerInput {
+    /// The identity to attribute this input to in recordings.
+    pub fn actor(&self) -> ViewerActor<'_> {
+        ViewerActor {
+            guid: self.guid,
+            display_name: &self.display_name,
+        }
+    }
+}
+
+/// Who produced a forwarded input, as recorded.
+///
+/// The GUID is the stable, unique identifier an audit correlates on; display names
+/// are neither, so the name is recorded only alongside it, never instead of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ViewerActor<'a> {
+    pub guid: Uuid,
+    pub display_name: &'a str,
+}
 
 /// A handle to a live session.
 ///
@@ -36,8 +73,14 @@ pub struct SessionHandle {
     last_frame: Arc<Mutex<Option<Bytes>>>,
     /// Input channel registered by the owner's handler so viewers with PRIV_CONTROL
     /// can forward key/mouse events into the owner's processing loop.
-    viewer_input_tx: Arc<Mutex<Option<mpsc::UnboundedSender<Bytes>>>>,
+    viewer_input_tx: Arc<Mutex<Option<ViewerInputSender>>>,
 }
+
+/// Sender half of the viewer → owner input channel.
+pub type ViewerInputSender = mpsc::UnboundedSender<ViewerInput>;
+
+/// Receiver half of the viewer → owner input channel, held by protocol handlers.
+pub type ViewerInputReceiver = mpsc::UnboundedReceiver<ViewerInput>;
 
 impl SessionHandle {
     /// Create a new SessionHandle with a fresh broadcast channel.
@@ -55,7 +98,7 @@ impl SessionHandle {
     ///
     /// Called once by the owner's handler immediately after session registration.
     /// The owner's handler reads from the corresponding receiver alongside `from_client`.
-    pub fn set_viewer_input_channel(&self, tx: mpsc::UnboundedSender<Bytes>) {
+    pub fn set_viewer_input_channel(&self, tx: ViewerInputSender) {
         *self.viewer_input_tx.lock() = Some(tx);
     }
 
@@ -63,7 +106,7 @@ impl SessionHandle {
     ///
     /// Returns `true` if the channel is registered and the send succeeded,
     /// `false` if no channel is registered (viewer input silently dropped).
-    pub fn forward_viewer_input(&self, input: Bytes) -> bool {
+    pub fn forward_viewer_input(&self, input: ViewerInput) -> bool {
         if let Some(tx) = self.viewer_input_tx.lock().as_ref() {
             tx.send(input).is_ok()
         } else {
@@ -76,13 +119,26 @@ impl SessionHandle {
         self.sender.subscribe()
     }
 
-    /// Broadcast a frame to all connected viewers and cache it for late-join sync.
+    /// Broadcast a screen frame to all connected viewers and cache it for late-join sync.
+    ///
+    /// Only call this for display state. Control traffic must use
+    /// [`Self::broadcast_control`] — caching a participant-list update as `last_frame`
+    /// makes the next late-joining viewer's state sync deliver a control message
+    /// instead of a picture.
     ///
     /// Returns the number of receivers that received it (0 if no viewers).
     pub fn broadcast(&self, frame: Bytes) -> usize {
         // Cache the frame for late-joining viewers (T-087).
         *self.last_frame.lock() = Some(frame.clone());
         self.sender.send(frame).unwrap_or(0)
+    }
+
+    /// Broadcast without disturbing the late-join frame cache.
+    ///
+    /// For participant updates, admin-takeover notices, disconnect notifications and
+    /// drawing overlays — none of which represent the screen's contents.
+    pub fn broadcast_control(&self, msg: Bytes) -> usize {
+        self.sender.send(msg).unwrap_or(0)
     }
 
     /// Get the most recent frame (for late-join state sync, T-087 AC-1).

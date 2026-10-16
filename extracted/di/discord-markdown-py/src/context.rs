@@ -15,7 +15,7 @@ use crate::{
 use super::{
 	Input,
 	grammar::GrammarSet,
-	node::{Element, ParsedNode},
+	node::Element,
 	rule::{ParsedRule, ParsedRuleSet, RuleSet},
 	span::Span,
 };
@@ -35,7 +35,7 @@ mod terminal_sequence;
 ///
 /// Each field corresponds to a grammar whose inner parser would do O(N) work before
 /// failing on adversarial input. Hints are computed once per top-level
-/// [`crate::inline::inline`] call and propagated to all child contexts via
+/// [`crate::node::inline::inline`] call and propagated to all child contexts via
 /// [`Context::with_grammar`].
 ///
 /// NOTE: as this struct has a field for each grammar, it is very large.
@@ -158,7 +158,7 @@ pub struct Context {
 	/// 1-indexed for lists — an unnested list is at depth 1 — and is 0 when not inside a list at
 	/// all.
 	///
-	/// This is a `u8` because the maximum is [`crate::block::list::MAX_DEPTH`].
+	/// This is a `u8` because the maximum is [`crate::node::block::list::MAX_DEPTH`].
 	pub list_depth: u8,
 	parents: GrammarSet,
 	/// Shared by every context of a parse, including the ones [`Context::fresh`] hands out, so that
@@ -221,7 +221,7 @@ impl Context {
 	/// when it finishes:
 	///
 	/// ```
-	/// # use discord_markdown::{block, context::{Context, Options}, node::SpannedNodes};
+	/// # use discord_markdown::{context::{Context, Options}, node::block};
 	/// # use nom::{combinator::all_consuming, Finish, Parser};
 	/// let options = Options::default();
 	/// let context = Context::new(options);
@@ -312,7 +312,7 @@ impl Context {
 	#[must_use]
 	pub fn allowed_inline_rules<'data, 'ctx, S, E>(
 		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = Element<'data, S, ParsedNode<'data, S>>, Error = E> + 'ctx
+	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,
@@ -324,7 +324,7 @@ impl Context {
 	#[must_use]
 	pub fn allowed_block_rules<'data, 'ctx, S, E>(
 		&'ctx self,
-	) -> impl Parser<Input<'data>, Output = Element<'data, S, ParsedNode<'data, S>>, Error = E> + 'ctx
+	) -> impl Parser<Input<'data>, Output = Element<'data, S>, Error = E> + 'ctx
 	where
 		S: Span,
 		E: ParseError<'data> + 'ctx,
@@ -381,7 +381,7 @@ impl Context {
 	#[must_use]
 	pub fn line_prefix<'data, E>(
 		&self,
-	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E>
+	) -> impl Parser<Input<'data>, Output = Input<'data>, Error = E> + use<'data, E>
 	where
 		E: ParseError<'data>,
 	{

@@ -2,9 +2,10 @@ import pytest
 import re
 from unittest import mock
 import pandas as pd
+import polars as pl
 import os
 
-from great_tables import GT, exibble, loc
+from great_tables import GT, exibble, loc, md
 from great_tables.data import gtcars
 
 from great_tables._utils_render_latex import (
@@ -622,6 +623,22 @@ def test_render_as_latex_stub_and_groups_as_column():
     assert "grp\\_a" in latex_str
 
 
+def test_create_body_component_l_groups_as_column_midrule():
+    gt_tbl = GT(exibble[["num", "group"]].iloc[2:6], groupname_col="group").tab_options(
+        row_group_as_column=True
+    )
+    result = create_body_component_l(gt_tbl._build_data(context="latex"))
+
+    # Row groups are separated by a midrule, as when the group labels are shown as heading rows
+    assert result.splitlines() == [
+        "grp\\_a & 33.33 \\\\",
+        " & 444.4 \\\\",
+        "\\midrule\\addlinespace[2.5pt]",
+        "grp\\_b & 5550.0 \\\\",
+        " & None \\\\",
+    ]
+
+
 def test_render_as_latex_footnotes_raises():
     gt_tbl = GT(exibble).tab_footnote("A footnote", locations=loc.body(columns="num", rows=[0]))
 
@@ -685,6 +702,83 @@ def test_create_columns_component_l_with_stub_and_spanner():
     assert "Numbers" in result
 
 
+def test_create_columns_component_l_with_stubhead():
+    gt_tbl = GT(exibble[["num", "char", "row"]].head(2), rowname_col="row").tab_stubhead(
+        label="Row & name"
+    )
+    result = create_columns_component_l(gt_tbl._build_data("latex"))
+
+    assert result == "\\toprule\nRow \\& name & num & char \\\\ \n\\midrule\\addlinespace[2.5pt]"
+
+
+def test_create_columns_component_l_with_stubhead_spanning_stub_columns():
+    gt_tbl = (
+        GT(exibble[["num", "row", "group"]].head(2), rowname_col="row", groupname_col="group")
+        .tab_stubhead(label="Stub")
+        .tab_options(row_group_as_column=True)
+    )
+    result = create_columns_component_l(gt_tbl._build_data("latex"))
+
+    assert (
+        result
+        == "\\toprule\n\\multicolumn{2}{l|}{Stub} & num \\\\ \n\\midrule\\addlinespace[2.5pt]"
+    )
+
+
+def test_create_columns_component_l_with_stubhead_and_spanner():
+    gt_tbl = (
+        GT(exibble[["num", "currency", "row"]].head(2), rowname_col="row")
+        .tab_stubhead(label="Stub")
+        .tab_spanner(label="Numbers", columns=["num", "currency"])
+    )
+    result = create_columns_component_l(gt_tbl._build_data("latex"))
+
+    # The spanner row has a blank stub cell, so its `\\cmidrule` starts after the stub column
+    assert result == (
+        "\\toprule\n"
+        "  & \\multicolumn{2}{c}{Numbers} \\\\ \n"
+        "\\cmidrule(lr){2-3}\n"
+        "Stub & num & currency \\\\ \n"
+        "\\midrule\\addlinespace[2.5pt]"
+    )
+
+
+def test_create_columns_component_l_with_md_stubhead():
+    gt_tbl = GT(exibble[["num", "row"]].head(2), rowname_col="row").tab_stubhead(
+        label=md("**Bold** _x_")
+    )
+    result = create_columns_component_l(gt_tbl._build_data("latex"))
+
+    assert (
+        result == "\\toprule\n\\textbf{Bold} \\emph{x} & num \\\\ \n\\midrule\\addlinespace[2.5pt]"
+    )
+
+
+def test_create_columns_component_l_with_empty_stubhead():
+    # An empty label gives one blank cell per stub column, as with no stubhead at all
+    gt_tbl = (
+        GT(exibble[["num", "row", "group"]].head(2), rowname_col="row", groupname_col="group")
+        .tab_stubhead(label="")
+        .tab_options(row_group_as_column=True)
+    )
+    result = create_columns_component_l(gt_tbl._build_data("latex"))
+
+    assert result == "\\toprule\n  &   & num \\\\ \n\\midrule\\addlinespace[2.5pt]"
+
+
+@pytest.mark.filterwarnings("ignore:Styles are not yet supported:UserWarning")
+def test_render_as_latex_stubhead_footnote_raises():
+    # Footnotes aren't supported in LaTeX output, including on the stubhead
+    gt_tbl = (
+        GT(exibble[["num", "row"]].head(2), rowname_col="row")
+        .tab_stubhead(label="Stub")
+        .tab_footnote("A footnote", locations=loc.stubhead())
+    )
+
+    with pytest.raises(NotImplementedError, match="Footnotes are not yet supported"):
+        _render_as_latex(data=gt_tbl._build_data(context="latex"))
+
+
 def test_render_as_latex_grand_summary_no_stub():
     import polars as pl
 
@@ -707,3 +801,234 @@ def test_create_summary_row_l_both_stubs():
     result = _render_as_latex(built)
 
     assert "Total" in result
+
+
+@pytest.mark.parametrize(
+    "stub_args", [{}, {"rowname_col": "row"}, {"rowname_col": "row", "groupname_col": "group"}]
+)
+def test_render_as_latex_summary_row_label_escaped(stub_args: dict):
+    gt_tbl = GT(exibble[["num", "row", "group"]].head(2), **stub_args).grand_summary_rows(
+        fns={"Total & 50%": lambda df: df.sum(numeric_only=True)}
+    )
+    result = _render_as_latex(gt_tbl._build_data(context="latex"))
+
+    assert "Total \\& 50\\%" in result
+    assert "Total & 50%" not in result
+
+
+def test_create_body_component_l_group_summary_rows_side():
+    gt_tbl = (
+        GT(exibble[["num", "row", "group"]].head(2), rowname_col="row", groupname_col="group")
+        .summary_rows(fns={"Min": lambda df: df.min(numeric_only=True)}, side="top")
+        .summary_rows(fns={"Max": lambda df: df.max(numeric_only=True)}, side="bottom")
+    )
+    result = create_body_component_l(gt_tbl._build_data(context="latex"))
+
+    # The `side="top"` summary row comes before the group's rows, the `side="bottom"` one after
+    assert result.splitlines() == [
+        "\\multicolumn{2}{l}{grp\\_a} \\\\[2.5pt] ",
+        "\\midrule\\addlinespace[2.5pt]",
+        "Min & 0.1111 \\\\",
+        "\\midrule\\addlinespace[2.5pt]",
+        "row\\_1 & 0.1111 \\\\",
+        "row\\_2 & 2.222 \\\\",
+        "\\midrule\\addlinespace[2.5pt]",
+        "Max & 2.222 \\\\",
+    ]
+
+
+def test_create_body_component_l_stub_indent():
+    gt_tbl = GT(exibble[["num", "row"]].head(3), rowname_col="row").tab_stub_indent(
+        rows=[1, 2], indent=2
+    )
+    result = create_body_component_l(gt_tbl._build_data(context="latex"))
+
+    # Each indentation level is `stub_indent_length` wide (5px by default, or 3.75pt)
+    assert result.splitlines() == [
+        "row\\_1 & 0.1111 \\\\",
+        "\\hspace*{7.5pt}row\\_2 & 2.222 \\\\",
+        "\\hspace*{7.5pt}row\\_3 & 33.33 \\\\",
+    ]
+
+
+def test_create_body_component_l_stub_indent_hierarchical_stub():
+    gt_tbl = (
+        GT(exibble[["num", "group", "row"]].head(2), rowname_col=["group", "row"])
+        .tab_stub_indent(rows=[1], indent=1)
+        .tab_options(stub_indent_length="8px")
+    )
+    result = create_body_component_l(gt_tbl._build_data(context="latex"))
+
+    # Only the primary (last) stub column is indented
+    assert result.splitlines() == [
+        "grp\\_a & row\\_1 & 0.1111 \\\\",
+        " & \\hspace*{6pt}row\\_2 & 2.222 \\\\",
+    ]
+
+
+@pytest.mark.parametrize(
+    "stub_indent_length,x_out",
+    [
+        # Absolute lengths are converted to points (exactly, not through whole pixels)
+        ("8pt", ["\\hspace*{8pt}b", "\\hspace*{16pt}c"]),
+        ("12px", ["\\hspace*{9pt}b", "\\hspace*{18pt}c"]),
+        ("0.1in", ["\\hspace*{7.2pt}b", "\\hspace*{14.4pt}c"]),
+        ("3mm", ["\\hspace*{8.50394pt}b", "\\hspace*{17.0079pt}c"]),
+        ("7", ["\\hspace*{5.25pt}b", "\\hspace*{10.5pt}c"]),
+        # Font-relative lengths are kept relative to the font size
+        ("1.5em", ["\\hspace*{1.5em}b", "\\hspace*{3em}c"]),
+        ("2rem", ["\\hspace*{2em}b", "\\hspace*{4em}c"]),
+    ],
+)
+def test_stub_indent_length_units(stub_indent_length: str, x_out: list[str]):
+    df = pl.DataFrame({"r": ["a", "b", "c"], "x": [1, 2, 3]})
+    gt = (
+        GT(df, rowname_col="r")
+        .tab_stub_indent(rows=[1], indent=1)
+        .tab_stub_indent(rows=[2], indent=2)
+        .tab_options(stub_indent_length=stub_indent_length)
+    )
+    assert re.findall(r"\\hspace\*\{[^}]*\}\w+", gt.as_latex()) == x_out
+
+
+def test_stub_indent_length_without_fixed_size_warns_once():
+    # A percentage has no fixed size, so the default indent is used (with one warning per table)
+    df = pl.DataFrame({"r": ["a", "b", "c"], "x": [1, 2, 3]})
+    gt = (
+        GT(df, rowname_col="r")
+        .tab_stub_indent(rows=[1, 2], indent=1)
+        .tab_options(stub_indent_length="10%")
+    )
+
+    with pytest.warns(UserWarning, match="can't be used in LaTeX output") as record:
+        latex = gt.as_latex()
+
+    assert len([w for w in record if "stub_indent_length" in str(w.message)]) == 1
+    assert re.findall(r"\\hspace\*\{[^}]*\}\w+", latex) == [
+        "\\hspace*{3.75pt}b",
+        "\\hspace*{3.75pt}c",
+    ]
+
+
+def test_convert_to_pt_is_exact():
+    assert convert_to_pt("8pt") == 8.0
+    assert convert_to_pt("12.5pt") == 12.5
+    assert convert_to_pt("1in") == 72.0
+
+
+def test_cols_align_decimal_latex_uses_phantoms():
+    # Unicode spaces (U+2007, U+00A0) aren't available in pdfLaTeX, so the padding uses
+    # `\hphantom{}`; escape sequences such as `\%` are measured as one character
+    df = pl.DataFrame({"num": [1.5, 22.25, 3.0], "pct": [0.015, 0.2, 1.0]})
+    gt = (
+        GT(df)
+        .fmt_number(columns="num", decimals=3, drop_trailing_zeros=True)
+        .fmt_percent(columns="pct", decimals=1, drop_trailing_zeros=True)
+        .cols_align_decimal()
+    )
+    latex = gt.as_latex()
+
+    assert " " not in latex and " " not in latex
+    assert "\\hphantom{0}1.5\\hphantom{0} &" in latex
+    assert "\\hphantom{0}3\\hphantom{.}\\hphantom{0}\\hphantom{0} &" in latex
+    assert "\\hphantom{0}\\hphantom{0}1.5\\%" in latex
+
+
+def test_summary_row_values_latex():
+    from functools import partial
+
+    from great_tables import vals
+
+    df = pl.DataFrame({"g": ["a", "a"], "r": ["x", "y"], "p": [0.25, -0.75], "c": [1.5, -2.0]})
+    gt = (
+        GT(df, rowname_col="r", groupname_col="g")
+        .summary_rows(fns={"Mean": pl.col("p").mean()}, fmt=vals.fmt_percent)
+        .grand_summary_rows(
+            fns={"Total": pl.col("c").sum()}, fmt=partial(vals.fmt_currency, currency="USD")
+        )
+        .grand_summary_rows(
+            fns={"Max": pl.col("c").max()}, fmt=lambda xs: [f"{x} & up" for x in xs]
+        )
+        .grand_summary_rows(fns={"Min": pl.col("p").min()})
+    )
+    latex = gt.as_latex()
+
+    # `vals` formatters are run for LaTeX (escaped `%` and `$`, an ASCII minus sign); other
+    # formatters and unformatted values are escaped as plain text
+    assert "Mean & -25.00\\% & --- \\\\" in latex
+    assert "Total & --- & -\\$0.50 \\\\" in latex
+    assert "Max & --- & 1.5 \\& up \\\\" in latex
+    assert "Min & -0.75 & --- \\\\" in latex
+
+    # HTML output is unchanged
+    assert "−25.00%" in gt.as_raw_html()
+
+
+@pytest.mark.parametrize(
+    "side,x_out",
+    [
+        ("top", ["A & Top & 3 \\\\", " & x & 1 \\\\", " & y & 2 \\\\"]),
+        ("bottom", ["A & x & 1 \\\\", " & y & 2 \\\\", " & Bottom & 3 \\\\"]),
+    ],
+)
+def test_summary_rows_group_as_column_latex(side: str, x_out: list[str]):
+    # With the group as a column, the group label is in the group's first row (a top summary row,
+    # if any), and group summary labels span only the row name column, as in HTML
+    df = pl.DataFrame({"g": ["A", "A"], "r": ["x", "y"], "n": [1, 2]})
+    gt = (
+        GT(df, rowname_col="r", groupname_col="g")
+        .summary_rows(fns={side.title(): pl.col("n").sum()}, side=side)
+        .tab_options(row_group_as_column=True)
+    )
+    rows = [line for line in gt.as_latex().splitlines() if line.endswith("\\\\") and "&" in line]
+
+    assert rows == x_out
+
+
+@pytest.mark.parametrize(
+    "text, x_out",
+    [
+        ("[1] note", "{}[1] note"),
+        (" [1]", "{} [1]"),
+        ("note [1]", "note [1]"),
+        ("", ""),
+    ],
+)
+def test_protect_leading_bracket(text: str, x_out: str):
+    from great_tables._utils_render_latex import _protect_leading_bracket
+
+    assert _protect_leading_bracket(text) == x_out
+
+
+@pytest.mark.parametrize("use_longtable", [False, True])
+def test_rows_starting_with_bracket_are_protected(use_longtable: bool):
+    # `\\` and `\toprule` take an optional `[...]` argument (looked for past the line break), so
+    # every kind of row that can start with `[` gets an empty group first
+    df = pl.DataFrame(
+        {
+            "g": ["[G1]", "[G1]", "[G2]"],
+            "r": ["[r1]", "[r2]", "[r3]"],
+            "a": ["[1] x", "[2] y", "[3] z"],
+        }
+    )
+    gt = (
+        GT(df, rowname_col="r", groupname_col="g")
+        .tab_stubhead("[stub]")
+        .tab_spanner("[S]", columns="a")
+        .summary_rows(fns={"[Total]": pl.len()})
+        .grand_summary_rows(fns={"[All]": pl.len()})
+        .tab_source_note("[1] first")
+        .tab_source_note("[2] second")
+    )
+    lines = gt.as_latex(use_longtable=use_longtable).splitlines()
+
+    assert not [line for line in lines if line.lstrip().startswith("[")]
+    for row_start in [
+        "{}[stub]",
+        "{}[r1]",
+        "{}[r3]",
+        "{}[Total]",
+        "{}[All]",
+        "{}[2] second",
+    ]:
+        assert any(line.lstrip().startswith(row_start) for line in lines), row_start

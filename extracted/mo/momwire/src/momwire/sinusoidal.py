@@ -43,7 +43,6 @@ from dataclasses import dataclass
 
 
 import numpy as np
-import scipy.linalg
 import scipy.sparse
 
 from . import (
@@ -63,6 +62,7 @@ from . import (
     _wire_spec,
 )
 from . import bspline as _bspline
+from . import _lapack
 from .bspline import SINGULAR_ENRICHMENT_NEVER
 from ._accel import acc as _acc
 from ._cancel import _Cancelable
@@ -74,9 +74,11 @@ from ._port_solution import (
     port_impedances,
     refuse_undriven,
 )
+from ._quadrature import leggauss
 from ._stable import asinh_diff
 from ._stable import expm1_neg_j as _expm1_neg_j
 from ._stable import expm1_neg_j_from_half as _expm1_neg_j_from_half
+from ._vec3 import norm3
 
 _HAVE_FIELD_TENSOR = _acc is not None and hasattr(_acc, "sinusoidal_field_tensor")
 # momwire#1222: the complex-k twin of `sinusoidal_field_tensor`, both shape
@@ -498,6 +500,72 @@ def _sin_minus_arg(u):
         * (1.0 - u2 / 20.0 * (1.0 - u2 / 42.0 * (1.0 - u2 / 72.0 * (1.0 - u2 / 110.0))))
     )
     return np.where(np.abs(u) < 0.1, series, np.sin(u) - u)
+
+
+def _abs_shape_integrals(k, h):
+    """The |I|² family's integrals over ξ ∈ [−h/2, h/2], each to full
+    relative precision, for real or complex k (momwire#1323):
+
+        (∫(cos kξ − 1), ∫|sin kξ|², ∫|cos kξ − 1|², ∫|cos kξ|²).
+
+    They are the conjugated siblings of
+    `sinusoidal_galerkin._loading_integrals`, for the power readouts. With
+    G(c) = ∫(cos cξ − 1) dξ = h·T(ch/2), T(u) = sin(u)/u − 1 = S(u)/u
+    (`_sin_minus_arg`, so nothing is subtracted), and k ± k̄ = 2 Re k, 2j Im k:
+
+        ∫|sin kξ|²       = ½·[G(k − k̄) − G(k + k̄)]
+        ∫|cos kξ|²       = h + ½·[G(k − k̄) + G(k + k̄)]
+        ∫|cos kξ − 1|²   = ½·[G(k − k̄) + G(k + k̄)] − 2·Re G(k)
+
+    G(k − k̄) ≥ 0 and G(k + k̄) ≤ 0, so the first is a sum of same-signed
+    terms. The last still cancels -- every G is O(|k|²h³) and the answer
+    O(|k|⁴h⁵) -- so below |k|h/2 = 0.25 it is its own double Taylor series,
+
+        h·Σ_{m,n≥1} (−1)^{m+n} z^m z̄^n / ((2m)!·(2n)!·(2(m+n) + 1)),
+        z = (kh/2)²,
+
+        cut at m, n ≤ 7 (the first omitted term is under 1e-20 of the sum
+    there). At real k these are `_loading_integrals`' three, and h/2 +
+    sin(kh)/2k.
+    """
+    k = np.asarray(k, dtype=np.complex128)
+    h = np.asarray(h, dtype=np.float64)
+
+    def g_of(c):
+        u = 0.5 * c * h
+        u2 = u * u
+        series = (
+            -u2
+            / 6.0
+            * (
+                1.0
+                - u2 / 20.0 * (1.0 - u2 / 42.0 * (1.0 - u2 / 72.0 * (1.0 - u2 / 110.0)))
+            )
+        )
+        safe = np.where(u == 0, 1.0, u)
+        return h * np.where(np.abs(u) < 0.1, series, _sin_minus_arg(u) / safe)
+
+    g_k = g_of(k)
+    g_d = np.real(g_of(k - np.conj(k)))
+    g_s = np.real(g_of(k + np.conj(k)))
+    i_ss = 0.5 * (g_d - g_s)
+    i_cc = h + 0.5 * (g_d + g_s)
+    z = (0.5 * k * h) ** 2
+    zc = np.conj(z)
+    series = np.zeros(np.broadcast(k, h).shape, dtype=np.float64)
+    zm = np.ones_like(z)
+    for m in range(1, 8):
+        zm = zm * z
+        zn = np.ones_like(z)
+        for n in range(1, 8):
+            zn = zn * zc
+            series = series + np.real(zm * zn) * (
+                (-1) ** (m + n)
+                / (math.factorial(2 * m) * math.factorial(2 * n) * (2 * (m + n) + 1))
+            )
+    literal = 0.5 * (g_d + g_s) - 2.0 * np.real(g_k)
+    i_gg = np.where(np.abs(0.5 * k * h) < 0.25, h * series, literal)
+    return g_k, i_ss, i_gg, i_cc
 
 
 def _recip_sin_gap(kd):
@@ -1401,9 +1469,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         cached = self._leggauss_cache.get(n)
         if cached is not None:
             return cached
-        gx, gw = np.polynomial.legendre.leggauss(n)
-        gx = np.ascontiguousarray(gx, dtype=np.float64)
-        gw = np.ascontiguousarray(gw, dtype=np.float64)
+        gx, gw = (np.array(a, dtype=np.float64) for a in leggauss(n))
         self._leggauss_cache[n] = (gx, gw)
         return gx, gw
 
@@ -1565,7 +1631,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         normal (0 for a vertical member, 90 for one lying in the plane)."""
         node, nxt = self._node_adjacent_edge(w, end)
         d = np.asarray(nxt, dtype=float) - np.asarray(node, dtype=float)
-        cos = abs(d[2]) / float(np.linalg.norm(d))
+        cos = abs(d[2]) / float(norm3(d))
         return float(np.degrees(np.arccos(min(1.0, cos))))
 
     def _refuse_coincident_crossing_members(self, crossing):
@@ -1589,7 +1655,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             for i in range(len(edges)):
                 for jj in range(i + 1, len(edges)):
                     (n0, f0), (n1, f1) = edges[i], edges[jj]
-                    if np.linalg.norm(n0 - n1) <= a and np.linalg.norm(f0 - f1) <= a:
+                    if norm3(n0 - n1) <= a and norm3(f0 - f1) <= a:
                         raise NotImplementedError(
                             _COINCIDENT_CROSSING_MEMBERS_REFUSAL.format(
                                 j=j, a=members[i][0], b=members[jj][0]
@@ -1688,7 +1754,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 p0 = pl[e_idx]
                 p1 = pl[e_idx + 1]
                 vec = p1 - p0
-                edge_len = float(np.linalg.norm(vec))
+                edge_len = float(norm3(vec))
                 if edge_len < 1e-15:
                     raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
                 tan = vec / edge_len
@@ -3364,7 +3430,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         z_eval = np.einsum("...d,...d->...", rvec, t_src)
         # Perpendicular component:
         rho_vec = rvec - z_eval[..., None] * t_src  # (M, N, 3)
-        rho_axis = np.linalg.norm(rho_vec, axis=-1)  # (M, N)
+        rho_axis = norm3(rho_vec)  # (M, N)
         rho_eval = np.sqrt(rho_axis * rho_axis + a * a)  # (M, N), >= a
 
         # Tangent dot products; t_obs is shape (M, 1, 3), broadcasting
@@ -5609,7 +5675,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         rvec = obs_c - src_c
         z_eval = rvec @ src_t
         rho_vec = rvec - z_eval[..., None] * src_t
-        rho_axis = np.linalg.norm(rho_vec, axis=-1)
+        rho_axis = norm3(rho_vec)
         a = np.asarray(a_obs, dtype=float)
         a = a.reshape(a.shape[:1]) if a.ndim == 2 else a
         rho_eval = np.sqrt(rho_axis * rho_axis + a * a)
@@ -6496,12 +6562,27 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             ∫|I|² = |P|²h + 2Re(P·R̄)·(2/k)sin(kh/2)
                     + |Q|²(h/2 − sin(kh)/2k) + |R|²(h/2 + sin(kh)/2k)
 
-        (P–Q and Q–R cross terms vanish by parity). A lossless jacket
-        contributes nothing; one with tan δ > 0 (momwire#765) adds its
-        dielectric loss ½·Re(zq_loss,w)·Σ_{s∈w} ∫|I_s′(ξ)|² dξ, with
+        (P–Q and Q–R cross terms vanish by parity). EVALUATED in the
+        cancellation-free spelling of that same integral (momwire#1323, the
+        readout's share of #1283): on a short segment P and R grow like
+        1/(kh)² with opposite signs while P + R stays O(1), so the literal
+        sum adds terms of size (1/kh)⁴·h to return one of size h, and on a
+        crossing node's sliver wing the loss power was rounding. With
+        U = P + R taken from the closed-form `AC` (never σA + σC) the shape
+        is U + Q·sin kξ + R·(cos kξ − 1) and
+
+            ∫|I|² = |U|²h + 2Re(U·R̄)·∫(cos kξ − 1)
+                    + |Q|²·∫sin² kξ + |R|²·∫(cos kξ − 1)²,
+
+        each integral itself spelled without subtraction
+        (`_abs_shape_integrals`).
+
+        A lossless jacket contributes nothing; one with tan δ > 0
+        (momwire#765) adds its dielectric loss
+        ½·Re(zq_loss,w)·Σ_{s∈w} ∫|I_s′(ξ)|² dξ, with
         I′ = k·(Q·cos kξ − R·sin kξ) and so, by the same parity,
 
-            ∫|I′|² = k²·[|Q|²(h/2 + sin(kh)/2k) + |R|²(h/2 − sin(kh)/2k)].
+            ∫|I′|² = k²·[|Q|²·∫cos² kξ + |R|²·∫sin² kξ].
 
         Returns (total_watts, per_wire_watts ndarray (n_wires,)).
         """
@@ -6524,20 +6605,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         starts = seg_view["starts"]
         rows = np.repeat(np.arange(n_segs, dtype=np.int64), starts[1:] - starts[:-1])
         alpha_e = np.asarray(coeffs)[seg_view["jbasis"]]
-        P = np.zeros(n_segs, dtype=np.complex128)
+        U = np.zeros(n_segs, dtype=np.complex128)
         Q = np.zeros(n_segs, dtype=np.complex128)
         R = np.zeros(n_segs, dtype=np.complex128)
-        np.add.at(P, rows, alpha_e * seg_view["sigma"] * seg_view["A"])
+        np.add.at(U, rows, alpha_e * seg_view["sigma"] * seg_view["AC"])
         np.add.at(Q, rows, alpha_e * seg_view["B"])
         np.add.at(R, rows, alpha_e * seg_view["sigma"] * seg_view["C"])
 
-        sin_kh = np.sin(k * h)
-        sin_kh_2 = np.sin(0.5 * k * h)
+        i_g, i_ss, i_gg, i_cc = _abs_shape_integrals(k, h)
         int_abs_i2 = (
-            np.abs(P) ** 2 * h
-            + 2.0 * np.real(P * np.conj(R)) * (2.0 / k) * sin_kh_2
-            + np.abs(Q) ** 2 * (0.5 * h - sin_kh / (2.0 * k))
-            + np.abs(R) ** 2 * (0.5 * h + sin_kh / (2.0 * k))
+            np.abs(U) ** 2 * h
+            + 2.0 * np.real(U * np.conj(R) * np.conj(i_g))
+            + np.abs(Q) ** 2 * i_ss
+            + np.abs(R) ** 2 * i_gg
         )
         # zeros where switched off
         r_w = np.real(_wire_loading.loading_for(self, omega).z_wire)
@@ -6545,10 +6625,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         np.add.at(per_wire, wire_of, 0.5 * r_w[wire_of] * int_abs_i2)
         zq_loss = _wire_loading.jacket_loss_charge(self, omega)
         if zq_loss is not None:
-            int_abs_di2 = (k * k) * (
-                np.abs(Q) ** 2 * (0.5 * h + sin_kh / (2.0 * k))
-                + np.abs(R) ** 2 * (0.5 * h - sin_kh / (2.0 * k))
-            )
+            int_abs_di2 = (k * k) * (np.abs(Q) ** 2 * i_cc + np.abs(R) ** 2 * i_ss)
             np.add.at(per_wire, wire_of, 0.5 * np.real(zq_loss)[wire_of] * int_abs_di2)
         return float(per_wire.sum()), per_wire
 
@@ -6572,10 +6649,14 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
               + ½|Q|²·[I(k − k̄) − I(k + k̄)] + ½|R|²·[I(k − k̄) + I(k + k̄)],
 
         which is the air closed form term for term at real k
-        (I(0) = h, I(2k) = sin(kh)/k). A lossy jacket's term (momwire#765)
-        integrates |I′|², I′ = k·(Q·cos kξ − R·sin kξ), the same way:
+        (I(0) = h, I(2k) = sin(kh)/k). Evaluated, like the air readout, as
+        the shape U + Q·sin kξ + R·(cos kξ − 1) with U from the closed-form
+        `AC` and `_abs_shape_integrals`' cancellation-free integrals
+        (momwire#1323): the buried side is where a crossing node's sliver
+        wing lives. A lossy jacket's term (momwire#765) integrates |I′|²,
+        I′ = k·(Q·cos kξ − R·sin kξ), the same way:
 
-            = |k|²·{ ½|Q|²·[I(k − k̄) + I(k + k̄)] + ½|R|²·[I(k − k̄) − I(k + k̄)] }.
+            = |k|²·{ |Q|²·∫|cos kξ|² + |R|²·∫|sin kξ|² }.
         """
         medium = _crossing_fill.buried_medium(
             self.ground_eps, omega, self.eps, omega / self.c
@@ -6591,24 +6672,19 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         starts = seg_view["starts"]
         rows = np.repeat(np.arange(n_segs, dtype=np.int64), np.diff(starts))
         alpha_e = np.asarray(coeffs)[seg_view["jbasis"]]
-        P = np.zeros(n_segs, dtype=np.complex128)
+        U = np.zeros(n_segs, dtype=np.complex128)
         Q = np.zeros(n_segs, dtype=np.complex128)
         R = np.zeros(n_segs, dtype=np.complex128)
-        np.add.at(P, rows, alpha_e * seg_view["sigma"] * seg_view["A"])
+        np.add.at(U, rows, alpha_e * seg_view["sigma"] * seg_view["AC"])
         np.add.at(Q, rows, alpha_e * seg_view["B"])
         np.add.at(R, rows, alpha_e * seg_view["sigma"] * seg_view["C"])
 
-        def _icos(c):
-            return h * np.sinc(c * h / (2.0 * np.pi))
-
-        kc = np.conj(k_seg)
-        i_diff = np.real(_icos(k_seg - kc))
-        i_sum = _icos(k_seg + kc)
+        i_g, i_ss, i_gg, i_cc = _abs_shape_integrals(k_seg, h)
         int_abs_i2 = (
-            np.abs(P) ** 2 * h
-            + 2.0 * np.real(P * np.conj(R) * _icos(kc))
-            + 0.5 * np.abs(Q) ** 2 * np.real(i_diff - i_sum)
-            + 0.5 * np.abs(R) ** 2 * np.real(i_diff + i_sum)
+            np.abs(U) ** 2 * h
+            + 2.0 * np.real(U * np.conj(R) * np.conj(i_g))
+            + np.abs(Q) ** 2 * i_ss
+            + np.abs(R) ** 2 * i_gg
         )
         per_wire = np.zeros(len(self.wires_polylines), dtype=np.float64)
         r_w = np.real(_wire_loading.loading_for(self, omega).z_wire)
@@ -6617,8 +6693,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         zq_loss = _wire_loading.jacket_loss_charge(self, omega)
         if zq_loss is not None:
             int_abs_di2 = np.abs(k_seg) ** 2 * (
-                0.5 * np.abs(Q) ** 2 * np.real(i_diff + i_sum)
-                + 0.5 * np.abs(R) ** 2 * np.real(i_diff - i_sum)
+                np.abs(Q) ** 2 * i_cc + np.abs(R) ** 2 * i_ss
             )
             np.add.at(per_wire, wire_of, 0.5 * np.real(zq_loss)[wire_of] * int_abs_di2)
         return float(per_wire.sum()), per_wire
@@ -6730,8 +6805,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         # are what gets stashed: the collocation G is not symmetric, so the
         # wire-loading adjoint oracle needs Gᵀw = r, which is the same
         # factorization at trans=0. One getrf serves both.
-        lu_piv = scipy.linalg.lu_factor(G.T, overwrite_a=True)
-        alpha = scipy.linalg.lu_solve(lu_piv, v, trans=1)
+        lu_piv = _lapack.lu_factor(G.T, overwrite_a=True)
+        alpha = _lapack.lu_solve(lu_piv, v, trans=1)
 
         Z_drive = self._feed_impedances(alpha, geom, seg_view, voltages)
         self.Z_factors = lu_piv  # LU of Gᵀ; adjoint solve = lu_solve(·, trans=0)
@@ -6793,7 +6868,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         B = np.zeros((n_segs, n_ports), dtype=np.complex128)
         for j, fi in enumerate(feed_segs):
             B[fi, j] = -1.0 / geom["seg_h"][fi]
-        alphas = scipy.linalg.solve(G, B)  # (n_segs, n_ports)
+        alphas = _lapack.solve(G, B)  # (n_segs, n_ports)
 
         Y = np.zeros((n_ports, n_ports), dtype=np.complex128)
         for j in range(n_ports):
@@ -6856,7 +6931,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                     G, seg_view = self._assemble_Z(
                         geom, self.k, self._medium_eta(medium)
                     )
-                alpha = scipy.linalg.solve(G, v)
+                alpha = _lapack.solve(G, v)
                 z_out[i] = self._feed_impedances(alpha, geom, seg_view, voltages)
         return z_out
 

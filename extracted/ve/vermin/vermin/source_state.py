@@ -33,6 +33,9 @@ class SourceState:
     # List of lines of output text.
     self.output_text = []
 
+    # Set of (msg, versions, entity) fingerprints to avoid duplicate output lines.
+    self.output_seen = set()
+
     # Whether violations were found while visiting
     self.found_violation = False
 
@@ -48,6 +51,8 @@ class SourceState:
     self.bytesv3 = False
     self.fstrings = False
     self.fstrings_self_doc = False
+    self.fstrings_pep701 = False
+    self.fstrings_await = False
     self.bool_const = False
     self.annotations = False
     self.var_annotations = False
@@ -104,7 +109,8 @@ class SourceState:
     self.module_getattr_func = False
     self.pattern_matching = False
     self.union_types = False
-    self.builtin_types = {"dict", "set", "list", "unicode", "str", "int", "float", "long", "bytes"}
+    self.builtin_types = {"dict", "set", "list", "unicode", "str", "int", "float", "long", "bytes",
+                          "bytearray", "frozenset", "tuple", "bool", "memoryview"}
     self.codecs_encodings_kwargs = ("encoding", "data_encoding", "file_encoding")
     self.super_no_args = False
     self.except_star = False
@@ -122,6 +128,21 @@ class SourceState:
 
     # `t'text {var}'`
     self.template_string_literal = False
+
+    # `*x` unpacking in comprehension value expressions (PEP 798).
+    self.unpacking_in_comprehension = False
+
+    # `lazy import` statement (PEP 810).
+    self.lazy_imports = False
+
+    # `__lazy_modules__` module attribute.
+    self.lazy_modules = False
+
+    # `slice` type subscript support, e.g. `slice[1:2:3]`.
+    self.slice_subscription = False
+
+    # Unary `+` in match literal patterns, e.g. `case +1:`.
+    self.unary_plus_match_pattern = False
 
     # Imported members of modules, like "exc_clear" of "sys".
     self.import_mem_mod = {}
@@ -144,10 +165,8 @@ class SourceState:
     # Lines that should be ignored if they have the comment "novermin" or "novm".
     self.no_lines = set()
 
-    # Default to disabling fstring self-doc detection since the built-in AST cannot distinguish
-    # `f'{a=}'` from `f'a={a}'`, for instance, because it optimizes some information away. And this
-    # incorrectly marks some source code as using fstring self-doc when only using general fstring.
     self.fstring_self_doc_enabled = self.config.has_feature("fstring-self-doc")
+    self.fstrings_pep701_enabled = self.config.has_feature("fstring-pep701")
 
     # Default to disabling union types detection because it sometimes fails to report it correctly
     # due to using heuristics.

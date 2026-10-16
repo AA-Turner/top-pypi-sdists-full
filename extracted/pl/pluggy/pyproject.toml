@@ -1,6 +1,5 @@
 [build-system]
 requires = [
-  # sync with setup.py until we discard non-pep-517/518
   "setuptools>=65.0",
   "setuptools-scm[toml]>=8.0",
 ]
@@ -9,7 +8,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pluggy"
 license = {text = "MIT"}
-authors = [{name = "Holger Krekel", email = "holger@merlinux.eu"}]
+authors = [{name = "Holger Krekel"}]
+maintainers = [{name="pytest core team", email="core@pytest.org"}]
 classifiers = [
   "Development Status :: 6 - Mature",
   "Intended Audience :: Developers",
@@ -24,20 +24,30 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 description = "plugin and hook calling mechanisms for python"
 readme = {file = "README.rst", content-type = "text/x-rst"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dynamic = ["version"]
-[project.optional-dependencies]
-dev = ["pre-commit", "tox"]
-testing = ["pytest", "pytest-benchmark", "coverage"]
+
+[project.urls]
+Homepage = "https://github.com/pytest-dev/pluggy"
+Documentation = "https://pluggy.readthedocs.io/"
+Changelog = "https://pluggy.readthedocs.io/en/latest/changelog.html"
+Repository = "https://github.com/pytest-dev/pluggy"
+Issues = "https://github.com/pytest-dev/pluggy/issues"
+Funding = "https://tidelift.com/subscription/pkg/pypi-pluggy"
+
+[dependency-groups]
+dev = ["pre-commit"]
+testing = ["pytest>=8", "pytest-benchmark", "coverage"]
+
 
 [tool.setuptools]
 packages = ["pluggy"]
@@ -51,10 +61,21 @@ extend-select = [
   "F","E", "W",
   "UP", "ANN",
 ]
-extend-ignore = ["ANN401"]
+extend-ignore = [
+  "ANN401",
+  # Catching whatever a plugin raised, BaseException included, and handing it
+  # to the hook wrappers is what pluggy is for. The same goes for reading
+  # attributes off arbitrary plugin objects, which may raise anything at all.
+  "BLE001",
+]
 
 [tool.ruff.lint.extend-per-file-ignores]
-"testing/*.py" = ["ANN001", "ANN002", "ANN003",  "ANN201", "ANN202","ANN204" ,]
+"testing/*.py" = [
+  "ANN001", "ANN002", "ANN003",  "ANN201", "ANN202","ANN204",
+  # Tests raise plain Exception on purpose, to check that pluggy propagates
+  # and chains exceptions it knows nothing about.
+  "TRY002",
+]
 "docs/*.py" = ["ANN001", "ANN002", "ANN003",  "ANN201", "ANN202","ANN204" ,]
 
 [tool.ruff.lint.isort]
@@ -66,7 +87,14 @@ known-local-folder = ["pluggy"]
 lines-after-imports = 2
 
 [tool.setuptools_scm]
-version_file = "src/pluggy/_version.py"
+# Crutch for dependabot, not a real version. Dependabot relocks uv.lock from
+# files fetched without git and pretends fallback_version, or 0.0.0 without one.
+# pytest depends on pluggy>=1.5, so at 0.0.0 the lock silently fell back to
+# pytest 3.2.5. The local label marks this as fake and keeps it off PyPI.
+fallback_version = "1.6.0+fallback"
+
+[tool.uv]
+default-groups = ["dev", "testing"]
 
 [tool.towncrier]
 package = "pluggy"
@@ -119,6 +147,9 @@ disallow_untyped_decorators = true
 ignore_missing_imports = true
 implicit_reexport = false
 no_implicit_optional = true
+# Without this mypy checks against whatever interpreter it happens to run on,
+# and typing features newer than the oldest supported Python slip through.
+python_version = "3.10"
 show_error_codes = true
 strict_equality = true
 strict_optional = true

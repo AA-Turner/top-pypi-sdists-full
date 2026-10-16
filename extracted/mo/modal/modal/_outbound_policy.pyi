@@ -107,7 +107,7 @@ class _OutboundPolicy:
         """Deduplicated list of secrets referenced by the policy's replacements."""
         ...
 
-    def _to_proto(self) -> modal_proto.api_pb2.OutboundPolicy:
+    def _to_proto(self) -> modal_proto.api_pb2.ExperimentalOutboundPolicy:
         """Convert to the wire format. Referenced secrets must be hydrated first."""
         ...
 
@@ -185,6 +185,6 @@ class OutboundPolicy:
         """Deduplicated list of secrets referenced by the policy's replacements."""
         ...
 
-    def _to_proto(self) -> modal_proto.api_pb2.OutboundPolicy:
+    def _to_proto(self) -> modal_proto.api_pb2.ExperimentalOutboundPolicy:
         """Convert to the wire format. Referenced secrets must be hydrated first."""
         ...

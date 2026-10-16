@@ -6,11 +6,45 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::sync::Arc;
 
+mod hin;
+use hin::*;
+
+mod ccd;
+use ccd::*;
+
+mod cjson;
+use cjson::*;
 mod cif;
 use cif::*;
+mod cdjson;
+use cdjson::*;
+mod fhiaims;
+use fhiaims::*;
+mod dmol3;
+use dmol3::*;
+mod mopac;
+use mopac::*;
+mod exyz;
+use exyz::*;
+mod gro;
+mod gzmat;
+use gzmat::*;
+mod rdfile;
+use rdfile::*;
+mod turbomole;
+use turbomole::*;
 mod interchange;
 mod materials;
+mod mmcif_pdb;
+mod pdb_selection;
+use pdb_selection::*;
+mod mmcif_residues;
+use mmcif_pdb::*;
+use mmcif_residues::*;
+mod pqr_pdbqt;
+use pqr_pdbqt::*;
 mod xyz;
+use gro::parse_gro;
 use interchange::*;
 use materials::*;
 pub(crate) use materials::{dict_get, dict_get_opt, dict_get_required};
@@ -59,6 +93,27 @@ pub(crate) fn flat_to_coords3d(coords: &[[f64; 3]]) -> chematic_3d::Coords3D {
             .map(|c| chematic_3d::Point3::new(c[0], c[1], c[2]))
             .collect(),
     }
+}
+
+/// Convert caller-provided coordinates after validating the public Python
+/// boundary.  Most 3D kernels index coordinates by molecule atom index, so a
+/// short vector would otherwise surface as a Rust panic instead of a Python
+/// input error.
+pub(crate) fn checked_coords3d(
+    mol: &chematic_core::Molecule,
+    coords: &[[f64; 3]],
+) -> PyResult<chematic_3d::Coords3D> {
+    if coords.len() != mol.atom_count() {
+        return Err(PyValueError::new_err(format!(
+            "expected {} coordinates, got {}",
+            mol.atom_count(),
+            coords.len()
+        )));
+    }
+    if coords.iter().flatten().any(|value| !value.is_finite()) {
+        return Err(PyValueError::new_err("coordinates must all be finite"));
+    }
+    Ok(flat_to_coords3d(coords))
 }
 
 // ---------------------------------------------------------------------------
@@ -535,35 +590,6 @@ fn from_mrv_block(mrv_str: &str) -> PyResult<Mol> {
             props: Default::default(),
         })
         .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-/// Parse a ChemicalJSON (.cjson) string.
-///
-/// Returns ``(mol, coords)`` where ``coords`` is a list of ``[x, y, z]``
-/// coordinate triples (Å), one per heavy atom.  ``coords`` is empty when
-/// the file has no ``atoms.coords.3d`` field.
-///
-/// ChemicalJSON is the native format of Avogadro 2 and the MolSSI
-/// Open Chemistry toolkit.
-///
-/// Raises ``ValueError`` on parse failure.
-///
-///     mol, coords = chematic.from_cjson(open("mol.cjson").read())
-///     print(mol.smiles)
-///     # Round-trip:
-///     open("out.cjson", "w").write(mol.to_cjson(coords))
-#[pyfunction]
-fn from_cjson(cjson_str: &str) -> PyResult<(Mol, Vec<Vec<f64>>)> {
-    let (mol, coords) =
-        chematic_mol::parse_cjson(cjson_str).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let py_coords = coords.iter().map(|&(x, y, z)| vec![x, y, z]).collect();
-    Ok((
-        Mol {
-            inner: Arc::new(mol),
-            props: Default::default(),
-        },
-        py_coords,
-    ))
 }
 
 /// Parse a MolJSON string into a ``Mol`` object.
@@ -1355,6 +1381,8 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     register_pyfunctions!(
         m,
         from_smiles,
+        parse_cdjson,
+        write_cdjson_graph,
         canonicalize_smiles_batch_json,
         from_cxsmiles,
         from_condensed,
@@ -1379,6 +1407,9 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         from_mol_v3000_with_coords,
         from_mol_v3000_with_diagnostics,
         from_mol2,
+        from_hin,
+        parse_hin_record_json,
+        roundtrip_hin_record,
         parse_cjson_record_json,
         roundtrip_cjson_record,
         parse_mol2_record_json,
@@ -1416,12 +1447,34 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
         nearest_neighbors_from_fp,
         parse_smi_file,
         write_smi_file,
+        parse_ccd_json,
+        from_ccd,
         parse_mmcif,
+        parse_gro,
+        parse_rdfile,
+        write_rdfile,
+        rdfile_to_smiles,
+        cartesian_to_zmatrix,
+        write_gzmat,
+        parse_fhiaims,
+        write_fhiaims,
+        parse_dmol3,
+        write_dmol3,
+        select_pdb_atoms,
+        parse_mopac_cartesian,
+        write_mopac_cartesian,
+        parse_exyz,
+        write_exyz,
+        parse_turbomole,
+        write_turbomole,
+        parse_mmcif_residues,
+        mmcif_to_pdb_checked,
         protein_from_pdb_json,
         protein_from_mmcif_json,
         write_mmcif,
         parse_pqr,
         write_pqr,
+        pqr_to_pdbqt,
         infer_element,
         parse_orca_input,
         write_orca_input,

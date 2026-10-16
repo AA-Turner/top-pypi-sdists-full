@@ -348,7 +348,8 @@ def _register_conversion(server: FastMCP) -> None:
         points up (auto is y for a flat mesh, else z), and that rotation, scale
         (source unit to metres) and the bounding-box centre recenter subtracts
         all live on the root node, not in the coordinates, so the transform is
-        exactly reversible. Write-only; a valid glTF-Validator pass with zero
+        exactly reversible, and glTF files read back (any glTF 2.0 or GLB
+        file is a valid input to every other tool). A valid glTF-Validator pass with zero
         errors and warnings is part of the test suite."""
         return _guard(
             _tools.tool_export_gltf,
@@ -3355,13 +3356,18 @@ def _register_gated(server: FastMCP) -> None:
         per direction; with freeform_split, a patch folding over every
         flattening is split into pieces first; with fillets, a patch between
         two fitted faces, one of them freeform, then becomes a rolling-ball
-        blend), the rest planar facets;
+        blend); with fillets, a patch no rolling ball or thread explains
+        between two analytic faces becomes a chamfer or a conic blend, and a
+        corner where three or more blends meet a vertex blend; with threads, a
+        flank of varying pitch or cut on a taper is a helical face too; the
+        rest planar facets;
         OpenCASCADE sews and checks the solid, and a face that fails or lies
         further than tolerance from the skin is demoted to facets. The report
         gives valid, the volume ratio against the skin, max_deviation
         (Hausdorff), faces by type (num_bspline the freeform ones, num_fillet,
-        num_helical; of those num_variable_fillet, num_blend and
-        num_rounded_thread), num_split_patches, num_demoted and exact/approximated
+        num_helical, num_chamfer, num_vertex_blend; of those num_variable_fillet,
+        num_blend, num_conic_blend, num_rounded_thread, num_tapered_thread and
+        num_variable_pitch_thread), num_split_patches, num_demoted and exact/approximated
         edges; mesh_output_path also writes the
         re-meshed solid and cad_json_output_path the solid as Kratos CAD JSON
         (NURBS faces, trimming loops, edges). Needs a core built with OpenCASCADE

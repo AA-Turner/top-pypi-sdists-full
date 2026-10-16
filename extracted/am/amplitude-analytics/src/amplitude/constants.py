@@ -1,7 +1,7 @@
 from enum import Enum
 
 SDK_LIBRARY = "amplitude-python"
-SDK_VERSION = "1.2.3"
+SDK_VERSION = "1.3.0"
 
 EU_ZONE = "EU"
 DEFAULT_ZONE = "US"
@@ -57,3 +57,9 @@ class PluginType(Enum):
     ENRICHMENT = 1
     DESTINATION = 2
     OBSERVE = 3
+
+
+class EventLogLevel(Enum):
+    NONE = 0
+    DEBUG = 1
+    INFO = 2

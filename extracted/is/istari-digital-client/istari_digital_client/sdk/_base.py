@@ -342,19 +342,31 @@ class _Manager:
         fetch: Callable[[int], Any],
         bind: Callable[[Any], T],
         start_page: int = 1,
+        count: Callable[[], int | None] | None = None,
     ) -> "Page[T]":
         """Turn an offset-paginated endpoint into an auto-paging :class:`Page`.
 
         ``fetch(page_num)`` returns one generated offset page (``.items`` /
         ``.total`` / ``.pages``); ``bind`` maps each raw item to its rich type.
         ``start_page`` specifies which page to start from (default 1).
+
+        An endpoint called with ``include_total=false`` returns null ``total`` and
+        ``pages``; a full page (``len(items) == size``) then signals that another
+        page may follow, and the walk ends on the first short or empty page.
+        ``count``, when given, fills a missing ``total`` lazily the first time
+        :attr:`Page.total` is read.
         """
 
         def make(page_num: int) -> "Page[T]":
             raw = fetch(page_num)
-            items = [bind(item) for item in (raw.items or [])]
-            nxt = (lambda p=page_num + 1: make(p)) if page_num < raw.pages else None
-            return Page(items, fetch_next=nxt, total=raw.total)
+            raw_items = raw.items or []
+            items = [bind(item) for item in raw_items]
+            if raw.pages is not None:
+                more = page_num < raw.pages
+            else:
+                more = bool(raw.size) and len(raw_items) >= raw.size
+            nxt = (lambda p=page_num + 1: make(p)) if more else None
+            return Page(items, fetch_next=nxt, total=raw.total, count=None if raw.total is not None else count)
 
         return make(start_page)
 

@@ -27,6 +27,7 @@ from chalk.utils.df_utils import read_parquet
 from chalk.utils.duration import timedelta_to_duration
 from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.pandas_utils import require_pandas
+from chalk.utils.pydanticutil.sdk import USE_PYDANTIC_V2
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -36,17 +37,23 @@ if TYPE_CHECKING:
     from chalk._reporting.models import BatchOpKind, BatchOpStatus
     from chalk.client.model_deployment import ModelDeployment
 
-    def root_validator(_: Any) -> Callable[[Any], Any]:
+    def root_validator(*, skip_on_failure: bool) -> Callable[[Any], Any]:
+        def _identity(x: Any) -> Any:
+            return x
+
+        return _identity
+
+    def field_serializer(_: str, **kwargs: Any) -> Callable[[Any], Any]:
         def _identity(x: Any) -> Any:
             return x
 
         return _identity
 
 else:
-    try:
-        from pydantic.v1 import BaseModel, Extra, Field, root_validator, validator
-    except ImportError:
-        from pydantic import BaseModel, Extra, Field, root_validator, validator
+    from chalk.utils.pydanticutil.sdk import BaseModel, Extra, Field, root_validator, validator
+
+    if USE_PYDANTIC_V2:
+        from pydantic import field_serializer
 
 MAX_STR_LENGTH = 10_000
 
@@ -599,7 +606,7 @@ class FeatureResult(BaseModel):
     The name of the feature requested, e.g. 'user.identity.has_voip_phone'.
     """
 
-    value: Any  # Value should be a TJSON type
+    value: Any = None  # Value should be a TJSON type
     """
     The value of the requested feature.
     If an error was encountered in resolving this feature,
@@ -855,6 +862,23 @@ class OnlineQueryResponse(BaseModel):
             np.floating: float,
         }
 
+    if USE_PYDANTIC_V2:
+
+        @field_serializer("data", when_used="json")
+        def _serialize_data(self, data: List[FeatureResult]):
+            # V2's json_encoders do not apply to values annotated as Any.
+            def encode_numpy(value: Any):
+                if isinstance(value, np.integer):
+                    return int(value)
+                if isinstance(value, np.floating):
+                    return float(value)
+                raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+            return [
+                result.model_dump(mode="json", fallback=encode_numpy)  # pyright: ignore[reportAttributeAccessIssue]
+                for result in data
+            ]
+
 
 @dataclasses.dataclass
 class BulkUploadFeaturesResult:
@@ -1022,7 +1046,9 @@ class UploadedParquetShardedOfflineQueryInput(BaseModel):
 
 
 def _matches_pattern(pattern: str):
-    return Field(pattern=pattern, regex=pattern)
+    if USE_PYDANTIC_V2:
+        return Field(default=None, pattern=pattern)
+    return Field(default=None, pattern=pattern, regex=pattern)
 
 
 class OfflineQueryWriteTo(BaseModel):
@@ -1036,7 +1062,7 @@ class OfflineQueryWriteTo(BaseModel):
     uri: Optional[str] = None
     """A storage URI (e.g. `s3://bucket/path`) that is a valid destination for a velox `TableWriteNode`."""
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def _validate_exactly_one_destination(cls, values: Dict[str, Any]):
         if values.get("uri") is None:
             raise ValueError("write_to requires exactly one destination; provide 'uri'")
@@ -1232,7 +1258,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
     write_to: Optional[OfflineQueryWriteTo] = None
     """Optional destination to write query outputs to directly."""
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def _validate_multiple_computers(cls, values: Dict[str, Any]):
         if values["input"] is None or isinstance(
             values["input"],
@@ -1275,7 +1301,7 @@ class ComputeResolverOutputRequest(BaseModel):
 
 
 class DatasetJobStatusRequest(BaseModel):
-    job_id: Optional[str]  # same as revision_id
+    job_id: Optional[str] = None  # same as revision_id
     dataset_id: Optional[str] = None
     dataset_name: Optional[str] = None
     ignore_errors: bool = False
@@ -1526,8 +1552,8 @@ class DatasetIcebergConversionResponse(BaseModel):
     num_rows: int
     # Read back from the written metadata.json; may be None if that read-back fails. Iceberg
     # snapshot ids are 63-bit longs, returned as a string to avoid JSON/JS integer-precision loss.
-    snapshot_id: Optional[str]
-    table_uuid: Optional[str]
+    snapshot_id: Optional[str] = None
+    table_uuid: Optional[str] = None
 
 
 class DatasetRecomputeResponse(DatasetRevisionResponse):
@@ -1713,6 +1739,14 @@ class DatasetRevisionInfoResponse(BaseModel):
     class Config:
         json_encoders = {ShardBatchKey: lambda v: str(v)}
 
+    if USE_PYDANTIC_V2:
+
+        @field_serializer("urls")
+        def _serialize_urls(self, urls: Optional[Mapping[ShardBatchKey, str]]):
+            # V2 otherwise converts model keys to unhashable dictionaries before
+            # the legacy dict() override gets a chance to stringify them.
+            return None if urls is None else {str(k): v for k, v in urls.items()}
+
     @validator("urls", pre=True)  # pyright: ignore[reportUntypedFunctionDecorator]
     def parse_shard_batch_key_map(
         cls, value: Optional[Union[Mapping[str, str], Mapping[ShardBatchKey, str]]]
@@ -1868,7 +1902,7 @@ class FeatureObservationDeletionRequest(BaseModel):
     The namespace in which the features targeted for deletion reside.
     """
 
-    features: Optional[List[str]]
+    features: Optional[List[str]] = None
     """
     An optional list of the feature names of the features that should be deleted
     for the targeted primary keys. Not specifying this and not specifying the "tags" field
@@ -1876,7 +1910,7 @@ class FeatureObservationDeletionRequest(BaseModel):
     Note that this parameter and the "tags" parameter are mutually exclusive.
     """
 
-    tags: Optional[List[str]]
+    tags: Optional[List[str]] = None
     """
     An optional list of tags that specify features that should be targeted for deletion.
     If a feature has a tag in this list, its observations for the primary keys you listed
@@ -1907,7 +1941,7 @@ class FeatureObservationDeletionResponse(BaseModel):
     to delete the features that were requested.
     """
 
-    errors: Optional[List[ChalkError]]
+    errors: Optional[List[ChalkError]] = None
 
 
 class FeatureDropRequest(BaseModel):
@@ -1934,7 +1968,7 @@ class FeatureDropResponse(BaseModel):
     to drop the features that were requested.
     """
 
-    errors: Optional[List[ChalkError]]
+    errors: Optional[List[ChalkError]] = None
 
 
 class GetIncrementalProgressResponse(BaseModel):
@@ -1954,10 +1988,10 @@ class GetIncrementalProgressResponse(BaseModel):
 
     query_name: Optional[str] = None
 
-    max_ingested_timestamp: Optional[datetime]
+    max_ingested_timestamp: Optional[datetime] = None
     """The latest timestamp found in ingested data."""
 
-    last_execution_timestamp: Optional[datetime]
+    last_execution_timestamp: Optional[datetime] = None
     """The latest timestamp at which the resolver was run. If configured to do so, the
     resolver uses this timestamp instead of max_ingested_timestamp to filter input data.
     If `None`, this means that this value isn't currently used by this resolver.
@@ -2038,11 +2072,11 @@ class StreamResolverTestStatus(str, Enum):
 
 
 class StreamResolverTestMessagePayload(BaseModel):
-    key: Optional[str]
-    message_str: Optional[str]
-    message_bytes: Optional[str]
-    timestamp: Optional[datetime]
-    headers: list[tuple[str, bytes]] | None
+    key: Optional[str] = None
+    message_str: Optional[str] = None
+    message_bytes: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    headers: list[tuple[str, bytes]] | None = None
 
     class Config:
         # Add custom encoders to make `datetime` JSON serializable
@@ -2050,9 +2084,22 @@ class StreamResolverTestMessagePayload(BaseModel):
             datetime: lambda v: v.isoformat(),  # Converts datetime to ISO 8601 string
         }
 
+    if USE_PYDANTIC_V2:
+
+        @field_serializer("timestamp")
+        def _serialize_timestamp(self, timestamp: Optional[datetime]):
+            return None if timestamp is None else timestamp.isoformat()
+
+        @field_serializer("headers")
+        def _serialize_headers(self, headers: list[tuple[str, bytes]] | None):
+            return None if headers is None else [(key, value.decode("unicode_escape")) for key, value in headers]
+
     def dict(self, *args: Any, **kwargs: Any):
         original_dict = super().dict(*args, **kwargs)
-        encoders = self.__config__.json_encoders or {}
+        if USE_PYDANTIC_V2:
+            # Field serializers also apply when this model is nested in a request.
+            return original_dict
+        encoders = self.Config.json_encoders
         if original_headers := original_dict.get("headers"):
             new_headers: list[tuple[str, str]] = []
             for hk, hv in original_headers:
@@ -2277,14 +2324,14 @@ class PlanQueryRequest(BaseModel):
 
 class FeatureSchema(BaseModel):
     fqn: str
-    primitive_type: Optional[str]
-    rich_type: Optional[str]
+    primitive_type: Optional[str] = None
+    rich_type: Optional[str] = None
     nullable: bool
     pyarrow_dtype: str
 
 
 class PlanQueryResponse(BaseModel):
-    rendered_plan: Optional[str]
+    rendered_plan: Optional[str] = None
     output_schema: List[FeatureSchema]
     errors: List[ChalkError]
     structured_plan: Optional[str] = None
@@ -2297,7 +2344,7 @@ class IngestDatasetRequest(BaseModel):
     revision_id: str
     """The ID of the dataset revision to ingest"""
 
-    branch: Optional[str]
+    branch: Optional[str] = None
     """The branch to ingest the dataset into"""
 
     outputs: List[str]
@@ -2336,14 +2383,14 @@ class FeatureStatistics(BaseModel):
     feature_fqn: str
     count: int
     null_count: int
-    zero_count: Optional[int]
-    mean: Optional[float]
-    std: Optional[float]
-    max: Optional[float]
-    min: Optional[float]
+    zero_count: Optional[int] = None
+    mean: Optional[float] = None
+    std: Optional[float] = None
+    max: Optional[float] = None
+    min: Optional[float] = None
     # each tuple is of the form (percentile, value) where 0 (minimum) <= percentile <= 1 (maximum)
-    approx_percentiles: Optional[List[Tuple[float, float]]]
-    logical_type: Optional[str]
+    approx_percentiles: Optional[List[Tuple[float, float]]] = None
+    logical_type: Optional[str] = None
 
 
 class FeatureStatisticsResponse(BaseModel):
@@ -2376,7 +2423,7 @@ class RegisterModelVersionResponse(BaseModel):
     model_id: str
     model_name: str
     model_version: int
-    artifact: Any
+    artifact: Any = None
     aliases: List[str]
     created_by: str
     created_at: Optional[datetime] = None
@@ -2385,7 +2432,7 @@ class RegisterModelVersionResponse(BaseModel):
 class RegisterModelArtifactResponse(BaseModel):
     artifact_id: str
     path: str
-    spec: Any
+    spec: Any = None
     metadata: Mapping[str, Any]
     created_by: str
     created_at: Optional[datetime] = None

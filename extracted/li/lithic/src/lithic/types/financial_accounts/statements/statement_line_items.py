@@ -19,6 +19,7 @@ class Data(BaseModel):
     category: Literal[
         "ACH",
         "WIRE",
+        "STABLECOIN",
         "BALANCE_OR_FUNDING",
         "FEE",
         "REWARD",
@@ -30,6 +31,7 @@ class Data(BaseModel):
         "EXTERNAL_CHECK",
         "EXTERNAL_FEDNOW",
         "EXTERNAL_RTP",
+        "EXTERNAL_STABLECOIN",
         "EXTERNAL_TRANSFER",
         "EXTERNAL_WIRE",
         "MANAGEMENT_ADJUSTMENT",
@@ -39,6 +41,7 @@ class Data(BaseModel):
         "MANAGEMENT_DISBURSEMENT",
         "HOLD",
         "PROGRAM_FUNDING",
+        "PROGRAM_TRANSFER",
     ]
     """
     Note: Inbound wire transfers are coming soon (availability varies by partner
@@ -112,6 +115,11 @@ class Data(BaseModel):
         "EXTERNAL_RTP_RELEASED",
         "EXTERNAL_RTP_REVERSED",
         "EXTERNAL_RTP_SETTLED",
+        "EXTERNAL_STABLECOIN_CANCELED",
+        "EXTERNAL_STABLECOIN_INITIATED",
+        "EXTERNAL_STABLECOIN_RELEASED",
+        "EXTERNAL_STABLECOIN_REVERSED",
+        "EXTERNAL_STABLECOIN_SETTLED",
         "EXTERNAL_TRANSFER_CANCELED",
         "EXTERNAL_TRANSFER_INITIATED",
         "EXTERNAL_TRANSFER_RELEASED",
@@ -122,8 +130,12 @@ class Data(BaseModel):
         "EXTERNAL_WIRE_RELEASED",
         "EXTERNAL_WIRE_REVERSED",
         "EXTERNAL_WIRE_SETTLED",
+        "FEE",
+        "FEE_REVERSAL",
         "FINANCIAL_AUTHORIZATION",
         "FINANCIAL_CREDIT_AUTHORIZATION",
+        "INSTALLMENT_FEE",
+        "INSTALLMENT_FEE_REVERSAL",
         "INTEREST",
         "INTEREST_REVERSAL",
         "INTERNAL_ADJUSTMENT",
@@ -140,6 +152,8 @@ class Data(BaseModel):
         "RETURNED_PAYMENT",
         "RETURNED_PAYMENT_REVERSAL",
         "LITHIC_NETWORK_PAYMENT",
+        "LITHIC_PROGRAM_TRANSFER",
+        "BANK_PROGRAM_TRANSFER",
         "ANNUAL",
         "ANNUAL_REVERSAL",
         "QUARTERLY",
@@ -147,6 +161,12 @@ class Data(BaseModel):
         "MONTHLY",
         "MONTHLY_REVERSAL",
         "ACCOUNT_TO_ACCOUNT",
+        "STABLECOIN_RECEIVED",
+        "STABLECOIN_INITIATED",
+        "STABLECOIN_REVIEWED",
+        "STABLECOIN_SENT",
+        "STABLECOIN_SETTLED",
+        "STABLECOIN_REJECTED",
     ]
 
     financial_account_token: str

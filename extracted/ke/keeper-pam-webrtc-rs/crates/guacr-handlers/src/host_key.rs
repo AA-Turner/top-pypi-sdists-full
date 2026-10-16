@@ -90,12 +90,11 @@ impl HostKeyResult {
             // expose a host-key field, so there is no practical way for an operator to
             // configure one. Failing closed here would make SSH unusable.
             //
-            // WHY THIS IS STILL SAFE ENOUGH: Keeper PAM connections transit an encrypted
-            // WebRTC/DTLS channel between browser and gateway. A MITM on the SSH leg
-            // would require the attacker to already be on the same network segment as the
-            // gateway, which is a higher-trust zone than the public internet. The warning
-            // log entry (see security_warning()) makes the absence of verification visible
-            // to operators who want to tighten posture by adding fingerprints.
+            // SECURITY TRADEOFF: WebRTC/DTLS protects the browser-to-gateway leg,
+            // not the gateway-to-SSH-server leg. Without a configured host key,
+            // an attacker able to intercept that latter leg can impersonate the
+            // server. The warning (see security_warning()) makes this risk visible
+            // to operators; it does not mitigate it.
             //
             // WHEN TO FLIP THIS: once the vault exposes a host-key / known-hosts field and
             // existing records are migrated, change this back to `false` so un-configured
@@ -158,6 +157,7 @@ struct KnownHost {
     key_type: String,
     /// Base64-encoded public key
     key_data: String,
+    revoked: bool,
 }
 
 impl HostKeyVerifier {
@@ -218,14 +218,15 @@ impl HostKeyVerifier {
 
     /// Parse a single known_hosts line
     fn parse_known_hosts_line(&self, line: &str) -> Option<(Vec<String>, KnownHost)> {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 3 {
-            return None;
-        }
-
-        let hostnames_part = parts[0];
-        let key_type = parts[1].to_string();
-        let key_data = parts[2].to_string();
+        let mut parts = line.split_whitespace();
+        let first = parts.next()?;
+        let (hostnames_part, revoked) = match first {
+            "@revoked" => (parts.next()?, true),
+            marker if marker.starts_with('@') => return None,
+            hostnames => (hostnames, false),
+        };
+        let key_type = parts.next()?.to_string();
+        let key_data = parts.next()?.to_string();
 
         // Check if this is a hashed hostname (starts with |1|)
         let hostnames = if hostnames_part.starts_with("|1|") {
@@ -236,7 +237,14 @@ impl HostKeyVerifier {
             hostnames_part.split(',').map(normalize_hostname).collect()
         };
 
-        Some((hostnames, KnownHost { key_type, key_data }))
+        Some((
+            hostnames,
+            KnownHost {
+                key_type,
+                key_data,
+                revoked,
+            },
+        ))
     }
 
     /// Verify a host key
@@ -266,12 +274,40 @@ impl HostKeyVerifier {
             hostname, port, fingerprint
         );
 
+        let lookup_keys = generate_hostname_variants(hostname, port);
+        let matching_entries: Vec<&KnownHost> = self
+            .known_hosts
+            .iter()
+            .filter(|(stored_host, _)| {
+                lookup_keys.iter().any(|key| {
+                    stored_host.as_str() == key || hashed_hostname_matches(stored_host, key)
+                })
+            })
+            .flat_map(|(_, entries)| entries)
+            .collect();
+
+        // A revoked key takes precedence over ordinary entries and explicit pins.
+        for entry in &matching_entries {
+            if entry.revoked
+                && entry.key_type == key_type
+                && BASE64
+                    .decode(&entry.key_data)
+                    .map_or(true, |key| key == key_data)
+            {
+                return HostKeyResult::Mismatch {
+                    expected: "REVOKED known_hosts key".to_string(),
+                    actual: format!("SHA256:{}", fingerprint),
+                };
+            }
+        }
+
         // Check pinned fingerprint first
         if let Some(ref expected_fp) = self.config.host_key_fingerprint {
             // Normalize both fingerprints for comparison
             let expected_normalized = expected_fp
                 .trim_start_matches("SHA256:")
-                .trim_start_matches("sha256:");
+                .trim_start_matches("sha256:")
+                .trim_end_matches('=');
             if fingerprint == expected_normalized {
                 info!(
                     "Host key verified via pinned fingerprint for {}:{}",
@@ -295,116 +331,53 @@ impl HostKeyVerifier {
             return HostKeyResult::NotConfigured;
         }
 
-        // Try different hostname formats
-        let lookup_keys = generate_hostname_variants(hostname, port);
-
-        for lookup_key in &lookup_keys {
-            if let Some(entries) = self.known_hosts.get(lookup_key) {
-                for entry in entries {
-                    // Check if key type matches
-                    if entry.key_type != key_type {
-                        continue;
-                    }
-
-                    // Compare key data
-                    let known_key_data = match BASE64.decode(&entry.key_data) {
-                        Ok(data) => data,
-                        Err(_) => continue,
-                    };
-
-                    if known_key_data == key_data {
-                        info!(
-                            "Host key verified via known_hosts for {}:{}",
-                            hostname, port
-                        );
-                        return HostKeyResult::Verified;
-                    } else {
-                        // Key type matches but data differs - potential MITM
-                        let known_fp = calculate_fingerprint(&known_key_data);
-                        return HostKeyResult::Mismatch {
-                            expected: format!("SHA256:{}", known_fp),
-                            actual: format!("SHA256:{}", fingerprint),
-                        };
-                    }
-                }
-            }
-
-            // Also check hashed entries
-            if let Some(result) = self.check_hashed_entries(lookup_key, key_type, key_data) {
-                return result;
-            }
-        }
-
-        HostKeyResult::UnknownHost
-    }
-
-    /// Check against hashed known_hosts entries
-    fn check_hashed_entries(
-        &self,
-        hostname: &str,
-        key_type: &str,
-        key_data: &[u8],
-    ) -> Option<HostKeyResult> {
-        for (stored_host, entries) in &self.known_hosts {
-            if !stored_host.starts_with("|1|") {
+        let mut mismatch = None;
+        for entry in matching_entries {
+            if entry.revoked || entry.key_type != key_type {
                 continue;
             }
-
-            // Parse hashed hostname format: |1|base64salt|base64hash
-            let parts: Vec<&str> = stored_host.split('|').collect();
-            if parts.len() != 4 {
+            let Ok(known_key_data) = BASE64.decode(&entry.key_data) else {
                 continue;
+            };
+            if known_key_data == key_data {
+                info!(
+                    "Host key verified via known_hosts for {}:{}",
+                    hostname, port
+                );
+                return HostKeyResult::Verified;
             }
-
-            let salt = match BASE64.decode(parts[2]) {
-                Ok(s) => s,
-                Err(_) => continue,
-            };
-            let stored_hash = match BASE64.decode(parts[3]) {
-                Ok(h) => h,
-                Err(_) => continue,
-            };
-
-            // Compute HMAC-SHA1 of hostname with salt
-            use hmac::{Hmac, Mac};
-            use sha1::Sha1;
-
-            type HmacSha1 = Hmac<Sha1>;
-            let mut mac = match HmacSha1::new_from_slice(&salt) {
-                Ok(m) => m,
-                Err(_) => continue,
-            };
-            mac.update(hostname.as_bytes());
-            let computed_hash = mac.finalize().into_bytes();
-
-            if computed_hash.as_slice() == stored_hash {
-                // Found matching hashed hostname
-                for entry in entries {
-                    if entry.key_type != key_type {
-                        continue;
-                    }
-
-                    let known_key_data = match BASE64.decode(&entry.key_data) {
-                        Ok(data) => data,
-                        Err(_) => continue,
-                    };
-
-                    if known_key_data == key_data {
-                        info!("Host key verified via hashed known_hosts entry");
-                        return Some(HostKeyResult::Verified);
-                    } else {
-                        let known_fp = calculate_fingerprint(&known_key_data);
-                        let actual_fp = calculate_fingerprint(key_data);
-                        return Some(HostKeyResult::Mismatch {
-                            expected: format!("SHA256:{}", known_fp),
-                            actual: format!("SHA256:{}", actual_fp),
-                        });
-                    }
-                }
-            }
+            mismatch.get_or_insert_with(|| HostKeyResult::Mismatch {
+                expected: format!("SHA256:{}", calculate_fingerprint(&known_key_data)),
+                actual: format!("SHA256:{}", fingerprint),
+            });
         }
-        None
+        mismatch.unwrap_or(HostKeyResult::UnknownHost)
     }
+}
+
+fn hashed_hostname_matches(stored_host: &str, hostname: &str) -> bool {
+    if !stored_host.starts_with("|1|") {
+        return false;
+    }
+    let mut parts = stored_host.split('|');
+    let (Some(""), Some("1"), Some(salt), Some(hash), None) = (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) else {
+        return false;
+    };
+    let (Ok(salt), Ok(hash)) = (BASE64.decode(salt), BASE64.decode(hash)) else {
+        return false;
+    };
+    use hmac::{Hmac, Mac};
+    let Ok(mut mac) = Hmac::<sha1::Sha1>::new_from_slice(&salt) else {
+        return false;
+    };
+    mac.update(hostname.as_bytes());
+    mac.verify_slice(&hash).is_ok()
 }
 
 /// Calculate SHA256 fingerprint of a public key (base64 encoded)
@@ -426,18 +399,17 @@ pub(crate) fn normalize_hostname(host: &str) -> String {
 
 /// Generate hostname variants for lookup
 pub(crate) fn generate_hostname_variants(hostname: &str, port: u16) -> Vec<String> {
-    let mut variants = vec![hostname.to_string()];
+    let mut variants = if port == 22 {
+        vec![hostname.to_string()]
+    } else {
+        vec![format!("[{}]:{}", hostname, port)]
+    };
 
-    // Add [hostname]:port format for non-standard ports
-    if port != 22 {
-        variants.push(format!("[{}]:{}", hostname, port));
-    }
-
-    // Add lowercase variant
     let lower = hostname.to_lowercase();
     if lower != hostname {
-        variants.push(lower.clone());
-        if port != 22 {
+        if port == 22 {
+            variants.push(lower);
+        } else {
             variants.push(format!("[{}]:{}", lower, port));
         }
     }

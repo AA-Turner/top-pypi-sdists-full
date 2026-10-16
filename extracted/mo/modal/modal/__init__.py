@@ -3,8 +3,8 @@ import sys
 
 if sys.version_info[:2] < (3, 10):
     raise RuntimeError("This version of Modal requires at least Python 3.10")
-if sys.version_info[:2] >= (3, 15):
-    raise RuntimeError("This version of Modal does not support Python 3.15+")
+if sys.version_info[:2] >= (3, 16):
+    raise RuntimeError("This version of Modal does not support Python 3.16+")
 
 from modal_version import __version__
 
@@ -43,11 +43,11 @@ try:
     from .queue import Queue
     from .retries import Retries
     from .sandbox import Probe, Sandbox
+    from .sandbox.sandbox import SandboxSnapshot
     from .schedule import Cron, Period
     from .scheduler_placement import SchedulerPlacement
     from .secret import Secret
     from .server import Server
-    from .snapshot import SandboxSnapshot
     from .volume import Volume
     from .workspace import Workspace
 except Exception:

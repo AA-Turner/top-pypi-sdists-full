@@ -174,7 +174,9 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     "publishing": ("version create",),
     "external ids": ("--external-id", "probe link"),
     "tags, incl. invalid": ("--tag", "invalid"),
-    "sub-runs": ("run child",),
+    # `probe run child` opens a run nothing owns and is refused in the next
+    # release; a relaunch is a child launched with `--parent`.
+    "sub-runs": ("--parent RUN --relation",),
     # inputs
     "snapshot": ("probe snapshot",),
     "snapshot includes": ("--include",),

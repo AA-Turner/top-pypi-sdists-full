@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 /// Connection quality assessment
@@ -443,19 +443,6 @@ impl AtomicMetrics {
             bytes_received: AtomicU64::new(0),
             error_count: AtomicU64::new(0),
             retry_count: AtomicU64::new(0),
-        }
-    }
-
-    /// Monotonic max update. Relaxed ordering is fine: these are observability counters,
-    /// not synchronization.
-    fn record_max(target: &AtomicUsize, value: usize) {
-        let mut current = target.load(Ordering::Relaxed);
-        while value > current {
-            match target.compare_exchange_weak(current, value, Ordering::Relaxed, Ordering::Relaxed)
-            {
-                Ok(_) => break,
-                Err(actual) => current = actual,
-            }
         }
     }
 

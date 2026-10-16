@@ -44,6 +44,62 @@ def test_parse_declarations_last_duplicate_wins() -> None:
     assert len(declaration) == 1
 
 
+@pytest.mark.parametrize("name", ["color", "COLOR", "CoLoR"])
+def test_declaration_standard_property_names_ignore_ascii_case(name: str) -> None:
+    declaration = StyleDeclaration.parse("COLOR: red !important; color: blue")
+    assert (declaration.get(name), declaration[name], declaration.important(name), name in declaration) == (
+        "red",
+        "red",
+        True,
+        True,
+    )
+
+
+def test_declaration_standard_property_name_is_lowercase() -> None:
+    declaration = StyleDeclaration.parse("COLOR: red")
+    assert (declaration.properties(), declaration.text) == (("color",), "color: red")
+
+
+def test_declaration_single_dash_property_name_is_lowercase() -> None:
+    declaration = StyleDeclaration.parse("-X: red")
+    assert declaration.properties() == ("-x",)
+
+
+def test_declaration_standard_property_name_folds_only_ascii() -> None:
+    declaration = StyleDeclaration.parse("ÉX: red")
+    assert (declaration.properties(), declaration.get("ÉX"), declaration.get("éx")) == (("Éx",), "red", None)
+
+
+def test_declaration_custom_property_names_keep_case() -> None:
+    declaration = StyleDeclaration.parse("--X: 1; --x: 2")
+    assert (declaration.properties(), declaration.get("--X"), declaration.get("--x")) == (("--X", "--x"), "1", "2")
+
+
+def test_declaration_custom_property_lookup_keeps_case() -> None:
+    declaration = StyleDeclaration.parse("--X: 1")
+    assert declaration.get("--x") is None
+
+
+def test_declaration_escaped_uppercase_name_keeps_priority() -> None:
+    declaration = StyleDeclaration.parse(r"\43 OLOR: red !important; color: blue")
+    assert (declaration.get("COLOR"), declaration.important("color")) == ("red", True)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("color: red !important; color: blue", "red", id="earlier-important"),
+        pytest.param("color: red; color: blue !important", "blue", id="later-important"),
+        pytest.param("color: red !important; color: blue !important", "blue", id="later-important-tie"),
+        pytest.param("color: red; color: blue; width: 1px !important", "blue", id="unrelated-important"),
+        pytest.param("--X: red !important; --X: blue", "red", id="custom-important"),
+    ],
+)
+def test_declaration_duplicate_priority(source: str, expected: str) -> None:
+    name = "--X" if source.startswith("--") else "color"
+    assert StyleDeclaration.parse(source)[name] == expected
+
+
 def test_declaration_missing_property() -> None:
     declaration = StyleDeclaration.parse("color: red")
     assert declaration.get("width") is None
@@ -189,6 +245,43 @@ def test_computed_style_ignores_names_bordering_known_properties() -> None:
 
 def test_computed_style_later_source_order_wins_on_a_tie() -> None:
     assert _style("<p></p>", css="p { color: red } p { color: blue }", tag="p")["color"] == "blue"
+
+
+@pytest.mark.parametrize(
+    ("type_attribute", "expected"),
+    [
+        pytest.param("", "red", id="absent"),
+        pytest.param(" type", "red", id="valueless"),
+        pytest.param(' type=""', "red", id="empty"),
+        pytest.param(' data-source="test" type="text/css"', "red", id="other-attribute"),
+        pytest.param(' type="TEXT/CSS"', "red", id="ascii-case"),
+        pytest.param(' type="text/plain"', "blue", id="different-type"),
+        pytest.param(' type="text/css; charset=utf-8"', "blue", id="parameter"),
+        pytest.param(' type=" text/css"', "blue", id="leading-space"),
+        pytest.param(' type="text/csx"', "blue", id="same-length"),
+    ],
+)
+def test_computed_style_skips_non_css_style_type(type_attribute: str, expected: str) -> None:
+    document = parse(f"<style>div{{color:blue}}</style><style{type_attribute}>div{{color:red}}</style><div></div>")
+    element = document.select_one("div")
+    assert isinstance(element, Element)
+    assert computed_style(element)["color"] == expected
+
+
+@pytest.mark.parametrize(
+    ("style_type", "expected"),
+    [
+        pytest.param("text/css", "red", id="svg-exact-type"),
+        pytest.param("TEXT/CSS", "blue", id="svg-type-case"),
+    ],
+)
+def test_computed_style_svg_style_type_is_case_sensitive(style_type: str, expected: str) -> None:
+    document = parse(
+        f"<style>div{{color:blue}}</style><svg><style type='{style_type}'>div{{color:red}}</style></svg><div></div>"
+    )
+    element = document.select_one("div")
+    assert isinstance(element, Element)
+    assert computed_style(element)["color"] == expected
 
 
 def test_computed_style_important_beats_normal() -> None:
@@ -567,10 +660,274 @@ def test_computed_style_ignores_unknown_property() -> None:
     assert style["margin-top"] == "0"
 
 
+@pytest.mark.parametrize(
+    ("source", "name"),
+    [
+        pytest.param(r"co\lor: red", "color", id="simple-escape"),
+        pytest.param(r"\63 olor: red", "color", id="hex-escape-with-space"),
+        pytest.param(r"\000063olor: red", "color", id="six-digit-hex-escape"),
+        pytest.param(r"\63: red", "c", id="hex-escape-at-name-end"),
+        pytest.param(r"\63 1: red", "c1", id="hex-escape-consumes-one-space"),
+        pytest.param(r"\0000631: red", "c1", id="hex-escape-stops-at-six-digits"),
+        pytest.param(r"\4A: red", "j", id="uppercase-hex-escape"),
+        pytest.param("\\63\r\nolor: red", "color", id="hex-escape-consumes-crlf"),
+        pytest.param("\\63\rX: red", "cx", id="hex-escape-consumes-lone-cr"),
+        pytest.param("co\\\x00lor: red", "co\ufffdlor", id="escaped-null"),
+        pytest.param(r"\ : red", " ", id="escaped-space-name"),
+        pytest.param(r" \63 olor  : red", "color", id="surrounding-whitespace"),
+        pytest.param(r"--a\ : red", "--a ", id="escaped-trailing-space"),
+        pytest.param(r"--a\  : red", "--a ", id="escaped-and-unescaped-trailing-space"),
+        pytest.param(r"--a\\  : red", "--a\\", id="paired-backslashes-before-space"),
+        pytest.param(r"\0x: red", "\ufffdx", id="null-escape"),
+        pytest.param(r"\d800x: red", "\ufffdx", id="surrogate-escape"),
+        pytest.param(r"\e000x: red", "\ue000x", id="non-surrogate-after-surrogate-range"),
+        pytest.param(r"\110000x: red", "\ufffdx", id="out-of-range-escape"),
+    ],
+)
+def test_parse_declarations_decodes_escaped_property_names(source: str, name: str) -> None:
+    declaration = StyleDeclaration.parse(source)
+    assert declaration.properties() == (name,)
+
+
+def test_parse_declarations_serializes_escaped_property_name() -> None:
+    declaration = StyleDeclaration.parse(r"--a\ : red")
+    assert declaration.text == r"--a\ : red"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r", "\f"])
+def test_parse_declarations_rejects_invalid_escape_in_property_name(newline: str) -> None:
+    assert StyleDeclaration.parse(f"co\\{newline}lor: red").properties() == ()
+
+
+def test_parse_declarations_rejects_invalid_escape_after_an_escape() -> None:
+    assert StyleDeclaration.parse("co\\l\\\nor: red").properties() == ()
+
+
+def test_parse_declarations_rejects_escape_after_invalid_escape() -> None:
+    assert StyleDeclaration.parse("co\\\n\\lor: red").properties() == ()
+
+
+def test_parse_declarations_rejects_trailing_escape_without_colon() -> None:
+    assert StyleDeclaration.parse("co\\").properties() == ()
+
+
+def test_parse_declarations_escaped_property_name_important() -> None:
+    assert StyleDeclaration.parse(r"co\lor: red !important").important("color")
+
+
+def test_parse_declarations_escaped_and_plain_duplicates() -> None:
+    assert StyleDeclaration.parse(r"color: red; co\lor: blue").get("color") == "blue"
+
+
+def test_stylesheet_decodes_escaped_property_name() -> None:
+    assert StyleSheet(r"p { co\lor: red }").rules[0].style.get("color") == "red"
+
+
+def test_computed_style_decodes_escaped_property_name_in_rule() -> None:
+    assert _style("<div></div>", css=r"div { co\lor: red }")["color"] == "red"
+
+
+def test_computed_style_decodes_escaped_property_name_inline() -> None:
+    assert _style(r"<div style='co\lor: red'></div>")["color"] == "red"
+
+
 def test_computed_style_shorthand_does_not_override_higher_priority_longhand() -> None:
     style = _style("<div id='a' style='margin: 5px'></div>", css="#a { margin-top: 9px !important }")
     assert style["margin-top"] == "9px"
     assert style["margin-right"] == "5px"
+
+
+@pytest.mark.parametrize("keyword", ["inherit", "initial", "unset", "revert", "revert-layer"])
+def test_computed_style_border_css_wide_keyword_sets_every_longhand(keyword: str) -> None:
+    document = parse(f"<div style='border: 3px dashed blue'><p style='border: {keyword}'></p></div>")
+    paragraph = document.select_one("p")
+    assert isinstance(paragraph, Element)
+    style = computed_style(paragraph)
+    expected = ("3px", "dashed", "blue") if keyword == "inherit" else ("medium", "none", "currentcolor")
+    for side in ("top", "right", "bottom", "left"):
+        assert (style[f"border-{side}-width"], style[f"border-{side}-style"], style[f"border-{side}-color"]) == expected
+
+
+@pytest.mark.parametrize("shorthand", ["border", "border-top", "outline"])
+def test_computed_style_css_wide_keyword_cannot_mix_with_components(shorthand: str) -> None:
+    style = _style(f"<div style='{shorthand}: inherit solid'></div>")
+    assert style[f"{shorthand if shorthand != 'border' else 'border-top'}-style"] == "none"
+
+
+def test_computed_style_distributive_css_wide_keyword_cannot_mix_with_components() -> None:
+    style = _style("<div style='margin: inherit 2px'></div>")
+    assert (style["margin-top"], style["margin-right"]) == ("0", "0")
+
+
+@pytest.mark.parametrize("keyword", ["inherit", "initial", "unset", "revert", "revert-layer"])
+@pytest.mark.parametrize(
+    "value",
+    ["{keyword} blue", "blue {keyword}", "blue,{keyword}", "blue/{keyword}", "blue+{keyword}", "{keyword}(blue)"],
+)
+def test_computed_style_longhand_mixed_css_wide_keyword_does_not_override(keyword: str, value: str) -> None:
+    style = _style("<p></p>", css=f"p {{ color: red; color: {value.format(keyword=keyword)} }}", tag="p")
+    assert style["color"] == "red"
+
+
+def test_computed_style_longhand_mixed_css_wide_keyword_keeps_earlier_declaration() -> None:
+    assert _style("<div style='position: relative; position: initial static'></div>")["position"] == "relative"
+
+
+def test_computed_style_longhand_mixed_important_css_wide_keyword_keeps_valid_declaration() -> None:
+    assert _style("<div style='position: relative; position: static revert !important'></div>")["position"] == (
+        "relative"
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "blue) initial",
+        "binherit initial",
+        "Binherit initial",
+        "1inherit initial",
+        "-inherit initial",
+        "_inherit initial",
+        "éinherit initial",
+        "inherita initial",
+        "inheriTa initial",
+        "inherit2 initial",
+        "iNITIAL blue",
+        "i~ initial",
+        "i_ initial",
+        "i: initial",
+    ],
+)
+def test_computed_style_longhand_css_wide_keyword_token_boundaries(value: str) -> None:
+    assert _style("<p></p>", css=f"p {{ color: red; color: {value} }}", tag="p")["color"] == "red"
+
+
+@pytest.mark.parametrize("value", ["inherit_foo", "inherité", "inherit-foo", "indigo", "unit", "unite"])
+def test_computed_style_longhand_css_wide_keyword_prefix_is_identifier(value: str) -> None:
+    assert _style("<p></p>", css=f"p {{ list-style-type: {value} }}", tag="p")["list-style-type"] == value
+
+
+def test_computed_style_longhand_css_wide_keyword_inside_function_remains_value() -> None:
+    assert _style("<div style='background-image: var(--image, initial)'></div>")["background-image"] == (
+        "var(--image, initial)"
+    )
+
+
+@pytest.mark.parametrize("quote", ['"', "'"])
+def test_computed_style_longhand_css_wide_keyword_inside_string_remains_value(quote: str) -> None:
+    assert (
+        _style("<div></div>", css=f"div {{ list-style-type: {quote}red inherit blue{quote} }}")["list-style-type"]
+        == f"{quote}red inherit blue{quote}"
+    )
+
+
+def test_computed_style_longhand_css_wide_keyword_inside_escaped_string_remains_value() -> None:
+    assert _style("<div></div>", css=r'div { list-style-type: "red \" inherit blue" }')["list-style-type"] == (
+        '"red \\" inherit blue"'
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(r"\initial", "canvastext", id="initial"),
+        pytest.param(r"\inherit", "blue", id="inherit"),
+        pytest.param(r"\unset", "blue", id="unset"),
+        pytest.param(r"\revert", "blue", id="revert"),
+        pytest.param(r"revert\-layer", "blue", id="revert-layer"),
+        pytest.param(r"in\69tial", "canvastext", id="hex-escape"),
+        pytest.param(r"\000069nitial", "canvastext", id="six-digit-escape"),
+        pytest.param(r"\69 nitial", "canvastext", id="escape-whitespace"),
+    ],
+)
+def test_computed_style_escaped_css_wide_keyword(value: str, expected: str) -> None:
+    style = _style(f'<div style="color:blue"><p style="color:red;color:{value}"></p></div>', tag="p")
+    assert style["color"] == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(r"blue \initial", id="space"),
+        pytest.param(r"blue,\initial", id="comma"),
+        pytest.param(r"blue/\initial", id="slash"),
+        pytest.param(r"blue+\initial", id="plus"),
+        pytest.param(r"blue \69nitial", id="hex-escape"),
+    ],
+)
+def test_computed_style_mixed_escaped_css_wide_keyword_keeps_earlier_value(value: str) -> None:
+    assert _style(f'<p style="color:red;color:{value}"></p>', tag="p")["color"] == "red"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(r"var(--color, \initial)", id="fallback"),
+        pytest.param(r"var(--color\), \initial)", id="escaped-paren"),
+    ],
+)
+def test_computed_style_escaped_css_wide_keyword_inside_function_remains_value(value: str) -> None:
+    assert _style(f'<p style="color:red;color:{value}"></p>', tag="p")["color"] == value
+
+
+def test_computed_style_escaped_css_wide_keyword_inside_string_remains_value() -> None:
+    value = r'"\initial"'
+    assert _style(f"<p style='list-style-type:{value}'></p>", tag="p")["list-style-type"] == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(r"\blue", id="other-ident"),
+        pytest.param(r"\000069", id="terminal-hex-escape"),
+        pytest.param(r"foo\69", id="terminal-short-hex-escape"),
+        pytest.param("foo\\69\\", id="terminal-backslash"),
+        pytest.param(r"\initial" + "x" * 100, id="long-ident"),
+    ],
+)
+def test_computed_style_escaped_nonwide_ident_remains_value(value: str) -> None:
+    assert _style(f'<p style="list-style-type:{value}"></p>', tag="p")["list-style-type"] == value
+
+
+@pytest.mark.parametrize(
+    ("declaration", "property_name", "expected"),
+    [
+        pytest.param(r"all:\initial", "color", "canvastext", id="all"),
+        pytest.param(r"margin:\initial", "margin-top", "0", id="distributive"),
+        pytest.param(r"border:\initial", "border-top-style", "none", id="box"),
+    ],
+)
+def test_computed_style_escaped_css_wide_keyword_in_shorthand(
+    declaration: str, property_name: str, expected: str
+) -> None:
+    assert _style(f'<p style="{declaration}"></p>', tag="p")[property_name] == expected
+
+
+def test_computed_style_all_resets_supported_properties_except_direction() -> None:
+    style = _style("<div style='color: red; margin: 9px; direction: rtl; all: initial'></div>")
+    assert (style["color"], style["margin-top"], style["direction"]) == ("canvastext", "0", "rtl")
+
+
+def test_computed_style_all_obeys_source_order_and_importance() -> None:
+    style = _style("<div style='color: red !important; all: initial; margin: 9px'></div>")
+    assert (style["color"], style["margin-top"]) == ("red", "9px")
+
+
+def test_computed_style_all_inherit_and_unset() -> None:
+    document = parse(
+        "<div style='color: red; margin: 9px'><p style='all: inherit'></p><b style='all: unset'></b></div>"
+    )
+    paragraph = document.select_one("p")
+    bold = document.select_one("b")
+    assert isinstance(paragraph, Element)
+    assert isinstance(bold, Element)
+    assert (computed_style(paragraph)["color"], computed_style(paragraph)["margin-top"]) == ("red", "9px")
+    assert (computed_style(bold)["color"], computed_style(bold)["margin-top"]) == ("red", "0")
+
+
+def test_computed_style_all_rejects_non_keyword_value() -> None:
+    style = _style("<div style='color: red; all: blue'></div>")
+    assert style["color"] == "red"
 
 
 def test_computed_style_important_keyword_is_a_value_when_not_flagged() -> None:
@@ -690,6 +1047,7 @@ def test_the_text_of_nothing_is_empty() -> None:
         pytest.param((("color", "red"),), id="a-pair"),
         pytest.param(((1, "red", False),), id="a-non-str-name"),
         pytest.param((("color", 2, False),), id="a-non-str-value"),
+        pytest.param((("color", "red", False, 1),), id="a-non-str-raw-name"),
         pytest.param(("color",), id="a-bare-str"),
     ],
 )

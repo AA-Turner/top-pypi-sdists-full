@@ -16,6 +16,13 @@ pub struct FeatureFieldAST {
     pub feature_call: Option<Location>,
     pub kwarg_names: KwargLocationMap,
     pub kwargs: KwargLocationMap,
+    /// The leaf type name extracted from the field's annotation, when one looks
+    /// like it could reference another feature class (e.g. `Child` from
+    /// `DataFrame[Child]`, `"Child"`, or `Optional[Child]`). Used to follow
+    /// has-one / has-many relationships when resolving `_.relationship[...]`
+    /// expressions. Best-effort: scalar annotations such as `int` are recorded
+    /// too but simply won't resolve to a feature class.
+    pub referenced_feature_class: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -26,6 +33,10 @@ pub struct FeatureClassAST {
     pub source: String,
     pub class_name_location: Location,
     pub class_definition_location: Location,
+    /// The full source span of the class, from its first decorator (if any)
+    /// through the end of its body. Used to find the feature class that
+    /// textually encloses a cursor position (e.g. for `_.member` expressions).
+    pub class_range: Location,
     pub decorator_location: Location,
     pub kwarg_names: KwargLocationMap,
     pub kwargs: KwargLocationMap,

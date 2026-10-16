@@ -16,6 +16,7 @@
 typedef struct
 {
   PyObject_HEAD dp_burst_despreader_state_t *handle;
+  jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
 } BurstDespreaderObject;
 
 static void
@@ -23,6 +24,7 @@ BurstDespreaderObj_dealloc (BurstDespreaderObject *self)
 {
   if (self->handle)
     dp_burst_despreader_destroy (self->handle);
+  jm_inflight_free (&self->_jm_inflight);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -115,8 +117,10 @@ BurstDespreaderObj_init (BurstDespreaderObject *self, PyObject *args,
     {
       PyErr_SetString (PyExc_ValueError,
                        "BurstDespreader: invalid parameter (need a code of "
-                       "at least sf chips, sf >= 1, sps >= 2, and a finite "
-                       "init_norm_freq and init_chip_phase)");
+                       "at least sf chips, sf >= 1, sps >= 2, a finite "
+                       "init_norm_freq and init_chip_phase, and bn_carrier "
+                       "and bn_code within the loop filter's domain: finite, "
+                       ">= 0, and gains that do not overflow)");
       return -1;
     }
   return 0;
@@ -193,15 +197,17 @@ BurstDespreaderObj_steps (BurstDespreaderObject *self, PyObject *args,
           Py_DECREF (x_arr);
           return NULL;
         }
-      /* nogil: GIL released across the pure-C kernel — sound only when
-       * this object is not shared across threads concurrently (one
-       * object per stream); the kernel touches only this object's
-       * state/buffers and the caller's input. */
+      /* nogil: GIL released across the pure-C kernel. Two calls on
+       * one object may run at once only if its kernel allows it; a
+       * teardown waits for a running call (gh-2272). */
       float _Complex *_ng0 = (float _Complex *)PyArray_DATA (out_arr);
       size_t          n_out;
+      void           *_jm_h = self->handle;
+      jm_inflight_enter (&self->_jm_inflight);
       Py_BEGIN_ALLOW_THREADS
-        n_out = dp_burst_despreader_steps (self->handle, x, x_len, _ng0, _cap);
+        n_out = dp_burst_despreader_steps (_jm_h, x, x_len, _ng0, _cap);
       Py_END_ALLOW_THREADS
+      jm_inflight_leave (&self->_jm_inflight);
       Py_DECREF (x_arr);
       if ((size_t)(n_out) > (size_t)(_cap))
         {
@@ -251,14 +257,16 @@ BurstDespreaderObj_steps (BurstDespreaderObject *self, PyObject *args,
       return NULL;
     }
   float _Complex *_d0 = (float _Complex *)PyArray_DATA ((PyArrayObject *)arr0);
-  /* nogil: GIL released across the pure-C kernel — sound only when
-   * this object is not shared across threads concurrently (one
-   * object per stream); the kernel touches only this object's
-   * state/buffers and the caller's input. */
+  /* nogil: GIL released across the pure-C kernel. Two calls on
+   * one object may run at once only if its kernel allows it; a
+   * teardown waits for a running call (gh-2272). */
   size_t n_out;
+  void  *_jm_h = self->handle;
+  jm_inflight_enter (&self->_jm_inflight);
   Py_BEGIN_ALLOW_THREADS
-    n_out = dp_burst_despreader_steps (self->handle, x, x_len, _d0, _cap);
+    n_out = dp_burst_despreader_steps (_jm_h, x, x_len, _d0, _cap);
   Py_END_ALLOW_THREADS
+  jm_inflight_leave (&self->_jm_inflight);
   Py_DECREF (x_arr);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -356,15 +364,17 @@ BurstDespreaderObj_bits (BurstDespreaderObject *self, PyObject *args,
           Py_DECREF (x_arr);
           return NULL;
         }
-      /* nogil: GIL released across the pure-C kernel — sound only when
-       * this object is not shared across threads concurrently (one
-       * object per stream); the kernel touches only this object's
-       * state/buffers and the caller's input. */
+      /* nogil: GIL released across the pure-C kernel. Two calls on
+       * one object may run at once only if its kernel allows it; a
+       * teardown waits for a running call (gh-2272). */
       uint8_t *_ng0 = (uint8_t *)PyArray_DATA (out_arr);
       size_t   n_out;
+      void    *_jm_h = self->handle;
+      jm_inflight_enter (&self->_jm_inflight);
       Py_BEGIN_ALLOW_THREADS
-        n_out = dp_burst_despreader_bits (self->handle, x, x_len, _ng0, _cap);
+        n_out = dp_burst_despreader_bits (_jm_h, x, x_len, _ng0, _cap);
       Py_END_ALLOW_THREADS
+      jm_inflight_leave (&self->_jm_inflight);
       Py_DECREF (x_arr);
       if ((size_t)(n_out) > (size_t)(_cap))
         {
@@ -414,14 +424,16 @@ BurstDespreaderObj_bits (BurstDespreaderObject *self, PyObject *args,
       return NULL;
     }
   uint8_t *_d0 = (uint8_t *)PyArray_DATA ((PyArrayObject *)arr0);
-  /* nogil: GIL released across the pure-C kernel — sound only when
-   * this object is not shared across threads concurrently (one
-   * object per stream); the kernel touches only this object's
-   * state/buffers and the caller's input. */
+  /* nogil: GIL released across the pure-C kernel. Two calls on
+   * one object may run at once only if its kernel allows it; a
+   * teardown waits for a running call (gh-2272). */
   size_t n_out;
+  void  *_jm_h = self->handle;
+  jm_inflight_enter (&self->_jm_inflight);
   Py_BEGIN_ALLOW_THREADS
-    n_out = dp_burst_despreader_bits (self->handle, x, x_len, _d0, _cap);
+    n_out = dp_burst_despreader_bits (_jm_h, x, x_len, _d0, _cap);
   Py_END_ALLOW_THREADS
+  jm_inflight_leave (&self->_jm_inflight);
   Py_DECREF (x_arr);
   if ((size_t)(n_out) > (size_t)(_cap))
     {
@@ -590,7 +602,16 @@ BurstDespreader_setprop_bn_carrier (BurstDespreaderObject *self,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_burst_despreader_set_bn_carrier (self->handle, v);
+  int _rc = dp_burst_despreader_set_bn_carrier (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "BurstDespreader: bn_carrier is outside the loop "
+                    "filter's domain (finite, >= 0, and gains that do not "
+                    "overflow)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -616,7 +637,15 @@ BurstDespreader_setprop_bn_code (BurstDespreaderObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_burst_despreader_set_bn_code (self->handle, v);
+  int _rc = dp_burst_despreader_set_bn_code (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "BurstDespreader: bn_code is outside the loop filter's "
+                    "domain (finite, >= 0, and gains that do not overflow)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -707,11 +736,30 @@ BurstDespreader_getprop_stat_n (BurstDespreaderObject *self,
 static PyGetSetDef BurstDespreader_getset[] = {
   { "bn_carrier", (getter)BurstDespreader_getprop_bn_carrier,
     (setter)BurstDespreader_setprop_bn_carrier,
-    "Carrier (Costas) loop noise bandwidth, normalized to the symbol rate.\n",
+    "Carrier (Costas) loop noise bandwidth, normalized to the symbol\n"
+    "rate.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_burst_despreader_set_bn_carrier`` refuses\n"
+    "    the value by returning non-zero. The exception message is\n"
+    "    ``BurstDespreader: bn_carrier is outside the loop filter's domain\n"
+    "    (finite, >= 0, and gains that do not overflow)``, with the return\n"
+    "    code appended.\n",
     NULL },
   { "bn_code", (getter)BurstDespreader_getprop_bn_code,
     (setter)BurstDespreader_setprop_bn_code,
-    "Code (DLL) loop noise bandwidth, normalized to the symbol rate.\n",
+    "Code (DLL) loop noise bandwidth, normalized to the symbol rate.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_burst_despreader_set_bn_code`` refuses the\n"
+    "    value by returning non-zero. The exception message is\n"
+    "    ``BurstDespreader: bn_code is outside the loop filter's domain\n"
+    "    (finite, >= 0, and gains that do not overflow)``, with the return\n"
+    "    code appended.\n",
     NULL },
   { "norm_freq", (getter)BurstDespreader_getprop_norm_freq,
     (setter)BurstDespreader_setprop_norm_freq,
@@ -750,8 +798,16 @@ BurstDespreaderObj_destroy (BurstDespreaderObject *self,
 {
   if (self->handle)
     {
-      dp_burst_despreader_destroy (self->handle);
+      void *_jm_st = self->handle;
       self->handle = NULL;
+      /* gh-2272: a GIL-free call may still be running on this
+         object; new ones are refused from here, so wait for those. */
+      if (jm_inflight_wait (&self->_jm_inflight) < 0)
+        {
+          self->handle = _jm_st;
+          return NULL;
+        }
+      dp_burst_despreader_destroy (_jm_st);
     }
   Py_RETURN_NONE;
 }
@@ -770,8 +826,16 @@ BurstDespreaderObj_exit (BurstDespreaderObject *self, PyObject *args)
   (void)args;
   if (self->handle)
     {
-      dp_burst_despreader_destroy (self->handle);
+      void *_jm_st = self->handle;
       self->handle = NULL;
+      /* gh-2272: a GIL-free call may still be running on this
+         object; new ones are refused from here, so wait for those. */
+      if (jm_inflight_wait (&self->_jm_inflight) < 0)
+        {
+          self->handle = _jm_st;
+          return NULL;
+        }
+      dp_burst_despreader_destroy (_jm_st);
     }
   Py_RETURN_NONE;
 }
@@ -1084,7 +1148,11 @@ static PyTypeObject BurstDespreaderObjType = {
     "    If construction fails. The exception message is ``BurstDespreader:\n"
     "    invalid parameter (need a code of at least sf chips, sf >= 1, sps >= "
     "2,\n"
-    "    and a finite init_norm_freq and init_chip_phase)``.\n"
+    "    a finite init_norm_freq and init_chip_phase, and bn_carrier and "
+    "bn_code\n"
+    "    within the loop filter's domain: finite, >= 0, and gains that do "
+    "not\n"
+    "    overflow)``.\n"
     "\n"
     "Examples\n"
     "--------\n"

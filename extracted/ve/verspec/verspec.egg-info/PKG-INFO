@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: verspec
-Version: 0.2.0
+Version: 0.2.1
 Summary: Flexible version handling
 Author-email: Jim Porter <itsjimporter@gmail.com>
 License: BSD-3-Clause OR Apache-2.0
@@ -19,7 +19,6 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 Requires-Dist: inversion
-Dynamic: license
 
 # verspec
 

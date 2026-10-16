@@ -16,10 +16,13 @@ from ggshield.cmd.install import (
     install_system,
     upgrade_hook,
 )
+from ggshield.cmd.machine.registration import register_endpoint
+from ggshield.cmd.utils.common_decorators import GitUsage, uses_git
 from ggshield.cmd.utils.common_options import add_common_options
 from ggshield.cmd.utils.context_obj import ContextObj
 from ggshield.core import ui
-from ggshield.utils.git_shell import git
+from ggshield.core.errors import GIT_INSTALL_HINT
+from ggshield.utils.git_shell import git, git_unavailable_reason
 from ggshield.utils.os import is_root
 from ggshield.verticals.ai.agents import AGENTS
 from ggshield.verticals.ai.installation import (
@@ -32,6 +35,11 @@ from ggshield.verticals.ai.installation import (
 _GIT_HOOK_TYPES = ("pre-commit", "pre-push")
 
 
+@uses_git(
+    GitUsage.OPTIONAL,
+    note="It is only needed for the git hooks; without it that step is skipped "
+    "with a warning.",
+)
 @click.command()
 @click.option(
     "--no-ai-hooks",
@@ -96,6 +104,12 @@ def setup_cmd(
     `--no-git-hooks`, or `--no-honeytokens`. `--agent` / `--exclude-agent`
     narrow which assistants get the AI hook. When run as root (or with
     `--system`), the git hooks are installed machine-wide for every user.
+
+    Finally, registers this machine and the honeytoken target users on the
+    Endpoints page, even before the first scan. This best-effort step takes at
+    most five seconds and never changes the exit code. It is skipped on CI, with
+    `endpoint_registration: false` in .gitguardian.yaml, or when
+    GGSHIELD_NO_ENDPOINT_REGISTRATION is set to a non-empty value.
     """
     if agents and exclude_agents:
         raise click.UsageError("--agent and --exclude-agent cannot be used together.")
@@ -113,6 +127,8 @@ def setup_cmd(
     if not no_honeytokens:
         if not _setup_honeytokens(ctx):
             failed = True
+
+    _setup_endpoint_registration(ctx)
 
     return 1 if failed else 0
 
@@ -173,6 +189,10 @@ def _setup_git_hooks(system: bool) -> bool:
     ``machine doctor`` fails on all three and MDM rollouts gate on the exit code.
     """
     click.echo(click.style("Git hooks", bold=True))
+    reason = git_unavailable_reason()
+    if reason is not None:
+        ui.display_warning(f"  git hooks skipped: {reason}. {GIT_INSTALL_HINT}")
+        return True
     use_system = system or is_root()
     if use_system:
         scope = "system"
@@ -244,3 +264,11 @@ def _setup_honeytokens(ctx: click.Context) -> bool:
     """Plant a honeytoken on this machine (idempotent reconcile via `plant`)."""
     click.echo(click.style("Honeytoken", bold=True))
     return ctx.invoke(plant_cmd) == 0
+
+
+def _setup_endpoint_registration(ctx: click.Context) -> None:
+    try:
+        message = register_endpoint(ContextObj.get(ctx).config)
+    except Exception:
+        message = "warning: endpoint registration failed"
+    click.echo(click.style("Endpoints", bold=True) + f": {message}")

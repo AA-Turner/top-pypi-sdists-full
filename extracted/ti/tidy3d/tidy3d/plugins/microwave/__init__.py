@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from tidy3d._rf_migration import warn_rf_plugin_migration
 from tidy3d.components.microwave.impedance_calculator import (
     CurrentIntegralType,
     ImpedanceCalculator,
@@ -48,6 +49,8 @@ CurrentIntegralAxisAligned = AxisAlignedCurrentIntegral
 CustomPathIntegral2D = Custom2DPathIntegral
 CustomVoltageIntegral2D = Custom2DVoltageIntegral
 CustomCurrentIntegral2D = Custom2DCurrentIntegral
+
+warn_rf_plugin_migration()
 
 __all__ = [
     "AxisAlignedCurrentIntegral",

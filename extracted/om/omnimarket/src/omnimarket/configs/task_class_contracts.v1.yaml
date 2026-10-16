@@ -167,6 +167,13 @@ response_shape_directives:
     # a one-word answer pass: finish_reason=stop also fires on a configured stop
     # sequence and the gate never sees the prompt.
     - "^\\s*(?:just\\s+)?say\\s+[\"'`]?[\\w-]+[\"'`]?\\s*[.!]?\\s*$"
+    # OMN-20844: a request for a bare Python value ("Reply with only the Python
+    # literal it evaluates to") names its answer's form the same way. The noun
+    # must END the object phrase (punctuation, end of text, or a relative clause
+    # such as `it evaluates to`): "reply with only the number of failing tests
+    # and explain" declares nothing. The directive closes long prompts, which is
+    # why the resolver scans the tail of a prompt as well as its head.
+    - "(?:answer|reply|respond|output|return) with (?:only|just|exactly) (?:the |a |one )?(?:python )?(?:literal|number|integer|tuple|boolean)(?=\\s*(?:[:.,;!]|$)|\\s+(?:it|that|which|you|exactly|as)\\b)"
   single_word:
     - "in (?:exactly )?one word"
     - "in a single word"
@@ -310,6 +317,23 @@ quality_rules:
       Fires only on an EXPLICIT self-disclaimer ("this may be inaccurate",
       "do not rely on this"). A response that tells the reader not to trust it
       cannot be handed on regardless of how it scores elsewhere.
+  # OMN-20489: `accurate` for a summary, without the bare word "unverified".
+  accurate_summary:
+    enforcement: blocking
+    rationale: >-
+      Same standing as `accurate`: it fires only on an EXPLICIT self-disclaimer.
+      A summary reporting that a scan found "0 unverified secrets" has disclaimed
+      nothing.
+  # OMN-20489: the prompt's own "at most N sentences", enforced.
+  within_sentence_limit:
+    enforcement: blocking
+    rationale: >-
+      A countable instruction the prompt gave. An answer over the limit is a
+      breach of the task, not a weaker answer, and no score makes it usable.
+      Reject-only. A prompt that states no limit waives the rule, so it is not
+      in that prompt's definition of done and moves no score.
+    waived_unless_prompt_matches:
+      - "\\b(?:at\\s+most|no\\s+more\\s+than)\\s+(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s+sentences?\\b"
   semantic_adequacy:
     enforcement: blocking
     rationale: >-
@@ -936,6 +960,11 @@ task_classes:
         - no_refusal
         - follows_codebase_conventions
         - no_obvious_regressions
+    # OMN-21077: `execution_required: true` above makes this a code class. Its
+    # answer is accepted when every deterministic check passed and
+    # passes_existing_tests ran and passed; with no named test run the gate
+    # refuses it as INSUFFICIENT. The bar is resolved and reported but decides
+    # nothing, because the heuristics in the graded score look for keywords.
     quality_gate:
       score_source: quality_gate_graded_score
       required_bar: 0.85
@@ -1021,10 +1050,13 @@ task_classes:
         # (name_resolution); reject-only, skipped without a grounding source.
         - names_resolve
         - final_artifact_only
+        # OMN-21077: a refactor is code, judged by whether it still works.
+        - passes_existing_tests
       heuristic:
         - no_refusal
         - follows_codebase_conventions
         - no_obvious_regressions
+    # OMN-21077: advisory for this class, as on code_generation.
     quality_gate:
       score_source: quality_gate_graded_score
       required_bar: 0.85
@@ -1440,6 +1472,8 @@ task_classes:
         - final_artifact_only
         - uses_pytest_mark_unit
         - pytest_tests_present
+        # OMN-21077: the tests a test answer writes are judged by running them.
+        - passes_existing_tests
       heuristic:
         - no_refusal
         - covers_edge_cases
@@ -1471,6 +1505,7 @@ task_classes:
           deterministic:
             - response_non_empty
             - final_artifact_only
+    # OMN-21077: advisory for this class, as on code_generation.
     quality_gate:
       score_source: quality_gate_graded_score
       required_bar: 0.8
@@ -1536,6 +1571,7 @@ task_classes:
     # local answer scored 1.0. The block is code_generation's, value for value:
     # same acceptance authority (deterministic_acceptance), same deterministic
     # DoD floor, so the same bar and the same caller override bounds.
+    # OMN-21077: advisory for this class, as on code_generation.
     quality_gate:
       score_source: quality_gate_graded_score
       required_bar: 0.85
@@ -1931,7 +1967,16 @@ task_classes:
       heuristic:
         - no_refusal
         - concise
-        - accurate
+        # OMN-20489: `accurate` without the bare word "unverified". A summary of a
+        # scan report or a CI log states that word as a fact about the source;
+        # three of the 120 calibration answers were vetoed as "disclaiming
+        # accuracy" for it. The real disclaimers ("cannot verify", "not
+        # verified", ...) still veto. Other classes keep `accurate` unchanged.
+        - accurate_summary
+        # OMN-20489: the sentence limit the prompt states ("in at most 4
+        # sentences"), counted with a list item as one sentence. Reject-only;
+        # without a stated limit it passes.
+        - within_sentence_limit
         # OMN-13218: semantic_adequacy replaces the blunt min_length_chars_100 floor.
         # A correct short summary (one complete sentence) passes at tier 1 instead
         # of escalating on a length floor; an empty/truncated stub still fails.

@@ -46,7 +46,8 @@ class CloseInvoiceResponse(google.protobuf.message.Message):
     """
     has_other_invoices_awaiting_payment: builtins.bool
     """Whether the organization still has other invoices awaiting payment
-    (needs_charged), ignoring the one just closed and any already closed.
+    (needs_charged), ignoring the one just closed, any already closed, and any
+    with FAILURE_POLICY_RETRY_ONLY, which can't make the account past due.
     Lets a caller decide whether the org has stopped being past due.
     Meaningless when updated is false.
     """

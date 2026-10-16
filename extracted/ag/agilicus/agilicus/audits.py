@@ -117,16 +117,16 @@ def query_auth_audits(ctx, limit=None, map_email=False, **kwargs):
         get_page, "auth_audits", maximum=limit, page_key="dt_to", **kwargs
     )
     for result in query_results:
-        if not result.user_id:
-            continue
         email = emails.get(result.user_id)
         if email:
             result["email"] = email
+        else:
+            result["email"] = None
 
     return query_results
 
 
-def format_auth_audit_list_as_text(ctx, records):
+def format_auth_audit_list_as_text(ctx, records, map_email=False, **kwargs):
     columns = [
         table.mapped_column("time", "date"),
         table.column("event"),
@@ -146,4 +146,6 @@ def format_auth_audit_list_as_text(ctx, records):
         table.column("user_agent"),
         table.column("request_id"),
     ]
+    if map_email:
+        columns.insert(3, table.column("email", itemgetter=True))
     return table.format_table(ctx, records, columns)

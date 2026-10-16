@@ -57,6 +57,10 @@ class ExceptionHandling(System.Object):
     """This class has no documentation."""
 
     @staticmethod
+    def get_current_exception() -> System.Exception:
+        ...
+
+    @staticmethod
     def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
         ...
 

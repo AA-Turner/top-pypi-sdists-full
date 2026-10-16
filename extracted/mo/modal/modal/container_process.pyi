@@ -1,6 +1,6 @@
-import modal._utils.task_command_router_client
 import modal.client
 import modal.io_streams
+import modal.sandbox._task_command_router_client
 import modal.stream_type
 import typing
 import typing_extensions
@@ -22,7 +22,7 @@ class _ContainerProcess(typing.Generic[T]):
         process_id: str,
         task_id: str,
         client: modal.client._Client,
-        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         exec_deadline: typing.Optional[float] = None,
@@ -87,7 +87,7 @@ class ContainerProcess(typing.Generic[T]):
         process_id: str,
         task_id: str,
         client: modal.client.Client,
-        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        command_router_client: modal.sandbox._task_command_router_client.TaskCommandRouterClient,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         exec_deadline: typing.Optional[float] = None,

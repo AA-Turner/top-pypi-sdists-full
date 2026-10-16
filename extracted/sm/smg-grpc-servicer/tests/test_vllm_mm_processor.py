@@ -141,7 +141,13 @@ class TestItemBytes:
             _Item("image", "data:image/png;base64,AAAAAAAA"),
         ]
         mm_processor.enforce_item_bytes(items, 6)
-        with pytest.raises(ValueError, match="media_refs\\[1\\].*6 bytes, above the 5-byte cap"):
+        with pytest.raises(
+            ValueError,
+            match=(
+                "media_refs\\[1\\].*6 bytes, above the 5-byte cap "
+                "\\(the worker's --mm-max-item-bytes, SMG_VLLM_MM_MAX_ITEM_BYTES\\)"
+            ),
+        ):
             mm_processor.enforce_item_bytes(items, 5)
 
 
@@ -169,12 +175,12 @@ class TestItemCount:
             mm_processor.enforce_item_count(items, {"image": 1, "video": 0})
 
     def test_limits_follow_the_engine_by_default(self):
-        cfg = self._MmConfig({"image": 200, "video": 4})
-        assert mm_processor.item_limits(cfg) == {"image": 200, "video": 4}
+        cfg = self._MmConfig({"image": 200, "video": 4, "audio": 3})
+        assert mm_processor.item_limits(cfg) == {"image": 200, "video": 4, "audio": 3}
 
     def test_override_applies_to_every_kind(self):
-        cfg = self._MmConfig({"image": 200, "video": 4})
-        assert mm_processor.item_limits(cfg, 2) == {"image": 2, "video": 2}
+        cfg = self._MmConfig({"image": 200, "video": 4, "audio": 3})
+        assert mm_processor.item_limits(cfg, 2) == {"image": 2, "video": 2, "audio": 2}
 
 
 class TestBuildProcessor:
@@ -684,6 +690,7 @@ class TestFetchErrorClassification:
         p._connector = self._Connector(exc)
         p._video_processor = None
         p._caller_error = self._CallerError
+        p._data_url_first_semicolon = False
         return p
 
     def test_transport_failures_are_retryable(self):
@@ -698,6 +705,83 @@ class TestFetchErrorClassification:
         p = self.processor(self._CallerError("415 Unsupported Media Type"))
         with pytest.raises(self._CallerError, match="^415 Unsupported Media Type$"):
             run(p._fetch(0, _Item("image", "https://a/1.png")))
+
+    def test_a_reference_form_the_fetcher_does_not_take_is_the_callers_fault(self):
+        """A data URL that is not base64: the fetcher refuses it as not
+        implemented, which no other worker would take either, so it leaves as
+        the caller's error (INVALID_ARGUMENT, no retry), not as unavailable."""
+        p = self.processor(NotImplementedError("Only base64 data URLs are supported for now."))
+        with pytest.raises(
+            ValueError, match="^media_refs\\[0\\]: Only base64 data URLs are supported for now\\.$"
+        ):
+            run(p._fetch(0, _Item("image", "data:image/jpeg,%FF%D8%FF%E0garbage")))
+
+    def test_a_not_implemented_failure_on_a_remote_reference_stays_retryable(self):
+        """Only a data URL turns the fetcher's "not implemented" into the caller's
+        error: on a remote reference it is the worker's (a loader it lacks) and
+        stays retryable, with the fetch-failed warning."""
+        p = self.processor(NotImplementedError("load_bytes is not implemented"))
+        with pytest.raises(
+            mm_processor.MmProcessorUnavailable,
+            match="^media_refs\\[0\\]: fetch failed: load_bytes is not implemented$",
+        ):
+            run(p._fetch(0, _Item("image", "https://a/1.png")))
+
+    def test_a_not_implemented_failure_on_a_base64_data_url_stays_retryable(self):
+        """A well-formed base64 data URL passes the fetcher's encoding check; a
+        "not implemented" after that is a loader the worker lacks, the worker's
+        fault, and stays retryable like the same failure on a remote reference."""
+        p = self.processor(NotImplementedError())
+        with pytest.raises(
+            mm_processor.MmProcessorUnavailable, match="^media_refs\\[0\\]: fetch failed: $"
+        ):
+            run(p._fetch(0, _Item("image", "data:image/png;base64,iVBORw0KGgo=")))
+
+    def test_the_unencoded_data_url_check_mirrors_the_fetchers(self):
+        check = mm_processor._is_unencoded_data_url
+        for unencoded in [
+            "data:image/jpeg,%FF%D8%FF%E0garbage",
+            "data:,plain",
+            "data:image/png;charset=utf-8,abc",
+            "DATA:image/jpeg;BASE64x,abc",
+        ]:
+            assert check(unencoded, first_semicolon=False), unencoded
+            assert check(unencoded, first_semicolon=True), unencoded
+        for other in [
+            "data:image/png;base64,iVBORw0KGgo=",
+            "data:video/mp4;base64,AAAA",
+            "data:image/png;base64",
+            "https://a/1.png",
+            "file:///tmp/a.png",
+        ]:
+            assert not check(other, first_semicolon=False), other
+            assert not check(other, first_semicolon=True), other
+        # An RFC 2397 parameter before ;base64: taken from 0.27.0 on, refused
+        # before it, and the check says so for each.
+        for parameterised in [
+            "data:image/png;charset=utf-8;base64,iVBORw0KGgo=",
+            "data:image/svg+xml;charset=utf-8;base64,PHN2Zz4=",
+        ]:
+            assert not check(parameterised, first_semicolon=False), parameterised
+            assert check(parameterised, first_semicolon=True), parameterised
+
+    def test_the_fetchers_data_url_reading_follows_its_version(self):
+        split_first = mm_processor._fetcher_splits_data_url_at_first_semicolon
+        for before in ["0.20.0", "0.26.9", "0.26.9.post1"]:
+            assert split_first(before), before
+        for after in ["0.27.0", "0.27.1rc1", "0.31.0", "1.0.0"]:
+            assert not split_first(after), after
+        assert split_first("unknown"), "an unparsed version takes the stricter reading"
+
+    def test_a_parameterised_base64_data_url_an_older_fetcher_refuses_is_the_callers_fault(self):
+        """Before 0.27.0 the fetcher refuses a base64 data URL that carries an
+        RFC 2397 parameter as not implemented; on that release the refusal is
+        read as the caller's, like any other form the fetcher does not take,
+        so the request is not retried into the same refusal."""
+        p = self.processor(NotImplementedError("Only base64 data URLs are supported for now."))
+        p._data_url_first_semicolon = True
+        with pytest.raises(ValueError, match="^media_refs\\[0\\]: Only base64 data URLs"):
+            run(p._fetch(0, _Item("image", "data:image/png;charset=utf-8;base64,iVBORw0KGgo=")))
 
     def test_value_errors_pass_through(self):
         p = self.processor(ValueError("domain not allowed"))
@@ -745,8 +829,9 @@ class TestProcess:
         p._connector = self._Connector(fetch_exc)
         p._video_processor = None
         p._max_item_bytes = mm_processor.DEFAULT_MAX_ITEM_BYTES
-        p._item_limits = dict.fromkeys(("image", "video"), max_items)
+        p._item_limits = dict.fromkeys(("image", "video", "audio"), max_items)
         p._caller_error = self._CallerError
+        p._data_url_first_semicolon = False
         return p
 
     def test_item_cap_rejects_before_any_fetch(self):
@@ -766,6 +851,14 @@ class TestProcess:
         with pytest.raises(mm_processor.MmProcessorUnavailable, match="fetch failed"):
             run(p.process([1, 2, 3], None, [_Item("image", "https://a/1.png")], 0.0))
 
+    def test_a_non_base64_data_url_is_the_callers_fault_and_not_retried(self):
+        p = self.processor(
+            self._Renderer(),
+            fetch_exc=NotImplementedError("Only base64 data URLs are supported for now."),
+        )
+        with pytest.raises(ValueError, match="Only base64 data URLs are supported for now"):
+            run(p.process([1, 2, 3], None, [_Item("image", "data:image/jpeg,%FF%D8garbage")], 0.0))
+
     def test_fetched_media_reaches_the_renderer_uncached(self):
         renderer = self._Renderer()
         p = self.processor(renderer)
@@ -775,6 +868,29 @@ class TestProcess:
         assert renderer.calls[0]["prompt"] == "hi"
         assert renderer.calls[0]["prompt_token_ids"] == [1, 2, 3]
         assert len(renderer.calls[0]["multi_modal_data"]["image"]) == 1
+
+    def test_native_audio_waveform_and_rate_reach_renderer(self):
+        renderer = self._Renderer()
+        p = self.processor(renderer)
+        waveform = ([0.25, -0.25], 16000)
+
+        async def fetch_audio(url):
+            assert url == "data:audio/wav;base64,AAAA"
+            return waveform
+
+        p._connector.fetch_audio_async = fetch_audio
+        out = run(
+            p.process([258881], "<|audio|>", [_Item("audio", "data:audio/wav;base64,AAAA")], 0.0)
+        )
+        assert out["skip_mm_cache"] is True
+        assert renderer.calls[0]["multi_modal_data"]["audio"] == [waveform]
+        assert renderer.calls[0]["prompt_token_ids"] == [258881]
+
+    def test_audio_limit_zero_rejects_before_fetch(self):
+        p = self.processor(self._Renderer(), max_items=0)
+        with pytest.raises(ValueError, match="1 audio items.*limit of 0"):
+            run(p.process([258881], None, [_Item("audio", "https://a/x.wav")], 0.0))
+        assert p._connector.fetched == []
 
     def test_placeholder_validation_is_a_client_error(self):
         p = self.processor(self._Renderer(RuntimeError("Expected 1 image placeholders, found 0")))

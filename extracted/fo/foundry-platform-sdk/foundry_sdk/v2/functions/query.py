@@ -89,6 +89,9 @@ class QueryClient:
         `/v2/ontologies/{ontology}/queries/{queryApiName}/execute`. For streaming or incremental
         result delivery, use `streamingExecute`.
 
+
+        Required scopes: [api:functions-execute]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param parameters:
@@ -183,6 +186,9 @@ class QueryClient:
         Use the Execution resource's getResult endpoint to poll for the
         result of a submitted execution.
 
+
+        Required scopes: [api:functions-execute]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param parameters:
@@ -269,6 +275,9 @@ class QueryClient:
         version of the query, excluding pre-release versions. To resolve the most recently published version
         instead, including pre-release versions, set `latestVersionResolution` to `PUBLISH_TIME`.
 
+
+        Required scopes: [api:functions-read]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param include_prerelease:
@@ -328,6 +337,9 @@ class QueryClient:
     ) -> functions_models.Query:
         """
         Gets a specific query type with the given RID. By default, this gets the latest version of the query.
+
+
+        Required scopes: [api:functions-read]
 
         :param rid:
         :type rid: FunctionRid
@@ -390,6 +402,9 @@ class QueryClient:
         permissions.
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:functions-read]
+
         :param body: Body of the request
         :type body: List[GetByRidQueriesBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -463,6 +478,9 @@ class QueryClient:
         data: {"type":"error","errorCode":"INVALID_ARGUMENT","errorName":"QueryRuntimeError","errorInstanceId":"3f8a9c7b-2e4d-4a1f-9b8c-7d6e5f4a3b2c","errorDescription":"Division by zero","parameters":{}}
 
         ```
+
+
+        Required scopes: [api:functions-execute]
 
         :param query_api_name:
         :type query_api_name: QueryApiName
@@ -574,6 +592,9 @@ class QueryClient:
         data: {"type":"error","errorCode":"INVALID_ARGUMENT","errorName":"QueryRuntimeError","errorInstanceId":"3f8a9c7b-2e4d-4a1f-9b8c-7d6e5f4a3b2c","errorDescription":"Division by zero","parameters":{}}
 
         ```
+
+
+        Required scopes: [api:functions-execute]
 
         :param query_api_name:
         :type query_api_name: QueryApiName
@@ -749,6 +770,9 @@ class AsyncQueryClient:
         `/v2/ontologies/{ontology}/queries/{queryApiName}/execute`. For streaming or incremental
         result delivery, use `streamingExecute`.
 
+
+        Required scopes: [api:functions-execute]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param parameters:
@@ -843,6 +867,9 @@ class AsyncQueryClient:
         Use the Execution resource's getResult endpoint to poll for the
         result of a submitted execution.
 
+
+        Required scopes: [api:functions-execute]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param parameters:
@@ -929,6 +956,9 @@ class AsyncQueryClient:
         version of the query, excluding pre-release versions. To resolve the most recently published version
         instead, including pre-release versions, set `latestVersionResolution` to `PUBLISH_TIME`.
 
+
+        Required scopes: [api:functions-read]
+
         :param query_api_name:
         :type query_api_name: QueryApiName
         :param include_prerelease:
@@ -988,6 +1018,9 @@ class AsyncQueryClient:
     ) -> typing.Awaitable[functions_models.Query]:
         """
         Gets a specific query type with the given RID. By default, this gets the latest version of the query.
+
+
+        Required scopes: [api:functions-read]
 
         :param rid:
         :type rid: FunctionRid
@@ -1050,6 +1083,9 @@ class AsyncQueryClient:
         permissions.
 
         The maximum batch size for this endpoint is 100.
+
+        Required scopes: [api:functions-read]
+
         :param body: Body of the request
         :type body: List[GetByRidQueriesBatchRequestElement]
         :param preview: Enables the use of preview functionality.
@@ -1123,6 +1159,9 @@ class AsyncQueryClient:
         data: {"type":"error","errorCode":"INVALID_ARGUMENT","errorName":"QueryRuntimeError","errorInstanceId":"3f8a9c7b-2e4d-4a1f-9b8c-7d6e5f4a3b2c","errorDescription":"Division by zero","parameters":{}}
 
         ```
+
+
+        Required scopes: [api:functions-execute]
 
         :param query_api_name:
         :type query_api_name: QueryApiName
@@ -1234,6 +1273,9 @@ class AsyncQueryClient:
         data: {"type":"error","errorCode":"INVALID_ARGUMENT","errorName":"QueryRuntimeError","errorInstanceId":"3f8a9c7b-2e4d-4a1f-9b8c-7d6e5f4a3b2c","errorDescription":"Division by zero","parameters":{}}
 
         ```
+
+
+        Required scopes: [api:functions-execute]
 
         :param query_api_name:
         :type query_api_name: QueryApiName

@@ -6,10 +6,10 @@
 # Freetype by hand!
 ######################################################################
 
-set_cache (Freetype_BUILD_VERSION 2.14.1 "Freetype version for local builds")
+set_cache (Freetype_BUILD_VERSION 2.14.3 "Freetype version for local builds")
 set (Freetype_GIT_REPOSITORY "https://github.com/freetype/freetype")
-set (Freetype_GIT_TAG "VER-2-14-1")
-set (Freetype_GIT_COMMIT "526ec5c47b9ebccc4754c85ac0c0cdf7c85a5e9b")
+set (Freetype_GIT_TAG "VER-2-14-3")
+set (Freetype_GIT_COMMIT "0a0221a1347e2f1e07c395263540026e9a0aa7c7")
 set_cache (Freetype_BUILD_SHARED_LIBS ${LOCAL_BUILD_SHARED_LIBS_DEFAULT}
            DOC "Should a local Freetype build, if necessary, build shared libraries" ADVANCED)
 # We would prefer to build a static Freetype, but haven't figured out how to make
@@ -39,12 +39,9 @@ build_dependency_with_cmake(Freetype
         -D CMAKE_POLICY_VERSION_MINIMUM=3.5
 )
 
-# Set some things up that we'll need for a subsequent find_package to work
-
-set (Freetype_ROOT ${Freetype_LOCAL_INSTALL_DIR})
-
 # Signal to caller that we need to find again at the installed location
 set (Freetype_REFIND TRUE)
+set (Freetype_REFIND_VERSION ${Freetype_BUILD_VERSION})
 set (Freetype_REFIND_ARGS CONFIG)
 
 if (Freetype_BUILD_SHARED_LIBS)

@@ -442,6 +442,31 @@ def test_create_oauth_session_bearer_sets_header(mocker):
     assert client.session.headers["Authorization"] == "Bearer TOKENX"
 
 
+@pytest.mark.parametrize(
+    "token, expected",
+    [
+        ("raw.jwt.token", "Bearer raw.jwt.token"),
+        ("Bearer raw.jwt.token", "Bearer raw.jwt.token"),
+        ("bearer raw.jwt.token", "bearer raw.jwt.token"),
+    ],
+)
+def test_create_oauth_session_bearer_adds_prefix_only_when_missing(
+    mocker, token, expected
+):
+    """Regression: raw tokens were sent without 'Bearer ' and got a 401."""
+    client = make_client(mocker)
+    client._TmoClient__bearer_token = token
+    client._TmoClient__create_oauth_session_bearer()  # type: ignore
+    assert client.session.headers["Authorization"] == expected
+
+
+def test_create_oauth_session_bearer_none_token_does_not_raise(mocker):
+    client = make_client(mocker)
+    client._TmoClient__bearer_token = None
+    client._TmoClient__create_oauth_session_bearer()  # type: ignore
+    assert client.session.headers["Authorization"] == "Bearer "
+
+
 def test_get_device_code_non_200_raises(mocker):
     client = make_client(mocker)
     client._TmoClient__client_id = "cid"

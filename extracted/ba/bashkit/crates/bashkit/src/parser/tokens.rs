@@ -42,6 +42,9 @@ pub enum Token {
     /// Pipe (|)
     Pipe,
 
+    /// Pipe with stderr (|&), shorthand for `2>&1 |`
+    PipeBoth,
+
     /// And (&&)
     And,
 
@@ -66,8 +69,21 @@ pub enum Token {
     /// Here document with tab stripping (<<-)
     HereDocStrip,
 
+    /// Here document on a numbered descriptor (`3<<EOF`, `3<<-EOF` when the
+    /// flag is set)
+    HereDocFd(i32, bool),
+
     /// Here string (<<<)
     HereString,
+
+    /// Here string on a numbered descriptor (`3<<<word`)
+    HereStringFd(i32),
+
+    /// Open read-write (`<>`)
+    RedirectReadWrite,
+
+    /// Open read-write on a numbered descriptor (`4<>file`)
+    RedirectFdReadWrite(i32),
 
     /// Left parenthesis (()
     LeftParen,
@@ -105,6 +121,9 @@ pub enum Token {
     /// Redirect both stdout and stderr (&>)
     RedirectBoth,
 
+    /// Append both stdout and stderr (&>>)
+    RedirectBothAppend,
+
     /// Clobber redirect (>|) - force overwrite even with noclobber
     Clobber,
 
@@ -122,6 +141,10 @@ pub enum Token {
 
     /// Duplicate fd to another (e.g., 2>&1)
     DupFd(i32, i32),
+
+    /// `N>&` followed by a word that is not a digit or `-` (`2>&$fd`,
+    /// `1>&file`): the word decides at expansion time.
+    DupFdWord(i32),
 
     /// Close output fd (e.g., 4>&-)
     DupFdCloseOut(i32),

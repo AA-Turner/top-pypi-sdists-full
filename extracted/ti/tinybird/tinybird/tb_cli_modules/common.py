@@ -1561,7 +1561,7 @@ async def wait_job(
             if result["status"] != "done":
                 raise CLIException(FeedbackManager.error_while_running_job(error=result["error"]))
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise CLIException(FeedbackManager.error_while_running_job(error="Reach timeout, job cancelled"))
         except JobException as e:
             raise CLIException(FeedbackManager.error_while_running_job(error=str(e)))
@@ -1579,7 +1579,7 @@ async def wait_job_no_ui(
         if result["status"] != "done":
             raise JobException(result.get("error"))
         return result
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await tb_client.job_cancel(job_id)
         raise
 

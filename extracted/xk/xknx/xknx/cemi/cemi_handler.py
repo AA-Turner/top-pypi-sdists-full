@@ -23,7 +23,6 @@ from xknx.exceptions import (
 from xknx.secure.data_secure import DataSecure, is_data_secure
 from xknx.secure.keyring import Keyring
 from xknx.telegram import IndividualAddress, Telegram, TelegramDirection, tpci
-from xknx.util import asyncio_timeout
 
 from .cemi_frame import CEMIFrame, CEMILData
 from .const import CEMIMessageCode
@@ -85,9 +84,9 @@ class CEMIHandler:
             raise ex
 
         try:
-            async with asyncio_timeout(REQUEST_TO_CONFIRMATION_TIMEOUT):
+            async with asyncio.timeout(REQUEST_TO_CONFIRMATION_TIMEOUT):
                 await self._l_data_confirmation_event.wait()
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self.xknx.connection_manager.cemi_count_outgoing_error += 1
             raise ConfirmationError(
                 f"L_DATA_CON Data Link Layer confirmation timed out for {cemi}"
@@ -156,8 +155,8 @@ class CEMIHandler:
                 self.handle_data_secure_key_issue(cemi.data, _cemi_data_is_data_secure)
                 return
 
-        telegram = cemi.data.telegram()
-        telegram.direction = TelegramDirection.INCOMING
+        # direction passed on creation so incoming telegrams never pick up a context
+        telegram = cemi.data.telegram(TelegramDirection.INCOMING)
         telegram.data_secure = _cemi_data_is_data_secure
         self.telegram_received(telegram)
 
@@ -179,7 +178,6 @@ class CEMIHandler:
         """Handle DataSecure telegrams with missing or invalid keys."""
         self.xknx.connection_manager.undecoded_data_secure += 1
         if isinstance(cemi_data.tpci, tpci.TDataGroup):
-            telegram = cemi_data.telegram()
-            telegram.direction = TelegramDirection.INCOMING
+            telegram = cemi_data.telegram(TelegramDirection.INCOMING)
             telegram.data_secure = received_data_secure
             self.xknx.telegram_queue.received_data_secure_group_key_issue(telegram)

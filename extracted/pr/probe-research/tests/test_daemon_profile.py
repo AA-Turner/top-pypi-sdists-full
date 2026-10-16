@@ -109,6 +109,17 @@ def test_everything_else_is_the_daemons(tmp_path, command, matched):
     assert _guard(tmp_path, command) == session_marker.DAEMON_PROFILE_DENY.format(matched=matched)
 
 
+@pytest.mark.parametrize("command", ["probe approvals --list", "probe approvals"])
+def test_the_agent_lists_the_questions_the_daemon_holds(tmp_path, command):
+    """It was refused, so the agent could not tell the researcher what waits for
+    them. Listing is safe: in an agent's shell the CLI answers nothing."""
+    assert _guard(tmp_path, command) is None
+
+
+def test_saying_no_stays_the_researchers(tmp_path):
+    assert _guard(tmp_path, "probe deny 7f3a09c1") == session_marker.DAEMON_PROFILE_DENY.format(matched="probe deny")
+
+
 @pytest.mark.parametrize("command,matched", [("probe project create x", "probe project create"),
                                              ("probe notes push n.md", "probe notes push"),
                                              ("probe companion feedback 'wrong project'", "probe companion feedback")])

@@ -14,9 +14,24 @@ from time import perf_counter
 import agate
 import grpc
 import humanize
+import sqlglot
 from dbt.adapters.base.relation import BaseRelation, RelationType
 from sqlglot import exp, parse_one
 from sqlglot.errors import SqlglotError
+from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+try:
+    from dbt.artifacts.resources.v1.config import TestConfig
+    from dbt.artifacts.resources.v1.model import ModelConfig
+    from dbt.artifacts.resources.v1.snapshot import SnapshotConfig
+except ImportError:
+    from dbt.contracts.graph.model_config import (  # type: ignore[no-redef]
+        NodeConfig as ModelConfig,
+    )
+    from dbt.contracts.graph.model_config import (
+        SnapshotConfig,
+        TestConfig,
+    )
 
 try:
     from dbt.adapters.contracts.connection import AdapterResponse
@@ -89,9 +104,6 @@ _RUN_STATUS_REUSED = getattr(RunStatus, "Reused", None)
 if t.TYPE_CHECKING:
     from dbt.adapters.base import BaseRelation
     from dbt.adapters.sql import SQLAdapter
-    from dbt.artifacts.resources.v1.config import TestConfig
-    from dbt.artifacts.resources.v1.model import ModelConfig
-    from dbt.artifacts.resources.v1.snapshot import SnapshotConfig
 
     from dbt_state._typing import (
         ModelOrSnapshotNode,
@@ -569,13 +581,17 @@ class RunCache:
         request_id: RequestId,
         failed_to_clone: bool = False,
         execution_runtime_ms: t.Optional[int] = None,
-    ) -> None:
+    ) -> t.Optional[RequestId]:
         """Confirms the execution of a model node with the query cache service.
 
         Args:
             node: The model node that was executed.
             request_id: The request ID returned from the query cache for the given model's execution.
             failed_to_clone: Whether the model failed to be cloned during execution.
+
+        Returns:
+            The execution ID, which may differ from the input request_id for clones
+            (where a new execution record is created). Returns None if confirmation was skipped.
         """
         target_table_type, last_modified_epoch = (
             self._get_target_table_type_and_last_modified_epoch(node)
@@ -585,7 +601,7 @@ class RunCache:
                 "Skipping confirmation for node {} due to missing last modified epoch",
                 node.unique_id,
             )
-            return
+            return None
 
         confirmation_request = execution_service_models.ConfirmExecutionRequest(
             request_id=request_id,
@@ -600,17 +616,115 @@ class RunCache:
             events.fire_debug_event(
                 "Confirmed execution for node {}, execution_id: {}",
                 node.unique_id,
-                response.request_id,
+                response.execution_id,
             )
-            # Note: when an ExecutionRequest is promoted to an Execution, it retains its id, so ConfirmExecutionResponse.request_id reflects the new execution_id
-            # For clones, it can be different to the request_id submitted in ConfirmExecutionRequest, so needs to be read off the response
-            self._decision_logger.log_confirm_execution(node.name, response.request_id)
-        else:
-            events.fire_debug_event(
-                "Execution confirmation failed for node {}, request_id: {}",
-                node.unique_id,
-                request_id,
+            self._decision_logger.log_confirm_execution(node.name, response.execution_id)
+            return response.execution_id
+        events.fire_debug_event(
+            "Execution confirmation failed for node {}, request_id: {}",
+            node.unique_id,
+            request_id,
+        )
+        return None
+
+    def _update_metadata_after_post_hooks(
+        self,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        execution_id: RequestId,
+        pre_hook_last_modified: t.Optional[int],
+        skip_update: bool = False,
+        warn_on_skip: bool = False,
+    ) -> None:
+        """Update metadata after post-hooks complete. Best-effort.
+
+        Args:
+            node: The node whose post-hooks just executed
+            execution_id: Execution ID from the original confirmation
+            pre_hook_last_modified: Target table timestamp before post-hooks
+            skip_update: Do not store the post-hook timestamp. Set for NO-OPs under lag
+                tolerance, where bumping the stored last_modified_epoch would reset the
+                output's age and keep a stale result eligible for reuse indefinitely
+            warn_on_skip: Warn when the update is skipped because the post-hooks modified
+                the target table, as the next run will then rebuild the model
+        """
+        try:
+            _, post_hook_last_modified = self._get_target_table_type_and_last_modified_epoch(node)
+
+            if post_hook_last_modified is None or post_hook_last_modified == pre_hook_last_modified:
+                return
+
+            if skip_update:
+                if warn_on_skip:
+                    events.fire_warn_event(
+                        "Post-hook for '{}' modified the target table after a NO-OP. The stored "
+                        "last_modified timestamp was not updated so that it does not extend the "
+                        "lag_tolerance window; as a result, this model will be rebuilt on the next "
+                        "run. To avoid this, disable execute_hooks_on_any_reuse or remove post-hook "
+                        "statements that modify the target table.",
+                        node.unique_id,
+                    )
+                return
+
+            update_request = execution_service_models.UpdateExecutionMetadataRequest(
+                execution_id=execution_id,
+                last_modified_epoch=post_hook_last_modified,
             )
+
+            self._query_cache_client.update_execution_metadata(update_request)
+
+        except Exception as e:
+            events.fire_warn_event(
+                "Failed to update post-hook metadata for '{}': {}", node.unique_id, str(e)
+            )
+
+    def _post_hooks_reference_target_table(
+        self,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        post_hooks: t.List[t.Any],
+        context: t.Dict[str, t.Any],
+    ) -> bool:
+        """Check if any post-hook references the target table.
+
+        Args:
+            node: The node being executed
+            post_hooks: List of post-hook configurations
+            context: Jinja rendering context (contains 'this')
+
+        Returns:
+            True if any hook references the target table, False otherwise
+        """
+        if not post_hooks:
+            return False
+
+        try:
+            target_parts = [part.name for part in self._node_to_table(node).parts]
+        except Exception as e:
+            events.fire_debug_event("Could not resolve target table for post-hooks: {}", str(e))
+            return True
+
+        for hook in post_hooks:
+            try:
+                hook_sql = hook.sql if hasattr(hook, "sql") else str(hook)
+                rendered_sql = get_rendered(hook_sql, context)
+                statements = sqlglot.parse(rendered_sql, dialect=self.dialect)
+            except Exception as e:
+                events.fire_debug_event("Could not check post-hook for table reference: {}", str(e))
+                return True
+
+            for statement in statements:
+                if statement is None:
+                    continue
+                for table in statement.find_all(exp.Table):
+                    normalized = normalize_identifiers(table.copy(), dialect=self.dialect)
+                    reference_parts = [part.name for part in normalized.parts]
+                    if (
+                        reference_parts
+                        and len(reference_parts) <= len(target_parts)
+                        and reference_parts == target_parts[-len(reference_parts) :]
+                    ):
+                        return True
+
+        return False
 
     def prewarm_connections(self) -> None:
         self._adapter_ext.prewarm_connections()
@@ -1099,12 +1213,18 @@ class RunCache:
 
         # Note: pre-hooks run before the try block. On clone failure, dbt's fallback
         # materialization will re-run them. This is acceptable since clone failures are exceptional.
-        context = None
+        context: dict[str, t.Any] | None = None
+        context_config: t.Any = None
+        hook_ctx: t.Any = None
         if should_run_hooks:
             context = generate_runtime_model_context(node, self._config, self._manifest)
             context_config = context["config"]
             hook_ctx = self._adapter.pre_model_hook(context_config)
             self._run_hooks(getattr(node.config, "pre_hook", []), context)
+
+        # Track the confirmed request ID for post-hook metadata updates.
+        # For clones, this may differ from query_cache_response.request_id.
+        confirmed_execution_id: t.Optional[RequestId] = None
 
         try:
             if isinstance(query_cache_response, sql_service_models.SkipExecutionResponse):
@@ -1165,7 +1285,7 @@ class RunCache:
             # when we clone a table, we put it in the relation cache so that the remainder of the
             # invocation knows it exists without hitting the db
             self._adapter_ext.cache_node_relation(node)
-            self.confirm_execution(node, query_cache_response.request_id)
+            confirmed_execution_id = self.confirm_execution(node, query_cache_response.request_id)
             self._record_cache_hit(query_cache_response)
             return RunResult.from_node(
                 node,
@@ -1184,10 +1304,117 @@ class RunCache:
                 return NoRunResult(query_cache_response.request_id, failed_to_clone=True)
             raise
         finally:
-            if should_run_hooks:
-                self._run_hooks(getattr(node.config, "post_hook", []), context)
-                self._commit_if_open()
-                self._adapter.post_model_hook(context_config, hook_ctx)
+            # Skips reuse an existing execution; clones only have one once confirmed.
+            execution_id = (
+                query_cache_response.execution_id
+                if isinstance(query_cache_response, sql_service_models.SkipExecutionResponse)
+                else confirmed_execution_id
+            )
+            self._handle_post_hooks(
+                should_run_hooks,
+                node,
+                query_cache_response,
+                context,
+                context_config,
+                hook_ctx,
+                execution_id,
+            )
+
+    def _handle_post_hooks(
+        self,
+        should_run_hooks: bool,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        query_cache_response: t.Union[
+            sql_service_models.SkipExecutionResponse,
+            clone_service_models.ReadyToCloneResponse,
+            None,
+        ],
+        context: dict[str, t.Any],
+        context_config: t.Any,
+        hook_ctx: t.Any,
+        execution_id: t.Optional[RequestId],
+    ) -> None:
+        if should_run_hooks:
+            pre_hook_last_modified = None
+            post_hooks = getattr(node.config, "post_hook", [])
+
+            # Only fetch the pre-hook timestamp from the warehouse if the metadata
+            # may need updating, i.e. post-hooks reference the target table
+            references_target_table = self._post_hooks_reference_target_table(
+                node, post_hooks, context
+            )
+            if references_target_table:
+                try:
+                    _, pre_hook_last_modified = self._get_target_table_type_and_last_modified_epoch(
+                        node
+                    )
+                except Exception:
+                    events.fire_debug_event(
+                        "Skipping post-hook handle for node {} due to failure when fetching last modified epoch",
+                        node.unique_id,
+                    )
+
+            self._run_hooks(post_hooks, context)
+            self._commit_if_open()
+            self._adapter.post_model_hook(context_config, hook_ctx)
+
+            if (
+                references_target_table
+                and pre_hook_last_modified
+                and execution_id is not None
+                and isinstance(
+                    query_cache_response,
+                    (
+                        sql_service_models.SkipExecutionResponse,
+                        clone_service_models.ReadyToCloneResponse,
+                    ),
+                )
+            ):
+                skip_update, warn_on_skip = self._resolve_no_op_post_hook_policy(
+                    node, query_cache_response
+                )
+                self._update_metadata_after_post_hooks(
+                    node,
+                    execution_id,
+                    pre_hook_last_modified,
+                    skip_update,
+                    warn_on_skip,
+                )
+
+    def _resolve_no_op_post_hook_policy(
+        self,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        query_cache_response: t.Union[
+            sql_service_models.SkipExecutionResponse,
+            clone_service_models.ReadyToCloneResponse,
+        ],
+    ) -> t.Tuple[bool, bool]:
+        """Decide how to treat the post-hook timestamp update after a NO-OP.
+
+        Returns:
+            (skip_update, warn_on_skip). skip_update is set for NO-OPs under lag tolerance,
+            where bumping the stored last_modified_epoch would reset the output's age and
+            keep a stale result eligible for reuse. warn_on_skip is set when the server will
+            also rebuild the model on the next run, which it only does for VIEW/FULL when
+            external modifications are not ignored.
+        """
+        if not isinstance(query_cache_response, sql_service_models.SkipExecutionResponse):
+            return False, False
+
+        if not isinstance(node, (ModelNode, SnapshotNode, GenericTestNode, SingularTestNode)):
+            return False, False
+
+        if not isinstance(node.config, (ModelConfig, SnapshotConfig, TestConfig)):
+            return False, False
+
+        skip_update = self._run_cache_config.resolve_freshness_tolerance(node.config) > 0
+        warn_on_skip = (
+            skip_update
+            and not self._run_cache_config.resolve_ignore_external_modifications(node.config)
+            and shared_models.ModelExecutionType(self._node_execution_type(node))
+            in (shared_models.ModelExecutionType.VIEW, shared_models.ModelExecutionType.FULL)
+        )
+        return skip_update, warn_on_skip
 
     def _run_hooks(self, hooks: t.List[t.Any], context: t.Dict[str, t.Any]) -> None:
         for hook in hooks:

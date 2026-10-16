@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Generic, TypeVar, Union
 
 from xknx.dpt import DPTArray, DPTBase, DPTBinary
 from xknx.exceptions import ConversionError, CouldNotParseTelegram
-from xknx.telegram import GroupAddress, Telegram
+from xknx.telegram import GroupAddress, GroupValueTelegram, Telegram
 from xknx.telegram.address import (
     DeviceGroupAddress,
     InternalGroupAddress,
@@ -40,6 +40,20 @@ RVCallbackType = Callable[[ValueT], None]
 
 class RemoteValue(ABC, Generic[ValueT]):
     """Class for managing remote knx value."""
+
+    __slots__ = (
+        "_payload",
+        "_sync_state",
+        "_value",
+        "after_update_cb",
+        "device_name",
+        "feature_name",
+        "group_address",
+        "group_address_state",
+        "passive_group_addresses",
+        "telegram",
+        "xknx",
+    )
 
     dpt_class: type[DPTBase] | None = None
 
@@ -83,7 +97,7 @@ class RemoteValue(ABC, Generic[ValueT]):
         self.feature_name: str = "Unknown" if feature_name is None else feature_name
         self._value: ValueT | None = None
         self._payload: DPTArray | DPTBinary | None = None
-        self.telegram: Telegram | None = None
+        self.telegram: GroupValueTelegram | None = None
         self.after_update_cb: RVCallbackType[ValueT] | None = after_update_cb
         self._sync_state = sync_state
 
@@ -176,7 +190,9 @@ class RemoteValue(ABC, Generic[ValueT]):
             )
         return self.dpt_class.to_knx(value)
 
-    def process(self, telegram: Telegram, always_callback: bool = False) -> bool:
+    def process(
+        self, telegram: GroupValueTelegram, always_callback: bool = False
+    ) -> bool:
         """Process incoming or outgoing telegram."""
         if (
             not isinstance(
@@ -304,19 +320,3 @@ class RemoteValue(ABC, Generic[ValueT]):
             f'feature_name="{self.feature_name}" '
             f"{self.group_addr_str()} />"
         )
-
-    def __eq__(self, other: object) -> bool:
-        """Equal operator."""
-        for key, value in self.__dict__.items():
-            if key == "after_update_cb":
-                continue
-            if key not in other.__dict__:
-                return False
-            if other.__dict__[key] != value:
-                return False
-        for key in other.__dict__:
-            if key == "after_update_cb":
-                continue
-            if key not in self.__dict__:
-                return False
-        return True

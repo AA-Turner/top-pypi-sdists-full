@@ -5,21 +5,38 @@
 //! outside generated code so regenerating `format/` cannot erase the DoS guard.
 
 use std::borrow::Cow;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::ops::ControlFlow;
 
 use async_trait::async_trait;
 
+use os_display::Quotable;
+
 use super::generated::format::{
     FormatArgument, FormatArguments, FormatError, FormatItem, parse_spec_and_escape,
 };
+use super::generated::format_support::{
+    QuotingStyle, collect_diagnostics, locale_aware_escape_name,
+};
 use super::limits::PRINTF_MAX_DIAG_CHARS as MAX_PRINTF_DIAG_CHARS;
-use super::{Builtin, Context, MAX_FORMAT_WIDTH};
+use super::{Builtin, BuiltinSideEffect, Context, Date, MAX_FORMAT_WIDTH};
 use crate::error::Result;
-use crate::interpreter::{ExecResult, is_internal_variable};
+use crate::interpreter::{ExecResult, is_internal_variable, is_valid_var_name};
 
 /// printf builtin - formatted string output
-pub struct Printf;
+///
+/// Holds the sandbox clock so `%(fmt)T` reads the same virtual time as `date`.
+#[derive(Default)]
+pub struct Printf {
+    clock: Date,
+}
+
+impl Printf {
+    /// printf whose `%(fmt)T` uses `clock` (fixed epoch / offset aware).
+    pub fn with_clock(clock: Date) -> Self {
+        Self { clock }
+    }
+}
 
 #[async_trait]
 impl Builtin for Printf {
@@ -31,46 +48,156 @@ impl Builtin for Printf {
         ) {
             return Ok(r);
         }
-        if ctx.args.is_empty() {
-            return Ok(ExecResult::ok(String::new()));
+        // Options as bash's getopt("v:") reads them: `-v NAME`, `-vNAME`,
+        // repeated `-v` (last wins), `--` ends them. A lone `-` is the format.
+        let mut args_iter = ctx.args.iter().peekable();
+        let mut var_name: Option<String> = None;
+        while let Some(arg) = args_iter.peek() {
+            if arg.as_str() == "--" {
+                args_iter.next();
+                break;
+            }
+            let Some(rest) = arg.strip_prefix('-').filter(|r| !r.is_empty()) else {
+                break;
+            };
+            if let Some(name) = rest.strip_prefix('v') {
+                args_iter.next();
+                if !name.is_empty() {
+                    var_name = Some(name.to_string());
+                } else if let Some(name) = args_iter.next() {
+                    var_name = Some(name.clone());
+                } else {
+                    return Ok(usage_error(
+                        "bash: printf: -v: option requires an argument\n",
+                    ));
+                }
+            } else {
+                let opt: String = rest.chars().take(1).collect();
+                return Ok(usage_error(&format!(
+                    "bash: printf: -{opt}: invalid option\n"
+                )));
+            }
+        }
+        let Some(format) = args_iter.next().cloned() else {
+            return Ok(usage_error(""));
+        };
+        if let Some(name) = &var_name
+            && !valid_var_target(name)
+        {
+            return Ok(ExecResult::err(
+                format!("bash: printf: `{name}': not a valid identifier\n"),
+                2,
+            ));
         }
 
-        let mut args_iter = ctx.args.iter();
-        let mut var_name: Option<String> = None;
-
-        let format = loop {
-            match args_iter.next() {
-                Some(arg) if arg == "-v" => {
-                    if let Some(vname) = args_iter.next() {
-                        var_name = Some(vname.clone());
-                    }
-                }
-                Some(arg) => break arg.clone(),
-                None => return Ok(ExecResult::ok(String::new())),
-            }
-        };
-
         let args: Vec<String> = args_iter.cloned().collect();
-        let output = match render_printf(&format, &args) {
+        let format = escape_format_backslash_c(&format).into_owned();
+        let (format, args) = match expand_quote_directives(&format, args) {
+            Ok(v) => v,
+            Err(err) => return Ok(ExecResult::err(err, 1)),
+        };
+        let (format, args) = match expand_time_directives(&format, args, |seconds, fmt| {
+            self.clock.strftime(ctx.env.get("TZ"), seconds, fmt)
+        }) {
+            Ok(v) => v,
+            Err(err) => return Ok(ExecResult::err(format!("{err}\n"), 1)),
+        };
+        let (rendered, diags) = collect_diagnostics(|| render_printf_bytes(&format, &args));
+        let output = match rendered {
             Ok(output) => output,
             Err(err) => return Ok(ExecResult::err(err, 1)),
         };
+        let (number_stderr, number_status) = numeric_argument_diagnostics(&diags, &args);
 
         if let Some(name) = var_name {
             // THREAT[TM-INJ-009]: Block internal variable prefix injection via printf -v
             if is_internal_variable(&name) {
                 return Ok(ExecResult::ok(String::new()));
             }
-            ctx.variables.insert(name, output);
-            Ok(ExecResult::ok(String::new()))
+            // Assigned by the interpreter like `read`: locals, namerefs,
+            // `a[i]` targets, `declare -i` arithmetic and readonly all apply.
+            // Variables are text; a non-UTF-8 byte is decoded lossily here.
+            let mut result = ExecResult::with_code(String::new(), number_status);
+            result.stderr = number_stderr.into();
+            result.side_effects.push(BuiltinSideEffect::SetVariable {
+                name,
+                value: String::from_utf8_lossy(&output).into_owned(),
+            });
+            Ok(result)
         } else {
-            Ok(ExecResult::ok(output))
+            let mut result = ExecResult::ok_bytes(output);
+            result.exit_code = number_status;
+            result.stderr = number_stderr.into();
+            Ok(result)
         }
     }
 }
 
+/// bash's report for numeric conversions uucore flagged: `abc`/`12abc`
+/// are `invalid number` (status 1, the parsed prefix is still printed),
+/// out of range is only a warning (status 0). An empty argument is 0 and a
+/// leading quote is a character code (`"'"` alone is 0), both without
+/// complaint in bash.
+fn numeric_argument_diagnostics(diags: &[String], args: &[String]) -> (String, i32) {
+    let mut stderr = String::new();
+    let mut status = 0;
+    for diag in diags {
+        // uucore writes `<quoted arg>: <reason>`; recover the raw argument by
+        // quoting each candidate the same way.
+        let Some(arg) = args.iter().find(|a| {
+            let quoted =
+                locale_aware_escape_name(OsStr::new(a.as_str()), QuotingStyle::C_NO_QUOTES)
+                    .quote()
+                    .to_string();
+            diag.strip_prefix(quoted.as_str())
+                .is_some_and(|rest| rest.starts_with(": "))
+        }) else {
+            continue;
+        };
+        let shown = truncate_text(arg, MAX_PRINTF_DIAG_CHARS / 2);
+        if diag.ends_with("Numerical result out of range") {
+            stderr.push_str(&format!(
+                "bash: printf: warning: {shown}: Numerical result out of range\n"
+            ));
+        } else if !arg.is_empty() && !arg.starts_with(['\'', '"']) {
+            stderr.push_str(&format!("bash: printf: {shown}: invalid number\n"));
+            status = 1;
+        }
+        if stderr.len() > MAX_PRINTF_DIAG_CHARS {
+            break;
+        }
+    }
+    (stderr, status)
+}
+
+/// bash's usage failure: optional diagnostic, then the usage line, status 2.
+fn usage_error(diag: &str) -> ExecResult {
+    ExecResult::err(
+        format!("{diag}printf: usage: printf [-v var] format [arguments]\n"),
+        2,
+    )
+}
+
+/// A `-v` target: an identifier, or `name[subscript]`.
+fn valid_var_target(name: &str) -> bool {
+    match name.find('[') {
+        Some(b) => is_valid_var_name(&name[..b]) && name.ends_with(']') && name.len() > b + 2,
+        None => is_valid_var_name(name),
+    }
+}
+
+#[cfg(test)]
 fn render_printf(format: &str, args: &[String]) -> std::result::Result<String, String> {
+    render_printf_bytes(format, args).map(|b| String::from_utf8_lossy(&b).into_owned())
+}
+
+/// Bytes are canonical: `\xff` must reach stdout as one 0xff byte.
+pub(super) fn render_printf_bytes(
+    format: &str,
+    args: &[String],
+) -> std::result::Result<Vec<u8>, String> {
     let format = strip_zero_hex_escapes(format);
+    let format = drop_zero_flag_on_strings(format.as_ref());
     let format = format.as_ref();
     let values = format_arguments(args);
     validate_format_caps(format.as_bytes(), args)?;
@@ -83,7 +210,7 @@ fn render_printf(format: &str, args: &[String]) -> std::result::Result<String, S
     fmt_args.start_next_batch();
 
     if stopped || !format_seen {
-        return Ok(bytes_to_stdout_string(out));
+        return Ok(out);
     }
 
     while !fmt_args.is_exhausted() {
@@ -93,11 +220,299 @@ fn render_printf(format: &str, args: &[String]) -> std::result::Result<String, S
         fmt_args.start_next_batch();
     }
 
-    Ok(bytes_to_stdout_string(out))
+    Ok(out)
 }
 
-fn bytes_to_stdout_string(bytes: Vec<u8>) -> String {
-    String::from_utf8_lossy(&bytes).into_owned()
+/// bash ignores the `0` flag on `%s` (`%06s` pads with blanks); the uutils
+/// formatter rejects it, so drop it from string directives.
+fn drop_zero_flag_on_strings(format: &str) -> Cow<'_, str> {
+    let bytes = format.as_bytes();
+    let mut out = String::with_capacity(format.len());
+    let mut changed = false;
+    let mut i = 0;
+    let mut copied = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'%' {
+            i += 1;
+            continue;
+        }
+        if bytes.get(i + 1) == Some(&b'%') {
+            i += 2;
+            continue;
+        }
+        let flags_start = i + 1;
+        let mut j = flags_start;
+        while j < bytes.len() && matches!(bytes[j], b'-' | b'+' | b' ' | b'#' | b'0') {
+            j += 1;
+        }
+        let flags_end = j;
+        while j < bytes.len() && (bytes[j].is_ascii_digit() || bytes[j] == b'.') {
+            j += 1;
+        }
+        if bytes.get(j) == Some(&b's') && bytes[flags_start..flags_end].contains(&b'0') {
+            out.push_str(&format[copied..flags_start]);
+            for &b in &bytes[flags_start..flags_end] {
+                if b != b'0' {
+                    out.push(b as char);
+                }
+            }
+            copied = flags_end;
+            changed = true;
+        }
+        i = j.max(i + 1);
+    }
+    if !changed {
+        return Cow::Borrowed(format);
+    }
+    out.push_str(&format[copied..]);
+    Cow::Owned(out)
+}
+
+/// In a printf FORMAT (unlike a `%b` argument) bash prints `\c` literally;
+/// the uutils formatter would stop output there, so escape the backslash.
+fn escape_format_backslash_c(format: &str) -> Cow<'_, str> {
+    if !format.contains("\\c") {
+        return Cow::Borrowed(format);
+    }
+    let mut out = String::with_capacity(format.len() + 4);
+    let mut chars = format.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('c') => out.push_str("\\\\c"),
+            Some(n) => {
+                out.push('\\');
+                out.push(n);
+            }
+            None => out.push('\\'),
+        }
+    }
+    Cow::Owned(out)
+}
+
+/// One `%b` / `%q` / `%Q` directive the uutils formatter cannot handle.
+struct QuoteSlot {
+    conv: u8,
+    precision: Option<usize>,
+}
+
+/// Rewrite `%[flags][width][.prec]{b,q,Q}` that the uutils formatter rejects
+/// (any flag/width/precision, and every `%Q`) into `%[flags][width]s`,
+/// pre-rendering the matching arguments.
+///
+/// Decision: bash pads `%b`/`%q` itself and never with zeros, applies the
+/// precision to the expanded/quoted text, while `%Q` applies it to the
+/// argument before quoting. Directives using `*` are left to the formatter.
+fn expand_quote_directives(
+    format: &str,
+    mut args: Vec<String>,
+) -> std::result::Result<(String, Vec<String>), String> {
+    let bytes = format.as_bytes();
+    let mut out = String::with_capacity(format.len());
+    let mut slots: Vec<Option<QuoteSlot>> = Vec::new();
+    let mut i = 0;
+    let mut copied = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\\' => i += 2,
+            b'%' if bytes.get(i + 1) == Some(&b'%') => i += 2,
+            b'%' => {
+                let start = i;
+                i += 1;
+                let flags_start = i;
+                while i < bytes.len() && b"-+ #0'".contains(&bytes[i]) {
+                    i += 1;
+                }
+                let flags = &format[flags_start..i];
+                let width_start = i;
+                let mut star = false;
+                if bytes.get(i) == Some(&b'*') {
+                    slots.push(None);
+                    star = true;
+                    i += 1;
+                } else {
+                    while i < bytes.len() && bytes[i].is_ascii_digit() {
+                        i += 1;
+                    }
+                }
+                let width = &format[width_start..i];
+                let mut precision = None;
+                if bytes.get(i) == Some(&b'.') {
+                    i += 1;
+                    if bytes.get(i) == Some(&b'*') {
+                        slots.push(None);
+                        star = true;
+                        i += 1;
+                    } else {
+                        let p = i;
+                        while i < bytes.len() && bytes[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                        precision = Some(format[p..i].parse().unwrap_or(0));
+                    }
+                }
+                let Some(&conv) = bytes.get(i) else { break };
+                i += 1;
+                let decorated = i - start > 2;
+                if !star && (conv == b'Q' || (matches!(conv, b'b' | b'q') && decorated)) {
+                    out.push_str(&format[copied..start]);
+                    out.push('%');
+                    out.push_str(&flags.replace('0', ""));
+                    out.push_str(width);
+                    out.push('s');
+                    copied = i;
+                    slots.push(Some(QuoteSlot { conv, precision }));
+                } else {
+                    slots.push(None);
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    if !slots.iter().any(Option::is_some) {
+        return Ok((format.to_string(), args));
+    }
+    out.push_str(&format[copied..]);
+
+    let n = slots.len();
+    let truncate = |s: String, p: Option<usize>| match p {
+        Some(p) => s.chars().take(p).collect(),
+        None => s,
+    };
+    let render = |spec: &str, arg: &str| -> std::result::Result<String, String> {
+        render_printf_bytes(spec, &[arg.to_string()])
+            .map(|b| String::from_utf8_lossy(&b).into_owned())
+    };
+    for (idx, arg) in args.iter_mut().enumerate() {
+        if let Some(slot) = &slots[idx % n] {
+            *arg = match slot.conv {
+                b'b' => truncate(render("%b", arg)?, slot.precision),
+                b'q' => truncate(render("%q", arg)?, slot.precision),
+                _ => render("%q", &truncate(arg.clone(), slot.precision))?,
+            };
+        }
+    }
+    Ok((out, args))
+}
+
+/// One argument-consuming slot of a format pass.
+enum Slot {
+    Plain,
+    /// `%(fmt)T` with its strftime format.
+    Time(String),
+}
+
+/// Rewrite bash's `%(fmt)T` into `%s` and pre-format the matching arguments.
+///
+/// Decision: the generated uutils formatter has no `%(...)T`, and it is
+/// generated code we don't edit. So each `%[flags][width][.prec](fmt)T`
+/// becomes `%[flags][width][.prec]s`, and every argument that lands on such a
+/// directive (arg i -> slot i % slots, as the format repeats) is replaced by
+/// the formatted time. Argument `""` or `-1` means now. `-2` (bash: shell
+/// start time) also means now; the shell start instant isn't tracked.
+/// Missing arguments for a time slot also mean now.
+fn expand_time_directives(
+    format: &str,
+    mut args: Vec<String>,
+    mut strftime: impl FnMut(Option<i64>, &str) -> std::result::Result<String, String>,
+) -> std::result::Result<(String, Vec<String>), String> {
+    if !format.contains(")T") {
+        return Ok((format.to_string(), args));
+    }
+    let bytes = format.as_bytes();
+    let mut out = String::with_capacity(format.len());
+    let mut slots = Vec::new();
+    let mut i = 0;
+    let mut copied = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\\' => i += 2,
+            b'%' if bytes.get(i + 1) == Some(&b'%') => i += 2,
+            b'%' => {
+                i += 1;
+                while i < bytes.len() && b"-+ #0'".contains(&bytes[i]) {
+                    i += 1;
+                }
+                for part in 0..2 {
+                    if part == 1 {
+                        if bytes.get(i) != Some(&b'.') {
+                            break;
+                        }
+                        i += 1;
+                    }
+                    if bytes.get(i) == Some(&b'*') {
+                        slots.push(Slot::Plain);
+                        i += 1;
+                    } else {
+                        while i < bytes.len() && bytes[i].is_ascii_digit() {
+                            i += 1;
+                        }
+                    }
+                }
+                if bytes.get(i) == Some(&b'(')
+                    && let Some(close) = format[i..].find(")T")
+                {
+                    let fmt = &format[i + 1..i + close];
+                    out.push_str(&format[copied..i]);
+                    out.push('s');
+                    slots.push(Slot::Time(if fmt.is_empty() {
+                        "%X".to_string()
+                    } else {
+                        fmt.to_string()
+                    }));
+                    i += close + 2;
+                    copied = i;
+                } else if i < bytes.len() {
+                    slots.push(Slot::Plain);
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    out.push_str(&format[copied..]);
+    if !slots.iter().any(|s| matches!(s, Slot::Time(_))) {
+        return Ok((format.to_string(), args));
+    }
+
+    // Pad the last pass up to its final time slot so a missing time
+    // argument still prints "now" (bash treats it as -1).
+    let n = slots.len();
+    let last_time = slots
+        .iter()
+        .rposition(|s| matches!(s, Slot::Time(_)))
+        .unwrap_or(0);
+    let pass_start = if args.is_empty() {
+        0
+    } else {
+        (args.len() - 1) / n * n
+    };
+    let filled = args.len() - pass_start;
+    if args.is_empty() || filled < n {
+        let want = pass_start + last_time + 1;
+        while args.len() < want {
+            args.push(String::new());
+        }
+    }
+
+    for (idx, arg) in args.iter_mut().enumerate() {
+        if let Slot::Time(fmt) = &slots[idx % n] {
+            let seconds = match arg.trim() {
+                "" | "-1" | "-2" => None,
+                s => Some(parse_leading_i64(s)),
+            };
+            *arg = strftime(seconds, fmt)?;
+            // bash formats into a 128-byte buffer: a longer result
+            // (strftime reports overflow) prints nothing.
+            if arg.len() >= 128 {
+                arg.clear();
+            }
+        }
+    }
+    Ok((out, args))
 }
 
 fn strip_zero_hex_escapes(input: &str) -> Cow<'_, str> {
@@ -518,6 +933,43 @@ mod tests {
     use super::*;
     use crate::interpreter::ExecResult;
 
+    fn fake_time(seconds: Option<i64>, fmt: &str) -> std::result::Result<String, String> {
+        Ok(format!(
+            "<{fmt}@{}>",
+            seconds.map_or("now".into(), |s| s.to_string())
+        ))
+    }
+
+    #[test]
+    fn time_directive_rewritten_to_string_slot() {
+        let (f, a) =
+            expand_time_directives("%-5(%H)T|%s\\n", vec!["7".into(), "x".into()], fake_time)
+                .unwrap();
+        assert_eq!(f, "%-5s|%s\\n");
+        assert_eq!(a, vec!["<%H@7>".to_string(), "x".to_string()]);
+    }
+
+    #[test]
+    fn time_directive_maps_args_across_passes_and_pads_missing() {
+        let (_, a) = expand_time_directives(
+            "%s %(%F)T",
+            vec!["a".into(), "1".into(), "b".into()],
+            fake_time,
+        )
+        .unwrap();
+        assert_eq!(a, vec!["a", "<%F@1>", "b", "<%F@now>"]);
+        let (_, a) = expand_time_directives("%()T", vec![], fake_time).unwrap();
+        assert_eq!(a, vec!["<%X@now>"]);
+    }
+
+    #[test]
+    fn time_directive_skips_literal_percent_and_plain_formats() {
+        let (f, a) = expand_time_directives("%% %s", vec!["x".into()], fake_time).unwrap();
+        assert_eq!((f.as_str(), a), ("%% %s", vec!["x".to_string()]));
+        let err = expand_time_directives("%(%F)T", vec![], |_, _| Err("bad".into()));
+        assert_eq!(err.unwrap_err(), "bad");
+    }
+
     #[test]
     fn generated_formatter_repeats_format_until_args_exhausted() {
         assert_eq!(
@@ -618,5 +1070,22 @@ mod tests {
             let result = ExecResult::err(render_printf_error(&err), 1);
             crate::testing::assert_no_leak(&result, "printf_format_error_variant", &[]);
         }
+    }
+
+    #[test]
+    fn format_backslash_c_is_literal() {
+        let f = escape_format_backslash_c("a\\cb\\\\c");
+        assert_eq!(render_printf(&f, &[]).unwrap(), "a\\cb\\c");
+    }
+
+    #[test]
+    fn padded_b_q_and_upper_q_directives() {
+        let args = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let (f, a) =
+            expand_quote_directives("[%05b|%05q|%05Q]", args(&["a\\tb", "c d", "e"])).unwrap();
+        assert_eq!(render_printf(&f, &a).unwrap(), "[  a\tb| c\\ d|    e]");
+        let (f, a) =
+            expand_quote_directives("[%.2q|%.2Q|%-6q]", args(&["abc", "a bc", "x"])).unwrap();
+        assert_eq!(render_printf(&f, &a).unwrap(), "[ab|a\\ |x     ]");
     }
 }

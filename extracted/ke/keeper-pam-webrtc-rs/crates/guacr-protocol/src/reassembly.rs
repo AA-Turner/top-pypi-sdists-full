@@ -251,7 +251,9 @@ mod tests {
     fn test_in_order_reassembly() {
         let mut enc = BinaryEncoder::new();
         let payload = vec![0xAAu8; FRAGMENT_PAYLOAD_SIZE + 100]; // 2 fragments
-        let frames = enc.fragment_message(Opcode::Image, 0, &payload);
+        let frames = enc
+            .fragment_message(Opcode::Image, 0, &payload)
+            .expect("valid fragment count");
         assert_eq!(frames.len(), 2);
 
         let mut reasm = MessageReassembler::new();
@@ -284,7 +286,9 @@ mod tests {
             .cycle()
             .take(FRAGMENT_PAYLOAD_SIZE + 50)
             .collect();
-        let frames = enc.fragment_message(Opcode::Audio, 0, &payload);
+        let frames = enc
+            .fragment_message(Opcode::Audio, 0, &payload)
+            .expect("valid fragment count");
         assert_eq!(frames.len(), 2);
 
         let mut reasm = MessageReassembler::new();
@@ -305,7 +309,9 @@ mod tests {
     fn test_non_fragmented_passthrough() {
         let mut enc = BinaryEncoder::new();
         let payload = vec![0xBBu8; 10];
-        let frames = enc.fragment_message(Opcode::Key, 0, &payload);
+        let frames = enc
+            .fragment_message(Opcode::Key, 0, &payload)
+            .expect("valid fragment count");
         assert_eq!(frames.len(), 1, "small payload must produce single frame");
 
         let mut reasm = MessageReassembler::new();
@@ -325,8 +331,12 @@ mod tests {
         let payload_b = vec![0xBBu8; FRAGMENT_PAYLOAD_SIZE + 10];
 
         // Both messages fragment into 2 pieces with the same opcode — same key.
-        let frames_a = enc.fragment_message(Opcode::Image, 0, &payload_a);
-        let frames_b = enc.fragment_message(Opcode::Image, 0, &payload_b);
+        let frames_a = enc
+            .fragment_message(Opcode::Image, 0, &payload_a)
+            .expect("valid fragment count");
+        let frames_b = enc
+            .fragment_message(Opcode::Image, 0, &payload_b)
+            .expect("valid fragment count");
         assert_eq!(frames_a.len(), 2);
         assert_eq!(frames_b.len(), 2);
 
@@ -359,8 +369,12 @@ mod tests {
         let payload_a = vec![0xAAu8; FRAGMENT_PAYLOAD_SIZE + 1];
         let payload_b = vec![0xBBu8; FRAGMENT_PAYLOAD_SIZE + 1];
 
-        let frames_a = enc.fragment_message(Opcode::Image, 0, &payload_a);
-        let frames_b = enc.fragment_message(Opcode::Audio, 0, &payload_b);
+        let frames_a = enc
+            .fragment_message(Opcode::Image, 0, &payload_a)
+            .expect("valid fragment count");
+        let frames_b = enc
+            .fragment_message(Opcode::Audio, 0, &payload_b)
+            .expect("valid fragment count");
 
         let mut reasm = MessageReassembler::new();
 

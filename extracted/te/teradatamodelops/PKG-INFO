@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: teradatamodelops
-Version: 7.3.5
+Version: 7.3.6
 Summary: Python client for Teradata ModelOps (TMO)
 Author-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Sheheryar Ali Bhatti <sheheryar.bhatti@teradata.com>, Will Fleury <will.fleury@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
 Maintainer-email: Christian Axel Schmidt Dick <christianaxel.schmidt@teradata.com>, Anton Zadorozhniy <anton.zadorozhniy@teradata.com>, Mengyu Mo <mengyu.mo@teradata.com>, Hiya Devli <hiya.devli@teradata.com>
@@ -828,6 +828,14 @@ artefacts = client.trained_model_artefacts().list_artefacts(trained_model_id)
 ```
 
 ## Release Notes<a id="release-notes"></a>
+### 7.3.6
+- Feature: `client.models()` and `client.trained_models()` now yield typed `Model` / `TrainedModel` objects (`model.id`, `model.name`, `tm.status`, ...) instead of plain dicts. Dict-style access keeps working (`model["sourceId"]`, `model["source_id"]`, `.get()`, `in`, `keys()`, `items()`); any response key that is not a core field stays accessible. `str()`/`to_json()`/`to_dict()` return the original API keys. Note: the objects are not `dict` instances (`isinstance(x, dict)` is false, use `to_dict()` for `json.dumps`); `find_by_*` and other direct lookups still return dicts. They compare equal to the equivalent dict and keep explicit `null` fields in `to_dict()`/`keys()`.
+- Feature: Classes decorated with `@functional` (`FeatureMetadata`, `Variable`, `Metadata`, ...) now have a readable recursive `repr`/`str` (e.g. `FeatureMetadata(database='db', table='tbl', monitoring_group='default')`) instead of `<... object at 0x...>`. Added `monitoring_group` to `FeatureMetadata`.
+- Bug: Fixed `DatasetTemplate.feature_metadata` always being empty for templates fetched from the API; `featureMetadata` (database, table, monitoringGroup) is now parsed from the response.
+- Feature: SDK enums (`CatalogType`, `CatalogBodyType`, `DataType`, `TypeEnum`, `Scope`, `JobAutomationMode`, `JobRunnerMode`, `JobRunnerEngine`, `EntityType`) now share a `ValueEnum` base (`str` subclass) that displays the member value instead of `Class.MEMBER`, e.g. `print(template.catalog_type)` shows `NONE` and entity reprs show `catalog_type='NONE'`. Enums also compare equal to their raw string value. Note: `str(enum)` no longer returns `Class.MEMBER`; `to_json()`/`to_dict()` output is unchanged.
+- Bug: Fixed dataset templates (and datasets) being silently dropped from list/iteration results when their metadata contained an unsupported `dataType` such as `string` (`'string' is not a valid DataType`). `string` is now mapped to `varchar`, and any other unsupported data type logs a warning and falls back to `varchar`. Entities that still fail to parse now log a `Skipped N of M ... that could not be parsed` warning.
+- Bug: Fixed `auth_mode="bearer"` returning `401 Unauthorized` when `auth_bearer` is a raw token. The SDK sent the token as the `Authorization` header without the `Bearer ` prefix; it is now added automatically when missing (tokens already prefixed with `Bearer ` are left unchanged).
+
 ### 7.3.5
 - Bug: Fixed `DataFrameUtils._get_database_names` monkey-patch raising `TypeError: _get_database_names() missing 1 required positional argument: 'schema_name'` on every `copy_to_sql`/`to_sql` call once `teradataml>=20.0.0.12` is resolved. teradataml 20.0.0.12 changed `_get_database_names` from a `@staticmethod` `(connection, schema_name)` to a regular instance method `(self, connection, schema_name)`; the previous patch always invoked the captured original with the old 2-arg staticmethod shape.
 - Chore: Bumped the minimum required version to `teradataml>=20.0.0.12`, which guarantees the instance-method `_get_database_names` shape. The patch no longer needs to detect/support the older `@staticmethod` shape from teradataml <= 20.0.0.11.

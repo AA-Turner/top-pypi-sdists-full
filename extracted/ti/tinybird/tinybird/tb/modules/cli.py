@@ -202,7 +202,16 @@ def get_tinybird_branch_name_from_git_branch(branch_name: Optional[str]) -> Opti
     if not branch_name:
         return None
     sanitized = sanitize_branch_name(branch_name, enforce_workspace_prefix_rules=False)
+    if sanitized.startswith("d_"):
+        sanitized = f"branch_{sanitized}"
     return sanitized or None
+
+
+def get_local_workspace_name_from_git_branch(branch_name: Optional[str]) -> Optional[str]:
+    # Tinybird Local creates a regular Workspace, not a Branch, so the name must start with a letter.
+    if not branch_name:
+        return None
+    return sanitize_branch_name(branch_name) or None
 
 
 def is_tinybird_local_running(timeout_seconds: float = 0.2) -> bool:
@@ -1159,7 +1168,7 @@ def create_ctx_client(
     if not test and not explicit_token_passed:
         git_branch = get_current_git_branch()
         if git_branch and not is_main_git_branch(git_branch):
-            local_branch = get_tinybird_branch_name_from_git_branch(git_branch)
+            local_branch = get_local_workspace_name_from_git_branch(git_branch)
             ctx.ensure_object(dict)["git_branch"] = git_branch
     client, workspace_created = get_tinybird_local_client(config, test=test, staging=staging, branch=local_branch)
     if local_branch and config.get("local_workspace_name") == local_branch:

@@ -6,7 +6,6 @@
 import os
 import glob
 import shutil
-from itertools import product
 
 import pytest
 
@@ -59,8 +58,10 @@ def teardown_function(func):
     roles._roles = func._roles
 
 
-@pytest.mark.parametrize(('case_dir', 'parallel', 'prop_attr'), product(CASES_DIRS, PARALLEL, PROP_ATTR))
-def test_run_full_case(tmpdir, case_dir, parallel, prop_attr):
+@pytest.mark.parametrize('case_dir', CASES_DIRS)
+@pytest.mark.parametrize('parallel', PARALLEL)
+@pytest.mark.parametrize('prop_attr', PROP_ATTR)
+def test_run_full_case(tmp_path, case_dir, parallel, prop_attr):
 
     input_dir = os.path.join(case_dir, 'input')
 
@@ -69,7 +70,7 @@ def test_run_full_case(tmpdir, case_dir, parallel, prop_attr):
     if not os.path.isdir(output_dir):
         output_dir = os.path.join(case_dir, 'output')
 
-    docs_dir = tmpdir.mkdir('docs').strpath
+    docs_dir = str(tmp_path / 'docs')
 
     conf = deepcopy(DEFAULT_CONF)
     conf.update({'automodapi_toctreedirnm': 'api',
@@ -123,9 +124,9 @@ def test_run_full_case(tmpdir, case_dir, parallel, prop_attr):
             assert actual.strip() == reference.strip()
 
 
-def test_duplicated_warning(tmpdir):
+def test_duplicated_warning(tmp_path):
     input_dir = os.path.join(os.path.dirname(__file__), 'duplicated_warning', 'docs')
-    docs_dir = tmpdir.mkdir('docs').strpath
+    docs_dir = str(tmp_path / 'docs')
 
     start_dir = os.path.abspath('.')
     src_dir = '.'

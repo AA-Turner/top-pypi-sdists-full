@@ -152,10 +152,11 @@ public:
                      stride_t zstride = AutoStride)
     {
         auto formatsize = m_spec.format.size();
-        m_bufspan       = image_span(reinterpret_cast<std::byte*>(data),
-                                     m_spec.nchannels, m_spec.width, m_spec.height,
-                                     m_spec.depth, formatsize, xstride, ystride,
-                                     zstride, formatsize);
+        m_bufspan = image_span(reinterpret_cast<std::byte*>(data),
+                               m_spec.nchannels, m_spec.width, m_spec.height,
+                               m_spec.depth, formatsize, xstride, ystride,
+                               zstride, formatsize);
+        eval_contiguous();
     }
 
     bool init_spec(string_view filename, int subimage, int miplevel,
@@ -320,10 +321,11 @@ public:
 
     void eval_contiguous()
     {
-        m_contiguous = m_bufspan.data() != nullptr
-                       && (m_storage == ImageBuf::LOCALBUFFER
-                           || m_storage == ImageBuf::APPBUFFER)
-                       && m_bufspan.is_contiguous();
+        bool in_memory        = m_bufspan.data() != nullptr
+                                && (m_storage == ImageBuf::LOCALBUFFER
+                                    || m_storage == ImageBuf::APPBUFFER);
+        m_contiguous          = in_memory && m_bufspan.is_contiguous();
+        m_contiguous_scanline = in_memory && m_bufspan.is_contiguous_scanline();
     }
 
     bool has_thumbnail(DoLock do_lock = DoLock(true)) const;
@@ -354,10 +356,11 @@ private:
     mutable std::atomic<bool> m_spec_valid   = false;  // spec is valid?
     mutable std::atomic<bool> m_pixels_valid = false;  // Image is valid?
     mutable std::atomic<bool> m_pixels_read  = false;  // local pixels loaded?
-    bool m_readonly     = true;   // The bufspan is read-only
-    bool m_badfile      = false;  // File not found
-    float m_pixelaspect = 1.0f;   // Pixel aspect ratio of the image
-    bool m_contiguous   = false;
+    bool m_readonly            = true;   // The bufspan is read-only
+    bool m_badfile             = false;  // File not found
+    float m_pixelaspect        = 1.0f;   // Pixel aspect ratio of the image
+    bool m_contiguous          = false;  // Full image is contiguous in memory
+    bool m_contiguous_scanline = false;  // Scanlines are contiguous in memory
     std::shared_ptr<ImageCache> m_imagecache;  // ImageCache to use
     TypeDesc m_cachedpixeltype;                // Data type stored in the cache
     DeepData m_deepdata;                       // Deep data
@@ -465,7 +468,6 @@ ImageBufImpl::ImageBufImpl(string_view filename, int subimage, int miplevel,
     , m_current_subimage(subimage)
     , m_current_miplevel(miplevel)
     , m_readonly(readonly)
-    , m_contiguous(false)
     , m_imagecache(imagecache)
 {
     if (spec) {
@@ -518,6 +520,7 @@ ImageBufImpl::ImageBufImpl(const ImageBufImpl& src)
     , m_badfile(src.m_badfile)
     , m_pixelaspect(src.m_pixelaspect)
     , m_contiguous(src.m_contiguous)
+    , m_contiguous_scanline(src.m_contiguous_scanline)
     , m_imagecache(src.m_imagecache)
     , m_cachedpixeltype(src.m_cachedpixeltype)
     , m_deepdata(src.m_deepdata)
@@ -702,7 +705,9 @@ ImageBuf::ImageBuf(ImageBuf&& src)
 
 
 
-ImageBuf::~ImageBuf() {}
+ImageBuf::~ImageBuf()
+{
+}
 
 
 
@@ -782,7 +787,9 @@ ImageBufImpl::free_pixels()
     }
     m_pixels.reset();
     // print("IB Freed pixels of length {}\n", m_bufspan.size());
-    m_bufspan = {};
+    m_bufspan             = {};
+    m_contiguous          = false;
+    m_contiguous_scanline = false;
     m_deepdata.free();
     m_storage = ImageBuf::UNINITIALIZED;
     m_blackpixel.clear();
@@ -869,13 +876,14 @@ ImageBufImpl::clear()
     m_spec             = ImageSpec();
     m_nativespec       = ImageSpec();
     m_pixels.reset();
-    m_bufspan      = {};
-    m_spec_valid   = false;
-    m_pixels_valid = false;
-    m_badfile      = false;
-    m_pixels_read  = false;
-    m_pixelaspect  = 1;
-    m_contiguous   = false;
+    m_bufspan             = {};
+    m_spec_valid          = false;
+    m_pixels_valid        = false;
+    m_badfile             = false;
+    m_pixels_read         = false;
+    m_pixelaspect         = 1;
+    m_contiguous          = false;
+    m_contiguous_scanline = false;
     m_imagecache.reset();
     m_deepdata.free();
     m_blackpixel.clear();
@@ -1191,9 +1199,7 @@ ImageBufImpl::init_spec(string_view filename, int subimage, int miplevel,
             return false;
         }
 
-        m_bufspan = image_span<std::byte>(nullptr, m_spec.nchannels,
-                                          m_spec.width, m_spec.height,
-                                          m_spec.depth, m_spec.format.size());
+        set_bufspan(nullptr);
         m_blackpixel.resize(round_to_multiple(m_spec.pixel_bytes(),
                                               OIIO_SIMD_MAX_SIZE_BYTES),
                             0);
@@ -1252,7 +1258,6 @@ ImageBufImpl::init_spec(string_view filename, int subimage, int miplevel,
         m_pixels_read      = false;
         m_nsubimages       = 0;
         m_nmiplevels       = 0;
-        m_badfile          = false;
         m_current_subimage = -1;
         m_current_miplevel = -1;
         auto input = ImageInput::open(filename, m_configspec.get(), m_rioproxy);
@@ -1277,9 +1282,7 @@ ImageBufImpl::init_spec(string_view filename, int subimage, int miplevel,
         m_badfile    = false;
         m_fileformat = ustring(input->format_name());
         m_nativespec = m_spec;
-        m_bufspan    = image_span<std::byte>(nullptr, m_spec.nchannels,
-                                          m_spec.width, m_spec.height,
-                                          m_spec.depth, m_spec.format.size());
+        set_bufspan(nullptr);
         m_blackpixel.resize(
             round_to_multiple(m_spec.pixel_bytes(), OIIO_SIMD_MAX_SIZE_BYTES));
         // ^^^ NB make it big enough for SIMD
@@ -1401,10 +1404,7 @@ ImageBufImpl::read(int subimage, int miplevel, int chbegin, int chend,
         if (!localpixels() && !force && !use_channel_subset
             && (convert == m_cachedpixeltype || convert == TypeDesc::UNKNOWN)) {
             m_spec.format = m_cachedpixeltype;
-            m_bufspan     = image_span<std::byte>(nullptr, m_spec.nchannels,
-                                              m_spec.width, m_spec.height,
-                                              m_spec.depth,
-                                              m_spec.format.size());
+            set_bufspan(nullptr);
             m_blackpixel.resize(round_to_multiple(m_spec.pixel_bytes(),
                                                   OIIO_SIMD_MAX_SIZE_BYTES));
             // NB make it big enough for SSE
@@ -1681,9 +1681,9 @@ ImageBuf::write(ImageOutput* out, ProgressCallback progress_callback,
                                        && outspec.get_string_attribute(
                                               "openexr:lineOrder")
                                               == "decreasingY";
-            const int numChunks  = outspec.height > 0
-                                       ? 1 + ((outspec.height - 1) / chunk)
-                                       : 0;
+            const int numChunks      = outspec.height > 0
+                                           ? 1 + ((outspec.height - 1) / chunk)
+                                           : 0;
             const int yLoopStart = isDecreasingY ? (numChunks - 1) * chunk : 0;
             const int yDelta     = isDecreasingY ? -chunk : chunk;
             const int yLoopEnd   = yLoopStart + numChunks * yDelta;
@@ -1832,7 +1832,10 @@ ImageBuf::write(string_view _filename, TypeDesc dtype, string_view _fileformat,
     }
     if (!write(out.get(), progress_callback, progress_callback_data))
         return false;
-    out->close();
+    if (!out->close()) {
+        error(out->geterror());
+        return false;
+    }
     if (progress_callback)
         progress_callback(progress_callback_data, 0);
     return true;
@@ -2122,7 +2125,6 @@ ImageBuf::nchannels() const
 int
 ImageBuf::orientation() const
 {
-    m_impl->validate_spec();
     return m_impl->spec().get_int_attribute("Orientation", 1);
 }
 
@@ -2221,7 +2223,17 @@ ImageBuf::z_stride() const
 bool
 ImageBuf::contiguous() const
 {
+    m_impl->validate_pixels();
     return m_impl->m_contiguous;
+}
+
+
+
+bool
+ImageBuf::contiguous_scanline() const
+{
+    m_impl->validate_pixels();
+    return m_impl->m_contiguous_scanline;
 }
 
 
@@ -2401,7 +2413,7 @@ ImageBuf::copy(const ImageBuf& src, TypeDesc format)
         m_impl->m_deepdata = src.m_impl->m_deepdata;
         return true;
     }
-    if (format.basetype == TypeDesc::UNKNOWN || src.deep())
+    if (format.basetype == TypeDesc::UNKNOWN)
         m_impl->reset(src.name(), src.spec(), &src.nativespec());
     else {
         ImageSpec newspec(src.spec());
@@ -2673,7 +2685,7 @@ get_pixels_(const ImageBuf& buf, const ImageBuf& /*dummy*/, ROI whole_roi,
                 imagesize_t offset = (p.z() - whole_roi.zbegin) * zstride
                                      + (p.y() - whole_roi.ybegin) * ystride
                                      + (p.x() - whole_roi.xbegin) * xstride;
-                D* rc = (D*)((char*)r + offset);
+                D* rc              = (D*)((char*)r + offset);
                 for (int c = 0; c < nchans; ++c)
                     rc[c] = p[c + roi.chbegin];
             }
@@ -2767,7 +2779,7 @@ set_pixels_(ImageBuf& buf, ROI roi, const void* data_, stride_t xstride,
         imagesize_t offset = (p.z() - roi.zbegin) * zstride
                              + (p.y() - roi.ybegin) * ystride
                              + (p.x() - roi.xbegin) * xstride;
-        const S* src = (const S*)((const char*)data + offset);
+        const S* src       = (const S*)((const char*)data + offset);
         for (int c = 0; c < nchans; ++c)
             p[c + roi.chbegin] = src[c];
     }

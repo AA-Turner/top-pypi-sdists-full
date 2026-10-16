@@ -162,7 +162,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("VITAL BRACELET EGGS. Four official VB cards are egg lines -- Volcanic Beat, Infinite Tide, Nu Metal Empire, Blizzard Fang -- earned on their adventure roads. Crests sell in adventure towns; fights flip a coin for first strike; attribute powers and trained HP count in battle.")
+    WHATS_NEW = ("TWO NEW THEMES. Forest (moss green in the deep woods) and Dusk (violet twilight) replace Game Boy and Paper -- if you used one of those, you're moved to its replacement automatically.")
 
 
     BINDINGS = [

@@ -1,0 +1,444 @@
+use std::path::PathBuf;
+
+use crate::generator::*;
+use crate::generators::helpers::{camel_to_snake_case, run_protoc, to_rust_message_name};
+use log::*;
+use snafu::{Whatever, prelude::*};
+
+/// Generator for Python code using protoc for protobuf compilation
+pub struct PythonGenerator {}
+
+impl PythonGenerator {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    /// Generate protoc Python code and parse file descriptors
+    fn generate_protoc_datatypes(
+        &self,
+        context: &GeneratorContext,
+    ) -> Result<GenerationResult, Whatever> {
+        let temp_dir = tempfile::tempdir().whatever_context("Failed to create temp directory")?;
+
+        let out_dir = temp_dir.path().display();
+        let proto_file = context.proto_file.to_str().unwrap();
+        let include_dir = context.proto_file.parent().unwrap().display();
+
+        let protoc = &context.protoc_path;
+
+        // Run protoc with Python output
+        let python_output = std::process::Command::new(protoc)
+            .arg(format!("--python_out={out_dir}"))
+            .arg(proto_file)
+            .arg(format!("-I={include_dir}"))
+            .output()
+            .whatever_context("Failed to run protoc --python_out")?;
+
+        if !python_output.status.success() {
+            snafu::whatever!(
+                "protoc --python_out failed: {}",
+                String::from_utf8_lossy(&python_output.stderr)
+            );
+        }
+
+        // Generate .pyi type stubs via mypy-protobuf (--mypy_out).
+        // This is required to keep generated typing deterministic between
+        // local and CI environments.
+        let mypy_output = std::process::Command::new(protoc)
+            .arg(format!("--mypy_out={out_dir}"))
+            .arg(proto_file)
+            .arg(format!("-I={include_dir}"))
+            .output()
+            .whatever_context("Failed to run protoc --mypy_out")?;
+
+        if !mypy_output.status.success() {
+            snafu::whatever!(
+                "protoc --mypy_out failed: {}",
+                String::from_utf8_lossy(&mypy_output.stderr)
+            );
+        }
+        info!("Generated .pyi stubs using mypy-protobuf");
+
+        let mut result = GenerationResult::new();
+
+        // Copy generated files to result
+        for entry in
+            std::fs::read_dir(&temp_dir).whatever_context("Failed to read temp directory")?
+        {
+            let entry = entry.whatever_context("Failed to read directory entry")?;
+            let path = entry.path();
+            if path.is_file() {
+                let content =
+                    std::fs::read_to_string(&path).whatever_context("Failed to read file")?;
+                let file_name = path
+                    .file_name()
+                    .with_whatever_context(|| "Failed to get filename")?
+                    .to_str()
+                    .with_whatever_context(|| "Failed to convert filename to string")?
+                    .to_string();
+
+                result.add_file(PathBuf::from(file_name), GeneratedFile::new(content));
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn generate_service_code(
+        &self,
+        context: &GeneratorContext,
+    ) -> Result<GenerationResult, Whatever> {
+        let descriptor_set = run_protoc(context)?;
+        let mut result = GenerationResult::new();
+
+        for file in descriptor_set.file {
+            let package = file.package.unwrap();
+            let mut content = String::new();
+
+            content += &self.generate_common_imports();
+
+            info!(
+                r#"File: {file_name}"#,
+                file_name = file.name.unwrap_or_default()
+            );
+
+            // Generate service base classes
+            for service in file.service.clone() {
+                content += &self.generate_service_class(&service, &package);
+            }
+            content += "\n";
+
+            // Generate server classes
+            for service in file.service.clone() {
+                content += &self.generate_server_class(&service, &package);
+            }
+
+            // Generate (synchronous) client classes
+            for service in file.service.clone() {
+                content += &self.generate_client_class(&service, &package);
+            }
+
+            // Generate async client classes (separate code path from the sync clients)
+            for service in file.service {
+                content += &self.generate_async_client_class(&service, &package);
+            }
+
+            result.add_file(
+                PathBuf::from(format!(r#"{package}_services.py"#)),
+                GeneratedFile::new(content),
+            );
+        }
+
+        Ok(result)
+    }
+
+    fn generate_common_imports(&self) -> String {
+        r#"from abc import ABC, abstractmethod
+from typing import Optional
+from google.protobuf import message
+from .database_driver_v1_pb2 import *
+from .proto_exception import *
+
+class ProtoError(Exception):
+    def __init__(self, error_type: str, details: str):
+        self.error_type = error_type
+        self.details = details
+        super().__init__(f"{error_type}: {details}")
+
+"#
+        .to_string()
+    }
+
+    fn generate_service_class(
+        &self,
+        service: &crate::protobuf::ServiceDescriptorProto,
+        package: &str,
+    ) -> String {
+        let service_name = service.name.as_ref().unwrap_or(&String::new()).clone();
+
+        let mut content = format!(
+            r#"class {service_name}(ABC):
+"#
+        );
+
+        for method in &service.method {
+            content += &self.generate_service_method(method, package);
+        }
+
+        content += "\n";
+        content
+    }
+
+    fn generate_service_method(
+        &self,
+        method: &crate::protobuf::MethodDescriptorProto,
+        package: &str,
+    ) -> String {
+        let input_type = to_rust_message_name(
+            &package.to_string(),
+            &method.input_type.as_ref().unwrap_or(&String::new()).clone(),
+        );
+        let output_type = to_rust_message_name(
+            &package.to_string(),
+            &method
+                .output_type
+                .as_ref()
+                .unwrap_or(&String::new())
+                .clone(),
+        );
+        let name = camel_to_snake_case(method.name.as_ref().unwrap_or(&String::new()));
+
+        format!(
+            r#"    @abstractmethod
+    def {name}(self, request: {input_type}) -> {output_type}:
+        pass
+
+"#
+        )
+    }
+
+    fn generate_server_class(
+        &self,
+        service: &crate::protobuf::ServiceDescriptorProto,
+        package: &str,
+    ) -> String {
+        let service_name = service.name.as_ref().unwrap_or(&String::new()).clone();
+
+        format!(
+            r#"class {service_name}Server({service_name}):
+    def handle_message(self, method: str, message_bytes: bytes) -> bytes:
+        try:
+            # Dispatch to appropriate method
+            method_map = {{
+{}"#,
+            service
+                .method
+                .iter()
+                .map(|m| {
+                    let name = camel_to_snake_case(m.name.as_ref().unwrap_or(&String::new()));
+                    let input_type = to_rust_message_name(
+                        &package.to_string(),
+                        &m.input_type.as_ref().unwrap_or(&String::new()).clone(),
+                    );
+                    format!(r#"                '{name}': (self.{name}, {input_type})"#)
+                })
+                .collect::<Vec<_>>()
+                .join(",\n")
+        ) + r#"
+            }
+            
+            if method not in method_map:
+                raise ProtoError('Transport', f'Unknown method: {method}')
+                
+            handler, request_class = method_map[method]
+            request = request_class()
+            request.ParseFromString(message_bytes)
+            response = handler(request)
+            return response.SerializeToString()
+            
+        except Exception as e:
+            raise ProtoError('Transport', str(e))
+
+"#
+    }
+
+    fn generate_client_class(
+        &self,
+        service: &crate::protobuf::ServiceDescriptorProto,
+        package: &str,
+    ) -> String {
+        let service_name = service.name.as_ref().unwrap_or(&String::new()).clone();
+        let service_error = service
+            .options
+            .as_ref()
+            .and_then(|o| o.service_error.as_ref());
+
+        let mut content = format!(
+            r#"class {service_name}Client:
+    def __init__(self, transport, error_handler=None):
+        """
+        Args:
+            transport: Transport layer that handles message serialization.
+            error_handler: Optional callable that converts a proto-layer exception
+                into a public exception.  Must **return** the converted exception
+                (not raise it); ``_raise_error`` takes care of raising.
+        """
+        self._transport = transport
+        self._error_handler = error_handler
+
+    def _raise_error(self, exc):
+        if self._error_handler is not None:
+            raise self._error_handler(exc) from None
+        raise exc
+
+"#
+        );
+
+        for method in &service.method {
+            let name = camel_to_snake_case(method.name.as_ref().unwrap_or(&String::new()));
+            let input_type = to_rust_message_name(
+                &package.to_string(),
+                &method.input_type.as_ref().unwrap_or(&String::new()).clone(),
+            );
+            let output_type = to_rust_message_name(
+                &package.to_string(),
+                &method
+                    .output_type
+                    .as_ref()
+                    .unwrap_or(&String::new())
+                    .clone(),
+            );
+            let method_error = method
+                .options
+                .as_ref()
+                .and_then(|o| o.method_error.as_ref());
+            let empty_error = "EmptyError".to_string();
+            let error_type = method_error.or(service_error).unwrap_or(&empty_error);
+
+            content += &format!(
+                r#"    def {name}(self, request: {input_type}) -> {output_type}:
+        (code, response_bytes) = self._transport.handle_message('{service_name}', '{name}', request.SerializeToString())
+        if code == 0:
+            response = {output_type}()
+            response.ParseFromString(response_bytes)
+            return response
+        elif code == 1:
+            error = {error_type}()
+            error.ParseFromString(response_bytes)
+            self._raise_error(ProtoApplicationException(error))
+        elif code == 2:
+            self._raise_error(ProtoTransportException(str(response_bytes)))
+        else:
+            self._raise_error(ProtoTransportException(f"Unknown error code: %s", code))
+"#
+            );
+        }
+
+        content
+    }
+
+    /// Generate the asynchronous client for a service.
+    ///
+    /// This is a dedicated client for the async code path — separate from the
+    /// synchronous ``{service}Client``. Each method awaits
+    /// ``transport.handle_message_async``, which today offloads the blocking
+    /// FFI call to a worker thread via ``asyncio.to_thread``. A non-blocking,
+    /// callback-based FFI will replace that hop later without changing this
+    /// client's surface.
+    fn generate_async_client_class(
+        &self,
+        service: &crate::protobuf::ServiceDescriptorProto,
+        package: &str,
+    ) -> String {
+        let service_name = service.name.as_ref().unwrap_or(&String::new()).clone();
+        let service_error = service
+            .options
+            .as_ref()
+            .and_then(|o| o.service_error.as_ref());
+
+        let mut content = format!(
+            r#"class Async{service_name}Client:
+    """Asynchronous {service_name} client.
+
+    Each RPC awaits ``transport.handle_message_async``, which runs the
+    blocking FFI call on a worker thread so the event loop is not blocked.
+    This is a separate code path from the synchronous ``{service_name}Client``.
+    """
+
+    def __init__(self, transport, error_handler=None):
+        """
+        Args:
+            transport: Transport layer that handles message serialization.
+            error_handler: Optional callable that converts a proto-layer exception
+                into a public exception.  Must **return** the converted exception
+                (not raise it); ``_raise_error`` takes care of raising.
+        """
+        self._transport = transport
+        self._error_handler = error_handler
+
+    def _raise_error(self, exc):
+        if self._error_handler is not None:
+            raise self._error_handler(exc) from None
+        raise exc
+
+"#
+        );
+
+        for method in &service.method {
+            let name = camel_to_snake_case(method.name.as_ref().unwrap_or(&String::new()));
+            let input_type = to_rust_message_name(
+                &package.to_string(),
+                &method.input_type.as_ref().unwrap_or(&String::new()).clone(),
+            );
+            let output_type = to_rust_message_name(
+                &package.to_string(),
+                &method
+                    .output_type
+                    .as_ref()
+                    .unwrap_or(&String::new())
+                    .clone(),
+            );
+            let method_error = method
+                .options
+                .as_ref()
+                .and_then(|o| o.method_error.as_ref());
+            let empty_error = "EmptyError".to_string();
+            let error_type = method_error.or(service_error).unwrap_or(&empty_error);
+
+            content += &format!(
+                r#"    async def {name}(self, request: {input_type}) -> {output_type}:
+        (code, response_bytes) = await self._transport.handle_message_async('{service_name}', '{name}', request.SerializeToString())
+        if code == 0:
+            response = {output_type}()
+            response.ParseFromString(response_bytes)
+            return response
+        elif code == 1:
+            error = {error_type}()
+            error.ParseFromString(response_bytes)
+            self._raise_error(ProtoApplicationException(error))
+        elif code == 2:
+            self._raise_error(ProtoTransportException(str(response_bytes)))
+        else:
+            self._raise_error(ProtoTransportException(f"Unknown error code: %s", code))
+"#
+            );
+        }
+
+        content
+    }
+}
+
+impl Default for PythonGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CodeGenerator for PythonGenerator {
+    fn name(&self) -> &str {
+        "python"
+    }
+
+    fn target_language(&self) -> GeneratedLanguage {
+        GeneratedLanguage::Python
+    }
+
+    fn description(&self) -> &str {
+        "Generates Python code from protobuf definitions"
+    }
+
+    fn generate(&self, context: &GeneratorContext) -> Result<GenerationResult, Whatever> {
+        let mut result = self.generate_protoc_datatypes(context)?;
+        let service_result = self.generate_service_code(context)?;
+
+        for (path, file) in service_result.files {
+            result.add_file(path, file);
+        }
+
+        Ok(result)
+    }
+
+    fn supported_options(&self) -> Vec<GeneratorOption> {
+        Vec::new()
+    }
+}

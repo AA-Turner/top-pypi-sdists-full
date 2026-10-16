@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datadog-cdk-constructs-v2
-Version: 5.2.0
+Version: 5.3.0
 Summary: CDK Construct Library to automatically instrument Python and Node Lambda functions with Datadog using AWS CDK v2
 Home-page: https://github.com/DataDog/datadog-cdk-constructs
 Author: Datadog
@@ -22,9 +22,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.264.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.269.0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.140.0
+Requires-Dist: jsii<2.0.0,>=1.141.0
 Requires-Dist: publication>=0.0.3
 
 # Datadog CDK Constructs
@@ -38,6 +38,8 @@ Requires-Dist: publication>=0.0.3
 Use this Datadog CDK Construct Library to deploy serverless applications using AWS CDK.
 
 For more information on the **DatadogECSFargate** construct, see [here](https://github.com/DataDog/datadog-cdk-constructs/blob/main/src/ecs/fargate/README.md).
+
+For more information on the **DatadogECSManagedInstances** construct, see [here](https://github.com/DataDog/datadog-cdk-constructs/blob/main/src/ecs/managed-instances/README.md).
 
 This CDK library automatically configures ingestion of metrics, traces, and logs from your serverless applications by:
 

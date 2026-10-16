@@ -7,11 +7,12 @@ from typing import Any, Literal
 
 import httpx2
 
-from trajectory._base_client import SyncPage, make_request_options, path_template
+from trajectory._base_client import make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._types import Headers, NotGiven, Omit, SequenceNotStr, not_given, omit
 from trajectory._utils import maybe_transform
+from trajectory.types.agent_list_response import AgentListResponse
 from trajectory.types.agents.agent_response import AgentResponse
 from trajectory.types.agents.agents_create_params import AgentsCreateParams
 from trajectory.types.agents.agents_update_params import AgentsUpdateParams
@@ -70,6 +71,10 @@ class Agents(APIResource):
   def list(
     self,
     *,
+    has_deployment: bool | None | Omit = omit,
+    has_benchmarks: bool | None | Omit = omit,
+    agent_id: SequenceNotStr[str] | None | Omit = omit,
+    model_slug: str | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -79,10 +84,19 @@ class Agents(APIResource):
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
-  ) -> SyncPage[AgentResponse]:
-    """List the authenticated organization's agents, newest first.
+  ) -> AgentListResponse:
+    """List the authenticated organization's agents, newest first unless `sort` is given
+    (created_at, updated_at, name, agent_id or benchmark_count).
 
     Args:
+      has_deployment: Return only agents that do (or do not) own an active deployed model.
+
+      has_benchmarks: Return only agents that do (or do not) own a benchmark.
+
+      agent_id: Return only these agents; repeat for each agent ID.
+
+      model_slug: Return only the agent serving this slug.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -93,10 +107,14 @@ class Agents(APIResource):
     """
     return self._get(
       "/api/v1/agents",
-      cast_to=SyncPage[AgentResponse],
+      cast_to=AgentListResponse,
       options=make_request_options(
         params=maybe_transform(
           {
+            "has_deployment": has_deployment,
+            "has_benchmarks": has_benchmarks,
+            "agent_id": agent_id,
+            "model_slug": model_slug,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,

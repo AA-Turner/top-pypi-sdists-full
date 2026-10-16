@@ -424,7 +424,13 @@ REFUSALS = [
     pytest.param(("EX 5,1,6,0,1.,0.",), "EX", id="ex-5"),
     pytest.param(("RP 1,1,361,1000,90.,0.,0.,1.,0.",), "RP", id="rp-mode-1"),
     pytest.param(("RP 4,1,361,1000,90.,0.,0.,1.,0.",), "RP", id="rp-mode-4"),
-    pytest.param(("RP 0,1,361,1002,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-1002"),
+    # momwire#1503: 1000 to 1003 parse (A, the averaging digit, is served
+    # whole); the X, N and D digits other than 1, 0, 0 refuse.
+    pytest.param(("RP 0,1,361,0003,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-x0"),
+    pytest.param(("RP 0,1,361,1103,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-n1"),
+    pytest.param(("RP 0,1,361,1023,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-d2"),
+    pytest.param(("RP 0,1,361,1004,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-a4"),
+    pytest.param(("RP 0,1,361,20003,90.,0.,0.,1.,0.",), "RP", id="rp-xnda-range"),
     pytest.param(("QQ 0",), "QQ", id="unknown-card"),
     # momwire#1257: NE/NH 1 (spherical) parse now; only a coordinate system
     # that is neither 0 nor 1 refuses.
@@ -751,3 +757,41 @@ def test_the_sp_classifier_reads_the_form_not_the_values(card, shape):
     from momwire.deck._nec5 import _classify_sp
 
     assert _classify_sp(parse_card(card)) == shape
+
+
+# -- the messages are plain text, not Python reprs ---------------------------
+
+
+def test_the_reader_names_tokens_and_fields_in_plain_text():
+    """Every message the reader builds from deck text spells that text as
+    written -- no Python repr quoting -- and an integer field that has no
+    integer (inf, nan) says so in the reader's own words, keeping the
+    exception type the conversion raises. The C++ reader
+    (`_nec5_deck_core.cpp`) raises the same text."""
+    body = DIPOLE.replace("GN -1", "{}")
+    cases = {
+        "GN 0,0,0,0,13.,.005,1.,0.,soil's.tab": (
+            DeckError,
+            "GN names a Sommerfeld-table file soil's.tab; this engine computes",
+        ),
+        "GN 1 NOFILE": (DeckError, "GN 1 carries a trailing token NOFILE; only a"),
+        "GN inf": (
+            OverflowError,
+            "GN field 1 is infinite; an integer field must be a finite number",
+        ),
+    }
+    for card, (kind, text) in cases.items():
+        with pytest.raises(kind) as exc:
+            parse_nec5(body.format(card))
+        assert text in str(exc.value), str(exc.value)
+    with pytest.raises(ValueError) as exc:
+        parse_nec5(DIPOLE.replace("FR 0,1,0,0", "FR 0,nan,0,0"))
+    assert str(exc.value) == (
+        "FR field 2 is NaN; an integer field must be a finite number"
+    )
+    with pytest.raises(DeckError) as exc:
+        parse_nec5(DIPOLE.replace("GE 0,-1", "GE 0,-1,x'y"))
+    assert str(exc.value) == "NON-NUMERICAL CHARACTER IN FIELD: x'y on GE 0,-1,x'y"
+    with pytest.raises(IndexError) as exc:
+        parse_nec5(DIPOLE.replace("GE 0,-1", "GE 0,-1\n , ,"))
+    assert str(exc.value) == "card line has no mnemonic, only separators: , ,"

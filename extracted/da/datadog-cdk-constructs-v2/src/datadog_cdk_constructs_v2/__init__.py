@@ -11,6 +11,8 @@ Use this Datadog CDK Construct Library to deploy serverless applications using A
 
 For more information on the **DatadogECSFargate** construct, see [here](https://github.com/DataDog/datadog-cdk-constructs/blob/main/src/ecs/fargate/README.md).
 
+For more information on the **DatadogECSManagedInstances** construct, see [here](https://github.com/DataDog/datadog-cdk-constructs/blob/main/src/ecs/managed-instances/README.md).
+
 This CDK library automatically configures ingestion of metrics, traces, and logs from your serverless applications by:
 
 * Installing and configuring the Datadog Lambda layers for your [Python](https://github.com/DataDog/datadog-lambda-layer-python), [Node.js](https://github.com/DataDog/datadog-lambda-layer-js), [Java](https://docs.datadoghq.com/serverless/installation/java/?tab=awscdk), [Go](https://docs.datadoghq.com/serverless/aws_lambda/installation/go), [Ruby](https://docs.datadoghq.com/serverless/aws_lambda/installation/ruby), and [.NET](https://docs.datadoghq.com/serverless/aws_lambda/installation/dotnet) Lambda functions.
@@ -851,6 +853,7 @@ if typing.TYPE_CHECKING:
 
     import aws_cdk as _aws_cdk_ceddda9d
     import aws_cdk.aws_ecs as _aws_cdk_aws_ecs_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
     import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
     import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
     import aws_cdk.aws_secretsmanager as _aws_cdk_aws_secretsmanager_ceddda9d
@@ -859,6 +862,7 @@ if typing.TYPE_CHECKING:
 else:
 
     _aws_cdk_aws_ecs_ceddda9d = _LazyImport("aws_cdk.aws_ecs")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
     _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
     _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
     _aws_cdk_aws_secretsmanager_ceddda9d = _LazyImport("aws_cdk.aws_secretsmanager")
@@ -871,6 +875,7 @@ else:
     jsii_type="datadog-cdk-constructs-v2.APMFeatureConfig",
     jsii_struct_bases=[],
     name_mapping={
+        "data_streams": "dataStreams",
         "is_enabled": "isEnabled",
         "is_profiling_enabled": "isProfilingEnabled",
         "is_socket_enabled": "isSocketEnabled",
@@ -881,6 +886,7 @@ class APMFeatureConfig:
     def __init__(
         self,
         *,
+        data_streams: typing.Optional[builtins.bool] = None,
         is_enabled: typing.Optional[builtins.bool] = None,
         is_profiling_enabled: typing.Optional[builtins.bool] = None,
         is_socket_enabled: typing.Optional[builtins.bool] = None,
@@ -888,18 +894,22 @@ class APMFeatureConfig:
     ) -> None:
         '''APM feature configuration.
 
+        :param data_streams: Enables Data Streams Monitoring. This is an application/tracer-side feature: ``DD_DATA_STREAMS_ENABLED`` must be set on the application container that produces or consumes messages (Kafka, SQS, Kinesis, SNS, RabbitMQ, etc.), not on the Datadog Agent container.
         :param is_enabled: Enables APM.
-        :param is_profiling_enabled: Enables Profile collection. Requires Datadog APM SSI instrumentation on your application containers.
+        :param is_profiling_enabled: Enables Profile collection. Requires the Datadog tracer in your application containers, installed in the image or added with ``apmInstrumentation``.
         :param is_socket_enabled: Enables APM traces traffic over Unix Domain Socket. Falls back to TCP configuration for application containers when disabled
         :param trace_inferred_proxy_services: Enables inferred spans for proxy services like AWS API Gateway. When enabled, the tracer will create spans for proxy services by using headers passed from the proxy service to the application.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e230986922ff4221b55047d221e20a0c611bc5d8df4610875061e8ae695d6738)
+            check_type(argname="argument data_streams", value=data_streams, expected_type=type_hints["data_streams"])
             check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
             check_type(argname="argument is_profiling_enabled", value=is_profiling_enabled, expected_type=type_hints["is_profiling_enabled"])
             check_type(argname="argument is_socket_enabled", value=is_socket_enabled, expected_type=type_hints["is_socket_enabled"])
             check_type(argname="argument trace_inferred_proxy_services", value=trace_inferred_proxy_services, expected_type=type_hints["trace_inferred_proxy_services"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if data_streams is not None:
+            self._values["data_streams"] = data_streams
         if is_enabled is not None:
             self._values["is_enabled"] = is_enabled
         if is_profiling_enabled is not None:
@@ -908,6 +918,18 @@ class APMFeatureConfig:
             self._values["is_socket_enabled"] = is_socket_enabled
         if trace_inferred_proxy_services is not None:
             self._values["trace_inferred_proxy_services"] = trace_inferred_proxy_services
+
+    @builtins.property
+    def data_streams(self) -> typing.Optional[builtins.bool]:
+        '''Enables Data Streams Monitoring.
+
+        This is an application/tracer-side
+        feature: ``DD_DATA_STREAMS_ENABLED`` must be set on the application
+        container that produces or consumes messages (Kafka, SQS, Kinesis, SNS,
+        RabbitMQ, etc.), not on the Datadog Agent container.
+        '''
+        result = self._values.get("data_streams")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def is_enabled(self) -> typing.Optional[builtins.bool]:
@@ -919,7 +941,7 @@ class APMFeatureConfig:
     def is_profiling_enabled(self) -> typing.Optional[builtins.bool]:
         '''Enables Profile collection.
 
-        Requires Datadog APM SSI instrumentation on your application containers.
+        Requires the Datadog tracer in your application containers, installed in the image or added with ``apmInstrumentation``.
         '''
         result = self._values.get("is_profiling_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -951,6 +973,94 @@ class APMFeatureConfig:
 
     def __repr__(self) -> str:
         return "APMFeatureConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.APMInstrumentationConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "language": "language",
+        "container_name": "containerName",
+        "tracer_libc": "tracerLibc",
+        "tracer_version": "tracerVersion",
+    },
+)
+class APMInstrumentationConfig:
+    def __init__(
+        self,
+        *,
+        language: "TracerLanguage",
+        container_name: typing.Optional[builtins.str] = None,
+        tracer_libc: typing.Optional["TracerLibc"] = None,
+        tracer_version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Automatic APM instrumentation configuration.
+
+        :param language: The application language, which selects the tracer to add.
+        :param container_name: The name of the application container that loads the tracer. Required when the task definition has more than one application container.
+        :param tracer_libc: The C standard library that the application image uses. Defaults to ``GLIBC``.
+        :param tracer_version: The version of the tracer to add. Defaults to ``latest``.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40f65524705ad24aa6c015bab11fd261641d95a1e7e7d1f5dd2f394e5f972617)
+            check_type(argname="argument language", value=language, expected_type=type_hints["language"])
+            check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
+            check_type(argname="argument tracer_libc", value=tracer_libc, expected_type=type_hints["tracer_libc"])
+            check_type(argname="argument tracer_version", value=tracer_version, expected_type=type_hints["tracer_version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "language": language,
+        }
+        if container_name is not None:
+            self._values["container_name"] = container_name
+        if tracer_libc is not None:
+            self._values["tracer_libc"] = tracer_libc
+        if tracer_version is not None:
+            self._values["tracer_version"] = tracer_version
+
+    @builtins.property
+    def language(self) -> "TracerLanguage":
+        '''The application language, which selects the tracer to add.'''
+        result = self._values.get("language")
+        assert result is not None, "Required property 'language' is missing"
+        return typing.cast("TracerLanguage", result)
+
+    @builtins.property
+    def container_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the application container that loads the tracer.
+
+        Required when the task definition has more than one application container.
+        '''
+        result = self._values.get("container_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tracer_libc(self) -> typing.Optional["TracerLibc"]:
+        '''The C standard library that the application image uses.
+
+        Defaults to ``GLIBC``.
+        '''
+        result = self._values.get("tracer_libc")
+        return typing.cast(typing.Optional["TracerLibc"], result)
+
+    @builtins.property
+    def tracer_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the tracer to add.
+
+        Defaults to ``latest``.
+        '''
+        result = self._values.get("tracer_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "APMInstrumentationConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1424,6 +1534,7 @@ class DatadogECSFargate(
     def __init__(
         self,
         *,
+        apm_instrumentation: typing.Optional[typing.Union["APMInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         cws: typing.Optional[typing.Union["FargateCWSFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         log_collection: typing.Optional[typing.Union["FargateLogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         api_key: typing.Optional[builtins.str] = None,
@@ -1452,6 +1563,7 @@ class DatadogECSFargate(
         version: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param apm_instrumentation: Automatic APM instrumentation configuration. Adds the Datadog tracer to an application container without changing its image.
         :param cws: 
         :param log_collection: 
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
@@ -1480,6 +1592,7 @@ class DatadogECSFargate(
         :param version: The task version. Used for tagging (UST).
         '''
         datadog_props = DatadogECSFargateProps(
+            apm_instrumentation=apm_instrumentation,
             cws=cws,
             log_collection=log_collection,
             api_key=api_key,
@@ -1517,6 +1630,7 @@ class DatadogECSFargate(
         id: builtins.str,
         props: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.FargateTaskDefinitionProps", typing.Dict[builtins.str, typing.Any]]] = None,
         *,
+        apm_instrumentation: typing.Optional[typing.Union["APMInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         cws: typing.Optional[typing.Union["FargateCWSFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         log_collection: typing.Optional[typing.Union["FargateLogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         api_key: typing.Optional[builtins.str] = None,
@@ -1551,6 +1665,7 @@ class DatadogECSFargate(
         :param scope: -
         :param id: -
         :param props: optional: Fargate Task Definition properties.
+        :param apm_instrumentation: Automatic APM instrumentation configuration. Adds the Datadog tracer to an application container without changing its image.
         :param cws: 
         :param log_collection: 
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
@@ -1584,6 +1699,7 @@ class DatadogECSFargate(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         datadog_props = DatadogECSFargateProps(
+            apm_instrumentation=apm_instrumentation,
             cws=cws,
             log_collection=log_collection,
             api_key=api_key,
@@ -1643,6 +1759,7 @@ class DatadogECSFargate(
         "service": "service",
         "site": "site",
         "version": "version",
+        "apm_instrumentation": "apmInstrumentation",
         "cws": "cws",
         "log_collection": "logCollection",
     },
@@ -1675,6 +1792,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         service: typing.Optional[builtins.str] = None,
         site: typing.Optional[builtins.str] = None,
         version: typing.Optional[builtins.str] = None,
+        apm_instrumentation: typing.Optional[typing.Union["APMInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         cws: typing.Optional[typing.Union["FargateCWSFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         log_collection: typing.Optional[typing.Union["FargateLogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1703,6 +1821,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         :param service: The task service name. Used for tagging (UST).
         :param site: The Datadog site to send data to.
         :param version: The task version. Used for tagging (UST).
+        :param apm_instrumentation: Automatic APM instrumentation configuration. Adds the Datadog tracer to an application container without changing its image.
         :param cws: 
         :param log_collection: 
         '''
@@ -1714,6 +1833,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             dogstatsd = DogstatsdFeatureConfig(**dogstatsd)
         if isinstance(orchestrator_explorer, dict):
             orchestrator_explorer = OrchestratorExplorerFeatureConfig(**orchestrator_explorer)
+        if isinstance(apm_instrumentation, dict):
+            apm_instrumentation = APMInstrumentationConfig(**apm_instrumentation)
         if isinstance(cws, dict):
             cws = FargateCWSFeatureConfig(**cws)
         if isinstance(log_collection, dict):
@@ -1744,6 +1865,7 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             check_type(argname="argument service", value=service, expected_type=type_hints["service"])
             check_type(argname="argument site", value=site, expected_type=type_hints["site"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument apm_instrumentation", value=apm_instrumentation, expected_type=type_hints["apm_instrumentation"])
             check_type(argname="argument cws", value=cws, expected_type=type_hints["cws"])
             check_type(argname="argument log_collection", value=log_collection, expected_type=type_hints["log_collection"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1795,6 +1917,8 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
             self._values["site"] = site
         if version is not None:
             self._values["version"] = version
+        if apm_instrumentation is not None:
+            self._values["apm_instrumentation"] = apm_instrumentation
         if cws is not None:
             self._values["cws"] = cws
         if log_collection is not None:
@@ -1980,6 +2104,15 @@ class DatadogECSFargateProps(DatadogECSBaseProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def apm_instrumentation(self) -> typing.Optional["APMInstrumentationConfig"]:
+        '''Automatic APM instrumentation configuration.
+
+        Adds the Datadog tracer to an application container without changing its image.
+        '''
+        result = self._values.get("apm_instrumentation")
+        return typing.cast(typing.Optional["APMInstrumentationConfig"], result)
+
+    @builtins.property
     def cws(self) -> typing.Optional["FargateCWSFeatureConfig"]:
         result = self._values.get("cws")
         return typing.cast(typing.Optional["FargateCWSFeatureConfig"], result)
@@ -2014,6 +2147,7 @@ class DatadogECSFargateTaskDefinition(
         id: builtins.str,
         props: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.FargateTaskDefinitionProps", typing.Dict[builtins.str, typing.Any]]] = None,
         *,
+        apm_instrumentation: typing.Optional[typing.Union["APMInstrumentationConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         cws: typing.Optional[typing.Union["FargateCWSFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         log_collection: typing.Optional[typing.Union["FargateLogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         api_key: typing.Optional[builtins.str] = None,
@@ -2045,6 +2179,7 @@ class DatadogECSFargateTaskDefinition(
         :param scope: -
         :param id: -
         :param props: -
+        :param apm_instrumentation: Automatic APM instrumentation configuration. Adds the Datadog tracer to an application container without changing its image.
         :param cws: 
         :param log_collection: 
         :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
@@ -2078,6 +2213,7 @@ class DatadogECSFargateTaskDefinition(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument props", value=props, expected_type=type_hints["props"])
         datadog_props = DatadogECSFargateProps(
+            apm_instrumentation=apm_instrumentation,
             cws=cws,
             log_collection=log_collection,
             api_key=api_key,
@@ -2264,6 +2400,14 @@ class DatadogECSFargateTaskDefinition(
     ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition"]:
         return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition"], jsii.get(self, "logContainer"))
 
+    @builtins.property
+    @jsii.member(jsii_name="tracerContainer")
+    def tracer_container(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition"]:
+        '''The container that copies the tracer, added with the container that loads the tracer.'''
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.ContainerDefinition"], jsii.get(self, "tracerContainer"))
+
 
 @jsii.data_type(
     jsii_type="datadog-cdk-constructs-v2.DatadogECSLogDriverProps",
@@ -2359,6 +2503,1344 @@ class DatadogECSLogDriverProps:
 
     def __repr__(self) -> str:
         return "DatadogECSLogDriverProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DatadogECSManagedInstances(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="datadog-cdk-constructs-v2.DatadogECSManagedInstances",
+):
+    '''The Datadog ECS Managed Instances construct manages the Datadog configuration for Datadog Agent daemons running on ECS Managed Instances.'''
+
+    def __init__(
+        self,
+        *,
+        family: builtins.str,
+        agent_log_configuration: typing.Optional[typing.Union["ManagedInstancesLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cgroup_path: typing.Optional[builtins.str] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        create_daemon: typing.Optional[builtins.bool] = None,
+        cri_socket_path: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["DeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+        enable_execute_command: typing.Optional[builtins.bool] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
+        log_collection: typing.Optional[typing.Union["LogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        network_monitoring: typing.Optional[typing.Union["NetworkMonitoringFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
+        process_collection: typing.Optional[typing.Union["ProcessCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        proc_path: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        task_cpu: typing.Optional[builtins.str] = None,
+        task_memory: typing.Optional[builtins.str] = None,
+        task_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        volumes: typing.Optional[typing.Sequence[typing.Union["ManagedInstancesVolume", typing.Dict[builtins.str, typing.Any]]]] = None,
+        api_key: typing.Optional[builtins.str] = None,
+        api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
+        apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        checks_cardinality: typing.Optional["Cardinality"] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        cpu: typing.Optional[jsii.Number] = None,
+        datadog_health_check: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        dogstatsd: typing.Optional[typing.Union["DogstatsdFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        global_tags: typing.Optional[builtins.str] = None,
+        image_version: typing.Optional[builtins.str] = None,
+        is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+        is_datadog_essential: typing.Optional[builtins.bool] = None,
+        memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+        registry: typing.Optional[builtins.str] = None,
+        service: typing.Optional[builtins.str] = None,
+        site: typing.Optional[builtins.str] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param family: A unique name for the daemon task definition family.
+        :param agent_log_configuration: Log configuration for the Datadog Agent container's OWN logs (not application container logs, which the agent cannot collect in daemon mode on ECS Managed Instances), e.g. routing to CloudWatch via the awslogs driver.
+        :param capacity_provider_arns: ARNs of ECS Managed Instances capacity providers the daemon should run on. Required if ``createDaemon`` is true. This construct does not create the capacity provider, infrastructure role, or instance profile - those must already exist.
+        :param cgroup_path: Path to the cgroup directory on the host. Default: "/sys/fs/cgroup/"
+        :param cluster_arn: ARN of the ECS cluster where the Datadog Agent daemon will run. Required if ``createDaemon`` is true.
+        :param create_daemon: Whether to create the ``AWS::ECS::Daemon`` resource. If false, only the daemon task definition is created. Default: true
+        :param cri_socket_path: Path to the containerd socket on the host. ECS Managed Instances uses containerd, not Docker. The socket is always mounted at ``/var/run/containerd/containerd.sock`` inside the Datadog Agent container. Default: "/var/run/containerd/containerd.sock"
+        :param daemon_name: Name of the ECS daemon. Default: ``${family}-datadog-agent``
+        :param deployment_configuration: Controls the daemon's rolling deployment behavior across instances. Any change to the daemon task definition - including something as small as a tag - forces a full replacement, and AWS's daemon deployment model drains and replaces every EC2 instance in the attached capacity provider(s). This block is write-only on the AWS side (not readable back from the API), so ``cdk diff`` will always show a diff here - that is expected.
+        :param enable_ecs_managed_tags: Enable ECS managed tags for the daemon. Default: true
+        :param enable_execute_command: Enable ECS Exec for daemon tasks. Default: false
+        :param execution_role: The IAM role that grants the Amazon ECS container agent permission to make AWS API calls. Created automatically if not provided.
+        :param ipc_mode: The IPC namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected).
+        :param log_collection: Log collection is not supported for the Datadog Agent running as an ECS Managed Daemon on ECS Managed Instances. Defining this property with ``isEnabled: true`` will cause construct validation to fail.
+        :param network_monitoring: Configuration for Datadog Cloud Network Monitoring. Linux only.
+        :param pid_mode: The PID namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected). DogStatsD/APM origin detection does not require this to be set: Datadog client libraries embed the container ID directly in the packet, which works the same way over UDS and TCP regardless of PID namespace configuration.
+        :param process_collection: Configuration for Datadog Live Process collection.
+        :param proc_path: Path to the /proc directory on the host. Default: "/proc/"
+        :param propagate_tags: Propagate tags to daemon tasks. Default: "DAEMON"
+        :param tags: A map of additional tags to add to the daemon task definition/daemon created.
+        :param task_cpu: Number of cpu units used by the daemon task, as a string (e.g. "256").
+        :param task_memory: Amount (in MiB) of memory used by the daemon task, as a string (e.g. "512").
+        :param task_role: The IAM role that allows the Datadog Agent container to make calls to other AWS services. Created automatically if not provided.
+        :param volumes: Additional host-path volumes to mount into the Datadog Agent container, beyond the ones this construct manages (containerd socket, /proc, /sys/fs/cgroup, UDS sockets, network monitoring debug mount).
+        :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
+        :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
+        :param apm: APM feature configuration.
+        :param checks_cardinality: The Datadog Agent checks tag cardinality.
+        :param cluster_name: The cluster name to use for tagging.
+        :param cpu: The minimum number of CPU units to reserve for the Datadog Agent container.
+        :param datadog_health_check: Configure health check for the Datadog Agent container.
+        :param dogstatsd: DogStatsD feature configuration.
+        :param env: The task environment name. Used for tagging (UST).
+        :param environment_variables: Datadog Agent environment variables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param image_version: The version of the Datadog Agent container image to use.
+        :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
+        :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
+        :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
+        :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
+        :param registry: The registry to pull the Datadog Agent container image from.
+        :param service: The task service name. Used for tagging (UST).
+        :param site: The Datadog site to send data to.
+        :param version: The task version. Used for tagging (UST).
+        '''
+        datadog_props = DatadogECSManagedInstancesProps(
+            family=family,
+            agent_log_configuration=agent_log_configuration,
+            capacity_provider_arns=capacity_provider_arns,
+            cgroup_path=cgroup_path,
+            cluster_arn=cluster_arn,
+            create_daemon=create_daemon,
+            cri_socket_path=cri_socket_path,
+            daemon_name=daemon_name,
+            deployment_configuration=deployment_configuration,
+            enable_ecs_managed_tags=enable_ecs_managed_tags,
+            enable_execute_command=enable_execute_command,
+            execution_role=execution_role,
+            ipc_mode=ipc_mode,
+            log_collection=log_collection,
+            network_monitoring=network_monitoring,
+            pid_mode=pid_mode,
+            process_collection=process_collection,
+            proc_path=proc_path,
+            propagate_tags=propagate_tags,
+            tags=tags,
+            task_cpu=task_cpu,
+            task_memory=task_memory,
+            task_role=task_role,
+            volumes=volumes,
+            api_key=api_key,
+            api_key_secret=api_key_secret,
+            api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
+            api_key_ssm_arn=api_key_ssm_arn,
+            apm=apm,
+            checks_cardinality=checks_cardinality,
+            cluster_name=cluster_name,
+            cpu=cpu,
+            datadog_health_check=datadog_health_check,
+            dogstatsd=dogstatsd,
+            env=env,
+            environment_variables=environment_variables,
+            global_tags=global_tags,
+            image_version=image_version,
+            is_datadog_dependency_enabled=is_datadog_dependency_enabled,
+            is_datadog_essential=is_datadog_essential,
+            memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
+            read_only_root_filesystem=read_only_root_filesystem,
+            registry=registry,
+            service=service,
+            site=site,
+            version=version,
+        )
+
+        jsii.create(self.__class__, self, [datadog_props])
+
+    @jsii.member(jsii_name="daemonTaskDefinition")
+    def daemon_task_definition(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        family: builtins.str,
+        agent_log_configuration: typing.Optional[typing.Union["ManagedInstancesLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cgroup_path: typing.Optional[builtins.str] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        create_daemon: typing.Optional[builtins.bool] = None,
+        cri_socket_path: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["DeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+        enable_execute_command: typing.Optional[builtins.bool] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
+        log_collection: typing.Optional[typing.Union["LogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        network_monitoring: typing.Optional[typing.Union["NetworkMonitoringFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
+        process_collection: typing.Optional[typing.Union["ProcessCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        proc_path: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        task_cpu: typing.Optional[builtins.str] = None,
+        task_memory: typing.Optional[builtins.str] = None,
+        task_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        volumes: typing.Optional[typing.Sequence[typing.Union["ManagedInstancesVolume", typing.Dict[builtins.str, typing.Any]]]] = None,
+        api_key: typing.Optional[builtins.str] = None,
+        api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
+        apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        checks_cardinality: typing.Optional["Cardinality"] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        cpu: typing.Optional[jsii.Number] = None,
+        datadog_health_check: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        dogstatsd: typing.Optional[typing.Union["DogstatsdFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        global_tags: typing.Optional[builtins.str] = None,
+        image_version: typing.Optional[builtins.str] = None,
+        is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+        is_datadog_essential: typing.Optional[builtins.bool] = None,
+        memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+        registry: typing.Optional[builtins.str] = None,
+        service: typing.Optional[builtins.str] = None,
+        site: typing.Optional[builtins.str] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> "DatadogECSManagedInstancesDaemonTaskDefinition":
+        '''Creates a new Datadog Agent daemon task definition (and, unless ``createDaemon`` is false, the daemon itself).
+
+        Merges the provided datadogProps with the class's datadogProps.
+
+        :param scope: -
+        :param id: -
+        :param family: A unique name for the daemon task definition family.
+        :param agent_log_configuration: Log configuration for the Datadog Agent container's OWN logs (not application container logs, which the agent cannot collect in daemon mode on ECS Managed Instances), e.g. routing to CloudWatch via the awslogs driver.
+        :param capacity_provider_arns: ARNs of ECS Managed Instances capacity providers the daemon should run on. Required if ``createDaemon`` is true. This construct does not create the capacity provider, infrastructure role, or instance profile - those must already exist.
+        :param cgroup_path: Path to the cgroup directory on the host. Default: "/sys/fs/cgroup/"
+        :param cluster_arn: ARN of the ECS cluster where the Datadog Agent daemon will run. Required if ``createDaemon`` is true.
+        :param create_daemon: Whether to create the ``AWS::ECS::Daemon`` resource. If false, only the daemon task definition is created. Default: true
+        :param cri_socket_path: Path to the containerd socket on the host. ECS Managed Instances uses containerd, not Docker. The socket is always mounted at ``/var/run/containerd/containerd.sock`` inside the Datadog Agent container. Default: "/var/run/containerd/containerd.sock"
+        :param daemon_name: Name of the ECS daemon. Default: ``${family}-datadog-agent``
+        :param deployment_configuration: Controls the daemon's rolling deployment behavior across instances. Any change to the daemon task definition - including something as small as a tag - forces a full replacement, and AWS's daemon deployment model drains and replaces every EC2 instance in the attached capacity provider(s). This block is write-only on the AWS side (not readable back from the API), so ``cdk diff`` will always show a diff here - that is expected.
+        :param enable_ecs_managed_tags: Enable ECS managed tags for the daemon. Default: true
+        :param enable_execute_command: Enable ECS Exec for daemon tasks. Default: false
+        :param execution_role: The IAM role that grants the Amazon ECS container agent permission to make AWS API calls. Created automatically if not provided.
+        :param ipc_mode: The IPC namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected).
+        :param log_collection: Log collection is not supported for the Datadog Agent running as an ECS Managed Daemon on ECS Managed Instances. Defining this property with ``isEnabled: true`` will cause construct validation to fail.
+        :param network_monitoring: Configuration for Datadog Cloud Network Monitoring. Linux only.
+        :param pid_mode: The PID namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected). DogStatsD/APM origin detection does not require this to be set: Datadog client libraries embed the container ID directly in the packet, which works the same way over UDS and TCP regardless of PID namespace configuration.
+        :param process_collection: Configuration for Datadog Live Process collection.
+        :param proc_path: Path to the /proc directory on the host. Default: "/proc/"
+        :param propagate_tags: Propagate tags to daemon tasks. Default: "DAEMON"
+        :param tags: A map of additional tags to add to the daemon task definition/daemon created.
+        :param task_cpu: Number of cpu units used by the daemon task, as a string (e.g. "256").
+        :param task_memory: Amount (in MiB) of memory used by the daemon task, as a string (e.g. "512").
+        :param task_role: The IAM role that allows the Datadog Agent container to make calls to other AWS services. Created automatically if not provided.
+        :param volumes: Additional host-path volumes to mount into the Datadog Agent container, beyond the ones this construct manages (containerd socket, /proc, /sys/fs/cgroup, UDS sockets, network monitoring debug mount).
+        :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
+        :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
+        :param apm: APM feature configuration.
+        :param checks_cardinality: The Datadog Agent checks tag cardinality.
+        :param cluster_name: The cluster name to use for tagging.
+        :param cpu: The minimum number of CPU units to reserve for the Datadog Agent container.
+        :param datadog_health_check: Configure health check for the Datadog Agent container.
+        :param dogstatsd: DogStatsD feature configuration.
+        :param env: The task environment name. Used for tagging (UST).
+        :param environment_variables: Datadog Agent environment variables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param image_version: The version of the Datadog Agent container image to use.
+        :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
+        :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
+        :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
+        :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
+        :param registry: The registry to pull the Datadog Agent container image from.
+        :param service: The task service name. Used for tagging (UST).
+        :param site: The Datadog site to send data to.
+        :param version: The task version. Used for tagging (UST).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a35501418922ebf14740929e93a7f360d2cb91db7d36200319df0cb9ff2d6e8b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        datadog_props = DatadogECSManagedInstancesProps(
+            family=family,
+            agent_log_configuration=agent_log_configuration,
+            capacity_provider_arns=capacity_provider_arns,
+            cgroup_path=cgroup_path,
+            cluster_arn=cluster_arn,
+            create_daemon=create_daemon,
+            cri_socket_path=cri_socket_path,
+            daemon_name=daemon_name,
+            deployment_configuration=deployment_configuration,
+            enable_ecs_managed_tags=enable_ecs_managed_tags,
+            enable_execute_command=enable_execute_command,
+            execution_role=execution_role,
+            ipc_mode=ipc_mode,
+            log_collection=log_collection,
+            network_monitoring=network_monitoring,
+            pid_mode=pid_mode,
+            process_collection=process_collection,
+            proc_path=proc_path,
+            propagate_tags=propagate_tags,
+            tags=tags,
+            task_cpu=task_cpu,
+            task_memory=task_memory,
+            task_role=task_role,
+            volumes=volumes,
+            api_key=api_key,
+            api_key_secret=api_key_secret,
+            api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
+            api_key_ssm_arn=api_key_ssm_arn,
+            apm=apm,
+            checks_cardinality=checks_cardinality,
+            cluster_name=cluster_name,
+            cpu=cpu,
+            datadog_health_check=datadog_health_check,
+            dogstatsd=dogstatsd,
+            env=env,
+            environment_variables=environment_variables,
+            global_tags=global_tags,
+            image_version=image_version,
+            is_datadog_dependency_enabled=is_datadog_dependency_enabled,
+            is_datadog_essential=is_datadog_essential,
+            memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
+            read_only_root_filesystem=read_only_root_filesystem,
+            registry=registry,
+            service=service,
+            site=site,
+            version=version,
+        )
+
+        return typing.cast("DatadogECSManagedInstancesDaemonTaskDefinition", jsii.invoke(self, "daemonTaskDefinition", [scope, id, datadog_props]))
+
+
+class DatadogECSManagedInstancesDaemonTaskDefinition(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="datadog-cdk-constructs-v2.DatadogECSManagedInstancesDaemonTaskDefinition",
+):
+    '''Deploys the Datadog Agent as an ECS Managed Daemon on ECS Managed Instances.
+
+    Unlike ``DatadogECSFargateTaskDefinition``, this construct does not extend an
+    AWS CDK L2 task definition class - ``AWS::ECS::DaemonTaskDefinition`` has no
+    L2 equivalent, and its container definition is a single value set at
+    construction rather than built incrementally via ``addContainer``. This is
+    inherent to the daemon deployment model, not a limitation relative to the
+    Fargate module: the daemon task definition holds only the Datadog Agent
+    container. Application containers run in their own, separate task
+    definitions and are wired to the daemon over the shared UDS socket volume
+    (see ``appDdSocketsVolume`` / ``appDdSocketsMountPoint``) or TCP (see
+    ``dogstatsdEnvironment`` / ``apmEnvironment``).
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        family: builtins.str,
+        agent_log_configuration: typing.Optional[typing.Union["ManagedInstancesLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cgroup_path: typing.Optional[builtins.str] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        create_daemon: typing.Optional[builtins.bool] = None,
+        cri_socket_path: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["DeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+        enable_execute_command: typing.Optional[builtins.bool] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
+        log_collection: typing.Optional[typing.Union["LogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        network_monitoring: typing.Optional[typing.Union["NetworkMonitoringFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
+        process_collection: typing.Optional[typing.Union["ProcessCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        proc_path: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        task_cpu: typing.Optional[builtins.str] = None,
+        task_memory: typing.Optional[builtins.str] = None,
+        task_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        volumes: typing.Optional[typing.Sequence[typing.Union["ManagedInstancesVolume", typing.Dict[builtins.str, typing.Any]]]] = None,
+        api_key: typing.Optional[builtins.str] = None,
+        api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
+        apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        checks_cardinality: typing.Optional["Cardinality"] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        cpu: typing.Optional[jsii.Number] = None,
+        datadog_health_check: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        dogstatsd: typing.Optional[typing.Union["DogstatsdFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        global_tags: typing.Optional[builtins.str] = None,
+        image_version: typing.Optional[builtins.str] = None,
+        is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+        is_datadog_essential: typing.Optional[builtins.bool] = None,
+        memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+        registry: typing.Optional[builtins.str] = None,
+        service: typing.Optional[builtins.str] = None,
+        site: typing.Optional[builtins.str] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param family: A unique name for the daemon task definition family.
+        :param agent_log_configuration: Log configuration for the Datadog Agent container's OWN logs (not application container logs, which the agent cannot collect in daemon mode on ECS Managed Instances), e.g. routing to CloudWatch via the awslogs driver.
+        :param capacity_provider_arns: ARNs of ECS Managed Instances capacity providers the daemon should run on. Required if ``createDaemon`` is true. This construct does not create the capacity provider, infrastructure role, or instance profile - those must already exist.
+        :param cgroup_path: Path to the cgroup directory on the host. Default: "/sys/fs/cgroup/"
+        :param cluster_arn: ARN of the ECS cluster where the Datadog Agent daemon will run. Required if ``createDaemon`` is true.
+        :param create_daemon: Whether to create the ``AWS::ECS::Daemon`` resource. If false, only the daemon task definition is created. Default: true
+        :param cri_socket_path: Path to the containerd socket on the host. ECS Managed Instances uses containerd, not Docker. The socket is always mounted at ``/var/run/containerd/containerd.sock`` inside the Datadog Agent container. Default: "/var/run/containerd/containerd.sock"
+        :param daemon_name: Name of the ECS daemon. Default: ``${family}-datadog-agent``
+        :param deployment_configuration: Controls the daemon's rolling deployment behavior across instances. Any change to the daemon task definition - including something as small as a tag - forces a full replacement, and AWS's daemon deployment model drains and replaces every EC2 instance in the attached capacity provider(s). This block is write-only on the AWS side (not readable back from the API), so ``cdk diff`` will always show a diff here - that is expected.
+        :param enable_ecs_managed_tags: Enable ECS managed tags for the daemon. Default: true
+        :param enable_execute_command: Enable ECS Exec for daemon tasks. Default: false
+        :param execution_role: The IAM role that grants the Amazon ECS container agent permission to make AWS API calls. Created automatically if not provided.
+        :param ipc_mode: The IPC namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected).
+        :param log_collection: Log collection is not supported for the Datadog Agent running as an ECS Managed Daemon on ECS Managed Instances. Defining this property with ``isEnabled: true`` will cause construct validation to fail.
+        :param network_monitoring: Configuration for Datadog Cloud Network Monitoring. Linux only.
+        :param pid_mode: The PID namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected). DogStatsD/APM origin detection does not require this to be set: Datadog client libraries embed the container ID directly in the packet, which works the same way over UDS and TCP regardless of PID namespace configuration.
+        :param process_collection: Configuration for Datadog Live Process collection.
+        :param proc_path: Path to the /proc directory on the host. Default: "/proc/"
+        :param propagate_tags: Propagate tags to daemon tasks. Default: "DAEMON"
+        :param tags: A map of additional tags to add to the daemon task definition/daemon created.
+        :param task_cpu: Number of cpu units used by the daemon task, as a string (e.g. "256").
+        :param task_memory: Amount (in MiB) of memory used by the daemon task, as a string (e.g. "512").
+        :param task_role: The IAM role that allows the Datadog Agent container to make calls to other AWS services. Created automatically if not provided.
+        :param volumes: Additional host-path volumes to mount into the Datadog Agent container, beyond the ones this construct manages (containerd socket, /proc, /sys/fs/cgroup, UDS sockets, network monitoring debug mount).
+        :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
+        :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
+        :param apm: APM feature configuration.
+        :param checks_cardinality: The Datadog Agent checks tag cardinality.
+        :param cluster_name: The cluster name to use for tagging.
+        :param cpu: The minimum number of CPU units to reserve for the Datadog Agent container.
+        :param datadog_health_check: Configure health check for the Datadog Agent container.
+        :param dogstatsd: DogStatsD feature configuration.
+        :param env: The task environment name. Used for tagging (UST).
+        :param environment_variables: Datadog Agent environment variables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param image_version: The version of the Datadog Agent container image to use.
+        :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
+        :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
+        :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
+        :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
+        :param registry: The registry to pull the Datadog Agent container image from.
+        :param service: The task service name. Used for tagging (UST).
+        :param site: The Datadog site to send data to.
+        :param version: The task version. Used for tagging (UST).
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cdd4af5972b166bfe3bd21e767318aed0442fb095d755a77b7bf1441694876df)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        datadog_props = DatadogECSManagedInstancesProps(
+            family=family,
+            agent_log_configuration=agent_log_configuration,
+            capacity_provider_arns=capacity_provider_arns,
+            cgroup_path=cgroup_path,
+            cluster_arn=cluster_arn,
+            create_daemon=create_daemon,
+            cri_socket_path=cri_socket_path,
+            daemon_name=daemon_name,
+            deployment_configuration=deployment_configuration,
+            enable_ecs_managed_tags=enable_ecs_managed_tags,
+            enable_execute_command=enable_execute_command,
+            execution_role=execution_role,
+            ipc_mode=ipc_mode,
+            log_collection=log_collection,
+            network_monitoring=network_monitoring,
+            pid_mode=pid_mode,
+            process_collection=process_collection,
+            proc_path=proc_path,
+            propagate_tags=propagate_tags,
+            tags=tags,
+            task_cpu=task_cpu,
+            task_memory=task_memory,
+            task_role=task_role,
+            volumes=volumes,
+            api_key=api_key,
+            api_key_secret=api_key_secret,
+            api_key_secret_arn=api_key_secret_arn,
+            api_key_secret_field=api_key_secret_field,
+            api_key_ssm_arn=api_key_ssm_arn,
+            apm=apm,
+            checks_cardinality=checks_cardinality,
+            cluster_name=cluster_name,
+            cpu=cpu,
+            datadog_health_check=datadog_health_check,
+            dogstatsd=dogstatsd,
+            env=env,
+            environment_variables=environment_variables,
+            global_tags=global_tags,
+            image_version=image_version,
+            is_datadog_dependency_enabled=is_datadog_dependency_enabled,
+            is_datadog_essential=is_datadog_essential,
+            memory_limit_mib=memory_limit_mib,
+            orchestrator_explorer=orchestrator_explorer,
+            read_only_root_filesystem=read_only_root_filesystem,
+            registry=registry,
+            service=service,
+            site=site,
+            version=version,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, datadog_props])
+
+    @builtins.property
+    @jsii.member(jsii_name="apmEnvironment")
+    def apm_environment(
+        self,
+    ) -> typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"]:
+        '''Environment variables for APM in application containers.
+
+        Includes the
+        trace agent URL (the Agent socket when UDS is in use, otherwise the daemon
+        bridge address), ``DD_PROFILING_ENABLED`` when
+        ``apm.isProfilingEnabled`` is set, and ``DD_TRACE_INFERRED_PROXY_SERVICES_ENABLED``
+        when ``apm.traceInferredProxyServices`` is set. Empty unless APM is enabled.
+        '''
+        return typing.cast(typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"], jsii.get(self, "apmEnvironment"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dataStreamsEnvironment")
+    def data_streams_environment(
+        self,
+    ) -> typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"]:
+        '''Environment variables for Data Streams Monitoring in application containers.
+
+        Empty unless APM and ``apm.dataStreams`` are both enabled.
+        Data Streams Monitoring is an application/tracer-side feature - this is
+        for the application container that produces or consumes messages, not
+        the Datadog Agent container.
+        '''
+        return typing.cast(typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"], jsii.get(self, "dataStreamsEnvironment"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dogstatsdEnvironment")
+    def dogstatsd_environment(
+        self,
+    ) -> typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"]:
+        '''Environment variables for DogStatsD in application containers.
+
+        Empty
+        unless DogStatsD is enabled. Points the application at the Agent socket
+        when UDS is in use, or at the daemon bridge address when it is not.
+        '''
+        return typing.cast(typing.List["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.KeyValuePairProperty"], jsii.get(self, "dogstatsdEnvironment"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRole")
+    def execution_role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''The IAM role used by ECS to pull the Datadog Agent image and access secrets.'''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "executionRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="taskDefinition")
+    def task_definition(self) -> "_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition":
+        '''The underlying ``AWS::ECS::DaemonTaskDefinition`` resource.'''
+        return typing.cast("_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition", jsii.get(self, "taskDefinition"))
+
+    @builtins.property
+    @jsii.member(jsii_name="taskRole")
+    def task_role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
+        '''The IAM role used by the Datadog Agent container to make AWS API calls.'''
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "taskRole"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appDdSocketsMountPoint")
+    def app_dd_sockets_mount_point(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.MountPointProperty"]:
+        '''Mount point for the shared UDS socket directory.
+
+        Add this to an
+        application container's mountPoints. Only defined when UDS is required.
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.MountPointProperty"], jsii.get(self, "appDdSocketsMountPoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="appDdSocketsVolume")
+    def app_dd_sockets_volume(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.VolumeProperty"]:
+        '''Volume definition for the shared UDS socket directory.
+
+        Add this to an
+        application task definition's volumes to enable UDS communication with
+        the Datadog Agent daemon. Only defined when UDS is required.
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemonTaskDefinition.VolumeProperty"], jsii.get(self, "appDdSocketsVolume"))
+
+    @builtins.property
+    @jsii.member(jsii_name="daemon")
+    def daemon(self) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemon"]:
+        '''The underlying ``AWS::ECS::Daemon`` resource.
+
+        Only defined if ``createDaemon`` is true.
+        '''
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.CfnDaemon"], jsii.get(self, "daemon"))
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.DatadogECSManagedInstancesProps",
+    jsii_struct_bases=[DatadogECSBaseProps],
+    name_mapping={
+        "api_key": "apiKey",
+        "api_key_secret": "apiKeySecret",
+        "api_key_secret_arn": "apiKeySecretArn",
+        "api_key_secret_field": "apiKeySecretField",
+        "api_key_ssm_arn": "apiKeySsmArn",
+        "apm": "apm",
+        "checks_cardinality": "checksCardinality",
+        "cluster_name": "clusterName",
+        "cpu": "cpu",
+        "datadog_health_check": "datadogHealthCheck",
+        "dogstatsd": "dogstatsd",
+        "env": "env",
+        "environment_variables": "environmentVariables",
+        "global_tags": "globalTags",
+        "image_version": "imageVersion",
+        "is_datadog_dependency_enabled": "isDatadogDependencyEnabled",
+        "is_datadog_essential": "isDatadogEssential",
+        "memory_limit_mib": "memoryLimitMiB",
+        "orchestrator_explorer": "orchestratorExplorer",
+        "read_only_root_filesystem": "readOnlyRootFilesystem",
+        "registry": "registry",
+        "service": "service",
+        "site": "site",
+        "version": "version",
+        "family": "family",
+        "agent_log_configuration": "agentLogConfiguration",
+        "capacity_provider_arns": "capacityProviderArns",
+        "cgroup_path": "cgroupPath",
+        "cluster_arn": "clusterArn",
+        "create_daemon": "createDaemon",
+        "cri_socket_path": "criSocketPath",
+        "daemon_name": "daemonName",
+        "deployment_configuration": "deploymentConfiguration",
+        "enable_ecs_managed_tags": "enableEcsManagedTags",
+        "enable_execute_command": "enableExecuteCommand",
+        "execution_role": "executionRole",
+        "ipc_mode": "ipcMode",
+        "log_collection": "logCollection",
+        "network_monitoring": "networkMonitoring",
+        "pid_mode": "pidMode",
+        "process_collection": "processCollection",
+        "proc_path": "procPath",
+        "propagate_tags": "propagateTags",
+        "tags": "tags",
+        "task_cpu": "taskCpu",
+        "task_memory": "taskMemory",
+        "task_role": "taskRole",
+        "volumes": "volumes",
+    },
+)
+class DatadogECSManagedInstancesProps(DatadogECSBaseProps):
+    def __init__(
+        self,
+        *,
+        api_key: typing.Optional[builtins.str] = None,
+        api_key_secret: typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"] = None,
+        api_key_secret_arn: typing.Optional[builtins.str] = None,
+        api_key_secret_field: typing.Optional[builtins.str] = None,
+        api_key_ssm_arn: typing.Optional[builtins.str] = None,
+        apm: typing.Optional[typing.Union["APMFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        checks_cardinality: typing.Optional["Cardinality"] = None,
+        cluster_name: typing.Optional[builtins.str] = None,
+        cpu: typing.Optional[jsii.Number] = None,
+        datadog_health_check: typing.Optional[typing.Union["_aws_cdk_aws_ecs_ceddda9d.HealthCheck", typing.Dict[builtins.str, typing.Any]]] = None,
+        dogstatsd: typing.Optional[typing.Union["DogstatsdFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        env: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        global_tags: typing.Optional[builtins.str] = None,
+        image_version: typing.Optional[builtins.str] = None,
+        is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+        is_datadog_essential: typing.Optional[builtins.bool] = None,
+        memory_limit_mib: typing.Optional[jsii.Number] = None,
+        orchestrator_explorer: typing.Optional[typing.Union["OrchestratorExplorerFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+        registry: typing.Optional[builtins.str] = None,
+        service: typing.Optional[builtins.str] = None,
+        site: typing.Optional[builtins.str] = None,
+        version: typing.Optional[builtins.str] = None,
+        family: builtins.str,
+        agent_log_configuration: typing.Optional[typing.Union["ManagedInstancesLogConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cgroup_path: typing.Optional[builtins.str] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        create_daemon: typing.Optional[builtins.bool] = None,
+        cri_socket_path: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["DeploymentConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+        enable_execute_command: typing.Optional[builtins.bool] = None,
+        execution_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
+        log_collection: typing.Optional[typing.Union["LogCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        network_monitoring: typing.Optional[typing.Union["NetworkMonitoringFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
+        process_collection: typing.Optional[typing.Union["ProcessCollectionFeatureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        proc_path: typing.Optional[builtins.str] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        task_cpu: typing.Optional[builtins.str] = None,
+        task_memory: typing.Optional[builtins.str] = None,
+        task_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        volumes: typing.Optional[typing.Sequence[typing.Union["ManagedInstancesVolume", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param api_key: The Datadog API key string. Must define at least 1 source for the API key.
+        :param api_key_secret: The Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_arn: The ARN of the Datadog API key secret. Must define at least 1 source for the API key.
+        :param api_key_secret_field: The JSON field to read from the Datadog API key secret in Secrets Manager. Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        :param api_key_ssm_arn: The ARN of the Datadog API key in SSM Parameter Store. Must define at least 1 source for the API key.
+        :param apm: APM feature configuration.
+        :param checks_cardinality: The Datadog Agent checks tag cardinality.
+        :param cluster_name: The cluster name to use for tagging.
+        :param cpu: The minimum number of CPU units to reserve for the Datadog Agent container.
+        :param datadog_health_check: Configure health check for the Datadog Agent container.
+        :param dogstatsd: DogStatsD feature configuration.
+        :param env: The task environment name. Used for tagging (UST).
+        :param environment_variables: Datadog Agent environment variables.
+        :param global_tags: Global tags to apply to all data sent by the Agent. Overrides any DD_TAGS values in environmentVariables.
+        :param image_version: The version of the Datadog Agent container image to use.
+        :param is_datadog_dependency_enabled: Configure added containers to have container dependency on the Datadog Agent container.
+        :param is_datadog_essential: Configure Datadog Agent container to be essential for the task.
+        :param memory_limit_mib: The amount (in MiB) of memory to present to the Datadog Agent container.
+        :param orchestrator_explorer: Orchestrator Explorer feature configuration.
+        :param read_only_root_filesystem: Configure Datadog Agent container to run with read-only root filesystem enabled.
+        :param registry: The registry to pull the Datadog Agent container image from.
+        :param service: The task service name. Used for tagging (UST).
+        :param site: The Datadog site to send data to.
+        :param version: The task version. Used for tagging (UST).
+        :param family: A unique name for the daemon task definition family.
+        :param agent_log_configuration: Log configuration for the Datadog Agent container's OWN logs (not application container logs, which the agent cannot collect in daemon mode on ECS Managed Instances), e.g. routing to CloudWatch via the awslogs driver.
+        :param capacity_provider_arns: ARNs of ECS Managed Instances capacity providers the daemon should run on. Required if ``createDaemon`` is true. This construct does not create the capacity provider, infrastructure role, or instance profile - those must already exist.
+        :param cgroup_path: Path to the cgroup directory on the host. Default: "/sys/fs/cgroup/"
+        :param cluster_arn: ARN of the ECS cluster where the Datadog Agent daemon will run. Required if ``createDaemon`` is true.
+        :param create_daemon: Whether to create the ``AWS::ECS::Daemon`` resource. If false, only the daemon task definition is created. Default: true
+        :param cri_socket_path: Path to the containerd socket on the host. ECS Managed Instances uses containerd, not Docker. The socket is always mounted at ``/var/run/containerd/containerd.sock`` inside the Datadog Agent container. Default: "/var/run/containerd/containerd.sock"
+        :param daemon_name: Name of the ECS daemon. Default: ``${family}-datadog-agent``
+        :param deployment_configuration: Controls the daemon's rolling deployment behavior across instances. Any change to the daemon task definition - including something as small as a tag - forces a full replacement, and AWS's daemon deployment model drains and replaces every EC2 instance in the attached capacity provider(s). This block is write-only on the AWS side (not readable back from the API), so ``cdk diff`` will always show a diff here - that is expected.
+        :param enable_ecs_managed_tags: Enable ECS managed tags for the daemon. Default: true
+        :param enable_execute_command: Enable ECS Exec for daemon tasks. Default: false
+        :param execution_role: The IAM role that grants the Amazon ECS container agent permission to make AWS API calls. Created automatically if not provided.
+        :param ipc_mode: The IPC namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected).
+        :param log_collection: Log collection is not supported for the Datadog Agent running as an ECS Managed Daemon on ECS Managed Instances. Defining this property with ``isEnabled: true`` will cause construct validation to fail.
+        :param network_monitoring: Configuration for Datadog Cloud Network Monitoring. Linux only.
+        :param pid_mode: The PID namespace mode for the daemon task. AWS only accepts ``shared`` or ``none`` for a daemon task definition (``host`` is rejected). DogStatsD/APM origin detection does not require this to be set: Datadog client libraries embed the container ID directly in the packet, which works the same way over UDS and TCP regardless of PID namespace configuration.
+        :param process_collection: Configuration for Datadog Live Process collection.
+        :param proc_path: Path to the /proc directory on the host. Default: "/proc/"
+        :param propagate_tags: Propagate tags to daemon tasks. Default: "DAEMON"
+        :param tags: A map of additional tags to add to the daemon task definition/daemon created.
+        :param task_cpu: Number of cpu units used by the daemon task, as a string (e.g. "256").
+        :param task_memory: Amount (in MiB) of memory used by the daemon task, as a string (e.g. "512").
+        :param task_role: The IAM role that allows the Datadog Agent container to make calls to other AWS services. Created automatically if not provided.
+        :param volumes: Additional host-path volumes to mount into the Datadog Agent container, beyond the ones this construct manages (containerd socket, /proc, /sys/fs/cgroup, UDS sockets, network monitoring debug mount).
+        '''
+        if isinstance(apm, dict):
+            apm = APMFeatureConfig(**apm)
+        if isinstance(datadog_health_check, dict):
+            datadog_health_check = _aws_cdk_aws_ecs_ceddda9d.HealthCheck(**datadog_health_check)
+        if isinstance(dogstatsd, dict):
+            dogstatsd = DogstatsdFeatureConfig(**dogstatsd)
+        if isinstance(orchestrator_explorer, dict):
+            orchestrator_explorer = OrchestratorExplorerFeatureConfig(**orchestrator_explorer)
+        if isinstance(agent_log_configuration, dict):
+            agent_log_configuration = ManagedInstancesLogConfiguration(**agent_log_configuration)
+        if isinstance(deployment_configuration, dict):
+            deployment_configuration = DeploymentConfiguration(**deployment_configuration)
+        if isinstance(log_collection, dict):
+            log_collection = LogCollectionFeatureConfig(**log_collection)
+        if isinstance(network_monitoring, dict):
+            network_monitoring = NetworkMonitoringFeatureConfig(**network_monitoring)
+        if isinstance(process_collection, dict):
+            process_collection = ProcessCollectionFeatureConfig(**process_collection)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3607ae6b82e8de36bfd2b066d3578da45a60809530a6902d3f7556bab65f1f5e)
+            check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
+            check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+            check_type(argname="argument api_key_secret_field", value=api_key_secret_field, expected_type=type_hints["api_key_secret_field"])
+            check_type(argname="argument api_key_ssm_arn", value=api_key_ssm_arn, expected_type=type_hints["api_key_ssm_arn"])
+            check_type(argname="argument apm", value=apm, expected_type=type_hints["apm"])
+            check_type(argname="argument checks_cardinality", value=checks_cardinality, expected_type=type_hints["checks_cardinality"])
+            check_type(argname="argument cluster_name", value=cluster_name, expected_type=type_hints["cluster_name"])
+            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
+            check_type(argname="argument datadog_health_check", value=datadog_health_check, expected_type=type_hints["datadog_health_check"])
+            check_type(argname="argument dogstatsd", value=dogstatsd, expected_type=type_hints["dogstatsd"])
+            check_type(argname="argument env", value=env, expected_type=type_hints["env"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument global_tags", value=global_tags, expected_type=type_hints["global_tags"])
+            check_type(argname="argument image_version", value=image_version, expected_type=type_hints["image_version"])
+            check_type(argname="argument is_datadog_dependency_enabled", value=is_datadog_dependency_enabled, expected_type=type_hints["is_datadog_dependency_enabled"])
+            check_type(argname="argument is_datadog_essential", value=is_datadog_essential, expected_type=type_hints["is_datadog_essential"])
+            check_type(argname="argument memory_limit_mib", value=memory_limit_mib, expected_type=type_hints["memory_limit_mib"])
+            check_type(argname="argument orchestrator_explorer", value=orchestrator_explorer, expected_type=type_hints["orchestrator_explorer"])
+            check_type(argname="argument read_only_root_filesystem", value=read_only_root_filesystem, expected_type=type_hints["read_only_root_filesystem"])
+            check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+            check_type(argname="argument site", value=site, expected_type=type_hints["site"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument agent_log_configuration", value=agent_log_configuration, expected_type=type_hints["agent_log_configuration"])
+            check_type(argname="argument capacity_provider_arns", value=capacity_provider_arns, expected_type=type_hints["capacity_provider_arns"])
+            check_type(argname="argument cgroup_path", value=cgroup_path, expected_type=type_hints["cgroup_path"])
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument create_daemon", value=create_daemon, expected_type=type_hints["create_daemon"])
+            check_type(argname="argument cri_socket_path", value=cri_socket_path, expected_type=type_hints["cri_socket_path"])
+            check_type(argname="argument daemon_name", value=daemon_name, expected_type=type_hints["daemon_name"])
+            check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
+            check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
+            check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument execution_role", value=execution_role, expected_type=type_hints["execution_role"])
+            check_type(argname="argument ipc_mode", value=ipc_mode, expected_type=type_hints["ipc_mode"])
+            check_type(argname="argument log_collection", value=log_collection, expected_type=type_hints["log_collection"])
+            check_type(argname="argument network_monitoring", value=network_monitoring, expected_type=type_hints["network_monitoring"])
+            check_type(argname="argument pid_mode", value=pid_mode, expected_type=type_hints["pid_mode"])
+            check_type(argname="argument process_collection", value=process_collection, expected_type=type_hints["process_collection"])
+            check_type(argname="argument proc_path", value=proc_path, expected_type=type_hints["proc_path"])
+            check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument task_cpu", value=task_cpu, expected_type=type_hints["task_cpu"])
+            check_type(argname="argument task_memory", value=task_memory, expected_type=type_hints["task_memory"])
+            check_type(argname="argument task_role", value=task_role, expected_type=type_hints["task_role"])
+            check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "family": family,
+        }
+        if api_key is not None:
+            self._values["api_key"] = api_key
+        if api_key_secret is not None:
+            self._values["api_key_secret"] = api_key_secret
+        if api_key_secret_arn is not None:
+            self._values["api_key_secret_arn"] = api_key_secret_arn
+        if api_key_secret_field is not None:
+            self._values["api_key_secret_field"] = api_key_secret_field
+        if api_key_ssm_arn is not None:
+            self._values["api_key_ssm_arn"] = api_key_ssm_arn
+        if apm is not None:
+            self._values["apm"] = apm
+        if checks_cardinality is not None:
+            self._values["checks_cardinality"] = checks_cardinality
+        if cluster_name is not None:
+            self._values["cluster_name"] = cluster_name
+        if cpu is not None:
+            self._values["cpu"] = cpu
+        if datadog_health_check is not None:
+            self._values["datadog_health_check"] = datadog_health_check
+        if dogstatsd is not None:
+            self._values["dogstatsd"] = dogstatsd
+        if env is not None:
+            self._values["env"] = env
+        if environment_variables is not None:
+            self._values["environment_variables"] = environment_variables
+        if global_tags is not None:
+            self._values["global_tags"] = global_tags
+        if image_version is not None:
+            self._values["image_version"] = image_version
+        if is_datadog_dependency_enabled is not None:
+            self._values["is_datadog_dependency_enabled"] = is_datadog_dependency_enabled
+        if is_datadog_essential is not None:
+            self._values["is_datadog_essential"] = is_datadog_essential
+        if memory_limit_mib is not None:
+            self._values["memory_limit_mib"] = memory_limit_mib
+        if orchestrator_explorer is not None:
+            self._values["orchestrator_explorer"] = orchestrator_explorer
+        if read_only_root_filesystem is not None:
+            self._values["read_only_root_filesystem"] = read_only_root_filesystem
+        if registry is not None:
+            self._values["registry"] = registry
+        if service is not None:
+            self._values["service"] = service
+        if site is not None:
+            self._values["site"] = site
+        if version is not None:
+            self._values["version"] = version
+        if agent_log_configuration is not None:
+            self._values["agent_log_configuration"] = agent_log_configuration
+        if capacity_provider_arns is not None:
+            self._values["capacity_provider_arns"] = capacity_provider_arns
+        if cgroup_path is not None:
+            self._values["cgroup_path"] = cgroup_path
+        if cluster_arn is not None:
+            self._values["cluster_arn"] = cluster_arn
+        if create_daemon is not None:
+            self._values["create_daemon"] = create_daemon
+        if cri_socket_path is not None:
+            self._values["cri_socket_path"] = cri_socket_path
+        if daemon_name is not None:
+            self._values["daemon_name"] = daemon_name
+        if deployment_configuration is not None:
+            self._values["deployment_configuration"] = deployment_configuration
+        if enable_ecs_managed_tags is not None:
+            self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
+        if enable_execute_command is not None:
+            self._values["enable_execute_command"] = enable_execute_command
+        if execution_role is not None:
+            self._values["execution_role"] = execution_role
+        if ipc_mode is not None:
+            self._values["ipc_mode"] = ipc_mode
+        if log_collection is not None:
+            self._values["log_collection"] = log_collection
+        if network_monitoring is not None:
+            self._values["network_monitoring"] = network_monitoring
+        if pid_mode is not None:
+            self._values["pid_mode"] = pid_mode
+        if process_collection is not None:
+            self._values["process_collection"] = process_collection
+        if proc_path is not None:
+            self._values["proc_path"] = proc_path
+        if propagate_tags is not None:
+            self._values["propagate_tags"] = propagate_tags
+        if tags is not None:
+            self._values["tags"] = tags
+        if task_cpu is not None:
+            self._values["task_cpu"] = task_cpu
+        if task_memory is not None:
+            self._values["task_memory"] = task_memory
+        if task_role is not None:
+            self._values["task_role"] = task_role
+        if volumes is not None:
+            self._values["volumes"] = volumes
+
+    @builtins.property
+    def api_key(self) -> typing.Optional[builtins.str]:
+        '''The Datadog API key string.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_secret(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"]:
+        '''The Datadog API key secret.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key_secret")
+        return typing.cast(typing.Optional["_aws_cdk_aws_secretsmanager_ceddda9d.ISecret"], result)
+
+    @builtins.property
+    def api_key_secret_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the Datadog API key secret.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key_secret_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_secret_field(self) -> typing.Optional[builtins.str]:
+        '''The JSON field to read from the Datadog API key secret in Secrets Manager.
+
+        Applies to ``apiKeySecret`` and ``apiKeySecretArn``.
+        '''
+        result = self._values.get("api_key_secret_field")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_ssm_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the Datadog API key in SSM Parameter Store.
+
+        Must define at least 1 source for the API key.
+        '''
+        result = self._values.get("api_key_ssm_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def apm(self) -> typing.Optional["APMFeatureConfig"]:
+        '''APM feature configuration.'''
+        result = self._values.get("apm")
+        return typing.cast(typing.Optional["APMFeatureConfig"], result)
+
+    @builtins.property
+    def checks_cardinality(self) -> typing.Optional["Cardinality"]:
+        '''The Datadog Agent checks tag cardinality.'''
+        result = self._values.get("checks_cardinality")
+        return typing.cast(typing.Optional["Cardinality"], result)
+
+    @builtins.property
+    def cluster_name(self) -> typing.Optional[builtins.str]:
+        '''The cluster name to use for tagging.'''
+        result = self._values.get("cluster_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cpu(self) -> typing.Optional[jsii.Number]:
+        '''The minimum number of CPU units to reserve for the Datadog Agent container.'''
+        result = self._values.get("cpu")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def datadog_health_check(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ecs_ceddda9d.HealthCheck"]:
+        '''Configure health check for the Datadog Agent container.'''
+        result = self._values.get("datadog_health_check")
+        return typing.cast(typing.Optional["_aws_cdk_aws_ecs_ceddda9d.HealthCheck"], result)
+
+    @builtins.property
+    def dogstatsd(self) -> typing.Optional["DogstatsdFeatureConfig"]:
+        '''DogStatsD feature configuration.'''
+        result = self._values.get("dogstatsd")
+        return typing.cast(typing.Optional["DogstatsdFeatureConfig"], result)
+
+    @builtins.property
+    def env(self) -> typing.Optional[builtins.str]:
+        '''The task environment name.
+
+        Used for tagging (UST).
+        '''
+        result = self._values.get("env")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Datadog Agent environment variables.'''
+        result = self._values.get("environment_variables")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def global_tags(self) -> typing.Optional[builtins.str]:
+        '''Global tags to apply to all data sent by the Agent.
+
+        Overrides any DD_TAGS values in environmentVariables.
+        '''
+        result = self._values.get("global_tags")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def image_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the Datadog Agent container image to use.'''
+        result = self._values.get("image_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def is_datadog_dependency_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Configure added containers to have container dependency on the Datadog Agent container.'''
+        result = self._values.get("is_datadog_dependency_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def is_datadog_essential(self) -> typing.Optional[builtins.bool]:
+        '''Configure Datadog Agent container to be essential for the task.'''
+        result = self._values.get("is_datadog_essential")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def memory_limit_mib(self) -> typing.Optional[jsii.Number]:
+        '''The amount (in MiB) of memory to present to the Datadog Agent container.'''
+        result = self._values.get("memory_limit_mib")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def orchestrator_explorer(
+        self,
+    ) -> typing.Optional["OrchestratorExplorerFeatureConfig"]:
+        '''Orchestrator Explorer feature configuration.'''
+        result = self._values.get("orchestrator_explorer")
+        return typing.cast(typing.Optional["OrchestratorExplorerFeatureConfig"], result)
+
+    @builtins.property
+    def read_only_root_filesystem(self) -> typing.Optional[builtins.bool]:
+        '''Configure Datadog Agent container to run with read-only root filesystem enabled.'''
+        result = self._values.get("read_only_root_filesystem")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def registry(self) -> typing.Optional[builtins.str]:
+        '''The registry to pull the Datadog Agent container image from.'''
+        result = self._values.get("registry")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service(self) -> typing.Optional[builtins.str]:
+        '''The task service name.
+
+        Used for tagging (UST).
+        '''
+        result = self._values.get("service")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def site(self) -> typing.Optional[builtins.str]:
+        '''The Datadog site to send data to.'''
+        result = self._values.get("site")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''The task version.
+
+        Used for tagging (UST).
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def family(self) -> builtins.str:
+        '''A unique name for the daemon task definition family.'''
+        result = self._values.get("family")
+        assert result is not None, "Required property 'family' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def agent_log_configuration(
+        self,
+    ) -> typing.Optional["ManagedInstancesLogConfiguration"]:
+        '''Log configuration for the Datadog Agent container's OWN logs (not application container logs, which the agent cannot collect in daemon mode on ECS Managed Instances), e.g. routing to CloudWatch via the awslogs driver.'''
+        result = self._values.get("agent_log_configuration")
+        return typing.cast(typing.Optional["ManagedInstancesLogConfiguration"], result)
+
+    @builtins.property
+    def capacity_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''ARNs of ECS Managed Instances capacity providers the daemon should run on.
+
+        Required if ``createDaemon`` is true. This construct does not create the
+        capacity provider, infrastructure role, or instance profile - those must
+        already exist.
+        '''
+        result = self._values.get("capacity_provider_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cgroup_path(self) -> typing.Optional[builtins.str]:
+        '''Path to the cgroup directory on the host.
+
+        :default: "/sys/fs/cgroup/"
+        '''
+        result = self._values.get("cgroup_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''ARN of the ECS cluster where the Datadog Agent daemon will run.
+
+        Required if ``createDaemon`` is true.
+        '''
+        result = self._values.get("cluster_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def create_daemon(self) -> typing.Optional[builtins.bool]:
+        '''Whether to create the ``AWS::ECS::Daemon`` resource.
+
+        If false, only the
+        daemon task definition is created.
+
+        :default: true
+        '''
+        result = self._values.get("create_daemon")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def cri_socket_path(self) -> typing.Optional[builtins.str]:
+        '''Path to the containerd socket on the host.
+
+        ECS Managed Instances uses
+        containerd, not Docker. The socket is always mounted at
+        ``/var/run/containerd/containerd.sock`` inside the Datadog Agent container.
+
+        :default: "/var/run/containerd/containerd.sock"
+        '''
+        result = self._values.get("cri_socket_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def daemon_name(self) -> typing.Optional[builtins.str]:
+        '''Name of the ECS daemon.
+
+        :default: ``${family}-datadog-agent``
+        '''
+        result = self._values.get("daemon_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_configuration(self) -> typing.Optional["DeploymentConfiguration"]:
+        '''Controls the daemon's rolling deployment behavior across instances.
+
+        Any
+        change to the daemon task definition - including something as small as a
+        tag - forces a full replacement, and AWS's daemon deployment model drains
+        and replaces every EC2 instance in the attached capacity provider(s). This
+        block is write-only on the AWS side (not readable back from the API), so
+        ``cdk diff`` will always show a diff here - that is expected.
+        '''
+        result = self._values.get("deployment_configuration")
+        return typing.cast(typing.Optional["DeploymentConfiguration"], result)
+
+    @builtins.property
+    def enable_ecs_managed_tags(self) -> typing.Optional[builtins.bool]:
+        '''Enable ECS managed tags for the daemon.
+
+        :default: true
+        '''
+        result = self._values.get("enable_ecs_managed_tags")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_execute_command(self) -> typing.Optional[builtins.bool]:
+        '''Enable ECS Exec for daemon tasks.
+
+        :default: false
+        '''
+        result = self._values.get("enable_execute_command")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def execution_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''The IAM role that grants the Amazon ECS container agent permission to make AWS API calls.
+
+        Created automatically if not provided.
+        '''
+        result = self._values.get("execution_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
+
+    @builtins.property
+    def ipc_mode(self) -> typing.Optional[builtins.str]:
+        '''The IPC namespace mode for the daemon task.
+
+        AWS only accepts ``shared`` or
+        ``none`` for a daemon task definition (``host`` is rejected).
+        '''
+        result = self._values.get("ipc_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def log_collection(self) -> typing.Optional["LogCollectionFeatureConfig"]:
+        '''Log collection is not supported for the Datadog Agent running as an ECS Managed Daemon on ECS Managed Instances.
+
+        Defining this property with
+        ``isEnabled: true`` will cause construct validation to fail.
+        '''
+        result = self._values.get("log_collection")
+        return typing.cast(typing.Optional["LogCollectionFeatureConfig"], result)
+
+    @builtins.property
+    def network_monitoring(self) -> typing.Optional["NetworkMonitoringFeatureConfig"]:
+        '''Configuration for Datadog Cloud Network Monitoring.
+
+        Linux only.
+        '''
+        result = self._values.get("network_monitoring")
+        return typing.cast(typing.Optional["NetworkMonitoringFeatureConfig"], result)
+
+    @builtins.property
+    def pid_mode(self) -> typing.Optional[builtins.str]:
+        '''The PID namespace mode for the daemon task.
+
+        AWS only accepts ``shared`` or
+        ``none`` for a daemon task definition (``host`` is rejected). DogStatsD/APM
+        origin detection does not require this to be set: Datadog client
+        libraries embed the container ID directly in the packet, which works the
+        same way over UDS and TCP regardless of PID namespace configuration.
+        '''
+        result = self._values.get("pid_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def process_collection(self) -> typing.Optional["ProcessCollectionFeatureConfig"]:
+        '''Configuration for Datadog Live Process collection.'''
+        result = self._values.get("process_collection")
+        return typing.cast(typing.Optional["ProcessCollectionFeatureConfig"], result)
+
+    @builtins.property
+    def proc_path(self) -> typing.Optional[builtins.str]:
+        '''Path to the /proc directory on the host.
+
+        :default: "/proc/"
+        '''
+        result = self._values.get("proc_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def propagate_tags(self) -> typing.Optional[builtins.str]:
+        '''Propagate tags to daemon tasks.
+
+        :default: "DAEMON"
+        '''
+        result = self._values.get("propagate_tags")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of additional tags to add to the daemon task definition/daemon created.'''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def task_cpu(self) -> typing.Optional[builtins.str]:
+        '''Number of cpu units used by the daemon task, as a string (e.g. "256").'''
+        result = self._values.get("task_cpu")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def task_memory(self) -> typing.Optional[builtins.str]:
+        '''Amount (in MiB) of memory used by the daemon task, as a string (e.g. "512").'''
+        result = self._values.get("task_memory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def task_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
+        '''The IAM role that allows the Datadog Agent container to make calls to other AWS services.
+
+        Created automatically if not provided.
+        '''
+        result = self._values.get("task_role")
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
+
+    @builtins.property
+    def volumes(self) -> typing.Optional[typing.List["ManagedInstancesVolume"]]:
+        '''Additional host-path volumes to mount into the Datadog Agent container, beyond the ones this construct manages (containerd socket, /proc, /sys/fs/cgroup, UDS sockets, network monitoring debug mount).'''
+        result = self._values.get("volumes")
+        return typing.cast(typing.Optional[typing.List["ManagedInstancesVolume"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DatadogECSManagedInstancesProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3929,6 +5411,136 @@ class DatadogStepFunctionsProps:
 
 
 @jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.DeploymentAlarmConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"alarm_names": "alarmNames", "enable": "enable"},
+)
+class DeploymentAlarmConfiguration:
+    def __init__(
+        self,
+        *,
+        alarm_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        enable: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param alarm_names: The CloudWatch alarm names to monitor during a daemon deployment. Default: []
+        :param enable: Determines whether to use the CloudWatch alarm option in the daemon deployment process. Default: false
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__46f4c111123bff1274fb29923ede6b31a05c1ba611784f246657effe14a414f4)
+            check_type(argname="argument alarm_names", value=alarm_names, expected_type=type_hints["alarm_names"])
+            check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alarm_names is not None:
+            self._values["alarm_names"] = alarm_names
+        if enable is not None:
+            self._values["enable"] = enable
+
+    @builtins.property
+    def alarm_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The CloudWatch alarm names to monitor during a daemon deployment.
+
+        :default: []
+        '''
+        result = self._values.get("alarm_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def enable(self) -> typing.Optional[builtins.bool]:
+        '''Determines whether to use the CloudWatch alarm option in the daemon deployment process.
+
+        :default: false
+        '''
+        result = self._values.get("enable")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentAlarmConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.DeploymentConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alarms": "alarms",
+        "bake_time_in_minutes": "bakeTimeInMinutes",
+        "drain_percent": "drainPercent",
+    },
+)
+class DeploymentConfiguration:
+    def __init__(
+        self,
+        *,
+        alarms: typing.Optional[typing.Union["DeploymentAlarmConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+        drain_percent: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Controls the daemon's rolling deployment behavior across instances.
+
+        :param alarms: CloudWatch alarm configuration for the daemon deployment.
+        :param bake_time_in_minutes: The amount of time (in minutes) to wait after a successful deployment step before proceeding. Default: 0
+        :param drain_percent: The percentage of instances to drain simultaneously during a daemon deployment. Default: 25
+        '''
+        if isinstance(alarms, dict):
+            alarms = DeploymentAlarmConfiguration(**alarms)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c22176bc156b7f14c2ac03f4c794df35afd2e88c775e655da6a28bc10d2d9acf)
+            check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+            check_type(argname="argument bake_time_in_minutes", value=bake_time_in_minutes, expected_type=type_hints["bake_time_in_minutes"])
+            check_type(argname="argument drain_percent", value=drain_percent, expected_type=type_hints["drain_percent"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alarms is not None:
+            self._values["alarms"] = alarms
+        if bake_time_in_minutes is not None:
+            self._values["bake_time_in_minutes"] = bake_time_in_minutes
+        if drain_percent is not None:
+            self._values["drain_percent"] = drain_percent
+
+    @builtins.property
+    def alarms(self) -> typing.Optional["DeploymentAlarmConfiguration"]:
+        '''CloudWatch alarm configuration for the daemon deployment.'''
+        result = self._values.get("alarms")
+        return typing.cast(typing.Optional["DeploymentAlarmConfiguration"], result)
+
+    @builtins.property
+    def bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
+        '''The amount of time (in minutes) to wait after a successful deployment step before proceeding.
+
+        :default: 0
+        '''
+        result = self._values.get("bake_time_in_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def drain_percent(self) -> typing.Optional[jsii.Number]:
+        '''The percentage of instances to drain simultaneously during a daemon deployment.
+
+        :default: 25
+        '''
+        result = self._values.get("drain_percent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DeploymentConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="datadog-cdk-constructs-v2.DogstatsdFeatureConfig",
     jsii_struct_bases=[],
     name_mapping={
@@ -4284,6 +5896,247 @@ class LoggingType(enum.Enum):
 
 
 @jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.ManagedInstancesLogConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "log_driver": "logDriver",
+        "options": "options",
+        "secret_options": "secretOptions",
+    },
+)
+class ManagedInstancesLogConfiguration:
+    def __init__(
+        self,
+        *,
+        log_driver: typing.Optional[builtins.str] = None,
+        options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        secret_options: typing.Optional[typing.Sequence[typing.Union["ManagedInstancesLogSecretOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Log configuration for the Datadog Agent container's own logs.
+
+        :param log_driver: 
+        :param options: 
+        :param secret_options: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3763d6aa4f3d740cea76fadfd33a90a593c904da1369fca49dbe667c8361c756)
+            check_type(argname="argument log_driver", value=log_driver, expected_type=type_hints["log_driver"])
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument secret_options", value=secret_options, expected_type=type_hints["secret_options"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if log_driver is not None:
+            self._values["log_driver"] = log_driver
+        if options is not None:
+            self._values["options"] = options
+        if secret_options is not None:
+            self._values["secret_options"] = secret_options
+
+    @builtins.property
+    def log_driver(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("log_driver")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def options(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        result = self._values.get("options")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def secret_options(
+        self,
+    ) -> typing.Optional[typing.List["ManagedInstancesLogSecretOption"]]:
+        result = self._values.get("secret_options")
+        return typing.cast(typing.Optional[typing.List["ManagedInstancesLogSecretOption"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedInstancesLogConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.ManagedInstancesLogSecretOption",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "value_from": "valueFrom"},
+)
+class ManagedInstancesLogSecretOption:
+    def __init__(self, *, name: builtins.str, value_from: builtins.str) -> None:
+        '''
+        :param name: 
+        :param value_from: 
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9e4fab552317f4894a14f9a91ea406d6888eea942e20fc17342adec3b0920b25)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument value_from", value=value_from, expected_type=type_hints["value_from"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "value_from": value_from,
+        }
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value_from(self) -> builtins.str:
+        result = self._values.get("value_from")
+        assert result is not None, "Required property 'value_from' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedInstancesLogSecretOption(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.ManagedInstancesVolume",
+    jsii_struct_bases=[],
+    name_mapping={
+        "host_path": "hostPath",
+        "name": "name",
+        "container_path": "containerPath",
+        "read_only": "readOnly",
+    },
+)
+class ManagedInstancesVolume:
+    def __init__(
+        self,
+        *,
+        host_path: builtins.str,
+        name: builtins.str,
+        container_path: typing.Optional[builtins.str] = None,
+        read_only: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''A host-path volume mounted into the Datadog Agent container.
+
+        The volume block on
+        ``AWS::ECS::DaemonTaskDefinition`` only supports host paths - no Docker volume/EFS/FSx
+        volume types.
+
+        :param host_path: The absolute path on the host to mount.
+        :param name: The volume name. Cannot be ``containerd_sock``, ``proc``, ``cgroup``, ``dd-sockets`` or ``debug``, which the construct manages. Letters, numbers, underscores and hyphens only.
+        :param container_path: The absolute path inside the Datadog Agent container. Default: the same as ``hostPath``
+        :param read_only: Mounts the volume read-only. Default: true
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ed617d6cc136bc8a429c7ee18877bdd02fd88f3dab7f2e4c18025f3db14b7313)
+            check_type(argname="argument host_path", value=host_path, expected_type=type_hints["host_path"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument container_path", value=container_path, expected_type=type_hints["container_path"])
+            check_type(argname="argument read_only", value=read_only, expected_type=type_hints["read_only"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "host_path": host_path,
+            "name": name,
+        }
+        if container_path is not None:
+            self._values["container_path"] = container_path
+        if read_only is not None:
+            self._values["read_only"] = read_only
+
+    @builtins.property
+    def host_path(self) -> builtins.str:
+        '''The absolute path on the host to mount.'''
+        result = self._values.get("host_path")
+        assert result is not None, "Required property 'host_path' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The volume name.
+
+        Cannot be ``containerd_sock``, ``proc``, ``cgroup``, ``dd-sockets`` or
+        ``debug``, which the construct manages. Letters, numbers, underscores and hyphens only.
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def container_path(self) -> typing.Optional[builtins.str]:
+        '''The absolute path inside the Datadog Agent container.
+
+        :default: the same as ``hostPath``
+        '''
+        result = self._values.get("container_path")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def read_only(self) -> typing.Optional[builtins.bool]:
+        '''Mounts the volume read-only.
+
+        :default: true
+        '''
+        result = self._values.get("read_only")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedInstancesVolume(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.NetworkMonitoringFeatureConfig",
+    jsii_struct_bases=[],
+    name_mapping={"is_enabled": "isEnabled"},
+)
+class NetworkMonitoringFeatureConfig:
+    def __init__(self, *, is_enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''Cloud Network Monitoring configuration.
+
+        :param is_enabled: Enables Cloud Network Monitoring. Linux only.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f28efbe300bae6f9cbee9f588ba936a9f44840c566f1684e1a7336948f066940)
+            check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if is_enabled is not None:
+            self._values["is_enabled"] = is_enabled
+
+    @builtins.property
+    def is_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Enables Cloud Network Monitoring.
+
+        Linux only.
+        '''
+        result = self._values.get("is_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NetworkMonitoringFeatureConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="datadog-cdk-constructs-v2.OrchestratorExplorerFeatureConfig",
     jsii_struct_bases=[],
     name_mapping={"is_enabled": "isEnabled", "url": "url"},
@@ -4330,6 +6183,42 @@ class OrchestratorExplorerFeatureConfig:
 
     def __repr__(self) -> str:
         return "OrchestratorExplorerFeatureConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="datadog-cdk-constructs-v2.ProcessCollectionFeatureConfig",
+    jsii_struct_bases=[],
+    name_mapping={"is_enabled": "isEnabled"},
+)
+class ProcessCollectionFeatureConfig:
+    def __init__(self, *, is_enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''Live Process Collection configuration.
+
+        :param is_enabled: Enables Live Process Collection.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__685dbd004b267503539d563f3003c9c874fb93ad65e442740358d0ff7da4a2c4)
+            check_type(argname="argument is_enabled", value=is_enabled, expected_type=type_hints["is_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if is_enabled is not None:
+            self._values["is_enabled"] = is_enabled
+
+    @builtins.property
+    def is_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Enables Live Process Collection.'''
+        result = self._values.get("is_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ProcessCollectionFeatureConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4387,6 +6276,28 @@ class TagKeys(enum.Enum):
     SERVICE = "SERVICE"
     VERSION = "VERSION"
     DD_TRACE_ENABLED = "DD_TRACE_ENABLED"
+
+
+@jsii.enum(jsii_type="datadog-cdk-constructs-v2.TracerLanguage")
+class TracerLanguage(enum.Enum):
+    '''Application language for automatic APM instrumentation.'''
+
+    JAVA = "JAVA"
+    NODEJS = "NODEJS"
+    DOTNET = "DOTNET"
+    PYTHON = "PYTHON"
+    RUBY = "RUBY"
+    PHP = "PHP"
+
+
+@jsii.enum(jsii_type="datadog-cdk-constructs-v2.TracerLibc")
+class TracerLibc(enum.Enum):
+    '''C standard library of the application image.'''
+
+    GLIBC = "GLIBC"
+    '''Used by most Linux images, such as Debian and Ubuntu.'''
+    MUSL = "MUSL"
+    '''Used by Alpine Linux images.'''
 
 
 class Transport(
@@ -4605,6 +6516,7 @@ class FargateLogCollectionFeatureConfig(LogCollectionFeatureConfig):
 
 __all__ = [
     "APMFeatureConfig",
+    "APMInstrumentationConfig",
     "CWSFeatureConfig",
     "Cardinality",
     "DatadogAppSecMode",
@@ -4614,22 +6526,34 @@ __all__ = [
     "DatadogECSFargateProps",
     "DatadogECSFargateTaskDefinition",
     "DatadogECSLogDriverProps",
+    "DatadogECSManagedInstances",
+    "DatadogECSManagedInstancesDaemonTaskDefinition",
+    "DatadogECSManagedInstancesProps",
     "DatadogFirelensOptions",
     "DatadogLambda",
     "DatadogLambdaProps",
     "DatadogLambdaStrictProps",
     "DatadogStepFunctions",
     "DatadogStepFunctionsProps",
+    "DeploymentAlarmConfiguration",
+    "DeploymentConfiguration",
     "DogstatsdFeatureConfig",
     "FargateCWSFeatureConfig",
     "FargateLogCollectionFeatureConfig",
     "FluentbitConfig",
     "LogCollectionFeatureConfig",
     "LoggingType",
+    "ManagedInstancesLogConfiguration",
+    "ManagedInstancesLogSecretOption",
+    "ManagedInstancesVolume",
+    "NetworkMonitoringFeatureConfig",
     "OrchestratorExplorerFeatureConfig",
+    "ProcessCollectionFeatureConfig",
     "Runtime",
     "RuntimeType",
     "TagKeys",
+    "TracerLanguage",
+    "TracerLibc",
     "Transport",
 ]
 
@@ -4637,10 +6561,21 @@ publication.publish()
 
 def _typecheckingstub__e230986922ff4221b55047d221e20a0c611bc5d8df4610875061e8ae695d6738(
     *,
+    data_streams: typing.Optional[builtins.bool] = None,
     is_enabled: typing.Optional[builtins.bool] = None,
     is_profiling_enabled: typing.Optional[builtins.bool] = None,
     is_socket_enabled: typing.Optional[builtins.bool] = None,
     trace_inferred_proxy_services: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40f65524705ad24aa6c015bab11fd261641d95a1e7e7d1f5dd2f394e5f972617(
+    *,
+    language: TracerLanguage,
+    container_name: typing.Optional[builtins.str] = None,
+    tracer_libc: typing.Optional[TracerLibc] = None,
+    tracer_version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4687,6 +6622,7 @@ def _typecheckingstub__7e36e6c3fc3a4574bfd3006ff2c205658f6beefccb62229aea1be683f
     id: builtins.str,
     props: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.FargateTaskDefinitionProps, typing.Dict[builtins.str, typing.Any]]] = None,
     *,
+    apm_instrumentation: typing.Optional[typing.Union[APMInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     cws: typing.Optional[typing.Union[FargateCWSFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     log_collection: typing.Optional[typing.Union[FargateLogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     api_key: typing.Optional[builtins.str] = None,
@@ -4743,6 +6679,7 @@ def _typecheckingstub__203f4e755dbe1abe14e7ebcd9aed8ad2720b707b756d8dd72acc9e252
     service: typing.Optional[builtins.str] = None,
     site: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
+    apm_instrumentation: typing.Optional[typing.Union[APMInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     cws: typing.Optional[typing.Union[FargateCWSFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     log_collection: typing.Optional[typing.Union[FargateLogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -4754,6 +6691,7 @@ def _typecheckingstub__1b705bc69b69e399d2d0fd2c5c39581aa92dc32dccf1793d2785f3b83
     id: builtins.str,
     props: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.FargateTaskDefinitionProps, typing.Dict[builtins.str, typing.Any]]] = None,
     *,
+    apm_instrumentation: typing.Optional[typing.Union[APMInstrumentationConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     cws: typing.Optional[typing.Union[FargateCWSFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     log_collection: typing.Optional[typing.Union[FargateLogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     api_key: typing.Optional[builtins.str] = None,
@@ -4838,6 +6776,172 @@ def _typecheckingstub__1d244c4707c408dda2c6e1127da618ed1b203600e8fbd40e66eadf006
     service_name: typing.Optional[builtins.str] = None,
     source_name: typing.Optional[builtins.str] = None,
     tls: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a35501418922ebf14740929e93a7f360d2cb91db7d36200319df0cb9ff2d6e8b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    family: builtins.str,
+    agent_log_configuration: typing.Optional[typing.Union[ManagedInstancesLogConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cgroup_path: typing.Optional[builtins.str] = None,
+    cluster_arn: typing.Optional[builtins.str] = None,
+    create_daemon: typing.Optional[builtins.bool] = None,
+    cri_socket_path: typing.Optional[builtins.str] = None,
+    daemon_name: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[DeploymentConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+    enable_execute_command: typing.Optional[builtins.bool] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    ipc_mode: typing.Optional[builtins.str] = None,
+    log_collection: typing.Optional[typing.Union[LogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    network_monitoring: typing.Optional[typing.Union[NetworkMonitoringFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    pid_mode: typing.Optional[builtins.str] = None,
+    process_collection: typing.Optional[typing.Union[ProcessCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    proc_path: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    task_cpu: typing.Optional[builtins.str] = None,
+    task_memory: typing.Optional[builtins.str] = None,
+    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    volumes: typing.Optional[typing.Sequence[typing.Union[ManagedInstancesVolume, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key: typing.Optional[builtins.str] = None,
+    api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+    api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
+    apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    checks_cardinality: typing.Optional[Cardinality] = None,
+    cluster_name: typing.Optional[builtins.str] = None,
+    cpu: typing.Optional[jsii.Number] = None,
+    datadog_health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    dogstatsd: typing.Optional[typing.Union[DogstatsdFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[builtins.str] = None,
+    environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    global_tags: typing.Optional[builtins.str] = None,
+    image_version: typing.Optional[builtins.str] = None,
+    is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+    is_datadog_essential: typing.Optional[builtins.bool] = None,
+    memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+    registry: typing.Optional[builtins.str] = None,
+    service: typing.Optional[builtins.str] = None,
+    site: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cdd4af5972b166bfe3bd21e767318aed0442fb095d755a77b7bf1441694876df(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    family: builtins.str,
+    agent_log_configuration: typing.Optional[typing.Union[ManagedInstancesLogConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cgroup_path: typing.Optional[builtins.str] = None,
+    cluster_arn: typing.Optional[builtins.str] = None,
+    create_daemon: typing.Optional[builtins.bool] = None,
+    cri_socket_path: typing.Optional[builtins.str] = None,
+    daemon_name: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[DeploymentConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+    enable_execute_command: typing.Optional[builtins.bool] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    ipc_mode: typing.Optional[builtins.str] = None,
+    log_collection: typing.Optional[typing.Union[LogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    network_monitoring: typing.Optional[typing.Union[NetworkMonitoringFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    pid_mode: typing.Optional[builtins.str] = None,
+    process_collection: typing.Optional[typing.Union[ProcessCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    proc_path: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    task_cpu: typing.Optional[builtins.str] = None,
+    task_memory: typing.Optional[builtins.str] = None,
+    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    volumes: typing.Optional[typing.Sequence[typing.Union[ManagedInstancesVolume, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key: typing.Optional[builtins.str] = None,
+    api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+    api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
+    apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    checks_cardinality: typing.Optional[Cardinality] = None,
+    cluster_name: typing.Optional[builtins.str] = None,
+    cpu: typing.Optional[jsii.Number] = None,
+    datadog_health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    dogstatsd: typing.Optional[typing.Union[DogstatsdFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[builtins.str] = None,
+    environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    global_tags: typing.Optional[builtins.str] = None,
+    image_version: typing.Optional[builtins.str] = None,
+    is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+    is_datadog_essential: typing.Optional[builtins.bool] = None,
+    memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+    registry: typing.Optional[builtins.str] = None,
+    service: typing.Optional[builtins.str] = None,
+    site: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3607ae6b82e8de36bfd2b066d3578da45a60809530a6902d3f7556bab65f1f5e(
+    *,
+    api_key: typing.Optional[builtins.str] = None,
+    api_key_secret: typing.Optional[_aws_cdk_aws_secretsmanager_ceddda9d.ISecret] = None,
+    api_key_secret_arn: typing.Optional[builtins.str] = None,
+    api_key_secret_field: typing.Optional[builtins.str] = None,
+    api_key_ssm_arn: typing.Optional[builtins.str] = None,
+    apm: typing.Optional[typing.Union[APMFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    checks_cardinality: typing.Optional[Cardinality] = None,
+    cluster_name: typing.Optional[builtins.str] = None,
+    cpu: typing.Optional[jsii.Number] = None,
+    datadog_health_check: typing.Optional[typing.Union[_aws_cdk_aws_ecs_ceddda9d.HealthCheck, typing.Dict[builtins.str, typing.Any]]] = None,
+    dogstatsd: typing.Optional[typing.Union[DogstatsdFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    env: typing.Optional[builtins.str] = None,
+    environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    global_tags: typing.Optional[builtins.str] = None,
+    image_version: typing.Optional[builtins.str] = None,
+    is_datadog_dependency_enabled: typing.Optional[builtins.bool] = None,
+    is_datadog_essential: typing.Optional[builtins.bool] = None,
+    memory_limit_mib: typing.Optional[jsii.Number] = None,
+    orchestrator_explorer: typing.Optional[typing.Union[OrchestratorExplorerFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    read_only_root_filesystem: typing.Optional[builtins.bool] = None,
+    registry: typing.Optional[builtins.str] = None,
+    service: typing.Optional[builtins.str] = None,
+    site: typing.Optional[builtins.str] = None,
+    version: typing.Optional[builtins.str] = None,
+    family: builtins.str,
+    agent_log_configuration: typing.Optional[typing.Union[ManagedInstancesLogConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cgroup_path: typing.Optional[builtins.str] = None,
+    cluster_arn: typing.Optional[builtins.str] = None,
+    create_daemon: typing.Optional[builtins.bool] = None,
+    cri_socket_path: typing.Optional[builtins.str] = None,
+    daemon_name: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[DeploymentConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    enable_ecs_managed_tags: typing.Optional[builtins.bool] = None,
+    enable_execute_command: typing.Optional[builtins.bool] = None,
+    execution_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    ipc_mode: typing.Optional[builtins.str] = None,
+    log_collection: typing.Optional[typing.Union[LogCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    network_monitoring: typing.Optional[typing.Union[NetworkMonitoringFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    pid_mode: typing.Optional[builtins.str] = None,
+    process_collection: typing.Optional[typing.Union[ProcessCollectionFeatureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    proc_path: typing.Optional[builtins.str] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    task_cpu: typing.Optional[builtins.str] = None,
+    task_memory: typing.Optional[builtins.str] = None,
+    task_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+    volumes: typing.Optional[typing.Sequence[typing.Union[ManagedInstancesVolume, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5137,6 +7241,23 @@ def _typecheckingstub__64f1437564f1e6a00aa900ce6ba8b85e2a53793b8631eb501f23de91c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__46f4c111123bff1274fb29923ede6b31a05c1ba611784f246657effe14a414f4(
+    *,
+    alarm_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    enable: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c22176bc156b7f14c2ac03f4c794df35afd2e88c775e655da6a28bc10d2d9acf(
+    *,
+    alarms: typing.Optional[typing.Union[DeploymentAlarmConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+    drain_percent: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c2a415254e87b33446228e6d2c9d413460f69ef49f30a4aef5c6a1f31993f291(
     *,
     dogstatsd_cardinality: typing.Optional[Cardinality] = None,
@@ -5179,10 +7300,51 @@ def _typecheckingstub__94eadcb7ca52ba8bed5cc0d8eb96f43999bf00c06aa40228ba347f64e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3763d6aa4f3d740cea76fadfd33a90a593c904da1369fca49dbe667c8361c756(
+    *,
+    log_driver: typing.Optional[builtins.str] = None,
+    options: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    secret_options: typing.Optional[typing.Sequence[typing.Union[ManagedInstancesLogSecretOption, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e4fab552317f4894a14f9a91ea406d6888eea942e20fc17342adec3b0920b25(
+    *,
+    name: builtins.str,
+    value_from: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed617d6cc136bc8a429c7ee18877bdd02fd88f3dab7f2e4c18025f3db14b7313(
+    *,
+    host_path: builtins.str,
+    name: builtins.str,
+    container_path: typing.Optional[builtins.str] = None,
+    read_only: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f28efbe300bae6f9cbee9f588ba936a9f44840c566f1684e1a7336948f066940(
+    *,
+    is_enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4022108989f302878b69ab88b8214ccc5653754b90275b20f6d4b8ba23719643(
     *,
     is_enabled: typing.Optional[builtins.bool] = None,
     url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__685dbd004b267503539d563f3003c9c874fb93ad65e442740358d0ff7da4a2c4(
+    *,
+    is_enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

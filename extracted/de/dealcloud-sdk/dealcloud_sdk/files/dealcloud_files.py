@@ -22,6 +22,7 @@ from typing import Callable, Dict, List, Optional, Union
 from ..constants import field_types
 from ..history.dealcloud_history import DealCloudHistory
 from ..storage import LocalStorage, StorageBackend
+from ..utils.process_response_errors import process_errors, split_cell_store_results
 
 
 @dataclass
@@ -353,45 +354,74 @@ class DealCloudFiles(DealCloudHistory):
         content_type: Optional[str] = None,
     ) -> dict:
         """
-        Upload file bytes onto an existing row's IMAGE (16) or BINARY (13) field.
+        Upload file bytes onto an existing row's file field.
 
-        Uses the same multipart POST .../entrydata/{object_id} flow as
-        :meth:`upload_attachment`, but targets ``entry_id`` and the given field.
-        Call once per file for multi-image fields.
+        - IMAGE (16) / BINARY (13): multipart PUT to .../entrydata/{object_id} (the
+          :meth:`upload_attachment` payload, targeting ``entry_id``). DealCloud rejects
+          POST for existing entries ("Cannot update existing entries with POST request").
+          Call once per file for multi-image fields.
+        - REFERENCE (5) with ``isAttachment``: the documented two-step flow. The file is
+          created on the attachment object via :meth:`upload_attachment`, then linked
+          with a JSON PUT of ``storeRequests`` (``value`` = new attachment row id).
+          A direct PUT onto the field is rejected (error 5002). The file cannot be
+          downloaded from the target field; use ``attachment_entry_id`` and
+          ``attachment_document_field_id`` from the result with :meth:`download_file`.
 
         Args:
             object_id: Object API name or id containing the field.
             entry_id: Existing entry id (positive integer).
-            field: Field API name or numeric field id.
+            field: Field API name, display name, or numeric field id.
             content: Raw file bytes.
             file_name: Filename sent to the API (drives format / MIME if needed).
             content_type: Optional MIME type (inferred from extension when omitted).
 
         Returns:
             Dict with ``entry_id``, ``field_id`` (int), and ``response`` (API body).
+            For attachment reference fields it also has ``attachment_entry_id`` and
+            ``attachment_document_field_id`` (the new attachment row and its Document field).
         """
         if not content_type:
             content_type = self._get_content_type(Path(file_name).suffix)
         format_type = Path(file_name).suffix.lstrip(".").lower() or "bin"
 
-        fields = self.get_fields(object_id)
         if isinstance(field, str):
-            fld = next((f for f in fields if f.apiName == field), None)
+            fld = self.get_field_by_api_name(object_id, field) or self.get_field_by_name(
+                object_id, field
+            )
             if not fld or fld.id is None:
                 raise ValueError(f"No field {field!r} on object {object_id!r}")
-            field_id = fld.id
-            ft = fld.fieldType
         else:
-            fld = next((f for f in fields if f.id == field), None)
+            fld = next((f for f in self.get_fields(object_id) if f.id == field), None)
             if not fld:
                 raise ValueError(f"No field id {field} on object {object_id!r}")
-            field_id = fld.id
-            ft = fld.fieldType
+        field_id = fld.id
+        ft = fld.fieldType
+
+        if ft == field_types.REFERENCE and getattr(fld, "isAttachment", False):
+            attachment = self.upload_attachment(
+                self.get_attachment_object_id(), content, file_name, content_type
+            )
+            row_id = attachment["entry_id"]
+            if row_id is None:
+                raise ValueError(
+                    f"Attachment upload returned no row id; cannot link to field {field!r}"
+                )
+            link = {"storeRequests": [{"entryId": entry_id, "fieldId": field_id, "value": row_id}]}
+            body = self._client.put(f"{self._entrydata_url}/{object_id}", json=link)
+            _, row_errors = split_cell_store_results(body)
+            process_errors(row_errors, raise_on_row_errors=True)
+            return {
+                "entry_id": entry_id,
+                "field_id": field_id,
+                "response": body,
+                "attachment_entry_id": row_id,
+                "attachment_document_field_id": attachment["document_field_id"],
+            }
 
         if ft not in (field_types.IMAGE, field_types.BINARY):
             raise ValueError(
-                f"Field {getattr(fld, 'apiName', field)!r} must be IMAGE or BINARY; "
-                f"fieldType={ft}"
+                f"Field {getattr(fld, 'apiName', field)!r} must be an IMAGE or BINARY field, "
+                f"or an attachment REFERENCE field; fieldType={ft}"
             )
 
         model = {
@@ -406,12 +436,14 @@ class DealCloudFiles(DealCloudHistory):
             ]
         }
         url = f"{self._entrydata_url}/{object_id}"
-        response = self._client.post_raw(
+        response = self._client.put_raw(
             url,
             data={"model": json.dumps(model)},
             files={"attachment": (file_name, content, content_type)},
         )
         body = response.json() if response.content else []
+        _, row_errors = split_cell_store_results(body)
+        process_errors(row_errors, raise_on_row_errors=True)
         return {
             "entry_id": entry_id,
             "field_id": field_id,

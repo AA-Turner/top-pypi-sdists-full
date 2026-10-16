@@ -15,6 +15,8 @@
 #include <OpenImageIO/sysutil.h>
 #include <OpenImageIO/typedesc.h>
 
+#include "imageio_pvt.h"
+
 #include "rla_pvt.h"
 
 
@@ -35,16 +37,12 @@ public:
     bool close() override;
     bool write_scanline(int y, int z, TypeDesc format, const void* data,
                         stride_t xstride) override;
-    bool write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                    stride_t xstride, stride_t ystride,
-                    stride_t zstride) override;
 
 private:
     std::vector<unsigned char> m_scratch;
     RLAHeader m_rla;                   ///< Wavefront RLA header
     std::vector<uint32_t> m_sot;       ///< Scanline offset table
     std::vector<unsigned char> m_rle;  ///< Run record buffer for RLE
-    std::vector<unsigned char> m_tilebuffer;
     unsigned int m_dither;
 
     // Initialize private members to pre-opened state
@@ -100,7 +98,10 @@ OIIO_EXPORT const char* rla_output_extensions[] = { "rla", nullptr };
 OIIO_PLUGIN_EXPORTS_END
 
 
-RLAOutput::RLAOutput() { init(); }
+RLAOutput::RLAOutput()
+{
+    init();
+}
 
 
 
@@ -260,21 +261,9 @@ RLAOutput::open(const std::string& name, const ImageSpec& userspec,
     //           << m_rla.NumOfMatteChannels << " z " << m_rla.NumOfAuxChannels << "\n";
     m_rla.Revision = 0xFFFE;
 
-    const ColorConfig& colorconfig = ColorConfig::default_colorconfig();
-    string_view colorspace = m_spec.get_string_attribute("oiio:ColorSpace");
-    if (colorconfig.equivalent(colorspace, "linear")
-        || colorconfig.equivalent(colorspace, "scene_linear"))
-        Strutil::safe_strcpy(m_rla.Gamma, "1.0", sizeof(m_rla.Gamma));
-    else if (colorconfig.equivalent(colorspace, "g22_rec709"))
-        Strutil::safe_strcpy(m_rla.Gamma, "2.2", sizeof(m_rla.Gamma));
-    else if (colorconfig.equivalent(colorspace, "g18_rec709"))
-        Strutil::safe_strcpy(m_rla.Gamma, "1.8", sizeof(m_rla.Gamma));
-    else if (Strutil::istarts_with(colorspace, "Gamma")) {
-        Strutil::parse_word(colorspace);
-        float g = Strutil::from_string<float>(colorspace);
-        if (!(g >= 0.01f && g <= 10.0f /* sanity check */))
-            g = m_spec.get_float_attribute("oiio:Gamma", 1.f);
-        safe_format_to(m_rla.Gamma, "{:.10}", g);
+    const float gamma = pvt::get_colorspace_rec709_gamma(m_spec);
+    if (gamma != 0.0f) {
+        safe_format_to(m_rla.Gamma, "{:.5g}", gamma);
     }
 
     const ParamValue* p;
@@ -340,11 +329,6 @@ RLAOutput::open(const std::string& name, const ImageSpec& userspec,
     m_sot.resize(m_spec.height, (int32_t)0);
     write(&m_sot[0], m_sot.size());
 
-    // If user asked for tiles -- which this format doesn't support, emulate
-    // it by buffering the whole image.
-    if (m_spec.tile_width && m_spec.tile_height)
-        m_tilebuffer.resize(m_spec.image_bytes());
-
     return true;
 }
 
@@ -382,22 +366,13 @@ RLAOutput::close()
         return true;
     }
 
-    bool ok = true;
-    if (m_spec.tile_width) {
-        // Handle tile emulation -- output the buffered pixels
-        OIIO_DASSERT(m_tilebuffer.size());
-        ok &= write_scanlines(m_spec.y, m_spec.y + m_spec.height, 0,
-                              m_spec.format, &m_tilebuffer[0]);
-        std::vector<unsigned char>().swap(m_tilebuffer);
-    }
-
     // Now that all scanlines have been output, return to write the
     // correct scanline offset table to file and close the stream.
     ioseek(sizeof(RLAHeader));
     write(m_sot.data(), m_sot.size());
 
     init();  // re-initialize
-    return ok;
+    return true;
 }
 
 
@@ -543,16 +518,6 @@ RLAOutput::write_scanline(int y, int z, TypeDesc format, const void* data,
     return true;
 }
 
-
-
-bool
-RLAOutput::write_tile(int x, int y, int z, TypeDesc format, const void* data,
-                      stride_t xstride, stride_t ystride, stride_t zstride)
-{
-    // Emulate tiles by buffering the whole image
-    return copy_tile_to_image_buffer(x, y, z, format, data, xstride, ystride,
-                                     zstride, &m_tilebuffer[0]);
-}
 
 
 OIIO_PLUGIN_NAMESPACE_END

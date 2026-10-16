@@ -1,6 +1,6 @@
 //! Italic.
 
-use crate::node::SpannedNodes;
+use crate::node::Inlines;
 use crate::span::Span;
 use crate::unparse::Unparse;
 
@@ -12,10 +12,7 @@ pub const ASTERISK_DELIMITER: &str = "*";
 /// # Errors
 /// If formatting fails
 // TODO: Retain which delimiter was used in the AST (underscore vs asterisk) and use it here.
-pub fn unparse<S: Span>(
-	content: &SpannedNodes<S>,
-	f: &mut std::fmt::Formatter,
-) -> std::fmt::Result {
+pub fn unparse<S: Span>(content: &Inlines<S>, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 	write!(
 		f,
 		"{}{}{}",
@@ -27,7 +24,7 @@ pub fn unparse<S: Span>(
 
 #[cfg(test)]
 mod test {
-	use crate::node::{Element, Node};
+	use crate::node::Inline;
 	use crate::test_utils::{inline_content, parsed};
 	use crate::{bold, italic, link, paragraph, spanned_vec, text, underline};
 
@@ -52,7 +49,7 @@ mod test {
 		] {
 			assert_eq!(
 				inline_content(s),
-				spanned_vec![italic!(Node::Element(Element::Text(content.into())))],
+				spanned_vec![italic!(Inline::Text(content.into()))],
 				"unexpected output for {s:?}"
 			);
 		}
@@ -139,12 +136,12 @@ mod test {
 		}
 	}
 
-	/// Each line is its own paragraph, and an italic spanning two of them wraps both.
+	/// Each line is its own paragraph, and an italic spanning two of them goes inside each.
 	#[test]
 	fn italic_with_new_line() {
 		assert_eq!(
 			parsed("_foo\nbar_"),
-			spanned_vec![italic!(paragraph!("foo"), paragraph!("bar"))]
+			spanned_vec![paragraph!(italic!("foo")), paragraph!(italic!("bar"))]
 		);
 	}
 }

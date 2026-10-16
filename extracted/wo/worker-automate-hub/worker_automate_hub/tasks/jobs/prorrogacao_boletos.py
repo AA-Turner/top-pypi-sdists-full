@@ -1315,9 +1315,13 @@ class ProrrogacaoBoletos:
                                 and "ref3" not in identificador
                             )
                         ):
-                            candidato = texto.replace(" ", "").strip()
+                            candidato = (
+                                texto.replace("\u00a0", "").replace(" ", "").strip()
+                            )
 
-                            if candidato:
+                            # A referência original válida possui exatamente 14 dígitos.
+                            # Evita capturar textos como "REN FALTA DOC" como referência.
+                            if candidato.isdigit() and len(candidato) == 14:
                                 referencia = candidato
                                 break
 
@@ -1590,6 +1594,121 @@ class ProrrogacaoBoletos:
 
         return "nenhuma"
 
+    async def cancelar_janela_erro_baixa(
+        self,
+    ) -> None:
+
+        if not self.driver:
+            raise RuntimeError("Driver não inicializado.")
+
+        xpath_dialogo_erro = (
+            "//*[@role='dialog' "
+            "or contains(@class,'sapMDialog') "
+            "or contains(@class,'sapMMessageBox')]"
+            "[.//*[contains(normalize-space(.),'Recurso não encontrado')] "
+            "or contains(normalize-space(.),'Recurso não encontrado')]"
+        )
+
+        try:
+            dialogo = WebDriverWait(
+                self.driver,
+                self.TIMEOUT_PADRAO,
+                poll_frequency=0.25,
+            ).until(
+                EC.visibility_of_element_located(
+                    (
+                        By.XPATH,
+                        xpath_dialogo_erro,
+                    )
+                )
+            )
+        except TimeoutException as e:
+            raise RuntimeError(
+                "A mensagem 'Recurso não encontrado' foi identificada, "
+                "mas a janela de erro não foi localizada para cancelamento."
+            ) from e
+
+        console.print(
+            "[SAP][GERENCIADOR][AVISO] "
+            "Janela de erro encontrada. Tentando clicar em Cancelar..."
+        )
+
+        xpath_cancelar = (
+            ".//button["
+            "normalize-space(.)='Cancelar' "
+            "or @title='Cancelar' "
+            "or @aria-label='Cancelar' "
+            "or .//*[normalize-space(.)='Cancelar']"
+            "]"
+        )
+
+        try:
+            botao_cancelar = WebDriverWait(
+                dialogo,
+                self.TIMEOUT_CURTO,
+                poll_frequency=0.25,
+            ).until(
+                lambda elemento: next(
+                    (
+                        botao
+                        for botao in elemento.find_elements(
+                            By.XPATH,
+                            xpath_cancelar,
+                        )
+                        if botao.is_displayed() and botao.is_enabled()
+                    ),
+                    False,
+                )
+            )
+        except TimeoutException as e:
+            raise RuntimeError(
+                "A janela de erro foi localizada, "
+                "mas o botão 'Cancelar' não ficou disponível."
+            ) from e
+
+        try:
+            botao_cancelar.click()
+        except ElementClickInterceptedException:
+            self.desbloquear_overlay_sap()
+
+            try:
+                botao_cancelar.click()
+            except Exception:
+                self.driver.execute_script(
+                    "arguments[0].click();",
+                    botao_cancelar,
+                )
+        except Exception:
+            self.driver.execute_script(
+                "arguments[0].click();",
+                botao_cancelar,
+            )
+
+        try:
+            WebDriverWait(
+                self.driver,
+                self.TIMEOUT_PADRAO,
+                poll_frequency=0.25,
+            ).until(
+                EC.invisibility_of_element_located(
+                    (
+                        By.XPATH,
+                        xpath_dialogo_erro,
+                    )
+                )
+            )
+        except TimeoutException:
+            console.print(
+                "[SAP][GERENCIADOR][AVISO] "
+                "Cancelar foi clicado, mas a janela não desapareceu "
+                "dentro do tempo esperado."
+            )
+
+        console.print(
+            "[SAP][GERENCIADOR] "
+            "Janela de erro cancelada. Fluxo continuará normalmente."
+        )
+
     async def clicar_baixa_gerenciador_faturas(
         self,
     ) -> None:
@@ -1620,7 +1739,17 @@ class ProrrogacaoBoletos:
         resultado = self.verificar_janela_pos_baixa(10)
 
         if resultado == "erro":
-            raise FalhaNegocio("Recurso não encontrado.")
+            console.print(
+                "[SAP][GERENCIADOR][AVISO] "
+                "'Recurso não encontrado' exibido após clicar em Baixa."
+            )
+
+            await self.cancelar_janela_erro_baixa()
+
+            console.print(
+                "[SAP][GERENCIADOR] "
+                "Erro ignorado após cancelamento. Seguindo o fluxo..."
+            )
 
         if resultado == "confirmacao":
             console.print("[SAP][GERENCIADOR] " "Confirmação encontrada.")
@@ -1660,7 +1789,7 @@ class ProrrogacaoBoletos:
         await self.pesquisar_cliente_novamente()
 
         # Localiza:
-        # DATA HOJE + VALOR
+        # VALOR
 
         await self.selecionar_linha_data_valor()
 
@@ -2252,177 +2381,133 @@ class ProrrogacaoBoletos:
             return texto
 
     # ========================================================
-    # DATA + VALOR + NOVA CHAVE + NOVA REFERÊNCIA
+    # VALOR + NOVA CHAVE + NOVA REFERÊNCIA
     # ========================================================
 
-    async def selecionar_linha_data_valor(
-        self,
-    ) -> None:
-
+    async def selecionar_linha_data_valor(self) -> None:
+        """Busca pelo valor, mas somente aceita uma referência diferente da original."""
         if not self.driver:
             raise RuntimeError("Driver não inicializado.")
 
-        data_ponto = datetime.now().strftime("%d.%m.%Y")
-
-        data_barra = datetime.now().strftime("%d/%m/%Y")
-
         valor_esperado = self.normalizar_valor_para_comparacao(self.valor)
+        referencia_original = str(self.referencia or "").strip()
+        chave_original = str(self.chave or "").strip()
 
-        console.print("[SAP][NOVA_LINHA] " f"Data esperada: {data_ponto}")
+        if not referencia_original:
+            raise RuntimeError("Referência original não foi armazenada.")
 
-        console.print("[SAP][NOVA_LINHA] " f"Valor esperado: {valor_esperado}")
+        self.nova_referencia = ""
+        self.nova_chave_ref3 = ""
+        console.print(f"[SAP][NOVA_LINHA] Procurando valor: {valor_esperado}")
+        console.print(f"[SAP][NOVA_LINHA] Referência original a IGNORAR: {referencia_original}")
+        console.print(f"[SAP][NOVA_LINHA] Chave original: {chave_original}")
 
-        inicio = time.time()
-        assinaturas_vistas = set()
-        tentativas_sem_mudanca = 0
+        # A emissão do agrupamento pode demorar a refletir na lista do SAP.
+        # Executa novas consultas antes de declarar a ausência da nova linha.
+        for tentativa in range(1, 4):
+            console.print(f"[SAP][NOVA_LINHA] Consulta {tentativa}/3")
+            inicio = time.monotonic()
+            assinaturas_vistas = set()
+            sem_mudanca = 0
 
-        while time.time() - inicio <= self.TIMEOUT_LONGO:
-            linhas = self.obter_linhas_customer_visiveis()
+            while time.monotonic() - inicio <= self.TIMEOUT_LONGO:
+                linhas = self.obter_linhas_customer_visiveis()
+                assinatura_atual = []
 
-            assinatura_atual = []
+                for linha in linhas:
+                    try:
+                        celulas = self.obter_celulas_linha(linha)
+                        if not celulas:
+                            continue
+                        textos = [self.normalizar_texto_tabela(c.text) for c in celulas]
+                        assinatura_atual.append(" | ".join(textos))
+                        if not any(
+                            self.normalizar_valor_para_comparacao(t) == valor_esperado
+                            for t in textos
+                        ):
+                            continue
 
-            for linha in linhas:
-                try:
-                    celulas = self.obter_celulas_linha(linha)
-
-                    if not celulas:
-                        continue
-
-                    textos = [
-                        self.normalizar_texto_tabela(celula.text) for celula in celulas
-                    ]
-
-                    texto_linha = " | ".join(texto for texto in textos if texto)
-
-                    assinatura_atual.append(texto_linha)
-
-                    possui_data = any(
-                        data_ponto in texto or data_barra in texto for texto in textos
-                    )
-
-                    if not possui_data:
-                        continue
-
-                    possui_valor = any(
-                        self.normalizar_valor_para_comparacao(texto) == valor_esperado
-                        for texto in textos
-                    )
-
-                    if not possui_valor:
-                        continue
-
-                    nova_chave = ""
-                    nova_referencia = ""
-
-                    for celula, texto in zip(
-                        celulas,
-                        textos,
-                    ):
-                        identificador = self.normalizar_identificador_coluna(
-                            (
-                                str(celula.get_attribute("data-sap-ui-colid") or "")
-                                + " "
-                                + str(celula.get_attribute("id") or "")
+                        nova_chave = ""
+                        nova_referencia = ""
+                        for celula, texto in zip(celulas, textos):
+                            identificador = self.normalizar_identificador_coluna(
+                                " ".join(str(celula.get_attribute(a) or "") for a in
+                                         ("data-sap-ui-colid", "data-sap-ui-column", "headers", "id"))
                             )
-                        )
-
-                        if (
-                            "reference3" in identificador or "ref3" in identificador
-                        ) and texto:
-                            nova_chave = texto.replace(" ", "").strip()
-
-                        eh_referencia = (
-                            (
-                                "documentreferenceid" in identificador
-                                or "referencia" in identificador
-                                or "reference" in identificador
-                            )
-                            and "reference3" not in identificador
-                            and "ref3" not in identificador
-                            and "chaveref" not in identificador
-                        )
-
-                        if eh_referencia and texto:
-                            nova_referencia = texto.replace(" ", "").strip()
-
-                    # Fallback por formato dos dados exibidos.
-                    if not nova_chave:
-                        for texto in textos:
-                            candidato = texto.replace(" ", "").strip()
-
-                            if candidato.isdigit() and 18 <= len(candidato) <= 25:
+                            candidato = texto.replace("\u00a0", "").replace(" ", "").strip()
+                            if ("reference3" in identificador or "ref3" in identificador) and candidato:
                                 nova_chave = candidato
-                                break
-
-                    if not nova_referencia:
-                        for texto in textos:
-                            candidato = texto.replace(" ", "").strip()
-
-                            if (
-                                candidato.isdigit()
-                                and len(candidato) == 14
-                                and candidato != nova_chave
-                            ):
+                            eh_referencia = (
+                                ("documentreferenceid" in identificador or
+                                 "referencia" in identificador or "reference" in identificador)
+                                and "reference3" not in identificador
+                                and "ref3" not in identificador
+                                and "chaveref" not in identificador
+                            )
+                            if eh_referencia and candidato.isdigit() and len(candidato) == 14:
                                 nova_referencia = candidato
-                                break
 
-                    id_linha = str(linha.get_attribute("id") or "").strip()
+                        if not nova_chave:
+                            nova_chave = next((
+                                t.replace("\u00a0", "").replace(" ", "").strip()
+                                for t in textos
+                                if (t.replace("\u00a0", "").replace(" ", "").strip().isdigit()
+                                    and 18 <= len(t.replace("\u00a0", "").replace(" ", "").strip()) <= 25)
+                            ), "")
+                        if not nova_referencia:
+                            nova_referencia = next((
+                                t.replace("\u00a0", "").replace(" ", "").strip()
+                                for t in textos
+                                if (t.replace("\u00a0", "").replace(" ", "").strip().isdigit()
+                                    and len(t.replace("\u00a0", "").replace(" ", "").strip()) == 14)
+                            ), "")
 
-                    console.print("[SAP][NOVA_LINHA] " "Linha encontrada:")
+                        if not nova_referencia:
+                            console.print("[SAP][NOVA_LINHA][AVISO] Valor encontrado sem referência válida; ignorando.")
+                            continue
+                        if nova_referencia == referencia_original:
+                            console.print(
+                                f"[SAP][NOVA_LINHA][IGNORADA] Valor {valor_esperado} pertence "
+                                f"à referência ORIGINAL {nova_referencia}."
+                            )
+                            continue
+                        if not nova_chave:
+                            console.print("[SAP][NOVA_LINHA][AVISO] Nova referência sem Chave ref.3; ignorando.")
+                            continue
 
-                    console.print(texto_linha)
+                        id_linha = str(linha.get_attribute("id") or "").strip()
+                        if not id_linha:
+                            continue
+                        console.print(f"[SAP][NOVA_LINHA] Linha NOVA: {' | '.join(t for t in textos if t)}")
+                        console.print(f"[SAP][NOVA_LINHA] Referência original: {referencia_original}")
+                        console.print(f"[SAP][NOVA_LINHA] Referência nova: {nova_referencia}")
+                        console.print(f"[SAP][NOVA_LINHA] Chave ref.3 encontrada: {nova_chave}")
+                        self.nova_referencia = nova_referencia
+                        self.nova_chave_ref3 = nova_chave
+                        await self.selecionar_linha_por_id(id_linha)
+                        return
+                    except StaleElementReferenceException:
+                        continue
 
-                    if not id_linha:
-                        raise RuntimeError("ID da nova linha " "não identificado.")
+                assinatura = tuple(assinatura_atual)
+                if assinatura in assinaturas_vistas:
+                    sem_mudanca += 1
+                else:
+                    assinaturas_vistas.add(assinatura)
+                    sem_mudanca = 0
+                if sem_mudanca >= 3:
+                    break
+                if not await self.rolar_tabela_customer():
+                    break
 
-                    if not nova_chave:
-                        raise RuntimeError("Nova Chave ref.3 " "não identificada.")
-
-                    if not nova_referencia:
-                        raise RuntimeError("Nova Referência " "não identificada.")
-
-                    self.nova_chave_ref3 = nova_chave
-
-                    self.nova_referencia = nova_referencia
-
-                    console.print(
-                        "[SAP][NOVA_LINHA] "
-                        "Nova Chave ref.3: "
-                        f"{self.nova_chave_ref3}"
-                    )
-
-                    console.print(
-                        "[SAP][NOVA_LINHA] "
-                        "Nova Referência: "
-                        f"{self.nova_referencia}"
-                    )
-
-                    await self.selecionar_linha_por_id(id_linha)
-
-                    return
-
-                except StaleElementReferenceException:
-                    continue
-
-            assinatura = tuple(assinatura_atual)
-
-            if assinatura in assinaturas_vistas:
-                tentativas_sem_mudanca += 1
-            else:
-                assinaturas_vistas.add(assinatura)
-                tentativas_sem_mudanca = 0
-
-            if tentativas_sem_mudanca >= 2:
-                break
-
-            if not await self.rolar_tabela_customer():
-                break
+            if tentativa < 3:
+                console.print("[SAP][NOVA_LINHA] Nova referência ainda não visível. Atualizando consulta...")
+                await self.clicar_botao_iniciar()
 
         raise FalhaNegocio(
-            "Não foi localizada linha "
-            "com data de hoje e valor informado. "
-            f"Data: {data_ponto}. "
-            f"Valor: {self.valor}."
+            "Agrupamento executado, mas nenhuma NOVA referência foi localizada "
+            f"para o valor {valor_esperado}. Referência original {referencia_original}. "
+            "A referência original não será reutilizada. Verifique a geração do novo título no SAP."
         )
 
     async def selecionar_linha_por_id(
@@ -2890,6 +2975,8 @@ class ProrrogacaoBoletos:
 
         if not self.nova_referencia:
             raise RuntimeError("Nova Referência não armazenada.")
+        if str(self.nova_referencia).strip() == str(self.referencia).strip():
+            raise FalhaNegocio("A suposta nova referência é igual à original. Consulta final bloqueada.")
 
         campo = WebDriverWait(
             self.driver,
@@ -3736,6 +3823,18 @@ class ProrrogacaoBoletos:
 # ============================================================
 # WORKER
 # ============================================================
+
+
+async def prorrogacao_boletos(
+    task: RpaProcessoEntradaDTO,
+) -> RpaRetornoProcessoDTO:
+
+    processo = ProrrogacaoBoletos(
+        task=task,
+        base_url=(ProrrogacaoBoletos.URL_CUSTOMER_LINE_ITEMS),
+    )
+
+    return await processo.iniciar()
 
 
 async def prorrogacao_boletos(

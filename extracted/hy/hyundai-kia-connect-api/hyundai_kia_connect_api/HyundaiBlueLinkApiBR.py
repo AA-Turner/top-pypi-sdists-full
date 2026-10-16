@@ -5,7 +5,6 @@
 import datetime as dt
 import logging
 import random
-import typing as ty
 import uuid
 from datetime import timedelta
 from time import sleep
@@ -292,7 +291,6 @@ class HyundaiBlueLinkApiBR(ApiImplType1):
         self,
         username: str,
         password: str,
-        otp_handler: ty.Callable[[dict], dict] | None = None,
         pin: str | None = None,
     ) -> Token:
         """Login to Brazilian Hyundai API."""
@@ -371,7 +369,7 @@ class HyundaiBlueLinkApiBR(ApiImplType1):
         return self.login(token.username, token.password, pin=token.pin)
 
     @_retry_on_device_id_error
-    def get_vehicles(self, token: Token) -> list:
+    def get_vehicles(self, token: Token) -> list[Vehicle]:
         """Get list of vehicles."""
         url = self._build_api_url("/spa/vehicles")
         headers = self._get_authenticated_headers(token)

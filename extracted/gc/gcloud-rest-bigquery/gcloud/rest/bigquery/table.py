@@ -205,10 +205,7 @@ class Table(BigqueryBase):
         headers = self.headers()
 
         s = SyncSession(session) if session else self.session
-        resp = s.session.delete(
-            url, headers=headers, params=None,
-            timeout=timeout,
-        )
+        resp = s.delete(url, headers=headers, timeout=timeout)
         try:
             data: dict[str, Any] = resp.json()
         except Exception:  # pylint: disable=broad-except

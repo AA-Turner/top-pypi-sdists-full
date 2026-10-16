@@ -18,10 +18,10 @@
 #ifndef PROBLEM_H
 #define PROBLEM_H
 
+#include "Timer.h"
 #include "expr.h"
-#include "utils/COO_matrix.h"
-#include "utils/CSR_matrix.h"
-#include "utils/Timer.h"
+#include "sparsediff_linalg/COO_matrix.h"
+#include "sparsediff_linalg/CSR_matrix.h"
 #include <stdbool.h>
 
 typedef struct
@@ -59,16 +59,13 @@ typedef struct problem
     double *gradient_values;
 
     /* allocated by problem_init_derivatives */
-    CSR_matrix *jacobian;
-    CSR_matrix *lagrange_hessian;
-    int *hess_idx_map; /* maps all wsum_hess nnz to lagrange_hessian */
+    CSR_matrix *jacobian; /* CSR view of jac_stack; do not free */
+    matrix *jac_stack;    /* vertical stack of the constraint jacobians */
+    matrix **jac_ops;     /* the constraints' jacobians: jac_stack's operands */
+    CSR_matrix *lagrange_hessian; /* CSR view of hess_sum; do not free */
+    matrix *hess_sum;             /* sum of all wsum_hess */
     COO_matrix *jacobian_coo;
     COO_matrix *lagrange_hessian_coo; /* lower triangular part stored in COO */
-
-    /* per-constraint jacobian values_version last copied into the aggregated
-     * jacobian; the copy is skipped when the version is unchanged (affine
-     * constraints after their first eval) */
-    uint64_t *constraint_jac_seen;
 
     /* statistics for performance measurement */
     Diff_engine_stats stats;

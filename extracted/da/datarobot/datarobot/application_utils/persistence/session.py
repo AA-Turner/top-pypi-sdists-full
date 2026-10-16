@@ -65,6 +65,7 @@ from __future__ import annotations
 
 import builtins
 from collections.abc import AsyncIterator
+import copy
 import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -78,7 +79,11 @@ from datarobot.application_utils.persistence._encoding import (
 )
 from datarobot.application_utils.persistence._routing import SessionRoutingTable, build_session_routing
 from datarobot.application_utils.persistence._serde import deserialize_field, serialize_field
-from datarobot.application_utils.persistence.exceptions import DRMemoryConflictError, DRMemoryNotFoundError
+from datarobot.application_utils.persistence.exceptions import (
+    DRMemoryConflictError,
+    DRMemoryNotFoundError,
+    DRMemoryServiceError,
+)
 from datarobot.application_utils.persistence.markers import DEFAULT_SESSION_TTL_SECONDS, SYSTEM_PARTICIPANT
 
 if TYPE_CHECKING:
@@ -142,6 +147,7 @@ class DRSession(BaseModel):
     _created_at: str = PrivateAttr(default="")
     _version: int = PrivateAttr(default=0)
     _space: Any = PrivateAttr(default=None)  # DRMemorySpace — avoids circular import
+    _lifecycle_strategies: builtins.list[dict[str, Any]] = PrivateAttr(default_factory=list)
 
     # ── __init_subclass__ ─────────────────────────────────────────────────
 
@@ -171,6 +177,18 @@ class DRSession(BaseModel):
     def version(self) -> int:
         """Current server version integer (read-only; updated on every patch)."""
         return self._version
+
+    @property
+    def lifecycle_strategies(self) -> builtins.list[dict[str, Any]]:
+        """The stored lifecycle strategies, as last seen on the wire (read-only).
+
+        Refreshed from every wire response (``get``/``post``/``list``/
+        ``patch``/``patch_lifecycle_strategies``).  Use it to read-modify-write
+        with :meth:`patch_lifecycle_strategies`, which replaces the stored list
+        wholesale — any strategy not resent is deleted.  Returns a copy;
+        mutating it does not change the session.
+        """
+        return copy.deepcopy(self._lifecycle_strategies)
 
     def __repr__(self) -> str:
         """Return a developer-friendly representation."""
@@ -308,6 +326,7 @@ class DRSession(BaseModel):
         obj._created_at = str(data.get("createdAt", ""))
         obj._version = version
         obj._space = space
+        obj._lifecycle_strategies = copy.deepcopy(data.get("lifecycleStrategies") or [])
 
         return obj
 
@@ -317,6 +336,12 @@ class DRSession(BaseModel):
 
         raw_version = data.get("version")
         self._version = int(raw_version) if raw_version is not None else self._version
+        # Preserve on absent: only a response that carries the key overwrites the
+        # cached list.  An omitted key means the response did not speak to
+        # lifecycle strategies — clearing the cache on it would mislead a later
+        # read-modify-write into silently dropping stored strategies.
+        if "lifecycleStrategies" in data:
+            self._lifecycle_strategies = copy.deepcopy(data["lifecycleStrategies"] or [])
 
         # Sync concurrency field if declared
         if routing.concurrency_field is not None:
@@ -674,6 +699,81 @@ class DRSession(BaseModel):
             extra_headers={"If-Match": str(self._version)},
         )
         self._update_from_wire(resp.json())
+
+    async def patch_lifecycle_strategies(self, strategies: builtins.list[dict[str, Any]]) -> None:
+        """Replace this session's lifecycle strategies in place.
+
+        The service replaces the stored list wholesale with ``strategies`` — the
+        same wire shape ``__lifecycle_strategies__`` declares at create time,
+        e.g. ``[{"type": "soft_delete", "trigger": {"ttl": 63_072_000}}]``.  A
+        strategy's retention deadline is recomputed from its stored anchor plus
+        the new trigger duration.
+
+        Requires a non-empty list: the service treats an omitted field as "no
+        change", and this method never sends an empty replacement.  Read the
+        current list from :attr:`lifecycle_strategies` first — replacement is
+        wholesale, so any strategy not resent is deleted.
+
+        Parameters
+        ----------
+        strategies
+            Replacement lifecycle strategies, in wire shape.
+
+        Raises
+        ------
+        DRMemoryVersionConflictError
+            If the session was updated concurrently (stale ``If-Match``).
+        DRMemoryValidationError
+            When the service rejects a strategy — e.g. a ``{"never": true}``
+            trigger in an environment where the never-expire gate is off
+            (unless that strategy type already stores one).
+        DRMemoryServiceError
+            With ``status_code=409`` when the change touches a strategy type
+            that has already executed for this session — the executor never
+            runs a type twice, so the service rejects the change as one that
+            can never take effect.  Not retryable; resending an executed type
+            *unchanged* (as read-modify-write does) is allowed.  Also raised when the
+            server accepted the PATCH but ignored ``lifecycleStrategies`` —
+            services older than 11.13 (FLEET-7891) drop the unknown field and
+            answer 200 with an unchanged version, which would otherwise be a
+            silent no-op; session retention is unchanged in that case.
+
+        Examples
+        --------
+        .. code-block:: python
+
+            await session.patch_lifecycle_strategies(
+                [{"type": "soft_delete", "trigger": {"idle": 63_072_000}}]
+            )
+        """
+        if not strategies:
+            raise ValueError(
+                "patch_lifecycle_strategies() requires at least one strategy; "
+                "to leave the stored strategies unchanged, do not call it."
+            )
+        sent_version = self._version
+        resp = await self._space._client.request(
+            "PATCH",
+            f"{self._space.id}/sessions/{self._id}/",
+            json={"lifecycleStrategies": strategies},
+            extra_headers={"If-Match": str(self._version)},
+        )
+        body = resp.json()
+        self._update_from_wire(body)
+        # A service that applies the field always advances the version: the bump is
+        # unconditional whenever the request carries any known field (no equality
+        # check against the stored value, so even an identical replacement bumps —
+        # asserted live in the acceptance scenario).  One that predates the field
+        # (< 11.13, FLEET-7891) ignores it and answers 200 with the version
+        # unchanged.  Surface that as an error instead of a silent no-op.
+        if self._version == sent_version:
+            raise DRMemoryServiceError(
+                "The service accepted the PATCH but ignored 'lifecycleStrategies' "
+                "(version did not advance).  Replacing lifecycle strategies requires "
+                "memory service 11.13+ (FLEET-7891); session retention is unchanged.",
+                status_code=resp.status_code,
+                payload=body,
+            )
 
     @staticmethod
     def _validate_post_kwargs(

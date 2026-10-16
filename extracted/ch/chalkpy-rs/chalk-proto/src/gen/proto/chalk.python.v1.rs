@@ -86,11 +86,49 @@ pub struct TyEnum {
     pub ty: ::core::option::Option<::prost::alloc::boxed::Box<Ty>>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct TyJson {
+    #[prost(enumeration="ty_json::JsonShape", optional, tag="1")]
+    pub shape: ::core::option::Option<i32>,
+}
+/// Nested message and enum types in `TyJson`.
+pub mod ty_json {
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[repr(i32)]
+    pub enum JsonShape {
+        Unspecified = 0,
+        Dict = 1,
+        List = 2,
+    }
+    impl JsonShape {
+        /// String value of the enum field names used in the ProtoBuf definition.
+        ///
+        /// The values are not transformed in any way and thus are considered stable
+        /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+        pub fn as_str_name(&self) -> &'static str {
+            match self {
+                JsonShape::Unspecified => "JSON_SHAPE_UNSPECIFIED",
+                JsonShape::Dict => "JSON_SHAPE_DICT",
+                JsonShape::List => "JSON_SHAPE_LIST",
+            }
+        }
+        /// Creates an enum from field names used in the ProtoBuf definition.
+        pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+            match value {
+                "JSON_SHAPE_UNSPECIFIED" => Some(Self::Unspecified),
+                "JSON_SHAPE_DICT" => Some(Self::Dict),
+                "JSON_SHAPE_LIST" => Some(Self::List),
+                _ => None,
+            }
+        }
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Ty {
     #[prost(bool, tag="1")]
     pub nullable: bool,
-    #[prost(oneof="ty::Ty", tags="2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23")]
+    #[prost(oneof="ty::Ty", tags="2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24")]
     pub ty: ::core::option::Option<ty::Ty>,
 }
 /// Nested message and enum types in `Ty`.
@@ -142,6 +180,8 @@ pub mod ty {
         Never(super::EmptyMessage),
         #[prost(message, tag="23")]
         RequestsHttpResponse(super::EmptyMessage),
+        #[prost(message, tag="24")]
+        Json(super::TyJson),
     }
 }
 #[allow(clippy::derive_partial_eq_without_eq)]

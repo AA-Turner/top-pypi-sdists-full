@@ -93,6 +93,9 @@ class ModelStudioClient:
     ) -> models_models.ModelStudio:
         """
         Creates a new Model Studio.
+
+        Required scopes: [api:models-write]
+
         :param name: The name of the Model Studio.
         :type name: str
         :param parent_folder_rid: The RID of the parent folder where the studio will be created.
@@ -151,6 +154,9 @@ class ModelStudioClient:
     ) -> models_models.ModelStudio:
         """
         Gets details about a Model Studio by its RID.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.
@@ -199,6 +205,9 @@ class ModelStudioClient:
     ) -> models_models.ModelStudioRun:
         """
         Launches a new training run for the Model Studio using the latest configuration version.
+
+        Required scopes: [api:models-write]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.
@@ -324,6 +333,9 @@ class AsyncModelStudioClient:
     ) -> typing.Awaitable[models_models.ModelStudio]:
         """
         Creates a new Model Studio.
+
+        Required scopes: [api:models-write]
+
         :param name: The name of the Model Studio.
         :type name: str
         :param parent_folder_rid: The RID of the parent folder where the studio will be created.
@@ -382,6 +394,9 @@ class AsyncModelStudioClient:
     ) -> typing.Awaitable[models_models.ModelStudio]:
         """
         Gets details about a Model Studio by its RID.
+
+        Required scopes: [api:models-read]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.
@@ -430,6 +445,9 @@ class AsyncModelStudioClient:
     ) -> typing.Awaitable[models_models.ModelStudioRun]:
         """
         Launches a new training run for the Model Studio using the latest configuration version.
+
+        Required scopes: [api:models-write]
+
         :param model_studio_rid:
         :type model_studio_rid: ModelStudioRid
         :param preview: Enables the use of preview functionality.

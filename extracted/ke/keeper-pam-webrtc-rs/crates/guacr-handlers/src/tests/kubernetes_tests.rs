@@ -225,9 +225,13 @@ fn test_build_config_from_token_missing_token() {
 fn test_build_config_from_token_default_server() {
     let mut params = HashMap::new();
     params.insert("token".to_string(), "test-token-value".to_string());
-    let result = build_config_from_token(&params);
-    // Should succeed with default server URL
-    assert!(result.is_ok(), "Token config should succeed: {:?}", result);
+    let config = build_config_from_token(&params).expect("token config should succeed");
+    assert_eq!(
+        config.cluster_url.to_string(),
+        "https://kubernetes.default.svc/"
+    );
+    assert!(!config.accept_invalid_certs);
+    assert!(config.root_cert.is_none());
 }
 
 #[test]
@@ -238,8 +242,9 @@ fn test_build_config_from_token_custom_server() {
         "server".to_string(),
         "https://custom-k8s.example.com:6443".to_string(),
     );
-    let result = build_config_from_token(&params);
-    assert!(result.is_ok());
+    let config = build_config_from_token(&params).expect("token config should succeed");
+    assert!(!config.accept_invalid_certs);
+    assert!(config.root_cert.is_none());
 }
 
 #[test]
@@ -248,8 +253,9 @@ fn test_build_config_from_token_with_ca_cert() {
     params.insert("token".to_string(), "test-token-value".to_string());
     // A valid base64-encoded "test cert" (not a real cert, just valid base64)
     params.insert("ca_cert".to_string(), "dGVzdCBjZXJ0".to_string());
-    let result = build_config_from_token(&params);
-    assert!(result.is_ok());
+    let config = build_config_from_token(&params).expect("token config should succeed");
+    assert!(!config.accept_invalid_certs);
+    assert_eq!(config.root_cert, Some(vec![b"test cert".to_vec()]));
 }
 
 #[test]
@@ -278,8 +284,9 @@ fn test_build_config_from_server_cert_valid() {
         "https://k8s.example.com:6443".to_string(),
     );
     params.insert("ca_cert".to_string(), "dGVzdCBjZXJ0".to_string());
-    let result = build_config_from_server_cert(&params);
-    assert!(result.is_ok());
+    let config = build_config_from_server_cert(&params).expect("server config should succeed");
+    assert!(!config.accept_invalid_certs);
+    assert_eq!(config.root_cert, Some(vec![b"test cert".to_vec()]));
 }
 
 #[test]
@@ -289,9 +296,9 @@ fn test_build_config_from_server_cert_no_ca() {
         "server".to_string(),
         "https://k8s.example.com:6443".to_string(),
     );
-    // No CA cert - should still work but with insecure TLS
-    let result = build_config_from_server_cert(&params);
-    assert!(result.is_ok());
+    let config = build_config_from_server_cert(&params).expect("server config should succeed");
+    assert!(!config.accept_invalid_certs);
+    assert!(config.root_cert.is_none());
 }
 
 #[test]

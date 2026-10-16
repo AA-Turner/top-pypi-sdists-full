@@ -8,6 +8,7 @@ import numpy as np
 from pydantic import Field, NonNegativeInt, field_validator, model_validator
 
 from tidy3d import GridSpec
+from tidy3d._rf_migration import warn_rf_plugin_migration
 from tidy3d.components.base import cached_property
 from tidy3d.components.boundary import BroadbandModeABCSpec
 from tidy3d.components.frequency_extrapolation import (
@@ -1848,6 +1849,12 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
         return val
 
     @model_validator(mode="after")
+    def _warn_rf_plugin_migration(self) -> Self:
+        """Warn that the terminal component modeler leaves Tidy3D in 2.13."""
+        warn_rf_plugin_migration()
+        return self
+
+    @model_validator(mode="after")
     def _validate_port_refinement_usage(self) -> Self:
         """Warn if port refinement options are enabled, but the supplied simulation
         does not contain a grid type that will make use of them."""
@@ -2166,6 +2173,3 @@ class TerminalComponentModeler(AbstractComponentModeler, MicrowaveBaseModel):
             )
 
         return sim
-
-
-TerminalComponentModeler.model_rebuild()

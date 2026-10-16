@@ -1,7 +1,25 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "functools",
+    "packaging.utils",
+    "pathlib",
+    "pipx",
+    "pipx.commands.common",
+    "pipx.commands.inject",
+    "pipx.commands.install",
+    "pipx.commands.uninstall",
+    "pipx.fanout",
+    "pipx.pipx_metadata_file",
+    "pipx.util",
+    "pipx.venv",
+    "tempfile",
+]
+
 import logging
+import time
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import TYPE_CHECKING, Final
@@ -9,7 +27,7 @@ from typing import TYPE_CHECKING, Final
 from packaging.utils import canonicalize_name
 
 from pipx import paths
-from pipx.commands.common import add_suffix
+from pipx.commands.common import add_suffix, drop_copies_claimed_elsewhere, expose_shared_resources_in_order
 from pipx.commands.inject import inject_dep
 from pipx.commands.install import install
 from pipx.commands.uninstall import _get_venv_package_infos, _get_venv_resource_paths
@@ -22,6 +40,8 @@ from pipx.constants import (
     ExitCode,
 )
 from pipx.emojis import error, sleep, stars
+from pipx.fanout import fan_out, locked_in_order
+from pipx.pipx_metadata_file import PipxMetadata
 from pipx.result import OperationData, OperationError, OperationResult, OutputLevel, OutputMessage, OutputStream
 from pipx.util import PipxError, rmdir, safe_unlink
 from pipx.venv import Venv, VenvContainer
@@ -42,8 +62,21 @@ def _create_reinstall_backup(venv_dir: Path) -> Path:
     paths.ctx.trash.mkdir(parents=True, exist_ok=True)
     backup_dir = Path(mkdtemp(prefix=f"{venv_dir.name}-", suffix="-pipx-reinstall", dir=paths.ctx.trash))
     backup_dir.rmdir()
-    venv_dir.rename(backup_dir)
+    _rename_once_released(venv_dir, backup_dir)
     return backup_dir
+
+
+def _rename_once_released(source: Path, target: Path) -> None:
+    # Windows refuses to rename a directory while a handle inside it is open, and reinstall-all rebuilding another venv
+    # briefly opens this one's scripts directory while it matches the launcher copies in the bin directory to venvs
+    for delay in (0.05, 0.1, 0.2, 0.4, 0.8):
+        try:
+            source.rename(target)
+        except PermissionError:
+            time.sleep(delay)
+        else:
+            return
+    source.rename(target)
 
 
 def _restore_reinstall_backup(venv_dir: Path, restore_venv_dir: Path, backup_dir: Path) -> None:
@@ -126,7 +159,6 @@ def reinstall(  # ruff:ignore[too-many-arguments]  # reinstall rebuilds a venv f
     local_man_dir: Path,
     python: str,
     verbose: bool,
-    force_reinstall_shared_libs: bool = False,
     python_flag_passed: bool = False,
     backend: str | None = None,
     env_backend: str | None = None,
@@ -156,9 +188,7 @@ def reinstall(  # ruff:ignore[too-many-arguments]  # reinstall rebuilds a venv f
         )
 
     venv = Venv(venv_dir, verbose=verbose, backend=backend, env_backend=env_backend)
-    venv.check_upgrade_shared_libs(
-        pip_args=venv.pipx_metadata.main_package.pip_args, verbose=verbose, force_upgrade=force_reinstall_shared_libs
-    )
+    venv.check_upgrade_shared_libs(pip_args=venv.pipx_metadata.main_package.pip_args, verbose=verbose)
 
     if venv.pipx_metadata.main_package.package_or_url is not None:
         package_or_url = venv.pipx_metadata.main_package.package_or_url
@@ -211,7 +241,7 @@ def reinstall(  # ruff:ignore[too-many-arguments]  # reinstall rebuilds a venv f
 
         # now install injected packages
         for injected_name, injected_package in venv.pipx_metadata.injected_packages.items():
-            inject_dep(
+            injected = inject_dep(
                 venv_dir,
                 injected_name,
                 _require_injected_url(injected_package, venv.name),
@@ -225,20 +255,29 @@ def reinstall(  # ruff:ignore[too-many-arguments]  # reinstall rebuilds a venv f
                 backend=backend or venv.pipx_metadata.backend,
                 env_backend=env_backend,
                 cooldown_days=injected_package.cooldown_days,
+                pinned=injected_package.pinned,
+                emit_output=False,
             )
+            messages.extend(injected.messages)
 
         new_resource_paths = _get_expected_reinstall_resource_paths(
             Venv(venv_dir, verbose=verbose), local_bin_dir, local_man_dir
         )
-        _remove_stale_reinstall_resources(old_resource_paths - new_resource_paths)
+        _remove_stale_reinstall_resources(
+            drop_copies_claimed_elsewhere(old_resource_paths - new_resource_paths, venv.bin_path)
+        )
     except PipxError:
         _restore_reinstall_backup(venv_dir, original_venv_dir, reinstall_backup_dir)
-        # an expected failure (e.g. pip could not install the package) that the CLI reports itself,
-        # so like the CLI entry point keep its traceback for debug output only
+        # an expected failure (e.g. pip could not install the package) that the CLI reports itself, so like the CLI
+        # entry point keep its traceback for debug output
         _LOGGER.error("%s Reinstall failed; restored %s.", error, venv.name)  # ruff:ignore[error-instead-of-exception]
         _LOGGER.debug("Reinstall failure", exc_info=True)
         raise
-    except (Exception, KeyboardInterrupt):
+    except KeyboardInterrupt:
+        _restore_reinstall_backup(venv_dir, original_venv_dir, reinstall_backup_dir)
+        _LOGGER.error("%s Interrupted; restored %s.", error, venv.name)  # ruff:ignore[error-instead-of-exception]
+        raise
+    except Exception:
         _restore_reinstall_backup(venv_dir, original_venv_dir, reinstall_backup_dir)
         _LOGGER.exception("%s Reinstall failed; restored %s.", error, venv.name)
         raise
@@ -268,40 +307,35 @@ def reinstall_all(  # ruff:ignore[too-many-arguments]  # reinstall-all forwards 
     reinstalled: list[_ReinstalledEnvironment] = []
     messages: list[OutputMessage] = []
 
-    # iterate on all packages and reinstall them
-    # for the first one, we also trigger
-    # a reinstall of shared libs beforehand
-    first_reinstall = True
-    for venv_dir in venv_container.iter_venv_dirs():
-        if venv_dir.name in skip:
-            continue
-        try:
-            with venv_container.venv_lock(venv_dir) as venv_lock:
-                outcome = reinstall(
-                    venv_dir=venv_dir,
+    venv_dirs: Final[list[Path]] = [
+        venv_dir for venv_dir in venv_container.iter_venv_dirs() if venv_dir.name not in skip
+    ]
+    with expose_shared_resources_in_order(
+        (PipxMetadata(venv_dir) for venv_dir in venv_dirs), local_bin_dir, local_man_dir
+    ):
+        outcomes: Final[list[OperationResult[ReinstallData]]] = fan_out(
+            [
+                partial(
+                    _reinstall_locked,
+                    venv_container,
+                    venv_dir,
                     local_bin_dir=local_bin_dir,
                     local_man_dir=local_man_dir,
                     python=python,
                     verbose=verbose,
-                    force_reinstall_shared_libs=first_reinstall,
                     python_flag_passed=python_flag_passed,
                     backend=backend,
                     env_backend=env_backend,
-                    venv_lock=venv_lock,
                 )
-        except PipxError as error_raised:
-            errors.append(
-                OperationError(
-                    code="environment_reinstall_failed", message=str(error_raised), environment=venv_dir.name
-                )
-            )
-            messages.append(OutputMessage(str(error_raised), stream=OutputStream.STDERR, level=OutputLevel.ERROR))
-        else:
-            errors.extend(outcome.errors)
-            messages.extend(outcome.messages)
-            if not outcome.errors:
-                first_reinstall = False
-                reinstalled.extend(outcome.data.environments)
+                for venv_dir in venv_dirs
+            ],
+            sequential=verbose,
+        )
+    for outcome in outcomes:
+        errors.extend(outcome.errors)
+        messages.extend(outcome.messages)
+        if not outcome.errors:
+            reinstalled.extend(outcome.data.environments)
     if not reinstalled:
         messages.append(OutputMessage(f"No packages reinstalled after running 'pipx reinstall-all' {sleep}"))
     return OperationResult(
@@ -312,6 +346,45 @@ def reinstall_all(  # ruff:ignore[too-many-arguments]  # reinstall-all forwards 
         errors=tuple(errors),
         succeeded=bool(reinstalled),
     )
+
+
+def _reinstall_locked(  # ruff:ignore[too-many-arguments]  # forwards the full reinstall context for one environment
+    venv_container: VenvContainer,
+    venv_dir: Path,
+    *,
+    local_bin_dir: Path,
+    local_man_dir: Path,
+    python: str,
+    verbose: bool,
+    python_flag_passed: bool,
+    backend: str | None,
+    env_backend: str | None,
+) -> OperationResult[ReinstallData]:
+    try:
+        with locked_in_order(venv_container.venv_lock(venv_dir)) as venv_lock:
+            return reinstall(
+                venv_dir=venv_dir,
+                local_bin_dir=local_bin_dir,
+                local_man_dir=local_man_dir,
+                python=python,
+                verbose=verbose,
+                python_flag_passed=python_flag_passed,
+                backend=backend,
+                env_backend=env_backend,
+                venv_lock=venv_lock,
+            )
+    except PipxError as error_raised:
+        return OperationResult(
+            command=("reinstall",),
+            data=ReinstallData(environments=()),
+            messages=(OutputMessage(str(error_raised), stream=OutputStream.STDERR, level=OutputLevel.ERROR),),
+            exit_code=ExitCode(1),
+            errors=(
+                OperationError(
+                    code="environment_reinstall_failed", message=str(error_raised), environment=venv_dir.name
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True)

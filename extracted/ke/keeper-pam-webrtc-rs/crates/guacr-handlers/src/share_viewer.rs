@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::session_sharing::lookup;
+use crate::session_sharing::{lookup, ViewerInput};
 use crate::share_control::{
     encode_draw_event, encode_join_accepted, encode_join_rejected, encode_participant_update,
     parse_draw_event,
@@ -111,7 +111,7 @@ pub async fn check_viewer_join(
     let update = encode_participant_update(&all, false);
     // Best-effort: send to the frame broadcast channel (owner will relay to other viewers).
     if let Some(owner_session) = lookup(&share_session.session_id) {
-        let _ = owner_session.broadcast(update);
+        let _ = owner_session.broadcast_control(update);
     }
 
     // Subscribe to the owner's frame broadcast.
@@ -132,6 +132,9 @@ pub async fn check_viewer_join(
     }
 
     let mut frame_rx = frame_session.subscribe();
+
+    // Identity recorded against every input this viewer forwards to the owner.
+    let viewer_name = participant.display_name.clone();
 
     // Stream frames to viewer until disconnect.
     loop {
@@ -168,9 +171,16 @@ pub async fn check_viewer_join(
                         match opcode {
                             "key" | "mouse" if privs & PRIV_CONTROL != 0 => {
                                 // Forward key/mouse to owner's input channel so the owner's
-                                // protocol handler sends it to the remote host.
+                                // protocol handler sends it to the remote host. The viewer's
+                                // identity rides along so the recording attributes the input
+                                // to them rather than to the session owner.
                                 if let Some(owner_session) = lookup(&share_session.session_id) {
-                                    if !owner_session.forward_viewer_input(bytes) {
+                                    let input = ViewerInput {
+                                        bytes,
+                                        guid,
+                                        display_name: viewer_name.clone(),
+                                    };
+                                    if !owner_session.forward_viewer_input(input) {
                                         warn!(
                                             "[session={}] viewer '{}' control input dropped — \
                                              owner handler has not registered a viewer_input channel",
@@ -186,7 +196,9 @@ pub async fn check_viewer_join(
                                         if let Some(owner_session) =
                                             lookup(&share_session.session_id)
                                         {
-                                            let _ = owner_session.broadcast(encoded);
+                                            // Annotations are an overlay, not screen state, so
+                                            // they must not land in the late-join frame cache.
+                                            let _ = owner_session.broadcast_control(encoded);
                                         }
                                     }
                                     Err(e) => {
@@ -212,7 +224,7 @@ pub async fn check_viewer_join(
     let all = share_session.participant_list();
     let update = encode_participant_update(&all, false);
     if let Some(owner_session) = lookup(&share_session.session_id) {
-        let _ = owner_session.broadcast(update);
+        let _ = owner_session.broadcast_control(update);
     }
 
     info!(
@@ -291,7 +303,7 @@ pub async fn handle_owner_share_control(
                 share.revoke(guid);
                 let update = encode_participant_update(&share.participant_list(), false);
                 if let Some(owner_session) = lookup(session_id) {
-                    let _ = owner_session.broadcast(update);
+                    let _ = owner_session.broadcast_control(update);
                 } else {
                     let _ = to_client.send(update).await;
                 }
@@ -305,7 +317,7 @@ pub async fn handle_owner_share_control(
                 share.set_privileges(guid, new_privileges);
                 let update = encode_participant_update(&share.participant_list(), false);
                 if let Some(owner_session) = lookup(session_id) {
-                    let _ = owner_session.broadcast(update);
+                    let _ = owner_session.broadcast_control(update);
                 } else {
                     let _ = to_client.send(update).await;
                 }
@@ -323,8 +335,8 @@ pub async fn handle_owner_share_control(
                 let notice = encode_admin_takeover_notice(&admin_name, owner_new_privileges);
                 let update = encode_participant_update(&share.participant_list(), true);
                 if let Some(owner_session) = lookup(session_id) {
-                    let _ = owner_session.broadcast(notice);
-                    let _ = owner_session.broadcast(update);
+                    let _ = owner_session.broadcast_control(notice);
+                    let _ = owner_session.broadcast_control(update);
                 } else {
                     let _ = to_client.send(notice).await;
                     let _ = to_client.send(update).await;

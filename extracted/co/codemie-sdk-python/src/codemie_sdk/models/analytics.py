@@ -146,3 +146,193 @@ class PaginatedAnalyticsQueryParams(AnalyticsQueryParams):
 
     page: int = Field(0, description="Zero-indexed page number")
     per_page: int = Field(20, description="Items per page")
+
+
+# ── CLI Analytics: /v1/analytics/cli-analytics/* ─────────────────────────────
+
+
+class CliAnalyticsQueryParams(AnalyticsQueryParams):
+    """Filters shared by the /v1/analytics/cli-analytics/* read endpoints."""
+
+    repositories: str | None = Field(
+        None, description="Comma-separated repository names"
+    )
+
+
+class CliAnalyticsSessionsQueryParams(CliAnalyticsQueryParams):
+    """Query parameters of the CLI Analytics session list."""
+
+    page: int | None = Field(None, description="Zero-indexed page number")
+    per_page: int | None = Field(None, description="Items per page")
+    is_unattributed: bool | None = Field(
+        None, description="Only sessions with no attributed repository"
+    )
+
+
+class CliAnalyticsMetadata(BaseModel):
+    """Metadata of CLI Analytics responses."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    timestamp: str = Field(description="ISO 8601 timestamp when response generated")
+    data_as_of: str = Field(description="ISO 8601 date/datetime of the newest data")
+    execution_time_ms: float = Field(description="Query execution time in milliseconds")
+
+
+class CliAnalyticsCostKpis(BaseModel):
+    """Totals of the CLI Analytics cost breakdown."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    total_sessions: int
+    total_cost_usd: float
+    total_tokens: int
+    avg_cost_per_session: float
+
+
+class CliAnalyticsCostByUser(BaseModel):
+    """Cost of one user."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    developer_name: str
+    cost_usd: float
+
+
+class CliAnalyticsCostByModel(BaseModel):
+    """Cost of one model."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    model_name: str
+    cost_usd: float
+
+
+class CliAnalyticsCostData(BaseModel):
+    """Cost breakdown data."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kpis: CliAnalyticsCostKpis
+    cost_by_user: list[CliAnalyticsCostByUser] = Field(default_factory=list)
+    cost_by_model: list[CliAnalyticsCostByModel] = Field(default_factory=list)
+
+
+class CliAnalyticsCostResponse(BaseModel):
+    """Response of GET /v1/analytics/cli-analytics/cost."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: CliAnalyticsCostData
+    metadata: CliAnalyticsMetadata
+
+
+class CliAnalyticsUserRow(BaseModel):
+    """One user of the CLI Analytics user leaderboard."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    developer_name: str = Field(description="Resolved user email")
+    session_count: int
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    cost_usd: float
+
+
+class CliAnalyticsUsersData(BaseModel):
+    """User leaderboard data."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    rows: list[CliAnalyticsUserRow]
+    avg_session_duration_ms: int | None = None
+    total_count: int | None = None
+
+
+class CliAnalyticsUsersResponse(BaseModel):
+    """Response of GET /v1/analytics/cli-analytics/users."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: CliAnalyticsUsersData
+    metadata: CliAnalyticsMetadata
+
+
+class CliAnalyticsSessionRow(BaseModel):
+    """One CLI session."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    trace_id: str = Field(description="Session id")
+    developer_name: str = Field(description="Resolved user email")
+    repository: str | None = Field(None, description="None when unattributed")
+    branch: str | None = None
+    start_time: str = Field(description="ISO 8601 session start")
+    duration_ms: int = Field(description="Session start to its last event")
+    model_name: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
+    cost_usd: float
+
+
+class CliAnalyticsSessionsData(BaseModel):
+    """Session list data."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    sessions: list[CliAnalyticsSessionRow]
+    page: int
+    per_page: int
+    total: int
+
+
+class CliAnalyticsSessionsResponse(BaseModel):
+    """Response of GET /v1/analytics/cli-analytics/sessions."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: CliAnalyticsSessionsData
+    metadata: CliAnalyticsMetadata
+
+
+class CliAnalyticsSessionDetailResponse(BaseModel):
+    """Response of GET /v1/analytics/cli-analytics/sessions/{trace_id}."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: CliAnalyticsSessionRow
+    metadata: CliAnalyticsMetadata
+
+
+class CliAnalyticsRepositoryRow(BaseModel):
+    """One repository (or repository branch) of the CLI Analytics breakdown."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    repository: str | None = Field(None, description="None for unattributed sessions")
+    branch: str | None = None
+    session_count: int
+    cost_usd: float
+    project_name: str | None = None
+
+
+class CliAnalyticsRepositoriesData(BaseModel):
+    """Repository breakdown data."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    rows: list[CliAnalyticsRepositoryRow]
+    pagination: PaginationMetadata
+
+
+class CliAnalyticsRepositoriesResponse(BaseModel):
+    """Response of GET /v1/analytics/cli-analytics/repositories."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: CliAnalyticsRepositoriesData
+    metadata: CliAnalyticsMetadata

@@ -248,3 +248,84 @@ printf '%q\n' "it's"
 ### expect
 it\'s
 ### end
+
+### printf_time_directive_epoch
+# %(fmt)T formats epoch seconds
+TZ=UTC printf '%(%Y-%m-%d %H:%M:%S)T\n' 86400
+### expect
+1970-01-02 00:00:00
+### end
+
+### printf_time_directive_width_and_repeat
+TZ=UTC printf '[%-8(%H:%M)T] %s\n' 3600 a 7200 b
+### expect
+[01:00   ] a
+[02:00   ] b
+### end
+
+### printf_time_directive_missing_arg_is_now
+# A missing argument means now; only check the shape
+printf '%(%Y)T\n' | grep -cE '^[0-9]{4}$'
+### expect
+1
+### end
+
+### printf_time_directive_v
+TZ=UTC printf -v d '%(%F)T' 0; echo "$d"
+### expect
+1970-01-01
+### end
+
+### printf_hex_escape_emits_raw_bytes
+# \xHH above 0x7f is a raw byte, not a U+FFFD replacement
+printf '\xff\xfe' | od -An -tx1
+### expect
+ ff fe
+### end
+
+### printf_q_keeps_printable_non_ascii
+printf '%q\n' 'com espaço' 'a€b'
+### expect
+com\ espaço
+a€b
+### end
+
+### printf_v_into_integer_and_element
+# printf -v assigns like read: declare -i evaluates, a[i] sets an element
+declare -i n; printf -v n '%s' '2+3'; echo $n; printf -v 'arr[1+1]' %s z; declare -p arr
+### expect
+5
+declare -a arr=([2]="z")
+### end
+
+### printf_usage_errors
+# bash's getopt: invalid option, missing -v argument, missing format
+printf -x 2>/dev/null; echo $?; printf -v 2>/dev/null; echo $?; printf 2>/dev/null; echo $?; printf - ; echo
+### expect
+2
+2
+2
+-
+### end
+
+### printf_invalid_number_fails
+# bash: a non-numeric %d argument prints its parsed prefix and fails (status 1)
+printf '%d\n' abc; echo rc=$?; printf '%d\n' 12abc; echo rc=$?; printf -v v %d 3x; echo "$? $v"
+printf '%d\n' 99999999999999999999 2>/dev/null; echo rc=$?; printf '%d|' '' "'x"; echo rc=$?
+### expect
+0
+rc=1
+12
+rc=1
+1 3
+9223372036854775807
+rc=0
+0|120|rc=0
+### end
+
+### printf_invalid_number_stderr
+# the diagnostic names the argument like bash
+printf '%d' abc 2>&1 >/dev/null | sed 's/^.*printf: //'
+### expect
+abc: invalid number
+### end

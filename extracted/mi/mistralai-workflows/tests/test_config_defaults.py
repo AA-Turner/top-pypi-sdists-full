@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core.config.config import AppConfig, PayloadCompressionConfig, WorkerConfig
@@ -35,6 +35,15 @@ class TestAgentServerUrlDefault:
         cfg = AppConfig()
 
         assert cfg.worker.events_api_version == "v2"
+
+    def test_mistral_api_key_does_not_overwrite_temporal_api_key_source(self, monkeypatch):
+        monkeypatch.setenv("MISTRAL_API_KEY", "mistral-key")
+        monkeypatch.delenv("TEMPORAL_API_KEY", raising=False)
+
+        cfg = AppConfig()
+
+        assert cfg.common.mistral_api_key == SecretStr("mistral-key")
+        assert cfg.temporal.api_key is None
 
     def test_app_config_reads_temporal_payload_compression(self, monkeypatch):
         monkeypatch.setenv("TEMPORAL_PAYLOAD_COMPRESSION__MIN_SIZE_BYTES", "4096")

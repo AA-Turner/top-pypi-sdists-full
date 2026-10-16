@@ -258,8 +258,10 @@ class SwitchTask(PoeTask):
     async def _handle_run(
         self, context: RunContext, env: TaskEnv, task_state: PoeTaskRun
     ):
-        named_arg_values, extra_args = self.get_parsed_arguments(env)
-        env.register_task_args(named_arg_values, extra_args)
+        if not self.spec.options.get("args"):
+            # Otherwise the control and case tasks receive and register these args
+            # themselves, so they must resolve them against the env as this task did
+            self._parse_and_register_args(env)
 
         # Indicate on the global context that there are multiple stages to this task
         context.multistage = True
@@ -294,11 +296,13 @@ class SwitchTask(PoeTask):
         case_task_run = await case_task.run(context=context, parent_env=env)
         await task_state.add_child(case_task_run)
         await task_state.finalize()
+        # Errors from child task runs are otherwise suppressed, so they must be
+        # raised here to fail this task
+        await case_task_run.wait(suppress_errors=False)
 
         if self.capture_stdout is True:
             # The executor saved output for the case task, but we need it to be
             # registered for this switch task as well
-            await case_task_run.wait(suppress_errors=False)
             context.save_task_output(
                 self.invocation,
                 context.get_task_output(

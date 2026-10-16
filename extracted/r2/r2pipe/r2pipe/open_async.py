@@ -15,7 +15,7 @@ from collections.abc import Iterable
 from contextlib import ContextDecorator, suppress
 from urllib.parse import quote, urlparse
 
-from r2pipe.open_base import OpenBase, get_radare_path
+from r2pipe.open_base import OpenBase, get_radare_path, normalize_open_target
 
 
 class open(OpenBase, ContextDecorator):
@@ -103,7 +103,14 @@ class open(OpenBase, ContextDecorator):
             self._connection_pool = {}
             self._loop.close()
 
+    def quit(self):
+        """Use this client's event loop to finish the asynchronous shutdown."""
+        self.close()
+
     def __init__(self, filename="", flags=None, radare2home=None):
+        file_args = []
+        filename, file_args = normalize_open_target(filename)
+
         super(open, self).__init__(filename, flags)
         if flags is None:
             flags = []
@@ -163,8 +170,9 @@ class open(OpenBase, ContextDecorator):
 
             self._cmd_coro = self._cmd_process
 
+            r_args = [f"-Rarg{i+1}={a}" for i, a in enumerate(file_args)]
             cmd = ["-q0", filename]
-            cmd = cmd[:1] + flags + cmd[1:]
+            cmd = cmd[:1] + flags + r_args + cmd[1:]
             self._process_start_cmd = cmd
 
         else:

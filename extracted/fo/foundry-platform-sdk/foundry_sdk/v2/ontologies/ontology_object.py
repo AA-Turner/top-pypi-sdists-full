@@ -74,6 +74,9 @@ class OntologyObjectClient:
         """
         Perform functions on object fields in the specified ontology and object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The type of the object to aggregate on.
@@ -146,6 +149,9 @@ class OntologyObjectClient:
         """
         Returns a count of the objects of the given object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -201,14 +207,19 @@ class OntologyObjectClient:
         branch: typing.Optional[core_models.FoundryBranch] = None,
         exclude_rid: typing.Optional[bool] = None,
         load_ontology_defined_derived_properties: typing.Optional[bool] = None,
+        scenario_rid: typing.Optional[ontologies_models.OntologyScenarioRid] = None,
         sdk_package_rid: typing.Optional[ontologies_models.SdkPackageRid] = None,
         sdk_version: typing.Optional[ontologies_models.SdkVersion] = None,
         select: typing.Optional[typing.List[ontologies_models.SelectedPropertyApiName]] = None,
+        transaction_id: typing.Optional[ontologies_models.OntologyTransactionId] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
     ) -> ontologies_models.OntologyObjectV2:
         """
         Gets a specific object with the given primary key.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -222,12 +233,16 @@ class OntologyObjectClient:
         :type exclude_rid: Optional[bool]
         :param load_ontology_defined_derived_properties: A flag to load ontology-defined derived properties (OTDPs) in the response. Defaults to true. Only applies when no explicit property selection is provided; when specific properties are selected, this flag has no effect and the selected properties are always returned.  This feature is experimental and not yet generally available.
         :type load_ontology_defined_derived_properties: Optional[bool]
+        :param scenario_rid: The resource identifier of an ontology scenario to read the object from.
+        :type scenario_rid: Optional[OntologyScenarioRid]
         :param sdk_package_rid: The package rid of the generated SDK.
         :type sdk_package_rid: Optional[SdkPackageRid]
         :param sdk_version: The version of the generated SDK.
         :type sdk_version: Optional[SdkVersion]
         :param select: The properties of the object type that should be included in the response. Omit this parameter to get all the properties.
         :type select: Optional[List[SelectedPropertyApiName]]
+        :param transaction_id: The ID of an Ontology transaction to read from. Transactions are an experimental feature and all workflows may not be supported.
+        :type transaction_id: Optional[OntologyTransactionId]
         :param request_timeout: timeout setting for this request in seconds.
         :type request_timeout: Optional[int]
         :return: Returns the result object.
@@ -242,9 +257,11 @@ class OntologyObjectClient:
                     "branch": branch,
                     "excludeRid": exclude_rid,
                     "loadOntologyDefinedDerivedProperties": load_ontology_defined_derived_properties,
+                    "scenarioRid": scenario_rid,
                     "sdkPackageRid": sdk_package_rid,
                     "sdkVersion": sdk_version,
                     "select": select,
+                    "transactionId": transaction_id,
                 },
                 path_params={
                     "ontology": ontology,
@@ -297,6 +314,9 @@ class OntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -416,6 +436,9 @@ class OntologyObjectClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -576,6 +599,9 @@ class AsyncOntologyObjectClient:
         """
         Perform functions on object fields in the specified ontology and object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The type of the object to aggregate on.
@@ -648,6 +674,9 @@ class AsyncOntologyObjectClient:
         """
         Returns a count of the objects of the given object type.
 
+
+        Required scopes: [api:ontologies-read]
+
         :param ontology:
         :type ontology: OntologyIdentifier
         :param object_type: The API name of the object type. To find the API name, use the **List object types** endpoint or check the **Ontology Manager**.
@@ -703,14 +732,19 @@ class AsyncOntologyObjectClient:
         branch: typing.Optional[core_models.FoundryBranch] = None,
         exclude_rid: typing.Optional[bool] = None,
         load_ontology_defined_derived_properties: typing.Optional[bool] = None,
+        scenario_rid: typing.Optional[ontologies_models.OntologyScenarioRid] = None,
         sdk_package_rid: typing.Optional[ontologies_models.SdkPackageRid] = None,
         sdk_version: typing.Optional[ontologies_models.SdkVersion] = None,
         select: typing.Optional[typing.List[ontologies_models.SelectedPropertyApiName]] = None,
+        transaction_id: typing.Optional[ontologies_models.OntologyTransactionId] = None,
         request_timeout: typing.Optional[core.Timeout] = None,
         _sdk_internal: core.SdkInternal = {},
     ) -> typing.Awaitable[ontologies_models.OntologyObjectV2]:
         """
         Gets a specific object with the given primary key.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -724,12 +758,16 @@ class AsyncOntologyObjectClient:
         :type exclude_rid: Optional[bool]
         :param load_ontology_defined_derived_properties: A flag to load ontology-defined derived properties (OTDPs) in the response. Defaults to true. Only applies when no explicit property selection is provided; when specific properties are selected, this flag has no effect and the selected properties are always returned.  This feature is experimental and not yet generally available.
         :type load_ontology_defined_derived_properties: Optional[bool]
+        :param scenario_rid: The resource identifier of an ontology scenario to read the object from.
+        :type scenario_rid: Optional[OntologyScenarioRid]
         :param sdk_package_rid: The package rid of the generated SDK.
         :type sdk_package_rid: Optional[SdkPackageRid]
         :param sdk_version: The version of the generated SDK.
         :type sdk_version: Optional[SdkVersion]
         :param select: The properties of the object type that should be included in the response. Omit this parameter to get all the properties.
         :type select: Optional[List[SelectedPropertyApiName]]
+        :param transaction_id: The ID of an Ontology transaction to read from. Transactions are an experimental feature and all workflows may not be supported.
+        :type transaction_id: Optional[OntologyTransactionId]
         :param request_timeout: timeout setting for this request in seconds.
         :type request_timeout: Optional[int]
         :return: Returns the result object.
@@ -744,9 +782,11 @@ class AsyncOntologyObjectClient:
                     "branch": branch,
                     "excludeRid": exclude_rid,
                     "loadOntologyDefinedDerivedProperties": load_ontology_defined_derived_properties,
+                    "scenarioRid": scenario_rid,
                     "sdkPackageRid": sdk_package_rid,
                     "sdkVersion": sdk_version,
                     "select": select,
+                    "transactionId": transaction_id,
                 },
                 path_params={
                     "ontology": ontology,
@@ -799,6 +839,9 @@ class AsyncOntologyObjectClient:
         in the response.
 
         Note that null value properties will not be returned.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier
@@ -918,6 +961,9 @@ class AsyncOntologyObjectClient:
         objects in the page are large enough to reach an internal memory limit; this does not indicate
         that there are no more results. As long as the response contains a `nextPageToken`, the remaining
         objects can be retrieved by requesting subsequent pages.
+
+
+        Required scopes: [api:ontologies-read]
 
         :param ontology:
         :type ontology: OntologyIdentifier

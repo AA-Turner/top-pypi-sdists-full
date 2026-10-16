@@ -7,13 +7,14 @@ OpenCV channel limits: see ``benchmarks/README.md``.
 """
 
 from collections.abc import Callable
-from typing import cast, overload
+from typing import Any, cast, overload
 
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as torch_f
 
+from albucore._float_cast import _cast_float_numpy
 from albucore.affine3d import warp_affine3d
 from albucore.decorators import preserve_channel_dim
 from albucore.filter3d import gaussian_blur3d, separable_filter3d
@@ -22,8 +23,8 @@ from albucore.remap3d import remap3d
 from albucore.tensor_bridge import dispatch_tensor_image, tensor_operand_to_numpy, tensor_to_numpy_channel_last
 from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
+    ArrayT,
     ImageFloat16,
-    ImageFloat32,
     ImageType,
     TensorImageLayout,
     get_num_channels,
@@ -59,9 +60,9 @@ __all__ = [
 
 @overload
 def flip_volume(
-    volume: np.ndarray,
+    volume: ArrayT,
     axes: int | tuple[int, ...],
-) -> np.ndarray: ...
+) -> ArrayT: ...
 
 
 @overload
@@ -98,7 +99,7 @@ def flip_volume(
 
 
 @overload
-def transpose_volume(volume: np.ndarray, axis1: int, axis2: int) -> np.ndarray: ...
+def transpose_volume(volume: ArrayT, axis1: int, axis2: int) -> ArrayT: ...
 
 
 @overload
@@ -128,10 +129,10 @@ def transpose_volume(volume: np.ndarray | torch.Tensor, axis1: int, axis2: int) 
 
 @overload
 def rot90_volume(
-    volume: np.ndarray,
+    volume: ArrayT,
     k: int,
     axes: tuple[int, int],
-) -> np.ndarray: ...
+) -> ArrayT: ...
 
 
 @overload
@@ -287,7 +288,7 @@ def _warp_affine_float16_nearest(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | torch.Tensor | None,
+    dst: ImageType | None,
 ) -> ImageType | None:
     if (
         not img.flags.c_contiguous
@@ -323,23 +324,51 @@ def _warp_affine_float16(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | torch.Tensor | None,
-) -> ImageType | torch.Tensor:
+    dst: ImageType | None,
+) -> ImageType:
     result = _warp_affine_float16_nearest(img, m, dsize, flags, border_mode, border_value, dst)
     if result is None:
         wide_result = warp_affine(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        result = cast("ImageType", wide_result.astype(np.float16))
+        result = _cast_float_numpy(wide_result, np.float16)
     if dst is None:
         return result
     np.copyto(dst, result)
     return dst
+
+
+@overload
+def warp_affine(
+    img: ArrayT,
+    m: np.ndarray,
+    dsize: tuple[int, int],
+    flags: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ArrayT | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ArrayT: ...
+
+
+@overload
+def warp_affine(
+    img: torch.Tensor,
+    m: np.ndarray,
+    dsize: tuple[int, int],
+    flags: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ImageType | torch.Tensor | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> torch.Tensor: ...
 
 
 @preserve_channel_dim
@@ -399,6 +428,8 @@ def warp_affine(
             dst=dst_view,
         )
         return dst if isinstance(dst, torch.Tensor) else result
+
+    dst = cast("ImageType | None", dst)
 
     if img.dtype == np.float16:
         return _warp_affine_float16(cast("ImageFloat16", img), m, dsize, flags, border_mode, border_value, dst)
@@ -469,7 +500,7 @@ def _warp_perspective_float16_nearest(
     flags: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | torch.Tensor | None,
+    dst: ImageType | None,
 ) -> ImageType | None:
     if (
         not img.flags.c_contiguous
@@ -497,6 +528,34 @@ def _warp_perspective_float16_nearest(
         borderValue=0,
     )
     return cast("ImageType", result.view(np.float16).reshape(dsize[1], dsize[0], channels))
+
+
+@overload
+def warp_perspective(
+    img: ArrayT,
+    m: np.ndarray,
+    dsize: tuple[int, int],
+    flags: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ArrayT | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ArrayT: ...
+
+
+@overload
+def warp_perspective(
+    img: torch.Tensor,
+    m: np.ndarray,
+    dsize: tuple[int, int],
+    flags: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ImageType | torch.Tensor | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> torch.Tensor: ...
 
 
 @preserve_channel_dim
@@ -539,7 +598,9 @@ def warp_perspective(
     Returns:
         Warped image, shape (dsize[1], dsize[0], C).
     """
+    result: np.ndarray | torch.Tensor
     if img.dtype == np.float16:
+        dst = cast("ImageType | None", dst)
         nearest_result = _warp_perspective_float16_nearest(
             cast("ImageFloat16", img),
             m,
@@ -552,14 +613,14 @@ def warp_perspective(
         if nearest_result is not None:
             return nearest_result
         result = warp_perspective(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             m,
             dsize,
             flags,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", result.astype(np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -580,6 +641,8 @@ def warp_perspective(
             dst=dst_view,
         )
         return dst if isinstance(dst, torch.Tensor) else result
+
+    dst = cast("ImageType | None", dst)
 
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(border_value) if border_value is not None else 0
@@ -640,6 +703,36 @@ def _copy_make_border_chunked(
     )
 
 
+@overload
+def copy_make_border(
+    img: ArrayT,
+    top: int,
+    bottom: int,
+    left: int,
+    right: int,
+    border_type: int = cv2.BORDER_CONSTANT,
+    value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ArrayT | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ArrayT: ...
+
+
+@overload
+def copy_make_border(
+    img: torch.Tensor,
+    top: int,
+    bottom: int,
+    left: int,
+    right: int,
+    border_type: int = cv2.BORDER_CONSTANT,
+    value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ImageType | torch.Tensor | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> torch.Tensor: ...
+
+
 @preserve_channel_dim
 def copy_make_border(
     img: ImageType | torch.Tensor,
@@ -688,6 +781,8 @@ def copy_make_border(
             dst=dst_view,
         )
         return dst if isinstance(dst, torch.Tensor) else result
+
+    dst = cast("ImageType | None", dst)
 
     num_channels = get_num_channels(img)
     border_value_cv2 = _border_value_for_cv2(value) if value is not None else 0
@@ -745,7 +840,7 @@ def _remap_float16_nearest(
     interpolation: int,
     border_mode: int,
     border_value: float | tuple[float, ...] | np.ndarray | None,
-    dst: ImageType | torch.Tensor | None,
+    dst: ImageType | None,
 ) -> ImageType | None:
     if (
         not img.flags.c_contiguous
@@ -765,15 +860,44 @@ def _remap_float16_nearest(
     channels = img.shape[-1]
     output_shape = (*map_x.shape[:2], channels)
     remap_map_x, _ = cv2.convertMaps(map_x, map_y, cv2.CV_16SC2, nninterpolation=True)
+    # OpenCV stubs: https://github.com/opencv/opencv/issues/30296 (review 2026-11-15).
     result = cv2.remap(
         source,
         remap_map_x,
-        None,
+        cast("Any", None),
         interpolation=interpolation,
         borderMode=border_mode,
         borderValue=0,
     )
     return cast("ImageType", result.view(np.float16).reshape(output_shape))
+
+
+@overload
+def remap(
+    img: ArrayT,
+    map_x: np.ndarray,
+    map_y: np.ndarray,
+    interpolation: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ArrayT | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ArrayT: ...
+
+
+@overload
+def remap(
+    img: torch.Tensor,
+    map_x: np.ndarray,
+    map_y: np.ndarray,
+    interpolation: int = cv2.INTER_LINEAR,
+    border_mode: int = cv2.BORDER_CONSTANT,
+    border_value: float | tuple[float, ...] | np.ndarray | None = None,
+    dst: ImageType | torch.Tensor | None = None,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> torch.Tensor: ...
 
 
 @preserve_channel_dim
@@ -812,6 +936,7 @@ def remap(
     Returns:
         Remapped image, same shape as input.
     """
+    result: np.ndarray | torch.Tensor
     if isinstance(img, torch.Tensor):
         map_x_numpy = tensor_operand_to_numpy(map_x, layout)
         map_y_numpy = tensor_operand_to_numpy(map_y, layout)
@@ -829,6 +954,8 @@ def remap(
         )
         return dst if isinstance(dst, torch.Tensor) else result
 
+    dst = cast("ImageType | None", dst)
+
     if img.dtype == np.float16:
         nearest_result = _remap_float16_nearest(
             cast("ImageFloat16", img),
@@ -842,14 +969,14 @@ def remap(
         if nearest_result is not None:
             return nearest_result
         result = remap(
-            cast("ImageFloat32", img.astype(np.float32)),
+            _cast_float_numpy(img, np.float32),
             map_x,
             map_y,
             interpolation,
             border_mode,
             border_value,
         )
-        restored = cast("ImageType", result.astype(np.float16))
+        restored = _cast_float_numpy(result, np.float16)
         if dst is not None:
             np.copyto(dst, restored)
             return dst
@@ -955,6 +1082,30 @@ def _resize_tensor_float16(
     return None
 
 
+@overload
+def resize(
+    img: ArrayT,
+    dsize: tuple[int, int],
+    fx: float = 0.0,
+    fy: float = 0.0,
+    interpolation: int = cv2.INTER_LINEAR,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> ArrayT: ...
+
+
+@overload
+def resize(
+    img: torch.Tensor,
+    dsize: tuple[int, int],
+    fx: float = 0.0,
+    fy: float = 0.0,
+    interpolation: int = cv2.INTER_LINEAR,
+    *,
+    layout: TensorImageLayout | None = None,
+) -> torch.Tensor: ...
+
+
 @preserve_channel_dim
 def resize(
     img: ImageType | torch.Tensor,
@@ -998,8 +1149,8 @@ def resize(
         nearest_result = _resize_float16_nearest(img, dsize, fx, fy, interpolation)
         if nearest_result is not None:
             return nearest_result
-        result = resize(cast("ImageFloat32", img.astype(np.float32)), dsize, fx, fy, interpolation)
-        return cast("ImageType", result.astype(np.float16))
+        result = resize(_cast_float_numpy(img, np.float32), dsize, fx, fy, interpolation)
+        return _cast_float_numpy(result, np.float16)
 
     # Calculate actual output size only if dsize is (0, 0), matching cv2.resize semantics
     if dsize[0] == 0 and dsize[1] == 0:
@@ -1037,6 +1188,7 @@ def _resize3d_axis_packing(
     if volume.shape[axis] == output_size:
         return volume
 
+    resized: np.ndarray
     if axis == 0:
         flattened = volume.transpose(1, 2, 0, 3).reshape(height * width, depth, channels)
         resized = resize(flattened, (output_size, height * width), interpolation=interpolation)
@@ -1092,13 +1244,13 @@ def _resize3d_numpy_linear_axis(volume: np.ndarray, axis: int, output_size: int)
 
 def _resize3d_numpy_linear_three_pass(volume: np.ndarray, size: tuple[int, int, int]) -> np.ndarray:
     """Resize DHWC linearly with full-float intermediates and one final uint8 rounding step."""
-    result = volume.astype(np.float32, copy=False)
+    result = _cast_float_numpy(volume, np.float32)
     for axis, output_size in enumerate(size):
         result = _resize3d_numpy_linear_axis(result, axis, output_size)
     if volume.dtype == np.uint8:
         return np.asarray(np.minimum(result + np.float32(0.5), np.float32(255)).astype(np.uint8))
     if volume.dtype == np.float16:
-        return result.astype(np.float16)
+        return _cast_float_numpy(result, np.float16)
     return result
 
 
@@ -1265,10 +1417,10 @@ def _resize3d_torch_via_numpy(
     numpy_volume = volume.permute(1, 2, 3, 0).numpy()
     restore_half = volume.dtype == torch.float16
     if restore_half:
-        numpy_volume = numpy_volume.astype(np.float32)
+        numpy_volume = _cast_float_numpy(numpy_volume, np.float32)
     resized = _resize3d_numpy(numpy_volume, size, interpolation, antialias=False)
     if restore_half:
-        resized = resized.astype(np.float16)
+        resized = _cast_float_numpy(resized, np.float16)
     return torch.from_numpy(resized).permute(3, 0, 1, 2)
 
 
@@ -1280,14 +1432,11 @@ def _resize3d_torch_cpu(
     """Resize one CPU CDHW tensor with native Torch interpolation and no autograd graph."""
     with torch.no_grad():
         if interpolation == cv2.INTER_NEAREST:
-            result = cast("torch.Tensor", torch_f.interpolate(volume.unsqueeze(0), size=size, mode="nearest"))
+            result = torch_f.interpolate(volume.unsqueeze(0), size=size, mode="nearest")
             return result.squeeze(0)
 
         working_volume = volume if volume.dtype in (torch.float16, torch.float32) else volume.to(torch.float32)
-        result = cast(
-            "torch.Tensor",
-            torch_f.interpolate(working_volume.unsqueeze(0), size=size, mode="trilinear", align_corners=False),
-        )
+        result = torch_f.interpolate(working_volume.unsqueeze(0), size=size, mode="trilinear", align_corners=False)
         if volume.dtype == torch.uint8:
             result = torch.minimum(result + 0.5, result.new_tensor(255)).to(torch.uint8)
         return result.squeeze(0)
@@ -1295,11 +1444,11 @@ def _resize3d_torch_cpu(
 
 @overload
 def resize3d(
-    volume: np.ndarray,
+    volume: ArrayT,
     size: tuple[int, int, int],
     interpolation: int = cv2.INTER_LINEAR,
     antialias: bool = False,
-) -> np.ndarray: ...
+) -> ArrayT: ...
 
 
 @overload
@@ -1345,9 +1494,9 @@ def resize3d(
         if volume.shape[:3] == size:
             return volume
         if volume.dtype == np.float16:
-            float32_volume = cast("np.ndarray", volume.astype(np.float32))
+            float32_volume = _cast_float_numpy(volume, np.float32)
             result = _resize3d_numpy(float32_volume, size, interpolation, antialias)
-            return result.astype(np.float16)
+            return _cast_float_numpy(result, np.float16)
         return _resize3d_numpy(volume, size, interpolation, antialias)
 
     if tuple(volume.shape[1:]) == size:

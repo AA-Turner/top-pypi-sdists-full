@@ -909,6 +909,35 @@ class TaskReloadVolumesResponse(google.protobuf.message.Message):
 
 global___TaskReloadVolumesResponse = TaskReloadVolumesResponse
 
+class TaskSetExperimentalOutboundPolicyRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    EXPERIMENTAL_OUTBOUND_POLICY_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    @property
+    def experimental_outbound_policy(self) -> modal_proto.api_pb2.ExperimentalOutboundPolicy:
+        """Replaces the task's experimental outbound policy."""
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+        experimental_outbound_policy: modal_proto.api_pb2.ExperimentalOutboundPolicy | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["experimental_outbound_policy", b"experimental_outbound_policy"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["experimental_outbound_policy", b"experimental_outbound_policy", "task_id", b"task_id"]) -> None: ...
+
+global___TaskSetExperimentalOutboundPolicyRequest = TaskSetExperimentalOutboundPolicyRequest
+
+class TaskSetExperimentalOutboundPolicyResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskSetExperimentalOutboundPolicyResponse = TaskSetExperimentalOutboundPolicyResponse
+
 class TaskSetNetworkAccessRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -939,35 +968,6 @@ class TaskSetNetworkAccessResponse(google.protobuf.message.Message):
     ) -> None: ...
 
 global___TaskSetNetworkAccessResponse = TaskSetNetworkAccessResponse
-
-class TaskSetOutboundPolicyRequest(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    TASK_ID_FIELD_NUMBER: builtins.int
-    OUTBOUND_POLICY_FIELD_NUMBER: builtins.int
-    task_id: builtins.str
-    @property
-    def outbound_policy(self) -> modal_proto.api_pb2.OutboundPolicy:
-        """Replaces the task's outbound policy."""
-    def __init__(
-        self,
-        *,
-        task_id: builtins.str = ...,
-        outbound_policy: modal_proto.api_pb2.OutboundPolicy | None = ...,
-    ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["outbound_policy", b"outbound_policy"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["outbound_policy", b"outbound_policy", "task_id", b"task_id"]) -> None: ...
-
-global___TaskSetOutboundPolicyRequest = TaskSetOutboundPolicyRequest
-
-class TaskSetOutboundPolicyResponse(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-    def __init__(
-        self,
-    ) -> None: ...
-
-global___TaskSetOutboundPolicyResponse = TaskSetOutboundPolicyResponse
 
 class TaskSnapshotDirectoryRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

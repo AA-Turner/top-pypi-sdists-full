@@ -1,0 +1,976 @@
+from __future__ import annotations
+
+import json
+import threading
+
+from typing import Any
+
+from snowflake.connector._internal.error_kinds import (
+    ERROR_KIND_AUTHENTICATION_ERROR,
+    ERROR_KIND_LABELS,
+    ERROR_KIND_LOGIN_ERROR,
+    ERROR_KIND_TIMEOUT,
+    KIND_TO_ERRNO,
+    KIND_TO_EXCEPTION,
+    VENDOR_CODE_TO_EXCEPTION,
+)
+from snowflake.connector.errors import DatabaseError, Error, OperationalError, ReauthenticationRequest
+
+from ..protobuf_gen.database_driver_v1_pb2 import (
+    ColumnMetadata,
+    ConfigGetPathsRequest,
+    ConfigGetPathsResponse,
+    ConfigLoadAllSectionsRequest,
+    ConfigLoadAllSectionsResponse,
+    ConfigSetting,
+    ConnectionAbortQueryRequest,
+    ConnectionAbortQueryResponse,
+    ConnectionCloseRequest,
+    ConnectionCloseResponse,
+    ConnectionDownloadStreamBeginRequest,
+    ConnectionDownloadStreamBeginResponse,
+    ConnectionDownloadStreamChunkRequest,
+    ConnectionDownloadStreamChunkResponse,
+    ConnectionDownloadStreamCloseRequest,
+    ConnectionDownloadStreamCloseResponse,
+    ConnectionGetAllParametersRequest,
+    ConnectionGetAllParametersResponse,
+    ConnectionGetInfoRequest,
+    ConnectionGetInfoResponse,
+    ConnectionGetParameterRequest,
+    ConnectionGetParameterResponse,
+    ConnectionGetQueryResultRequest,
+    ConnectionGetQueryStatusRequest,
+    ConnectionGetQueryStatusResponse,
+    ConnectionGetResultSetRequest,
+    ConnectionHandle,
+    ConnectionHeartbeatRequest,
+    ConnectionHeartbeatResponse,
+    ConnectionInitRequest,
+    ConnectionInitResponse,
+    ConnectionIsClosedRequest,
+    ConnectionIsClosedResponse,
+    ConnectionIsExpiredRequest,
+    ConnectionIsExpiredResponse,
+    ConnectionNewRequest,
+    ConnectionNewResponse,
+    ConnectionReleaseRequest,
+    ConnectionReleaseResponse,
+    ConnectionSendHttpRequest,
+    ConnectionSendHttpResponse,
+    ConnectionSetOptionsRequest,
+    ConnectionSetOptionsResponse,
+    ConnectionSetSessionParametersRequest,
+    ConnectionSetSessionParametersResponse,
+    ConnectionTokenRequest,
+    ConnectionTokenResponse,
+    ConnectionUploadStreamAbortRequest,
+    ConnectionUploadStreamAbortResponse,
+    ConnectionUploadStreamBeginRequest,
+    ConnectionUploadStreamBeginResponse,
+    ConnectionUploadStreamChunkRequest,
+    ConnectionUploadStreamChunkResponse,
+    ConnectionUploadStreamFinishRequest,
+    ConnectionUploadStreamFinishResponse,
+    DatabaseFetchChunkRequest,
+    DatabaseFetchChunkResponse,
+    DatabaseHandle,
+    DatabaseInitRequest,
+    DatabaseInitResponse,
+    DatabaseNewRequest,
+    DatabaseNewResponse,
+    DatabaseReleaseRequest,
+    DatabaseReleaseResponse,
+    DownloadStreamHandle,
+    DriverGetFipsStatusRequest,
+    DriverGetFipsStatusResponse,
+    ExecuteQueryResponse,
+    QueryBindings,
+    ResultChunk,
+    ResultSetGetChunksRequest,
+    ResultSetGetChunksResponse,
+    ResultSetGetStreamRequest,
+    ResultSetGetStreamResponse,
+    ResultSetHandle,
+    ResultSetReleaseRequest,
+    ResultSetReleaseResponse,
+    ResultSetResponse,
+    StatementExecuteAsyncRequest,
+    StatementExecuteAsyncResponse,
+    StatementExecuteQueryRequest,
+    StatementHandle,
+    StatementNewRequest,
+    StatementNewResponse,
+    StatementPrepareRequest,
+    StatementPrepareResponse,
+    StatementReleaseRequest,
+    StatementReleaseResponse,
+    StatementSetOptionsRequest,
+    StatementSetOptionsResponse,
+    StatementSetSqlQueryRequest,
+    StatementSetSqlQueryResponse,
+    TelemetrySendApiUsageRequest,
+    TelemetrySendLogRequest,
+    TelemetrySendResponse,
+    TelemetrySendWrapperErrorRequest,
+    TokenRequestType,
+    UploadStreamHandle,
+    WifCreateAttestationRequest,
+    WifCreateAttestationResponse,
+    WrapperIdentity,
+)
+from ..protobuf_gen.database_driver_v1_services import AsyncDatabaseDriverClient, DatabaseDriverClient
+from ..protobuf_gen.proto_exception import (
+    ProtoApplicationException,
+    ProtoTransportException,
+)
+from .bridge import ProtoTransport
+
+
+# Chunk size for ConnectionUploadStreamChunk; bounds wrapper memory to ~one
+# chunk. Matches JDBC's chunked upload default.
+CHUNK_SIZE = 8 * 1024 * 1024
+
+
+# ---------------------------------------------------------------------------
+# Proto-to-PEP-249 error conversion (kept here, at the transport boundary)
+# ---------------------------------------------------------------------------
+
+
+def _stringify_session_parameters(parameters: dict[str, Any]) -> dict[str, str]:
+    """Coerce session parameter values to ``str`` for the string-only protobuf map.
+
+    Legacy ``snowflake-connector-python`` forwards ``session_parameters`` values
+    as-is (bool/int/str/float), but ``ConnectionSetSessionParametersRequest.parameters``
+    is a ``map<string, string>``, so non-string values must be coerced here.
+    ``str`` values pass through unchanged; everything else goes through
+    ``json.dumps`` so it round-trips (``bool`` -> lowercase ``"true"``/``"false"``,
+    ``None`` -> ``"null"``, etc.) rather than serializing as a Python repr.
+    """
+    return {key: (value if isinstance(value, str) else json.dumps(value)) for key, value in parameters.items()}
+
+
+def _is_reauthentication_required(driver_exception: Any) -> bool:
+    """Return whether *driver_exception* is a reauth-shaped error.
+
+    ``reauthentication_required`` is a plain bool on ``DriverException`` after
+    the DriverError flatten. The GS code, when there is one, travels on
+    ``vendor_code``.
+    """
+    return bool(getattr(driver_exception, "reauthentication_required", False))
+
+
+def _append_detail(base: str, detail: str) -> str:
+    """Append *detail* to *base* with `. ` separator, avoiding double punctuation."""
+    if not base:
+        return detail
+    base = base.rstrip(".")
+    return f"{base}. {detail}"
+
+
+def _proto_to_public_error(proto_exc: Exception) -> Error:
+    """Convert a proto-layer exception into a PEP 249 ``Error`` subclass.
+
+    This function **returns** the converted exception; it does not raise it.
+    The caller (``_raise_error`` in the generated client) is responsible for
+    raising the returned value.
+    """
+    if isinstance(proto_exc, ProtoApplicationException):
+        return _convert_application_error(proto_exc)
+    if isinstance(proto_exc, ProtoTransportException):
+        return OperationalError(f"Driver communication error: {proto_exc}")
+    return DatabaseError(str(proto_exc))
+
+
+def _resolve_exception_class(kind: int, vendor_code: int | None, reauthentication_required: bool) -> type[Error]:
+    """Pick the PEP 249 exception class for a proto error.
+
+    Resolution order:
+      1. ``reauthentication_required`` — the session can never be renewed
+         regardless of what ErrorKind/vendor_code the Rust core also
+         reported, so this wins unconditionally.
+      2. VENDOR_CODE_TO_EXCEPTION — Snowflake-specific vendor_code overrides (e.g. 100072 → IntegrityError).
+      3. KIND_TO_EXCEPTION — default mapping from the proto ErrorKind.
+      4. DatabaseError — catch-all when the kind is unrecognized.
+    """
+    if reauthentication_required:
+        return ReauthenticationRequest
+    if vendor_code is not None:
+        cls = VENDOR_CODE_TO_EXCEPTION.get(vendor_code)
+        if cls is not None:
+            return cls
+    return KIND_TO_EXCEPTION.get(kind, DatabaseError)
+
+
+def _convert_application_error(proto_exc: ProtoApplicationException) -> Error:
+    driver_exc = getattr(proto_exc, "api_error_pb", None)
+    if driver_exc is None:
+        return DatabaseError(str(proto_exc))
+
+    kind = getattr(driver_exc, "kind", 0)
+    message = getattr(driver_exc, "message", "") or ""
+
+    # The root_cause field carries the deepest error in the chain from the
+    # Rust core, which is typically the most informative for end users.
+    root_cause = _get_optional_str(driver_exc, "root_cause")
+    if root_cause and root_cause not in message:
+        message = _append_detail(message, root_cause)
+
+    if not message:
+        message = ERROR_KIND_LABELS.get(kind, "Unknown error")
+
+    # Prefer the Snowflake server vendor_code when the core driver provides it
+    # (e.g. 1003 for syntax error, 904 for invalid identifier).
+    # Fall back to the old-driver-compatible errno mapping, then to the raw
+    # proto ErrorKind.
+    vendor_code = _get_optional_int(driver_exc, "vendor_code")
+
+    exc_class = _resolve_exception_class(kind, vendor_code, _is_reauthentication_required(driver_exc))
+    errno = vendor_code if vendor_code is not None else KIND_TO_ERRNO.get(kind, kind)
+
+    # Prefer the server-provided sql_state; fall back to a type-derived value.
+    sqlstate = _get_optional_str(driver_exc, "sql_state") or _derive_sqlstate(driver_exc)
+
+    sfqid = _get_optional_str(driver_exc, "query_id")
+
+    # Client-generated requestId used for the query submission, when the error
+    # originated from a query execution attempt.
+    request_id = _get_optional_str(driver_exc, "request_id")
+
+    # Structured extras for parameter errors (e.g. connection-config validation),
+    # so callers can discriminate without matching message text.
+    parameter = _get_optional_str(driver_exc, "parameter")
+    validation_code = _get_optional_int(driver_exc, "validation_code")
+
+    return exc_class(
+        message,
+        errno=errno,
+        sqlstate=sqlstate,
+        sfqid=sfqid,
+        request_id=request_id,
+        parameter=parameter,
+        validation_code=validation_code,
+    )
+
+
+def _get_optional_int(msg: Any, field: str) -> int | None:
+    """Read an optional int32 proto field, returning None if not set."""
+    try:
+        if msg.HasField(field):
+            return int(getattr(msg, field))
+    except (ValueError, TypeError, AttributeError):
+        # Field missing from the proto schema or cannot be coerced to int; treat as unset.
+        pass
+    return None
+
+
+def _get_optional_str(msg: Any, field: str) -> str | None:
+    """Read an optional string proto field, returning None if not set."""
+    try:
+        if msg.HasField(field):
+            return str(getattr(msg, field)) or None
+    except (ValueError, TypeError, AttributeError):
+        # Field missing from the proto schema or cannot be coerced to string; treat as unset.
+        pass
+    return None
+
+
+def _derive_sqlstate(driver_exception: Any) -> str | None:
+    """Derive sqlstate from ErrorKind when the proto does not carry it."""
+    kind = getattr(driver_exception, "kind", 0)
+    if kind in (ERROR_KIND_LOGIN_ERROR, ERROR_KIND_AUTHENTICATION_ERROR):
+        return "08001"  # SQLSTATE_CONNECTION_WAS_NOT_ESTABLISHED
+    if kind == ERROR_KIND_TIMEOUT:
+        return "HYT00"
+    return None
+
+
+# ---------------------------------------------------------------------------
+# CoreDriver facade (process-wide singleton)
+# ---------------------------------------------------------------------------
+
+
+class CoreDriver:
+    """Process-wide facade over ``DatabaseDriverClient``.
+
+    Lazily initializes the underlying protobuf client on first access
+    (thread-safe, double-checked lock) and exposes domain-level methods that
+    encapsulate all protobuf request construction so that callers never touch
+    ``*Request`` objects directly.
+    """
+
+    def __init__(self) -> None:
+        self._client: DatabaseDriverClient | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def client(self) -> DatabaseDriverClient:
+        if self._client is not None:
+            return self._client
+
+        with self._lock:
+            if self._client is None:
+                self._client = DatabaseDriverClient(ProtoTransport(), error_handler=_proto_to_public_error)
+
+        return self._client
+
+    @client.setter
+    def client(self, client: DatabaseDriverClient | None) -> None:
+        self._client = client
+
+    # =====================================================================
+    # Driver status
+    # =====================================================================
+
+    def driver_get_fips_status(self) -> DriverGetFipsStatusResponse:
+        return self.client.driver_get_fips_status(DriverGetFipsStatusRequest())
+
+    # =====================================================================
+    # Database lifecycle
+    # =====================================================================
+
+    def database_new(self) -> DatabaseNewResponse:
+        request = DatabaseNewRequest()
+        return self.client.database_new(request)
+
+    def database_init(self, db_handle: DatabaseHandle) -> DatabaseInitResponse:
+        request = DatabaseInitRequest(db_handle=db_handle)
+        return self.client.database_init(request)
+
+    def database_release(self, db_handle: DatabaseHandle) -> DatabaseReleaseResponse:
+        request = DatabaseReleaseRequest(db_handle=db_handle)
+        return self.client.database_release(request)
+
+    # =====================================================================
+    # Connection lifecycle
+    # =====================================================================
+
+    def connection_new(self) -> ConnectionNewResponse:
+        request = ConnectionNewRequest()
+        return self.client.connection_new(request)
+
+    def connection_init(
+        self,
+        conn_handle: ConnectionHandle,
+        db_handle: DatabaseHandle,
+        wrapper_identity: WrapperIdentity,
+    ) -> ConnectionInitResponse:
+        request = ConnectionInitRequest(
+            conn_handle=conn_handle,
+            db_handle=db_handle,
+            wrapper_identity=wrapper_identity,
+        )
+        return self.client.connection_init(request)
+
+    def connection_set_options(
+        self,
+        conn_handle: ConnectionHandle,
+        options: dict[str, ConfigSetting],
+        no_connection_details: bool = False,
+        connections_file_path: str | None = None,
+    ) -> ConnectionSetOptionsResponse:
+        request = ConnectionSetOptionsRequest(
+            conn_handle=conn_handle,
+            options=options,
+            no_connection_details=no_connection_details,
+            connections_file_path=connections_file_path,
+        )
+        return self.client.connection_set_options(request)
+
+    def connection_set_session_parameters(
+        self, conn_handle: ConnectionHandle, parameters: dict[str, Any]
+    ) -> ConnectionSetSessionParametersResponse:
+        request = ConnectionSetSessionParametersRequest(
+            conn_handle=conn_handle, parameters=_stringify_session_parameters(parameters)
+        )
+        return self.client.connection_set_session_parameters(request)
+
+    def connection_close(self, conn_handle: ConnectionHandle) -> ConnectionCloseResponse:
+        request = ConnectionCloseRequest(conn_handle=conn_handle)
+        return self.client.connection_close(request)
+
+    def connection_release(self, conn_handle: ConnectionHandle) -> ConnectionReleaseResponse:
+        request = ConnectionReleaseRequest(conn_handle=conn_handle)
+        return self.client.connection_release(request)
+
+    def connection_is_closed(self, conn_handle: ConnectionHandle) -> ConnectionIsClosedResponse:
+        request = ConnectionIsClosedRequest(conn_handle=conn_handle)
+        return self.client.connection_is_closed(request)
+
+    def connection_is_expired(self, conn_handle: ConnectionHandle) -> ConnectionIsExpiredResponse:
+        request = ConnectionIsExpiredRequest(conn_handle=conn_handle)
+        return self.client.connection_is_expired(request)
+
+    def connection_heartbeat(self, conn_handle: ConnectionHandle) -> ConnectionHeartbeatResponse:
+        request = ConnectionHeartbeatRequest(conn_handle=conn_handle)
+        return self.client.connection_heartbeat(request)
+
+    def connection_get_info(
+        self,
+        conn_handle: ConnectionHandle,
+        include_master_token: bool = False,
+    ) -> ConnectionGetInfoResponse:
+        request = ConnectionGetInfoRequest(conn_handle=conn_handle, include_master_token=include_master_token)
+        return self.client.connection_get_info(request)
+
+    def connection_get_query_status(
+        self, conn_handle: ConnectionHandle, query_id: str
+    ) -> ConnectionGetQueryStatusResponse:
+        request = ConnectionGetQueryStatusRequest(conn_handle=conn_handle, query_id=query_id)
+        return self.client.connection_get_query_status(request)
+
+    # =====================================================================
+    # Connection data
+    # =====================================================================
+
+    def connection_get_result_set(self, conn_handle: ConnectionHandle, query_id: str) -> ResultSetResponse:
+        request = ConnectionGetResultSetRequest(conn_handle=conn_handle, query_id=query_id)
+        return self.client.connection_get_result_set(request)
+
+    def connection_get_query_result(self, conn_handle: ConnectionHandle, query_id: str) -> ExecuteQueryResponse:
+        request = ConnectionGetQueryResultRequest(conn_handle=conn_handle, query_id=query_id)
+        return self.client.connection_get_query_result(request)
+
+    def connection_abort_query(self, conn_handle: ConnectionHandle, query_id: str) -> ConnectionAbortQueryResponse:
+        request = ConnectionAbortQueryRequest(conn_handle=conn_handle, query_id=query_id)
+        return self.client.connection_abort_query(request)
+
+    def connection_send_http(
+        self,
+        conn_handle: ConnectionHandle,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        body: bytes | None = None,
+    ) -> ConnectionSendHttpResponse:
+        request = ConnectionSendHttpRequest(
+            conn_handle=conn_handle,
+            method=method,
+            url=url,
+            headers=headers,
+            body=body,
+        )
+        return self.client.connection_send_http(request)
+
+    # =====================================================================
+    # Connection chunked upload streaming (PUT)
+    # =====================================================================
+
+    def upload_stream_begin(self, conn_handle: ConnectionHandle, sql: str) -> ConnectionUploadStreamBeginResponse:
+        request = ConnectionUploadStreamBeginRequest(conn_handle=conn_handle, sql=sql)
+        return self.client.connection_upload_stream_begin(request)
+
+    def upload_stream_chunk(
+        self, upload_handle: UploadStreamHandle, data: bytes
+    ) -> ConnectionUploadStreamChunkResponse:
+        request = ConnectionUploadStreamChunkRequest(upload_handle=upload_handle, data=data)
+        return self.client.connection_upload_stream_chunk(request)
+
+    def upload_stream_finish(self, upload_handle: UploadStreamHandle) -> ConnectionUploadStreamFinishResponse:
+        request = ConnectionUploadStreamFinishRequest(upload_handle=upload_handle)
+        return self.client.connection_upload_stream_finish(request)
+
+    def upload_stream_abort(self, upload_handle: UploadStreamHandle) -> ConnectionUploadStreamAbortResponse:
+        request = ConnectionUploadStreamAbortRequest(upload_handle=upload_handle)
+        return self.client.connection_upload_stream_abort(request)
+
+    def download_stream_begin(
+        self, conn_handle: ConnectionHandle, stage_name: str, source_filename: str, decompress: bool
+    ) -> ConnectionDownloadStreamBeginResponse:
+        request = ConnectionDownloadStreamBeginRequest(
+            conn_handle=conn_handle,
+            stage_name=stage_name,
+            source_filename=source_filename,
+            decompress=decompress,
+        )
+        return self.client.connection_download_stream_begin(request)
+
+    def download_stream_chunk(
+        self, download_handle: DownloadStreamHandle, max_len: int
+    ) -> ConnectionDownloadStreamChunkResponse:
+        request = ConnectionDownloadStreamChunkRequest(download_handle=download_handle, max_len=max_len)
+        return self.client.connection_download_stream_chunk(request)
+
+    def download_stream_close(self, download_handle: DownloadStreamHandle) -> ConnectionDownloadStreamCloseResponse:
+        request = ConnectionDownloadStreamCloseRequest(download_handle=download_handle)
+        return self.client.connection_download_stream_close(request)
+
+    # =====================================================================
+    # Connection tokens/params
+    # =====================================================================
+
+    def connection_request_token(
+        self, conn_handle: ConnectionHandle, request_type: TokenRequestType.ValueType
+    ) -> ConnectionTokenResponse:
+        request = ConnectionTokenRequest(conn_handle=conn_handle, request_type=request_type)
+        return self.client.connection_request_token(request)
+
+    def connection_get_parameter(self, conn_handle: ConnectionHandle, key: str) -> ConnectionGetParameterResponse:
+        request = ConnectionGetParameterRequest(conn_handle=conn_handle, key=key)
+        return self.client.connection_get_parameter(request)
+
+    def connection_get_all_parameters(self, conn_handle: ConnectionHandle) -> ConnectionGetAllParametersResponse:
+        request = ConnectionGetAllParametersRequest(conn_handle=conn_handle)
+        return self.client.connection_get_all_parameters(request)
+
+    # =====================================================================
+    # Statement lifecycle
+    # =====================================================================
+
+    def statement_new(self, conn_handle: ConnectionHandle) -> StatementNewResponse:
+        request = StatementNewRequest(conn_handle=conn_handle)
+        return self.client.statement_new(request)
+
+    def statement_set_query(self, stmt_handle: StatementHandle, query: str) -> StatementSetSqlQueryResponse:
+        request = StatementSetSqlQueryRequest(stmt_handle=stmt_handle, query=query)
+        return self.client.statement_set_sql_query(request)
+
+    def statement_release(self, stmt_handle: StatementHandle) -> StatementReleaseResponse:
+        request = StatementReleaseRequest(stmt_handle=stmt_handle)
+        return self.client.statement_release(request)
+
+    def statement_set_options(
+        self, stmt_handle: StatementHandle, options: dict[str, ConfigSetting]
+    ) -> StatementSetOptionsResponse:
+        request = StatementSetOptionsRequest(stmt_handle=stmt_handle, options=options)
+        return self.client.statement_set_options(request)
+
+    def statement_execute_query(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> ExecuteQueryResponse:
+        request = StatementExecuteQueryRequest(stmt_handle=stmt_handle, bindings=bindings)
+        return self.client.statement_execute_query(request)
+
+    def statement_execute_async(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> StatementExecuteAsyncResponse:
+        request = StatementExecuteAsyncRequest(stmt_handle=stmt_handle, bindings=bindings)
+        return self.client.statement_execute_async(request)
+
+    def statement_prepare(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> StatementPrepareResponse:
+        request = StatementPrepareRequest(stmt_handle=stmt_handle, bindings=bindings)
+        return self.client.statement_prepare(request)
+
+    # =====================================================================
+    # Result set
+    # =====================================================================
+
+    def result_set_release(self, result_set_handle: ResultSetHandle) -> ResultSetReleaseResponse:
+        request = ResultSetReleaseRequest(result_set_handle=result_set_handle)
+        return self.client.result_set_release(request)
+
+    def result_set_get_stream(self, result_set_handle: ResultSetHandle) -> ResultSetGetStreamResponse:
+        request = ResultSetGetStreamRequest(result_set_handle=result_set_handle)
+        return self.client.result_set_get_stream(request)
+
+    def result_set_get_chunks(self, result_set_handle: ResultSetHandle) -> ResultSetGetChunksResponse:
+        request = ResultSetGetChunksRequest(result_set_handle=result_set_handle)
+        return self.client.result_set_get_chunks(request)
+
+    # =====================================================================
+    # Database fetch
+    # =====================================================================
+
+    def database_fetch_chunk(
+        self,
+        conn_handle: ConnectionHandle | None,
+        chunk: ResultChunk,
+        columns: list[ColumnMetadata],
+    ) -> DatabaseFetchChunkResponse:
+        request = DatabaseFetchChunkRequest(conn_handle=conn_handle, chunks=[chunk], columns=columns)
+        return self.client.database_fetch_chunk(request)
+
+    # =====================================================================
+    # Telemetry
+    # =====================================================================
+
+    def telemetry_send_api_usage(
+        self, conn_handle: ConnectionHandle, api_method: str, passed_arguments: list[str] | None = None
+    ) -> TelemetrySendResponse:
+        request = TelemetrySendApiUsageRequest(
+            conn_handle=conn_handle, api_method=api_method, passed_arguments=passed_arguments or []
+        )
+        return self.client.telemetry_send_api_usage(request)
+
+    def telemetry_send_wrapper_error(
+        self, conn_handle: ConnectionHandle, exception_type: str, error_source: str
+    ) -> TelemetrySendResponse:
+        request = TelemetrySendWrapperErrorRequest(
+            conn_handle=conn_handle,
+            exception_type=exception_type,
+            error_source=error_source,
+        )
+        return self.client.telemetry_send_wrapper_error(request)
+
+    def telemetry_send_log(
+        self, conn_handle: ConnectionHandle, message_json: str, timestamp_ms: int
+    ) -> TelemetrySendResponse:
+        request = TelemetrySendLogRequest(conn_handle=conn_handle, message_json=message_json, timestamp_ms=timestamp_ms)
+        return self.client.telemetry_send_log(request)
+
+    # =====================================================================
+    # Config
+    # =====================================================================
+
+    def config_load_all_sections(
+        self,
+        config_file: str,
+        connections_file: str | None = None,
+        skip_permissions: bool = False,
+    ) -> ConfigLoadAllSectionsResponse:
+        request = ConfigLoadAllSectionsRequest(
+            config_file=config_file,
+            connections_file=connections_file,
+            skip_permissions=skip_permissions,
+        )
+        return self.client.config_load_all_sections(request)
+
+    def config_get_paths(self) -> ConfigGetPathsResponse:
+        request = ConfigGetPathsRequest()
+        return self.client.config_get_paths(request)
+
+    # =====================================================================
+    # Workload Identity Federation (WIF)
+    # =====================================================================
+
+    def wif_create_attestation(
+        self,
+        provider: str,
+        entra_resource: str | None = None,
+        token: str | None = None,
+        impersonation_path: list[str] | None = None,
+        aws_use_outbound_token: bool | None = None,
+        wif_host: str | None = None,
+    ) -> WifCreateAttestationResponse:
+        request = WifCreateAttestationRequest(
+            provider=provider,
+            entra_resource=entra_resource,
+            token=token,
+            impersonation_path=impersonation_path or [],
+            aws_use_outbound_token=aws_use_outbound_token,
+            wif_host=wif_host,
+        )
+        return self.client.wif_create_attestation(request)
+
+
+core_driver: CoreDriver = CoreDriver()
+
+
+# ---------------------------------------------------------------------------
+# async CoreDriver facade (process-wide singleton)
+# ---------------------------------------------------------------------------
+
+
+class AsyncCoreDriver:
+    """Async-native facade over :class:`DatabaseDriverClient`.
+
+    Mirrors :class:`CoreDriver` but exposes ``async def`` methods. Will
+    eventually replace ``CoreDriver`` once the codebase is fully async-first;
+    for now both coexist — sync callers go through ``core_driver``,
+    async-native callers go through ``async_core_driver``.
+
+    Both facades share the process-wide :data:`_proto_transport`.
+
+    Lazily initializes its underlying :class:`DatabaseDriverClient` on first
+    access (thread-safe, double-checked lock). Tests can inject a mock by
+    assigning to the ``client`` setter.
+
+    Exposes the async methods needed by the async cursor and connection layers;
+    extend as new async callers appear.
+    """
+
+    def __init__(self) -> None:
+        self._client: AsyncDatabaseDriverClient | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def client(self) -> AsyncDatabaseDriverClient:
+        if self._client is not None:
+            return self._client
+        with self._lock:
+            if self._client is None:
+                self._client = AsyncDatabaseDriverClient(
+                    ProtoTransport(),
+                    error_handler=_proto_to_public_error,
+                )
+        return self._client
+
+    @client.setter
+    def client(self, client: AsyncDatabaseDriverClient | None) -> None:
+        self._client = client
+
+    # =====================================================================
+    # Database lifecycle
+    # =====================================================================
+
+    async def database_new(self) -> DatabaseNewResponse:
+        return await self.client.database_new(DatabaseNewRequest())
+
+    async def database_init(self, db_handle: DatabaseHandle) -> DatabaseInitResponse:
+        return await self.client.database_init(DatabaseInitRequest(db_handle=db_handle))
+
+    async def database_release(self, db_handle: DatabaseHandle) -> DatabaseReleaseResponse:
+        return await self.client.database_release(DatabaseReleaseRequest(db_handle=db_handle))
+
+    # =====================================================================
+    # Connection lifecycle
+    # =====================================================================
+
+    async def connection_new(self) -> ConnectionNewResponse:
+        return await self.client.connection_new(ConnectionNewRequest())
+
+    async def connection_init(
+        self,
+        conn_handle: ConnectionHandle,
+        db_handle: DatabaseHandle,
+        wrapper_identity: WrapperIdentity,
+    ) -> ConnectionInitResponse:
+        return await self.client.connection_init(
+            ConnectionInitRequest(
+                conn_handle=conn_handle,
+                db_handle=db_handle,
+                wrapper_identity=wrapper_identity,
+            )
+        )
+
+    async def connection_set_options(
+        self,
+        conn_handle: ConnectionHandle,
+        options: dict[str, ConfigSetting],
+        no_connection_details: bool = False,
+        connections_file_path: str | None = None,
+    ) -> ConnectionSetOptionsResponse:
+        return await self.client.connection_set_options(
+            ConnectionSetOptionsRequest(
+                conn_handle=conn_handle,
+                options=options,
+                no_connection_details=no_connection_details,
+                connections_file_path=connections_file_path,
+            )
+        )
+
+    async def connection_set_session_parameters(
+        self, conn_handle: ConnectionHandle, parameters: dict[str, Any]
+    ) -> ConnectionSetSessionParametersResponse:
+        return await self.client.connection_set_session_parameters(
+            ConnectionSetSessionParametersRequest(
+                conn_handle=conn_handle, parameters=_stringify_session_parameters(parameters)
+            )
+        )
+
+    async def connection_close(self, conn_handle: ConnectionHandle) -> ConnectionCloseResponse:
+        return await self.client.connection_close(ConnectionCloseRequest(conn_handle=conn_handle))
+
+    async def connection_release(self, conn_handle: ConnectionHandle) -> ConnectionReleaseResponse:
+        return await self.client.connection_release(ConnectionReleaseRequest(conn_handle=conn_handle))
+
+    async def connection_is_closed(self, conn_handle: ConnectionHandle) -> ConnectionIsClosedResponse:
+        return await self.client.connection_is_closed(ConnectionIsClosedRequest(conn_handle=conn_handle))
+
+    async def connection_is_expired(self, conn_handle: ConnectionHandle) -> ConnectionIsExpiredResponse:
+        return await self.client.connection_is_expired(ConnectionIsExpiredRequest(conn_handle=conn_handle))
+
+    async def connection_heartbeat(self, conn_handle: ConnectionHandle) -> ConnectionHeartbeatResponse:
+        return await self.client.connection_heartbeat(ConnectionHeartbeatRequest(conn_handle=conn_handle))
+
+    async def connection_get_query_status(
+        self, conn_handle: ConnectionHandle, query_id: str
+    ) -> ConnectionGetQueryStatusResponse:
+        return await self.client.connection_get_query_status(
+            ConnectionGetQueryStatusRequest(conn_handle=conn_handle, query_id=query_id)
+        )
+
+    async def connection_send_http(
+        self,
+        conn_handle: ConnectionHandle,
+        method: str,
+        url: str,
+        headers: dict[str, str],
+        body: bytes | None = None,
+    ) -> ConnectionSendHttpResponse:
+        return await self.client.connection_send_http(
+            ConnectionSendHttpRequest(
+                conn_handle=conn_handle,
+                method=method,
+                url=url,
+                headers=headers,
+                body=body,
+            )
+        )
+
+    async def connection_request_token(
+        self, conn_handle: ConnectionHandle, request_type: TokenRequestType.ValueType
+    ) -> ConnectionTokenResponse:
+        return await self.client.connection_request_token(
+            ConnectionTokenRequest(conn_handle=conn_handle, request_type=request_type)
+        )
+
+    # =====================================================================
+    # Connection chunked upload streaming (PUT)
+    # =====================================================================
+
+    async def upload_stream_begin(self, conn_handle: ConnectionHandle, sql: str) -> ConnectionUploadStreamBeginResponse:
+        return await self.client.connection_upload_stream_begin(
+            ConnectionUploadStreamBeginRequest(conn_handle=conn_handle, sql=sql)
+        )
+
+    async def upload_stream_chunk(
+        self, upload_handle: UploadStreamHandle, data: bytes
+    ) -> ConnectionUploadStreamChunkResponse:
+        return await self.client.connection_upload_stream_chunk(
+            ConnectionUploadStreamChunkRequest(upload_handle=upload_handle, data=data)
+        )
+
+    async def upload_stream_finish(self, upload_handle: UploadStreamHandle) -> ConnectionUploadStreamFinishResponse:
+        return await self.client.connection_upload_stream_finish(
+            ConnectionUploadStreamFinishRequest(upload_handle=upload_handle)
+        )
+
+    async def upload_stream_abort(self, upload_handle: UploadStreamHandle) -> ConnectionUploadStreamAbortResponse:
+        return await self.client.connection_upload_stream_abort(
+            ConnectionUploadStreamAbortRequest(upload_handle=upload_handle)
+        )
+
+    # =====================================================================
+    # Telemetry
+    # =====================================================================
+
+    async def telemetry_send_api_usage(
+        self, conn_handle: ConnectionHandle, api_method: str, passed_arguments: list[str] | None = None
+    ) -> TelemetrySendResponse:
+        return await self.client.telemetry_send_api_usage(
+            TelemetrySendApiUsageRequest(
+                conn_handle=conn_handle, api_method=api_method, passed_arguments=passed_arguments or []
+            )
+        )
+
+    async def telemetry_send_wrapper_error(
+        self, conn_handle: ConnectionHandle, exception_type: str, error_source: str
+    ) -> TelemetrySendResponse:
+        return await self.client.telemetry_send_wrapper_error(
+            TelemetrySendWrapperErrorRequest(
+                conn_handle=conn_handle,
+                exception_type=exception_type,
+                error_source=error_source,
+            )
+        )
+
+    async def telemetry_send_log(
+        self, conn_handle: ConnectionHandle, message_json: str, timestamp_ms: int
+    ) -> TelemetrySendResponse:
+        return await self.client.telemetry_send_log(
+            TelemetrySendLogRequest(
+                conn_handle=conn_handle,
+                message_json=message_json,
+                timestamp_ms=timestamp_ms,
+            )
+        )
+
+    # =====================================================================
+    # Statement lifecycle (cursor execute path)
+    # =====================================================================
+
+    async def statement_new(self, conn_handle: ConnectionHandle) -> StatementNewResponse:
+        return await self.client.statement_new(StatementNewRequest(conn_handle=conn_handle))
+
+    async def statement_set_query(self, stmt_handle: StatementHandle, query: str) -> StatementSetSqlQueryResponse:
+        return await self.client.statement_set_sql_query(
+            StatementSetSqlQueryRequest(stmt_handle=stmt_handle, query=query)
+        )
+
+    async def statement_release(self, stmt_handle: StatementHandle) -> StatementReleaseResponse:
+        return await self.client.statement_release(StatementReleaseRequest(stmt_handle=stmt_handle))
+
+    async def statement_set_options(
+        self, stmt_handle: StatementHandle, options: dict[str, ConfigSetting]
+    ) -> StatementSetOptionsResponse:
+        return await self.client.statement_set_options(
+            StatementSetOptionsRequest(stmt_handle=stmt_handle, options=options)
+        )
+
+    async def statement_execute_query(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> ExecuteQueryResponse:
+        return await self.client.statement_execute_query(
+            StatementExecuteQueryRequest(stmt_handle=stmt_handle, bindings=bindings)
+        )
+
+    async def statement_execute_async(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> StatementExecuteAsyncResponse:
+        return await self.client.statement_execute_async(
+            StatementExecuteAsyncRequest(stmt_handle=stmt_handle, bindings=bindings)
+        )
+
+    async def statement_prepare(
+        self, stmt_handle: StatementHandle, bindings: QueryBindings | None = None
+    ) -> StatementPrepareResponse:
+        return await self.client.statement_prepare(StatementPrepareRequest(stmt_handle=stmt_handle, bindings=bindings))
+
+    # =====================================================================
+    # Connection result-set access (multi-statement / async-query paths)
+    # =====================================================================
+
+    async def connection_get_result_set(self, conn_handle: ConnectionHandle, query_id: str) -> ResultSetResponse:
+        return await self.client.connection_get_result_set(
+            ConnectionGetResultSetRequest(conn_handle=conn_handle, query_id=query_id)
+        )
+
+    async def connection_get_query_result(self, conn_handle: ConnectionHandle, query_id: str) -> ExecuteQueryResponse:
+        return await self.client.connection_get_query_result(
+            ConnectionGetQueryResultRequest(conn_handle=conn_handle, query_id=query_id)
+        )
+
+    async def connection_abort_query(
+        self, conn_handle: ConnectionHandle, query_id: str
+    ) -> ConnectionAbortQueryResponse:
+        return await self.client.connection_abort_query(
+            ConnectionAbortQueryRequest(conn_handle=conn_handle, query_id=query_id)
+        )
+
+    async def connection_get_info(
+        self,
+        conn_handle: ConnectionHandle,
+        include_master_token: bool = False,
+    ) -> ConnectionGetInfoResponse:
+        return await self.client.connection_get_info(
+            ConnectionGetInfoRequest(conn_handle=conn_handle, include_master_token=include_master_token)
+        )
+
+    async def connection_get_parameter(self, conn_handle: ConnectionHandle, key: str) -> ConnectionGetParameterResponse:
+        return await self.client.connection_get_parameter(
+            ConnectionGetParameterRequest(conn_handle=conn_handle, key=key)
+        )
+
+    async def connection_get_all_parameters(self, conn_handle: ConnectionHandle) -> ConnectionGetAllParametersResponse:
+        return await self.client.connection_get_all_parameters(
+            ConnectionGetAllParametersRequest(conn_handle=conn_handle)
+        )
+
+    # =====================================================================
+    # Result-set streaming
+    # =====================================================================
+
+    async def result_set_get_stream(self, result_set_handle: ResultSetHandle) -> ResultSetGetStreamResponse:
+        return await self.client.result_set_get_stream(ResultSetGetStreamRequest(result_set_handle=result_set_handle))
+
+    async def result_set_get_chunks(self, result_set_handle: ResultSetHandle) -> ResultSetGetChunksResponse:
+        return await self.client.result_set_get_chunks(ResultSetGetChunksRequest(result_set_handle=result_set_handle))
+
+    async def result_set_release(self, result_set_handle: ResultSetHandle) -> ResultSetReleaseResponse:
+        return await self.client.result_set_release(ResultSetReleaseRequest(result_set_handle=result_set_handle))
+
+    async def database_fetch_chunk(
+        self,
+        conn_handle: ConnectionHandle | None,
+        chunk: ResultChunk,
+        columns: list[ColumnMetadata],
+    ) -> DatabaseFetchChunkResponse:
+        return await self.client.database_fetch_chunk(
+            DatabaseFetchChunkRequest(conn_handle=conn_handle, chunks=[chunk], columns=columns)
+        )
+
+
+async_core_driver: AsyncCoreDriver = AsyncCoreDriver()

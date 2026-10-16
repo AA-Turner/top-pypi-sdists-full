@@ -26,9 +26,8 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
     emit_tag_record,
-    iter_staticfile_text_inputs,
     load_config,
-    read_file_url_text,
+    read_snapshot_source_text,
     write_text_atomic,
 )
 
@@ -58,6 +57,8 @@ ATTR_PATTERN = re.compile(
     r"""([^\s=<>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?""",
     re.UNICODE | re.IGNORECASE | re.DOTALL,
 )
+ANCHOR_START_PATTERN = re.compile(r"<[aA](?=[\s>/])")
+ANCHOR_END_PATTERN = re.compile(r"</[aA](?=[\s>/])")
 
 
 def looks_like_netscape_bookmarks(content: str) -> bool:
@@ -180,28 +181,6 @@ def parse_timestamp(timestamp_str: str) -> datetime | None:
     return best_dt
 
 
-def fetch_content(url: str) -> str:
-    """Fetch content from snapshot source artifacts or an HTTP URL."""
-    source_paths = iter_staticfile_text_inputs(SNAP_DIR)
-    if source_paths:
-        return "\n".join(
-            path.read_text(encoding="utf-8", errors="replace") for path in source_paths
-        )
-    file_content = read_file_url_text(url)
-    if file_content is not None:
-        return file_content
-    if not url.startswith(("http://", "https://")):
-        return ""
-    timeout = CONFIG.TIMEOUT
-    user_agent = CONFIG.USER_AGENT
-
-    import urllib.request
-
-    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="replace")
-
-
 def normalize_bookmark_url(bookmark_url: str, root_url: str) -> str:
     """Resolve relative bookmark URLs against the source page URL."""
     cleaned = sanitize_extracted_url(bookmark_url)
@@ -252,23 +231,12 @@ def find_tag_end(content: str, start: int) -> int:
 
 def find_next_anchor_start(content: str, start: int) -> int:
     """Find the next <a tag start without treating words like <article as anchors."""
-    lowered = content.lower()
-    pos = start
-    while True:
-        pos = lowered.find("<a", pos)
-        if pos == -1:
-            return -1
-        next_char_index = pos + 2
-        if next_char_index >= len(content):
-            return -1
-        if content[next_char_index].isspace() or content[next_char_index] in {">", "/"}:
-            return pos
-        pos += 2
+    match = ANCHOR_START_PATTERN.search(content, start)
+    return match.start() if match else -1
 
 
 def iter_bookmarks(content: str):
     """Yield loose Netscape bookmark anchors from the full file content."""
-    lowered = content.lower()
     pos = 0
     while True:
         anchor_start = find_next_anchor_start(content, pos)
@@ -280,7 +248,10 @@ def iter_bookmarks(content: str):
             return
 
         attrs_text = content[anchor_start + 2 : open_end]
-        close_start = lowered.find("</a", open_end + 1)
+        # Search the original text: lowercasing the full file per anchor is
+        # quadratic, and Unicode case conversion can change string offsets.
+        close_match = ANCHOR_END_PATTERN.search(content, open_end + 1)
+        close_start = close_match.start() if close_match else -1
         if close_start == -1:
             title_text = ""
             pos = open_end + 1
@@ -333,7 +304,12 @@ def main(
     """Parse Netscape bookmark HTML and extract URLs."""
     print("parsing 1 files for urls...")
     try:
-        content = fetch_content(url)
+        content = read_snapshot_source_text(
+            url,
+            snap_dir=SNAP_DIR,
+            timeout=CONFIG.TIMEOUT,
+            user_agent=CONFIG.USER_AGENT,
+        )
     except Exception as e:
         if url.startswith(("http://", "https://")):
             # Snapshot URL fetching is only a fallback when no staticfile import

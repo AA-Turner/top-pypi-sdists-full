@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import datetime, timezone
+from collections.abc import Callable, Sequence
+from datetime import datetime, timedelta, timezone
+import hashlib
 import logging
 import time
 from typing import Any, cast
 import uuid
 
 from pyicloud.common.cloudkit import (
+    CKErrorItem,
     CKModifyOperation,
     CKModifyResponse,
     CKRecord,
@@ -21,21 +23,32 @@ from pyicloud.common.cloudkit import (
 from ._constants import _REMINDERS_ZONE_REQ
 from ._mappers import Attachment, RemindersRecordMapper
 from ._protocol import (
+    _APPLE_EPOCH_OFFSET,
+    _URGENT_PRESENTATION_ALARMS_MIN_VERSION,
     CRDTDecodeError,
+    CRDTStructureError,
     _as_raw_id,
     _as_record_name,
+    _decode_crdt_document,
+    _decode_due_date_delta_alerts,
+    _edit_crdt_document,
     _encode_cloudkit_text_field,
     _encode_crdt_document,
+    _encode_due_date_delta_alerts,
+    _encode_urgent_presentation_alarms,
     _generate_resolution_token_map,
+    _merge_resolution_token_map,
 )
 from ._support import (
     _assert_modify_success,
     _assert_read_success,
+    _raise_record_errors,
     _refresh_record_change_tag,
     _response_record_change_tag,
 )
 from .models import (
     Alarm,
+    EarlyReminder,
     Hashtag,
     ImageAttachment,
     LocationTrigger,
@@ -43,8 +56,51 @@ from .models import (
     RecurrenceFrequency,
     RecurrenceRule,
     Reminder,
+    UrgentPresentationAlarms,
     URLAttachment,
 )
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _zone_key(value: datetime | None) -> str | None:
+    """Return the IANA key of ``value``'s tzinfo when it names a zone."""
+    if value is None:
+        return None
+    key = getattr(value.tzinfo, "key", None)
+    return key if isinstance(key, str) and key else None
+
+
+def _default_time_zone(due_date: datetime | None, all_day: bool) -> str | None:
+    """Return the IANA time zone name to store with a timed ``due_date``.
+
+    Apple devices treat a due date without ``TimeZone`` as floating time and
+    show its UTC clock time as local time. A ``zoneinfo.ZoneInfo`` carries its
+    IANA name, and naive or UTC values are stored as UTC. A fixed non-UTC
+    offset has no IANA name, so ``None`` is returned and the caller has to pass
+    ``time_zone`` explicitly. All-day reminders stay floating, as on devices.
+    """
+    if due_date is None or all_day:
+        return None
+    key = _zone_key(due_date)
+    if key:
+        return key
+    if due_date.tzinfo is None or due_date.utcoffset() == timedelta(0):
+        return "UTC"
+    return None
+
+
+def _filled_time_zone(reminder: Reminder) -> str | None:
+    """Return the time zone ``update()`` should fill in for ``reminder``.
+
+    Only a ``ZoneInfo`` due date names the caller's zone unambiguously; a UTC
+    value may be a floating time read back from the server, so it is left unset
+    rather than guessed. An already-set zone and all-day reminders are left
+    alone. Returns ``None`` when nothing is filled.
+    """
+    if reminder.time_zone or reminder.all_day or reminder.due_date is None:
+        return None
+    return _zone_key(reminder.due_date)
 
 
 class RemindersWriteAPI:
@@ -55,10 +111,16 @@ class RemindersWriteAPI:
         get_raw: Callable[[], Any],
         mapper: RemindersRecordMapper,
         logger: logging.Logger,
+        *,
+        account_id: str | None = None,
     ) -> None:
         self._get_raw = get_raw
         self._mapper = mapper
         self._logger = logger
+        # The signed-in account's directory id; Apple stores it in the
+        # early-reminder payload, so it doubles as the default account id
+        # when no app-written payload has revealed one yet.
+        self._account_id = account_id
 
     @staticmethod
     def _reminder_record_name(reminder_id: str) -> str:
@@ -435,6 +497,7 @@ class RemindersWriteAPI:
                 "value": int(due_date.timestamp() * 1000),
             }
 
+        time_zone = time_zone or _default_time_zone(due_date, all_day)
         if time_zone:
             record_fields["TimeZone"] = {"type": "STRING", "value": time_zone}
 
@@ -465,22 +528,155 @@ class RemindersWriteAPI:
 
         return self._lookup_created_reminder(record_name)
 
+    def _lookup_current_fields(self, record_name: str) -> Any | None:
+        """Return the server's current fields for ``record_name``, if found.
+
+        A record the server reports as ``NOT_FOUND`` yields ``None``; any other
+        lookup error is raised, so an update never replaces the server's CRDT
+        state with a fresh document by mistake.
+        """
+        resp = self._get_raw().lookup(
+            record_names=[record_name],
+            zone_id=_REMINDERS_ZONE_REQ,
+        )
+        records = getattr(resp, "records", None) or []
+        _raise_record_errors(
+            [
+                rec
+                for rec in records
+                if isinstance(rec, CKErrorItem) and rec.serverErrorCode != "NOT_FOUND"
+            ],
+            "Lookup reminder before update",
+        )
+        for rec in records:
+            if isinstance(rec, CKRecord) and rec.recordName == record_name:
+                return rec.fields
+        return None
+
+    @staticmethod
+    def _text_document_for_update(
+        current_fields: Any | None,
+        field_name: str,
+        text: str,
+    ) -> str | None:
+        """Build the CRDT document to write for ``text``, or ``None`` if unchanged.
+
+        When the server already holds a document, the change is written as a
+        CRDT edit on top of it so Apple devices accept it. A fresh document is
+        only built when there is nothing to edit: no server copy, or one whose
+        text is already ``text``, or one that carries no CRDT structure at all.
+        """
+        existing = (
+            current_fields.get_value(field_name) if current_fields is not None else None
+        )
+        if not existing:
+            return _encode_crdt_document(text)
+        if _decode_crdt_document(existing) == text:
+            return None
+        try:
+            return _edit_crdt_document(existing, text)
+        except CRDTStructureError as exc:
+            # Substrings are absent, so there is no replica state to preserve
+            # and a fresh document reaches devices as well as an edit would.
+            _LOGGER.debug("%s has no CRDT structure to edit (%s)", field_name, exc)
+            return _encode_crdt_document(text)
+
+    def _changed_text_documents(
+        self,
+        reminder: Reminder,
+        current_fields: Any | None,
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Return the text documents the caller changed, and their token names.
+
+        A text the caller did not change since the reminder was read is left
+        alone, keeping whatever the server holds — including a newer edit made
+        on a device.
+        """
+        text_fields: dict[str, Any] = {}
+        token_names: list[str] = []
+        for field_name, token_name, text, read_text in (
+            ("TitleDocument", "titleDocument", reminder.title, reminder.server_title),
+            (
+                "NotesDocument",
+                "notesDocument",
+                reminder.desc or "",
+                reminder.server_desc,
+            ),
+        ):
+            if read_text is not None and text == read_text:
+                continue
+            document = self._text_document_for_update(current_fields, field_name, text)
+            if document is not None:
+                text_fields[field_name] = {"type": "STRING", "value": document}
+                token_names.append(token_name)
+        return text_fields, token_names
+
+    @staticmethod
+    def _update_base_fields(
+        reminder: Reminder,
+        completion_date_ms: int | None,
+        now_ms: int,
+        fields_mod: list[str],
+        time_zone: str | None,
+    ) -> dict[str, Any]:
+        """Return the non-text fields of an update, recording their token names.
+
+        ``reminder.due_date`` is normalized to UTC in place, which is what the
+        caller sees afterwards. ``time_zone`` is the zone to store — either the
+        one already on ``reminder`` or one filled in by the caller — so the
+        model is not mutated before the write is known to have succeeded.
+        """
+        due_date = reminder.due_date
+        if due_date is not None and due_date.tzinfo is None:
+            due_date = due_date.replace(tzinfo=timezone.utc)
+            reminder.due_date = due_date
+        parent_reminder: dict[str, Any] | None = None
+        if reminder.parent_reminder_id:
+            parent_reminder = {
+                "recordName": _as_record_name(
+                    reminder.parent_reminder_id,
+                    "Reminder",
+                ),
+                "action": "VALIDATE",
+            }
+        fields_mod.extend(["dueDate", "timeZone", "parentReminder"])
+        return {
+            "Completed": {"type": "INT64", "value": 1 if reminder.completed else 0},
+            "CompletionDate": {"type": "TIMESTAMP", "value": completion_date_ms},
+            "Priority": {"type": "INT64", "value": reminder.priority},
+            "Flagged": {"type": "INT64", "value": 1 if reminder.flagged else 0},
+            "AllDay": {"type": "INT64", "value": 1 if reminder.all_day else 0},
+            "LastModifiedDate": {"type": "TIMESTAMP", "value": now_ms},
+            "DueDate": (
+                {"type": "TIMESTAMP", "value": int(due_date.timestamp() * 1000)}
+                if due_date is not None
+                else {"type": "TIMESTAMP", "value": None}
+            ),
+            "TimeZone": (
+                {"type": "STRING", "value": time_zone}
+                if time_zone
+                else {"type": "STRING", "value": None}
+            ),
+            "ParentReminder": (
+                {"type": "REFERENCE", "value": parent_reminder}
+                if parent_reminder is not None
+                else {"type": "REFERENCE", "value": None}
+            ),
+        }
+
     def update(self, reminder: Reminder) -> None:
         """Update an existing reminder, refusing unreadable text documents."""
         if reminder.undecodable_text_fields:
-            # Both documents are re-encoded on every update. Even a flag-only
-            # edit would overwrite an unreadable server value with a placeholder.
+            # A changed text document is written as an edit on top of the
+            # server copy, which cannot be done safely for an unreadable value.
             raise CRDTDecodeError(
                 "Reminder text could not be decoded; refusing to overwrite it"
             )
         reminder_record_name = self._reminder_record_name(reminder.id)
-        title_doc = _encode_crdt_document(reminder.title)
-        notes_doc = _encode_crdt_document(reminder.desc or "")
+        current_fields = self._lookup_current_fields(reminder_record_name)
         now_ms = int(time.time() * 1000)
 
         fields_mod = [
-            "titleDocument",
-            "notesDocument",
             "completed",
             "completionDate",
             "priority",
@@ -488,6 +684,10 @@ class RemindersWriteAPI:
             "allDay",
             "lastModifiedDate",
         ]
+        text_fields, text_tokens = self._changed_text_documents(
+            reminder, current_fields
+        )
+        fields_mod.extend(text_tokens)
         completion_date = self._completion_datetime(
             completed=reminder.completed,
             completed_date=reminder.completed_date,
@@ -499,53 +699,28 @@ class RemindersWriteAPI:
             else None
         )
 
+        # A ZoneInfo due date names the caller's zone unambiguously; a UTC
+        # value may be a floating time read back from the server, so it is left
+        # alone. The filled zone is written with the record and only stored on
+        # the model once the write succeeds, so a failed update does not leave
+        # the local object claiming a zone the server never received.
+        filled_zone = _filled_time_zone(reminder)
+        time_zone = reminder.time_zone or filled_zone
+
         fields: dict[str, Any] = {
-            "TitleDocument": {"type": "STRING", "value": title_doc},
-            "NotesDocument": {"type": "STRING", "value": notes_doc},
-            "Completed": {"type": "INT64", "value": 1 if reminder.completed else 0},
-            "CompletionDate": {
-                "type": "TIMESTAMP",
-                "value": completion_date_ms,
+            **text_fields,
+            **self._update_base_fields(
+                reminder, completion_date_ms, now_ms, fields_mod, time_zone
+            ),
+            "ResolutionTokenMap": {
+                "type": "STRING",
+                "value": _merge_resolution_token_map(
+                    current_fields.get_value("ResolutionTokenMap")
+                    if current_fields is not None
+                    else None,
+                    fields_mod,
+                ),
             },
-            "Priority": {"type": "INT64", "value": reminder.priority},
-            "Flagged": {"type": "INT64", "value": 1 if reminder.flagged else 0},
-            "AllDay": {"type": "INT64", "value": 1 if reminder.all_day else 0},
-            "LastModifiedDate": {"type": "TIMESTAMP", "value": now_ms},
-        }
-        if reminder.due_date is not None:
-            due_date = reminder.due_date
-            if due_date.tzinfo is None:
-                due_date = due_date.replace(tzinfo=timezone.utc)
-                reminder.due_date = due_date
-            fields["DueDate"] = {
-                "type": "TIMESTAMP",
-                "value": int(due_date.timestamp() * 1000),
-            }
-        else:
-            fields["DueDate"] = {"type": "TIMESTAMP", "value": None}
-        fields_mod.append("dueDate")
-        if reminder.time_zone:
-            fields["TimeZone"] = {"type": "STRING", "value": reminder.time_zone}
-        else:
-            fields["TimeZone"] = {"type": "STRING", "value": None}
-        fields_mod.append("timeZone")
-        if reminder.parent_reminder_id:
-            fields["ParentReminder"] = {
-                "type": "REFERENCE",
-                "value": {
-                    "recordName": _as_record_name(
-                        reminder.parent_reminder_id,
-                        "Reminder",
-                    ),
-                    "action": "VALIDATE",
-                },
-            }
-        else:
-            fields["ParentReminder"] = {"type": "REFERENCE", "value": None}
-        fields_mod.append("parentReminder")
-        fields["ResolutionTokenMap"] = {
-            "type": "STRING",
-            "value": _generate_resolution_token_map(fields_mod),
         }
 
         self._submit_single_record_update(
@@ -556,8 +731,12 @@ class RemindersWriteAPI:
             fields=fields,
             model_obj=reminder,
         )
+        if filled_zone is not None:
+            reminder.time_zone = filled_zone
         reminder.completed_date = completion_date
         reminder.modified = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
+        reminder.server_title = reminder.title
+        reminder.server_desc = reminder.desc or ""
 
     def delete(self, reminder: Reminder) -> None:
         """Delete a reminder using soft-update (Deleted: 1)."""
@@ -581,6 +760,196 @@ class RemindersWriteAPI:
             model_obj=reminder,
         )
         reminder.deleted = True
+        reminder.modified = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
+
+    @staticmethod
+    def _normalized_early_reminders(
+        alerts: Sequence[EarlyReminder],
+        existing: tuple[EarlyReminder, ...],
+    ) -> list[EarlyReminder]:
+        """Validate alerts and keep app-assigned metadata where it matches.
+
+        The app stamps each alert with an identifier and a creation date; a
+        replacement alert with the same offset reuses them, so a device sees
+        an edited alert rather than a deleted-and-recreated one.
+        """
+        by_offset = {(alert.count, alert.unit): alert for alert in existing}
+        normalized: list[EarlyReminder] = []
+        for alert in alerts:
+            previous = by_offset.get((alert.count, alert.unit))
+            identifier = alert.identifier
+            if not identifier and previous is not None:
+                identifier = previous.identifier
+            if not identifier:
+                identifier = str(uuid.uuid4()).upper()
+            creation_date = alert.creation_date
+            if creation_date is None and previous is not None:
+                creation_date = previous.creation_date
+            normalized.append(
+                EarlyReminder(
+                    count=alert.count,
+                    unit=alert.unit,
+                    identifier=identifier,
+                    creation_date=creation_date,
+                )
+            )
+        return normalized
+
+    def set_early_reminders(
+        self,
+        reminder: Reminder,
+        alerts: Sequence[EarlyReminder],
+    ) -> None:
+        """Replace a reminder's early reminders (the "Early Reminder" setting).
+
+        Apple stores these in the reminder's ``DueDateDeltaAlertsData`` field
+        rather than as alarm records. The payload carries a per-account
+        ``accountIdentifier``: the value the app itself wrote is reused when
+        one is stored on the reminder, and otherwise the signed-in account's
+        directory id is used. An empty ``alerts`` sequence removes every early
+        reminder.
+        """
+        reminder_record_name = self._reminder_record_name(reminder.id)
+        current_fields = self._lookup_current_fields(reminder_record_name)
+        existing_value = (
+            current_fields.get_value("DueDateDeltaAlertsData")
+            if current_fields is not None
+            else None
+        )
+        existing_payload, existing_alerts = _decode_due_date_delta_alerts(
+            existing_value
+        )
+        account_id = (
+            existing_payload.get("accountIdentifier")
+            or reminder.early_reminder_account_id
+            or self._account_id
+        )
+        if alerts and not account_id:
+            raise ValueError(
+                "No account identifier known for early reminders; the "
+                "signed-in account's directory id is unavailable and the "
+                "reminder carries no app-written early-reminder payload"
+            )
+        reminder_identifier = str(
+            existing_payload.get("reminderIdentifier") or reminder_record_name
+        )
+        normalized = self._normalized_early_reminders(alerts, existing_alerts)
+
+        now_ms = int(time.time() * 1000)
+        fields: dict[str, Any] = {
+            "DueDateDeltaAlertsData": _encode_due_date_delta_alerts(
+                reminder_identifier=reminder_identifier,
+                account_identifier=account_id or "",
+                alerts=normalized,
+            ),
+            "LastModifiedDate": {"type": "TIMESTAMP", "value": now_ms},
+            "ResolutionTokenMap": {
+                "type": "STRING",
+                "value": _merge_resolution_token_map(
+                    current_fields.get_value("ResolutionTokenMap")
+                    if current_fields is not None
+                    else None,
+                    ["dueDateDeltaAlertsData", "lastModifiedDate"],
+                ),
+            },
+        }
+
+        self._submit_single_record_update(
+            operation_name="Set early reminders",
+            record_name=reminder_record_name,
+            record_type="Reminder",
+            record_change_tag=reminder.record_change_tag,
+            fields=fields,
+            model_obj=reminder,
+        )
+        reminder.early_reminders = tuple(normalized)
+        reminder.early_reminder_account_id = account_id
+        reminder.modified = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
+
+    def set_urgent(
+        self,
+        reminder: Reminder,
+        enabled: bool,
+        *,
+        person_id: str | None = None,
+    ) -> None:
+        """Enable or disable Urgent presentation alarms on a reminder.
+
+        The state lives in an uploaded asset (``UrgentPresentationAlarmsAsData``)
+        plus a checksum string. Apple only exposes the per-account
+        ``person_id`` on reminders where the app itself set Urgent, so it must
+        be passed in or already known from a read. The checksum Apple writes is
+        not reproducible here (its algorithm is unknown); the SHA-512 of the
+        asset bytes has been accepted by the server in its place, and Urgent
+        alarms were observed to fire. Treat this as best-effort.
+        """
+        reminder_record_name = self._reminder_record_name(reminder.id)
+        resolved_person_id = person_id or (
+            reminder.urgent.person_id if reminder.urgent else None
+        )
+        if not resolved_person_id:
+            raise ValueError(
+                "No person id known for Urgent alarms; read a reminder the "
+                "Reminders app marked Urgent, or pass person_id"
+            )
+
+        current_fields = self._lookup_current_fields(reminder_record_name)
+        asset_bytes = _encode_urgent_presentation_alarms(
+            enabled=enabled,
+            person_id=resolved_person_id,
+        )
+        asset_token = self._get_raw().upload_asset(
+            record_type="Reminder",
+            field_name="UrgentPresentationAlarmsAsData",
+            record_name=reminder_record_name,
+            data=asset_bytes,
+            zone_id=_REMINDERS_ZONE_REQ,
+        )
+        checksum = hashlib.sha512(asset_bytes).hexdigest()
+        now_ms = int(time.time() * 1000)
+        modified_on = time.time() - _APPLE_EPOCH_OFFSET
+
+        fields: dict[str, Any] = {
+            "UrgentPresentationAlarmsAsData": {
+                "type": "ASSETID",
+                "value": asset_token.model_dump(mode="json", exclude_none=True),
+            },
+            "UrgentPresentationAlarmsChecksum": {
+                "type": "STRING",
+                "value": checksum,
+                "isEncrypted": True,
+            },
+            "LastModifiedDate": {"type": "TIMESTAMP", "value": now_ms},
+            "ResolutionTokenMap": {
+                "type": "STRING",
+                "value": _merge_resolution_token_map(
+                    current_fields.get_value("ResolutionTokenMap")
+                    if current_fields is not None
+                    else None,
+                    [
+                        "urgentPresentationAlarmsAsData",
+                        "urgentPresentationAlarmsChecksum",
+                        "lastModifiedDate",
+                    ],
+                ),
+            },
+        }
+
+        self._submit_single_record_update(
+            operation_name="Set urgent presentation alarms",
+            record_name=reminder_record_name,
+            record_type="Reminder",
+            record_change_tag=reminder.record_change_tag,
+            fields=fields,
+            model_obj=reminder,
+        )
+        reminder.urgent = UrgentPresentationAlarms(
+            enabled=enabled,
+            person_id=resolved_person_id,
+            modified_on=modified_on,
+            minimum_supported_version=_URGENT_PRESENTATION_ALARMS_MIN_VERSION,
+            checksum=checksum,
+        )
         reminder.modified = datetime.fromtimestamp(now_ms / 1000.0, tz=timezone.utc)
 
     def add_location_trigger(
@@ -1031,7 +1400,7 @@ class RemindersWriteAPI:
         validated_rule = self._validated_recurrence_rule(
             recurrence_id=recurrence_rule.id,
             reminder_id=recurrence_rule.reminder_id,
-            frequency=frequency or recurrence_rule.frequency,
+            frequency=(recurrence_rule.frequency if frequency is None else frequency),
             interval=recurrence_rule.interval if interval is None else interval,
             occurrence_count=(
                 recurrence_rule.occurrence_count

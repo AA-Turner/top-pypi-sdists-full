@@ -1,24 +1,34 @@
-#!/usr/bin/env python
-# Python Db API v2
-#
+"""
+PEP 249 Database API 2.0 Implementation
+
+This module provides an empty implementation of the Python Database API Specification 2.0
+as defined in PEP 249.
+"""
+
 from __future__ import annotations
 
-from functools import wraps
+from typing import Any
 
-from ._utils import _core_loader
-
-apilevel = "2.0"
-threadsafety = 2
-paramstyle = "pyformat"
-
-import logging
-from logging import NullHandler
-
-from snowflake.connector.externals_utils.externals_setup import setup_external_libraries
-
-from .connection import SnowflakeConnection
-from .cursor import DictCursor
-from .dbapi import (
+from . import util_text  # noqa: F401 - backward compatibility re-exports
+from ._internal.decorators import pep249
+from ._internal.fips import FipsStatus, get_fips_status
+from .connection import Connection, SnowflakeConnection
+from .connection_config import ConnectionConfig
+from .constants import QueryStatus, StatementParameterName
+from .cursor import DictCursor, SnowflakeCursor
+from .errors import (
+    DatabaseError,
+    DataError,
+    Error,
+    IntegrityError,
+    InterfaceError,
+    InternalError,
+    NotSupportedError,
+    OperationalError,
+    ProgrammingError,
+    Warning,
+)
+from .types import (
     BINARY,
     DATETIME,
     NUMBER,
@@ -32,75 +42,95 @@ from .dbapi import (
     Timestamp,
     TimestampFromTicks,
 )
-from .errors import (
-    DatabaseError,
-    DataError,
-    Error,
-    IntegrityError,
-    InterfaceError,
-    InternalError,
-    NotSupportedError,
-    OperationalError,
-    ProgrammingError,
-    _Warning,
-)
-from .log_configuration import EasyLoggingConfigPython
-from .version import VERSION
-
-# Load the core library - failures are captured in core_loader and don't prevent module loading
-try:
-    _core_loader.load()
-except Exception:
-    # Silently continue if core loading fails - the error is already captured in core_loader
-    # This ensures the connector module loads even if the minicore library is unavailable
-    pass
-
-logging.getLogger(__name__).addHandler(NullHandler())
-setup_external_libraries()
+from .version import __version__
 
 
-@wraps(SnowflakeConnection.__init__)
-def Connect(**kwargs) -> SnowflakeConnection:
-    return SnowflakeConnection(**kwargs)
+# PEP 249 Module Interface Constants
+apilevel = "2.0"
+threadsafety = 2  # Threads may share the module and connections, but not cursors
+paramstyle = "pyformat"  # Default: %(name)s and %s placeholders (client-side interpolation)
 
 
-connect = Connect
+# Sentinel to distinguish "not provided" from explicit values. Forwarding ``None``
+# defaults would make ``@api_telemetry`` treat connection_name/config as passed.
+_UNSET = object()
 
-SNOWFLAKE_CONNECTOR_VERSION = ".".join(str(v) for v in VERSION[0:3])
-__version__ = SNOWFLAKE_CONNECTOR_VERSION
 
+@pep249
+def connect(
+    *,
+    connection_name: str | None | object = _UNSET,
+    connections_file_path: str | None | object = _UNSET,
+    config: ConnectionConfig | None | object = _UNSET,
+    **kwargs: Any,
+) -> Connection:
+    """
+    Create a connection to the database.
+
+    Args:
+        database: Database name
+        user: Username
+        password: Password
+        host: Host name
+        port: Port number
+        **kwargs: Additional connection parameters
+
+    Returns:
+        Connection: A Connection object
+    """
+    conn_kwargs = dict(kwargs)
+    if connection_name is not _UNSET:
+        conn_kwargs["connection_name"] = connection_name
+    if connections_file_path is not _UNSET:
+        conn_kwargs["connections_file_path"] = connections_file_path
+    if config is not _UNSET:
+        conn_kwargs["config"] = config
+    return Connection(**conn_kwargs)
+
+
+# Export all public symbols
 __all__ = [
-    "SnowflakeConnection",
-    # Error handling
-    "Error",
-    "_Warning",
-    "InterfaceError",
-    "DatabaseError",
-    "NotSupportedError",
-    "DataError",
-    "IntegrityError",
-    "ProgrammingError",
-    "OperationalError",
-    "InternalError",
-    # Extended cursor
-    "DictCursor",
-    # DBAPI PEP 249 required exports
-    "connect",
+    # Version
+    "__version__",
+    # Module constants
     "apilevel",
     "threadsafety",
     "paramstyle",
+    # Module functions
+    "connect",
+    "get_fips_status",
+    # Classes
+    "FipsStatus",
+    "ConnectionConfig",
+    "Connection",
+    "SnowflakeConnection",
+    "QueryStatus",
+    "StatementParameterName",
+    "DictCursor",
+    "SnowflakeCursor",
+    # Exceptions
+    "Warning",
+    "Error",
+    "InterfaceError",
+    "DatabaseError",
+    "DataError",
+    "OperationalError",
+    "IntegrityError",
+    "InternalError",
+    "ProgrammingError",
+    "NotSupportedError",
+    # Type constructors
     "Date",
     "Time",
     "Timestamp",
-    "Binary",
     "DateFromTicks",
     "TimeFromTicks",
     "TimestampFromTicks",
+    "Binary",
+    # Type objects
     "STRING",
     "BINARY",
     "NUMBER",
     "DATETIME",
     "ROWID",
-    # Extended data type (experimental)
-    "EasyLoggingConfigPython",
 ]

@@ -42,6 +42,16 @@ class SemanticModelQueryResponseOut(UniversalBaseModel):
     Number of rows returned
     """
 
+    schema_hash: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Hash of the deployed semantic model definition that computed the rows (the same value the model's citations record); null for a model that was never deployed.
+    """
+
+    schema_version: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Deployment number of the semantic model definition that computed the rows; null for a model that was never deployed.
+    """
+
     source_snapshots: typing.Optional[typing.List[SemanticModelSourceSnapshotOut]] = pydantic.Field(default=None)
     """
     For a lakehouse-backed model, the Iceberg snapshot of each source table the returned rows reflect; empty for models over other engines and when the rows were computed before a source table's latest commit.

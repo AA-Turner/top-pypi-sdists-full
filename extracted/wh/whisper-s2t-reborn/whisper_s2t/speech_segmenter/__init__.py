@@ -127,6 +127,12 @@ class SpeechSegmenter:
             start_ends.append([speech_probs[start_idx][1], speech_probs[end_idx][2]+self.padding])
             start_ends[first_idx][0] = start_ends[first_idx][0]-self.padding
 
+        for i in range(1, len(start_ends)):
+            if start_ends[i][0] < start_ends[i-1][1]:
+                mid = (start_ends[i-1][1] + start_ends[i][0])/2
+                start_ends[i-1][1] = mid
+                start_ends[i][0] = mid
+
         return start_ends
 
 
@@ -140,7 +146,7 @@ class SpeechSegmenter:
         start_ends = self.get_speech_segments(speech_probs)
 
         if len(start_ends) == 0:
-            start_ends = [[0.0, self.max_seg_len]]
+            return start_ends, audio_signal
 
         start_ends[0][0] = max(0.0, start_ends[0][0])
         start_ends[-1][1] = min(audio_duration, start_ends[-1][1])

@@ -928,6 +928,10 @@ with contextlib.nullcontext():
         pass
 
     class BaseHandler(BaseHTTPRequestHandler):
+        # Headers and body are separate small writes; without TCP_NODELAY,
+        # Nagle holds the body until the client ACKs the headers.
+        disable_nagle_algorithm = True
+
         def end_headers(self) -> None:
             # Only the first response reports timings, so every response after
             # it pays one `is not None` and nothing more.
@@ -1241,7 +1245,9 @@ with contextlib.nullcontext():
             asgi_app = ASGIMiddleware(asgi_user_app)
 
             # Pre-bind a socket to obtain an ephemeral port for IPC announcement
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock = socket.socket(
+                socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP
+            )
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("127.0.0.1", 0))
             sock.listen(2048)
@@ -1249,14 +1255,13 @@ with contextlib.nullcontext():
 
             config = uvicorn.Config(
                 app=asgi_app,
-                fd=sock.fileno(),
                 lifespan="auto",
                 access_log=False,
                 log_config=None,
                 log_level="warning",
             )
             uvicorn_server = uvicorn.Server(config)
-            run_server = uvicorn_server.run
+            run_server = functools.partial(uvicorn_server.run, sockets=[sock])
 
             def shutdown_uvicorn_server() -> None:
                 uvicorn_server.should_exit = True

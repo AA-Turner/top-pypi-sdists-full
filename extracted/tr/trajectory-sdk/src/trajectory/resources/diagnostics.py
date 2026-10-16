@@ -95,6 +95,7 @@ class Diagnostics(APIResource):
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
       "moonshotai/kimi-k3",
     ]
     | Omit = omit,
@@ -157,6 +158,7 @@ class Diagnostics(APIResource):
       "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "z-ai/glm-5.3",
+      "z-ai/glm-5.3-flash",
       "moonshotai/kimi-k3",
     ]
     | Omit = omit,

@@ -157,14 +157,8 @@ static void css_minify_selector(token_vec *vec, Py_ssize_t start, Py_ssize_t end
             continue;
         }
         /* '#' before an ident always merges into a single HASH token, so the prior char is never a bare '#' here */
-        int after_combinator = out->len > 0 && (out->data[out->len - 1] == '.' || out->data[out->len - 1] == ':');
-        int is_custom = token->text_len >= 2 && token->text[0] == '-' && token->text[1] == '-';
         if (keyframe && token->kind == CSS_IDENT && css_run_ieq(token->text, token->text_len, "from")) {
             cbuf_puts(out, "0%"); /* CSS Animations 1: the keyframe selector "from" is equivalent to 0% (and shorter) */
-        } else if (token->kind == CSS_IDENT && attr_depth == 0 && !after_combinator && !is_custom) {
-            for (Py_ssize_t pos = 0; pos < token->text_len; pos++) {
-                cbuf_putc(out, css_lower(token->text[pos]));
-            }
         } else if (token->kind == CSS_STR && attr_depth > 0 && css_attribute_value_position(vec, index)) {
             /* Selectors 4 §6.1: an attribute-selector value is an <ident-token> or a <string>; the quotes drop only
                when the inner text is a valid <ident-token> (so [x="123"] keeps its quotes -- 123 is not an ident). */
@@ -194,6 +188,7 @@ typedef struct {
     Py_ssize_t val_len;
     int important;
     int nested; /* a nested rule or at-rule kept verbatim (prop holds the whole text, val unused) */
+    int at_statement;
     int dropped;
 } css_decl;
 
@@ -202,7 +197,16 @@ typedef struct {
     Py_ssize_t len;
     Py_ssize_t cap;
     int *oom;
+    int check_repeats;
 } decl_vec;
+
+static int css_decl_is_wide_keyword(const css_buf *pool, const css_decl *decl) {
+    const css_char *value = pool->data + decl->val_off;
+    Py_ssize_t len = decl->val_len;
+    return css_run_ieq(value, len, "inherit") || css_run_ieq(value, len, "initial") ||
+           css_run_ieq(value, len, "unset") || css_run_ieq(value, len, "revert") ||
+           css_run_ieq(value, len, "revert-layer");
+}
 
 static void decl_vec_push(decl_vec *vec, css_decl decl) {
     if (vec->len == vec->cap) {
@@ -232,7 +236,7 @@ static int css_name_is_custom(const css_char *name) {
 
 /* Build a declaration from a segment [start, end). Returns 1 if a declaration was produced. */
 static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end, comp_vec *scratch,
-                                css_decl *decl) {
+                                css_decl *decl, int preserve_name) {
     if (vec->bad && css_holds_bad(vec, start, end)) {
         return 0;
     }
@@ -270,10 +274,8 @@ static int css_make_declaration(css_buf *pool, token_vec *vec, Py_ssize_t start,
                 cbuf_putc(pool, css_lower((token->text + token->text_len)[pos]));
             }
         } else if (token->kind != CSS_WS) {
-            /* custom-property names are case-sensitive (CSS Variables 1 §2: "--foo" and "--FOO" are distinct), so a
-               --* name is kept verbatim -- a bulk copy, which a framework :root of hundreds of them leans on; every
-               other property name is ASCII case-insensitive and lower-cased byte by byte. */
-            if (is_custom) {
+            /* custom-property names and font-feature aliases are case-sensitive, so preserve their spelling. */
+            if (is_custom || preserve_name) {
                 cbuf_put_run(pool, token->text, token->text_len);
             } else {
                 for (Py_ssize_t pos = 0; pos < token->text_len; pos++) {
@@ -450,60 +452,18 @@ static int css_decl_value_eq(const css_buf *pool, const css_decl *left, const cs
                                                      (size_t)left->val_len * sizeof(css_char)) == 0;
 }
 
-static int css_background_ident_unknown(const css_buf *pool, const css_decl *decl) {
-    const css_char *value = pool->data + decl->val_off;
-    if (value[decl->val_len - 1] == ')' || !css_starts_ident(value, 0, decl->val_len)) {
-        return 0;
-    }
-    for (Py_ssize_t index = 1; index < decl->val_len; index++) {
-        if (!css_is_ident(value[index])) {
-            return 0;
-        }
-    }
-    if (decl->val_len < 3) {
-        return 1;
-    }
-    /* The color names at the end are absent from the shortening tables because their encodings are no shorter. */
-    static const char *const keywords[] = {
-        "red",          "blue",         "none",       "inherit",     "left",        "right",   "top",     "bottom",
-        "center",       "repeat",       "repeat-x",   "repeat-y",    "no-repeat",   "space",   "round",   "scroll",
-        "fixed",        "local",        "border-box", "padding-box", "content-box", "initial", "unset",   "revert",
-        "revert-layer", "currentcolor", "aqua",       "crimson",     "cyan",        "darkred", "dimgray", "dimgrey",
-        "grey",         "hotpink",      "lime",       "oldlace",     "skyblue",     "thistle"};
-    for (size_t index = 0; index < sizeof(keywords) / sizeof(keywords[0]); index++) {
-        if (css_run_ieq(value, decl->val_len, keywords[index])) {
-            return 0;
-        }
-    }
-    for (int index = 0; index < th_css_hex_count; index++) {
-        if (css_run_ieq(value, decl->val_len, th_css_hex_to_name[index].val)) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-static const char *css_dedup_longhand_list(const css_buf *pool, const css_decl *decl) {
-    const char *list = css_longhand_list(pool->data + decl->prop_off, decl->prop_len);
-    return list == CSS_BACKGROUND_LONGHANDS && css_background_ident_unknown(pool, decl) ? NULL : list;
-}
-
-/* The pairwise dedup, fine for the typical small rule. Per CSS Cascade last-wins only among declarations that parse:
-   a later same-name declaration with a *different* value may be a progressive-enhancement fallback a browser keeps
-   when it cannot parse the later value, so only an identical same-name duplicate is dropped. Unknown bare background
-   identifiers likewise cannot override earlier longhands. */
+/* A later shorthand only replaces a longhand if its value parses; CSS-wide keywords are the subset we know parse. */
 static void css_dedup_pairwise(css_buf *pool, decl_vec *decls) {
     for (Py_ssize_t index = 0; index < decls->len; index++) {
         css_decl *later = &decls->items[index];
-        if (later->nested) {
-            continue;
-        }
         const css_char *prop = pool->data + later->prop_off;
         Py_ssize_t prop_len = later->prop_len;
-        const char *list = css_dedup_longhand_list(pool, later);
+        const char *list = css_decl_is_wide_keyword(pool, later)
+                               ? css_longhand_list(pool->data + later->prop_off, later->prop_len)
+                               : NULL;
         for (Py_ssize_t earlier = 0; earlier < index; earlier++) {
             css_decl *prev = &decls->items[earlier];
-            if (prev->nested || prev->dropped || prev->important != later->important) {
+            if (prev->dropped) {
                 continue;
             }
             const css_char *prior = pool->data + prev->prop_off;
@@ -511,8 +471,14 @@ static void css_dedup_pairwise(css_buf *pool, decl_vec *decls) {
             for (Py_ssize_t pos = 0; same_name && pos < prop_len; pos++) {
                 same_name = prop[pos] == prior[pos];
             }
-            int overrides = same_name ? css_decl_value_eq(pool, prev, later)
-                                      : (list != NULL && css_prop_in_list(prior, prev->prop_len, list));
+            int same_value = same_name && css_decl_value_eq(pool, prev, later);
+            if (same_name && !same_value) {
+                decls->check_repeats = 1;
+            }
+            if (prev->important != later->important) {
+                continue;
+            }
+            int overrides = same_name ? same_value : (list != NULL && css_prop_in_list(prior, prev->prop_len, list));
             if (overrides) {
                 prev->dropped = 1;
             }
@@ -590,6 +556,7 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
         css_dedup_pairwise(pool, decls);
         return;
     }
+    decls->check_repeats = 1;
     Py_ssize_t cap = 64;
     while (cap < decls->len * 2) {
         cap *= 2;
@@ -609,13 +576,12 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
     uint32_t mask = (uint32_t)(cap - 1);
     for (Py_ssize_t index = 0; index < decls->len; index++) {
         css_decl *later = &decls->items[index];
-        if (later->nested) {
-            continue;
-        }
         const css_char *prop = pool->data + later->prop_off;
         Py_ssize_t prop_len = later->prop_len;
         int important = later->important;
-        const char *list = css_dedup_longhand_list(pool, later);
+        const char *list = css_decl_is_wide_keyword(pool, later)
+                               ? css_longhand_list(pool->data + later->prop_off, later->prop_len)
+                               : NULL;
         if (list == NULL) {
             Py_ssize_t slot = dedup_slot_run(table, mask, pool, prop, prop_len, important);
             /* a same-name duplicate is dropped only when its value is identical (see css_dedup_pairwise) */
@@ -624,8 +590,7 @@ static void css_dedup(css_buf *pool, decl_vec *decls) {
                 decls->items[table[slot].index].dropped = 1;
             }
         } else {
-            /* every longhand list begins with the shorthand's own name; that first word is a same-name duplicate
-               (value-equality gated), the rest are strict-subset longhands the shorthand always resets */
+            /* The first word is the shorthand's own name; CSS-wide values reset every remaining longhand. */
             const char *cursor = list;
             int own_name = 1;
             while (*cursor) {

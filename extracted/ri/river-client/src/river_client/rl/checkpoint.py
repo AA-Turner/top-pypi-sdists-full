@@ -94,6 +94,8 @@ class Checkpointing:
     Attributes:
         run_dir: Local or shared filesystem directory for this run's state.
         weights_every: Optimizer updates between full weight checkpoints.
+            Full-weight models ignore it: they make no training saves and
+            resume from the server's newest auto checkpoint instead.
         rollout_every: Seconds between rollout-state snapshots.
         on_signal: Signals that request a final checkpoint before shutdown.
     """

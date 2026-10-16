@@ -74,6 +74,8 @@ DB_REQUIREMENTS = {
         # chosen computer (tools/implementations/desktop.py).
         {"key": "SchTask", "table": "scheduler.sch_task"},
         {"key": "SchTrigger", "table": "scheduler.sch_trigger"},
+        # an agent on a chosen computer (POST /scheduling/device-tasks with an agent block).
+        {"key": "SchAgentTask", "table": "scheduler.sch_agent_task"},
         {"key": "AppInstances", "table": "public.app_instances"},
         # users — feedback bridge (tools/implementations/feedback_tools.py).
         {"key": "UserFeedback", "table": "users.user_feedback"},

@@ -456,7 +456,7 @@ async def test_run_agent_threads_conversation_id_into_child_context() -> None:
     )
     seen: dict[str, str | None] = {}
 
-    async def execute(user_input=None, *, max_iterations=None):
+    async def execute(user_input=None, *, max_iterations=None, **_kw):
         seen["conversation_id"] = get_app_context().conversation_id
         return NS(
             output="done",

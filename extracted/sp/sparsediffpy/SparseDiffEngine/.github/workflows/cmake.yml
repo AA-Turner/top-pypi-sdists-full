@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
     - name: Install BLAS (Ubuntu)
       if: runner.os == 'Linux'
@@ -37,3 +39,17 @@ jobs:
       
     - name: Run tests
       run: cd build && ctest -C ${{ matrix.build_type }} --verbose
+
+    # The library must also configure, build and test on its own, with no engine
+    # around it: that is what lets it move to its own repository.
+    - name: Configure sparsediff_linalg standalone
+      run: >
+        cmake -B build-standalone -S sparsediff_linalg
+        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        ${{ runner.os == 'Windows' && '-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake' || '' }}
+
+    - name: Build sparsediff_linalg standalone
+      run: cmake --build build-standalone --config ${{ matrix.build_type }}
+
+    - name: Test sparsediff_linalg standalone
+      run: ctest --test-dir build-standalone -C ${{ matrix.build_type }} --output-on-failure

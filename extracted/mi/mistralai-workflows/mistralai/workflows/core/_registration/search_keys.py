@@ -35,6 +35,10 @@ _SCALAR_COLLECTION_TYPES = (str, bytes, bytearray)
 _RESERVED_KEY_PREFIX = "internal."
 
 
+def _repr_key(key: str) -> str:
+    return f"Search key `{key}`"
+
+
 def _unwrap_optional(annotation: Any) -> Any:
     if get_origin(annotation) in (Union, UnionType):
         members = [arg for arg in get_args(annotation) if arg is not NoneType]
@@ -98,6 +102,8 @@ def validate_search_key_paths(
             path_errors.append("must not be empty or padded with whitespace")
         if ":" in path:
             path_errors.append("must not contain ':'")
+        if path.endswith("="):
+            path_errors.append("must not end with '='")
         if path.startswith(_RESERVED_KEY_PREFIX):
             path_errors.append(f"must not start with `{_RESERVED_KEY_PREFIX}`, which the SDK reserves")
         if len(path) > MAX_SEARCH_KEY_CHARS:
@@ -105,6 +111,9 @@ def validate_search_key_paths(
         segments = path.split(".")
         if any(not segment for segment in segments):
             path_errors.append("has an empty path segment")
+        elif not path_errors and segments[0] not in input_model.model_fields:
+            path_errors.append(f"{segments[0]!r} is not present in the workflow's input")
+            segments = segments[1:]
 
         # Skip traversal when lexical errors already make the path meaningless.
         if not path_errors:
@@ -187,12 +196,15 @@ def extract_search_key_metadata(params: Any, search_keys: Sequence[str]) -> dict
     for path in search_keys:
         try:
             current: Any = params
-            for segment in path.split("."):
-                if isinstance(current, dict):
-                    current = current.get(segment)
-                else:
+            for index, segment in enumerate(path.split(".")):
+                if not isinstance(current, dict):
                     current = None
+                    break
+                present = segment in current
+                current = current.get(segment)
                 if current is None:
+                    if present and index == len(path.split(".")) - 1:
+                        metadata[path] = None
                     break
             if current is not None and not isinstance(current, (dict, list, tuple, set, frozenset)):
                 metadata[path] = _cap_value(path, _coerce_leaf(current))

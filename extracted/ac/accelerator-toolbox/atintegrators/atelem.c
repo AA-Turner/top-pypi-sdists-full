@@ -76,24 +76,15 @@ typedef mxArray atElem;
 
 double atEnergy(double ringenergy, double elemenergy)
 {
-    if (ringenergy!=0.0)
+    if (ringenergy > 0.0)
         return ringenergy;
     else
-        if (elemenergy!=0.0)
+        if (elemenergy > 0.0)
             return elemenergy;
         else {
-            atError("Energy not defined.");
+            atError("Energy must be positive. Check lattice or passmethod parameters.");
             return 0.0;   /* Never reached but makes the compiler happy */
         }
-}
-
-double atGamma(double ringenergy, double elemenergy, double rest_energy)
-{
-    double energy = atEnergy(ringenergy, elemenergy);
-    if (rest_energy == 0.0)
-        return 1.0E-9 * energy / __E0;
-    else
-        return energy / rest_energy;
 }
 
 static mxArray *get_field(const mxArray *pm, const char *fieldname)
@@ -125,21 +116,6 @@ static double atGetDouble(const mxArray *ElemData, const char *fieldname)
     mxArray *field=get_field(ElemData,fieldname);
     if (!field) mexErrMsgIdAndTxt("AT:WrongArg", "The required attribute %s is missing.", fieldname);
     return mxGetScalar(field);
-}
-
-static double* atGetDoubleArraySz(const mxArray *ElemData, const char *fieldname, int *msz, int *nsz)
-{
-     mxArray *field=get_field(ElemData,fieldname);
-    if (!field) mexErrMsgIdAndTxt("AT:WrongArg", "The required attribute %s is missing.", fieldname);
-    *msz = mxGetM(field);  /*Number of rows in the 2-D array*/
-    *nsz = mxGetN(field);  /*Number of columns in the 2-D array.*/
-    return mxGetDoubles(field);
-}
-
-static double* atGetDoubleArray(const mxArray *ElemData, const char *fieldname)
-{
-    int msz, nsz;
-    return atGetDoubleArraySz(ElemData, fieldname, &msz, &nsz);
 }
 
 static long atGetOptionalLong(const mxArray *ElemData, const char *fieldname, long default_value)
@@ -186,10 +162,54 @@ static double* atGetOptionalDoubleArraySz(const mxArray *ElemData, const char *f
     return ptr;
 }
 
+static double* atGetDoubleArraySz(const mxArray *ElemData, const char *fieldname, int *msz, int *nsz)
+{
+    double *ptr = atGetOptionalDoubleArraySz(ElemData, fieldname, msz, nsz);
+    if (!ptr) mexErrMsgIdAndTxt("AT:WrongArg", "The required attribute %s is missing.", fieldname);
+    return ptr;
+}
+
+static double* atGetDoubleArray(const mxArray *ElemData, const char *fieldname)
+{
+    int msz, nsz;
+    return atGetDoubleArraySz(ElemData, fieldname, &msz, &nsz);
+}
+
 static double* atGetOptionalDoubleArray(const mxArray *ElemData, const char *fieldname)
 {
     int msz, nsz;
     return atGetOptionalDoubleArraySz(ElemData, fieldname, &msz, &nsz);
+}
+
+static long* atGetOptionalLongArraySz(const mxArray *ElemData, const char *fieldname, int *msz, int *nsz)
+{
+    long *ptr = NULL;
+    mxArray *field=get_field(ElemData,fieldname);
+    if (field) {
+        *msz = mxGetM(field);
+        *nsz = mxGetN(field);
+        ptr = (long *) mxGetInt32s(field);
+    }
+    return ptr;
+}
+
+static long *atGetLongArraySz(const mxArray *ElemData, const char *fieldname, int *msz, int *nsz)
+{
+    long *ptr = atGetOptionalLongArraySz(ElemData, fieldname, msz, nsz);
+    if (!ptr) mexErrMsgIdAndTxt("AT:WrongArg", "The required attribute %s is missing.", fieldname);
+    return ptr;
+}
+
+static long *atGetLongArray(const mxArray *ElemData, const char *fieldname)
+{
+    int msz, nsz;
+    return atGetLongArraySz(ElemData, fieldname, &msz, &nsz);
+}
+
+static long* atGetOptionalLongArray(const mxArray *ElemData, const char *fieldname)
+{
+    int msz, nsz;
+    return atGetOptionalLongArraySz(ElemData, fieldname, &msz, &nsz);
 }
 
 #endif /* MATLAB_MEX_FILE */
@@ -206,10 +226,18 @@ typedef PyObject atElem;
 #define atError(...) PyErr_Format(PyExc_ValueError, __VA_ARGS__)
 #define atWarning(...) PyErr_WarnFormat(PyExc_RuntimeWarning, 0, __VA_ARGS__)
 #define atPrintf(...) PySys_WriteStdout(__VA_ARGS__)
-#define atEnergy(ringenergy,elemenergy) (ringenergy)
-#define atGamma(ringenergy,elemenergy,rest_energy) ((rest_energy) == 0.0 ? 1.0E-9*(ringenergy)/__E0 : (ringenergy)/(rest_energy))
 
 static int array_imported = 0;
+
+double atEnergy(double ringenergy, double elemenergy)
+{
+    if (ringenergy > 0.0)
+        return ringenergy;
+    else {
+        atError("Energy must be positive. Check lattice or set the track() keyword argument.");
+        return 0.0;   /* Never reached but makes the compiler happy */
+    }       
+}
 
 static NUMPY_IMPORT_ARRAY_TYPE init_numpy(void)
 {
@@ -285,7 +313,8 @@ void atCheckArrayDims(const PyObject *element, char *name, int ndim, int *dims)
     }
 }
 
-static double *atGetArrayData(PyArrayObject *array, char *name, int atype, int *msz, int *nsz)
+
+static void *atGetArrayData(PyArrayObject *array, char *name, int atype, int *msz, int *nsz)
 {
     char errmessage[60];
     int ndims;
@@ -301,7 +330,7 @@ static double *atGetArrayData(PyArrayObject *array, char *name, int atype, int *
         return NULL;
     }
     if (PyArray_TYPE(array) != atype) {
-        snprintf(errmessage, 60, "The attribute %s is not a double array.", name);
+        snprintf(errmessage, 60, "The attribute %s is not a double/long array.", name);
         PyErr_SetString(PyExc_RuntimeError, errmessage);
         return NULL;
     }
@@ -314,8 +343,11 @@ static double *atGetArrayData(PyArrayObject *array, char *name, int atype, int *
     dims = PyArray_SHAPE(array);
     *nsz = (ndims >= 2) ? (int)dims[1] : 0;
     *msz = (ndims >= 1) ? (int)dims[0] : 0;
-    return (double *) PyArray_DATA(array);
+
+    return  PyArray_DATA(array);
+    
 }
+
 
 static double *atGetDoubleArraySz(const PyObject *element, char *name, int *msz, int *nsz)
 {
@@ -352,6 +384,42 @@ static double *atGetOptionalDoubleArray(const PyObject *element, char *name)
     return atGetOptionalDoubleArraySz(element, name, &msz, &nsz);
 }
 
+static long *atGetLongArraySz(const PyObject *element, char *name, int *msz, int *nsz)
+{
+    PyArrayObject *array = (PyArrayObject *) PyObject_GetAttrString((PyObject *)element, name);
+    if (array == NULL) {
+        *msz=0;
+        *nsz=0;
+        return NULL;
+    }
+    return (long *) atGetArrayData(array, name, NPY_LONG, msz, nsz);
+}
+
+static long *atGetLongArray(const PyObject *element, char *name)
+{
+    int msz, nsz;
+    return atGetLongArraySz(element, name, &msz, &nsz);
+}
+
+static long *atGetOptionalLongArraySz(const PyObject *element, char *name, int *msz, int *nsz)
+{
+    PyArrayObject *array = (PyArrayObject *) PyObject_GetAttrString((PyObject *)element, name);
+    if (array == NULL) {
+        PyErr_Clear();
+        *msz=0;
+        *nsz=0;
+        return NULL;
+    }
+    return (long *) atGetArrayData(array, name, NPY_LONG, msz, nsz);
+}
+
+static long *atGetOptionalLongArray(const PyObject *element, char *name)
+{
+    int msz, nsz;
+    return atGetOptionalLongArraySz(element, name, &msz, &nsz);
+}
+
+
 #endif /* defined(PYAT) */
 
 #if defined(PYAT) || defined(MATLAB_MEX_FILE)
@@ -361,6 +429,15 @@ static double *atGetOptionalDoubleArray(const PyObject *element, char *name)
 #else
 #define C_LINK
 #endif
+
+double atGamma(double ringenergy, double elemenergy, double rest_energy)
+{
+    double energy = atEnergy(ringenergy, elemenergy);
+    if (rest_energy == 0.0)
+        return 1.0E-9 * energy / __E0;
+    else
+        return energy / rest_energy;
+}
 
 C_LINK ExportMode struct elem *trackFunction(const atElem *ElemData, struct elem *Elem, double *r_in,
                                       int num_particles, struct parameters *Param);

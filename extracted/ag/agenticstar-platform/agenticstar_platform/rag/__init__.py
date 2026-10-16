@@ -32,7 +32,10 @@ from .embedding import (
     EmbeddingGenerator,
     EmbeddingConfig,
     EmbeddingError,
+    EmbeddingDimensionError,
     RateLimitExceededError,
+    DEFAULT_EMBEDDING_DIMENSIONS,
+    parse_embedding_dimensions,
 )
 from .qdrant_manager import (
     QdrantManager,
@@ -56,7 +59,10 @@ __all__ = [
     "EmbeddingGenerator",
     "EmbeddingConfig",
     "EmbeddingError",
+    "EmbeddingDimensionError",
     "RateLimitExceededError",
+    "DEFAULT_EMBEDDING_DIMENSIONS",
+    "parse_embedding_dimensions",
     # Qdrant
     "QdrantManager",
     "QdrantConfig",

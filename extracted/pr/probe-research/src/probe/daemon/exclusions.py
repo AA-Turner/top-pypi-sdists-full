@@ -515,7 +515,8 @@ def shlex_split(text: str) -> list[str]:
 _FILE_READERS = frozenset({
     "cat", "head", "tail", "less", "more", "bat", "batcat", "nl", "wc", "sort", "uniq", "cut", "awk",
     "gawk", "sed", "xxd", "od", "hexdump", "strings", "jq", "yq", "cmp", "diff", "file", "md5sum",
-    "sha1sum", "sha256sum", "sha512sum", "base64", "tac", "grep", "egrep", "fgrep", "rg", "ag", "ack",
+    "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "b2sum", "cksum", "shasum", "base64",
+    "tac", "grep", "egrep", "fgrep", "rg", "ag", "ack",
     "cp", "mv", "tar", "zip", "gzip", "zcat", "column", "fold", "paste", "iconv", "openssl", "pdftotext",
 })
 #: Programs that read a whole tree when given a folder (or the current one).

@@ -4,7 +4,7 @@
 
 set (libOpenImageIO_Util_srcs argparse.cpp benchmark.cpp
                   errorhandler.cpp farmhash.cpp filesystem.cpp
-                  fmath.cpp filter.cpp hashes.cpp paramlist.cpp
+                  filter.cpp hashes.cpp paramlist.cpp
                   plugin.cpp SHA1.cpp
                   strutil.cpp sysutil.cpp thread.cpp timer.cpp
                   typedesc.cpp ustring.cpp xxhash.cpp)
@@ -15,9 +15,6 @@ if (CMAKE_COMPILER_IS_GNUCC)
 endif ()
 
 if (CMAKE_UNITY_BUILD)
-    # If unity builds are occurring, fmath.cpp MUST be compiled alone. But the
-    # rest can be built together if in group mode.
-    set_property (SOURCE fmath.cpp APPEND PROPERTY SKIP_UNITY_BUILD_INCLUSION TRUE)
     set_source_files_properties (${libOpenImageIO_Util_srcs}
                                  PROPERTIES UNITY_GROUP utilsrc)
 endif ()
@@ -61,16 +58,15 @@ function (setup_oiio_util_library targetname)
             PUBLIC
                 $<BUILD_INTERFACE:${OpenImageIO_LOCAL_DEPS_ROOT}/include>
                 $<INSTALL_INTERFACE:include>
-            PRIVATE
-                ${ROBINMAP_INCLUDES}
             )
     target_link_libraries (${targetname}
             PUBLIC
                 $<TARGET_NAME_IF_EXISTS:Threads::Threads>
                 ${GCC_ATOMIC_LIBRARIES}
                 ${OPENIMAGEIO_IMATH_DEPENDENCY_VISIBILITY}
-                ${OPENIMAGEIO_IMATH_TARGETS}
+                Imath::Imath
             PRIVATE
+                tsl::robin_map
                 $<TARGET_NAME_IF_EXISTS:TBB::tbb>
                 ${CMAKE_DL_LIBS}
             )
@@ -86,7 +82,11 @@ function (setup_oiio_util_library targetname)
 
     if (OIIO_INTERNALIZE_FMT OR fmt_LOCAL_BUILD)
         add_dependencies(${targetname} fmt_internal_target)
-    else ()
+    endif ()
+    if (OIIO_USE_COMPILED_FMT)
+        target_link_libraries (${targetname}
+                               PUBLIC fmt::fmt)
+    elseif (NOT OIIO_INTERNALIZE_FMT AND NOT fmt_LOCAL_BUILD)
         target_link_libraries (${targetname}
                                PUBLIC fmt::fmt-header-only)
     endif ()
@@ -178,8 +178,7 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
 
     fancy_add_executable (NAME fmath_test SRC fmath_test.cpp
                           NO_INSTALL  FOLDER "Unit Tests"
-                          LINK_LIBRARIES OpenImageIO_Util
-                                         ${OPENIMAGEIO_IMATH_TARGETS})
+                          LINK_LIBRARIES OpenImageIO_Util Imath::Imath)
     add_test (unit_fmath ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/fmath_test)
 
     fancy_add_executable (NAME filesystem_test SRC filesystem_test.cpp
@@ -214,8 +213,7 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
 
     fancy_add_executable (NAME simd_test SRC simd_test.cpp
                           NO_INSTALL  FOLDER "Unit Tests"
-                          LINK_LIBRARIES OpenImageIO
-                                         ${OPENIMAGEIO_IMATH_TARGETS})
+                          LINK_LIBRARIES OpenImageIO Imath::Imath)
     add_test (unit_simd ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/simd_test)
 
     fancy_add_executable (NAME filter_test SRC filter_test.cpp
@@ -225,8 +223,7 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
 
     fancy_add_executable (NAME paramlist_test SRC paramlist_test.cpp
                           NO_INSTALL  FOLDER "Unit Tests"
-                          LINK_LIBRARIES OpenImageIO_Util
-                                         ${OPENIMAGEIO_IMATH_TARGETS})
+                          LINK_LIBRARIES OpenImageIO_Util Imath::Imath)
     add_test (unit_paramlist ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/paramlist_test)
 
     fancy_add_executable (NAME strongparam_test SRC strongparam_test.cpp
@@ -236,14 +233,12 @@ if (OIIO_BUILD_TESTS AND BUILD_TESTING)
 
     fancy_add_executable (NAME typedesc_test SRC typedesc_test.cpp
                           NO_INSTALL  FOLDER "Unit Tests"
-                          LINK_LIBRARIES OpenImageIO_Util
-                                         ${OPENIMAGEIO_OPENEXR_TARGETS})
+                          LINK_LIBRARIES OpenImageIO_Util OpenEXR::OpenEXR)
     add_test (unit_typedesc ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/typedesc_test)
 
     fancy_add_executable (NAME type_traits_test SRC type_traits_test.cpp
                           NO_INSTALL  FOLDER "Unit Tests"
-                          LINK_LIBRARIES OpenImageIO_Util
-                                         ${OPENIMAGEIO_OPENEXR_TARGETS})
+                          LINK_LIBRARIES OpenImageIO_Util OpenEXR::OpenEXR)
     add_test (unit_type_traits ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/type_traits_test)
 
 endif ()

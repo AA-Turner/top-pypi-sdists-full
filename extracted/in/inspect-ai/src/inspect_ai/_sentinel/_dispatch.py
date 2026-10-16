@@ -74,7 +74,11 @@ from inspect_ai.tool._tool_call import (
 )
 from inspect_ai.tool._tool_choice import ToolChoice
 from inspect_ai.tool._tool_info import ToolInfo
-from inspect_ai.util._limit import suspend_token_limit, suspend_turn_limit
+from inspect_ai.util._limit import (
+    suspend_token_limit,
+    suspend_turn_limit,
+    suspend_working_limit,
+)
 from inspect_ai.util._span import current_agent_span_id, span
 from inspect_ai.util._store import store
 
@@ -238,6 +242,7 @@ async def _run(step: Step) -> Decision | None:
                 with (
                     suspend_token_limit(),
                     suspend_turn_limit(),
+                    suspend_working_limit(),
                     sentinel_scope(AgentScope.OFF, final=True),
                 ):
                     decision = await run_sentinel(
@@ -290,7 +295,7 @@ _model_inputs: "WeakKeyDictionary[Transcript, Counter[str]]" = WeakKeyDictionary
 
 def _host_context(step_id: str) -> HostContext:
     return HostContext(
-        context=Context(path="", host=_Host(), eval=_eval_context()),
+        host=_HostNative(_eval_context()),
         recorder=_Recorder(step_id),
         store=store(),
     )
@@ -356,7 +361,10 @@ def _produced_by(message_id: str) -> Callable[[Event], TypeGuard[ModelEvent]]:
     return produced
 
 
-class _Host:
+class _HostNative:
+    def __init__(self, eval: EvalContext | None) -> None:
+        self.eval = eval
+
     async def generate(
         self,
         input: str | list[ChatMessage],

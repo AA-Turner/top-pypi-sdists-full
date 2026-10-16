@@ -3,6 +3,8 @@
 
 #include "serialize/internal.h"
 
+#include "serialize/c14n_base.h"
+
 /* Keep these writers local so the ordinary C14N path retains its inlining. */
 static void c14n_put_text(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
     Py_ssize_t index = 0;
@@ -68,6 +70,9 @@ static void c14n_close_tag(sbuf *out, const th_node *node) {
 }
 
 static void c14n_put_pi(sbuf *out, const th_node *node) {
+    if (node->tag_flags & TH_PI_XML_INVALID) {
+        return;
+    }
     Py_ssize_t target_len = node->attr_count;
     sbuf_puts(out, "<?");
     sbuf_put_ucs4(out, node->text, target_len);

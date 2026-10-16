@@ -22,6 +22,7 @@ typedef struct {
     token_vec *vec;
     Py_ssize_t pos;
     Py_ssize_t end;
+    int signed_zero;
 } calc_parser;
 
 /* The sole caller (rat_set) passes a strictly positive denominator as right, so right is already positive and the
@@ -141,13 +142,8 @@ static int csum_add_term(csum *sum, const cterm *term) {
     return 1;
 }
 
-/* A sum is a scalar when it is empty (zero) or a single unitless term. */
+/* A sum is a scalar when it has a single unitless term. */
 static int csum_as_scalar(const csum *sum, crat *out) {
-    if (sum->count == 0) {
-        out->num = 0;
-        out->den = 1;
-        return 1;
-    }
     if (sum->count == 1 && sum->terms[0].unit_len == 0) {
         *out = sum->terms[0].coeff;
         return 1;
@@ -157,7 +153,9 @@ static int csum_as_scalar(const csum *sum, crat *out) {
 
 static int csum_scale(csum *sum, crat factor) {
     if (factor.num == 0) {
-        sum->count = 0;
+        for (int index = 0; index < sum->count; index++) {
+            sum->terms[index].coeff = factor;
+        }
         return 1;
     }
     for (int index = 0; index < sum->count; index++) {
@@ -196,6 +194,9 @@ static void calc_parse_value(calc_parser *parser, csum *out) {
         cterm term;
         if (!css_num_to_rat(token->text, token->text_len, &term.coeff)) {
             return;
+        }
+        if (term.coeff.num == 0 && token->text[0] == '-') {
+            parser->signed_zero = 1;
         }
         term.unit_len = (int)token->unit_len;
         for (int index = 0; index < term.unit_len; index++) {
@@ -253,6 +254,19 @@ static int calc_apply_product(csum *acc, csum *rhs, int is_div) {
     return 0;
 }
 
+static int csum_zero(const csum *sum) {
+    for (int index = 0; index < sum->count; index++) {
+        if (sum->terms[index].coeff.num != 0) {
+            return 0;
+        }
+    }
+    return sum->count > 0;
+}
+
+static int csum_nonnegative(const csum *sum) {
+    return sum->count == 1 && sum->terms[0].coeff.num >= 0;
+}
+
 static void calc_parse_product(calc_parser *parser, csum *out) {
     calc_parse_value(parser, out);
     csum *rhs = NULL;
@@ -273,6 +287,10 @@ static void calc_parse_product(calc_parser *parser, csum *out) {
             break;                                                     /* GCOVR_EXCL_LINE */
         }
         calc_parse_value(parser, rhs);
+        if (rhs->ok && (csum_zero(out) || (!is_div && csum_zero(rhs))) &&
+            (!csum_nonnegative(out) || !csum_nonnegative(rhs))) {
+            parser->signed_zero = 1;
+        }
         out->ok = rhs->ok && calc_apply_product(out, rhs, is_div);
     }
     css_free(rhs);
@@ -411,6 +429,19 @@ static int css_format_cterm(css_buf *out, const cterm *term) {
 }
 
 static int css_char_unit_droppable(const char *unit, int len) {
+    switch (unit[0]) {
+    case 'p':
+    case 'c':
+    case 'e':
+    case 'i':
+    case 'm':
+    case 'q':
+    case 'r':
+    case 'v':
+        break;
+    default:
+        return 0;
+    }
     css_char wide[CALC_MAX_UNIT];
     for (int index = 0; index < len; index++) {
         wide[index] = (css_char)(unsigned char)unit[index];
@@ -422,6 +453,7 @@ typedef struct {
     const css_char *prop;
     Py_ssize_t prop_len;
     int bare_zero_allowed;
+    int nested_math;
 } css_calc_context;
 
 static int css_calc_negative_literal_allowed(const css_char *prop, Py_ssize_t prop_len) {
@@ -440,11 +472,11 @@ static int css_calc_negative_literal_allowed(const css_char *prop, Py_ssize_t pr
 CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t start, Py_ssize_t end,
                                      const css_calc_context *context, Py_ssize_t *out_off, Py_ssize_t *out_len,
                                      css_compkind *kind) {
-    calc_parser parser = {vec, start, end};
+    calc_parser parser = {vec, start, end, 0};
     csum sum;
     calc_parse_sum(&parser, &sum);
     calc_skip_ws(&parser);
-    if (!sum.ok || parser.pos != end) {
+    if (!sum.ok || parser.pos != end || (parser.signed_zero && context->nested_math)) {
         return 0;
     }
     /* a unitless <number> summed with a dimensioned term (e.g. calc(100% - 30px - 0)) is a type error the whole
@@ -473,24 +505,32 @@ CSS_NOINLINE static int css_try_calc(css_buf *pool, token_vec *vec, Py_ssize_t s
     if (nonzero_count < sum.count && sum.count > 1) {
         return 0;
     }
-    css_buf result = {NULL, 0, 0, pool->oom};
-    int formatted = 1;
     if (nonzero_count == 0) {
-        if (sum.count == 1 && sum.terms[0].unit_len > 0 &&
-            !css_char_unit_droppable(sum.terms[0].unit, sum.terms[0].unit_len)) {
-            formatted = css_format_cterm(&result, &sum.terms[0]);
+        *out_off = pool->len;
+        if (sum.terms[0].unit_len > 0 && !css_char_unit_droppable(sum.terms[0].unit, sum.terms[0].unit_len)) {
+            cbuf_putc(pool, '0');
+            for (int index = 0; index < sum.terms[0].unit_len; index++) {
+                cbuf_putc(pool, (css_char)(unsigned char)sum.terms[0].unit[index]);
+            }
             *kind = CK_DIM;
-        } else if (sum.count == 1 && (sum.terms[0].unit_len > 0 || !context->bare_zero_allowed)) {
+        } else if (sum.terms[0].unit_len > 0 || (!context->bare_zero_allowed && !context->nested_math)) {
             /* Bare zero can have a different type from a zero-valued calc(). */
-            cbuf_puts(&result, "calc(");
-            formatted = css_format_cterm(&result, &sum.terms[0]);
-            cbuf_putc(&result, ')');
+            cbuf_puts(pool, "calc(0");
+            for (int index = 0; index < sum.terms[0].unit_len; index++) {
+                cbuf_putc(pool, (css_char)(unsigned char)sum.terms[0].unit[index]);
+            }
+            cbuf_putc(pool, ')');
             *kind = CK_FUNC;
         } else {
-            cbuf_putc(&result, '0');
+            cbuf_putc(pool, '0');
             *kind = CK_NUM;
         }
-    } else if (nonzero_count == 1) {
+        *out_len = pool->len - *out_off;
+        return 1;
+    }
+    css_buf result = {NULL, 0, 0, pool->oom};
+    int formatted = 1;
+    if (nonzero_count == 1) {
         /* Only a top-level negative literal can bypass calc()'s computed-value range clamp. */
         int preserve_calc =
             nonzero[0].coeff.num < 0 && !css_calc_negative_literal_allowed(context->prop, context->prop_len);
@@ -648,7 +688,7 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 css_compkind kind;
                 /* var()/env() substitute their fallback outside the containing function's range context. */
                 int substitution = is_var || css_run_ieq(name, name_len, "env");
-                css_calc_context context = {substitution ? name : NULL, substitution ? name_len : 0, 0};
+                css_calc_context context = {substitution ? name : NULL, substitution ? name_len : 0, 0, keep_ws};
                 css_emit_function(pool, vec, index, close_index, &context, &off, &len, &kind);
                 css_nesting_leave(vec);
                 cbuf_put_run(out, pool->data + off, len);
@@ -668,15 +708,21 @@ static void css_minify_func_args(css_buf *pool, token_vec *vec, Py_ssize_t start
                 Py_ssize_t off;
                 Py_ssize_t len;
                 css_format_dimension(pool, token, !keep_ws && !is_color, NULL, 0, &off, &len);
+                int signed_zero = keep_ws && token->text[0] == '-' && pool->data[off] == '0';
                 /* dropping a sign or unit (e.g. +0/-0/0px -> 0) can glue the number onto the token before it to read as
                    one different token (CSS Syntax 3 §9.1), including a second adjacent number in an invalid calc, so
                    keep a boundary as the declaration-value path does; a negative number after a unitless one starts
                    no unit (§4.3.3), so `1-1` stays two numbers */
                 const css_token *before = &vec->items[index - 1];
-                int negative_after_number = pool->data[off] == '-' && before->kind == CSS_NUM && before->unit_len == 0;
+                int negative_after_number =
+                    (signed_zero || pool->data[off] == '-') && before->kind == CSS_NUM && before->unit_len == 0;
                 if (out->len > 0 && !negative_after_number &&
-                    css_would_merge(out->data[out->len - 1], 0, pool->data + off, len)) {
+                    css_would_merge(out->data[out->len - 1], 0, signed_zero ? (const css_char *)"-" : pool->data + off,
+                                    signed_zero ? 1 : len)) {
                     cbuf_putc(out, ' ');
+                }
+                if (signed_zero) {
+                    cbuf_putc(out, '-');
                 }
                 cbuf_put_run(out, pool->data + off, len);
             }

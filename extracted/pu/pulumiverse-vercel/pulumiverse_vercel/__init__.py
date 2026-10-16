@@ -9,12 +9,18 @@ import typing
 from .access_group import *
 from .access_group_member import *
 from .access_group_project import *
+from .ai_gateway_api_key import *
+from .alert_rule import *
+from .alert_rule_slack_notification import *
+from .alert_rule_webhook_notification import *
 from .alias import *
 from .attack_challenge_mode import *
+from .audit_log_drain import *
 from .blob_object import *
 from .blob_project_connection import *
 from .blob_store import *
 from .bulk_redirects import *
+from .custom_alert_rule import *
 from .custom_certificate import *
 from .custom_environment import *
 from .deployment import *
@@ -40,6 +46,7 @@ from .get_blob_store import *
 from .get_blob_store_secrets import *
 from .get_blob_stores import *
 from .get_bulk_redirects import *
+from .get_connect_application import *
 from .get_custom_environment import *
 from .get_deployment import *
 from .get_domain_config import *
@@ -53,6 +60,7 @@ from .get_feature_flag import *
 from .get_feature_flag_sdk_key import *
 from .get_feature_flag_segment import *
 from .get_file import *
+from .get_kms_issuer import *
 from .get_log_drain import *
 from .get_microfrontend_group import *
 from .get_microfrontend_group_membership import *
@@ -64,18 +72,26 @@ from .get_project_directory import *
 from .get_project_members import *
 from .get_project_rolling_release import *
 from .get_project_routes import *
+from .get_shareable_link import *
 from .get_shared_environment_variable import *
 from .get_team_config import *
 from .get_team_member import *
 from .get_trace_drain import *
 from .get_vcr_repository import *
 from .integration_project_access import *
+from .kms_issuer import *
+from .kms_project_grant import *
+from .kms_signing_key import *
 from .log_drain import *
 from .microfrontend_group import *
 from .microfrontend_group_membership import *
 from .network import *
+from .oauth_app import *
+from .oauth_app_client_secret import *
+from .oidc_federation_policy import *
 from .project import *
 from .project_crons import *
+from .project_deployment_check import *
 from .project_deployment_retention import *
 from .project_domain import *
 from .project_environment_variable import *
@@ -84,7 +100,9 @@ from .project_members import *
 from .project_protection_bypass import *
 from .project_rolling_release import *
 from .project_route import *
+from .project_tracing import *
 from .provider import *
+from .shareable_link import *
 from .shared_environment_variable import *
 from .shared_environment_variable_project_link import *
 from .team_config import *
@@ -92,6 +110,7 @@ from .team_member import *
 from .trace_drain import *
 from .user_token import *
 from .vcr_repository import *
+from .vcr_repository_permission import *
 from .webhook import *
 from ._inputs import *
 from . import outputs
@@ -132,6 +151,38 @@ _utilities.register(
  },
  {
   "pkg": "vercel",
+  "mod": "index/aiGatewayApiKey",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/aiGatewayApiKey:AiGatewayApiKey": "AiGatewayApiKey"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/alertRule",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/alertRule:AlertRule": "AlertRule"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/alertRuleSlackNotification",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/alertRuleSlackNotification:AlertRuleSlackNotification": "AlertRuleSlackNotification"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/alertRuleWebhookNotification",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/alertRuleWebhookNotification:AlertRuleWebhookNotification": "AlertRuleWebhookNotification"
+  }
+ },
+ {
+  "pkg": "vercel",
   "mod": "index/alias",
   "fqn": "pulumiverse_vercel",
   "classes": {
@@ -144,6 +195,14 @@ _utilities.register(
   "fqn": "pulumiverse_vercel",
   "classes": {
    "vercel:index/attackChallengeMode:AttackChallengeMode": "AttackChallengeMode"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/auditLogDrain",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/auditLogDrain:AuditLogDrain": "AuditLogDrain"
   }
  },
  {
@@ -176,6 +235,14 @@ _utilities.register(
   "fqn": "pulumiverse_vercel",
   "classes": {
    "vercel:index/bulkRedirects:BulkRedirects": "BulkRedirects"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/customAlertRule",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/customAlertRule:CustomAlertRule": "CustomAlertRule"
   }
  },
  {
@@ -308,6 +375,30 @@ _utilities.register(
  },
  {
   "pkg": "vercel",
+  "mod": "index/kmsIssuer",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/kmsIssuer:KmsIssuer": "KmsIssuer"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/kmsProjectGrant",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/kmsProjectGrant:KmsProjectGrant": "KmsProjectGrant"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/kmsSigningKey",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/kmsSigningKey:KmsSigningKey": "KmsSigningKey"
+  }
+ },
+ {
+  "pkg": "vercel",
   "mod": "index/logDrain",
   "fqn": "pulumiverse_vercel",
   "classes": {
@@ -340,6 +431,30 @@ _utilities.register(
  },
  {
   "pkg": "vercel",
+  "mod": "index/oauthApp",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/oauthApp:OauthApp": "OauthApp"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/oauthAppClientSecret",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/oauthAppClientSecret:OauthAppClientSecret": "OauthAppClientSecret"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/oidcFederationPolicy",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/oidcFederationPolicy:OidcFederationPolicy": "OidcFederationPolicy"
+  }
+ },
+ {
+  "pkg": "vercel",
   "mod": "index/project",
   "fqn": "pulumiverse_vercel",
   "classes": {
@@ -352,6 +467,14 @@ _utilities.register(
   "fqn": "pulumiverse_vercel",
   "classes": {
    "vercel:index/projectCrons:ProjectCrons": "ProjectCrons"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/projectDeploymentCheck",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/projectDeploymentCheck:ProjectDeploymentCheck": "ProjectDeploymentCheck"
   }
  },
  {
@@ -420,6 +543,22 @@ _utilities.register(
  },
  {
   "pkg": "vercel",
+  "mod": "index/projectTracing",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/projectTracing:ProjectTracing": "ProjectTracing"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/shareableLink",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/shareableLink:ShareableLink": "ShareableLink"
+  }
+ },
+ {
+  "pkg": "vercel",
   "mod": "index/sharedEnvironmentVariable",
   "fqn": "pulumiverse_vercel",
   "classes": {
@@ -472,6 +611,14 @@ _utilities.register(
   "fqn": "pulumiverse_vercel",
   "classes": {
    "vercel:index/vcrRepository:VcrRepository": "VcrRepository"
+  }
+ },
+ {
+  "pkg": "vercel",
+  "mod": "index/vcrRepositoryPermission",
+  "fqn": "pulumiverse_vercel",
+  "classes": {
+   "vercel:index/vcrRepositoryPermission:VcrRepositoryPermission": "VcrRepositoryPermission"
   }
  },
  {

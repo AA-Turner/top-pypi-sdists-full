@@ -10,10 +10,14 @@ from .card_created_webhook_event import CardCreatedWebhookEvent
 from .card_renewed_webhook_event import CardRenewedWebhookEvent
 from .card_shipped_webhook_event import CardShippedWebhookEvent
 from .card_updated_webhook_event import CardUpdatedWebhookEvent
+from .embed_viewed_webhook_event import EmbedViewedWebhookEvent
 from .card_reissued_webhook_event import CardReissuedWebhookEvent
+from .claim_created_webhook_event import ClaimCreatedWebhookEvent
+from .claim_updated_webhook_event import ClaimUpdatedWebhookEvent
 from .card_converted_webhook_event import CardConvertedWebhookEvent
 from .balance_updated_webhook_event import BalanceUpdatedWebhookEvent
 from .dispute_updated_webhook_event import DisputeUpdatedWebhookEvent
+from .card_pin_updated_webhook_event import CardPinUpdatedWebhookEvent
 from .loan_tape_created_webhook_event import LoanTapeCreatedWebhookEvent
 from .loan_tape_updated_webhook_event import LoanTapeUpdatedWebhookEvent
 from .statements_created_webhook_event import StatementsCreatedWebhookEvent
@@ -23,6 +27,10 @@ from .funding_event_created_webhook_event import FundingEventCreatedWebhookEvent
 from .network_total_created_webhook_event import NetworkTotalCreatedWebhookEvent
 from .network_total_updated_webhook_event import NetworkTotalUpdatedWebhookEvent
 from .account_holder_created_webhook_event import AccountHolderCreatedWebhookEvent
+from .claim_document_accepted_webhook_event import ClaimDocumentAcceptedWebhookEvent
+from .claim_document_rejected_webhook_event import ClaimDocumentRejectedWebhookEvent
+from .claim_document_uploaded_webhook_event import ClaimDocumentUploadedWebhookEvent
+from .embed_session_generated_webhook_event import EmbedSessionGeneratedWebhookEvent
 from .card_transaction_updated_webhook_event import CardTransactionUpdatedWebhookEvent
 from .external_payment_created_webhook_event import ExternalPaymentCreatedWebhookEvent
 from .external_payment_updated_webhook_event import ExternalPaymentUpdatedWebhookEvent
@@ -91,7 +99,7 @@ __all__ = [
 
 class KYBPayloadUpdateRequestBeneficialOwnerIndividualAddress(BaseModel):
     """
-    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB and KYC workflows.
     """
 
     address1: str
@@ -101,35 +109,50 @@ class KYBPayloadUpdateRequestBeneficialOwnerIndividualAddress(BaseModel):
     """Name of city."""
 
     country: str
-    """Valid country code.
-
-    Only USA is currently supported, entered in uppercase ISO 3166-1 alpha-3
-    three-character format.
     """
-
-    postal_code: str
-    """Valid postal code.
-
-    Only USA ZIP codes are currently supported, entered as a five-digit ZIP or
-    nine-digit ZIP+4.
-    """
-
-    state: str
-    """Valid state code.
-
-    Only USA state codes are currently supported, entered in uppercase ISO 3166-2
-    two-character format.
+    Valid country code, entered in uppercase ISO 3166-1 alpha-3 three-character
+    format. Supported countries depend on the onboarding workflow used for the
+    account holder.
     """
 
     address2: Optional[str] = None
     """Unit or apartment number (if applicable)."""
+
+    postal_code: Optional[str] = None
+    """Valid postal code.
+
+    For USA addresses, enter either a five-digit postal code or a nine-digit postal
+    code (ZIP+4) using the format 12345-1234. Required for all countries except the
+    following, which do not use postal codes: ABW, AGO, ARE, ATG, BDI, BEN, BFA,
+    BHS, BLZ, BOL, BWA, CIV, CMR, COD, COG, COK, COM, DJI, DMA, ERI, FJI, GAB, GMB,
+    GNQ, GRD, GUY, HKG, KIR, MAC, MLI, MRT, NIU, NRU, QAT, RWA, SLB, SLE, SSD, SUR,
+    SXM, SYC, TGO, TKL, TLS, TON, TUV, UGA, VUT, YEM, ZWE
+    """
+
+    state: Optional[str] = None
+    """
+    Valid state, province, or subdivision code, entered as the uppercase ISO 3166-2
+    code for the country without the country prefix. For example, `CA` for
+    California. Optional unless the address is in one of the following countries,
+    where it is required:
+
+    - `USA`
+    - `CAN`
+    - `AUS`
+    - `CHN`
+    - `KOR`
+    - `MEX`
+    - `MYS`
+    - `NZL`
+    """
 
 
 class KYBPayloadUpdateRequestBeneficialOwnerIndividual(BaseModel):
     address: Optional[KYBPayloadUpdateRequestBeneficialOwnerIndividualAddress] = None
     """
     Individual's current address - PO boxes, UPS drops, and FedEx drops are not
-    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB
+    and KYC workflows.
     """
 
     dob: Optional[str] = None
@@ -154,7 +177,7 @@ class KYBPayloadUpdateRequestBeneficialOwnerIndividual(BaseModel):
 
 class KYBPayloadUpdateRequestControlPersonAddress(BaseModel):
     """
-    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB and KYC workflows.
     """
 
     address1: str
@@ -164,28 +187,42 @@ class KYBPayloadUpdateRequestControlPersonAddress(BaseModel):
     """Name of city."""
 
     country: str
-    """Valid country code.
-
-    Only USA is currently supported, entered in uppercase ISO 3166-1 alpha-3
-    three-character format.
     """
-
-    postal_code: str
-    """Valid postal code.
-
-    Only USA ZIP codes are currently supported, entered as a five-digit ZIP or
-    nine-digit ZIP+4.
-    """
-
-    state: str
-    """Valid state code.
-
-    Only USA state codes are currently supported, entered in uppercase ISO 3166-2
-    two-character format.
+    Valid country code, entered in uppercase ISO 3166-1 alpha-3 three-character
+    format. Supported countries depend on the onboarding workflow used for the
+    account holder.
     """
 
     address2: Optional[str] = None
     """Unit or apartment number (if applicable)."""
+
+    postal_code: Optional[str] = None
+    """Valid postal code.
+
+    For USA addresses, enter either a five-digit postal code or a nine-digit postal
+    code (ZIP+4) using the format 12345-1234. Required for all countries except the
+    following, which do not use postal codes: ABW, AGO, ARE, ATG, BDI, BEN, BFA,
+    BHS, BLZ, BOL, BWA, CIV, CMR, COD, COG, COK, COM, DJI, DMA, ERI, FJI, GAB, GMB,
+    GNQ, GRD, GUY, HKG, KIR, MAC, MLI, MRT, NIU, NRU, QAT, RWA, SLB, SLE, SSD, SUR,
+    SXM, SYC, TGO, TKL, TLS, TON, TUV, UGA, VUT, YEM, ZWE
+    """
+
+    state: Optional[str] = None
+    """
+    Valid state, province, or subdivision code, entered as the uppercase ISO 3166-2
+    code for the country without the country prefix. For example, `CA` for
+    California. Optional unless the address is in one of the following countries,
+    where it is required:
+
+    - `USA`
+    - `CAN`
+    - `AUS`
+    - `CHN`
+    - `KOR`
+    - `MEX`
+    - `MYS`
+    - `NZL`
+    """
 
 
 class KYBPayloadUpdateRequestControlPerson(BaseModel):
@@ -196,7 +233,8 @@ class KYBPayloadUpdateRequestControlPerson(BaseModel):
     address: Optional[KYBPayloadUpdateRequestControlPersonAddress] = None
     """
     Individual's current address - PO boxes, UPS drops, and FedEx drops are not
-    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB
+    and KYC workflows.
     """
 
     dob: Optional[str] = None
@@ -288,7 +326,7 @@ class KYBPayload(BaseModel):
 
 class KYCPayloadUpdateRequestIndividualAddress(BaseModel):
     """
-    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB and KYC workflows.
     """
 
     address1: str
@@ -298,28 +336,42 @@ class KYCPayloadUpdateRequestIndividualAddress(BaseModel):
     """Name of city."""
 
     country: str
-    """Valid country code.
-
-    Only USA is currently supported, entered in uppercase ISO 3166-1 alpha-3
-    three-character format.
     """
-
-    postal_code: str
-    """Valid postal code.
-
-    Only USA ZIP codes are currently supported, entered as a five-digit ZIP or
-    nine-digit ZIP+4.
-    """
-
-    state: str
-    """Valid state code.
-
-    Only USA state codes are currently supported, entered in uppercase ISO 3166-2
-    two-character format.
+    Valid country code, entered in uppercase ISO 3166-1 alpha-3 three-character
+    format. Supported countries depend on the onboarding workflow used for the
+    account holder.
     """
 
     address2: Optional[str] = None
     """Unit or apartment number (if applicable)."""
+
+    postal_code: Optional[str] = None
+    """Valid postal code.
+
+    For USA addresses, enter either a five-digit postal code or a nine-digit postal
+    code (ZIP+4) using the format 12345-1234. Required for all countries except the
+    following, which do not use postal codes: ABW, AGO, ARE, ATG, BDI, BEN, BFA,
+    BHS, BLZ, BOL, BWA, CIV, CMR, COD, COG, COK, COM, DJI, DMA, ERI, FJI, GAB, GMB,
+    GNQ, GRD, GUY, HKG, KIR, MAC, MLI, MRT, NIU, NRU, QAT, RWA, SLB, SLE, SSD, SUR,
+    SXM, SYC, TGO, TKL, TLS, TON, TUV, UGA, VUT, YEM, ZWE
+    """
+
+    state: Optional[str] = None
+    """
+    Valid state, province, or subdivision code, entered as the uppercase ISO 3166-2
+    code for the country without the country prefix. For example, `CA` for
+    California. Optional unless the address is in one of the following countries,
+    where it is required:
+
+    - `USA`
+    - `CAN`
+    - `AUS`
+    - `CHN`
+    - `KOR`
+    - `MEX`
+    - `MYS`
+    - `NZL`
+    """
 
 
 class KYCPayloadUpdateRequestIndividual(BaseModel):
@@ -330,7 +382,8 @@ class KYCPayloadUpdateRequestIndividual(BaseModel):
     address: Optional[KYCPayloadUpdateRequestIndividualAddress] = None
     """
     Individual's current address - PO boxes, UPS drops, and FedEx drops are not
-    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    acceptable; APO/FPO are acceptable. Only USA addresses are supported for the KYB
+    and KYC workflows.
     """
 
     dob: Optional[str] = None
@@ -441,6 +494,7 @@ ParsedWebhookEvent: TypeAlias = Union[
     BookTransferTransactionUpdatedWebhookEvent,
     CardCreatedWebhookEvent,
     CardConvertedWebhookEvent,
+    CardPinUpdatedWebhookEvent,
     CardRenewedWebhookEvent,
     CardReissuedWebhookEvent,
     CardShippedWebhookEvent,
@@ -448,6 +502,11 @@ ParsedWebhookEvent: TypeAlias = Union[
     CardTransactionUpdatedWebhookEvent,
     CardTransactionEnhancedDataCreatedWebhookEvent,
     CardTransactionEnhancedDataUpdatedWebhookEvent,
+    ClaimCreatedWebhookEvent,
+    ClaimUpdatedWebhookEvent,
+    ClaimDocumentUploadedWebhookEvent,
+    ClaimDocumentAcceptedWebhookEvent,
+    ClaimDocumentRejectedWebhookEvent,
     DigitalWalletTokenizationApprovalRequestWebhookEvent,
     DigitalWalletTokenizationResultWebhookEvent,
     DigitalWalletTokenizationTwoFactorAuthenticationCodeWebhookEvent,
@@ -455,6 +514,8 @@ ParsedWebhookEvent: TypeAlias = Union[
     DigitalWalletTokenizationUpdatedWebhookEvent,
     DisputeUpdatedWebhookEvent,
     DisputeEvidenceUploadFailedWebhookEvent,
+    EmbedSessionGeneratedWebhookEvent,
+    EmbedViewedWebhookEvent,
     ExternalBankAccountCreatedWebhookEvent,
     ExternalBankAccountUpdatedWebhookEvent,
     ExternalPaymentCreatedWebhookEvent,

@@ -15,7 +15,7 @@ from pygitguardian.models import Detail, TokenScope
 
 from ggshield.core import auth_check_cache
 from ggshield.core.text_utils import pluralize
-from ggshield.utils.git_shell import InvalidGitRefError
+from ggshield.utils.git_shell import GitExecutableNotFound, InvalidGitRefError
 
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,23 @@ class ParseError(_ExitError):
 
     def __init__(self, message: str):
         super().__init__(ExitCode.UNEXPECTED_ERROR, message)
+
+
+GIT_INSTALL_HINT = "Install git and run the command again."
+
+
+class GitUnavailableError(_ExitError):
+    """
+    The command needs git, but git cannot be used on this machine
+    """
+
+    def __init__(self, reason: str) -> None:
+        ctx = click.get_current_context(silent=True)
+        subject = ctx.command_path if ctx is not None else "ggshield"
+        super().__init__(
+            ExitCode.UNEXPECTED_ERROR,
+            f"`{subject}` requires git: {reason}.\n{GIT_INSTALL_HINT}",
+        )
 
 
 class MissingScopesError(_ExitError):
@@ -183,6 +200,8 @@ def handle_exception(exc: Exception) -> int:
 
     if isinstance(exc, click.exceptions.Abort):
         return ExitCode.SUCCESS
+    if isinstance(exc, GitExecutableNotFound):
+        exc = GitUnavailableError(str(exc))
 
     # Get exit code
     if isinstance(exc, _ExitError):
@@ -211,6 +230,11 @@ def handle_exception(exc: Exception) -> int:
     return exit_code
 
 
+def is_html_page(text: str) -> bool:
+    # pygitguardian drops the content-type of non-JSON bodies, so sniff the text.
+    return text.lstrip().startswith("<")
+
+
 def handle_api_error(detail: Detail) -> None:
     # Use %s for status_code because it can be None. Logger is OK with an int being
     # passed for a %s placeholder.
@@ -230,4 +254,11 @@ def handle_api_error(detail: Detail) -> None:
     if detail.status_code == 400 and "not found" in detail.detail:
         raise UnexpectedError(detail.detail)
     if 500 <= detail.status_code < 600:
+        if is_html_page(detail.detail):
+            raise ServiceUnavailableError(
+                "The GitGuardian API failed with an internal error"
+                f" (HTTP {detail.status_code}). This can happen when a scan takes"
+                " longer than the server allows. Re-run the command with --debug to"
+                " see the server response."
+            )
         raise ServiceUnavailableError(detail.detail)

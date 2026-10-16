@@ -225,3 +225,106 @@ match
 ### expect
 match
 ### end
+
+### cond_regex_hash_in_group
+# `#` inside a regex group is part of the pattern, not a comment
+l="## Title"
+[[ $l =~ ^(#+)[[:space:]](.+)$ ]] && echo "${BASH_REMATCH[1]}|${BASH_REMATCH[2]}"
+### expect
+##|Title
+### end
+
+### cond_regex_hash_mid_word
+[[ "a#b" =~ a#b ]] && echo yes
+[[ "#" =~ ^#$ ]] && echo anchored
+[[ x == x#y ]] || echo nomatch
+### expect
+yes
+anchored
+nomatch
+### end
+
+### cond_regex_unquoted_space_in_group
+[[ "a b" =~ (a b) ]] && echo "${BASH_REMATCH[1]}"
+### expect
+a b
+### end
+
+### cond_regex_alternation
+[[ "y" =~ x|y ]] && echo alt
+### expect
+alt
+### end
+
+### cond_regex_var_in_group
+r="#"
+[[ "#" =~ ($r) ]] && echo "${BASH_REMATCH[1]}"
+### expect
+#
+### end
+
+### cond_regex_quoting_is_literal
+# Quoted text and backslash escapes match literally; a bare `$` is an anchor
+[[ "a.b" =~ "a.b" ]] && echo q1
+[[ "axb" =~ "a.b" ]] || echo q2
+[[ ab =~ a\b ]] && echo q3
+[[ axb =~ ^a\.b$ ]] || echo q4
+[[ "a b" =~ ^a" "b$ ]] && echo q5
+r=b; [[ ab =~ a$r$ ]] && echo q6
+[[ x =~ (x$|y$) ]] && echo q7
+[[ "x+" =~ x"+" ]] && echo q8
+### expect
+q1
+q2
+q3
+q4
+q5
+q6
+q7
+q8
+### end
+
+### dbracket_grammar_errors_are_syntax_errors
+# Operators must be bare words at parse time: status 2, nothing runs
+for c in '[[ a $op a ]]' '[[ -z ]]' "[[ '(' x ]]" '[[ -f < ]]' '[[ ]]' '[[ && ]]' '[[ a == b c ]]' '[[ ( a ]]'; do
+  op='=='; bash -c "$c; echo ran" 2>/dev/null; echo "$? $c"
+done
+### expect
+2 [[ a $op a ]]
+2 [[ -z ]]
+2 [[ '(' x ]]
+2 [[ -f < ]]
+2 [[ ]]
+2 [[ && ]]
+2 [[ a == b c ]]
+2 [[ ( a ]]
+### end
+
+### dbracket_quoted_operator_text_is_operand
+[[ '!' == ! ]] && echo bang
+[[ -n ! ]] && echo n
+[[ x == x
+&& y == y
+]] && echo multiline
+[[ 'foo()' == *\(\) ]] && echo m1
+[[ 'foo()' == *'()' ]] && echo m2
+### expect
+bang
+n
+multiline
+m1
+m2
+### end
+
+### dbracket_after_assignment_is_a_command
+FOO=bar [[ a == a ]] 2>/dev/null
+echo $?
+### expect
+127
+### end
+
+### dbracket_redirect_catches_subst_stderr
+[[ $(echo err >&2; echo x) == x ]] 2>/dev/null; echo $?
+### expect
+0
+### end

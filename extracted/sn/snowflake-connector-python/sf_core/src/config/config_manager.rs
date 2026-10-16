@@ -1,0 +1,1123 @@
+use super::param_registry::Wrapper;
+use super::path_resolver::{ConfigPaths, get_config_paths};
+use super::settings::Setting;
+use super::toml_loader::{FilePermissionCheck, load_toml_file};
+use super::{ConfigError, ConnectionNotFoundSnafu};
+use crate::env_vars;
+use std::collections::HashMap;
+
+/// Wrapper scope used to canonicalize TOML profile keys.
+///
+/// `config.toml` / `connections.toml` are the snowflake-connector-python
+/// configuration format, and the loader has no wrapper context of its own, so
+/// profile keys resolve under [`Wrapper::Python`] — the same scope the Python
+/// wrapper uses. That makes the legacy connector's own kwarg spellings (the
+/// only ones a legacy profile could contain) resolvable, and nothing else.
+///
+/// This is deliberately narrower than the pre-migration wrapper-agnostic
+/// `resolve`, which also remapped other wrappers' DSN keys: a profile written
+/// with the legacy ODBC spellings (`server`, `uid`, `pwd`) used to canonicalize
+/// and no longer does. No legacy driver accepted those keys in a TOML profile,
+/// so matching the connector exactly is the point rather than a regression.
+/// Keys that fail to resolve are kept verbatim by the callers below and
+/// surface as an `UnknownParameter` warning during validation.
+const TOML_ALIAS_FLAVOR: Wrapper = Wrapper::Python;
+
+/// Load configuration for a specific connection from TOML files
+pub fn load_connection_config(
+    connection_name: &str,
+) -> Result<HashMap<String, Setting>, ConfigError> {
+    let paths = get_config_paths()?;
+    load_connection_config_with_paths(connection_name, &paths, FilePermissionCheck::Enabled)
+}
+
+/// Load configuration for a specific connection using explicit config paths.
+///
+/// Pass `FilePermissionCheck::UnsafeDisabled` to bypass file-permission checks
+/// on `config.toml` and `connections.toml` (mirrors the
+/// `unsafe_skip_file_permissions_check` connection parameter).
+pub fn load_connection_config_with_paths(
+    connection_name: &str,
+    paths: &ConfigPaths,
+    permission_check: FilePermissionCheck,
+) -> Result<HashMap<String, Setting>, ConfigError> {
+    let mut settings = HashMap::new();
+    let empty_toml = toml::Value::Table(toml::map::Map::new());
+    let registry = super::param_registry::registry();
+
+    let config_toml = match &paths.config_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_toml.clone(),
+    };
+
+    if let Some(connections_section) = config_toml.get("connections").and_then(|v| v.as_table())
+        && let Some(conn_config) = connections_section
+            .get(connection_name)
+            .and_then(|v| v.as_table())
+    {
+        for (key, value) in conn_config {
+            if let Some(setting) = toml_value_to_setting(value) {
+                let canonical = registry
+                    .resolve_for(TOML_ALIAS_FLAVOR, key)
+                    .map(|def| def.canonical_name.to_owned())
+                    .unwrap_or_else(|| key.clone());
+                settings.insert(canonical, setting);
+            }
+        }
+    }
+
+    let connections_toml = match &paths.connections_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_toml,
+    };
+
+    if let Some(conn_config) = connections_toml
+        .get(connection_name)
+        .and_then(|v| v.as_table())
+    {
+        for (key, value) in conn_config {
+            if let Some(setting) = toml_value_to_setting(value) {
+                let canonical = registry
+                    .resolve_for(TOML_ALIAS_FLAVOR, key)
+                    .map(|def| def.canonical_name.to_owned())
+                    .unwrap_or_else(|| key.clone());
+                settings.insert(canonical, setting);
+            }
+        }
+    }
+
+    if settings.is_empty() {
+        return ConnectionNotFoundSnafu {
+            name: connection_name,
+        }
+        .fail();
+    }
+
+    Ok(settings)
+}
+
+/// Determine the default connection name to use for bare `connect()` calls.
+///
+/// Resolution order (matches legacy `snowflake-connector-python`):
+///   1. `SNOWFLAKE_DEFAULT_CONNECTION_NAME` environment variable.
+///   2. `default_connection_name` root scalar in `config.toml`.
+///   3. Literal `"default"`.
+///
+/// Note: an empty `SNOWFLAKE_DEFAULT_CONNECTION_NAME` is treated as absent,
+/// which differs from the legacy Python driver (which would look up a profile
+/// named `""`).  The universal driver's behavior is intentional: an empty env
+/// var is almost certainly a misconfiguration, and treating it as absent lets
+/// the next resolution step apply rather than immediately erroring.
+///
+/// `permission_check` controls whether file-permission checks are applied when
+/// reading `config.toml` (pass `UnsafeDisabled` only when
+/// `unsafe_skip_file_permissions_check` is set).
+pub(crate) fn get_default_connection_name_with_paths(
+    paths: &ConfigPaths,
+    permission_check: FilePermissionCheck,
+) -> Result<String, ConfigError> {
+    let env_override = std::env::var(env_vars::SNOWFLAKE_DEFAULT_CONNECTION_NAME).ok();
+    resolve_default_connection_name(paths, env_override, permission_check)
+}
+
+/// Inner helper that takes the env value as a parameter for testability,
+/// mirroring `path_resolver::resolve_snowflake_home`.
+fn resolve_default_connection_name(
+    paths: &ConfigPaths,
+    env_override: Option<String>,
+    permission_check: FilePermissionCheck,
+) -> Result<String, ConfigError> {
+    if let Some(name) = env_override
+        && !name.is_empty()
+    {
+        return Ok(name);
+    }
+
+    if let Some(config_path) = &paths.config_file {
+        let config_toml = load_toml_file(config_path, permission_check)?;
+        if let Some(name) = config_toml
+            .get("default_connection_name")
+            .and_then(|v| v.as_str())
+            && !name.is_empty()
+        {
+            return Ok(name.to_owned());
+        }
+    }
+
+    Ok("default".to_owned())
+}
+
+/// Load all connections from config files
+pub fn load_all_connections(
+    permission_check: FilePermissionCheck,
+) -> Result<HashMap<String, HashMap<String, Setting>>, ConfigError> {
+    let paths = get_config_paths()?;
+    load_all_connections_with_paths(&paths, permission_check)
+}
+
+/// Load all connections using explicit config paths
+pub fn load_all_connections_with_paths(
+    paths: &ConfigPaths,
+    permission_check: FilePermissionCheck,
+) -> Result<HashMap<String, HashMap<String, Setting>>, ConfigError> {
+    let mut all_connections = HashMap::new();
+    let empty_toml = toml::Value::Table(toml::map::Map::new());
+
+    let config_toml = match &paths.config_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_toml.clone(),
+    };
+    if let Some(connections_section) = config_toml.get("connections").and_then(|v| v.as_table()) {
+        for (conn_name, conn_config) in connections_section {
+            if let Some(table) = conn_config.as_table() {
+                let mut settings = HashMap::new();
+                for (key, value) in table {
+                    if let Some(setting) = toml_value_to_setting(value) {
+                        settings.insert(key.clone(), setting);
+                    }
+                }
+                all_connections.insert(conn_name.clone(), settings);
+            }
+        }
+    }
+
+    let connections_toml = match &paths.connections_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_toml,
+    };
+    if let Some(table) = connections_toml.as_table() {
+        for (conn_name, conn_config) in table {
+            if let Some(config_table) = conn_config.as_table() {
+                let settings = all_connections
+                    .entry(conn_name.clone())
+                    .or_insert_with(HashMap::new);
+                for (key, value) in config_table {
+                    if let Some(setting) = toml_value_to_setting(value) {
+                        settings.insert(key.clone(), setting);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(all_connections)
+}
+
+/// Convert a TOML value to a Setting
+fn toml_value_to_setting(value: &toml::Value) -> Option<Setting> {
+    match value {
+        toml::Value::String(s) => Some(Setting::String(s.clone())),
+        toml::Value::Integer(i) => Some(Setting::Int(*i)),
+        toml::Value::Float(f) => Some(Setting::Double(*f)),
+        toml::Value::Boolean(b) => Some(Setting::Bool(*b)),
+        _ => None,
+    }
+}
+
+/// Load a specific section from config.toml (not affected by connections.toml)
+///
+/// Supports both simple and nested sections:
+/// - `load_config_section("log")` loads `[log]`
+/// - `load_config_section("database.pool")` loads `[database.pool]`
+///
+/// Returns None if the section doesn't exist or if it's a connections section
+pub fn load_config_section(
+    section_name: &str,
+    permission_check: FilePermissionCheck,
+) -> Result<Option<HashMap<String, Setting>>, ConfigError> {
+    let paths = get_config_paths()?;
+    load_config_section_with_paths(section_name, &paths, permission_check)
+}
+
+/// Load a specific section from config.toml using explicit config paths
+pub fn load_config_section_with_paths(
+    section_name: &str,
+    paths: &ConfigPaths,
+    permission_check: FilePermissionCheck,
+) -> Result<Option<HashMap<String, Setting>>, ConfigError> {
+    let config_toml = match &paths.config_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => return Ok(None),
+    };
+
+    if section_name == "connections" || section_name.starts_with("connections.") {
+        return Ok(None);
+    }
+
+    let path_parts: Vec<&str> = section_name.split('.').collect();
+    let mut current_value = &config_toml;
+
+    for part in path_parts {
+        match current_value.get(part) {
+            Some(value) => current_value = value,
+            None => return Ok(None),
+        }
+    }
+
+    if let Some(section_table) = current_value.as_table() {
+        let mut settings = HashMap::new();
+        for (key, value) in section_table {
+            if let Some(setting) = toml_value_to_setting(value) {
+                settings.insert(key.clone(), setting);
+            }
+        }
+        return Ok(Some(settings));
+    }
+
+    Ok(None)
+}
+
+/// Load and merge every config source into a single TOML document.
+///
+/// Resolves the platform default config paths, then delegates to
+/// [`load_all_config_merged_toml_with_paths`].
+pub fn load_all_config_merged_toml() -> Result<toml::Value, ConfigError> {
+    let paths = get_config_paths()?;
+    load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled)
+}
+
+/// Load and merge every config source using explicit config paths.
+///
+/// Returns the full `config.toml` document with **all nesting preserved**, so
+/// arbitrarily deep tables such as `[cli.plugins.<name>]` survive intact (the
+/// caller serializes the result to JSON). This is deliberately not flattened
+/// into a section→key→scalar map: that representation silently drops nested
+/// sub-tables, which is exactly the kind of config the CLI stores under `cli`.
+///
+/// Only reads files for which a path is provided (`Some`). When a path is
+/// `None`, that file is skipped entirely — no fallback to platform defaults.
+///
+/// When a `connections_file` is present and contains at least one connection,
+/// its contents **replace** the `connections` table from `config_file` rather
+/// than merging, matching the precedence used elsewhere in the driver.
+///
+/// Pass `FilePermissionCheck::UnsafeDisabled` to bypass file-permission checks.
+pub fn load_all_config_merged_toml_with_paths(
+    paths: &ConfigPaths,
+    permission_check: FilePermissionCheck,
+) -> Result<toml::Value, ConfigError> {
+    let empty_table = || toml::Value::Table(toml::map::Map::new());
+
+    let mut merged = match &paths.config_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_table(),
+    };
+
+    // Guarantee a table at the root so callers always receive an object.
+    if !merged.is_table() {
+        merged = empty_table();
+    }
+
+    let connections_toml = match &paths.connections_file {
+        Some(p) => load_toml_file(p, permission_check)?,
+        None => empty_table(),
+    };
+
+    // connections.toml replaces config.toml's connections entirely when non-empty.
+    if let Some(conn_table) = connections_toml.as_table()
+        && !conn_table.is_empty()
+        && let Some(root_table) = merged.as_table_mut()
+    {
+        root_table.insert("connections".to_string(), connections_toml.clone());
+    }
+
+    Ok(merged)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::path_resolver::ConfigPaths;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn make_paths(dir: &TempDir) -> ConfigPaths {
+        ConfigPaths {
+            config_file: Some(dir.path().join("config.toml")),
+            connections_file: Some(dir.path().join("connections.toml")),
+        }
+    }
+
+    fn write_config(dir: &TempDir, filename: &str, content: &str) {
+        let path = dir.path().join(filename);
+        fs::write(&path, content).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_toml_value_to_setting() {
+        let string_val = toml::Value::String("test".to_string());
+        assert!(matches!(
+            toml_value_to_setting(&string_val),
+            Some(Setting::String(_))
+        ));
+
+        let int_val = toml::Value::Integer(42);
+        assert!(matches!(
+            toml_value_to_setting(&int_val),
+            Some(Setting::Int(42))
+        ));
+
+        let float_val = toml::Value::Float(1.23);
+        assert!(matches!(
+            toml_value_to_setting(&float_val),
+            Some(Setting::Double(_))
+        ));
+
+        let bool_val = toml::Value::Boolean(true);
+        assert!(matches!(
+            toml_value_to_setting(&bool_val),
+            Some(Setting::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn test_load_connection_config() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[testconn]
+account = "myaccount"
+user = "myuser"
+password = "mypass"
+"#,
+        );
+
+        let result =
+            load_connection_config_with_paths("testconn", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        let settings = result.unwrap();
+        assert!(matches!(settings.get("account"), Some(Setting::String(_))));
+        assert!(matches!(settings.get("user"), Some(Setting::String(_))));
+    }
+
+    #[test]
+    fn test_connection_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+
+        let result =
+            load_connection_config_with_paths("nonexistent", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn test_connections_toml_overrides_config_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[connections.testconn]
+account = "config_account"
+user = "config_user"
+"#,
+        );
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[testconn]
+account = "connections_account"
+"#,
+        );
+
+        let result =
+            load_connection_config_with_paths("testconn", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        let settings = result.unwrap();
+        if let Some(Setting::String(account)) = settings.get("account") {
+            assert_eq!(account, "connections_account");
+        } else {
+            panic!("Expected account setting");
+        }
+
+        if let Some(Setting::String(user)) = settings.get("user") {
+            assert_eq!(user, "config_user");
+        } else {
+            panic!("Expected user setting");
+        }
+    }
+
+    #[test]
+    fn test_load_all_connections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[conn1]
+account = "account1"
+
+[conn2]
+account = "account2"
+"#,
+        );
+
+        let result = load_all_connections_with_paths(&paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+
+        let all_conns = result.unwrap();
+        assert_eq!(all_conns.len(), 2);
+        assert!(all_conns.contains_key("conn1"));
+        assert!(all_conns.contains_key("conn2"));
+    }
+
+    #[test]
+    fn test_load_config_section() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[log]
+level = "debug"
+file = "/var/log/snowflake.log"
+
+[connections.testconn]
+account = "myaccount"
+"#,
+        );
+
+        let result = load_config_section_with_paths("log", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        let log_section = result.unwrap();
+        assert!(log_section.is_some());
+
+        let settings = log_section.unwrap();
+        assert!(matches!(settings.get("level"), Some(Setting::String(_))));
+        assert!(matches!(settings.get("file"), Some(Setting::String(_))));
+    }
+
+    #[test]
+    fn test_load_config_section_nonexistent() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[log]
+level = "info"
+"#,
+        );
+
+        let result =
+            load_config_section_with_paths("nonexistent", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        let section = result.unwrap();
+        assert!(section.is_none());
+    }
+
+    #[test]
+    fn test_load_config_section_excludes_connections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[connections.testconn]
+account = "myaccount"
+"#,
+        );
+
+        let result =
+            load_config_section_with_paths("connections", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_load_all_config_merged_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[log]
+level = "debug"
+file = "/var/log/snowflake.log"
+
+[proxy]
+host = "proxy.example.com"
+port = 8080
+
+[connections.testconn]
+account = "myaccount"
+"#,
+        );
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+        let table = merged.as_table().expect("root must be a table");
+
+        assert_eq!(table["log"]["level"].as_str(), Some("debug"));
+        assert_eq!(table["proxy"]["host"].as_str(), Some("proxy.example.com"));
+        assert_eq!(table["proxy"]["port"].as_integer(), Some(8080));
+        assert_eq!(
+            table["connections"]["testconn"]["account"].as_str(),
+            Some("myaccount")
+        );
+    }
+
+    #[test]
+    fn test_merged_toml_preserves_deeply_nested_sections() {
+        // Regression: `[cli.plugins.<name>]` must survive intact. A scalar-only
+        // flattening dropped the `plugins` sub-table, leaving `cli` empty and
+        // breaking CLI plugin discovery.
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[cli.plugins.broken_plugin]
+enabled = true
+
+[cli.plugins.snowpark_hello.config]
+greeting = "hello"
+
+[connections.test]
+account = "test"
+"#,
+        );
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+        let table = merged.as_table().expect("root must be a table");
+
+        assert_eq!(
+            table["cli"]["plugins"]["broken_plugin"]["enabled"].as_bool(),
+            Some(true),
+            "nested plugin enablement must be preserved"
+        );
+        assert_eq!(
+            table["cli"]["plugins"]["snowpark_hello"]["config"]["greeting"].as_str(),
+            Some("hello"),
+            "arbitrarily deep plugin config must be preserved"
+        );
+    }
+
+    #[test]
+    fn test_load_nested_section() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[database.connection]
+timeout = 30
+retry_count = 3
+
+[database.pool]
+max_size = 10
+min_size = 2
+"#,
+        );
+
+        let result = load_config_section_with_paths(
+            "database.connection",
+            &paths,
+            FilePermissionCheck::Enabled,
+        );
+        assert!(result.is_ok());
+        let section = result.unwrap();
+        assert!(section.is_some());
+
+        let settings = section.unwrap();
+        assert!(matches!(settings.get("timeout"), Some(Setting::Int(30))));
+        assert!(matches!(settings.get("retry_count"), Some(Setting::Int(3))));
+
+        let result2 =
+            load_config_section_with_paths("database.pool", &paths, FilePermissionCheck::Enabled);
+        assert!(result2.is_ok());
+        let section2 = result2.unwrap();
+        assert!(section2.is_some());
+
+        let settings2 = section2.unwrap();
+        assert!(matches!(settings2.get("max_size"), Some(Setting::Int(10))));
+        assert!(matches!(settings2.get("min_size"), Some(Setting::Int(2))));
+    }
+
+    #[test]
+    fn test_load_deeply_nested_section() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[app.server.tls]
+enabled = true
+cert_path = "/etc/certs/server.crt"
+"#,
+        );
+
+        let result =
+            load_config_section_with_paths("app.server.tls", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        let section = result.unwrap();
+        assert!(section.is_some());
+
+        let settings = section.unwrap();
+        assert!(
+            matches!(settings.get("enabled"), Some(Setting::Bool(true))),
+            "Expected Setting::Bool(true) for TOML boolean, got {:?}",
+            settings.get("enabled")
+        );
+    }
+
+    #[test]
+    fn test_load_nonexistent_nested_section() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[database.connection]
+timeout = 30
+"#,
+        );
+
+        let result =
+            load_config_section_with_paths("database.pool", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+
+        let result2 = load_config_section_with_paths(
+            "other.connection",
+            &paths,
+            FilePermissionCheck::Enabled,
+        );
+        assert!(result2.is_ok());
+        assert!(result2.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_cannot_load_nested_connections_section() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[connections.testconn]
+account = "myaccount"
+"#,
+        );
+
+        let result = load_config_section_with_paths(
+            "connections.testconn",
+            &paths,
+            FilePermissionCheck::Enabled,
+        );
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_connections_toml_does_not_affect_other_sections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[log]
+level = "info"
+
+[connections.testconn]
+account = "config_account"
+"#,
+        );
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[testconn]
+account = "connections_account"
+
+[log]
+level = "debug"
+"#,
+        );
+
+        let result = load_config_section_with_paths("log", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok());
+        let log_section = result.unwrap();
+        assert!(log_section.is_some());
+
+        let settings = log_section.unwrap();
+        if let Some(Setting::String(level)) = settings.get("level") {
+            assert_eq!(level, "info");
+        } else {
+            panic!("Expected level setting");
+        }
+    }
+
+    #[test]
+    fn test_merged_toml_connections_toml_replaces_config_toml_connections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+default_connection_name = "default"
+
+[connections.default]
+database = "db_for_test"
+schema = "test_public"
+
+[connections.full]
+account = "dev_account"
+
+[log]
+level = "debug"
+"#,
+        );
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[default]
+database = "overridden_database"
+"#,
+        );
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+        let connections = merged["connections"]
+            .as_table()
+            .expect("connections must be a table");
+
+        // Only the connections.toml connection should survive.
+        assert!(
+            connections.contains_key("default"),
+            "connections.toml connection must be present"
+        );
+        assert!(
+            !connections.contains_key("full"),
+            "config.toml-only connection must be removed"
+        );
+        assert_eq!(
+            connections["default"]["database"].as_str(),
+            Some("overridden_database")
+        );
+        // config.toml settings for the same connection are NOT merged.
+        assert!(
+            !connections["default"]
+                .as_table()
+                .unwrap()
+                .contains_key("schema"),
+            "config.toml settings must not leak into connections.toml connection"
+        );
+
+        // Non-connection sections from config.toml are preserved.
+        assert_eq!(merged["log"]["level"].as_str(), Some("debug"));
+    }
+
+    #[test]
+    fn test_merged_toml_keeps_root_level_values() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+default_connection_name = "default"
+
+[connections.myconn]
+account = "acct"
+"#,
+        );
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+
+        // Root-level scalars are top-level keys.
+        assert_eq!(merged["default_connection_name"].as_str(), Some("default"));
+    }
+
+    #[test]
+    fn test_merged_toml_empty_connections_toml_keeps_config_connections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[connections.myconn]
+account = "acct"
+"#,
+        );
+        write_config(&temp_dir, "connections.toml", "");
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+        assert!(
+            merged["connections"]
+                .as_table()
+                .unwrap()
+                .contains_key("myconn"),
+            "config.toml connections should remain when connections.toml is empty"
+        );
+    }
+
+    #[test]
+    fn test_merged_toml_nonexistent_connections_toml_keeps_config_connections() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = ConfigPaths {
+            config_file: Some(temp_dir.path().join("config.toml")),
+            connections_file: Some(temp_dir.path().join("connections.toml")),
+        };
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"
+[connections.myconn]
+account = "acct"
+"#,
+        );
+        // connections.toml does not exist on disk
+
+        let merged =
+            load_all_config_merged_toml_with_paths(&paths, FilePermissionCheck::Enabled).unwrap();
+        assert!(
+            merged["connections"]
+                .as_table()
+                .unwrap()
+                .contains_key("myconn"),
+            "config.toml connections should remain when connections.toml does not exist"
+        );
+    }
+
+    // --- resolve_default_connection_name tests ---
+
+    #[test]
+    fn default_connection_name_env_override_wins() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"default_connection_name = "from_file""#,
+        );
+
+        let name = resolve_default_connection_name(
+            &paths,
+            Some("from_env".to_owned()),
+            FilePermissionCheck::Enabled,
+        )
+        .unwrap();
+        assert_eq!(name, "from_env");
+    }
+
+    #[test]
+    fn default_connection_name_falls_back_to_config_toml() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"default_connection_name = "from_file""#,
+        );
+
+        let name =
+            resolve_default_connection_name(&paths, None, FilePermissionCheck::Enabled).unwrap();
+        assert_eq!(name, "from_file");
+    }
+
+    #[test]
+    fn default_connection_name_falls_back_to_literal_default() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        // No config.toml written
+
+        let name =
+            resolve_default_connection_name(&paths, None, FilePermissionCheck::Enabled).unwrap();
+        assert_eq!(name, "default");
+    }
+
+    #[test]
+    fn empty_env_override_is_ignored() {
+        // Deliberately diverges from the legacy Python driver, which would
+        // look up a profile named "" and emit "Default connection with name ''
+        // cannot be found".  Treating an empty value as absent is intentional:
+        // an empty env var is almost certainly a misconfiguration, and falling
+        // through to the next resolution step (config.toml → "default") is
+        // more helpful than an inscrutable "profile '' not found" error.
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"default_connection_name = "from_file""#,
+        );
+
+        let name = resolve_default_connection_name(
+            &paths,
+            Some(String::new()),
+            FilePermissionCheck::Enabled,
+        )
+        .unwrap();
+        assert_eq!(name, "from_file");
+    }
+
+    /// Serialises env-mutating tests within this module to avoid data races.
+    ///
+    /// `std::env::set_var` / `remove_var` are global, so concurrent tests that
+    /// both touch `SNOWFLAKE_DEFAULT_CONNECTION_NAME` can interfere.  The mutex
+    /// does not protect against *other* parallel tests outside this module that
+    /// happen to read the same env var, but it makes the within-module tests
+    /// deterministic when run with the default multi-thread executor.
+    static ENV_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn get_default_connection_name_with_paths_reads_env_var() {
+        // Exercises the `std::env::var` read in the public wrapper (not just
+        // the inner helper).  Guards against regressions where the wrapper
+        // is refactored and the env-read path becomes dead code.
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "config.toml",
+            r#"default_connection_name = "from_file""#,
+        );
+
+        let _lock = ENV_MUTEX.lock().unwrap();
+        // SAFETY: test-only; serialised by ENV_MUTEX.
+        unsafe { std::env::set_var(env_vars::SNOWFLAKE_DEFAULT_CONNECTION_NAME, "from_env_var") };
+        let result = get_default_connection_name_with_paths(&paths, FilePermissionCheck::Enabled);
+        // SAFETY: test-only; serialised by ENV_MUTEX.
+        unsafe { std::env::remove_var(env_vars::SNOWFLAKE_DEFAULT_CONNECTION_NAME) };
+        drop(_lock);
+
+        assert_eq!(result.unwrap(), "from_env_var");
+    }
+
+    #[test]
+    fn test_toml_alias_resolves_to_canonical_name() {
+        // Regression: `private_key_file_pwd` (legacy alias) written in connections.toml
+        // must be stored under the canonical name `private_key_password` so that
+        // downstream ParamStore lookups succeed.  Before the fix, verbatim key insertion
+        // meant the passphrase was never found and OpenSSL prompted interactively.
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[test]
+account = "myaccount"
+user = "myuser"
+private_key_file = "/path/to/key.p8"
+private_key_file_pwd = "supersecret"
+"#,
+        );
+
+        let result =
+            load_connection_config_with_paths("test", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok(), "load failed: {:?}", result.err());
+
+        let settings = result.unwrap();
+        // The alias `private_key_file_pwd` must be stored under the canonical name.
+        assert!(
+            settings.contains_key("private_key_password"),
+            "canonical key `private_key_password` must be present; got keys: {:?}",
+            settings.keys().collect::<Vec<_>>()
+        );
+        assert!(
+            !settings.contains_key("private_key_file_pwd"),
+            "alias key `private_key_file_pwd` must not be stored verbatim"
+        );
+        assert!(
+            matches!(settings.get("private_key_password"), Some(Setting::String(s)) if s == "supersecret")
+        );
+    }
+
+    #[test]
+    fn test_toml_passcode_in_password_resolves_to_canonical_name() {
+        // Regression: the canonical name is camelCase (`passcodeInPassword`), so the
+        // legacy Python kwarg spelling `passcode_in_password` only canonicalizes via
+        // its `Python`-scoped alias — the TOML loader resolves under that flavor.
+        // Without the alias the key was stored verbatim and MFA-in-password was
+        // silently dropped for `connections.toml` profiles.
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[test]
+account = "myaccount"
+user = "myuser"
+passcode_in_password = true
+"#,
+        );
+
+        let settings =
+            load_connection_config_with_paths("test", &paths, FilePermissionCheck::Enabled)
+                .expect("load must succeed");
+        assert!(
+            !settings.contains_key("passcode_in_password"),
+            "alias key `passcode_in_password` must not be stored verbatim; got keys: {:?}",
+            settings.keys().collect::<Vec<_>>()
+        );
+        assert!(matches!(
+            settings.get("passcodeInPassword"),
+            Some(Setting::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn test_toml_canonical_keys_pass_through_unchanged() {
+        // Canonical keys written directly in connections.toml must not be mangled
+        // by the alias-resolution step (regression guard for the resolve() call).
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[test]
+account = "myaccount"
+user = "myuser"
+private_key_file = "/path/to/key.p8"
+private_key_password = "supersecret"
+"#,
+        );
+
+        let result =
+            load_connection_config_with_paths("test", &paths, FilePermissionCheck::Enabled);
+        assert!(result.is_ok(), "load failed: {:?}", result.err());
+
+        let settings = result.unwrap();
+        assert!(
+            matches!(settings.get("private_key_password"), Some(Setting::String(s)) if s == "supersecret"),
+            "canonical key `private_key_password` must be preserved as-is"
+        );
+        assert!(
+            matches!(settings.get("account"), Some(Setting::String(s)) if s == "myaccount"),
+            "other canonical keys must be preserved unchanged"
+        );
+    }
+}

@@ -148,6 +148,48 @@ class TestTransactions:
             )
 
     @parametrize
+    def test_method_route(self, client: Lithic) -> None:
+        transaction = client.transactions.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        )
+        assert transaction is None
+
+    @parametrize
+    def test_raw_response_route(self, client: Lithic) -> None:
+        response = client.transactions.with_raw_response.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        transaction = response.parse()
+        assert transaction is None
+
+    @parametrize
+    def test_streaming_response_route(self, client: Lithic) -> None:
+        with client.transactions.with_streaming_response.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            transaction = response.parse()
+            assert transaction is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_route(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `transaction_token` but received ''"):
+            client.transactions.with_raw_response.route(
+                transaction_token="",
+                financial_account_token="00000000-0000-0000-0000-000000000000",
+            )
+
+    @parametrize
     def test_method_simulate_authorization(self, client: Lithic) -> None:
         transaction = client.transactions.simulate_authorization(
             amount=3831,
@@ -162,6 +204,7 @@ class TestTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+            billing_currency="CAD",
             mcc="5812",
             merchant_acceptor_city="LOS ANGELES",
             merchant_acceptor_country="USA",
@@ -171,6 +214,7 @@ class TestTransactions:
             merchant_currency="GBP",
             partial_approval_capable=True,
             pin="1234",
+            settlement_currency="CAD",
             status="AUTHORIZATION",
         )
         assert_matches_type(TransactionSimulateAuthorizationResponse, transaction, path=["response"])
@@ -294,6 +338,7 @@ class TestTransactions:
                 amount=3831,
                 descriptor="COFFEE SHOP",
                 pan="4111111289144142",
+                billing_currency="CAD",
                 mcc="5812",
                 merchant_acceptor_city="SEATTLE",
                 merchant_acceptor_country="USA",
@@ -348,6 +393,7 @@ class TestTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+            billing_currency="CAD",
             mcc="5812",
             merchant_acceptor_city="SEATTLE",
             merchant_acceptor_country="USA",
@@ -390,6 +436,17 @@ class TestTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+        )
+        assert_matches_type(TransactionSimulateReturnResponse, transaction, path=["response"])
+
+    @parametrize
+    def test_method_simulate_return_with_all_params(self, client: Lithic) -> None:
+        transaction = client.transactions.simulate_return(
+            amount=3831,
+            descriptor="COFFEE SHOP",
+            pan="4111111289144142",
+            billing_currency="CAD",
+            settlement_currency="CAD",
         )
         assert_matches_type(TransactionSimulateReturnResponse, transaction, path=["response"])
 
@@ -615,6 +672,48 @@ class TestAsyncTransactions:
             )
 
     @parametrize
+    async def test_method_route(self, async_client: AsyncLithic) -> None:
+        transaction = await async_client.transactions.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        )
+        assert transaction is None
+
+    @parametrize
+    async def test_raw_response_route(self, async_client: AsyncLithic) -> None:
+        response = await async_client.transactions.with_raw_response.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        transaction = response.parse()
+        assert transaction is None
+
+    @parametrize
+    async def test_streaming_response_route(self, async_client: AsyncLithic) -> None:
+        async with async_client.transactions.with_streaming_response.route(
+            transaction_token="00000000-0000-0000-0000-000000000000",
+            financial_account_token="00000000-0000-0000-0000-000000000000",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            transaction = await response.parse()
+            assert transaction is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_route(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `transaction_token` but received ''"):
+            await async_client.transactions.with_raw_response.route(
+                transaction_token="",
+                financial_account_token="00000000-0000-0000-0000-000000000000",
+            )
+
+    @parametrize
     async def test_method_simulate_authorization(self, async_client: AsyncLithic) -> None:
         transaction = await async_client.transactions.simulate_authorization(
             amount=3831,
@@ -629,6 +728,7 @@ class TestAsyncTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+            billing_currency="CAD",
             mcc="5812",
             merchant_acceptor_city="LOS ANGELES",
             merchant_acceptor_country="USA",
@@ -638,6 +738,7 @@ class TestAsyncTransactions:
             merchant_currency="GBP",
             partial_approval_capable=True,
             pin="1234",
+            settlement_currency="CAD",
             status="AUTHORIZATION",
         )
         assert_matches_type(TransactionSimulateAuthorizationResponse, transaction, path=["response"])
@@ -761,6 +862,7 @@ class TestAsyncTransactions:
                 amount=3831,
                 descriptor="COFFEE SHOP",
                 pan="4111111289144142",
+                billing_currency="CAD",
                 mcc="5812",
                 merchant_acceptor_city="SEATTLE",
                 merchant_acceptor_country="USA",
@@ -815,6 +917,7 @@ class TestAsyncTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+            billing_currency="CAD",
             mcc="5812",
             merchant_acceptor_city="SEATTLE",
             merchant_acceptor_country="USA",
@@ -857,6 +960,17 @@ class TestAsyncTransactions:
             amount=3831,
             descriptor="COFFEE SHOP",
             pan="4111111289144142",
+        )
+        assert_matches_type(TransactionSimulateReturnResponse, transaction, path=["response"])
+
+    @parametrize
+    async def test_method_simulate_return_with_all_params(self, async_client: AsyncLithic) -> None:
+        transaction = await async_client.transactions.simulate_return(
+            amount=3831,
+            descriptor="COFFEE SHOP",
+            pan="4111111289144142",
+            billing_currency="CAD",
+            settlement_currency="CAD",
         )
         assert_matches_type(TransactionSimulateReturnResponse, transaction, path=["response"])
 

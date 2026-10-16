@@ -1,3 +1,5 @@
+from temporalio.client import WorkflowFailureError
+
 from mistralai.workflows.testing.constants import (
     DEFAULT_TEST_TASK_QUEUE,
     TEST_TASK_QUEUE,
@@ -88,4 +90,5 @@ __all__ = [
     "query_workflow_raw",
     "update_workflow_raw",
     "wait_for_workflow_completion",
+    "WorkflowFailureError",
 ]

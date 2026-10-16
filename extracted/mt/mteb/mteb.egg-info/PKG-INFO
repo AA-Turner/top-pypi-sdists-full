@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 2.24.14
+Version: 2.26.1
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Nouamane Tazi <nouamane@huggingface.co>, Nils Reimers <info@nils-reimers.de>
 Maintainer-email: Kenneth Enevoldsen <kenneth.enevoldsen@cas.au.dk>, Roman Solomatin <risolomatin@gmail.com>, Isaac Chung <chungisaac1217@gmail.com>
@@ -198,6 +198,13 @@ Requires-Dist: transformers[torch]==5.0.0; extra == "nemotron-colembed-vl-v2"
 Requires-Dist: torchvision>=0.22.0; extra == "nemotron-colembed-vl-v2"
 Requires-Dist: flash-attn>=2.6.3; extra == "nemotron-colembed-vl-v2"
 Requires-Dist: accelerate; extra == "nemotron-colembed-vl-v2"
+Provides-Extra: nemotron-3-5-vl
+Requires-Dist: torch>=2.8; extra == "nemotron-3-5-vl"
+Requires-Dist: flash-attn==2.8.3.post2; extra == "nemotron-3-5-vl"
+Requires-Dist: sentence-transformers>=6.1.0; extra == "nemotron-3-5-vl"
+Requires-Dist: transformers[torch]<5.17.0,>=5.12.1; extra == "nemotron-3-5-vl"
+Requires-Dist: torchvision>=0.22.0; extra == "nemotron-3-5-vl"
+Requires-Dist: accelerate>=0.26.0; extra == "nemotron-3-5-vl"
 Provides-Extra: llama-nemotron-embed-vl-1b-v2
 Requires-Dist: transformers[torch]>=4.56.0; extra == "llama-nemotron-embed-vl-1b-v2"
 Requires-Dist: torchvision>=0.22.0; extra == "llama-nemotron-embed-vl-1b-v2"

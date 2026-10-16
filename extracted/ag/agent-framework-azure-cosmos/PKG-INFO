@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: agent-framework-azure-cosmos
-Version: 1.0.0b261002
+Version: 1.0.0b261015
 Summary: Azure Cosmos DB for NoSQL integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: agent-framework-core>=1.19.0,<2
@@ -23,6 +24,7 @@ Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
 Project-URL: source, https://github.com/microsoft/agent-framework/tree/main/python
+Import-Name: agent_framework_azure_cosmos
 
 # Microsoft Agent Framework integrations for Azure Cosmos DB
 

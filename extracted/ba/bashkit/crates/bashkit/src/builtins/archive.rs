@@ -10,6 +10,9 @@
 //! normalize it to the regular short-option path instead of maintaining a
 //! second parser.
 //!
+//! File lists retain budget-owned names, never an eager `Vec<String>`; raw
+//! reads are admitted by metadata size and every line checks shared work.
+//!
 //! bzip2 0.6 uses the maintained pure-Rust libbz2-rs backend by default. Its
 //! fixed codec state plus bounded, pre-charged output avoids native-library
 //! deployment differences while retaining standard bzip2 CRC validation.
@@ -75,6 +78,29 @@ fn budgeted_string(ctx: &Context<'_>) -> Result<BudgetedString> {
 
 fn budgeted_vec<T>(ctx: &Context<'_>) -> Result<BudgetedVec<T>> {
     with_execution_budget(ctx, |budget| BudgetedVec::new(budget).map_err(Into::into))
+}
+
+// THREAT[TM-DOS-103]: Decode directly into admitted storage, including UTF-8
+// replacement expansion. `from_utf8_lossy(...).into_owned()` allocates first.
+fn tar_list_name(ctx: &Context<'_>, mut bytes: &[u8]) -> Result<BudgetedString> {
+    let mut name = budgeted_string(ctx)?;
+    while !bytes.is_empty() {
+        ctx.consume_budget_work(1)?;
+        match std::str::from_utf8(bytes) {
+            Ok(text) => {
+                name.try_push_str(text)?;
+                break;
+            }
+            Err(error) => {
+                let valid = error.valid_up_to();
+                name.try_push_str(std::str::from_utf8(&bytes[..valid]).unwrap())?;
+                name.try_push('\u{fffd}')?;
+                let invalid = error.error_len().unwrap_or(bytes.len() - valid);
+                bytes = &bytes[valid + invalid..];
+            }
+        }
+    }
+    Ok(name)
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -230,6 +256,10 @@ impl Builtin for Tar {
         let mut to_stdout = false;
         let mut archive_file: Option<String> = None;
         let mut change_dir: Option<String> = None;
+        let mut strip_components = 0usize;
+        let mut excludes: Vec<String> = Vec::new();
+        let mut absolute_names = false;
+        let mut files_from: Vec<String> = Vec::new();
         let mut files = budgeted_vec(&ctx)?;
 
         // GNU/bsdtar treat a bare first word as the historical option bundle.
@@ -252,7 +282,79 @@ impl Builtin for Tar {
         // Parse arguments
         let mut p = super::arg_parser::ArgParser::new(args);
         while !p.is_done() {
-            if p.current() == Some("--bzip2") {
+            if p.current() == Some("--") {
+                // End of options: everything after is a member name.
+                p.advance();
+                while let Some(arg) = p.positional() {
+                    files.try_push(arg)?;
+                }
+                break;
+            }
+            if let Some(long) = p.current().and_then(|a| a.strip_prefix("--"))
+                && !long.is_empty()
+                && !matches!(long, "bzip2" | "gzip")
+            {
+                let (name, inline) = match long.split_once('=') {
+                    Some((n, v)) => (n, Some(v.to_string())),
+                    None => (long, None),
+                };
+                let name = name.to_string();
+                p.advance();
+                let takes_value = matches!(
+                    name.as_str(),
+                    "strip-components" | "exclude" | "file" | "directory" | "files-from"
+                );
+                let value = if takes_value {
+                    match inline.or_else(|| p.positional().map(str::to_string)) {
+                        Some(v) => v,
+                        None => {
+                            return Ok(ExecResult::err(
+                                format!("tar: option '--{name}' requires an argument\n"),
+                                2,
+                            ));
+                        }
+                    }
+                } else {
+                    String::new()
+                };
+                match name.as_str() {
+                    "create" => create = true,
+                    "extract" | "get" => extract = true,
+                    "list" => list = true,
+                    "verbose" => verbose = true,
+                    "to-stdout" => to_stdout = true,
+                    "file" => archive_file = Some(value),
+                    "directory" => change_dir = Some(value),
+                    "exclude" => excludes.push(value),
+                    "files-from" => files_from.push(value),
+                    "absolute-names" => absolute_names = true,
+                    "strip-components" => match value.parse() {
+                        Ok(n) => strip_components = n,
+                        Err(_) => {
+                            return Ok(ExecResult::err(
+                                format!("tar: Invalid number of elements: '{value}'\n"),
+                                2,
+                            ));
+                        }
+                    },
+                    // Ownership and permission bits are not modelled by the VFS.
+                    "no-same-owner"
+                    | "same-owner"
+                    | "no-same-permissions"
+                    | "same-permissions"
+                    | "preserve-permissions"
+                    | "numeric-owner"
+                    | "overwrite"
+                    | "keep-old-files"
+                    | "skip-old-files" => {}
+                    _ => {
+                        return Ok(ExecResult::err(
+                            format!("tar: unrecognized option '--{name}'\n"),
+                            2,
+                        ));
+                    }
+                }
+            } else if p.current() == Some("--bzip2") {
                 compression = ArchiveCompression::Bzip2;
                 p.advance();
             } else if p.current() == Some("--gzip") {
@@ -276,6 +378,18 @@ impl Builtin for Tar {
                         'z' => compression = ArchiveCompression::Gzip,
                         'j' => compression = ArchiveCompression::Bzip2,
                         'O' => to_stdout = true,
+                        // Permissions are not modelled by the VFS.
+                        'p' => {}
+                        'P' => absolute_names = true,
+                        'T' => match p.positional() {
+                            Some(val) => files_from.push(val.to_string()),
+                            None => {
+                                return Ok(ExecResult::err(
+                                    "tar: option requires an argument -- 'T'\n".to_string(),
+                                    2,
+                                ));
+                            }
+                        },
                         'f' => match p.positional() {
                             Some(val) => archive_file = Some(val.to_string()),
                             None => {
@@ -307,6 +421,70 @@ impl Builtin for Tar {
             }
         }
 
+        // `-T FILE` / `--files-from=FILE`: one member name per line, blank
+        // lines skipped, `-` reads stdin.
+        // THREAT[TM-DOS-103]: Both name capacity and vector slots must be
+        // charged before allocation, even when the members do not exist.
+        let mut listed_names = budgeted_vec(&ctx)?;
+        for list in &files_from {
+            let missing_list = || {
+                ExecResult::err(
+                    format!(
+                        "tar: {list}: Cannot stat: No such file or directory\ntar: Error is not recoverable: exiting now\n"
+                    ),
+                    2,
+                )
+            };
+            let bytes;
+            let _read_lease;
+            let _extra_lease;
+            let content = if list == "-" {
+                let input = ctx.stdin_bytes().unwrap_or_default();
+                ctx.consume_budget_input(input.len())?;
+                input
+            } else {
+                let path = resolve_path(ctx.cwd, list);
+                let metadata = match ctx.fs.stat(&path).await {
+                    Ok(metadata) => metadata,
+                    Err(error @ (crate::Error::ResourceLimit(_) | crate::Error::Cancelled)) => {
+                        return Err(error);
+                    }
+                    Err(_) => return Ok(missing_list()),
+                };
+                let size = usize::try_from(metadata.size).unwrap_or(usize::MAX);
+                ctx.consume_budget_input(size)?;
+                _read_lease = ctx.lease_budget_bytes(size)?;
+                bytes = match ctx.fs.read_file(&path).await {
+                    Ok(bytes) => bytes,
+                    Err(error @ (crate::Error::ResourceLimit(_) | crate::Error::Cancelled)) => {
+                        return Err(error);
+                    }
+                    Err(_) => return Ok(missing_list()),
+                };
+                // Host-backed files may grow between stat/read; the backend
+                // owns read-allocation admission, as for other VFS consumers.
+                ctx.consume_budget_input(bytes.len().saturating_sub(size))?;
+                _extra_lease = ctx.lease_budget_bytes(bytes.capacity().saturating_sub(size))?;
+                bytes.as_slice()
+            };
+            ctx.consume_budget_work(u64::try_from(content.len().div_ceil(64)).unwrap_or(u64::MAX))?;
+            for line in content.split_inclusive(|byte| *byte == b'\n') {
+                ctx.consume_budget_work(1)?;
+                // Match str::lines(): strip CR only as part of CRLF.
+                let line = if let Some(line) = line.strip_suffix(b"\n") {
+                    line.strip_suffix(b"\r").unwrap_or(line)
+                } else {
+                    line
+                };
+                if !line.is_empty() {
+                    listed_names.try_push(tar_list_name(&ctx, line)?)?;
+                }
+            }
+        }
+        for name in &*listed_names {
+            files.try_push(&**name)?;
+        }
+
         // Check for exactly one of -c, -x, -t
         let mode_count = [create, extract, list].iter().filter(|&&x| x).count();
         if mode_count == 0 {
@@ -335,25 +513,43 @@ impl Builtin for Tar {
                 &ctx,
                 &archive_name,
                 &files,
-                verbose,
+                TarNames {
+                    verbose,
+                    absolute_names,
+                },
                 compression,
                 change_dir.as_deref(),
+                &excludes,
             )
             .await
         } else if extract {
             extract_tar(
                 &ctx,
                 &archive_name,
-                verbose,
-                compression,
-                change_dir.as_deref(),
-                to_stdout,
+                ExtractOptions {
+                    verbose,
+                    compression,
+                    change_dir: change_dir.as_deref(),
+                    to_stdout,
+                    strip_components,
+                    members: &files,
+                    excludes: &excludes,
+                },
             )
             .await
         } else {
             list_tar(&ctx, &archive_name, verbose, compression).await
         }
     }
+}
+
+/// Per-archive member naming flags shared by the tar writers.
+#[derive(Clone, Copy)]
+struct TarNames {
+    /// `-v`: list each member as it is added.
+    verbose: bool,
+    /// `-P`: keep the leading `/` of absolute member names.
+    absolute_names: bool,
 }
 
 /// Simple tar header (512 bytes)
@@ -364,9 +560,10 @@ async fn create_tar(
     ctx: &Context<'_>,
     archive_name: &str,
     files: &[&str],
-    verbose: bool,
+    names: TarNames,
     compression: ArchiveCompression,
     change_dir: Option<&str>,
+    excludes: &[String],
 ) -> Result<ExecResult> {
     let mut output_data = budgeted_bytes(ctx)?;
     let mut verbose_output = budgeted_string(ctx)?;
@@ -378,6 +575,9 @@ async fn create_tar(
     };
 
     for file in files {
+        if tar_excluded(file, excludes) {
+            continue;
+        }
         let path = resolve_path(&base_dir, file);
 
         if !ctx.fs.exists(&path).await.unwrap_or(false) {
@@ -397,7 +597,8 @@ async fn create_tar(
                 file,
                 &mut output_data,
                 &mut verbose_output,
-                verbose,
+                names,
+                excludes,
             )
             .await?;
         } else {
@@ -408,7 +609,7 @@ async fn create_tar(
                 file,
                 &mut output_data,
                 &mut verbose_output,
-                verbose,
+                names,
             )
             .await?;
         }
@@ -426,12 +627,17 @@ async fn create_tar(
     };
     let (final_data, _final_lease) = final_data.into_parts();
     let (verbose_output, _verbose_lease) = verbose_output.into_parts();
+    let notice = if !names.absolute_names && files.iter().any(|f| f.starts_with('/')) {
+        "tar: Removing leading `/' from member names\n"
+    } else {
+        ""
+    };
 
     // Write to file or stdout
     if archive_name == "-" {
         return Ok(ExecResult {
             stdout: final_data.into(),
-            stderr: verbose_output.into(),
+            stderr: format!("{notice}{verbose_output}").into(),
             exit_code: 0,
             control_flow: crate::interpreter::ControlFlow::None,
             ..Default::default()
@@ -441,9 +647,10 @@ async fn create_tar(
     let archive_path = resolve_path(ctx.cwd, archive_name);
     ctx.fs.write_file(&archive_path, &final_data).await?;
 
+    // GNU tar lists members on stdout unless the archive itself goes there.
     Ok(ExecResult {
-        stdout: crate::StreamData::new(),
-        stderr: verbose_output.into(),
+        stdout: verbose_output.into(),
+        stderr: notice.to_string().into(),
         exit_code: 0,
         control_flow: crate::interpreter::ControlFlow::None,
         ..Default::default()
@@ -457,8 +664,12 @@ async fn add_file_to_tar(
     name: &str,
     output: &mut BudgetedBytes,
     verbose_output: &mut BudgetedString,
-    verbose: bool,
+    names: TarNames,
 ) -> Result<()> {
+    let TarNames {
+        verbose,
+        absolute_names,
+    } = names;
     let metadata = ctx.fs.stat(path).await?;
     let content = ctx.fs.read_file(path).await?;
     ctx.consume_budget_input(content.len())?;
@@ -472,8 +683,8 @@ async fn add_file_to_tar(
     // Create tar header
     let mut header = [0u8; TAR_BLOCK_SIZE];
 
-    // Name (100 bytes)
-    let name_bytes = name.as_bytes();
+    // Name (100 bytes); GNU tar drops the leading `/` unless `-P`.
+    let name_bytes = tar_member_name(name, absolute_names).as_bytes();
     let name_len = name_bytes.len().min(100);
     header[..name_len].copy_from_slice(&name_bytes[..name_len]);
 
@@ -523,6 +734,15 @@ async fn add_file_to_tar(
     Ok(())
 }
 
+/// Header name for a member: leading `/` dropped unless `-P`/`--absolute-names`.
+fn tar_member_name(name: &str, absolute_names: bool) -> &str {
+    if absolute_names {
+        name
+    } else {
+        name.trim_start_matches('/')
+    }
+}
+
 /// Add a directory to tar archive recursively
 fn add_directory_to_tar<'a>(
     ctx: &'a Context<'_>,
@@ -530,9 +750,14 @@ fn add_directory_to_tar<'a>(
     name: &'a str,
     output: &'a mut BudgetedBytes,
     verbose_output: &'a mut BudgetedString,
-    verbose: bool,
+    names: TarNames,
+    excludes: &'a [String],
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
     Box::pin(async move {
+        let TarNames {
+            verbose,
+            absolute_names,
+        } = names;
         // Add directory entry
         if verbose {
             verbose_output.try_push_str(name)?;
@@ -545,7 +770,7 @@ fn add_directory_to_tar<'a>(
         let mut header = [0u8; TAR_BLOCK_SIZE];
 
         // Name with trailing slash
-        let dir_name = format!("{}/", name);
+        let dir_name = format!("{}/", tar_member_name(name, absolute_names));
         let name_bytes = dir_name.as_bytes();
         let name_len = name_bytes.len().min(100);
         header[..name_len].copy_from_slice(&name_bytes[..name_len]);
@@ -589,6 +814,9 @@ fn add_directory_to_tar<'a>(
         for entry in entries {
             let child_path = vfs_join(path, &entry.name);
             let child_name = format!("{}/{}", name, entry.name);
+            if tar_excluded(&child_name, excludes) {
+                continue;
+            }
 
             if entry.metadata.file_type.is_dir() {
                 add_directory_to_tar(
@@ -597,19 +825,13 @@ fn add_directory_to_tar<'a>(
                     &child_name,
                     output,
                     verbose_output,
-                    verbose,
+                    names,
+                    excludes,
                 )
                 .await?;
             } else {
-                add_file_to_tar(
-                    ctx,
-                    &child_path,
-                    &child_name,
-                    output,
-                    verbose_output,
-                    verbose,
-                )
-                .await?;
+                add_file_to_tar(ctx, &child_path, &child_name, output, verbose_output, names)
+                    .await?;
             }
         }
 
@@ -708,14 +930,79 @@ fn validate_tar_for_extraction(
 }
 
 /// Extract a tar archive
+/// `tar -x` settings beyond the archive name.
+struct ExtractOptions<'a> {
+    verbose: bool,
+    compression: ArchiveCompression,
+    change_dir: Option<&'a str>,
+    to_stdout: bool,
+    /// `--strip-components`: leading path components dropped from names.
+    strip_components: usize,
+    /// Named members; empty extracts everything.
+    members: &'a [&'a str],
+    excludes: &'a [String],
+}
+
+/// GNU `--exclude` (unanchored): the pattern matches the whole member name
+/// or any trailing run of its components (`node_modules`, `*.log`).
+fn tar_excluded(name: &str, excludes: &[String]) -> bool {
+    let name = name.trim_end_matches('/');
+    excludes.iter().any(|pat| {
+        let pat = pat.trim_end_matches('/');
+        std::iter::once(name)
+            .chain(name.match_indices('/').map(|(i, _)| &name[i + 1..]))
+            .any(|tail| super::ls::glob::glob_match(tail, pat))
+    })
+}
+
+/// Whether `name` is a requested member or lies under one.
+fn tar_member_selected(name: &str, members: &[&str]) -> bool {
+    let name = name.trim_end_matches('/');
+    members.is_empty()
+        || members.iter().any(|m| {
+            let m = m.trim_end_matches('/');
+            name == m
+                || name
+                    .strip_prefix(m)
+                    .is_some_and(|rest| rest.starts_with('/'))
+        })
+}
+
+/// `name` without its first `n` components; `None` when nothing is left.
+fn tar_strip(name: &str, n: usize) -> Option<String> {
+    if n == 0 {
+        return Some(name.to_string());
+    }
+    let mut parts = name.split('/').filter(|p| !p.is_empty() && *p != ".");
+    for _ in 0..n {
+        parts.next()?;
+    }
+    let rest: Vec<&str> = parts.collect();
+    if rest.is_empty() {
+        return None;
+    }
+    let mut out = rest.join("/");
+    if name.ends_with('/') {
+        out.push('/');
+    }
+    Some(out)
+}
+
 async fn extract_tar(
     ctx: &Context<'_>,
     archive_name: &str,
-    verbose: bool,
-    compression: ArchiveCompression,
-    change_dir: Option<&str>,
-    to_stdout: bool,
+    opts: ExtractOptions<'_>,
 ) -> Result<ExecResult> {
+    let ExtractOptions {
+        verbose,
+        compression,
+        change_dir,
+        to_stdout,
+        strip_components,
+        members,
+        excludes,
+    } = opts;
+    let mut matched = vec![false; members.len()];
     // Resolve extraction base directory (-C flag)
     let extract_base = if let Some(dir) = change_dir {
         resolve_path(ctx.cwd, dir)
@@ -833,11 +1120,6 @@ async fn extract_tar(
         // Parse type
         let type_flag = header[156];
 
-        if verbose {
-            verbose_output.try_push_str(&name)?;
-            verbose_output.try_push('\n')?;
-        }
-
         offset += TAR_BLOCK_SIZE;
 
         // Path traversal protection: reject entries with ".." components or absolute paths
@@ -850,6 +1132,38 @@ async fn extract_tar(
                 format!("tar: {}: path traversal blocked\n", name),
                 2,
             ));
+        }
+
+        let selected = tar_member_selected(&name, members) && !tar_excluded(&name, excludes);
+        if selected {
+            let trimmed = name.trim_end_matches('/');
+            for (i, m) in members.iter().enumerate() {
+                let m = m.trim_end_matches('/');
+                if trimmed == m || trimmed.strip_prefix(m).is_some_and(|r| r.starts_with('/')) {
+                    matched[i] = true;
+                }
+            }
+        }
+        let stripped = if selected {
+            tar_strip(&name, strip_components)
+        } else {
+            None
+        };
+        let Some(name) = stripped else {
+            // Not extracted: skip the entry's data blocks.
+            let Some(content_end) = tar_content_end(offset, size) else {
+                return Ok(ExecResult::err(
+                    format!("tar: {}: invalid size field\n", name),
+                    2,
+                ));
+            };
+            offset = content_end;
+            continue;
+        };
+
+        if verbose {
+            verbose_output.try_push_str(&name)?;
+            verbose_output.try_push('\n')?;
         }
 
         match type_flag {
@@ -945,12 +1259,22 @@ async fn extract_tar(
         }
     }
 
+    let mut exit_code = 0;
+    for (m, hit) in members.iter().zip(&matched) {
+        if !hit {
+            verbose_output.try_push_str(&format!("tar: {m}: Not found in archive\n"))?;
+            exit_code = 2;
+        }
+    }
+    if exit_code != 0 {
+        verbose_output.try_push_str("tar: Exiting with failure status due to previous errors\n")?;
+    }
     let (stdout_output, _stdout_lease) = stdout_output.into_parts();
     let (verbose_output, _verbose_lease) = verbose_output.into_parts();
     Ok(ExecResult {
         stdout: stdout_output.into(),
         stderr: verbose_output.into(),
-        exit_code: 0,
+        exit_code,
         control_flow: crate::interpreter::ControlFlow::None,
         ..Default::default()
     })
@@ -1133,7 +1457,7 @@ impl Builtin for Gzip {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         if let Some(r) = super::check_help_version(
             ctx.args,
-            "Usage: gzip [OPTION]... [FILE]...\nCompress files.\n\n  -d\tdecompress\n  -k\tkeep original file\n  -f\tforce overwrite\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
+            "Usage: gzip [OPTION]... [FILE]...\nCompress files.\n\n  -c, --stdout\twrite to standard output, keep original files\n  -d\tdecompress\n  -k\tkeep original file\n  -f\tforce overwrite\n  -1..-9\tcompression level\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
             Some("gzip (bashkit) 0.1"),
         ) {
             return Ok(r);
@@ -1141,15 +1465,37 @@ impl Builtin for Gzip {
         let mut decompress = false;
         let mut keep = false;
         let mut force = false;
+        let mut to_stdout = false;
+        let mut level = Compression::default();
         let mut files = budgeted_vec(&ctx)?;
 
         for arg in ctx.args {
-            if arg.starts_with('-') && arg.len() > 1 {
+            if let Some(long) = arg.strip_prefix("--") {
+                match long {
+                    "stdout" | "to-stdout" => to_stdout = true,
+                    "decompress" | "uncompress" => decompress = true,
+                    "keep" => keep = true,
+                    "force" => force = true,
+                    "fast" => level = Compression::fast(),
+                    "best" => level = Compression::best(),
+                    "quiet" | "no-name" | "name" => {}
+                    _ => {
+                        return Ok(ExecResult::err(
+                            format!("gzip: unrecognized option '{arg}'\n"),
+                            1,
+                        ));
+                    }
+                }
+            } else if arg.starts_with('-') && arg.len() > 1 {
                 for c in arg[1..].chars() {
                     match c {
                         'd' => decompress = true,
                         'k' => keep = true,
                         'f' => force = true,
+                        'c' => to_stdout = true,
+                        // No file names or timestamps are stored either way.
+                        'n' | 'N' | 'q' => {}
+                        '1'..='9' => level = Compression::new(c as u32 - '0' as u32),
                         _ => {
                             return Ok(ExecResult::err(
                                 format!("gzip: invalid option -- '{}'\n", c),
@@ -1178,29 +1524,35 @@ impl Builtin for Gzip {
                             .map_err(|error| archive_io_error("gzip: stdin", error))
                     }) {
                         Ok(output) => {
-                            return Ok(ExecResult::ok(
-                                String::from_utf8_lossy(&output).to_string(),
-                            ));
+                            let (output, _lease) = output.into_parts();
+                            return Ok(ExecResult {
+                                stdout: output.into(),
+                                ..Default::default()
+                            });
                         }
                         Err(e) => return Ok(ExecResult::err(format!("gzip: stdin: {}\n", e), 1)),
                     }
                 } else {
                     let sink = budgeted_bytes(&ctx)?;
-                    let mut encoder = GzEncoder::new(sink, Compression::default());
+                    let mut encoder = GzEncoder::new(sink, level);
                     encoder
                         .write_all(stdin.as_bytes())
                         .map_err(|error| archive_io_error("gzip: compression failed", error))?;
                     let compressed = encoder
                         .finish()
                         .map_err(|error| archive_io_error("gzip: compression failed", error))?;
-                    return Ok(ExecResult::ok(
-                        String::from_utf8_lossy(&compressed).to_string(),
-                    ));
+                    let (compressed, _lease) = compressed.into_parts();
+                    return Ok(ExecResult {
+                        stdout: compressed.into(),
+                        ..Default::default()
+                    });
                 }
             }
             return Ok(ExecResult::ok(String::new()));
         }
 
+        // -c: results go to stdout and the input files stay.
+        let mut stdout_data = budgeted_bytes(&ctx)?;
         for file in files.iter() {
             let path = resolve_path(ctx.cwd, file);
 
@@ -1221,17 +1573,17 @@ impl Builtin for Gzip {
 
             if decompress {
                 // Decompress
-                if !file.ends_with(".gz") {
+                if !file.ends_with(".gz") && !to_stdout {
                     return Ok(ExecResult::err(
                         format!("gzip: {}: unknown suffix -- ignored\n", file),
                         1,
                     ));
                 }
 
-                let output_name = file.strip_suffix(".gz").unwrap();
+                let output_name = file.strip_suffix(".gz").unwrap_or(file);
                 let output_path = resolve_path(ctx.cwd, output_name);
 
-                if ctx.fs.exists(&output_path).await.unwrap_or(false) && !force {
+                if !to_stdout && ctx.fs.exists(&output_path).await.unwrap_or(false) && !force {
                     return Ok(ExecResult::err(
                         format!("gzip: {}: already exists\n", output_name),
                         1,
@@ -1252,6 +1604,10 @@ impl Builtin for Gzip {
                     u64::try_from(output.len().div_ceil(64)).unwrap_or(u64::MAX),
                 )?;
 
+                if to_stdout {
+                    stdout_data.try_extend_from_slice(&output)?;
+                    continue;
+                }
                 ctx.fs.write_file(&output_path, &output).await?;
 
                 if !keep {
@@ -1259,7 +1615,7 @@ impl Builtin for Gzip {
                 }
             } else {
                 // Compress
-                if file.ends_with(".gz") {
+                if file.ends_with(".gz") && !to_stdout {
                     return Ok(ExecResult::err(
                         format!("gzip: {}: already has .gz suffix\n", file),
                         1,
@@ -1269,7 +1625,7 @@ impl Builtin for Gzip {
                 let output_name = format!("{}.gz", file);
                 let output_path = resolve_path(ctx.cwd, &output_name);
 
-                if ctx.fs.exists(&output_path).await.unwrap_or(false) && !force {
+                if !to_stdout && ctx.fs.exists(&output_path).await.unwrap_or(false) && !force {
                     return Ok(ExecResult::err(
                         format!("gzip: {}: already exists\n", output_name),
                         1,
@@ -1280,7 +1636,7 @@ impl Builtin for Gzip {
                 ctx.consume_budget_input(data.len())?;
                 let _input_lease = ctx.lease_budget_bytes(data.len())?;
                 let sink = budgeted_bytes(&ctx)?;
-                let mut encoder = GzEncoder::new(sink, Compression::default());
+                let mut encoder = GzEncoder::new(sink, level);
                 encoder
                     .write_all(&data)
                     .map_err(|error| archive_io_error(&format!("gzip: {file}"), error))?;
@@ -1291,6 +1647,10 @@ impl Builtin for Gzip {
                     u64::try_from(data.len().div_ceil(64)).unwrap_or(u64::MAX),
                 )?;
 
+                if to_stdout {
+                    stdout_data.try_extend_from_slice(&compressed)?;
+                    continue;
+                }
                 ctx.fs.write_file(&output_path, &compressed).await?;
 
                 if !keep {
@@ -1299,7 +1659,11 @@ impl Builtin for Gzip {
             }
         }
 
-        Ok(ExecResult::ok(String::new()))
+        let (stdout_data, _lease) = stdout_data.into_parts();
+        Ok(ExecResult {
+            stdout: stdout_data.into(),
+            ..Default::default()
+        })
     }
 }
 
@@ -1589,6 +1953,36 @@ mod tests {
     // ==================== tar tests ====================
 
     #[tokio::test]
+    async fn tar_files_from_lossy_decoder_matches_std() {
+        let (fs, mut cwd, mut variables) = create_test_ctx().await;
+        let env = HashMap::new();
+        let ctx = Context {
+            args: &[],
+            env: &env,
+            variables: &mut variables,
+            cwd: &mut cwd,
+            fs,
+            stdin: None,
+            #[cfg(feature = "http_client")]
+            http_client: None,
+            #[cfg(feature = "git")]
+            git_client: None,
+            #[cfg(feature = "ssh")]
+            ssh_client: None,
+            shell: None,
+        };
+        // Valid prefixes, malformed multi-byte sequences, and incomplete
+        // tails must retain the previous standard-library decoding semantics.
+        for byte in 0..=255 {
+            let bytes = [b'A', byte, 0xf0, 0x9f, 0x92, byte, b'Z', 0xe2, 0x82];
+            for input in [bytes.as_slice(), &bytes[..7]] {
+                let name = tar_list_name(&ctx, input).unwrap();
+                assert_eq!(&*name, String::from_utf8_lossy(input).as_ref());
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn test_tar_create_and_list() {
         let (fs, mut cwd, mut variables) = create_test_ctx().await;
         let env = HashMap::new();
@@ -1827,7 +2221,8 @@ mod tests {
 
         let result = Tar.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
-        assert!(result.stderr.contains("test.txt"));
+        assert_eq!(result.stdout, "test.txt\n");
+        assert_eq!(result.stderr, "");
     }
 
     #[tokio::test]

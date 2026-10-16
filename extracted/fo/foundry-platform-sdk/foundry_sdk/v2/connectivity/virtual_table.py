@@ -73,6 +73,9 @@ class VirtualTableClient:
         Creates a new [Virtual Table](https://palantir.com/docs/foundry/data-integration/virtual-tables/) from an upstream table. The VirtualTable will be created
         in the specified parent folder and can be queried through Foundry's data access APIs.
 
+
+        Required scopes: [api:connectivity-virtual-table-write]
+
         :param connection_rid:
         :type connection_rid: ConnectionRid
         :param config:
@@ -187,6 +190,9 @@ class AsyncVirtualTableClient:
         """
         Creates a new [Virtual Table](https://palantir.com/docs/foundry/data-integration/virtual-tables/) from an upstream table. The VirtualTable will be created
         in the specified parent folder and can be queried through Foundry's data access APIs.
+
+
+        Required scopes: [api:connectivity-virtual-table-write]
 
         :param connection_rid:
         :type connection_rid: ConnectionRid

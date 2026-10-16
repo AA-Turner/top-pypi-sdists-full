@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prowler
-Version: 5.44.0
+Version: 5.45.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -35,6 +35,7 @@ Requires-Dist: azure-keyvault-keys==4.10.0
 Requires-Dist: azure-mgmt-apimanagement==5.0.0
 Requires-Dist: azure-mgmt-applicationinsights==4.1.0
 Requires-Dist: azure-mgmt-authorization==4.0.0
+Requires-Dist: azure-mgmt-cognitiveservices==14.1.0
 Requires-Dist: azure-mgmt-compute==34.0.0
 Requires-Dist: azure-mgmt-containerregistry==12.0.0
 Requires-Dist: azure-mgmt-containerservice==34.1.0
@@ -65,7 +66,7 @@ Requires-Dist: cryptography==50.0.0
 Requires-Dist: dash-bootstrap-components==2.0.3
 Requires-Dist: dash==3.1.1
 Requires-Dist: defusedxml==0.7.1
-Requires-Dist: dulwich==1.2.5
+Requires-Dist: dulwich==1.2.9
 Requires-Dist: google-api-python-client==2.163.0
 Requires-Dist: google-auth-httplib2==0.2.0
 Requires-Dist: h2==4.3.0

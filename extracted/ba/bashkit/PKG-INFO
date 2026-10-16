@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bashkit
-Version: 0.18.2
+Version: 0.19.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -121,6 +121,28 @@ bash = Bash(
     python=False,
 )
 ```
+
+### Embedded Python and TypeScript
+
+Native wheels include both runtimes, disabled by default. Enable only those
+your application needs:
+
+```python
+from bashkit import BashTool
+
+# Python also requires host opt-in; scripts cannot set this permission.
+tool = BashTool(
+    python=True,
+    typescript=True,
+    env={"BASHKIT_ALLOW_INPROCESS_PYTHON": "1"},
+)
+assert tool.execute_sync("python -c 'print(42)'").stdout == "42\n"
+assert tool.execute_sync("ts -c '42'").stdout == "42\n"
+```
+
+LangChain's `BashkitTool` and deepagents' middleware/backend accept the same
+flags. Runtime flags survive `reset()`; supply them explicitly when restoring
+with `BashTool.from_snapshot()` or `BashTool.from_snapshot_keyed()`.
 
 ### Live Output
 
@@ -508,7 +530,7 @@ an internal private loop and should not be called from an async endpoint.
 Use `ScriptedTool` to register Python callbacks as bash-callable tools:
 
 ```python
-from bashkit import ScriptedTool
+from bashkit.scripted import ScriptedTool
 
 
 def get_user(params, stdin=None):

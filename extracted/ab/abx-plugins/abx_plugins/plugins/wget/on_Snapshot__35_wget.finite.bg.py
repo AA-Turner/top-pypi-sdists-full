@@ -47,6 +47,7 @@ from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     has_netscape_cookie_entries,
     has_staticfile_output,
+    iri_to_uri,
     load_config,
 )
 
@@ -75,6 +76,19 @@ def rel_output(path_str: str | None) -> str | None:
         return str(resolved.relative_to(SNAP_DIR.resolve()))
     except Exception:
         return path.name or path_str
+
+
+def unescape_wget_filename(name: str) -> str:
+    """Decode the octal byte escapes wget uses for filenames under LC_ALL=C.
+
+    The hook runs wget in the C locale so its messages stay parseable English,
+    but there it prints non-ASCII filename bytes as \\303\\274 instead of ü.
+    """
+    return re.sub(
+        rb"\\([0-7]{3})",
+        lambda match: bytes([int(match[1], 8)]),
+        name.encode("utf-8", "surrogateescape"),
+    ).decode("utf-8", "surrogateescape")
 
 
 def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
@@ -123,32 +137,63 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Wget reports the requested document before its page requisites. Use its
     # actual filename, including redirects and --adjust-extension, rather than
     # guessing from directory traversal order (which can pick an ad iframe).
-    cmd.extend(["--no-quiet", "--verbose", url])
+    # Give wget an ASCII URI (IDNA host, UTF-8 percent-encoded path): under
+    # LC_ALL=C it cannot know the charset of a Unicode URL. Userinfo stays in
+    # the URL; wget answers the server's Basic challenge with it.
+    cmd.extend(["--no-quiet", "--verbose", iri_to_uri(url)])
 
     # Run wget
     try:
         print("saving page with wget...", file=sys.stderr)
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            env={**os.environ, "LC_ALL": "C"},
-            timeout=timeout * 2,  # Allow extra time for large downloads
-        )
-        print(result.stderr, file=sys.stderr, end="")
-        for line in result.stderr.splitlines():
+        error = ""
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "LC_ALL": "C"},
+                # Background hooks own their lifetime: WGET_TIMEOUT is the budget,
+                # and consumers waiting on wget's files plan around it.
+                timeout=timeout,
+            )
+            log = result.stderr
+            if result.returncode != 0:
+                error = f"wget failed (exit={result.returncode})"
+        except subprocess.TimeoutExpired as timed_out:
+            # wget's --timeout is per read, so a trickling page requisite can
+            # outlive the budget after the requested page was already saved.
+            # TimeoutExpired always carries raw bytes, even with text=True.
+            log = (timed_out.stderr or b"").decode("utf-8", "replace")
+            error = f"Timed out after {timeout} seconds"
+        print(log, file=sys.stderr, end="")
+
+        # A nonzero exit or timeout alone is not a failed capture: exit 8 means
+        # *any* fetched URL got an HTTP error, including a 404 favicon or
+        # stylesheet. Only the requested document decides. wget reports it
+        # first and never prints "saved" for an HTTP error response.
+        for line in log.splitlines():
             saved = re.search(r"'(.+)' saved \[", line)
             unchanged = re.match(r"File '(.+)' not modified on server\.", line)
             match = saved or unchanged
-            if match and Path(match[1]).is_file():
-                return True, match[1], ""
+            filename = unescape_wget_filename(match[1]) if match else ""
+            if filename and Path(filename).is_file():
+                if error:
+                    print(
+                        f"WARNING: {error}; keeping the saved page {filename}",
+                        file=sys.stderr,
+                    )
+                return True, filename, ""
 
-        if result.returncode != 0:
-            return False, None, f"wget failed (exit={result.returncode})"
+        if error:
+            # Nothing was saved, so wget never reached any page requisites and
+            # its HTTP error belongs to the requested document (e.g. a bot
+            # wall's 403). Name it instead of leaving only the exit code.
+            http_errors = re.findall(r"^\S+ \S+ (ERROR \d+: .+?)\.?$", log, re.M)
+            if http_errors:
+                error = f"{error}: {http_errors[-1]}"
+            return False, None, error
         return True, "No files downloaded", ""
 
-    except subprocess.TimeoutExpired:
-        return False, None, f"Timed out after {timeout * 2} seconds"
     except Exception as e:
         return False, None, f"{type(e).__name__}: {e}"
 

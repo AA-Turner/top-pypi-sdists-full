@@ -19,15 +19,19 @@ from mechbench_compute.capture_rows import (
     read_storage,
 )
 from mechbench_compute.distill import render
+from mechbench_compute.interp.check_interior import check_interior
+from mechbench_compute.interp.check_one_width import check_one_width
 from mechbench_compute.interp.check_written import check_written
-from mechbench_compute.interp.constants import MAX_VECTOR_FLOATS
+from mechbench_compute.interp.constants import INTERIOR, MAX_VECTOR_FLOATS, NEURONS
+from mechbench_compute.interp.read_mlp_widths import read_mlp_widths
 from mechbench_compute.interp.read_record_coords import read_record_coords
 from mechbench_compute.interp.resolve_layers import resolve_layers
 from mechbench_compute.interventions import Capture
 from mechbench_compute.lexicon._base import In, Op, Output, P, Resume
 from mechbench_compute.spans import add_to_span
 
-POINTS = ("resid_post", "resid_pre", "attn_out", "mlp_out", "gate_out", "attn.weights")
+POINTS = ("resid_post", "resid_pre", "attn_out", "mlp_out", "gate_out", "mlp.in_norm",
+          "mlp.gate", "mlp.up", "mlp.act", "mlp.down_in", "attn.weights")
 
 WRITES = ("attn_out", "mlp_out", "gate_out")
 
@@ -67,6 +71,19 @@ relates them: `resid_post` is `resid_pre` plus the writes (on Gemma 4,
 times the layer's scalar), so the writes at one layer say which of them
 moved a dimension of the stream.
 
+The MLP's interior is read at five points: `mlp.in_norm`, the MLP's input
+after its norm, d_model wide; `mlp.gate` and `mlp.up`, its two
+projections; `mlp.act`, the gate's nonlinearity; and `mlp.down_in`,
+`mlp.act` times `mlp.up`, the coefficient each neuron writes its row of
+the down-projection with. The last four are as wide as the MLP
+(`intermediate_size`), which can differ by layer (Gemma 4's E models
+double it on their KV-shared layers): the header's `widths` names each
+captured layer's, in the order of `layers`, and each item's `space.d` its
+own. Reading them leaves every other read bit-identical. Tensor storage
+holds rows of one width, so a capture across layers of two widths that
+needs it is refused before the model runs, naming the layers of each
+width to capture apart.
+
 `heads` splits `attn_out` by head, one vector per head: the head's output
 through its slice of `o_proj`, then through the norm the architecture
 applies after `o_proj` (Gemma 3 and Gemma 4), whose divisor, the root
@@ -98,7 +115,11 @@ positions with the most weight, `[{position, token, weight}]`.
 
 Every item carries its `space` (`{model, layer, point, head?, d}`) and the
 record's `coords`, which is what `geometry/compare`, `geometry/span` and
-`direction/*` group on (their `axis` names the coordinate).
+`direction/*` group on (their `axis` names the coordinate). Its `id` is
+the record's, so the same battery captured on two models patches record
+for record: one model's capture is the `source` of `intervene/apply` on
+the other, whose `patch` item with `row: {"match": "id"}` writes each
+prompt's own vector back.
 
 With `source: "queries"` or `"keys"` the block captures attention Q or K
 vectors instead of the residual, one row per (layer, head).
@@ -122,7 +143,7 @@ storage only when every row has one width, records of one length.
            "scales this one.",
            required=False),
     ),
-    output=Output('activations/vector', collection=True, doc='One item per record per layer (per head, for Q/K sources and split heads; per head and query position, for attention weights): `{id, coords, space, vector, norm}`, plus `token` (the token read, when not pooled; on attention weights the query token, its position in `coords.position`), `n_pooled` when pooled, and with `top` set, `top` and `rms_without_top` (on attention weights, `top` alone). The header carries `model`, `point`, `source`, `position` (`"pooled"` when pooled), `layers`, `d_model` (absent on attention weights, whose width is the record\'s length), `heads` and `attention_path: "per_head"` when heads were read, `top` when set, and `skipped_empty` listing any records dropped under `skip_empty`.'),
+    output=Output('activations/vector', collection=True, doc='One item per record per layer (per head, for Q/K sources and split heads; per head and query position, for attention weights): `{id, coords, space, vector, norm}`, plus `token` (the token read, when not pooled; on attention weights the query token, its position in `coords.position`), `n_pooled` when pooled, and with `top` set, `top` and `rms_without_top` (on attention weights, `top` alone). The header carries `model`, `point`, `source`, `position` (`"pooled"` when pooled), `layers`, `d_model` (absent on attention weights, whose width is the record\'s length), `widths` on `mlp.gate`, `mlp.up`, `mlp.act` and `mlp.down_in` (each layer\'s MLP width, in the order of `layers`), `heads` and `attention_path: "per_head"` when heads were read, `top` when set, and `skipped_empty` listing any records dropped under `skip_empty`.'),
     params=(
         P("layers", "list[int] | \"all\"",
           "Which layers to run over.",
@@ -131,8 +152,13 @@ storage only when every row has one width, records of one length.
           "What to read: `\"resid_post\"` (the residual stream after each "
           "layer), `\"resid_pre\"` (before it), a layer's write into it "
           "(`\"attn_out\"`, `\"mlp_out\"`, or `\"gate_out\"`, the per-layer "
-          "input gate, which a checkpoint without one refuses), or "
-          "`\"attn.weights\"`, the attention weights of the heads `heads` names.",
+          "input gate, which a checkpoint without one refuses), the MLP's "
+          "interior (`\"mlp.in_norm\"`, the MLP's input after its norm; "
+          "`\"mlp.gate\"` and `\"mlp.up\"`, its two projections; "
+          "`\"mlp.act\"`, the gate's nonlinearity; `\"mlp.down_in\"`, "
+          "`mlp.act` times `mlp.up`, what each neuron writes through its row "
+          "of the down-projection; all but `mlp.in_norm` as wide as the MLP), "
+          "or `\"attn.weights\"`, the attention weights of the heads `heads` names.",
           "resid_post", choices=POINTS, value="point"),
         P("heads", "list[int] | \"all\"",
           "With `attn_out`, split the attention write by these heads, one "
@@ -223,13 +249,17 @@ def capture_residual_vectors(
                else model.arch.n_kv_heads if source == "keys" else len(heads or [None]))
     width = (model.arch.d_model if source == "resid"
              else model.arch.d_model // model.arch.n_heads)
-    total = len(records) * len(layers) * n_heads * width
+    widths = read_mlp_widths(model, layers) if point in NEURONS else [width] * len(layers)
+    total = len(records) * n_heads * sum(widths)
     sink = CaptureRows(read_storage(params), ceiling=MAX_VECTOR_FLOATS, stored=stored,
                        levers="capture fewer layers or records" if point != WEIGHTS
                        else "read fewer heads, layers, query positions or records")
     if point != WEIGHTS:
         sink.plan(total, f"{len(records)} records × {len(layers)} layers × "
-                         f"{n_heads} heads × {width} dims")
+                         f"{n_heads} heads × {width} dims" if len(set(widths)) == 1
+                  else f"{len(records)} records × {sum(widths)} dims over "
+                       f"{len(layers)} layers")
+        check_one_width(sink, point, layers, widths)
     if on_start:
         on_start(len(records))
 
@@ -249,7 +279,7 @@ def capture_residual_vectors(
                                  f"{len(layers)} layers over records of "
                                  f"{len(r.ids)} tokens")
         add_to_span(tokens_in=len(r.ids))
-        result = model.run(ids, interventions=[cap])
+        result = model.run(ids, interventions=[cap], logits=False)
         coords = read_record_coords(record, params)
         if point == WEIGHTS:
             sink.extend(read_weight_rows(model, result.cache, record, r.ids, coords, mid=mid,
@@ -272,7 +302,8 @@ def capture_residual_vectors(
                 t = result.cache[f"blocks.{layer}.{point}"]
                 v, n_pooled = ((read_f32(t[0, pos, :]), None) if not pool
                                else POS.pooled(read_f32(t[0]), over, pool["reduce"]))
-                sink.add(build_row(v, S.space(model=mid, layer=layer, point=point, d=width),
+                d = widths[layers.index(layer)]
+                sink.add(build_row(v, S.space(model=mid, layer=layer, point=point, d=d),
                                    record, coords, read_token, n_pooled, top))
             else:
                 key = ("q" if source == "queries" else "k")
@@ -295,6 +326,7 @@ def capture_residual_vectors(
         **({"pool": pool} if pool else {}),
         layers=layers,
         d_model=None if point == WEIGHTS else width,
+        **({"widths": widths} if point in NEURONS else {}),
         **({"heads": heads} if heads is not None else {}),
         **({"attention_path": "per_head"} if heads is not None or source != "resid" else {}),
         **({"top": top} if top else {}),
@@ -313,6 +345,8 @@ def read_point(model, spec: Any, source: str) -> str:
             "is read with source 'resid'")
     if point in WRITES:
         check_written(model, point)
+    if point in INTERIOR:
+        check_interior(model, point)
     return point
 
 

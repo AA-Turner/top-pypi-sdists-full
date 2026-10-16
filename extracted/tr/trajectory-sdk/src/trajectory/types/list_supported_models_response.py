@@ -11,8 +11,6 @@ class ModelPricing(BaseModel):
 
   output: float
 
-  cached_input: float | None = None
-
 
 class SupportedModelInfo(BaseModel):
   base_model_slug: BaseModelSlug

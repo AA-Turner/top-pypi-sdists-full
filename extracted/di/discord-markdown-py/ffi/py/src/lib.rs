@@ -5,7 +5,7 @@
 	reason = "pyo3 does this in its macro and we can't fix that"
 )]
 
-use ::discord_markdown::{DEFAULT_FUEL, error::Error, node::SpannedNodes, rule::RuleSet};
+use ::discord_markdown::{DEFAULT_FUEL, error::Error, node::Blocks, rule::RuleSet};
 use pyo3::{
 	Bound, PyAny, PyResult, Python, create_exception,
 	exceptions::PyException,
@@ -66,7 +66,7 @@ fn parse<'py>(
 /// re-escaped, italics always come back as `_`, and unordered lists always as `* `.
 #[pyfunction]
 fn unparse(py: Python<'_>, nodes: &Bound<'_, PyAny>) -> PyResult<String> {
-	let nodes = depythonize::<SpannedNodes<'static, ()>>(nodes)?;
+	let nodes = depythonize::<Blocks<'static, ()>>(nodes)?;
 
 	Ok(py.allow_threads(|| ::discord_markdown::unparse(&nodes)))
 }

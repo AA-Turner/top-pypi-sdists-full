@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import math
 import ssl
+from http import HTTPStatus
 from pathlib import Path
 from typing import List, Type
 
@@ -28,6 +29,9 @@ from mistralai.workflows.exceptions import ErrorCode, WorkflowError, WorkflowsEx
 logger = structlog.get_logger(__name__)
 
 DEFAULT_NAMESPACE = "default"
+
+# Temporal's bridge flattens tonic/h2 connection failures into RuntimeError text.
+_TEMPORAL_UNAUTHORIZED_STATUS_MARKERS = ("status: 401 Unauthorized", "code: Unauthenticated")
 
 _worker_service_client: contextvars.ContextVar["TemporalServiceClient | None"] = contextvars.ContextVar(
     "worker_service_client", default=None
@@ -158,6 +162,15 @@ async def _read_temporal_token(provider: TokenProvider) -> str:
     raise AssertionError("unreachable")
 
 
+def _connection_error_status(exc: Exception, *, uses_http_connect_proxy: bool) -> HTTPStatus:
+    message = str(exc)
+    if uses_http_connect_proxy and "CONNECT call failed with status: 401 Unauthorized" in message:
+        return HTTPStatus.INTERNAL_SERVER_ERROR
+    if any(marker in message for marker in _TEMPORAL_UNAUTHORIZED_STATUS_MARKERS):
+        return HTTPStatus.UNAUTHORIZED
+    return HTTPStatus.INTERNAL_SERVER_ERROR
+
+
 async def create_temporal_service_client(runtime: Runtime | None = None) -> TemporalServiceClient:
     # The worker passes its pre-built (buffered) runtime; pump-less callers get a direct-OTLP client runtime
     # (self-exporting, no drainer) — metrics for static creds / explicit endpoints, disabled under rotation.
@@ -189,20 +202,22 @@ async def create_temporal_service_client(runtime: Runtime | None = None) -> Temp
             proxy_target_host=config.temporal.http_proxy_target_host,
         )
 
+    connect_config = ConnectConfig(
+        target_host=config.temporal.server_url,
+        api_key=temporal_api_key or None,
+        runtime=runtime,
+        tls=tls,
+        http_connect_proxy_config=http_connect_proxy_config,
+    )
     try:
-        service_client = await TemporalServiceClient.connect(
-            ConnectConfig(
-                target_host=config.temporal.server_url,
-                api_key=temporal_api_key or None,
-                runtime=runtime,
-                tls=tls,
-                http_connect_proxy_config=http_connect_proxy_config,
-            )
-        )
-    except Exception:
+        service_client = await TemporalServiceClient.connect(connect_config)
+    except Exception as exc:
         raise WorkflowsException(
-            code=ErrorCode.TEMPORAL_CONNECTION_ERROR, message="Fail to connect to Temporal Service Client"
-        )
+            code=ErrorCode.TEMPORAL_CONNECTION_ERROR,
+            message="Failed to connect to Temporal Service Client",
+            status=_connection_error_status(exc, uses_http_connect_proxy=http_connect_proxy_config is not None),
+            logging_properties={"temporal_connection_error": str(exc)},
+        ) from exc
     logger.info("connected to temporal service client", url=config.temporal.server_url)
     return service_client
 

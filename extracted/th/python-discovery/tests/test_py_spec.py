@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def test_bad_py_spec() -> None:
-    text = "python2.3.4.5"
+@pytest.mark.parametrize("text", ["python2.3.4.5", ".", "..", "...", "python.", "cpython..", "pypy..."])
+def test_bad_py_spec(text: str) -> None:
     spec = PythonSpec.from_string_spec(text)
     assert text in repr(spec)
     assert spec.str_spec == text

@@ -3,6 +3,8 @@
 //! Keep uucore runtime hooks local and side-effect free: bashkit builtins
 //! return structured `ExecResult`s, so generated formatting code must not
 //! write diagnostics directly to host stderr or depend on uucore exit state.
+//! `show_error!` messages are collected per call ([`collect_diagnostics`])
+//! so `printf` can report bad numeric arguments the way bash does.
 
 use std::ffi::{OsStr, OsString};
 
@@ -84,9 +86,42 @@ pub fn locale_aware_escape_name(input: &OsStr, style: QuotingStyle) -> OsString 
     }
 }
 
+/// Most diagnostics one [`collect_diagnostics`] call keeps (one per bad
+/// argument; the cap bounds memory for huge argument lists).
+const MAX_COLLECTED_DIAGNOSTICS: usize = 64;
+
+std::thread_local! {
+    /// `Some` while [`collect_diagnostics`] runs: uucore's `show_error!`
+    /// messages land here instead of host stderr.
+    static DIAGNOSTICS: std::cell::RefCell<Option<Vec<String>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Run `f` (synchronous, so the thread-local cannot leak across tasks) and
+/// return the `show_error!` messages it produced, in order.
+pub fn collect_diagnostics<R>(f: impl FnOnce() -> R) -> (R, Vec<String>) {
+    DIAGNOSTICS.with(|d| *d.borrow_mut() = Some(Vec::new()));
+    let result = f();
+    let diags = DIAGNOSTICS
+        .with(|d| d.borrow_mut().take())
+        .unwrap_or_default();
+    (result, diags)
+}
+
+/// Record one `show_error!` message when a collector is active.
+pub fn record_diagnostic(msg: std::fmt::Arguments<'_>) {
+    DIAGNOSTICS.with(|d| {
+        if let Some(diags) = d.borrow_mut().as_mut()
+            && diags.len() < MAX_COLLECTED_DIAGNOSTICS
+        {
+            diags.push(msg.to_string());
+        }
+    });
+}
+
 macro_rules! show_error {
     ($($arg:tt)*) => {{
-        let _ = format_args!($($arg)*);
+        $crate::builtins::generated::format_support::record_diagnostic(format_args!($($arg)*));
     }};
 }
 
@@ -104,25 +139,50 @@ fn shell_quote(s: &str) -> String {
         return "''".to_string();
     }
 
-    let needs_quoting = s
-        .chars()
-        .any(|c| !c.is_ascii_alphanumeric() && !"_/.:-=+@,%^".contains(c));
-    if !needs_quoting {
+    // Under UTF-8, bash leaves printable non-ASCII characters as they are
+    // (`printf %q 'com espaço'` is `com\ espaço`). Observed bash rules:
+    // shell metacharacters (and `,`, `^` for brace/history expansion) are
+    // always escaped; `#` only starts a comment, so only a leading one is;
+    // `~` only expands at the start or after `=`/`:`, so only there.
+    let needs_escape = |prev: Option<char>, c: char| match c {
+        '#' => prev.is_none(),
+        '~' => matches!(prev, None | Some('=' | ':')),
+        c if c.is_ascii() => !(c.is_ascii_alphanumeric() || "_/.:-=+@%".contains(c)),
+        c => c.is_control(),
+    };
+    let escapes = || {
+        let mut prev = None;
+        s.chars().map(move |c| {
+            let e = needs_escape(prev, c);
+            prev = Some(c);
+            (c, e)
+        })
+    };
+    if !escapes().any(|(_, e)| e) {
         return s.to_string();
     }
 
-    let has_control = s.chars().any(|c| (c as u32) < 32 || c as u32 == 127);
+    let has_control = s.chars().any(char::is_control);
     if has_control {
         let mut out = String::from("$'");
         for ch in s.chars() {
             match ch {
                 '\'' => out.push_str("\\'"),
                 '\\' => out.push_str("\\\\"),
+                // bash `ansic_quote`: named escapes, octal for the rest.
+                '\x07' => out.push_str("\\a"),
+                '\x08' => out.push_str("\\b"),
+                '\x1b' => out.push_str("\\E"),
+                '\x0c' => out.push_str("\\f"),
                 '\n' => out.push_str("\\n"),
                 '\t' => out.push_str("\\t"),
                 '\r' => out.push_str("\\r"),
-                c if (c as u32) < 32 || c as u32 == 127 => {
-                    out.push_str(&format!("\\x{:02x}", c as u32));
+                '\x0b' => out.push_str("\\v"),
+                c if c.is_control() => {
+                    let mut buf = [0u8; 4];
+                    for b in c.encode_utf8(&mut buf).bytes() {
+                        out.push_str(&format!("\\{b:03o}"));
+                    }
                 }
                 c => out.push(c),
             }
@@ -132,13 +192,11 @@ fn shell_quote(s: &str) -> String {
     }
 
     let mut out = String::new();
-    for ch in s.chars() {
-        if ch.is_ascii_alphanumeric() || "_/.:-=+@,%^".contains(ch) {
-            out.push(ch);
-        } else {
+    for (ch, escape) in escapes() {
+        if escape {
             out.push('\\');
-            out.push(ch);
         }
+        out.push(ch);
     }
     out
 }

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from pydantic import Field, model_validator
 
+from tidy3d._runtime import always_validate
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
 from tidy3d.components.data.data_array import (
@@ -446,6 +447,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
     )
 
     @model_validator(mode="after")
+    @always_validate
     def add_device_characteristic_units(self) -> Self:
         """Copy dimensionality-aware units onto device-characteristic data arrays."""
         if self.device_characteristics is None:

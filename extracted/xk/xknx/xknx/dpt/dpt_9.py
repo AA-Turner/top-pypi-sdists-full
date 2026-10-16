@@ -11,6 +11,10 @@ from xknx.exceptions import ConversionError
 from .dpt import DPTNumeric
 from .payload import DPTArray, DPTBinary
 
+# "For all Datapoint Types 9.xxx, the encoded value 7FFFh shall always be used to
+# denote invalid data." - KNX v02.02.01 - Datapoint Types 03.07.02 - §3.10
+_INVALID_DATA = (0x7F, 0xFF)
+
 
 class DPT2ByteFloat(DPTNumeric):
     """
@@ -24,14 +28,18 @@ class DPT2ByteFloat(DPTNumeric):
     value_type = "2byte_float"
     payload_length = 2
 
+    # KNX v02.02.01 - Datapoint Types 03.07.02 - §3.10. The maximum is 0x7FFE;
+    # 0x7FFF is reserved for invalid data - see `_INVALID_DATA` below.
     value_min = -671088.64
-    value_max = 670760.96
+    value_max = 670433.28
     resolution = 0.01
 
     @classmethod
     def from_knx(cls, payload: DPTArray | DPTBinary) -> float:
         """Parse/deserialize from KNX/IP raw data."""
         raw = cls.validate_payload(payload)
+        if raw == _INVALID_DATA:
+            raise ConversionError(f"Invalid data for {cls.dpt_name()}", raw=raw)
         data = (raw[0] * 256) + raw[1]
         exponent = (data >> 11) & 0x0F
         significand = data & 0x7FF
@@ -93,10 +101,8 @@ class DPTTemperature(DPT2ByteFloat):
     dpt_sub_number = 1
     value_type = "temperature"
     unit = "°C"
-    ha_device_class = "temperature"
 
     value_min = -273
-    value_max = 670760
 
 
 class DPTTemperatureDifference2Byte(DPT2ByteFloat):
@@ -106,10 +112,6 @@ class DPTTemperatureDifference2Byte(DPT2ByteFloat):
     dpt_sub_number = 2
     value_type = "temperature_difference_2byte"
     unit = "K"
-    ha_device_class = "temperature"
-
-    value_min = -670760
-    value_max = 670760
 
 
 class DPTTemperatureA(DPT2ByteFloat):
@@ -120,9 +122,6 @@ class DPTTemperatureA(DPT2ByteFloat):
     value_type = "temperature_a"
     unit = "K/h"
 
-    value_min = -670760
-    value_max = 670760
-
 
 class DPTLux(DPT2ByteFloat):
     """DPT 9.004 DPT_Value_Lux."""
@@ -131,10 +130,8 @@ class DPTLux(DPT2ByteFloat):
     dpt_sub_number = 4
     value_type = "illuminance"
     unit = "lx"
-    ha_device_class = "illuminance"
 
     value_min = 0
-    value_max = 670760
 
 
 class DPTWsp(DPT2ByteFloat):
@@ -144,10 +141,8 @@ class DPTWsp(DPT2ByteFloat):
     dpt_sub_number = 5
     value_type = "wind_speed_ms"
     unit = "m/s"
-    ha_device_class = "wind_speed"
 
     value_min = 0
-    value_max = 670760
 
 
 class DPTPressure2Byte(DPT2ByteFloat):
@@ -157,10 +152,8 @@ class DPTPressure2Byte(DPT2ByteFloat):
     dpt_sub_number = 6
     value_type = "pressure_2byte"
     unit = "Pa"
-    ha_device_class = "pressure"
 
     value_min = 0
-    value_max = 670760
 
 
 class DPTHumidity(DPT2ByteFloat):
@@ -170,10 +163,8 @@ class DPTHumidity(DPT2ByteFloat):
     dpt_sub_number = 7
     value_type = "humidity"
     unit = "%"
-    ha_device_class = "humidity"
 
     value_min = 0
-    value_max = 670760
 
 
 class DPTPartsPerMillion(DPT2ByteFloat):
@@ -183,6 +174,8 @@ class DPTPartsPerMillion(DPT2ByteFloat):
     dpt_sub_number = 8
     value_type = "ppm"
     unit = "ppm"
+
+    value_min = 0
 
 
 class DPTAirFlow(DPT2ByteFloat):
@@ -202,9 +195,6 @@ class DPTTime1(DPT2ByteFloat):
     value_type = "time_1"
     unit = "s"
 
-    value_min = -670760
-    value_max = 670760
-
 
 class DPTTime2(DPT2ByteFloat):
     """DPT 9.011 DPT_Value_Time2 (ms)."""
@@ -214,9 +204,6 @@ class DPTTime2(DPT2ByteFloat):
     value_type = "time_2"
     unit = "ms"
 
-    value_min = -670760
-    value_max = 670760
-
 
 class DPTVoltage(DPT2ByteFloat):
     """DPT 9.020 DPT_Value_Voltage."""
@@ -225,7 +212,6 @@ class DPTVoltage(DPT2ByteFloat):
     dpt_sub_number = 20
     value_type = "voltage"
     unit = "mV"
-    ha_device_class = "voltage"
 
 
 class DPTCurrent(DPT2ByteFloat):
@@ -235,7 +221,6 @@ class DPTCurrent(DPT2ByteFloat):
     dpt_sub_number = 21
     value_type = "curr"
     unit = "mA"
-    ha_device_class = "current"
 
 
 class DPTPowerDensity(DPT2ByteFloat):
@@ -263,7 +248,6 @@ class DPTPower2Byte(DPT2ByteFloat):
     dpt_sub_number = 24
     value_type = "power_2byte"
     unit = "kW"
-    ha_device_class = "power"
 
 
 class DPTVolumeFlow(DPT2ByteFloat):
@@ -283,9 +267,6 @@ class DPTRainAmount(DPT2ByteFloat):
     value_type = "rain_amount"
     unit = "L/m²"
 
-    value_min = -671088.64
-    value_max = 670760.96
-
 
 class DPTTemperatureF(DPT2ByteFloat):
     """DPT 9.027 DPT_Value_Temp_F."""
@@ -294,10 +275,8 @@ class DPTTemperatureF(DPT2ByteFloat):
     dpt_sub_number = 27
     value_type = "temperature_f"
     unit = "°F"
-    ha_device_class = "temperature"
 
     value_min = -459.6
-    value_max = 670760
 
 
 class DPTWspKmh(DPT2ByteFloat):
@@ -307,10 +286,8 @@ class DPTWspKmh(DPT2ByteFloat):
     dpt_sub_number = 28
     value_type = "wind_speed_kmh"
     unit = "km/h"
-    ha_device_class = "wind_speed"
 
     value_min = 0
-    value_max = 670760
 
 
 class DPTAbsoluteHumidity(DPT2ByteFloat):
@@ -321,6 +298,9 @@ class DPTAbsoluteHumidity(DPT2ByteFloat):
     value_type = "absolute_humidity"
     unit = "g/m³"
 
+    # The 9.029 and 9.030 rows print "670 760" as their maximum, but §3.10 applies
+    # to all 9.xxx - and 670 760 isn't encodable anyway: the neighbouring values
+    # are 670 433,28 (0x7FFE) and 670 760,96 (0x7FFF, invalid data).
     value_min = 0
 
 

@@ -3,6 +3,7 @@
 use super::clap_cache::cached_command;
 use async_trait::async_trait;
 
+use super::ls::quoting::{QuotingStyle, quote_name};
 use super::{Builtin, Context, resolve_path};
 use crate::error::Result;
 use crate::fs::FileType;
@@ -21,10 +22,15 @@ impl Builtin for Less {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         if let Some(r) = super::check_help_version(
             ctx.args,
-            "Usage: less [FILE]...\nView file contents (pager).\n\nIn bashkit, less behaves like cat (no interactive paging).\n\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
+            "Usage: less [FILE]...\nView file contents (pager).\n\nInside a bashkit::terminal::Terminal session, less pages interactively\n(q quit, space/b page, j/k line, g/G ends, /pattern n N search, -F).\nEverywhere else it behaves like cat.\n\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
             Some("less (bashkit) 0.1"),
         ) {
             return Ok(r);
+        }
+        // Interactive only with a terminal device; plain exec() stays cat-like.
+        #[cfg(feature = "terminal")]
+        if let Some(tty) = super::pager::terminal(&ctx)? {
+            return super::pager::page(&ctx, &tty, super::pager::Pager::Less).await;
         }
         // less without args reads from stdin
         if ctx.args.is_empty() {
@@ -113,15 +119,14 @@ impl Builtin for File {
         for file in files {
             let path = resolve_path(ctx.cwd, file);
 
-            if !ctx.fs.exists(&path).await.unwrap_or(false) {
+            // `file` describes a link itself.
+            let Ok(metadata) = ctx.fs.lstat(&path).await else {
                 output.push_str(&format!(
                     "{}: cannot open '{}' (No such file or directory)\n",
                     file, file
                 ));
                 continue;
-            }
-
-            let metadata = ctx.fs.stat(&path).await?;
+            };
             let file_type_str = match metadata.file_type {
                 FileType::Directory => "directory".to_string(),
                 FileType::Symlink => {
@@ -298,7 +303,7 @@ impl Builtin for Stat {
                 1,
             ));
         }
-        let _ = matches.get_flag("dereference");
+        let dereference = matches.get_flag("dereference");
         let _ = matches.get_flag("terse");
 
         let format = matches
@@ -320,17 +325,31 @@ impl Builtin for Stat {
         for file in &files {
             let path = resolve_path(ctx.cwd, file);
 
-            if !ctx.fs.exists(&path).await.unwrap_or(false) {
+            // GNU stat describes a link itself unless -L.
+            let metadata = if dereference {
+                ctx.fs.stat(&path).await
+            } else {
+                ctx.fs.lstat(&path).await
+            };
+            let Ok(metadata) = metadata else {
                 return Ok(ExecResult::err(
                     format!("stat: cannot stat '{}': No such file or directory\n", file),
                     1,
                 ));
-            }
-
-            let metadata = ctx.fs.stat(&path).await?;
+            };
 
             if let Some(fmt) = &format {
-                output.push_str(&format_stat(file, &metadata, fmt));
+                // %N shows a symlink's target; fetch it only when asked.
+                let target = if fmt.contains("%N") && metadata.file_type == FileType::Symlink {
+                    ctx.fs
+                        .read_link(&path)
+                        .await
+                        .ok()
+                        .map(|p| p.to_string_lossy().into_owned())
+                } else {
+                    None
+                };
+                output.push_str(&format_stat(file, &metadata, fmt, target.as_deref()));
                 output.push('\n');
             } else {
                 output.push_str(&default_stat_format(file, &metadata));
@@ -342,7 +361,12 @@ impl Builtin for Stat {
 }
 
 /// Format stat output using format string
-fn format_stat(name: &str, metadata: &crate::fs::Metadata, format: &str) -> String {
+fn format_stat(
+    name: &str,
+    metadata: &crate::fs::Metadata,
+    format: &str,
+    link_target: Option<&str>,
+) -> String {
     let mut result = String::new();
     let mut chars = format.chars().peekable();
 
@@ -352,10 +376,27 @@ fn format_stat(name: &str, metadata: &crate::fs::Metadata, format: &str) -> Stri
                 chars.next();
                 match next {
                     'n' => result.push_str(name),
+                    // GNU default quoting for %N is shell-escape-always.
+                    'N' => {
+                        result.push_str(&quote_name(name, QuotingStyle::ShellEscapeAlways));
+                        if let Some(target) = link_target {
+                            result.push_str(" -> ");
+                            result.push_str(&quote_name(target, QuotingStyle::ShellEscapeAlways));
+                        }
+                    }
                     's' => result.push_str(&metadata.size.to_string()),
                     'a' => result.push_str(&format!("{:o}", metadata.mode & 0o777)),
                     'A' => result.push_str(&format_permissions(metadata)),
                     'F' => result.push_str(&format_file_type(metadata.file_type)),
+                    // Modification time, seconds since the epoch.
+                    'Y' => result.push_str(
+                        &metadata
+                            .modified
+                            .duration_since(crate::time_compat::UNIX_EPOCH)
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0)
+                            .to_string(),
+                    ),
                     '%' => result.push('%'),
                     _ => {
                         result.push('%');

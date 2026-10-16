@@ -84,7 +84,7 @@ class QdrantConfig:
     """
     url: str
     collection_name: str
-    vector_size: int = 1536  # text-embedding-ada-002
+    vector_size: Optional[int] = 1536  # None = 1536 (EmbeddingConfig.dimensions の未設定をそのまま渡せる。3.1.1)
     distance: str = "cosine"  # cosine, euclid, dot
     on_disk_vectors: bool = False
     on_disk_payload: bool = True
@@ -106,6 +106,10 @@ class QdrantConfig:
     prefer_grpc: bool = True
     # 互換性チェック（HTTP API経由時はFalse推奨）
     check_compatibility: bool = True
+
+    def __post_init__(self) -> None:
+        if self.vector_size is None:
+            self.vector_size = 1536
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "QdrantConfig":

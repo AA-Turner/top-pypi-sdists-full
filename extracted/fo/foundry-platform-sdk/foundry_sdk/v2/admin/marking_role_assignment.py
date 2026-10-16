@@ -69,6 +69,9 @@ class MarkingRoleAssignmentClient:
         Adds role assignments for the given Marking. For Organization markings, only the USE and DECLASSIFY
         roles are supported; the ADMINISTER role must be managed via the Organization Role Assignment endpoints.
 
+
+        Required scopes: [api:admin-write]
+
         :param marking_id:
         :type marking_id: MarkingId
         :param role_assignments:
@@ -127,6 +130,9 @@ class MarkingRoleAssignmentClient:
         """
         List all principals who are assigned a role for the given Marking. Ignores the `pageSize` parameter.
 
+
+        Required scopes: [api:admin-read]
+
         :param marking_id:
         :type marking_id: MarkingId
         :param page_size: The page size to use for the endpoint.
@@ -181,6 +187,9 @@ class MarkingRoleAssignmentClient:
         """
         Removes role assignments for the given Marking. For Organization markings, only the USE and DECLASSIFY
         roles are supported; the ADMINISTER role must be managed via the Organization Role Assignment endpoints.
+
+
+        Required scopes: [api:admin-write]
 
         :param marking_id:
         :type marking_id: MarkingId
@@ -294,6 +303,9 @@ class AsyncMarkingRoleAssignmentClient:
         Adds role assignments for the given Marking. For Organization markings, only the USE and DECLASSIFY
         roles are supported; the ADMINISTER role must be managed via the Organization Role Assignment endpoints.
 
+
+        Required scopes: [api:admin-write]
+
         :param marking_id:
         :type marking_id: MarkingId
         :param role_assignments:
@@ -352,6 +364,9 @@ class AsyncMarkingRoleAssignmentClient:
         """
         List all principals who are assigned a role for the given Marking. Ignores the `pageSize` parameter.
 
+
+        Required scopes: [api:admin-read]
+
         :param marking_id:
         :type marking_id: MarkingId
         :param page_size: The page size to use for the endpoint.
@@ -406,6 +421,9 @@ class AsyncMarkingRoleAssignmentClient:
         """
         Removes role assignments for the given Marking. For Organization markings, only the USE and DECLASSIFY
         roles are supported; the ADMINISTER role must be managed via the Organization Role Assignment endpoints.
+
+
+        Required scopes: [api:admin-write]
 
         :param marking_id:
         :type marking_id: MarkingId

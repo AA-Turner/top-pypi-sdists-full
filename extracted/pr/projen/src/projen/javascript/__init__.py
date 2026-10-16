@@ -20855,6 +20855,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         "incremental": "incremental",
         "inline_source_map": "inlineSourceMap",
         "inline_sources": "inlineSources",
+        "isolated_declarations": "isolatedDeclarations",
         "isolated_modules": "isolatedModules",
         "jsx": "jsx",
         "jsx_import_source": "jsxImportSource",
@@ -20925,6 +20926,7 @@ class TypeScriptCompilerOptions:
         incremental: typing.Optional[builtins.bool] = None,
         inline_source_map: typing.Optional[builtins.bool] = None,
         inline_sources: typing.Optional[builtins.bool] = None,
+        isolated_declarations: typing.Optional[builtins.bool] = None,
         isolated_modules: typing.Optional[builtins.bool] = None,
         jsx: typing.Optional["TypeScriptJsxMode"] = None,
         jsx_import_source: typing.Optional[builtins.str] = None,
@@ -20991,6 +20993,7 @@ class TypeScriptCompilerOptions:
         :param incremental: (experimental) Tells TypeScript to save information about the project graph from the last compilation to files stored on disk. This creates a series of .tsbuildinfo files in the same folder as your compilation output. They are not used by your JavaScript at runtime and can be safely deleted. You can read more about the flag in the 3.4 release notes.
         :param inline_source_map: (experimental) When set, instead of writing out a .js.map file to provide source maps, TypeScript will embed the source map content in the .js files. Default: true
         :param inline_sources: (experimental) When set, TypeScript will include the original content of the .ts file as an embedded string in the source map. This is often useful in the same cases as inlineSourceMap. Default: true
+        :param isolated_declarations: (experimental) Require sufficient annotation on exports so other tools can trivially generate declaration files. Requires TypeScript 5.5 or later. Default: undefined
         :param isolated_modules: (experimental) Perform additional checks to ensure that separate compilation (such as with transpileModule or. Default: false
         :param jsx: (experimental) Support JSX in .tsx files: "react", "preserve", "react-native" etc. Default: undefined
         :param jsx_import_source: (experimental) Declares the module specifier to be used for importing the jsx and jsxs factory functions when using jsx. Default: undefined
@@ -21060,6 +21063,7 @@ class TypeScriptCompilerOptions:
             check_type(argname="argument incremental", value=incremental, expected_type=type_hints["incremental"])
             check_type(argname="argument inline_source_map", value=inline_source_map, expected_type=type_hints["inline_source_map"])
             check_type(argname="argument inline_sources", value=inline_sources, expected_type=type_hints["inline_sources"])
+            check_type(argname="argument isolated_declarations", value=isolated_declarations, expected_type=type_hints["isolated_declarations"])
             check_type(argname="argument isolated_modules", value=isolated_modules, expected_type=type_hints["isolated_modules"])
             check_type(argname="argument jsx", value=jsx, expected_type=type_hints["jsx"])
             check_type(argname="argument jsx_import_source", value=jsx_import_source, expected_type=type_hints["jsx_import_source"])
@@ -21151,6 +21155,8 @@ class TypeScriptCompilerOptions:
             self._values["inline_source_map"] = inline_source_map
         if inline_sources is not None:
             self._values["inline_sources"] = inline_sources
+        if isolated_declarations is not None:
+            self._values["isolated_declarations"] = isolated_declarations
         if isolated_modules is not None:
             self._values["isolated_modules"] = isolated_modules
         if jsx is not None:
@@ -21565,6 +21571,20 @@ class TypeScriptCompilerOptions:
         :stability: experimental
         '''
         result = self._values.get("inline_sources")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def isolated_declarations(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Require sufficient annotation on exports so other tools can trivially generate declaration files.
+
+        Requires TypeScript 5.5 or later.
+
+        :default: undefined
+
+        :see: https://www.typescriptlang.org/tsconfig/#isolatedDeclarations
+        :stability: experimental
+        '''
+        result = self._values.get("isolated_declarations")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -31934,6 +31954,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     incremental: typing.Optional[builtins.bool] = None,
     inline_source_map: typing.Optional[builtins.bool] = None,
     inline_sources: typing.Optional[builtins.bool] = None,
+    isolated_declarations: typing.Optional[builtins.bool] = None,
     isolated_modules: typing.Optional[builtins.bool] = None,
     jsx: typing.Optional[TypeScriptJsxMode] = None,
     jsx_import_source: typing.Optional[builtins.str] = None,

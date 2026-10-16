@@ -21,8 +21,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
+from urllib.parse import quote
 
 from .. import config
+from ..timeutil import to_epoch
 from ..author_identity import (
     parse_author_identity,
     sendable_person_id,
@@ -31,6 +33,7 @@ from ..author_identity import (
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
 from ..guardrails import check_message, prepare_outbound_text, text_landed
 from ..services.nameless import is_nameless_profile
+from .message_attachments import attachment_summary, message_text
 from .message_sender import is_conversation_event, last_turn, sender_flag
 from .api_metrics import api_metrics
 from .relations import RelationsPage
@@ -2290,24 +2293,20 @@ class UnipileClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
-                # Extract URLs from attachments (LinkedIn link previews may not be in text)
-                for att in (msg.get("attachments") or []):
-                    if isinstance(att, dict):
-                        att_url = att.get("url") or att.get("link") or att.get("href") or ""
-                        if att_url and att_url not in text:
-                            text = f"{text} {att_url}".strip()
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
-                ts_raw = msg.get("timestamp") or msg.get("created_at") or msg.get("date") or ""
-                timestamp = 0
-                if isinstance(ts_raw, (int, float)):
-                    timestamp = int(ts_raw)
-                elif isinstance(ts_raw, str) and ts_raw:
-                    try:
-                        timestamp = int(datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).timestamp())
-                    except (ValueError, TypeError):
-                        pass
+                ts_raw = next((
+                    msg.get(key) for key in ("timestamp", "created_at", "date")
+                    if isinstance(msg.get(key), bool) or msg.get(key) not in (None, "", 0)
+                ), "")
+                timestamp = to_epoch(ts_raw)
+                # A malformed supplied date is not an unknown/fresh reply.
+                # Keep the legacy zero for truly absent timestamp fields.
+                if timestamp is None and ts_raw != "":
+                    continue
+                timestamp = timestamp or 0
                 message_id = str(msg.get("id") or msg.get("message_id") or "")
                 messages.append({
                     "message_id": message_id,
@@ -2315,6 +2314,7 @@ class UnipileClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                 })
             return messages
@@ -2327,8 +2327,30 @@ class UnipileClient:
             # then failed with the same 404. Each caller says what it means.
             if getattr(getattr(e, "response", None), "status_code", None) == 404:
                 raise
-            logger.warning(f"Failed to fetch chat messages: {e}")
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            logger.warning(
+                "Failed to fetch chat messages: error=%s status=%s chat=%s",
+                type(e).__name__, status, chat_id[:8],
+            )
             return []
+
+    async def get_message_attachment(
+        self, account_id: str, message_id: str, attachment_id: str,
+    ) -> tuple[bytes, str] | None:
+        """A file a message carries: Unipile's message attachment read (#3077).
+
+        Self-hosted, the key is the user's own, so the only seat is theirs.
+        None when Unipile has no such file.
+        """
+        url = (f"{self.base_url}/api/v1/messages/{quote(message_id, safe='')}"
+               f"/attachments/{quote(attachment_id, safe='')}")
+        resp = await self._client.get(url, headers=self._headers())
+        if resp.status_code in (401, 403):
+            raise UnipileAuthError()
+        if resp.status_code in (404, 410):
+            return None
+        resp.raise_for_status()
+        return resp.content, str(resp.headers.get("content-type") or "")
 
     async def verify_message_sent(
         self,
@@ -3442,7 +3464,8 @@ class UnipileClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
                 chat_id = msg.get("chat_id") or msg.get("conversation_id") or ""
@@ -3461,6 +3484,7 @@ class UnipileClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                     "chat_id": str(chat_id),
                     "message_id": str(message_id),
@@ -3517,7 +3541,8 @@ class UnipileClient:
             for msg in items[:limit]:
                 if not isinstance(msg, dict) or is_conversation_event(msg):
                     continue
-                text = msg.get("text") or msg.get("body") or msg.get("content") or ""
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(msg)
                 msg_sender_id = msg.get("sender_id") or msg.get("sender", {}).get("provider_id", "")
                 sender_name = msg.get("sender_name") or msg.get("sender", {}).get("display_name", "")
                 chat_id = msg.get("chat_id") or msg.get("conversation_id") or ""
@@ -3536,6 +3561,7 @@ class UnipileClient:
                     "is_sender": sender_flag(msg),
                     "sender_name": str(sender_name),
                     "text": text,
+                    "attachments": attachment_summary(msg),
                     "timestamp": timestamp,
                     "chat_id": str(chat_id),
                     "message_id": str(message_id),
@@ -4430,13 +4456,8 @@ class UnipileClient:
                 # Not a reaction: an event item is nobody's words (#2359).
                 last_msg = last_turn(chat_messages)
 
-                text = last_msg.get("text") or last_msg.get("body") or last_msg.get("content") or ""
-                # Extract URLs from attachments (LinkedIn link previews may not be in text)
-                for att in (last_msg.get("attachments") or []):
-                    if isinstance(att, dict):
-                        att_url = att.get("url") or att.get("link") or att.get("href") or ""
-                        if att_url and att_url not in text:
-                            text = f"{text} {att_url}".strip()
+                # Words, then each file: never "" for a file-only message (#3077).
+                text = message_text(last_msg)
                 if not text:
                     # No embedded message — return lightweight entry with
                     # attendee info so check_replies can match contacts first,
@@ -4518,6 +4539,7 @@ class UnipileClient:
                     "sender_id": str(sender_id),
                     "is_sender": sender_flag(last_msg),
                     "text": text,
+                    "attachments": attachment_summary(last_msg),
                     "timestamp": timestamp,
                     "conversation_urn": str(chat_id),
                     "attendee_ids": attendee_ids,

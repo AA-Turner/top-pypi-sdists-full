@@ -16,6 +16,7 @@ from pydantic import (
     model_validator,
 )
 
+from tidy3d._runtime import always_validate
 from tidy3d.components.types import TYPE_TAG_STR
 from tidy3d.constants import HERTZ, MICROMETER, RADIAN, SECOND, inf
 from tidy3d.exceptions import SetupError, ValidationError
@@ -293,6 +294,7 @@ class TimeMonitor(Monitor, ABC):
     )
 
     @model_validator(mode="after")
+    @always_validate
     def _warn_interval_default(self) -> Self:
         """If all defaults used for time sampler, warn and set ``interval=1`` internally."""
         val = self.interval
@@ -949,6 +951,7 @@ class PointCloudFieldMonitor(FreqMonitor):
 
     @field_validator("points")
     @classmethod
+    @always_validate
     def _validate_points(cls, val: PointDataArray) -> PointDataArray:
         """Validate point-cloud coordinates and assign canonical coordinates when omitted."""
         return canonicalize_point_cloud_points(
@@ -984,6 +987,7 @@ class PointCloudFieldMonitor(FreqMonitor):
         return center, size
 
     @model_validator(mode="after")
+    @always_validate
     def _derive_geometry_from_points(self) -> Self:
         """Keep inherited box geometry consistent with the point-cloud bounds."""
 
@@ -1340,6 +1344,7 @@ class PointCloudPermittivityMonitor(AbstractMediumPropertyMonitor):
 
     @field_validator("points")
     @classmethod
+    @always_validate
     def _validate_points(cls, val: PointDataArray) -> PointDataArray:
         """Validate point-cloud coordinates and assign canonical coordinates when omitted."""
         return canonicalize_point_cloud_points(
@@ -1353,6 +1358,7 @@ class PointCloudPermittivityMonitor(AbstractMediumPropertyMonitor):
         )
 
     @model_validator(mode="after")
+    @always_validate
     def _derive_geometry_from_points(self) -> Self:
         """Keep inherited box geometry consistent with the point-cloud bounds."""
 
@@ -1446,6 +1452,7 @@ class SurfaceIntegrationMonitor(Monitor, ABC):
         return [self]
 
     @model_validator(mode="after")
+    @always_validate
     def normal_dir_exists_for_surface(self) -> Self:
         """If the monitor is a surface, set default ``normal_dir`` if not provided.
         If the monitor is a box, warn that ``normal_dir`` is relevant only for surfaces."""
@@ -1752,6 +1759,7 @@ class ModeSolverMonitor(AbstractModeMonitor):
         return self.mode_spec._sampling_freqs_mode_solver_data(freqs=self.freqs)
 
     @model_validator(mode="after")
+    @always_validate
     def set_store_fields(self) -> Self:
         """Ensure 'store_fields_direction' is compatible with 'direction'."""
         store_fields_direction = self.store_fields_direction

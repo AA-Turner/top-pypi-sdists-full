@@ -63,6 +63,8 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as scalinggroup_service_pb2
 from chalk._gen.chalk.scalinggroup.v1.service_pb2_grpc import ScalingGroupManagerServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
+from chalk._gen.chalk.server.v1.branches_pb2 import DeleteBranchRequest
+from chalk._gen.chalk.server.v1.branches_pb2_grpc import BranchServiceStub
 from chalk._gen.chalk.server.v1.builder_pb2 import (
     ActivateDeploymentRequest,
     DeployKubeComponentsRequest,
@@ -666,6 +668,12 @@ class StubProvider:
         return TrainingRunServiceStub(self._server_channel)
 
     @cached_property
+    def branch_stub(self) -> BranchServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return BranchServiceStub(self._server_channel)
+
+    @cached_property
     def builder_stub(self) -> "BuilderServiceStub":
         from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
 
@@ -1015,6 +1023,9 @@ class StubRefresher:
 
     def call_scaling_group_stub(self, fn: Callable[["ScalingGroupManagerServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.scaling_group_stub)
+
+    def call_branch_stub(self, fn: Callable[[BranchServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.branch_stub)
 
     def call_builder_stub(self, fn: Callable[["BuilderServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.builder_stub)
@@ -1882,6 +1893,9 @@ class ChalkGRPCClient:
             )
         )
         return resp
+
+    def _delete_branch(self, name: str) -> None:
+        self._stub_refresher.call_branch_stub(lambda stub: stub.DeleteBranch(DeleteBranchRequest(name=name)))
 
     def _create_branch(
         self, branch_name: str, source_branch_name: str | None = None, source_deployment_id: str | None = None

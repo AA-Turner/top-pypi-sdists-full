@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 #include "atoms/affine.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include "subexpr.h"
-#include "utils/tracked_alloc.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,7 +96,7 @@ static void wsum_hess_init_impl(expr *node)
        many numerical zeros in child->wsum_hess that are actually
        structural zeros, but we do not try to exploit that sparsity
        right now. */
-    node->wsum_hess = x->wsum_hess->copy_sparsity(x->wsum_hess);
+    node->wsum_hess = copy_sparsity_matrices_alloc(x->wsum_hess);
 }
 
 static void eval_wsum_hess_impl(expr *node, const double *w)

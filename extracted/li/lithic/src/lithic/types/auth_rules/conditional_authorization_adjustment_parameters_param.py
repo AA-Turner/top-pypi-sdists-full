@@ -9,11 +9,11 @@ from ..._utils import PropertyInfo
 from .conditional_operation import ConditionalOperation
 from .conditional_value_param import ConditionalValueParam
 
-__all__ = ["ConditionalAuthorizationAdjustmentParametersParam", "Adjustment", "Condition", "ConditionParameters"]
+__all__ = ["ConditionalAuthorizationAdjustmentParametersParam", "Action", "Condition", "ConditionParameters"]
 
 
-class Adjustment(TypedDict, total=False):
-    """The hold adjustment to apply if the conditions are met"""
+class Action(TypedDict, total=False):
+    """The hold adjustment to apply if the conditions are met."""
 
     mode: Required[Literal["REPLACE_WITH_AMOUNT", "ADD_PERCENTAGE", "ADD_AMOUNT"]]
     """The mode of the hold adjustment, determining how the value is interpreted:
@@ -91,6 +91,7 @@ class Condition(TypedDict, total=False):
             "SERVICE_LOCATION_STATE",
             "SERVICE_LOCATION_POSTAL_CODE",
             "CARD_AGE",
+            "IS_DOMESTIC",
             "ACCOUNT_AGE",
             "AMOUNT_Z_SCORE",
             "AVG_TRANSACTION_AMOUNT",
@@ -178,6 +179,9 @@ class Condition(TypedDict, total=False):
       card acceptor postal code.
     - `CARD_AGE`: The age of the card in seconds at the time of the authorization.
       Use an integer value.
+    - `IS_DOMESTIC`: Whether the merchant's country matches the card program's
+      issuing country. Valid values are `TRUE`, `FALSE`. For programs with no
+      issuing country configured, this attribute does not evaluate.
     - `ACCOUNT_AGE`: The age of the account holder's account in seconds at the time
       of the authorization. Use an integer value. For programs where Lithic does not
       manage or retain account holder data, this attribute does not evaluate.
@@ -248,7 +252,7 @@ class Condition(TypedDict, total=False):
 
 
 class ConditionalAuthorizationAdjustmentParametersParam(TypedDict, total=False):
-    adjustment: Required[Adjustment]
-    """The hold adjustment to apply if the conditions are met"""
+    action: Required[Action]
+    """The hold adjustment to apply if the conditions are met."""
 
     conditions: Required[Iterable[Condition]]

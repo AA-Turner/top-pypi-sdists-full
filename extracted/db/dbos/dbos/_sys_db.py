@@ -31,7 +31,6 @@ from typing import (
 import sqlalchemy as sa
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
 
 from dbos._debug_trigger import DebugTriggers
 from dbos._utils import (
@@ -81,6 +80,7 @@ from ._serialization import (
     deserialize_exception,
     deserialize_value,
     safe_deserialize,
+    serialize_exception,
     serialize_value,
     serialize_value_as,
 )
@@ -153,6 +153,16 @@ WorkflowStatuses = Literal[
     "CANCELLED",
     "ENQUEUED",
     "DELAYED",
+]
+
+# The reason start_queued_workflows did not dequeue workflows
+DequeueStopReason = Literal[
+    "worker_concurrency",
+    "partition_worker_concurrency",
+    "limiter",
+    "partition_limiter",
+    "concurrency",
+    "partition_concurrency",
 ]
 
 
@@ -265,16 +275,6 @@ class WorkflowStatusInternal(TypedDict):
     application_name: Optional[str]
 
 
-class MetricData(TypedDict):
-    """
-    Metrics data for workflows and steps within a time range.
-    """
-
-    metric_type: str  # Type of metric: "workflow" or "step"
-    metric_name: str  # Name of the workflow or step
-    value: int  # Number of times the operation ran in the time interval
-
-
 class EnqueueOptionsInternal(TypedDict):
     # Unique ID for deduplication on a queue
     deduplication_id: Optional[str]
@@ -332,14 +332,6 @@ class GetEventWorkflowContext(TypedDict):
     timeout_function_id: int
 
 
-class ExportedWorkflow(TypedDict):
-    workflow_status: dict[str, Any]
-    operation_outputs: list[dict[str, Any]]
-    workflow_events: list[dict[str, Any]]
-    workflow_events_history: list[dict[str, Any]]
-    streams: list[dict[str, Any]]
-
-
 class GetPendingWorkflowsOutput:
     def __init__(self, *, workflow_id: str):
         self.workflow_id: str = workflow_id
@@ -383,8 +375,6 @@ class VersionInfo(TypedDict):
     application_name: Optional[str]
 
 
-# Default number of rows deleted per garbage collection batch
-DEFAULT_GC_BATCH_SIZE = 50_000
 # Workflows re-owned per transaction by a rename.
 DEFAULT_RENAME_BATCH_SIZE = 10_000
 
@@ -416,27 +406,6 @@ class StepInfo(TypedDict):
     completed_at_epoch_ms: Optional[int]
 
 
-class WorkflowAggregateRow(TypedDict):
-    group: Dict[str, Optional[str]]
-    count: Optional[int]
-    min_created_at: Optional[int]
-    max_queue_wait_ms: Optional[int]
-    max_total_latency_ms: Optional[int]
-
-
-class StepAggregateRow(TypedDict):
-    group: Dict[str, Optional[str]]
-    count: Optional[int]
-    max_duration_ms: Optional[int]
-
-
-class NotificationInfo(TypedDict):
-    topic: Optional[str]
-    message: Any
-    created_at_epoch_ms: int
-    consumed: bool
-
-
 _dbos_null_topic = "__null__topic__"
 _dbos_stream_closed_sentinel = "__DBOS_STREAM_CLOSED__"
 
@@ -445,13 +414,26 @@ _dbos_notifications_channel = "dbos_notifications_channel"
 _dbos_workflow_events_channel = "dbos_workflow_events_channel"
 _dbos_streams_channel = "dbos_streams_channel"
 
-# Returned by read_stream_value when nothing is written at the requested offset. Not None, which is itself a valid stream value.
+# Marks that a reader found nothing written at its offset. Not None, which is itself a valid stream value.
 _no_stream_value = object()
+_serialized_stream_closed_sentinel = DBOSPortableJSON.serialize(
+    _dbos_stream_closed_sentinel
+)
 
 
 def is_stream_closed_sentinel(value: Any) -> bool:
     """Whether a stream value is the marker a closed stream ends with."""
     return isinstance(value, str) and value == _dbos_stream_closed_sentinel
+
+
+def is_serialized_stream_closed_sentinel(
+    serialized_value: Optional[str], serialization: Optional[str]
+) -> bool:
+    """Whether a serialized stream value is the marker a closed stream ends with; close_stream always writes it as portable JSON."""
+    return (
+        serialization == DBOSPortableJSON.name()
+        and serialized_value == _serialized_stream_closed_sentinel
+    )
 
 
 @dataclass
@@ -614,6 +596,9 @@ DEFAULT_NOTIFICATION_COALESCE_SEC = 0.01
 DEFAULT_OBSERVABILITY_QUERY_TIMEOUT_SEC = 30.0
 # Bounds how long a frozen or unreachable client can hold system database locks.
 DEFAULT_IDLE_TRANSACTION_TIMEOUT_SEC = 60.0
+
+# Key/value pairs per SQLite json_set call; SQLite caps function arguments at 127 by default.
+SQLITE_JSON_SET_MAX_PAIRS = 50
 
 
 class SystemDatabase(ABC):
@@ -1214,6 +1199,7 @@ class SystemDatabase(ABC):
             )
             return True
 
+    @db_retry()
     def cancel_workflows(
         self,
         workflow_ids: list[str],
@@ -1259,6 +1245,7 @@ class SystemDatabase(ABC):
             frontier = [c for c in children if c not in visited]
             visited.update(frontier)
 
+    @db_retry()
     def resume_workflows(
         self,
         workflow_ids: list[str],
@@ -1305,6 +1292,7 @@ class SystemDatabase(ABC):
                 )
             )
 
+    @db_retry()
     def set_workflow_delay(
         self,
         workflow_id: str,
@@ -1476,21 +1464,58 @@ class SystemDatabase(ABC):
 
         return _standalone()
 
+    @db_retry()
     def update_workflow_attributes(
-        self, workflow_id: str, attributes: Optional[Dict[str, Any]]
+        self,
+        workflow_id: str,
+        attributes: Optional[Dict[str, Any]],
+        *,
+        merge: bool = False,
     ) -> None:
-        """Replace the custom attributes attached to a workflow. Pass None to clear all attributes."""
+        """Replace the custom attributes attached to a workflow. Pass None to clear all attributes.
+        With merge=True, atomically merge top-level keys instead."""
         validate_workflow_attributes(attributes)
+        if merge and attributes is None:
+            raise DBOSException("Cannot merge None into workflow attributes")
+
+        ws = SystemSchema.workflow_status
+        value: Any = attributes
+        if merge:
+            assert attributes is not None
+            if self._is_sqlite:
+                value = sa.case(
+                    (sa.func.json_type(ws.c.attributes) == "object", ws.c.attributes),
+                    else_=sa.literal("{}"),
+                )
+                # Nesting one json_set per key overflows the SQLAlchemy compiler's recursion limit.
+                pairs = list(json.loads(json.dumps(attributes)).items())
+                for i in range(0, len(pairs), SQLITE_JSON_SET_MAX_PAIRS):
+                    args: list[Any] = []
+                    for key, item in pairs[i : i + SQLITE_JSON_SET_MAX_PAIRS]:
+                        args += [f"$.{json.dumps(key)}", sa.func.json(json.dumps(item))]
+                    value = sa.func.json_set(value, *args)
+            else:
+                existing = sa.case(
+                    (
+                        sa.func.jsonb_typeof(ws.c.attributes) == "object",
+                        ws.c.attributes,
+                    ),
+                    else_=sa.literal({}, type_=ws.c.attributes.type),
+                )
+                value = existing.op("||")(
+                    sa.literal(attributes, type_=ws.c.attributes.type)
+                )
         with self.engine.begin() as c:
             c.execute(
-                sa.update(SystemSchema.workflow_status)
-                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                sa.update(ws)
+                .where(ws.c.workflow_uuid == workflow_id)
                 .values(
-                    attributes=attributes,
+                    attributes=value,
                     updated_at=self._now_ms_sql(),
                 )
             )
 
+    @db_retry()
     def delete_workflows(self, workflow_ids: list[str]) -> None:
         """Delete workflows and all associated data from the system database."""
         with self.engine.begin() as c:
@@ -1510,7 +1535,6 @@ class SystemDatabase(ABC):
                 )
             )
 
-    @db_retry()
     def rewind_workflow(
         self,
         workflow_id: str,
@@ -1616,18 +1640,16 @@ class SystemDatabase(ABC):
                 )
             )
 
-            # Clear streams' close sentinels
-            closed_value, closed_serialization = serialize_value(
-                _dbos_stream_closed_sentinel,
-                WorkflowSerializationFormat.PORTABLE,
-                self.serializer,
-            )
+            # Clear streams' close sentinels: the rows a reader never reads ahead.
             c.execute(
                 sa.delete(SystemSchema.streams).where(
                     (SystemSchema.streams.c.workflow_uuid == workflow_id)
                     & (SystemSchema.streams.c.function_id >= start_step)
-                    & (SystemSchema.streams.c.value == closed_value)
-                    & (SystemSchema.streams.c.serialization == closed_serialization)
+                    & (
+                        SystemSchema.streams.c.value
+                        == _serialized_stream_closed_sentinel
+                    )
+                    & (SystemSchema.streams.c.serialization == DBOSPortableJSON.name())
                 )
             )
 
@@ -2002,93 +2024,6 @@ class SystemDatabase(ABC):
 
         return forked_workflow_ids
 
-    def fork_from_failure(
-        self,
-        workflow_ids: list[str],
-        *,
-        application_version: Optional[str],
-        queue_name: Optional[str] = None,
-        queue_partition_key: Optional[str] = None,
-        from_last_failure: bool = False,
-        from_last_step: bool = False,
-        from_step: Optional[int] = None,
-        from_step_name: Optional[str] = None,
-    ) -> list[str]:
-        modes = sum(
-            [
-                from_last_failure,
-                from_last_step,
-                from_step is not None,
-                from_step_name is not None,
-            ]
-        )
-        if modes != 1:
-            raise ValueError(
-                "Exactly one of from_last_failure, from_last_step, from_step, "
-                "or from_step_name must be specified"
-            )
-
-        if from_step is not None:
-            start_steps = [from_step] * len(workflow_ids)
-        else:
-            oo = SystemSchema.operation_outputs
-            with self.engine.begin() as c:
-                if from_last_failure:
-                    agg = sa.func.coalesce(
-                        sa.func.max(oo.c.function_id).filter(oo.c.error.is_not(None)),
-                        sa.func.max(oo.c.function_id),
-                    ).label("start_step")
-                    query = (
-                        sa.select(oo.c.workflow_uuid, agg)
-                        .where(oo.c.workflow_uuid.in_(workflow_ids))
-                        .group_by(oo.c.workflow_uuid)
-                    )
-                elif from_last_step:
-                    query = (
-                        sa.select(
-                            oo.c.workflow_uuid,
-                            sa.func.max(oo.c.function_id).label("start_step"),
-                        )
-                        .where(oo.c.workflow_uuid.in_(workflow_ids))
-                        .group_by(oo.c.workflow_uuid)
-                    )
-                else:
-                    # from_step_name: find the last occurrence of the named step
-                    query = (
-                        sa.select(
-                            oo.c.workflow_uuid,
-                            sa.func.max(oo.c.function_id).label("start_step"),
-                        )
-                        .where(
-                            oo.c.workflow_uuid.in_(workflow_ids)
-                            & (oo.c.function_name == from_step_name)
-                        )
-                        .group_by(oo.c.workflow_uuid)
-                    )
-
-                rows = c.execute(query).fetchall()
-
-            start_step_by_id = {row[0]: row[1] for row in rows}
-            if from_step_name is not None:
-                for wid in workflow_ids:
-                    if wid not in start_step_by_id:
-                        raise Exception(
-                            f"Workflow {wid} has no step named '{from_step_name}'"
-                        )
-
-            # A workflow with no recorded steps has nothing to resume from, so restart it from step 1, the beginning.
-            start_steps = [start_step_by_id.get(wid, 1) for wid in workflow_ids]
-
-        forked_ids = [generate_uuid() for _ in workflow_ids]
-        return self.fork_workflow(
-            workflow_ids,
-            forked_ids,
-            start_steps,
-            application_version=application_version,
-            queue_name=queue_name,
-            queue_partition_key=queue_partition_key,
-        )
-
     def get_workflow_status(
         self, workflow_uuid: str
     ) -> Optional[WorkflowStatusInternal]:
@@ -2343,6 +2278,7 @@ class SystemDatabase(ABC):
                 return result
             await asyncio.sleep(polling_interval)
 
+    @db_retry()
     def list_workflows(
         self,
         *,
@@ -2369,6 +2305,7 @@ class SystemDatabase(ABC):
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
+        is_fork: Optional[bool] = None,
         has_parent: Optional[bool] = None,
         attributes: Optional[Dict[str, Any]] = None,
         schedule_name: Optional[str | list[str]] = None,
@@ -2591,6 +2528,16 @@ class SystemDatabase(ABC):
             query = query.where(
                 SystemSchema.workflow_status.c.was_forked_from == was_forked_from
             )
+        # is_fork matches the forks themselves; was_forked_from matches the workflows they were forked from.
+        if is_fork is not None:
+            if is_fork:
+                query = query.where(
+                    SystemSchema.workflow_status.c.forked_from.isnot(None)
+                )
+            else:
+                query = query.where(
+                    SystemSchema.workflow_status.c.forked_from.is_(None)
+                )
         if has_parent is not None:
             if has_parent:
                 query = query.where(
@@ -2695,6 +2642,7 @@ class SystemDatabase(ABC):
                 GetPendingWorkflowsOutput(workflow_id=row.workflow_uuid) for row in rows
             ]
 
+    @db_retry()
     def list_workflow_steps(
         self,
         workflow_id: str,
@@ -2749,434 +2697,6 @@ class SystemDatabase(ABC):
             )
             steps.append(step)
         return steps
-
-    def get_workflow_aggregates(
-        self,
-        *,
-        group_by_status: bool = False,
-        group_by_name: bool = False,
-        group_by_queue_name: bool = False,
-        group_by_executor_id: bool = False,
-        group_by_application_version: bool = False,
-        group_by_application_name: bool = False,
-        select_count: bool = False,
-        select_min_created_at: bool = False,
-        select_max_queue_wait_ms: bool = False,
-        select_max_total_latency_ms: bool = False,
-        time_bucket_size_ms: Optional[int] = None,
-        status: Optional[List[str]] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        completed_after: Optional[str] = None,
-        completed_before: Optional[str] = None,
-        dequeued_after: Optional[str] = None,
-        dequeued_before: Optional[str] = None,
-        name: Optional[List[str]] = None,
-        app_version: Optional[List[str]] = None,
-        executor_id: Optional[List[str]] = None,
-        queue_name: Optional[List[str]] = None,
-        workflow_id_prefix: Optional[List[str]] = None,
-        workflow_ids: Optional[List[str]] = None,
-        forked_from: Optional[List[str]] = None,
-        parent_workflow_id: Optional[List[str]] = None,
-        user: Optional[List[str]] = None,
-        schedule_name: Optional[List[str]] = None,
-        application_name: Optional[List[str]] = None,
-        was_forked_from: Optional[bool] = None,
-        has_parent: Optional[bool] = None,
-        attributes: Optional[Dict[str, Any]] = None,
-    ) -> List[WorkflowAggregateRow]:
-        if time_bucket_size_ms is not None and time_bucket_size_ms <= 0:
-            raise ValueError("time_bucket_size_ms must be > 0")
-
-        # Build group_by columns from boolean flags
-        group_by_flags = [
-            ("status", group_by_status, SystemSchema.workflow_status.c.status),
-            ("name", group_by_name, SystemSchema.workflow_status.c.name),
-            (
-                "queue_name",
-                group_by_queue_name,
-                SystemSchema.workflow_status.c.queue_name,
-            ),
-            (
-                "executor_id",
-                group_by_executor_id,
-                SystemSchema.workflow_status.c.executor_id,
-            ),
-            (
-                "application_version",
-                group_by_application_version,
-                SystemSchema.workflow_status.c.application_version,
-            ),
-            (
-                "application_name",
-                group_by_application_name,
-                SystemSchema.workflow_status.c.application_name,
-            ),
-        ]
-        group_names: List[str] = []
-        group_columns: List[sa.sql.ColumnElement[Any]] = []
-        for col_name, enabled, col in group_by_flags:
-            if enabled:
-                group_names.append(col_name)
-                group_columns.append(col)
-
-        if time_bucket_size_ms is not None:
-            created_at = SystemSchema.workflow_status.c.created_at
-            bucket = sa.literal(time_bucket_size_ms, sa.BigInteger)
-            time_bucket_col = ((created_at // bucket) * bucket).label("time_bucket")
-            group_names.append("time_bucket")
-            group_columns.append(time_bucket_col)
-
-        if not group_columns:
-            raise ValueError("At least one group_by flag must be set to True")
-
-        # Build select columns from boolean flags. MAX ignores NULLs, so rows
-        # missing started_at_epoch_ms or completed_at naturally drop out of the
-        # latency maxes.
-        select_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
-            ("count", select_count, func.count()),
-            (
-                "min_created_at",
-                select_min_created_at,
-                func.min(SystemSchema.workflow_status.c.created_at),
-            ),
-            (
-                "max_queue_wait_ms",
-                select_max_queue_wait_ms,
-                func.max(
-                    SystemSchema.workflow_status.c.started_at_epoch_ms
-                    - SystemSchema.workflow_status.c.created_at
-                ),
-            ),
-            (
-                "max_total_latency_ms",
-                select_max_total_latency_ms,
-                func.max(
-                    SystemSchema.workflow_status.c.completed_at
-                    - SystemSchema.workflow_status.c.created_at
-                ),
-            ),
-        ]
-        select_names: List[str] = []
-        select_columns: List[sa.sql.ColumnElement[Any]] = []
-        for select_name, enabled, agg in select_flags:
-            if enabled:
-                select_names.append(select_name)
-                select_columns.append(agg.label(select_name))
-
-        if not select_columns:
-            raise ValueError("At least one select_ flag must be set to True")
-
-        query = sa.select(*group_columns, *select_columns)
-
-        # Apply filters
-        if status:
-            query = query.where(SystemSchema.workflow_status.c.status.in_(status))
-            # In-flight-only aggregates (the queues page) can then run index-only on idx_workflow_status_in_flight_v2.
-            if set(status) <= {
-                WorkflowStatusString.ENQUEUED.value,
-                WorkflowStatusString.PENDING.value,
-            }:
-                query = query.where(self._in_flight_status_prover())
-        if start_time:
-            query = query.where(
-                SystemSchema.workflow_status.c.created_at
-                >= int(datetime.datetime.fromisoformat(start_time).timestamp() * 1000)
-            )
-        if end_time:
-            query = query.where(
-                SystemSchema.workflow_status.c.created_at
-                <= int(datetime.datetime.fromisoformat(end_time).timestamp() * 1000)
-            )
-        if completed_after:
-            query = query.where(
-                SystemSchema.workflow_status.c.completed_at
-                >= int(
-                    datetime.datetime.fromisoformat(completed_after).timestamp() * 1000
-                )
-            )
-        if completed_before:
-            query = query.where(
-                SystemSchema.workflow_status.c.completed_at
-                <= int(
-                    datetime.datetime.fromisoformat(completed_before).timestamp() * 1000
-                )
-            )
-        # dequeued_after/before filter on started_at_epoch_ms: that column is
-        # populated on dequeue and surfaced as WorkflowStatus.dequeued_at.
-        if dequeued_after:
-            query = query.where(
-                SystemSchema.workflow_status.c.started_at_epoch_ms
-                >= int(
-                    datetime.datetime.fromisoformat(dequeued_after).timestamp() * 1000
-                )
-            )
-        if dequeued_before:
-            query = query.where(
-                SystemSchema.workflow_status.c.started_at_epoch_ms
-                <= int(
-                    datetime.datetime.fromisoformat(dequeued_before).timestamp() * 1000
-                )
-            )
-        if name:
-            query = query.where(SystemSchema.workflow_status.c.name.in_(name))
-        if app_version:
-            query = query.where(
-                SystemSchema.workflow_status.c.application_version.in_(app_version)
-            )
-        if executor_id:
-            query = query.where(
-                SystemSchema.workflow_status.c.executor_id.in_(executor_id)
-            )
-        if queue_name:
-            query = query.where(
-                SystemSchema.workflow_status.c.queue_name.in_(queue_name)
-            )
-        if workflow_id_prefix:
-            query = query.where(
-                sa.or_(
-                    *[
-                        SystemSchema.workflow_status.c.workflow_uuid.startswith(
-                            p, autoescape=True
-                        )
-                        for p in workflow_id_prefix
-                    ]
-                )
-            )
-        if workflow_ids:
-            query = query.where(
-                SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
-            )
-        if forked_from:
-            query = query.where(
-                SystemSchema.workflow_status.c.forked_from.in_(forked_from)
-            )
-        if parent_workflow_id:
-            query = query.where(
-                SystemSchema.workflow_status.c.parent_workflow_id.in_(
-                    parent_workflow_id
-                )
-            )
-        if user:
-            query = query.where(
-                SystemSchema.workflow_status.c.authenticated_user.in_(user)
-            )
-        if schedule_name:
-            query = query.where(
-                SystemSchema.workflow_status.c.schedule_name.in_(schedule_name)
-            )
-        query = query.where(
-            self._observability_filter(
-                SystemSchema.workflow_status.c.application_name, application_name
-            )
-        )
-        if was_forked_from is not None:
-            query = query.where(
-                SystemSchema.workflow_status.c.was_forked_from == was_forked_from
-            )
-        if has_parent is not None:
-            if has_parent:
-                query = query.where(
-                    SystemSchema.workflow_status.c.parent_workflow_id.isnot(None)
-                )
-            else:
-                query = query.where(
-                    SystemSchema.workflow_status.c.parent_workflow_id.is_(None)
-                )
-        if attributes:
-            query = query.where(self._attributes_contains_clause(attributes))
-
-        query = query.group_by(*group_columns)
-
-        with self._observability_query() as c:
-            rows = c.execute(query).fetchall()
-
-        results: List[WorkflowAggregateRow] = []
-        group_offset = len(group_names)
-        select_idx = {name: i for i, name in enumerate(select_names)}
-        for row in rows:
-            group: Dict[str, Optional[str]] = {
-                group_names[i]: str(row[i]) if row[i] is not None else None
-                for i in range(len(group_names))
-            }
-            count_val: Optional[int] = None
-            if (i := select_idx.get("count")) is not None:
-                v = row[group_offset + i]
-                count_val = int(v) if v is not None else None
-            min_created_at_val: Optional[int] = None
-            if (i := select_idx.get("min_created_at")) is not None:
-                v = row[group_offset + i]
-                min_created_at_val = int(v) if v is not None else None
-            max_queue_wait_val: Optional[int] = None
-            if (i := select_idx.get("max_queue_wait_ms")) is not None:
-                v = row[group_offset + i]
-                max_queue_wait_val = int(v) if v is not None else None
-            max_total_latency_val: Optional[int] = None
-            if (i := select_idx.get("max_total_latency_ms")) is not None:
-                v = row[group_offset + i]
-                max_total_latency_val = int(v) if v is not None else None
-            results.append(
-                WorkflowAggregateRow(
-                    group=group,
-                    count=count_val,
-                    min_created_at=min_created_at_val,
-                    max_queue_wait_ms=max_queue_wait_val,
-                    max_total_latency_ms=max_total_latency_val,
-                )
-            )
-        return results
-
-    def get_step_aggregates(
-        self,
-        *,
-        group_by_function_name: bool = False,
-        group_by_status: bool = False,
-        select_count: bool = False,
-        select_max_duration_ms: bool = False,
-        time_bucket_size_ms: Optional[int] = None,
-        status: Optional[List[str]] = None,
-        function_name: Optional[List[str]] = None,
-        workflow_id_prefix: Optional[List[str]] = None,
-        completed_after: Optional[str] = None,
-        completed_before: Optional[str] = None,
-        application_name: Optional[List[str]] = None,
-    ) -> List[StepAggregateRow]:
-        if time_bucket_size_ms is not None and time_bucket_size_ms <= 0:
-            raise ValueError("time_bucket_size_ms must be > 0")
-
-        # operation_outputs has no explicit status column; derive it from
-        # whether `error` is populated. Child-workflow bookkeeping rows
-        # have NULL error and NULL output, so they appear as SUCCESS here —
-        # callers can filter them by function_name.
-        status_expr = sa.case(
-            (
-                SystemSchema.operation_outputs.c.error.is_(None),
-                sa.literal("SUCCESS"),
-            ),
-            else_=sa.literal("ERROR"),
-        )
-
-        # Build group_by columns from boolean flags
-        group_by_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
-            (
-                "function_name",
-                group_by_function_name,
-                SystemSchema.operation_outputs.c.function_name,
-            ),
-            ("status", group_by_status, status_expr),
-        ]
-        group_names: List[str] = []
-        group_columns: List[sa.sql.ColumnElement[Any]] = []
-        for group_col_name, enabled, group_col in group_by_flags:
-            if enabled:
-                group_names.append(group_col_name)
-                group_columns.append(group_col.label(group_col_name))
-
-        if time_bucket_size_ms is not None:
-            # Bucket on completed_at_epoch_ms — it's the indexed timestamp on
-            # this table.
-            completed_at = SystemSchema.operation_outputs.c.completed_at_epoch_ms
-            bucket = sa.literal(time_bucket_size_ms, sa.BigInteger)
-            time_bucket_col = ((completed_at // bucket) * bucket).label("time_bucket")
-            group_names.append("time_bucket")
-            group_columns.append(time_bucket_col)
-
-        if not group_columns:
-            raise ValueError("At least one group_by flag must be set to True")
-
-        # Build select columns from boolean flags. MAX ignores NULLs, so rows
-        # without start/complete timestamps drop out of the duration max.
-        select_flags: List[Tuple[str, bool, sa.sql.ColumnElement[Any]]] = [
-            ("count", select_count, func.count()),
-            (
-                "max_duration_ms",
-                select_max_duration_ms,
-                func.max(
-                    SystemSchema.operation_outputs.c.completed_at_epoch_ms
-                    - SystemSchema.operation_outputs.c.started_at_epoch_ms
-                ),
-            ),
-        ]
-        select_names: List[str] = []
-        select_columns: List[sa.sql.ColumnElement[Any]] = []
-        for select_name, enabled, agg in select_flags:
-            if enabled:
-                select_names.append(select_name)
-                select_columns.append(agg.label(select_name))
-
-        if not select_columns:
-            raise ValueError("At least one select_ flag must be set to True")
-
-        query = sa.select(*group_columns, *select_columns)
-
-        # Apply filters
-        if status:
-            query = query.where(status_expr.in_(status))
-        if function_name:
-            query = query.where(
-                SystemSchema.operation_outputs.c.function_name.in_(function_name)
-            )
-        if workflow_id_prefix:
-            query = query.where(
-                sa.or_(
-                    *[
-                        SystemSchema.operation_outputs.c.workflow_uuid.startswith(
-                            p, autoescape=True
-                        )
-                        for p in workflow_id_prefix
-                    ]
-                )
-            )
-        if completed_after:
-            query = query.where(
-                SystemSchema.operation_outputs.c.completed_at_epoch_ms
-                >= int(
-                    datetime.datetime.fromisoformat(completed_after).timestamp() * 1000
-                )
-            )
-        if completed_before:
-            query = query.where(
-                SystemSchema.operation_outputs.c.completed_at_epoch_ms
-                <= int(
-                    datetime.datetime.fromisoformat(completed_before).timestamp() * 1000
-                )
-            )
-        query = query.where(
-            self._observability_filter(
-                SystemSchema.operation_outputs.c.application_name, application_name
-            )
-        )
-
-        query = query.group_by(*group_columns)
-
-        with self._observability_query() as c:
-            rows = c.execute(query).fetchall()
-
-        results: List[StepAggregateRow] = []
-        group_offset = len(group_names)
-        select_idx = {name: i for i, name in enumerate(select_names)}
-        for row in rows:
-            group: Dict[str, Optional[str]] = {
-                group_names[i]: str(row[i]) if row[i] is not None else None
-                for i in range(len(group_names))
-            }
-            count_val: Optional[int] = None
-            if (i := select_idx.get("count")) is not None:
-                v = row[group_offset + i]
-                count_val = int(v) if v is not None else None
-            max_duration_val: Optional[int] = None
-            if (i := select_idx.get("max_duration_ms")) is not None:
-                v = row[group_offset + i]
-                max_duration_val = int(v) if v is not None else None
-            results.append(
-                StepAggregateRow(
-                    group=group,
-                    count=count_val,
-                    max_duration_ms=max_duration_val,
-                )
-            )
-        return results
 
     def _check_owner_txn(
         self, conn: Union[sa.Connection, Session], workflow_id: str, owner_xid: str
@@ -3312,6 +2832,56 @@ class SystemDatabase(ABC):
 
         record_operation_result_retry()
 
+    def _record_operation_error(
+        self,
+        workflow_id: str,
+        function_id: int,
+        function_name: str,
+        started_at_epoch_ms: int,
+        error: Exception,
+    ) -> None:
+        """Checkpoint an internal operation's failure so a replay re-raises it instead of re-running."""
+        try:
+            serialized_e, serialization = serialize_exception(
+                error, None, self.serializer
+            )
+            deserialize_exception(serialized_e, serialization, self.serializer)
+        except Exception as ser_error:
+            # A checkpoint replay could not load would wedge the workflow; leave it unrecorded so replay re-runs.
+            dbos_logger.warning(
+                f"Not checkpointing {function_name} failure in workflow {workflow_id}: its error cannot be serialized: {ser_error}"
+            )
+            return
+        self.record_operation_result(
+            {
+                "workflow_uuid": workflow_id,
+                "function_id": function_id,
+                "function_name": function_name,
+                "started_at_epoch_ms": started_at_epoch_ms,
+                "output": None,
+                "error": serialized_e,
+                "serialization": serialization,
+                "child_workflow_id": None,
+            }
+        )
+
+    def _raise_recorded_error(self, recorded: RecordedResult) -> None:
+        if recorded["error"] is not None:
+            raise deserialize_exception(
+                recorded["error"], recorded["serialization"], self.serializer
+            )
+
+    def _replay_recorded(self, recorded: RecordedResult, function_name: str) -> Any:
+        """Return a recorded operation's output or re-raise its recorded error."""
+        self._raise_recorded_error(recorded)
+        if recorded["output"] is None:
+            raise Exception(
+                f"Recorded output and error are both None for {function_name}"
+            )
+        return deserialize_value(
+            recorded["output"], recorded["serialization"], self.serializer
+        )
+
     def record_get_result(
         self,
         result_workflow_id: str,
@@ -3364,11 +2934,6 @@ class SystemDatabase(ABC):
     @abstractmethod
     def _is_unique_constraint_violation(self, dbapi_error: DBAPIError) -> bool:
         """Check if the error is a unique constraint violation."""
-        pass
-
-    @abstractmethod
-    def _is_serialization_error(self, dbapi_error: DBAPIError) -> bool:
-        """Check if the error is a serialization/concurrency error."""
         pass
 
     @abstractmethod
@@ -3540,17 +3105,30 @@ class SystemDatabase(ABC):
         `destination_id` but also to every workflow recursively forked from it
         (forks, forks of forks, ...) that exists at send time.
         """
-        with self.engine.begin() as c:
-            self._send_bulk_txn(
-                messages,
-                c,
-                serialization_type=serialization_type,
-                workflow_id=workflow_id,
-                function_id=function_id,
-                function_name=function_name,
-                send_to_forks=send_to_forks,
-                step_workflow_id=step_workflow_id,
-            )
+        start_time = int(time.time() * 1000)
+        recorded: Optional[RecordedResult] = None
+        try:
+            with self.engine.begin() as c:
+                recorded = self._send_bulk_txn(
+                    messages,
+                    c,
+                    serialization_type=serialization_type,
+                    workflow_id=workflow_id,
+                    function_id=function_id,
+                    function_name=function_name,
+                    send_to_forks=send_to_forks,
+                    step_workflow_id=step_workflow_id,
+                )
+        except DBOSNonExistentWorkflowError as e:
+            # A missing destination is the send's answer; the transaction has rolled back, so record it separately.
+            if workflow_id is not None:
+                assert function_id is not None
+                self._record_operation_error(
+                    workflow_id, function_id, function_name, start_time, e
+                )
+            raise
+        if recorded is not None:
+            self._raise_recorded_error(recorded)
 
     def send_bulk_with_connection(
         self,
@@ -3591,7 +3169,8 @@ class SystemDatabase(ABC):
         function_name: str,
         send_to_forks: bool,
         step_workflow_id: Optional[str] = None,
-    ) -> None:
+    ) -> Optional[RecordedResult]:
+        """Returns the recorded result when replaying a previously recorded send."""
         start_time = int(time.time() * 1000)
 
         # Reject duplicate idempotency keys
@@ -3620,7 +3199,7 @@ class SystemDatabase(ABC):
                 dbos_logger.debug(
                     f"Replaying {function_name}, id: {function_id}, messages: {len(messages)}"
                 )
-                return  # Already sent before
+                return recorded_output  # Already sent before
             else:
                 dbos_logger.debug(
                     f"Running {function_name}, id: {function_id}, messages: {len(messages)}"
@@ -3703,6 +3282,7 @@ class SystemDatabase(ABC):
             owner_xid = current_owner_xid(step_workflow_id)
             if owner_xid is not None:
                 self._check_owner_txn(conn, step_workflow_id, owner_xid)
+        return None
 
     @db_retry()
     def recv_setup(
@@ -4190,6 +3770,7 @@ class SystemDatabase(ABC):
             )
             if recorded_output is not None:
                 dbos_logger.debug(f"Replaying set_event, id: {function_id}, key: {key}")
+                self._raise_recorded_error(recorded_output)
                 return  # Already sent before
             else:
                 dbos_logger.debug(f"Running set_event, id: {function_id}, key: {key}")
@@ -4300,6 +3881,7 @@ class SystemDatabase(ABC):
             _dbos_workflow_events_channel, f"{workflow_uuid}::{key}"
         )
 
+    @db_retry()
     def get_all_events(self, workflow_id: str) -> Dict[str, Any]:
         """
         Get all events currently present for a workflow ID.
@@ -4326,73 +3908,6 @@ class SystemDatabase(ABC):
             events[key] = value
 
         return events
-
-    def get_all_notifications(self, workflow_id: str) -> List[NotificationInfo]:
-        """Get all notifications sent to a workflow."""
-        with self._observability_query() as c:
-            rows = c.execute(
-                sa.select(
-                    SystemSchema.notifications.c.topic,
-                    SystemSchema.notifications.c.message,
-                    SystemSchema.notifications.c.serialization,
-                    SystemSchema.notifications.c.created_at_epoch_ms,
-                    SystemSchema.notifications.c.consumed,
-                )
-                .where(SystemSchema.notifications.c.destination_uuid == workflow_id)
-                .order_by(SystemSchema.notifications.c.created_at_epoch_ms)
-            ).fetchall()
-
-        results: List[NotificationInfo] = []
-        for row in rows:
-            topic = row[0]
-            if topic == _dbos_null_topic:
-                topic = None
-            results.append(
-                {
-                    "topic": topic,
-                    "message": deserialize_value(row[1], row[2], self.serializer),
-                    "created_at_epoch_ms": row[3],
-                    "consumed": row[4],
-                }
-            )
-        return results
-
-    def get_all_stream_entries(self, workflow_id: str) -> Dict[str, List[Any]]:
-        """Get all stream entries for a workflow.
-
-        Returns a dict mapping stream keys to lists of deserialized values (ordered by offset).
-        """
-        with self._observability_query() as c:
-            rows = c.execute(
-                sa.select(
-                    SystemSchema.streams.c.key,
-                    SystemSchema.streams.c.value,
-                    SystemSchema.streams.c.offset,
-                    SystemSchema.streams.c.serialization,
-                )
-                .where(SystemSchema.streams.c.workflow_uuid == workflow_id)
-                .order_by(
-                    SystemSchema.streams.c.key,
-                    SystemSchema.streams.c.offset,
-                )
-            ).fetchall()
-
-        streams: Dict[str, List[Any]] = {}
-        closed: Set[str] = set()
-        for row in rows:
-            key = row[0]
-            value_str = row[1]
-            serialization = row[3]
-            value = deserialize_value(value_str, serialization, self.serializer)
-            if key in closed:
-                continue
-            if is_stream_closed_sentinel(value):
-                # End the stream where read_stream does, so the two never disagree.
-                closed.add(key)
-                streams.setdefault(key, [])
-                continue
-            streams.setdefault(key, []).append(value)
-        return streams
 
     @db_retry()
     def get_event_setup(
@@ -4591,6 +4106,29 @@ class SystemDatabase(ABC):
         finally:
             self.workflow_events_map.pop(payload, event)
 
+    def _queue_pending_filter(self, queue_name: str) -> sa.ColumnElement[bool]:
+        """Workflows of this queue already running, which every worker counts against
+        the queue's concurrency limits."""
+        ws = SystemSchema.workflow_status
+        return sa.and_(
+            ws.c.queue_name == queue_name,
+            ws.c.status == WorkflowStatusString.PENDING.value,
+            self._in_flight_status_prover(),
+            self._name_filter(ws.c.application_name, self.app_name),
+        )
+
+    @db_retry()
+    def count_pending_queue_workflows(self, queue_name: str) -> int:
+        """How many of this queue's workflows are running across every worker."""
+        ws = SystemSchema.workflow_status
+        query = (
+            sa.select(sa.func.count())
+            .select_from(ws)
+            .where(self._queue_pending_filter(queue_name))
+        )
+        with self.engine.begin() as c:
+            return c.execute(query).scalar() or 0
+
     @db_retry()
     def get_queue_partitions(self, queue_name: str) -> List[str]:
         """
@@ -4724,7 +4262,9 @@ class SystemDatabase(ABC):
         partition_local_running_count: int = 0,
         *,
         owner_xid: Optional[str] = None,
-    ) -> List[str]:
+    ) -> Tuple[List[str], Optional[DequeueStopReason]]:
+        """Claim this queue's next workflows, plus the limit that left no room to claim any
+        (None if every limit had room)."""
         start_time_ms = int(time.time() * 1000)
         ws = SystemSchema.workflow_status
         # Read the queue's cached private fields, not its accessors, which would re-fetch a database-backed queue. _concurrency is the queue-wide (global) limit.
@@ -4783,10 +4323,7 @@ class SystemDatabase(ABC):
                 query = (
                     sa.select(sa.func.count())
                     .select_from(ws)
-                    .where(ws.c.queue_name == queue.name)
-                    .where(ws.c.status == WorkflowStatusString.PENDING.value)
-                    .where(self._in_flight_status_prover())
-                    .where(self._name_filter(ws.c.application_name, self.app_name))
+                    .where(self._queue_pending_filter(queue.name))
                 )
                 if partition_scoped:
                     query = query.where(ws.c.queue_partition_key == queue_partition_key)
@@ -4800,6 +4337,8 @@ class SystemDatabase(ABC):
                 max_tasks = min(
                     max_tasks, max(0, queue._worker_concurrency - local_running_count)
                 )
+                if max_tasks <= 0:
+                    return [], "worker_concurrency"
             if queue._partition_worker_concurrency is not None:
                 max_tasks = min(
                     max_tasks,
@@ -4809,18 +4348,20 @@ class SystemDatabase(ABC):
                         - partition_local_running_count,
                     ),
                 )
-            if max_tasks <= 0:
-                return []
+                if max_tasks <= 0:
+                    return [], "partition_worker_concurrency"
 
             if queue._limiter is not None:
                 # Bound the claim by the limiter's remaining slots so a backlogged queue locks only what it can start.
                 max_tasks = min(max_tasks, rate_limit_remaining(queue._limiter, False))
+                if max_tasks <= 0:
+                    return [], "limiter"
             if queue._partition_limiter is not None:
                 max_tasks = min(
                     max_tasks, rate_limit_remaining(queue._partition_limiter, True)
                 )
-            if max_tasks <= 0:
-                return []
+                if max_tasks <= 0:
+                    return [], "partition_limiter"
 
             if queue._concurrency is not None:
                 # Global concurrency still requires a DB query since other workers may be running workflows too.
@@ -4833,6 +4374,8 @@ class SystemDatabase(ABC):
                     max_tasks,
                     max(0, queue._concurrency - global_pending_workflows),
                 )
+                if max_tasks <= 0:
+                    return [], "concurrency"
             if queue._partition_concurrency is not None:
                 partition_pending_workflows = pending_count(True)
                 if partition_pending_workflows > queue._partition_concurrency:
@@ -4843,8 +4386,8 @@ class SystemDatabase(ABC):
                     max_tasks,
                     max(0, queue._partition_concurrency - partition_pending_workflows),
                 )
-            if max_tasks <= 0:
-                return []
+                if max_tasks <= 0:
+                    return [], "partition_concurrency"
 
             latest_version = c.execute(
                 sa.select(SystemSchema.application_versions.c.version_name)
@@ -4975,7 +4518,7 @@ class SystemDatabase(ABC):
                 claimed.update(row[0] for row in flipped_rows)
 
             # Return the IDs of all functions we started, in dequeue order: RETURNING order is unspecified.
-            return [id for id in dequeued_ids if id in claimed]
+            return [id for id in dequeued_ids if id in claimed], None
 
     # Max heads dequeued per partitioned sweep: bounds the IN-list bind params below (SQLite caps at 32766, libpq at 65535); leftover partitions rotate in on later polls via the PENDING gate.
     PARTITIONED_DEQUEUE_SWEEP_CAP = 8192
@@ -5210,45 +4753,34 @@ class SystemDatabase(ABC):
         self, fn: Callable[[], T], function_name: str, ctx: Optional[DBOSContext]
     ) -> T:
         start_time = int(time.time() * 1000)
-        if ctx and ctx.is_workflow():
-            res = self.check_operation_execution(
-                ctx.workflow_id, ctx.function_id, function_name
+        if not (ctx and ctx.is_workflow()):
+            return fn()
+        res = self.check_operation_execution(
+            ctx.workflow_id, ctx.function_id, function_name
+        )
+        if res is not None:
+            return cast(SystemDatabase.T, self._replay_recorded(res, function_name))
+        try:
+            result = fn()
+        except Exception as e:
+            # The operation retries its own transient database errors, so what escapes is its answer.
+            self._record_operation_error(
+                ctx.workflow_id, ctx.function_id, function_name, start_time, e
             )
-            if res is not None:
-                if res["output"] is not None:
-                    resstat: SystemDatabase.T = cast(
-                        SystemDatabase.T,
-                        deserialize_value(
-                            res["output"],
-                            res["serialization"],
-                            self.serializer,
-                        ),
-                    )
-                    return resstat
-                elif res["error"] is not None:
-                    e: Exception = deserialize_exception(
-                        res["error"], res["serialization"], self.serializer
-                    )
-                    raise e
-                else:
-                    raise Exception(
-                        f"Recorded output and error are both None for {function_name}"
-                    )
-        result = fn()
-        if ctx and ctx.is_workflow():
-            serval, serialization = serialize_value(result, None, self.serializer)
-            self.record_operation_result(
-                {
-                    "workflow_uuid": ctx.workflow_id,
-                    "function_id": ctx.function_id,
-                    "function_name": function_name,
-                    "started_at_epoch_ms": start_time,
-                    "output": serval,
-                    "serialization": serialization,
-                    "error": None,
-                    "child_workflow_id": None,
-                }
-            )
+            raise
+        serval, serialization = serialize_value(result, None, self.serializer)
+        self.record_operation_result(
+            {
+                "workflow_uuid": ctx.workflow_id,
+                "function_id": ctx.function_id,
+                "function_name": function_name,
+                "started_at_epoch_ms": start_time,
+                "output": serval,
+                "serialization": serialization,
+                "error": None,
+                "child_workflow_id": None,
+            }
+        )
         return result
 
     async def call_coroutine_as_step(
@@ -5258,48 +4790,43 @@ class SystemDatabase(ABC):
         ctx: Optional[DBOSContext],
     ) -> T:
         start_time = int(time.time() * 1000)
-        if ctx and ctx.is_workflow():
-            res = await asyncio.to_thread(
-                self.check_operation_execution,
+        if not (ctx and ctx.is_workflow()):
+            return await fn()
+        res = await asyncio.to_thread(
+            self.check_operation_execution,
+            ctx.workflow_id,
+            ctx.function_id,
+            function_name,
+        )
+        if res is not None:
+            return cast(SystemDatabase.T, self._replay_recorded(res, function_name))
+        try:
+            result = await fn()
+        except Exception as e:
+            # The operation retries its own transient database errors, so what escapes is its answer.
+            await asyncio.to_thread(
+                self._record_operation_error,
                 ctx.workflow_id,
                 ctx.function_id,
                 function_name,
+                start_time,
+                e,
             )
-            if res is not None:
-                if res["output"] is not None:
-                    return cast(
-                        SystemDatabase.T,
-                        deserialize_value(
-                            res["output"],
-                            res["serialization"],
-                            self.serializer,
-                        ),
-                    )
-                elif res["error"] is not None:
-                    e: Exception = deserialize_exception(
-                        res["error"], res["serialization"], self.serializer
-                    )
-                    raise e
-                else:
-                    raise Exception(
-                        f"Recorded output and error are both None for {function_name}"
-                    )
-        result = await fn()
-        if ctx and ctx.is_workflow():
-            serval, serialization = serialize_value(result, None, self.serializer)
-            await asyncio.to_thread(
-                self.record_operation_result,
-                {
-                    "workflow_uuid": ctx.workflow_id,
-                    "function_id": ctx.function_id,
-                    "function_name": function_name,
-                    "started_at_epoch_ms": start_time,
-                    "output": serval,
-                    "serialization": serialization,
-                    "error": None,
-                    "child_workflow_id": None,
-                },
-            )
+            raise
+        serval, serialization = serialize_value(result, None, self.serializer)
+        await asyncio.to_thread(
+            self.record_operation_result,
+            {
+                "workflow_uuid": ctx.workflow_id,
+                "function_id": ctx.function_id,
+                "function_name": function_name,
+                "started_at_epoch_ms": start_time,
+                "output": serval,
+                "serialization": serialization,
+                "error": None,
+                "child_workflow_id": None,
+            },
+        )
         return result
 
     @db_retry()
@@ -5696,6 +5223,7 @@ class SystemDatabase(ABC):
                     dbos_logger.debug(
                         f"Replaying writeStream, id: {function_id}, key: {key}"
                     )
+                    self._raise_recorded_error(recorded_output)
                     return
 
                 try:
@@ -5770,31 +5298,34 @@ class SystemDatabase(ABC):
         self.streams_map.pop(payload, event)
 
     @db_retry()
-    def read_stream_value(
-        self, workflow_uuid: str, key: str, offset: int
-    ) -> Tuple[Optional[str], Any]:
-        """Read the stream value at offset and the owning workflow's status in one round trip.
+    def read_stream_values(
+        self, workflow_uuid: str, key: str, offset: int, limit: int
+    ) -> Tuple[Optional[str], List[Tuple[Optional[str], Optional[str]]]]:
+        """Read up to limit consecutive serialized stream values from offset and the owning workflow's status in one round trip.
 
-        Returns (status, value). status is None if the workflow does not exist; value is
-        _no_stream_value if nothing is written at offset. Both come from one statement, so they
-        share a snapshot. A terminal status does not imply the stream is complete: cancel and
-        timeout set it out-of-band while the workflow is still running, so a caller that stops
-        reading must first drain to the first empty offset.
+        Returns (status, values). status is None if the workflow does not exist; values holds the
+        (serialized value, serialization) pairs at offset, offset + 1, ... up to the first offset
+        with nothing written, so it is empty if nothing is written at offset. The reader
+        deserializes each value when it delivers it. Both come from one statement, so they share a
+        snapshot. A terminal status does not imply the stream is complete: cancel and timeout set
+        it out-of-band while the workflow is still running, so a caller that stops reading must
+        first drain to the first empty offset.
         """
-        # LEFT JOIN so a workflow with nothing at offset still reports its status. Matching offset
-        # exactly keeps this a single index lookup on the (workflow_uuid, key, offset) primary key.
+        # LEFT JOIN so a workflow with nothing at offset still reports its status. The offset range
+        # keeps this a single range scan on the (workflow_uuid, key, offset) primary key.
         join = SystemSchema.workflow_status.outerjoin(
             SystemSchema.streams,
             sa.and_(
                 SystemSchema.streams.c.workflow_uuid
                 == SystemSchema.workflow_status.c.workflow_uuid,
                 SystemSchema.streams.c.key == key,
-                SystemSchema.streams.c.offset == offset,
+                SystemSchema.streams.c.offset >= offset,
+                SystemSchema.streams.c.offset < offset + limit,
             ),
         )
         # Polling read (listener-less clients poll the offset) under the limiter; inside db_retry so the permit frees across backoff.
         with self.poll_limiter, self.engine.begin() as c:
-            row = c.execute(
+            rows = c.execute(
                 sa.select(
                     SystemSchema.workflow_status.c.status,
                     SystemSchema.streams.c.value,
@@ -5803,387 +5334,18 @@ class SystemDatabase(ABC):
                 )
                 .select_from(join)
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_uuid)
-            ).fetchone()
-
-        if row is None:
-            return None, _no_stream_value
-        # streams.offset is non-nullable, so a NULL here means the join matched nothing at offset.
-        if row[3] is None:
-            return row[0], _no_stream_value
-        return row[0], deserialize_value(row[1], row[2], self.serializer)
-
-    def _retry_on_serialization_error(self, operation: Callable[[], T]) -> T:
-        """Re-run a batch that lost a deadlock or serialization race. The database
-        already rolled it back, so replaying it is safe."""
-        max_attempts, backoff, max_backoff = 10, 0.05, 2.0
-        for attempt in range(1, max_attempts + 1):
-            try:
-                return operation()
-            except DBAPIError as e:
-                if not self._is_serialization_error(e):
-                    raise
-                if attempt == max_attempts:
-                    dbos_logger.warning(
-                        f"Garbage collection failed after {max_attempts} attempts: {str(e.orig)}"
-                    )
-                    raise
-                # Jittered backoff, so peers that collided do not collide again
-                actual_backoff = backoff * (0.5 + random.random())
-                dbos_logger.warning(
-                    f"Contention or deadlock detected in workflow garbage collection: {str(e.orig)}. "
-                    f"Retrying in {actual_backoff:.2f}s (attempt {attempt})"
-                )
-                time.sleep(actual_backoff)
-                backoff = min(backoff * 2, max_backoff)
-        raise AssertionError("unreachable")
-
-    def garbage_collect_payloads(
-        self,
-        cutoff: int,
-        *,
-        batch_size: int = DEFAULT_GC_BATCH_SIZE,
-    ) -> tuple[int, int, int]:
-        """Delete payload and step rows below the cutoff whose workflow is gone,
-        returning the count removed from each table. Runs after the status sweep,
-        whose orphans all fall in range: every payload is stamped no later than
-        the completion that made the row collectable."""
-        if batch_size < 1:
-            raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
-        payload_tables = (
-            SystemSchema.workflow_input,
-            SystemSchema.workflow_output,
-            SystemSchema.operation_outputs,
-        )
-        ws = SystemSchema.workflow_status
-
-        def garbage_collect_table(table: sa.Table) -> int:
-            """Delete a table's orphans below the cutoff, one batch per transaction."""
-            total = 0
-            ts = table.c.retention_timestamp
-            # A payload below the cutoff belongs to a workflow created before it, so the
-            # status side is the few such rows still present, not the whole table.
-            orphaned = ~sa.exists(
-                sa.select(sa.literal(1))
-                .select_from(ws)
-                .where(
-                    ws.c.workflow_uuid == table.c.workflow_uuid,
-                    ws.c.created_at < cutoff,
-                )
-                .correlate(table)
-            )
-
-            # Seed from the oldest row in range.
-            def seed() -> Optional[int]:
-                with self.engine.begin() as c:
-                    return cast(
-                        Optional[int],
-                        c.execute(
-                            sa.select(ts).where(ts < cutoff).order_by(ts).limit(1)
-                        ).scalar(),
-                    )
-
-            oldest = self._retry_on_serialization_error(seed)
-            if oldest is None:
-                return 0
-            watermark = oldest - 1
-
-            def delete_batch(watermark: int) -> Optional[int]:
-                """Delete one batch, returning the watermark to resume from, or
-                None when this table is done."""
-                nonlocal total
-                with self.engine.begin() as c:
-                    # Batches are cut by candidate count, so rows spared by the
-                    # anti-join only thin one out; they are re-checked next round.
-                    step: Optional[int] = c.execute(
-                        sa.select(ts)
-                        .where(ts < cutoff, ts > watermark)
-                        .order_by(ts)
-                        .limit(1)
-                        .offset(batch_size - 1)
-                    ).scalar()
-                    bounds: List[sa.ColumnElement[bool]] = [
-                        ts < cutoff,
-                        ts > watermark,
-                        orphaned,
-                    ]
-                    if step is not None:
-                        # timestamp ties may push the batch slightly over batch_size
-                        bounds.append(ts <= step)
-                    total += c.execute(sa.delete(table).where(*bounds)).rowcount
-                    return step
-
-            while True:
-                next_watermark = self._retry_on_serialization_error(
-                    functools.partial(delete_batch, watermark)
-                )
-                if next_watermark is None:
-                    break
-                watermark = next_watermark
-            return total
-
-        # To optimize performance, vacuum payload tables both before and after garbage-collecting them.
-        table_names = [table.name for table in payload_tables]
-        self._vacuum_tables([ws.name, *table_names])
-
-        # Garbage-collect the three payload tables concurrently.
-        deleted = [0] * len(payload_tables)
-        errors: List[Optional[BaseException]] = [None] * len(payload_tables)
-
-        def sweep(i: int, table: sa.Table) -> None:
-            try:
-                deleted[i] = garbage_collect_table(table)
-            except BaseException as e:
-                errors[i] = e
-
-        threads = [
-            threading.Thread(
-                target=sweep,
-                args=(i, table),
-                daemon=True,
-                name=f"dbos-gc-payload-{table.name}",
-            )
-            for i, table in enumerate(payload_tables)
-        ]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-        failures = [e for e in errors if e is not None]
-        # Only the first can be raised, so the rest would otherwise be lost.
-        for extra in failures[1:]:
-            dbos_logger.warning(f"Payload retention sweep also failed: {extra}")
-        if failures:
-            raise failures[0]
-
-        self._vacuum_tables(table_names)
-        dbos_logger.debug(
-            f"Payload retention deleted {deleted[0]} inputs, {deleted[1]} outputs, "
-            f"and {deleted[2]} steps"
-        )
-        return deleted[0], deleted[1], deleted[2]
-
-    @contextmanager
-    def retention_lock(self) -> Generator[bool, None, None]:
-        """Hold a database-wide lock for one retention round, yielding whether it
-        was taken. Engines without advisory locks always yield True."""
-        yield True
-
-    def _vacuum_tables(self, tables: List[str]) -> None:
-        """VACUUM the tables the sweep just dirtied. No-op where there is no
-        autovacuum to outrun."""
-
-    def garbage_collect(
-        self,
-        cutoff_epoch_timestamp_ms: Optional[int],
-        rows_threshold: Optional[int],
-        batch_size: int,
-    ) -> Optional[int]:
-        """Delete old terminal workflows throughout the system database, returning
-        the cutoff actually used, or None when there is nothing to collect."""
-        if batch_size < 1:
-            raise ValueError(f"batch_size must be a positive integer, got {batch_size}")
-        if rows_threshold is not None:
-            # The completed_at of the rows_threshold newest completed row.
-            def threshold_probe() -> Optional[int]:
-                with self.engine.begin() as c:
-                    return cast(
-                        Optional[int],
-                        c.execute(
-                            sa.select(SystemSchema.workflow_status.c.completed_at)
-                            .where(
-                                SystemSchema.workflow_status.c.completed_at.isnot(None)
-                            )
-                            .order_by(
-                                SystemSchema.workflow_status.c.completed_at.desc()
-                            )
-                            .limit(1)
-                            .offset(rows_threshold - 1)
-                        ).scalar(),
-                    )
-
-            rows_based_cutoff = self._retry_on_serialization_error(threshold_probe)
-            # Use the more restrictive cutoff: higher timestamp means more deletion
-            if rows_based_cutoff is not None and (
-                cutoff_epoch_timestamp_ms is None
-                or rows_based_cutoff > cutoff_epoch_timestamp_ms
-            ):
-                cutoff_epoch_timestamp_ms = rows_based_cutoff
-
-        if cutoff_epoch_timestamp_ms is None:
-            return None
-
-        # completed_at is set on every terminal transition and cleared on resume, so one
-        # predicate covers eligibility: in-flight rows hold NULL and never compare true.
-        gc_filter = SystemSchema.workflow_status.c.completed_at < sa.literal(
-            cutoff_epoch_timestamp_ms, sa.BigInteger
-        )
-
-        # Batch-delete by advancing a completed_at watermark, one committed transaction per batch
-        def delete_batch(watermark: int) -> Optional[int]:
-            """Delete one batch, returning the watermark to resume from, or None when done."""
-            with self.engine.begin() as c:
-                # Find the completed_at of the batch_size-th oldest eligible row above the watermark
-                step: Optional[int] = c.execute(
-                    sa.select(SystemSchema.workflow_status.c.completed_at)
-                    .where(
-                        gc_filter,
-                        SystemSchema.workflow_status.c.completed_at > watermark,
-                    )
-                    .order_by(SystemSchema.workflow_status.c.completed_at)
-                    .limit(1)
-                    .offset(batch_size - 1)
-                ).scalar()
-                if step is None:
-                    # Unbounded: an import can land a completed_at below the watermark mid-pass.
-                    c.execute(sa.delete(SystemSchema.workflow_status).where(gc_filter))
-                    return None
-                # completed_at ties may push the batch slightly over batch_size
-                c.execute(
-                    sa.delete(SystemSchema.workflow_status).where(
-                        gc_filter,
-                        SystemSchema.workflow_status.c.completed_at > watermark,
-                        SystemSchema.workflow_status.c.completed_at <= step,
-                    )
-                )
-                return step
-
-        # Seeded from the oldest eligible row
-        def status_seed() -> Optional[int]:
-            with self.engine.begin() as c:
-                return cast(
-                    Optional[int],
-                    c.execute(
-                        sa.select(SystemSchema.workflow_status.c.completed_at)
-                        .where(gc_filter)
-                        .order_by(SystemSchema.workflow_status.c.completed_at)
-                        .limit(1)
-                    ).scalar(),
-                )
-
-        oldest = self._retry_on_serialization_error(status_seed)
-        watermark = 0 if oldest is None else oldest - 1
-        while True:
-            next_watermark = self._retry_on_serialization_error(
-                functools.partial(delete_batch, watermark)
-            )
-            if next_watermark is None:
-                break
-            watermark = next_watermark
-
-        return cutoff_epoch_timestamp_ms
-
-    def list_timed_out_workflow_ids(self, cutoff_epoch_timestamp_ms: int) -> List[str]:
-        """IDs of this application's in-flight workflows created before the cutoff.
-        Claiming-scoped, so an upgrade still times out its own unclaimed workflows."""
-        with self.engine.begin() as c:
-            rows = c.execute(
-                sa.select(SystemSchema.workflow_status.c.workflow_uuid).where(
-                    SystemSchema.workflow_status.c.status.in_(
-                        [
-                            WorkflowStatusString.PENDING.value,
-                            WorkflowStatusString.ENQUEUED.value,
-                            WorkflowStatusString.DELAYED.value,
-                        ]
-                    ),
-                    SystemSchema.workflow_status.c.created_at
-                    <= sa.literal(cutoff_epoch_timestamp_ms, sa.BigInteger),
-                    self._name_filter(
-                        SystemSchema.workflow_status.c.application_name, self.app_name
-                    ),
-                )
+                .order_by(SystemSchema.streams.c.offset)
             ).fetchall()
-            return [row[0] for row in rows]
 
-    def get_metrics(
-        self,
-        start_time: str,
-        end_time: str,
-        application_name: Optional[List[str]] = None,
-    ) -> List[MetricData]:
-        """
-        Retrieve the number of workflows and steps that ran in a time range.
-
-        Args:
-            start_time: ISO 8601 formatted start time
-            end_time: ISO 8601 formatted end time
-            application_name: Count only workflows and steps owned by these
-                applications. By default, only count this application's.
-        """
-        # Convert ISO 8601 times to epoch milliseconds
-        start_epoch_ms = int(
-            datetime.datetime.fromisoformat(start_time).timestamp() * 1000
-        )
-        end_epoch_ms = int(datetime.datetime.fromisoformat(end_time).timestamp() * 1000)
-
-        metrics: List[MetricData] = []
-
-        with self._observability_query() as c:
-            # Query workflow metrics
-            workflow_query = (
-                sa.select(
-                    SystemSchema.workflow_status.c.name,
-                    func.count(SystemSchema.workflow_status.c.workflow_uuid).label(
-                        "count"
-                    ),
-                )
-                .where(
-                    sa.and_(
-                        SystemSchema.workflow_status.c.created_at >= start_epoch_ms,
-                        SystemSchema.workflow_status.c.created_at < end_epoch_ms,
-                    )
-                )
-                .group_by(SystemSchema.workflow_status.c.name)
-            )
-            workflow_query = workflow_query.where(
-                self._observability_filter(
-                    SystemSchema.workflow_status.c.application_name, application_name
-                )
-            )
-
-            workflow_results = c.execute(workflow_query).fetchall()
-
-            # Query step metrics
-            step_query = (
-                sa.select(
-                    SystemSchema.operation_outputs.c.function_name,
-                    func.count().label("count"),
-                )
-                .where(
-                    sa.and_(
-                        SystemSchema.operation_outputs.c.completed_at_epoch_ms
-                        >= start_epoch_ms,
-                        SystemSchema.operation_outputs.c.completed_at_epoch_ms
-                        < end_epoch_ms,
-                    )
-                )
-                .group_by(SystemSchema.operation_outputs.c.function_name)
-            )
-            step_query = step_query.where(
-                self._observability_filter(
-                    SystemSchema.operation_outputs.c.application_name, application_name
-                )
-            )
-
-            step_results = c.execute(step_query).fetchall()
-
-        for row in workflow_results:
-            metrics.append(
-                MetricData(
-                    metric_type="workflow_count",
-                    metric_name=row[0],
-                    value=row[1],
-                )
-            )
-        for row in step_results:
-            metrics.append(
-                MetricData(
-                    metric_type="step_count",
-                    metric_name=row[0],
-                    value=row[1],
-                )
-            )
-
-        return metrics
+        if not rows:
+            return None, []
+        values: List[Tuple[Optional[str], Optional[str]]] = []
+        # streams.offset is non-nullable, so a NULL here means the join matched nothing from offset.
+        for row in rows:
+            if row[3] != offset + len(values):
+                break
+            values.append((row[1], row[2]))
+        return rows[0][0], values
 
     @db_retry()
     def get_checkpoint_name(
@@ -6261,6 +5423,7 @@ class SystemDatabase(ABC):
             ).fetchall()
         return [row[0] for row in child_rows]
 
+    @db_retry()
     def get_workflow_children(self, workflow_id: str) -> list[str]:
         """
         Recursively get all child workflow IDs for a workflow.
@@ -6278,374 +5441,6 @@ class SystemDatabase(ABC):
             frontier = [c for c in children if c not in descendants]
             descendants.update(frontier)
         return list(descendants)
-
-    def export_workflow(
-        self, workflow_id: str, *, export_children: bool
-    ) -> list[ExportedWorkflow]:
-        """
-        Export all entries for a workflow in a portable format.
-
-        Args:
-            workflow_id: The workflow UUID to export
-            export_children: If True, also export all child workflows recursively
-
-        Returns:
-            A list of ExportedWorkflow containing all workflow data
-        """
-        workflow_ids = [workflow_id]
-        if export_children:
-            workflow_ids.extend(self.get_workflow_children(workflow_id))
-
-        exported_workflows: list[ExportedWorkflow] = []
-
-        with self.engine.begin() as c:
-            for wf_id in workflow_ids:
-                # Export workflow_status
-                status_row = c.execute(
-                    sa.select(
-                        SystemSchema.workflow_status.c.workflow_uuid,
-                        SystemSchema.workflow_status.c.status,
-                        SystemSchema.workflow_status.c.name,
-                        SystemSchema.workflow_status.c.authenticated_user,
-                        SystemSchema.workflow_status.c.assumed_role,
-                        SystemSchema.workflow_status.c.authenticated_roles,
-                        sa.func.coalesce(
-                            SystemSchema.workflow_output.c.output,
-                            SystemSchema.workflow_status.c.output,
-                        ),
-                        sa.func.coalesce(
-                            SystemSchema.workflow_output.c.error,
-                            SystemSchema.workflow_status.c.error,
-                        ),
-                        SystemSchema.workflow_status.c.executor_id,
-                        SystemSchema.workflow_status.c.created_at,
-                        SystemSchema.workflow_status.c.updated_at,
-                        SystemSchema.workflow_status.c.application_version,
-                        SystemSchema.workflow_status.c.application_id,
-                        SystemSchema.workflow_status.c.class_name,
-                        SystemSchema.workflow_status.c.config_name,
-                        SystemSchema.workflow_status.c.recovery_attempts,
-                        SystemSchema.workflow_status.c.queue_name,
-                        SystemSchema.workflow_status.c.workflow_timeout_ms,
-                        SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
-                        SystemSchema.workflow_status.c.started_at_epoch_ms,
-                        SystemSchema.workflow_status.c.deduplication_id,
-                        sa.func.coalesce(
-                            SystemSchema.workflow_input.c.inputs,
-                            SystemSchema.workflow_status.c.inputs,
-                        ),
-                        SystemSchema.workflow_status.c.priority,
-                        SystemSchema.workflow_status.c.queue_partition_key,
-                        SystemSchema.workflow_status.c.forked_from,
-                        SystemSchema.workflow_status.c.parent_workflow_id,
-                        SystemSchema.workflow_status.c.serialization,
-                        SystemSchema.workflow_status.c.delay_until_epoch_ms,
-                        SystemSchema.workflow_status.c.was_forked_from,
-                        SystemSchema.workflow_status.c.rate_limited,
-                        SystemSchema.workflow_status.c.completed_at,
-                        SystemSchema.workflow_status.c.attributes,
-                        SystemSchema.workflow_status.c.schedule_name,
-                        SystemSchema.workflow_status.c.debounce_deadline_epoch_ms,
-                        SystemSchema.workflow_status.c.is_debounced,
-                        SystemSchema.workflow_status.c.application_name,
-                        # creator_xid and owner_xid are intentionally omitted: they
-                        # are transient tokens, not logical workflow state,
-                        # and a source database's tokens are meaningless in the target.
-                    )
-                    .select_from(
-                        SystemSchema.workflow_status.outerjoin(
-                            SystemSchema.workflow_input,
-                            SystemSchema.workflow_status.c.workflow_uuid
-                            == SystemSchema.workflow_input.c.workflow_uuid,
-                        ).outerjoin(
-                            SystemSchema.workflow_output,
-                            SystemSchema.workflow_status.c.workflow_uuid
-                            == SystemSchema.workflow_output.c.workflow_uuid,
-                        )
-                    )
-                    .where(SystemSchema.workflow_status.c.workflow_uuid == wf_id)
-                ).fetchone()
-
-                if status_row is None:
-                    raise DBOSNonExistentWorkflowError("export", wf_id)
-
-                workflow_status: dict[str, Any] = {
-                    "workflow_uuid": status_row[0],
-                    "status": status_row[1],
-                    "name": status_row[2],
-                    "authenticated_user": status_row[3],
-                    "assumed_role": status_row[4],
-                    "authenticated_roles": status_row[5],
-                    "output": status_row[6],
-                    "error": status_row[7],
-                    "executor_id": status_row[8],
-                    "created_at": status_row[9],
-                    "updated_at": status_row[10],
-                    "application_version": status_row[11],
-                    "application_id": status_row[12],
-                    "class_name": status_row[13],
-                    "config_name": status_row[14],
-                    "recovery_attempts": status_row[15],
-                    "queue_name": status_row[16],
-                    "workflow_timeout_ms": status_row[17],
-                    "workflow_deadline_epoch_ms": status_row[18],
-                    "started_at_epoch_ms": status_row[19],
-                    "deduplication_id": status_row[20],
-                    "inputs": status_row[21],
-                    "priority": status_row[22],
-                    "queue_partition_key": status_row[23],
-                    "forked_from": status_row[24],
-                    "parent_workflow_id": status_row[25],
-                    "serialization": status_row[26],
-                    "delay_until_epoch_ms": status_row[27],
-                    "was_forked_from": status_row[28],
-                    "rate_limited": status_row[29],
-                    "completed_at": status_row[30],
-                    "attributes": status_row[31],
-                    "schedule_name": status_row[32],
-                    "debounce_deadline_epoch_ms": status_row[33],
-                    "is_debounced": status_row[34],
-                    "application_name": status_row[35],
-                }
-
-                # Export operation_outputs
-                output_rows = c.execute(
-                    sa.select(
-                        SystemSchema.operation_outputs.c.workflow_uuid,
-                        SystemSchema.operation_outputs.c.function_id,
-                        SystemSchema.operation_outputs.c.function_name,
-                        SystemSchema.operation_outputs.c.output,
-                        SystemSchema.operation_outputs.c.error,
-                        SystemSchema.operation_outputs.c.child_workflow_id,
-                        SystemSchema.operation_outputs.c.started_at_epoch_ms,
-                        SystemSchema.operation_outputs.c.completed_at_epoch_ms,
-                        SystemSchema.operation_outputs.c.serialization,
-                        SystemSchema.operation_outputs.c.application_name,
-                    ).where(SystemSchema.operation_outputs.c.workflow_uuid == wf_id)
-                ).fetchall()
-
-                operation_outputs: list[dict[str, Any]] = [
-                    {
-                        "workflow_uuid": row[0],
-                        "function_id": row[1],
-                        "function_name": row[2],
-                        "output": row[3],
-                        "error": row[4],
-                        "child_workflow_id": row[5],
-                        "started_at_epoch_ms": row[6],
-                        "completed_at_epoch_ms": row[7],
-                        "serialization": row[8],
-                        "application_name": row[9],
-                    }
-                    for row in output_rows
-                ]
-
-                # Export workflow_events
-                event_rows = c.execute(
-                    sa.select(
-                        SystemSchema.workflow_events.c.workflow_uuid,
-                        SystemSchema.workflow_events.c.key,
-                        SystemSchema.workflow_events.c.value,
-                        SystemSchema.workflow_events.c.serialization,
-                    ).where(SystemSchema.workflow_events.c.workflow_uuid == wf_id)
-                ).fetchall()
-
-                workflow_events: list[dict[str, Any]] = [
-                    {
-                        "workflow_uuid": row[0],
-                        "key": row[1],
-                        "value": row[2],
-                        "serialization": row[3],
-                    }
-                    for row in event_rows
-                ]
-
-                # Export workflow_events_history
-                history_rows = c.execute(
-                    sa.select(
-                        SystemSchema.workflow_events_history.c.workflow_uuid,
-                        SystemSchema.workflow_events_history.c.key,
-                        SystemSchema.workflow_events_history.c.value,
-                        SystemSchema.workflow_events_history.c.function_id,
-                        SystemSchema.workflow_events_history.c.serialization,
-                    ).where(
-                        SystemSchema.workflow_events_history.c.workflow_uuid == wf_id
-                    )
-                ).fetchall()
-
-                workflow_events_history: list[dict[str, Any]] = [
-                    {
-                        "workflow_uuid": row[0],
-                        "key": row[1],
-                        "value": row[2],
-                        "function_id": row[3],
-                        "serialization": row[4],
-                    }
-                    for row in history_rows
-                ]
-
-                # Export streams
-                stream_rows = c.execute(
-                    sa.select(
-                        SystemSchema.streams.c.workflow_uuid,
-                        SystemSchema.streams.c.key,
-                        SystemSchema.streams.c.value,
-                        SystemSchema.streams.c.offset,
-                        SystemSchema.streams.c.function_id,
-                        SystemSchema.streams.c.serialization,
-                    ).where(SystemSchema.streams.c.workflow_uuid == wf_id)
-                ).fetchall()
-
-                streams: list[dict[str, Any]] = [
-                    {
-                        "workflow_uuid": row[0],
-                        "key": row[1],
-                        "value": row[2],
-                        "offset": row[3],
-                        "function_id": row[4],
-                        "serialization": row[5],
-                    }
-                    for row in stream_rows
-                ]
-
-                exported_workflows.append(
-                    ExportedWorkflow(
-                        workflow_status=workflow_status,
-                        operation_outputs=operation_outputs,
-                        workflow_events=workflow_events,
-                        workflow_events_history=workflow_events_history,
-                        streams=streams,
-                    )
-                )
-
-        return exported_workflows
-
-    def import_workflow(self, workflows: list[ExportedWorkflow]) -> None:
-        """
-        Import workflows from an exported format.
-
-        Args:
-            workflows: The list of exported workflow data to import
-        """
-        with self.engine.begin() as c:
-            for workflow in workflows:
-                status = workflow["workflow_status"]
-
-                # Import workflow_status
-                c.execute(
-                    sa.insert(SystemSchema.workflow_status).values(
-                        workflow_uuid=status["workflow_uuid"],
-                        status=status["status"],
-                        name=status["name"],
-                        authenticated_user=status["authenticated_user"],
-                        assumed_role=status["assumed_role"],
-                        authenticated_roles=status["authenticated_roles"],
-                        executor_id=status["executor_id"],
-                        created_at=status["created_at"],
-                        updated_at=status["updated_at"],
-                        application_version=status["application_version"],
-                        application_id=status["application_id"],
-                        class_name=status["class_name"],
-                        config_name=status["config_name"],
-                        recovery_attempts=status["recovery_attempts"],
-                        queue_name=status["queue_name"],
-                        workflow_timeout_ms=status["workflow_timeout_ms"],
-                        workflow_deadline_epoch_ms=status["workflow_deadline_epoch_ms"],
-                        started_at_epoch_ms=status["started_at_epoch_ms"],
-                        deduplication_id=status["deduplication_id"],
-                        priority=status["priority"],
-                        queue_partition_key=status["queue_partition_key"],
-                        forked_from=status["forked_from"],
-                        parent_workflow_id=status.get("parent_workflow_id"),
-                        serialization=status.get("serialization"),
-                        delay_until_epoch_ms=status.get("delay_until_epoch_ms"),
-                        # NOT NULL columns: fall back to False for payloads
-                        # exported before these fields were included.
-                        was_forked_from=status.get("was_forked_from", False),
-                        rate_limited=status.get("rate_limited", False),
-                        completed_at=status.get("completed_at"),
-                        attributes=status.get("attributes"),
-                        schedule_name=status.get("schedule_name"),
-                        debounce_deadline_epoch_ms=status.get(
-                            "debounce_deadline_epoch_ms"
-                        ),
-                        is_debounced=status.get("is_debounced", False),
-                        application_name=status.get("application_name"),
-                    )
-                )
-
-                c.execute(
-                    sa.insert(SystemSchema.workflow_input).values(
-                        workflow_uuid=status["workflow_uuid"],
-                        inputs=status["inputs"],
-                        # Retention starts at import: the original timestamps are
-                        # long past the cutoff and would be collected immediately.
-                        retention_timestamp=self._now_ms_sql(),
-                    )
-                )
-                if status["output"] is not None or status["error"] is not None:
-                    c.execute(
-                        sa.insert(SystemSchema.workflow_output).values(
-                            workflow_uuid=status["workflow_uuid"],
-                            output=status["output"],
-                            error=status["error"],
-                            retention_timestamp=self._now_ms_sql(),
-                        )
-                    )
-
-                # Import operation_outputs
-                for output in workflow["operation_outputs"]:
-                    c.execute(
-                        sa.insert(SystemSchema.operation_outputs).values(
-                            workflow_uuid=output["workflow_uuid"],
-                            function_id=output["function_id"],
-                            function_name=output["function_name"],
-                            output=output["output"],
-                            error=output["error"],
-                            child_workflow_id=output["child_workflow_id"],
-                            started_at_epoch_ms=output["started_at_epoch_ms"],
-                            completed_at_epoch_ms=output["completed_at_epoch_ms"],
-                            retention_timestamp=self._now_ms_sql(),
-                            serialization=output["serialization"],
-                            application_name=output.get("application_name"),
-                        )
-                    )
-
-                # Import workflow_events
-                for event in workflow["workflow_events"]:
-                    c.execute(
-                        sa.insert(SystemSchema.workflow_events).values(
-                            workflow_uuid=event["workflow_uuid"],
-                            key=event["key"],
-                            value=event["value"],
-                            serialization=event["serialization"],
-                        )
-                    )
-
-                # Import workflow_events_history
-                for history in workflow["workflow_events_history"]:
-                    c.execute(
-                        sa.insert(SystemSchema.workflow_events_history).values(
-                            workflow_uuid=history["workflow_uuid"],
-                            key=history["key"],
-                            value=history["value"],
-                            function_id=history["function_id"],
-                            serialization=history["serialization"],
-                        )
-                    )
-
-                # Import streams
-                for stream in workflow["streams"]:
-                    c.execute(
-                        sa.insert(SystemSchema.streams).values(
-                            workflow_uuid=stream["workflow_uuid"],
-                            key=stream["key"],
-                            value=stream["value"],
-                            offset=stream["offset"],
-                            function_id=stream["function_id"],
-                            serialization=stream["serialization"],
-                        )
-                    )
 
     # ── Schedule CRUD ─────────────────────────────────────────────
 
@@ -7346,7 +6141,6 @@ class SystemDatabase(ABC):
             steps=steps,
         )
 
-    @db_retry()
     def call_txn_as_step(
         self,
         workflow_uuid: str,
@@ -7355,27 +6149,52 @@ class SystemDatabase(ABC):
         op: Callable[[sa.Connection], T],
     ) -> T:
         start_time = int(time.time() * 1000)
-        with self.engine.begin() as c:
-            recorded = self._check_operation_execution_txn(
-                workflow_uuid, function_id, function_name, conn=c
-            )
-            if recorded is not None:
-                assert recorded["output"] is not None
-                recorded_output: SystemDatabase.T = self.serializer.deserialize(
-                    recorded["output"]
+        # The latest attempt's operation failure, told apart from a check or checkpoint failure.
+        op_error: Optional[Exception] = None
+
+        @db_retry(sys_db=self)
+        def attempt() -> Tuple[Optional[RecordedResult], Any]:
+            nonlocal op_error
+            op_error = None
+            with self.engine.begin() as c:
+                recorded = self._check_operation_execution_txn(
+                    workflow_uuid, function_id, function_name, conn=c
                 )
-                return recorded_output
-            result = op(c)
-            output: OperationResultInternal = {
-                "workflow_uuid": workflow_uuid,
-                "function_id": function_id,
-                "function_name": function_name,
-                "started_at_epoch_ms": start_time,
-                "output": (self.serializer.serialize(result)),
-                "serialization": None,
-                "error": None,
-                "child_workflow_id": None,
-            }
-            self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
+                if recorded is not None:
+                    return recorded, None
+                try:
+                    result = op(c)
+                except Exception as e:
+                    op_error = e
+                    raise
+                serval, serialization = serialize_value(result, None, self.serializer)
+                output: OperationResultInternal = {
+                    "workflow_uuid": workflow_uuid,
+                    "function_id": function_id,
+                    "function_name": function_name,
+                    "started_at_epoch_ms": start_time,
+                    "output": serval,
+                    "serialization": serialization,
+                    "error": None,
+                    "child_workflow_id": None,
+                }
+                self._record_operation_result_txn(
+                    output, int(time.time() * 1000), conn=c
+                )
+                return None, result
+
+        try:
+            recorded, result = attempt()
+        except Exception as e:
+            # Retries are done and the transaction rolled back, so record the operation's own failure separately.
+            if e is op_error:
+                self._record_operation_error(
+                    workflow_uuid, function_id, function_name, start_time, e
+                )
+            raise
+        if recorded is not None:
+            return cast(
+                SystemDatabase.T, self._replay_recorded(recorded, function_name)
+            )
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)
-        return result
+        return cast(SystemDatabase.T, result)

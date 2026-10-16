@@ -20,7 +20,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from xknx.core import Task
-from xknx.dpt import RGBColor, RGBWColor, XYYColor
+from xknx.dpt import DPTAngle, DPTScaling, RGBColor, RGBWColor, XYYColor
 from xknx.remote_value import (
     GroupAddressesType,
     RemoteValue,
@@ -36,7 +36,7 @@ from xknx.remote_value.remote_value import RVCallbackType
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupValueTelegram
     from xknx.xknx import XKNX
 
 logger = logging.getLogger("xknx.log")
@@ -108,10 +108,6 @@ class _SwitchAndBrightness:
         if self.brightness.writable:
             self.brightness.set(0)
 
-    def __eq__(self, other: object) -> bool:
-        """Compare for equality."""
-        return self.__dict__ == other.__dict__
-
 
 class Light(Device):
     """Class for managing a light."""
@@ -123,7 +119,8 @@ class Light(Device):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         group_address_switch: GroupAddressesType = None,
         group_address_switch_state: GroupAddressesType = None,
         group_address_brightness: GroupAddressesType = None,
@@ -165,7 +162,7 @@ class Light(Device):
         device_updated_cb: DeviceCallbackType[Light] | None = None,
     ) -> None:
         """Initialize Light class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
 
         self.switch = RemoteValueSwitch(
             xknx,
@@ -211,10 +208,10 @@ class Light(Device):
 
         self.hue = RemoteValueNumeric(
             xknx,
-            group_address_hue,
-            group_address_hue_state,
+            value_type=DPTAngle,
+            group_address=group_address_hue,
+            group_address_state=group_address_hue_state,
             sync_state=sync_state,
-            value_type="angle",
             device_name=self.name,
             feature_name="Hue",
             after_update_cb=self.after_update,
@@ -222,10 +219,10 @@ class Light(Device):
 
         self.saturation = RemoteValueNumeric(
             xknx,
-            group_address_saturation,
-            group_address_saturation_state,
+            value_type=DPTScaling,
+            group_address=group_address_saturation,
+            group_address_state=group_address_saturation_state,
             sync_state=sync_state,
-            value_type="percent",
             device_name=self.name,
             feature_name="Saturation",
             after_update_cb=self.after_update,
@@ -256,10 +253,10 @@ class Light(Device):
 
         self.color_temperature = RemoteValueNumeric(
             xknx,
-            group_address_color_temperature,
-            group_address_color_temperature_state,
-            sync_state=sync_state,
             value_type=color_temperature_type.value,
+            group_address=group_address_color_temperature,
+            group_address_state=group_address_color_temperature_state,
+            sync_state=sync_state,
             device_name=self.name,
             feature_name="Color temperature",
             after_update_cb=self.after_update,
@@ -614,7 +611,7 @@ class Light(Device):
             return
         self.color_temperature.set(color_temperature)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         for remote_value in self._iter_instant_remote_values():
             remote_value.process(telegram)

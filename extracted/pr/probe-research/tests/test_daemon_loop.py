@@ -1493,7 +1493,7 @@ def test_companion_log_reads_a_v2_sessions_logbook(tmp_path, monkeypatch, capsys
 
     w = _worker(tmp_path, replay=Replay())
     w.store.log_write(bite=None, op_id="1", argv=["probe", "run", "tag", RUN, "svm"], head="run tag", status="ran")
-    monkeypatch.setattr(companion, "_session", lambda s: SID)
+    monkeypatch.setattr(companion, "_session", lambda s, *, read=False: SID)
     companion.log_cmd(session=SID, status=None)
     out = json.loads(capsys.readouterr().out)
     assert out["writes"][0]["command"] == f"probe run tag {RUN} svm" and out["writes"][0]["status"] == "ran"

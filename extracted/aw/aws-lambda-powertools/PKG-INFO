@@ -1,11 +1,15 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: aws_lambda_powertools
-Version: 3.35.0
+Version: 3.36.0
 Summary: Powertools for AWS Lambda (Python) is a developer toolkit to implement Serverless best practices and increase developer velocity.
-License: MIT
-Keywords: aws_lambda_powertools,aws,tracing,logging,lambda,powertools,feature_flags,idempotency,middleware
+Project-URL: Repository, https://github.com/aws-powertools/powertools-lambda-python
+Project-URL: Documentation, https://docs.powertools.aws.dev/lambda/python/
+Project-URL: Issue tracker, https://github.com/aws-powertools/powertools-lambda-python/issues
+Project-URL: Releases, https://github.com/aws-powertools/powertools-lambda-python/releases
 Author: Amazon Web Services
-Requires-Python: >=3.10,<4.0.0
+License: MIT
+License-File: LICENSE
+Keywords: aws,aws_lambda_powertools,feature_flags,idempotency,lambda,logging,middleware,powertools,tracing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -17,35 +21,46 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0.0,>=3.10
+Requires-Dist: jmespath<2.0.0,>=1.0.1
+Requires-Dist: typing-extensions<5.0.0,>=4.11.0
 Provides-Extra: all
+Requires-Dist: aws-encryption-sdk<5.0.0,>=4.0.5; extra == 'all'
+Requires-Dist: aws-xray-sdk<3.0.0,>=2.8.0; extra == 'all'
+Requires-Dist: cryptography<51.0.0,>=50.0.1; extra == 'all'
+Requires-Dist: fastjsonschema<3.0.0,>=2.14.5; extra == 'all'
+Requires-Dist: jsonpath-ng<2.0.0,>=1.6.0; extra == 'all'
+Requires-Dist: pydantic-settings<3.0.0,>=2.6.1; extra == 'all'
+Requires-Dist: pydantic<3.0.0,>=2.4.0; extra == 'all'
+Requires-Dist: pyjwt<3.0.0,>=2.14.0; extra == 'all'
+Requires-Dist: urllib3<3.0.0,>=2.7.0; extra == 'all'
 Provides-Extra: aws-sdk
+Requires-Dist: boto3<2.0.0,>=1.34.32; extra == 'aws-sdk'
 Provides-Extra: datadog
+Requires-Dist: datadog-lambda<9.0.0,>=8.114.0; extra == 'datadog'
 Provides-Extra: datamasking
+Requires-Dist: aws-encryption-sdk<5.0.0,>=4.0.5; extra == 'datamasking'
+Requires-Dist: jsonpath-ng<2.0.0,>=1.6.0; extra == 'datamasking'
+Provides-Extra: jwt
+Requires-Dist: cryptography<51.0.0,>=50.0.1; extra == 'jwt'
+Requires-Dist: pyjwt<3.0.0,>=2.14.0; extra == 'jwt'
+Requires-Dist: urllib3<3.0.0,>=2.7.0; extra == 'jwt'
 Provides-Extra: kafka-consumer-avro
+Requires-Dist: avro<2.0.0,>=1.12.0; extra == 'kafka-consumer-avro'
 Provides-Extra: kafka-consumer-protobuf
+Requires-Dist: protobuf<8.0.0,>=6.30.2; extra == 'kafka-consumer-protobuf'
+Provides-Extra: oauth2
+Requires-Dist: urllib3<3.0.0,>=2.7.0; extra == 'oauth2'
 Provides-Extra: parser
+Requires-Dist: pydantic<3.0.0,>=2.4.0; extra == 'parser'
 Provides-Extra: redis
+Requires-Dist: redis<9.0,>=4.4; extra == 'redis'
 Provides-Extra: tracer
+Requires-Dist: aws-xray-sdk<3.0.0,>=2.8.0; extra == 'tracer'
 Provides-Extra: validation
+Requires-Dist: fastjsonschema<3.0.0,>=2.14.5; extra == 'validation'
 Provides-Extra: valkey
-Requires-Dist: avro (>=1.12.0,<2.0.0) ; extra == "kafka-consumer-avro"
-Requires-Dist: aws-encryption-sdk (>=4.0.5,<5.0.0) ; extra == "all" or extra == "datamasking"
-Requires-Dist: aws-xray-sdk (>=2.8.0,<3.0.0) ; extra == "tracer" or extra == "all"
-Requires-Dist: boto3 (>=1.34.32,<2.0.0) ; extra == "aws-sdk"
-Requires-Dist: datadog-lambda (>=8.114.0,<9.0.0) ; extra == "datadog"
-Requires-Dist: fastjsonschema (>=2.14.5,<3.0.0) ; extra == "validation" or extra == "all"
-Requires-Dist: jmespath (>=1.0.1,<2.0.0)
-Requires-Dist: jsonpath-ng (>=1.6.0,<2.0.0) ; extra == "all" or extra == "datamasking"
-Requires-Dist: protobuf (>=6.30.2,<8.0.0) ; extra == "kafka-consumer-protobuf"
-Requires-Dist: pydantic (>=2.4.0,<3.0.0) ; extra == "parser" or extra == "all"
-Requires-Dist: pydantic-settings (>=2.6.1,<3.0.0) ; extra == "all"
-Requires-Dist: redis (>=4.4,<9.0) ; extra == "redis"
-Requires-Dist: typing-extensions (>=4.11.0,<5.0.0)
-Requires-Dist: valkey-glide (>=1.3.5,<3.0) ; extra == "valkey"
-Project-URL: Documentation, https://docs.powertools.aws.dev/lambda/python/
-Project-URL: Issue tracker, https://github.com/aws-powertools/powertools-lambda-python/issues
-Project-URL: Repository, https://github.com/aws-powertools/powertools-lambda-python
-Project-URL: Releases, https://github.com/aws-powertools/powertools-lambda-python/releases
+Requires-Dist: valkey-glide<3.0,>=1.3.5; extra == 'valkey'
 Description-Content-Type: text/markdown
 
 <!-- markdownlint-disable MD013 MD041 MD043  -->
@@ -161,4 +176,3 @@ If you think you’ve found a potential security issue, please do not post it in
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-

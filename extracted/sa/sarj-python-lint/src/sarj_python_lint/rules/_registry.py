@@ -32,6 +32,7 @@ from sarj_python_lint.rules.no_analytical_aggregation_in_postgres_store import (
     NoAnalyticalAggregationInPostgresStore,
 )
 from sarj_python_lint.rules.no_any_mapping_types import NoAnyMappingTypes
+from sarj_python_lint.rules.no_async_function_cache import NoAsyncFunctionCache
 from sarj_python_lint.rules.no_before_validator_input_mutation import NoBeforeValidatorInputMutation
 from sarj_python_lint.rules.no_broad_keyword_capture import NoBroadKeywordCapture
 from sarj_python_lint.rules.no_comment_cruft import NoCommentCruft
@@ -65,6 +66,8 @@ from sarj_python_lint.rules.no_injected_module_loader import NoInjectedModuleLoa
 from sarj_python_lint.rules.no_input_model_mutation import NoInputModelMutation
 from sarj_python_lint.rules.no_interpreter_source_arguments import NoInterpreterSourceArguments
 from sarj_python_lint.rules.no_invalid_argument_name_suppression import NoInvalidArgumentNameSuppression
+from sarj_python_lint.rules.no_loguru_exc_info import NoLoguruExcInfo
+from sarj_python_lint.rules.no_loguru_printf_format import NoLoguruPrintfFormat
 from sarj_python_lint.rules.no_mocked_pydantic_value_object import NoMockedPydanticValueObject
 from sarj_python_lint.rules.no_nested_pydantic_field_validator import NoNestedPydanticFieldValidator
 from sarj_python_lint.rules.no_nullable_dependency_fallback import NoNullableDependencyFallback
@@ -241,6 +244,9 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoSwallowedAsyncioCancellation.id: NoSwallowedAsyncioCancellation,
         RequireExplicitPsycopgTransaction.id: RequireExplicitPsycopgTransaction,
         AsyncMockCallWithoutAwaitAssertion.id: AsyncMockCallWithoutAwaitAssertion,
+        NoAsyncFunctionCache.id: NoAsyncFunctionCache,
+        NoLoguruExcInfo.id: NoLoguruExcInfo,
+        NoLoguruPrintfFormat.id: NoLoguruPrintfFormat,
         ComplexPostgresQueryRequiresArchitectureReview.id: ComplexPostgresQueryRequiresArchitectureReview,
         ExcessiveCommentary.id: ExcessiveCommentary,
         PreferWalrusAwaitedNoneGuard.id: PreferWalrusAwaitedNoneGuard,

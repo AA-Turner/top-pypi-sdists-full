@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastapi_guard
-Version: 8.1.0
+Version: 8.1.1
 Summary: Production-ready security middleware for FastAPI — IP filtering, rate limiting, penetration detection, and 20+ per-route security decorators.
 Project-URL: Homepage, https://guard-core.com
 Project-URL: Documentation, https://guard-core.github.io/fastapi-guard/latest/
@@ -29,7 +29,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: <3.15,>=3.10
 Requires-Dist: fastapi>=0.109.0
-Requires-Dist: guard-core>=4.1.0
+Requires-Dist: guard-core>=4.4.0
 Requires-Dist: starlette>=0.35.0
 Requires-Dist: uvicorn
 Provides-Extra: agent
@@ -344,6 +344,7 @@ Published on crates.io. **Production-ready.**
 | [guard-core-mcp](https://github.com/Guard-Core/guard-core-mcp) | MCP server: config validation, docs search, detection sandbox | [![PyPI](https://img.shields.io/pypi/v/guard-core-mcp)](https://pypi.org/project/guard-core-mcp/) |
 
 ---
+
 ## Documentation
 
 - [Installation](https://guard-core.github.io/fastapi-guard/latest/installation/)

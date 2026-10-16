@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyedb
-Version: 0.84.3
+Version: 0.85.0
 Summary: Higher-Level Pythonic Ansys Electronics Data Base
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: PyEDB developers <simon.vandenbrouck@ansys.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
+Requires-Dist: ansys-tools-common>=0.5.3
 Requires-Dist: numpy>=1.20.0,<3
 Requires-Dist: pydantic>=2.6.4,<2.14
 Requires-Dist: toml>=0.10.2

@@ -701,6 +701,19 @@ def test_without_home_absolute_xdg_dir_applies(
     assert getattr(dirs_class(appname="app"), prop) == f"/xdg{suffix}"
 
 
+@pytest.mark.usefixtures("_clear_xdg_env")
+@pytest.mark.parametrize("dirs_class", _CLASSES)
+@pytest.mark.parametrize(
+    ("data_home", "expected"),
+    [pytest.param("/", "/fonts", id="root"), pytest.param("/xdg/", "/xdg/fonts", id="trailing_slash")],
+)
+def test_user_fonts_dir_xdg_trailing_separator(
+    monkeypatch: pytest.MonkeyPatch, dirs_class: type[Unix | MacOS], data_home: str, expected: str
+) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", data_home)
+    assert dirs_class().user_fonts_dir == expected
+
+
 @pytest.mark.usefixtures("_clear_xdg_env", "_unknown_home")
 def test_without_home_absolute_user_dirs_entry_applies(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     (tmp_path / "user-dirs.dirs").write_text('XDG_DOCUMENTS_DIR="/srv/docs"\n', encoding="utf-8")
@@ -1280,6 +1293,29 @@ def test_user_dirs_preserves_percent_signs(folder: str, base: str, tmp_path: Pat
         f'XDG_DOCUMENTS_DIR="{base}/{folder}"\nXDG_DESKTOP_DIR="$HOME/Desktop"\n', encoding="utf-8"
     )
     assert Unix().user_documents_path == Path(tmp_path if base == "$HOME" else base) / folder
+
+
+@pytest.mark.parametrize(
+    ("folder", "expected"),
+    [
+        pytest.param(r"a\q", r"a\q", id="ordinary-letter"),
+        pytest.param(r"a\ b", r"a\ b", id="space"),
+        pytest.param(r"a\-b", r"a\-b", id="hyphen"),
+        pytest.param(r"a\nb", r"a\nb", id="literal-backslash-n"),
+        pytest.param(r"a\'b", r"a\'b", id="single-quote"),
+        pytest.param(r"a\\b", r"a\b", id="escaped-backslash"),
+        pytest.param(r"a\$b", "a$b", id="escaped-dollar"),
+        pytest.param(r"a\`b", "a`b", id="escaped-backtick"),
+        pytest.param(r"a\"b", 'a"b', id="escaped-double-quote"),
+        pytest.param(r"a\q\\b\$c", r"a\q\b$c", id="mixed-escapes"),
+    ],
+)
+@pytest.mark.parametrize("base", ["$HOME", "/absolute"])
+def test_user_dirs_double_quoted_backslashes(
+    folder: str, expected: str, base: str, tmp_path: Path, user_dirs_file: Path
+) -> None:
+    user_dirs_file.write_text(f'XDG_DOCUMENTS_DIR="{base}/{folder}"\n', encoding="utf-8")
+    assert Unix().user_documents_path == Path(tmp_path if base == "$HOME" else base) / expected
 
 
 @pytest.mark.parametrize(

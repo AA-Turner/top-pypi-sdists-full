@@ -705,7 +705,7 @@ class _Parameter:
 def is_parameter(p: typing.Any) -> bool: ...
 def parameter(*, default: typing.Any = modal.cls._NO_DEFAULT(), init: bool = True) -> typing.Any:
     """Used to specify options for modal.cls parameters, similar to dataclass.field for dataclasses
-    ```
+    ```python
     class A:
         a: str = modal.parameter()
 

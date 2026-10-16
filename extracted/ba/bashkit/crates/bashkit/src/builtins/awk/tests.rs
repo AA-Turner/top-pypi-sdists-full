@@ -1,6 +1,7 @@
 //! Tests for awk: parser limits, interpreter limits, end-to-end runs.
 
-use super::parser::AwkParser;
+use super::ast::{Program, Source};
+use super::parser::{ParseError, Parser};
 use super::{Awk, csv_split_fields};
 #[rustfmt::skip]
 use crate::builtins::limits::{
@@ -20,8 +21,16 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+fn parse(program: &str) -> std::result::Result<Program, ParseError> {
+    let sources = [Source {
+        name: "cmd. line".to_string(),
+        start: 0,
+    }];
+    Parser::new(program, &sources).parse_program()
+}
+
 async fn run_awk(args: &[&str], stdin: Option<&str>) -> Result<ExecResult> {
-    let awk = Awk;
+    let awk = Awk::default();
     let fs = Arc::new(InMemoryFs::new());
     let mut vars = HashMap::new();
     let mut cwd = PathBuf::from("/");
@@ -133,8 +142,10 @@ async fn test_awk_variables() {
 
 #[tokio::test]
 async fn test_awk_unicode_identifier_no_panic() {
+    // gawk identifiers are ASCII: a syntax error, not a panic.
     let result = run_awk(&["BEGIN{café=7; print café}"], None).await.unwrap();
-    assert_eq!(result.stdout, "7\n");
+    assert_eq!(result.exit_code, 1);
+    assert!(result.stderr.starts_with("awk: cmd. line:1: "));
 }
 
 #[tokio::test]
@@ -201,10 +212,9 @@ fn test_awk_parser_depth_limit_parens() {
     let close = ")".repeat(depth);
     let program = format!("{{print {open}1{close}}}");
 
-    let mut parser = AwkParser::new(&program);
-    let result = parser.parse();
+    let result = parse(&program);
     assert!(result.is_err(), "deeply nested parens must be rejected");
-    let err = result.unwrap_err().to_string();
+    let err = result.unwrap_err().msg;
     assert!(
         err.contains("nesting too deep"),
         "error should mention nesting: {err}"
@@ -219,10 +229,9 @@ fn test_awk_parser_depth_limit_unary() {
     let prefix = "- ".repeat(depth);
     let program = format!("{{print {prefix}1}}");
 
-    let mut parser = AwkParser::new(&program);
-    let result = parser.parse();
+    let result = parse(&program);
     assert!(result.is_err(), "deeply chained unary ops must be rejected");
-    let err = result.unwrap_err().to_string();
+    let err = result.unwrap_err().msg;
     assert!(
         err.contains("nesting too deep"),
         "error should mention nesting: {err}"
@@ -235,13 +244,12 @@ fn test_awk_parser_rejects_chained_range_pattern() {
     let operands = std::iter::repeat_n("1", 150).collect::<Vec<_>>().join(",");
     let program = format!("{operands}{{print}}");
 
-    let mut parser = AwkParser::new(&program);
-    let result = parser.parse();
+    let result = parse(&program);
     assert!(result.is_err(), "comma-chained ranges must be rejected");
-    let err = result.unwrap_err().to_string();
+    let err = result.unwrap_err().msg;
     assert!(
-        err.contains("unexpected ',' after range pattern"),
-        "error should mention unexpected comma after range: {err}"
+        err.contains("syntax error"),
+        "comma after a range is a syntax error: {err}"
     );
 }
 
@@ -254,8 +262,7 @@ fn test_awk_parser_moderate_nesting_ok() {
     let close = ")".repeat(depth);
     let program = format!("{{print {open}1{close}}}");
 
-    let mut parser = AwkParser::new(&program);
-    let result = parser.parse();
+    let result = parse(&program);
     assert!(
         result.is_ok(),
         "moderate nesting should succeed: {:?}", // debug-ok: assert-failure message
@@ -431,10 +438,12 @@ async fn test_awk_unspaced_plus_minus_after_number() {
         assert_eq!(result.stdout, expected, "program: {program}");
     }
     // Negative: a lone '.' is still not a number.
-    let err = run_awk(&["BEGIN{print .}"], None).await.unwrap_err();
+    let r = run_awk(&["BEGIN{print .}"], None).await.unwrap();
+    assert_eq!(r.exit_code, 1);
     assert!(
-        err.to_string().contains("invalid number"),
-        "unexpected: {err}"
+        r.stderr.contains("syntax error"),
+        "unexpected: {}",
+        r.stderr
     );
 }
 
@@ -557,26 +566,30 @@ async fn test_awk_recursive_function_depth_limit() {
     )
     .await
     .unwrap();
-    // Should complete without crashing (returns Uninitialized -> empty string)
-    assert_eq!(result.exit_code, 0);
+    // Stops at the depth cap without crashing: a fatal error, exit 2.
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(
+        result.stderr,
+        "awk: fatal: function call depth limit (64) exceeded\n"
+    );
+    assert_eq!(result.stdout, "");
 }
 
 #[tokio::test]
 async fn test_awk_while_loop_limited() {
-    // Infinite while loop should terminate via default max_loop_iterations
+    // An unbounded while loop hits max_loop_iterations and aborts loudly
+    // (#2446): no partial `print i`, stderr names the cap, exit 2.
     let result = run_awk(
         &[r#"BEGIN { i=0; while(1) { i++; if(i>200000) break } print i }"#],
         Some(""),
     )
     .await
     .unwrap();
-    assert_eq!(result.exit_code, 0);
-    let count: usize = result.stdout.trim().parse().unwrap();
-    // Should be capped at default max_loop_iterations (10_000), not 200_000
-    assert!(
-        count <= 10_001,
-        "loop ran {} times, expected <= 10001",
-        count
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(result.stdout, "");
+    assert_eq!(
+        result.stderr,
+        "awk: fatal: loop iteration limit (10000) exceeded\n"
     );
 }
 
@@ -631,9 +644,10 @@ async fn test_awk_rejects_too_many_multi_subscripts() {
         .join(",");
     let program = format!("BEGIN {{ a[{subscripts}] = 1 }}");
 
-    let err = run_awk(&[&program], Some("")).await.unwrap_err();
+    let r = run_awk(&[&program], Some("")).await.unwrap();
 
-    assert!(err.to_string().contains("too many array subscripts"));
+    assert_eq!(r.exit_code, 2);
+    assert!(r.stderr.contains("too many array subscripts"));
 }
 
 #[tokio::test]
@@ -665,7 +679,7 @@ async fn run_awk_with_fs(
     args: &[&str],
     stdin: Option<&str>,
 ) -> (Result<ExecResult>, Arc<InMemoryFs>) {
-    let awk = Awk;
+    let awk = Awk::default();
     let fs = Arc::new(InMemoryFs::new());
     let mut vars = HashMap::new();
     let mut cwd = PathBuf::from("/");
@@ -755,14 +769,21 @@ async fn test_awk_print_redirect_multiple_to_same_file() {
 }
 
 #[tokio::test]
-async fn test_awk_print_redirect_pipe_unsupported() {
-    // Pipe output should return clear error
-    let (result, _fs) = run_awk_with_fs(&[r#"BEGIN{print "hello" | "cat"}"#], None).await;
-    assert!(result.is_err());
-    let err_msg = result.unwrap_err().to_string();
+async fn test_awk_print_redirect_pipe_needs_plan_driver() {
+    // Direct `execute` has no shell to run commands: clear message, and
+    // the output pipe's command reports 127. The shell path goes through
+    // the plan driver (see the spec tests).
+    let (result, _fs) = run_awk_with_fs(
+        &[r#"BEGIN{print "hello" | "cat"; print close("cat")}"#],
+        None,
+    )
+    .await;
+    let result = result.unwrap();
+    assert_eq!(result.stdout, "127\n");
     assert!(
-        err_msg.contains("pipe"),
-        "expected pipe error, got: {err_msg}"
+        result.stderr.contains("running commands is not supported"),
+        "got: {}",
+        result.stderr
     );
 }
 
@@ -806,8 +827,12 @@ async fn test_awk_csv_nf() {
 
 #[tokio::test]
 async fn test_awk_csv_ofs() {
-    // In CSV mode, OFS defaults to comma
+    // Like gawk 5.3, --csv changes input splitting only; OFS stays " ".
     let result = run_awk(&["--csv", "{print $1, $3}"], Some("a,b,c"))
+        .await
+        .unwrap();
+    assert_eq!(result.stdout, "a c\n");
+    let result = run_awk(&["--csv", "-v", "OFS=,", "{print $1, $3}"], Some("a,b,c"))
         .await
         .unwrap();
     assert_eq!(result.stdout, "a,c\n");
@@ -891,7 +916,7 @@ async fn run_awk_with_file(
     file_path: &str,
     file_content: &str,
 ) -> Result<ExecResult> {
-    let awk = Awk;
+    let awk = Awk::default();
     let fs = Arc::new(InMemoryFs::new());
     fs.write_file(std::path::Path::new(file_path), file_content.as_bytes())
         .await
@@ -1120,7 +1145,8 @@ async fn test_awk_many_redirected_writes_reuse_single_writer() {
 async fn test_awk_dev_null_redirect_does_not_count_against_output_limit() {
     // /dev/null is discarded before any AWK-side redirect buffering.
     let result = run_awk(
-        &[r#"BEGIN { s = sprintf("%1000s", "x"); for(i=0;i<12000;i++) print s > "/dev/null"; print "done" }"#],
+        // 15 MB through /dev/null, with every loop under the iteration cap.
+        &[r#"BEGIN { s = sprintf("%1000s", "x"); for(j=0;j<3;j++) for(i=0;i<5000;i++) print s > "/dev/null"; print "done" }"#],
         None,
     )
     .await
@@ -1137,7 +1163,7 @@ async fn run_awk_with_custom_fs(
     stdin: Option<&str>,
     fs: Arc<InMemoryFs>,
 ) -> Result<ExecResult> {
-    let awk = Awk;
+    let awk = Awk::default();
     let mut vars = HashMap::new();
     let mut cwd = PathBuf::from("/");
     let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
@@ -1187,10 +1213,24 @@ async fn test_awk_getline_file_cache_limit_exceeded() {
     let prog = format!(
         r#"BEGIN{{ ok=0; for(i=0;i<{count};i++) {{ f="/tmp/f"i".txt"; if((getline x < f)>0) ok++ }} print ok }}"#,
     );
+    let result = run_awk_with_custom_fs(&[&prog], None, fs.clone())
+        .await
+        .unwrap();
+    // Opening one file past the cap is fatal, not a silent -1 (#2446).
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(result.stdout, "");
+    assert_eq!(
+        result.stderr,
+        format!("awk: fatal: getline open file limit ({MAX_GETLINE_CACHED_FILES}) exceeded\n")
+    );
+
+    // close() releases each input, so the same loop stays under the cap.
+    let prog = format!(
+        r#"BEGIN{{ ok=0; for(i=0;i<{count};i++) {{ f="/tmp/f"i".txt"; if((getline x < f)>0) ok++; close(f) }} print ok }}"#,
+    );
     let result = run_awk_with_custom_fs(&[&prog], None, fs).await.unwrap();
-    let ok: usize = result.stdout.trim().parse().unwrap();
-    // Exactly MAX_GETLINE_CACHED_FILES should succeed, rest should fail
-    assert_eq!(ok, MAX_GETLINE_CACHED_FILES);
+    assert_eq!(result.exit_code, 0);
+    assert_eq!(result.stdout, format!("{count}\n"));
 }
 
 #[tokio::test]
@@ -1259,7 +1299,7 @@ async fn test_awk_getline_file_size_limit() {
 }
 
 #[tokio::test]
-async fn test_awk_getline_file_normalizes_cache_key() {
+async fn test_awk_getline_streams_are_keyed_by_name() {
     let fs = Arc::new(InMemoryFs::new());
     fs.write_file(std::path::Path::new("/tmp/data.txt"), b"one\ntwo\n")
         .await
@@ -1278,7 +1318,9 @@ async fn test_awk_getline_file_normalizes_cache_key() {
     .await
     .unwrap();
 
-    assert_eq!(result.stdout, "1 one\n1 two\n0\n");
+    // gawk keys redirections by the name as written: each spelling is its
+    // own stream (each still counts toward the open-file and byte caps).
+    assert_eq!(result.stdout, "1 one\n1 one\n1\n");
 }
 
 #[tokio::test]
@@ -1299,7 +1341,13 @@ async fn test_awk_getline_file_builtin_size_limit() {
     .await
     .unwrap();
 
-    assert_eq!(result.stdout, "-1\n");
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(result.stdout, "");
+    assert!(
+        result
+            .stderr
+            .contains("getline input file size limit (10000000 bytes) exceeded")
+    );
 }
 
 #[tokio::test]
@@ -1316,12 +1364,28 @@ async fn test_awk_getline_file_total_cache_byte_limit() {
     let result = run_awk_with_custom_fs(
         &[r#"BEGIN{r1=(getline a < "/tmp/a.txt"); r2=(getline b < "/tmp/b.txt"); print r1, r2}"#],
         None,
-        fs,
+        fs.clone(),
     )
     .await
     .unwrap();
 
-    assert_eq!(result.stdout, "1 -1\n");
+    assert_eq!(result.exit_code, 2);
+    assert_eq!(result.stdout, "");
+    assert!(
+        result
+            .stderr
+            .contains("getline total input limit (10000000 bytes) exceeded")
+    );
+
+    // Closing the first input frees its bytes for the second.
+    let result = run_awk_with_custom_fs(
+        &[r#"BEGIN{r1=(getline a < "/tmp/a.txt"); close("/tmp/a.txt"); r2=(getline b < "/tmp/b.txt"); print r1, r2}"#],
+        None,
+        fs,
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.stdout, "1 1\n");
 }
 
 // TM-INF-022: malformed-input corpus must not leak Debug shapes.
@@ -1349,4 +1413,74 @@ async fn no_leak_undefined_function_call() {
         "awk_undefined_function_call",
         AWK_BANNED,
     );
+}
+
+/// A newline after `if (...)`, `for (...)`, `while (...)`, `else`, `do`,
+/// `&&`, `||` or `,` continues the statement (POSIX awk `opt_nls`).
+#[tokio::test]
+async fn newline_after_control_header_continues_statement() {
+    let prog = "BEGIN {
+    for (i = 1; i <= 3; i++)
+        for (j = i + 1; j <= 3; j++)
+            if (j > i) {
+                tmp = i; n++
+            }
+    if (n == 3)
+        print \"if\"
+    else
+        print \"else\"
+    for (k in a)
+        x = 1
+    while (w < 2)
+        w++
+    do
+        w--
+    while (w > 0)
+    if (n == 3 &&
+        w == 0 ||
+        0)
+        printf \"%s,%s\\n\",
+            \"a\", \"b\"
+}";
+    let result = run_awk(&[prog], None).await.unwrap();
+    assert_eq!(result.stderr, "");
+    assert_eq!(result.stdout, "if\na,b\n");
+}
+
+/// A regex pattern can be one operand of `&&`, `||` or `?:` in a rule pattern.
+#[tokio::test]
+async fn regex_pattern_combines_with_logical_operators() {
+    let input = Some("a\nb\n#c\nab\n");
+    let r = run_awk(&["/a/ && !/b/ { print \"x:\" $0 }"], input)
+        .await
+        .unwrap();
+    assert_eq!(r.stdout, "x:a\n");
+    let r = run_awk(&["/^#/ || /b$/ { next } { print }"], input)
+        .await
+        .unwrap();
+    assert_eq!(r.stdout, "a\n");
+    let r = run_awk(&["/a/,/c/ { print \"r:\" $0 }"], input)
+        .await
+        .unwrap();
+    assert_eq!(r.stdout, "r:a\nr:b\nr:#c\nr:ab\n");
+}
+
+/// A bare `/re/` in an expression is `$0 ~ /re/`, not the pattern text.
+#[tokio::test]
+async fn bare_regex_in_expression_matches_record() {
+    let input = Some("[s]\na=b\n");
+    let r = run_awk(&["{ if (/^\\[.*\\]$/) print \"sec:\" $0 }"], input)
+        .await
+        .unwrap();
+    assert_eq!(r.stdout, "sec:[s]\n");
+    let r = run_awk(&["{ x = /=/; print x }"], input).await.unwrap();
+    assert_eq!(r.stdout, "0\n1\n");
+    // Pattern positions still take the regex text.
+    let r = run_awk(
+        &["{ n = gsub(/[a-z]/, \"X\"); m = match($0, /=/); print n, m, ($0 ~ /=/) }"],
+        input,
+    )
+    .await
+    .unwrap();
+    assert_eq!(r.stdout, "1 0 0\n2 2 1\n");
 }

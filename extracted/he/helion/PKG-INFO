@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: helion
-Version: 1.5.0
+Version: 1.5.1
 Summary: A Python-embedded DSL that makes it easy to write ML kernels
 Project-URL: Homepage, https://github.com/pytorch/helion
 Project-URL: Issues, https://github.com/pytorch/helion/issues
@@ -50,6 +50,7 @@ Requires-Dist: hypothesis; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-timeout; extra == 'dev'
+Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: tabulate; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: docutils<0.21,==0.18.1; extra == 'docs'

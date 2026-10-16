@@ -17,6 +17,7 @@ __all__ = [
     "InterestDetails",
     "MinimumPaymentBalance",
     "PaymentAllocation",
+    "PaymentOnlyAllocation",
     "PreviousStatementBalance",
 ]
 
@@ -126,6 +127,25 @@ class PaymentAllocation(BaseModel):
     principal_details: Optional[CategoryDetails] = None
 
 
+class PaymentOnlyAllocation(BaseModel):
+    """Allocation of payments only, excluding credits"""
+
+    fee_details: Optional[CategoryDetails] = None
+
+    fees: int
+    """Amount allocated to fees in cents"""
+
+    interest: int
+    """Amount allocated to interest in cents"""
+
+    interest_details: Optional[CategoryDetails] = None
+
+    principal: int
+    """Amount allocated to principal in cents"""
+
+    principal_details: Optional[CategoryDetails] = None
+
+
 class PreviousStatementBalance(BaseModel):
     amount: int
 
@@ -181,6 +201,9 @@ class LoanTape(BaseModel):
 
     payment_allocation: PaymentAllocation
 
+    payment_only_allocation: Optional[PaymentOnlyAllocation] = None
+    """Allocation of payments only, excluding credits"""
+
     period_totals: StatementTotals
 
     previous_statement_balance: PreviousStatementBalance
@@ -195,6 +218,9 @@ class LoanTape(BaseModel):
     """Version number of the loan tape. This starts at 1"""
 
     ytd_totals: StatementTotals
+
+    day_of_period: Optional[int] = None
+    """Day of the billing period that this loan tape covers, starting at 1"""
 
     tier: Optional[str] = None
     """Interest tier to which this account belongs to"""

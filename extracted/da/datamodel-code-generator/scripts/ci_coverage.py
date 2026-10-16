@@ -6,23 +6,35 @@ import argparse
 import json
 from pathlib import Path
 
-SHARD_COUNTS = {"py314": 3, "py313": 4, "py312": 4, "py311": 4, "py310": 4}
+SHARD_COUNTS = {
+    "py314-parallel": 5,
+    "py313-parallel": 5,
+    "py312-parallel": 5,
+    "py311-parallel": 5,
+    "py310-parallel": 5,
+    "client-e2e": 3,
+}
 COVERAGE_ENVS = (
     "migration-legacy",
     "migration-boundary",
     "pydantic200",
     "pydantic20",
     "pydantic25",
+    "pydantic212",
     "pydantic213",
+    "pydantic214",
+    "graphqlcore33",
     "py312-black-latest",
     "py312-black22",
     "httpx-e2e",
     "httpx2-min-e2e",
+    "fastapi-e2e",
+    "client-py311-e2e",
 )
 EXPECTED_NAMES = frozenset({
     *(f".coverage.{env}-ubuntu-24.04" for env in COVERAGE_ENVS),
     *(
-        f".coverage.{env}-parallel-shard{shard}-ubuntu-24.04"
+        f".coverage.{env}-shard{shard}-ubuntu-24.04"
         for env, count in SHARD_COUNTS.items()
         for shard in range(1, count + 1)
     ),

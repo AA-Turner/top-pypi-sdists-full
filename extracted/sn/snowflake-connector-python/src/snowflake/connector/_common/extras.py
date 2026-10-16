@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import functools
+import importlib
+
+from collections.abc import Callable
+from importlib import metadata
+from types import ModuleType
+from typing import Any, TypeVar, cast
+
+from snowflake.connector import errors
+from snowflake.connector._internal.errorcode import ER_NO_NUMPY, ER_NO_PYARROW
+
+from .._internal.logging import get_logger
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+logger = get_logger(__name__)
+
+DEP_PYARROW = "pyarrow"
+DEP_PANDAS = "pandas"
+DEP_NUMPY = "numpy"
+DEP_TZLOCAL = "tzlocal"
+DEP_SQLALCHEMY = "sqlalchemy"
+
+"""This module helps to manage optional dependencies.
+
+It implements MissingOptionalDependency. If a module is unavailable an instance of this will be
+returned. The point of this class is that if someone tries to use pyarrow code then by importing
+pyarrow from this module if they did pyarrow.xxx then that would raise a MissingDependencyError.
+"""
+
+
+class MissingOptionalDependency:
+    """A class to replace missing dependencies.
+
+    The only thing this class is supposed to do is raise a MissingDependencyError when __getattr__ is called.
+    This will be triggered whenever module.member is going to be called.
+
+    Supports two construction patterns:
+    - ``MissingOptionalDependency("pandas")`` — sets dep name from argument.
+    - No-arg subclass with a ``_dep_name`` class attribute (Snowpark pattern):
+      ``class MissingFoo(MissingOptionalDependency): _dep_name = "foo"``
+    """
+
+    _dep_name: str = "not set"
+
+    def __init__(self, dep: str | None = None) -> None:
+        if dep is not None:
+            self._dep_name = dep
+
+    def __getattr__(self, item: str) -> Any:
+        raise errors.MissingDependencyError(self._dep_name)
+
+    @property
+    def dep_name(self) -> str:
+        return self._dep_name
+
+
+def _import_or_missing(module_name: str) -> ModuleType | MissingOptionalDependency:
+    """Try importing an optional dependency.
+
+    If available it returns the module. Otherwise, returns a MissingOptionalDependency stub.
+    """
+    try:
+        mod = importlib.import_module(module_name)
+        try:
+            version = metadata.version(module_name)
+        except metadata.PackageNotFoundError:
+            version = "unknown"
+        logger.info("%s is installed (version: %s)", module_name, version)
+        return mod
+    except ImportError:
+        logger.info("%s is not installed; %s-based features will be unavailable", module_name, module_name)
+        return MissingOptionalDependency(dep=module_name)
+
+
+def check_dependency(module: ModuleType | MissingOptionalDependency) -> None:
+    """Raise ProgrammingError if optional dependency is not installed."""
+    if isinstance(module, MissingOptionalDependency):
+        if module.dep_name in (DEP_PYARROW, DEP_PANDAS):
+            msg = (
+                f"Optional dependency: '{module.dep_name}' is not installed, please see the following link for"
+                " install instructions: https://docs.snowflake.com/en/user-guide/python-connector-pandas.html#installation"
+            )
+            raise errors.ProgrammingError(msg=msg, errno=ER_NO_PYARROW)
+        elif module.dep_name == DEP_NUMPY:
+            msg = "Numpy module is not installed. Cannot fetch data as numpy"
+            raise errors.ProgrammingError(msg=msg, errno=ER_NO_NUMPY)
+        else:
+            raise errors.MissingDependencyError(module.dep_name)
+
+
+def requires_dependency(*modules: ModuleType | MissingOptionalDependency) -> Callable[[F], F]:
+    """Raise ProgrammingError if any of the listed dependencies are not installed."""
+
+    def decorator(func: F) -> F:
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            for mod in modules:
+                check_dependency(mod)
+            return func(*args, **kwargs)
+
+        return cast(F, wrapper)
+
+    return decorator
+
+
+def _import_pandas() -> ModuleType | MissingOptionalDependency:
+    """Lazily import pandas, returning MissingOptionalDependency if not
+    installed.
+    """
+    result = _import_or_missing(DEP_PANDAS)
+    if not isinstance(result, MissingOptionalDependency):
+        # If relative imports without dots are enabled (Snowpark's case), this
+        # import can fail when run from certain test directories.
+        from pandas import DataFrame  # noqa: F401
+    return result
+
+
+pyarrow = _import_or_missing(DEP_PYARROW)
+pandas = _import_pandas()
+numpy = _import_or_missing(DEP_NUMPY)
+tzlocal = _import_or_missing(DEP_TZLOCAL)
+sqlalchemy = _import_or_missing(DEP_SQLALCHEMY)
+
+
+# Snowpark imported these three names from ``snowflake.connector.options``
+# (now this module). The Universal Driver does not use them itself.
+ModuleLikeObject = ModuleType | MissingOptionalDependency
+
+installed_pandas: bool = not isinstance(pandas, MissingOptionalDependency)
+installed_pyarrow: bool = not isinstance(pyarrow, MissingOptionalDependency)

@@ -9,6 +9,8 @@ from ..models.skill import (
     SkillAttachRequest,
     SkillBulkAttachRequest,
     SkillCategory,
+    SkillCompanionFileMetadata,
+    SkillCompanionFilePayload,
     SkillConfigResponse,
     SkillCreateRequest,
     SkillDetailResponse,
@@ -115,6 +117,38 @@ class SkillService:
             Deletion confirmation
         """
         return self._api.delete(f"/v1/skills/{skill_id}", dict)
+
+    # Companion (bundle) files
+
+    def list_companion_files(self, skill_id: str) -> list[SkillCompanionFileMetadata]:
+        """List the metadata of a skill's bundled companion files.
+
+        Args:
+            skill_id: Skill identifier
+
+        Returns:
+            Companion file metadata (path, mime type, encoding, size), without content
+        """
+        return self._api.get(
+            f"/v1/skills/{skill_id}/companion-files",
+            list[SkillCompanionFileMetadata],
+        )
+
+    def get_companion_file(self, skill_id: str, path: str) -> SkillCompanionFilePayload:
+        """Get one companion file of a skill, with its content, by its relative path.
+
+        Args:
+            skill_id: Skill identifier
+            path: Relative companion file path, e.g. ``references/guide.md``
+
+        Returns:
+            The companion file including its stored content
+        """
+        return self._api.get(
+            f"/v1/skills/{skill_id}/companion-files/content",
+            SkillCompanionFilePayload,
+            params={"path": path},
+        )
 
     # Import/Export Operations
 
@@ -391,10 +425,11 @@ class SkillService:
         )
 
     def get_config(self) -> SkillConfigResponse:
-        """Get effective skill content-length limits.
+        """Get effective skill content-length and bundle-seed limits.
 
         Returns:
-            Skill config with max_content_length and min_content_length
+            Skill config with max_content_length, min_content_length and the
+            bundle_seed_max_* ceilings applied when skill files are placed in a workspace
         """
         return self._api.get("/v1/skills/config", SkillConfigResponse)
 

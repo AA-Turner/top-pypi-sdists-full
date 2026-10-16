@@ -44,7 +44,7 @@ template<class T> using auto_ptr = unique_ptr<T>;
 #include <libraw/libraw.h>
 #include <libraw/libraw_version.h>
 
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 20, 0)
+#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
 #    error "OpenImageIO does not support such an old LibRaw"
 #endif
 
@@ -400,9 +400,12 @@ RawInput::open(const std::string& name, ImageSpec& newspec,
     // will need to close and re-open with unpack=true if and when we need
     // the actual pixel values.
     bool ok = open_raw(force_load, force_load, m_filename, m_config);
-    if (ok)
-        newspec = m_spec;
-    return ok;
+    if (!ok) {
+        close();
+        return false;
+    }
+    newspec = m_spec;
+    return true;
 }
 
 
@@ -453,14 +456,12 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         return false;
     }
 
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
     // Cap LibRaw's internal allocations. This must be set *before* unpack().
     // Default max is 2048 MB.
     int maxmem = config.get_int_attribute("raw:max_raw_memory_mb", 2048);
     // In some versions of libraw, there is a known overflow if it's over
     // 16384, so cap it.
     m_processor->imgdata.rawparams.max_raw_memory_mb = std::min(maxmem, 16383);
-#endif
 
     // Guard against decompression bombs / corrupt headers before calling
     // unpack(). LibRaw's own caps (65535/dimension, max_raw_memory_mb) are
@@ -478,7 +479,7 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
             raw_bps = 8;
         imagesize_t declared_bytes = imagesize_t(raw_width) * raw_height
                                      * raw_bps / 8;
-        imagesize_t filesize = Filesystem::file_size(name);
+        imagesize_t filesize       = Filesystem::file_size(name);
         if (!check_compression_ratio(declared_bytes, filesize))
             return false;
     }
@@ -689,24 +690,16 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         m_processor->imgdata.params.output_color = 6;
         m_processor->imgdata.params.gamm[0]      = 1.0;
         m_processor->imgdata.params.gamm[1]      = 1.0;
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
     } else if (Strutil::iequals(cs, "DCI-P3")) {
         // DCI-P3
         m_processor->imgdata.params.output_color = 7;
         m_processor->imgdata.params.gamm[0]      = 1.0;
         m_processor->imgdata.params.gamm[1]      = 1.0;
-#endif
     } else if (Strutil::iequals(cs, "Rec2020")) {
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
         // Rec2020
         m_processor->imgdata.params.output_color = 8;
         m_processor->imgdata.params.gamm[0]      = 1.0;
         m_processor->imgdata.params.gamm[1]      = 1.0;
-#else
-        errorfmt("raw:ColorSpace value of \"{}\" is not supported by libRaw {}",
-                 cs, LIBRAW_VERSION_STR);
-        return false;
-#endif
     } else {
         errorfmt("raw:ColorSpace set to unknown value \"{}\"", cs);
         return false;
@@ -822,10 +815,11 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         ushort crop_top    = 0;
         ushort crop_width  = 0;
         ushort crop_height = 0;
-        ushort left_margin = 0;
-        ushort top_margin  = 0;
+        ushort left_margin = m_processor->imgdata.sizes.left_margin;
+        ushort top_margin  = m_processor->imgdata.sizes.top_margin;
 
-        auto p = config.find_attribute("raw:cropbox");
+        bool has_user_crop = false;
+        auto p             = config.find_attribute("raw:cropbox");
         if (p) {
             auto type = p->type();
             if (type.equivalent(TypeDesc(TypeDesc::INT, 4))
@@ -835,66 +829,77 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
                 crop_top    = p->get<int>(1);
                 crop_width  = p->get<int>(2);
                 crop_height = p->get<int>(3);
+
+                // The crop offsets in
+                // m_processor->imgdata.sizes.raw_inset_crops are inclusive of
+                // the image margins. Apply the same to the user-provided crop
+                // to simplify the following logic.
+                if (crop_left != 65535)
+                    crop_left += left_margin;
+                if (crop_top != 65535)
+                    crop_top += top_margin;
+
+                has_user_crop = true;
             }
         }
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
-        else if (m_processor->imgdata.sizes.raw_inset_crops[0].cwidth != 0) {
-            crop_left   = m_processor->imgdata.sizes.raw_inset_crops[0].cleft;
-            crop_top    = m_processor->imgdata.sizes.raw_inset_crops[0].ctop;
-            crop_width  = m_processor->imgdata.sizes.raw_inset_crops[0].cwidth;
-            crop_height = m_processor->imgdata.sizes.raw_inset_crops[0].cheight;
-            left_margin = m_processor->imgdata.sizes.left_margin;
-            top_margin  = m_processor->imgdata.sizes.top_margin;
+
+        if (!has_user_crop) {
+            const auto& raw_inset_crops
+                = m_processor->imgdata.sizes.raw_inset_crops[0];
+            if (raw_inset_crops.cwidth != 0) {
+                crop_left   = raw_inset_crops.cleft;
+                crop_top    = raw_inset_crops.ctop;
+                crop_width  = raw_inset_crops.cwidth;
+                crop_height = raw_inset_crops.cheight;
+            }
         }
-#else
-        else if (m_processor->imgdata.sizes.raw_inset_crop.cwidth != 0) {
-            crop_left   = m_processor->imgdata.sizes.raw_inset_crop.cleft;
-            crop_top    = m_processor->imgdata.sizes.raw_inset_crop.ctop;
-            crop_width  = m_processor->imgdata.sizes.raw_inset_crop.cwidth;
-            crop_height = m_processor->imgdata.sizes.raw_inset_crop.cheight;
-            left_margin = m_processor->imgdata.sizes.left_margin;
-            top_margin  = m_processor->imgdata.sizes.top_margin;
-        }
-#endif
+
         if (crop_width > 0 && crop_height > 0) {
-            ushort image_width  = m_processor->imgdata.sizes.width;
-            ushort image_height = m_processor->imgdata.sizes.height;
+            const auto& S        = m_processor->imgdata.sizes;
+            ushort raw_width     = S.raw_width;
+            ushort raw_height    = S.raw_height;
+            ushort image_width   = S.width;
+            ushort image_height  = S.height;
+            ushort right_margin  = raw_width - image_width - left_margin;
+            ushort bottom_margin = raw_height - image_height - top_margin;
 
             // If crop_left is undefined, assume central crop.
             if (crop_left == 65535) {
-                crop_left = (image_width - crop_width) / 2;
+                crop_left = (image_width - crop_width) / 2 + left_margin;
             }
 
             // If crop_top is undefined, assume central crop.
             if (crop_top == 65535) {
-                crop_top = (image_height - crop_height) / 2;
+                crop_top = (image_height - crop_height) / 2 + top_margin;
             }
 
             if (m_processor->imgdata.sizes.flip & 1) {
-                crop_left = image_width - crop_width - crop_left;
+                crop_left   = raw_width - crop_width - crop_left;
+                left_margin = right_margin;
             }
 
             if (m_processor->imgdata.sizes.flip & 2) {
-                crop_top = image_height - crop_height - crop_top;
+                crop_top   = raw_height - crop_height - crop_top;
+                top_margin = bottom_margin;
             }
 
             if (crop_top >= top_margin && crop_left >= left_margin) {
                 crop_top -= top_margin;
                 crop_left -= left_margin;
+            }
 
-                if (m_processor->imgdata.sizes.flip & 4) {
-                    std::swap(crop_left, crop_top);
-                    std::swap(crop_width, crop_height);
-                    std::swap(image_width, image_height);
-                }
+            if (m_processor->imgdata.sizes.flip & 4) {
+                std::swap(crop_left, crop_top);
+                std::swap(crop_width, crop_height);
+                std::swap(raw_width, raw_height);
+            }
 
-                if ((crop_left + crop_width <= image_width)
-                    && (crop_top + crop_height <= image_height)) {
-                    m_spec.full_x      = crop_left;
-                    m_spec.full_y      = crop_top;
-                    m_spec.full_width  = crop_width;
-                    m_spec.full_height = crop_height;
-                }
+            if ((crop_left + crop_width <= raw_width)
+                && (crop_top + crop_height <= raw_height)) {
+                m_spec.full_x      = crop_left;
+                m_spec.full_y      = crop_top;
+                m_spec.full_width  = crop_width;
+                m_spec.full_height = crop_height;
             }
         }
     }
@@ -1135,22 +1140,6 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         m_spec.attribute("Orientation", original_flip);
     }
 
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
-    if (m_processor->imgdata.thumbnail.tlength > 0) {
-        auto width  = m_processor->imgdata.thumbnail.twidth;
-        auto height = m_processor->imgdata.thumbnail.theight;
-
-        // see note below
-        if (width == 0)
-            width = -1;
-        if (height == 0)
-            height = -1;
-
-        m_spec.attribute("thumbnail_width", width);
-        m_spec.attribute("thumbnail_height", height);
-    }
-#else
-
     auto thumb_count = m_processor->imgdata.thumbs_list.thumbcount;
     if (thumb_count > 0) {
         m_thumb_index = config.get_int_attribute("raw:thumbnail_index", -1);
@@ -1207,8 +1196,8 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
                 m_thumb_index = index_map[m_thumb_index];
             }
 
-            width = m_processor->imgdata.thumbs_list.thumblist[m_thumb_index]
-                        .twidth;
+            width  = m_processor->imgdata.thumbs_list.thumblist[m_thumb_index]
+                         .twidth;
             height = m_processor->imgdata.thumbs_list.thumblist[m_thumb_index]
                          .theight;
         }
@@ -1226,8 +1215,6 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         m_spec.attribute("thumbnail_width", width);
         m_spec.attribute("thumbnail_height", height);
     }
-#endif
-
 
     get_lensinfo();
     get_shootinginfo();
@@ -1287,29 +1274,6 @@ RawInput::get_makernotes_canon()
     MAKERF(ExposureMode);
     MAKERF(AESetting);
     MAKERF(ImageStabilization);
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
-    MAKERF(HighlightTonePriority);
-    MAKERF(FocusMode);
-    MAKER(AFPoint, 0);
-    MAKERF(FocusContinuous);
-    //  short        AFPointsInFocus30D;
-    //  uchar        AFPointsInFocus1D[8];
-    //  ushort       AFPointsInFocus5D;        /* bytes in reverse*/
-    MAKERF(AFAreaMode);
-    if (mn.AFAreaMode) {
-        MAKERF(NumAFPoints);
-        MAKERF(ValidAFPoints);
-        MAKERF(AFImageWidth);
-        MAKERF(AFImageHeight);
-        //  short        AFAreaWidths[61];
-        //  short        AFAreaHeights[61];
-        //  short        AFAreaXPositions[61];
-        //  short        AFAreaYPositions[61];
-        //  short        AFPointsInFocus[4]
-        //  short        AFPointsSelected[4];
-        //  ushort       PrimaryAFPoint;
-    }
-#endif
     MAKERF(FlashMode);
     MAKERF(FlashActivity);
     MAKER(FlashBits, 0);
@@ -1356,27 +1320,6 @@ RawInput::get_makernotes_nikon()
     MAKERF(ImageStabilization);
     MAKER(VibrationReduction, 0);
     MAKERF(VRMode);
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
-    MAKER(FocusMode, 0);
-    MAKERF(AFPoint);
-    MAKER(AFPointsInFocus, 0);
-    MAKERF(ContrastDetectAF);
-    MAKERF(AFAreaMode);
-    MAKERF(PhaseDetectAF);
-    if (mn.PhaseDetectAF) {
-        MAKER(PrimaryAFPoint, 0);
-        // uchar AFPointsUsed[29];
-    }
-    if (mn.ContrastDetectAF) {
-        MAKER(AFImageWidth, 0);
-        MAKER(AFImageHeight, 0);
-        MAKER(AFAreaXPposition, 0);
-        MAKER(AFAreaYPosition, 0);
-        MAKER(AFAreaWidth, 0);
-        MAKER(AFAreaHeight, 0);
-        MAKER(ContrastDetectAFInFocus, 0);
-    }
-#endif
     MAKER(FlashSetting, 0);
     MAKER(FlashType, 0);
     MAKERF(FlashExposureCompensation);
@@ -1496,11 +1439,6 @@ RawInput::get_makernotes_fuji()
     MAKERF(ExrMode);
     MAKERF(Macro);
     MAKERF(Rating);
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
-    MAKERF(FrameRate);
-    MAKERF(FrameWidth);
-    MAKERF(FrameHeight);
-#endif
 }
 
 
@@ -1675,12 +1613,7 @@ RawInput::get_colorinfo()
         add("raw", "dng:version", m_processor->imgdata.idata.dng_version);
 
         auto const& c = m_processor->imgdata.rawdata.color;
-
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 20, 0)
         add("raw", "dng:baseline_exposure", c.dng_levels.baseline_exposure);
-#else
-        add("raw", "dng:baseline_exposure", c.baseline_exposure);
-#endif
 
         for (int i = 0; i < 2; i++) {
             std::string index = std::to_string(i + 1);
@@ -1938,14 +1871,6 @@ RawInput::get_thumbnail(ImageBuf& thumb, int subimage)
         return false;
     }
 
-#if LIBRAW_VERSION < LIBRAW_MAKE_VERSION(0, 21, 0)
-    int errcode = m_processor->unpack_thumb();
-    if (errcode != 0) {
-        if (errcode != LIBRAW_REQUEST_FOR_NONEXISTENT_IMAGE)
-            thumb_errorfmt(this, m_thumb_index, "unpack_thumb error");
-        return false;
-    }
-#else
     int errcode;
     if (m_thumb_index == -1)
         errcode = m_processor->unpack_thumb();
@@ -1957,7 +1882,6 @@ RawInput::get_thumbnail(ImageBuf& thumb, int subimage)
             thumb_errorfmt(this, m_thumb_index, "unpack_thumb_ex error");
         return false;
     }
-#endif
 
     std::unique_ptr<libraw_processed_image_t, void (*)(libraw_processed_image_t*)>
         m_thumb(m_processor->dcraw_make_mem_thumb(&errcode),

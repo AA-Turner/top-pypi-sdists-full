@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "functools",
+    "packaging.utils",
+    "pathlib",
+    "pipx",
+    "pipx.backends",
+    "pipx.commands.common",
+    "pipx.commands.transaction",
+    "pipx.package_specifier",
+    "pipx.util",
+    "pipx.venv",
+]
+
 import logging
 import os
 import re
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -18,7 +32,7 @@ from pipx.commands.common import (
     package_name_from_spec,
     run_post_install_actions,
 )
-from pipx.commands.transaction import preserve_venv
+from pipx.commands.transaction import marked_unfinished, preserve_venv
 from pipx.constants import EXIT_CODE_INJECT_ERROR, EXIT_CODE_OK
 from pipx.emojis import hazard, stars
 from pipx.package_specifier import get_extras
@@ -33,13 +47,14 @@ from pipx.result import (
     render_messages,
     render_result,
 )
-from pipx.util import PipxError, pipx_wrap
+from pipx.util import InstalledNameMismatchError, PipxError, pipx_wrap, redact_url_credentials
 from pipx.venv import Venv
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Sequence
+    from collections.abc import Callable, Generator, Iterable, Sequence
 
     from pipx.pipx_metadata_file import PackageInfo
+    from pipx.venv_inspect import VenvMetadata
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -61,13 +76,14 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     backend: str | None = None,
     env_backend: str | None = None,
     cooldown_days: int | None = None,
+    pinned: bool | None = None,
     emit_output: bool = True,
 ) -> OperationResult[InjectionData]:
-    _LOGGER.debug("Injecting package %s", package_spec)
+    _LOGGER.debug("Injecting package %s", redact_url_credentials(package_spec))
 
     if not venv_dir.exists() or next(venv_dir.iterdir(), None) is None:
         msg = f"""
-            Can't inject {package_spec!r} into nonexistent Virtual Environment
+            Can't inject {redact_url_credentials(package_spec)!r} into nonexistent Virtual Environment
             {venv_dir.name!r}. Be sure to install the package first with 'pipx
             install {venv_dir.name}' before injecting into it.
             """
@@ -76,7 +92,7 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     venv = Venv(venv_dir, verbose=verbose, backend=backend, env_backend=env_backend)
     if not venv.package_metadata:
         msg = f"""
-            Can't inject {package_spec!r} into Virtual Environment
+            Can't inject {redact_url_credentials(package_spec)!r} into Virtual Environment
             {venv.name!r}. {venv.name!r} has missing internal pipx metadata. It
             was likely installed using a pipx version before 0.15.0.0. Please
             uninstall and install {venv.name!r}, or reinstall-all to fix.
@@ -134,7 +150,6 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
             emit_output=emit_output,
         )
 
-    pinned = False
     if is_main_package:
         main_package = venv.pipx_metadata.main_package
         pip_args = pip_args or main_package.pip_args
@@ -151,19 +166,26 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
         venv, paths.ctx.bin_dir, paths.ctx.man_dir
     )
     messages: Final[list[OutputMessage]] = []
-    with preserve_venv(venv_dir, enabled=bool(include_resources_from)):
-        venv.install_package(
-            package_name=package_name,
-            package_or_url=package_spec,
-            pip_args=pip_args,
-            install_only_pip_args=["--force-reinstall"] if force else None,
-            include_dependencies=include_dependencies,
-            include_resources_from=include_resources_from,
-            include_apps=include_apps,
-            is_main_package=is_main_package,
-            suffix=venv_suffix,
-            pinned=pinned,
-            cooldown_days=cooldown_days,
+    # like install, a package without the apps --include-apps asked for leaves the venv as it was
+    with (
+        preserve_venv(venv_dir, enabled=include_apps or bool(include_resources_from)),
+        marked_unfinished(venv_dir),
+    ):
+        package_name = _install_under_installed_name(
+            partial(
+                venv.install_package,
+                package_or_url=package_spec,
+                pip_args=pip_args,
+                install_only_pip_args=["--force-reinstall"] if force else None,
+                include_dependencies=include_dependencies,
+                include_resources_from=include_resources_from,
+                include_apps=include_apps,
+                is_main_package=is_main_package,
+                suffix=venv_suffix,
+                pinned=pinned,
+                cooldown_days=cooldown_days,
+            ),
+            package_name,
         )
         if include_apps:
             messages.extend(
@@ -206,6 +228,16 @@ def inject_dep(  # ruff:ignore[too-many-arguments, too-many-locals]  # inject re
     )
 
 
+def _install_under_installed_name(install: Callable[[str], VenvMetadata], package_name: str) -> str:
+    try:
+        install(package_name)
+    except InstalledNameMismatchError as error:
+        # the spec built under another name than the one pipx resolved, so record the package the venv now holds
+        install(error.installed_name)
+        return error.installed_name
+    return package_name
+
+
 def inject(  # ruff:ignore[too-many-arguments]  # inject mirrors inject_dep's flat CLI-facing option set
     venv_dir: Path,
     package_specs: Iterable[str],
@@ -221,6 +253,7 @@ def inject(  # ruff:ignore[too-many-arguments]  # inject mirrors inject_dep's fl
     backend: str | None = None,
     env_backend: str | None = None,
     cooldown_days: int | None = None,
+    pinned: bool | None = None,
     emit_output: bool = True,
 ) -> OperationResult[InjectionData]:
     package_set: Final[set[str]] = set(package_specs)
@@ -256,6 +289,7 @@ def inject(  # ruff:ignore[too-many-arguments]  # inject mirrors inject_dep's fl
                 backend=backend,
                 env_backend=env_backend,
                 cooldown_days=cooldown_days,
+                pinned=pinned,
                 emit_output=False,
             )
         except PipxError as error:

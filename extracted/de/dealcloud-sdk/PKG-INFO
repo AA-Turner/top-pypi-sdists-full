@@ -1,12 +1,12 @@
 Metadata-Version: 2.5
 Name: dealcloud-sdk
-Version: 1.0.16
+Version: 1.0.18
 Summary: DealCloud SDK built on HTTPX via intapp-rest-client
 Project-URL: Homepage, https://api.docs.dealcloud.com/sdk/python-1.X
 Project-URL: Documentation, https://api.docs.dealcloud.com/sdk/python-1.X
 Project-URL: Changelog, https://api.docs.dealcloud.com/sdk/python-1.X/reference/changelog
 Project-URL: Source, https://pypi.org/project/dealcloud-sdk/
-Author-email: Intapp Support <support@intapp.com>
+Author-email: Intapp Support <support@intapp.com>, Brian Michael <brian.michael@intapp.com>
 License: INTAPP LICENSE TERMS FOR SUPPLEMENTAL SOFTWARE
         These license terms (these “License Terms”) are an agreement between Integration Appliance, Inc. (“Intapp”) and the 
         entity with which you are employed, affiliated or associated (“Company” or “you”). These License Terms apply to the 
@@ -133,7 +133,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.12
 Requires-Dist: fsspec>=2026.3.0
-Requires-Dist: intapp-rest-client>=1.0.14
+Requires-Dist: intapp-rest-client>=1.0.16
 Requires-Dist: numpy>=2.3.4; python_version < '3.13'
 Requires-Dist: numpy>=2.4.2; python_version >= '3.13'
 Requires-Dist: pandas>=2.0.0

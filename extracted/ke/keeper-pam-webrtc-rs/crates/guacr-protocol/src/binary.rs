@@ -76,6 +76,12 @@ const VAULT_MAX_INCOMING_MESSAGE_BYTES: usize = (16 * 1024 - FRAME_PROTOCOL_OVER
 /// FRAGMENT_PAYLOAD_SIZE (above) derives from this, keeping each fragment within that budget.
 pub const MAX_SAFE_PAYLOAD_SIZE: usize = VAULT_MAX_INCOMING_MESSAGE_BYTES - FRAME_PROTOCOL_OVERHEAD; // 32,717 bytes
 
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub enum FragmentError {
+    #[error("binary message requires {count} fragments; wire format supports at most 255")]
+    TooManyFragments { count: usize },
+}
+
 /// Minimum payload size below which compression is never attempted.
 /// At sub-512-byte payloads the zstd frame header overhead exceeds the savings.
 const COMPRESS_THRESHOLD: usize = 512;
@@ -406,26 +412,34 @@ impl BinaryEncoder {
     ///        and total count (in `reserved[1]`).
     /// AC-4: All fragments share the same opcode.
     /// AC-5: A receiver that ignores FLAG_FRAGMENTED can still process non-fragmented messages.
-    pub fn fragment_message(&mut self, opcode: Opcode, flags: u8, payload: &[u8]) -> Vec<Bytes> {
+    /// Returns an error without emitting any frames if the fragment count exceeds 255.
+    pub fn fragment_message(
+        &mut self,
+        opcode: Opcode,
+        flags: u8,
+        payload: &[u8],
+    ) -> Result<Vec<Bytes>, FragmentError> {
         // AC-1: sub-limit — send as a single non-fragmented frame.
         if payload.len() <= FRAGMENT_PAYLOAD_SIZE {
-            return vec![self.encode_raw(opcode, flags, payload)];
+            return Ok(vec![self.encode_raw(opcode, flags, payload)]);
         }
 
         // AC-2: over-limit — split into fragments.
-        let chunks: Vec<&[u8]> = payload.chunks(FRAGMENT_PAYLOAD_SIZE).collect();
-        let total = chunks.len().min(255) as u8; // clamp to u8 max (reserved field is 1 byte)
+        let chunks = payload.chunks(FRAGMENT_PAYLOAD_SIZE);
+        let total = u8::try_from(chunks.len()).map_err(|_| FragmentError::TooManyFragments {
+            count: chunks.len(),
+        })?;
         let mut frames = Vec::with_capacity(chunks.len());
 
         for (seq, chunk) in chunks.into_iter().enumerate() {
-            let seq = seq.min(254) as u8; // 0-indexed, max 254
-                                          // AC-3: embed seq_num in reserved[0], total_count in reserved[1].
+            // AC-3: embed seq_num in reserved[0], total_count in reserved[1].
             let fragment_flags = flags | FLAG_FRAGMENTED;
-            let frame = self.encode_raw_with_reserved(opcode, fragment_flags, seq, total, chunk);
+            let frame =
+                self.encode_raw_with_reserved(opcode, fragment_flags, seq as u8, total, chunk);
             frames.push(frame);
         }
 
-        frames
+        Ok(frames)
     }
 
     /// Encode a single message without fragmentation.

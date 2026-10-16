@@ -522,3 +522,43 @@ async def test_an_abandoned_task_cannot_pause_stop_or_deproxy_the_crawl() -> Non
     assert crawler._proxy_disabled is False
     # The same writes from a live task still land.
     assert crawler._record_crawl_pause(30.0) > 0
+
+
+async def test_waiting_behind_other_crawls_for_a_shared_page_slot_is_not_a_stall(
+    short_lease: None,
+) -> None:
+    """MKT-155: with many bulk crawls in one process, a crawl's workers can queue
+    for a shared page slot longer than deadline + grace. That is load, not a
+    wedge — the crawl must finish once the slots free up, never stop as stalled."""
+    from matrx_scraper.cpu_lane import LANE_BULK, bulk_page_slots
+
+    queue = InMemoryQueueBackend()
+    sink = CapturingSink()
+    urls = [f"https://x.test/{i}" for i in range(3)]
+    crawler = _crawler(queue, sink, urls)
+    crawler.config = replace(crawler.config, lane=LANE_BULK)
+
+    async def page_work(item: QueueItem) -> None:
+        crawler._pages_fetched += 1
+        await crawler.queue.mark_done(item.url)
+
+    crawler._process_page = page_work  # type: ignore[method-assign]
+
+    # Other crawls hold every bulk slot for well past the stall window.
+    slots = bulk_page_slots()
+    held = 0
+    while not slots.locked():
+        await slots.acquire()
+        held += 1
+
+    async def release_later() -> None:
+        await asyncio.sleep(DEADLINE_S + crawler_mod.STALL_GRACE_SECONDS + 1.5)
+        for _ in range(held):
+            slots.release()
+
+    releaser = asyncio.create_task(release_later())
+    await asyncio.wait_for(crawler.run(), timeout=RUN_BOUND_S)
+    await releaser
+
+    completed = sink.of_type(CrawlCompletedEvent)[0]
+    assert (completed.status, completed.stop_reason, completed.pages_fetched) == ("completed", None, 3)

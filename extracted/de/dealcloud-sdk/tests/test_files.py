@@ -591,7 +591,7 @@ class TestUploadAttachment:
         mock_resp = MagicMock()
         mock_resp.content = b"[]"
         mock_resp.json.return_value = []
-        mock_client.post_raw.return_value = mock_resp
+        mock_client.put_raw.return_value = mock_resp
         mock_client_class.return_value = mock_client
         logo = SimpleNamespace(apiName="Logo", id=77, fieldType=field_types.IMAGE)
         name_f = SimpleNamespace(apiName="Name", id=1, fieldType=1)
@@ -611,12 +611,32 @@ class TestUploadAttachment:
             )
         assert result["entry_id"] == 555
         assert result["field_id"] == 77
-        call_kw = mock_client.post_raw.call_args[1]
+        call_kw = mock_client.put_raw.call_args[1]
         model = json.loads(call_kw["data"]["model"])
         bsr = model["binaryStoreRequests"][0]
         assert bsr["entryId"] == 555
         assert bsr["fieldId"] == 77
         assert bsr["contentType"] == "image/jpeg"
+        mock_client.post_raw.assert_not_called()
+
+    @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
+    def test_upload_file_to_entry_field_raises_on_row_error_in_200_body(self, mock_client_class):
+        from dealcloud_sdk.utils.process_response_errors import DealCloudValidationError
+
+        mock_client = MagicMock()
+        mock_client._get_auth_headers_sync.return_value = {"Authorization": "Bearer token"}
+        body = [{"entryId": 555, "fieldId": 77, "error": {"code": 5002, "description": "bad"}}]
+        mock_resp = MagicMock()
+        mock_resp.content = b"x"
+        mock_resp.json.return_value = body
+        mock_client.put_raw.return_value = mock_resp
+        mock_client_class.return_value = mock_client
+        logo = SimpleNamespace(apiName="Logo", id=77, fieldType=field_types.IMAGE)
+        files = DealCloudFiles(site_url="test.dealcloud.com", client_id="123", client_secret="secret")
+        with patch.object(files, "get_fields", return_value=[logo]):
+            with pytest.raises(DealCloudValidationError) as exc:
+                files.upload_file_to_entry_field("Company", 555, "Logo", b"b", "a.png")
+        assert exc.value.row_errors[0]["EntryId"] == 555
 
     @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
     def test_upload_file_to_entry_field_by_numeric_field_id(self, mock_client_class):
@@ -625,7 +645,7 @@ class TestUploadAttachment:
         mock_resp = MagicMock()
         mock_resp.content = b"[]"
         mock_resp.json.return_value = []
-        mock_client.post_raw.return_value = mock_resp
+        mock_client.put_raw.return_value = mock_resp
         mock_client_class.return_value = mock_client
         logo = SimpleNamespace(apiName="Logo", id=77, fieldType=field_types.IMAGE)
         name_f = SimpleNamespace(apiName="Name", id=1, fieldType=1)
@@ -643,7 +663,7 @@ class TestUploadAttachment:
                 "shot.png",
             )
         assert result["field_id"] == 77
-        call_kw = mock_client.post_raw.call_args[1]
+        call_kw = mock_client.put_raw.call_args[1]
         model = json.loads(call_kw["data"]["model"])
         assert model["binaryStoreRequests"][0]["fieldId"] == 77
 
@@ -672,7 +692,7 @@ class TestUploadAttachment:
         mock_resp = MagicMock()
         mock_resp.content = b"[]"
         mock_resp.json.return_value = []
-        mock_client.post_raw.return_value = mock_resp
+        mock_client.put_raw.return_value = mock_resp
         mock_client_class.return_value = mock_client
         logo = SimpleNamespace(apiName="Logo", id=77, fieldType=field_types.IMAGE)
         files = DealCloudFiles(
@@ -684,7 +704,7 @@ class TestUploadAttachment:
             files.upload_file_to_entry_field(
                 "Company", 1, "Logo", b"x", "doc.pdf", content_type=""
             )
-        model = json.loads(mock_client.post_raw.call_args[1]["data"]["model"])
+        model = json.loads(mock_client.put_raw.call_args[1]["data"]["model"])
         assert model["binaryStoreRequests"][0]["contentType"] == "application/pdf"
 
     @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
@@ -762,6 +782,94 @@ class TestUploadAttachment:
                 files.upload_file_to_entry_field(
                     "Company", 1, "Note", b"x", "n.txt"
                 )
+
+    def _attachment_ref_files(self, mock_client_class, cv_field, post_body):
+        mock_client = MagicMock()
+        mock_client._get_auth_headers_sync.return_value = {"Authorization": "Bearer token"}
+        mock_resp = MagicMock()
+        mock_resp.content = b"[]"
+        mock_resp.json.return_value = post_body
+        mock_client.post_raw.return_value = mock_resp
+        mock_client.put.return_value = [{"rowId": 9}]
+        mock_client_class.return_value = mock_client
+        title_f = SimpleNamespace(apiName="Title", id=1, fieldType=1)
+        doc_f = SimpleNamespace(apiName="Document", id=2, fieldType=field_types.BINARY)
+        files = DealCloudFiles(
+            site_url="test.dealcloud.com",
+            client_id="123",
+            client_secret="secret",
+        )
+        return mock_client, files, [cv_field, title_f, doc_f]
+
+    @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
+    def test_upload_file_to_entry_field_attachment_reference_two_step(self, mock_client_class):
+        cv = SimpleNamespace(
+            apiName="CV", name="CV", id=55, fieldType=field_types.REFERENCE, isAttachment=True
+        )
+        mock_client, files, fields = self._attachment_ref_files(
+            mock_client_class, cv, [{"rowId": 9}]
+        )
+        with patch.object(files, "get_fields", return_value=fields), patch.object(
+            files, "get_attachment_object_id", return_value="Attachment"
+        ):
+            result = files.upload_file_to_entry_field("Contact", 555, "CV", b"pdf", "cv.pdf")
+        mock_client.put_raw.assert_not_called()
+        assert mock_client.post_raw.call_count == 1
+        assert mock_client.post_raw.call_args[0][0].endswith("/Attachment")
+        put_args, put_kw = mock_client.put.call_args
+        assert put_args[0].endswith("/Contact")
+        assert put_kw["json"] == {
+            "storeRequests": [{"entryId": 555, "fieldId": 55, "value": 9}]
+        }
+        assert result["field_id"] == 55
+        assert result["attachment_entry_id"] == 9
+        assert result["attachment_document_field_id"] == 2
+
+    @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
+    def test_upload_file_to_entry_field_resolves_display_name(self, mock_client_class):
+        cv = SimpleNamespace(
+            apiName="CurriculumVitae",
+            name="CV",
+            id=55,
+            fieldType=field_types.REFERENCE,
+            isAttachment=True,
+        )
+        mock_client, files, fields = self._attachment_ref_files(
+            mock_client_class, cv, [{"rowId": 9}]
+        )
+        with patch.object(files, "get_fields", return_value=fields), patch.object(
+            files, "get_attachment_object_id", return_value="Attachment"
+        ):
+            result = files.upload_file_to_entry_field("Contact", 555, "CV", b"pdf", "cv.pdf")
+        assert result["field_id"] == 55
+
+    @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
+    def test_upload_file_to_entry_field_reference_not_attachment_raises(self, mock_client_class):
+        ref = SimpleNamespace(
+            apiName="Company", name="Company", id=55, fieldType=field_types.REFERENCE,
+            isAttachment=False,
+        )
+        mock_client, files, fields = self._attachment_ref_files(mock_client_class, ref, [])
+        with patch.object(files, "get_fields", return_value=fields):
+            with pytest.raises(ValueError, match="attachment REFERENCE"):
+                files.upload_file_to_entry_field("Contact", 1, "Company", b"x", "n.pdf")
+        mock_client.post_raw.assert_not_called()
+        mock_client.put.assert_not_called()
+
+    @patch("dealcloud_sdk.base.dealcloud_base.RestClient")
+    def test_upload_file_to_entry_field_attachment_reference_no_row_id_raises(
+        self, mock_client_class
+    ):
+        cv = SimpleNamespace(
+            apiName="CV", name="CV", id=55, fieldType=field_types.REFERENCE, isAttachment=True
+        )
+        mock_client, files, fields = self._attachment_ref_files(mock_client_class, cv, [{}])
+        with patch.object(files, "get_fields", return_value=fields), patch.object(
+            files, "get_attachment_object_id", return_value="Attachment"
+        ):
+            with pytest.raises(ValueError, match="no row id"):
+                files.upload_file_to_entry_field("Contact", 1, "CV", b"x", "cv.pdf")
+        mock_client.put.assert_not_called()
 
 
 class TestFindFileFields:
@@ -947,4 +1055,6 @@ class TestFilesApiRefactor:
         # Should use proper client methods (download_file for GET-style file retrieval, post/post_raw, delete)
         assert "_client.download_file" in source or "_client.get_raw" in source or "_client.get(" in source
         assert "_client.post_raw" in source or "_client.post(" in source
+        assert "_client.put_raw" in source
+
 

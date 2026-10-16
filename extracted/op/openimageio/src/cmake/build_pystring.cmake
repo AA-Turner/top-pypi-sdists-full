@@ -8,7 +8,7 @@
 
 set_cache (pystring_BUILD_VERSION 1.2.0 "pystring version for local builds")
 set (pystring_GIT_REPOSITORY "https://github.com/imageworks/pystring")
-set (pystring_GIT_TAG "v${pystring_BUILD_VERSION}" "Git branch or tag")
+set (pystring_GIT_TAG "v${pystring_BUILD_VERSION}")
 set (pystring_GIT_COMMIT "1922c8f2b48e3beb6831c27b4811b58995e986cf")
 
 set_cache (pystring_BUILD_SHARED_LIBS OFF
@@ -27,12 +27,10 @@ build_dependency_with_cmake(pystring
         -D CMAKE_INSTALL_LIBDIR=lib
 )
 
-set (pystring_VERSION ${pystring_BUILD_VERSION})
-unset (PYSTRING_LIBRARY)
-unset (PYSTRING_INCLUDE_DIR)
-
-set (pystring_REFIND FALSE)
+# Signal to caller that we need to find again at the installed location
+set (pystring_REFIND TRUE)
 set (pystring_REFIND_VERSION ${pystring_BUILD_VERSION})
+set (pystring_VERSION ${pystring_BUILD_VERSION})
 
 
 if (pystring_BUILD_SHARED_LIBS)

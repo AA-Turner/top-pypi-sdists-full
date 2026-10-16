@@ -1,12 +1,16 @@
 from __future__ import absolute_import
 
 from tmo.api.iterator_base_api import IteratorBaseApi
+from tmo.types.model import TrainedModel
 
 
 class TrainedModelApi(IteratorBaseApi):
     name = "Trained Model API"
     path = "trainedModels"
     type = "TRAINED_MODEL"
+
+    def _parse_entity_from_dictionary(self, response: dict) -> TrainedModel:
+        return TrainedModel.from_dict(response)
 
     def find_dataset(self, trained_model_id: str, projection: str = None):
         """

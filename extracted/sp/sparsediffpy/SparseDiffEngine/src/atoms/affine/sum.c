@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 #include "atoms/affine.h"
+#include "sparsediff_linalg/dense.h"
+#include "sparsediff_linalg/tracked_alloc.h"
 #include "subexpr.h"
-#include "utils/mini_numpy.h"
-#include "utils/tracked_alloc.h"
 #include <assert.h>
 #include <string.h>
 
@@ -129,7 +129,7 @@ static void wsum_hess_init_impl(expr *node)
     wsum_hess_init(child);
 
     /* we never have to store more than the child's nnz */
-    node->wsum_hess = child->wsum_hess->copy_sparsity(child->wsum_hess);
+    node->wsum_hess = copy_sparsity_matrices_alloc(child->wsum_hess);
     node->work->dwork = sp_malloc(child->size * sizeof(double));
 }
 

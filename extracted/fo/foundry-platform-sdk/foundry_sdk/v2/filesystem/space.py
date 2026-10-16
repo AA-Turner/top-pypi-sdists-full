@@ -74,6 +74,9 @@ class SpaceClient:
     ) -> filesystem_models.Space:
         """
         Creates a new Space.
+
+        Required scopes: [api:filesystem-write]
+
         :param deletion_policy_organizations: By default, this Space will use a Last Out deletion policy, meaning that this Space and its projects will be deleted when the last Organization listed here is deleted. Only Organizations in the Space's Enrollment can be included here.
         :type deletion_policy_organizations: List[OrganizationRid]
         :param display_name:
@@ -161,6 +164,9 @@ class SpaceClient:
         """
         Delete the space. This will only work if the Space is empty, meaning any Projects or resources have been deleted first.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param preview: Enables the use of preview functionality.
@@ -211,6 +217,9 @@ class SpaceClient:
     ) -> filesystem_models.Space:
         """
         Get the Space with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param preview: Enables the use of preview functionality.
@@ -261,6 +270,9 @@ class SpaceClient:
         Lists all Spaces.
 
         This is a paged endpoint. Each page may be smaller or larger than the requested page size. However, it is guaranteed that if there are more results available, the `nextPageToken` field will be populated. To get the next page, make the same request again, but set the value of the `pageToken` query parameter to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field in the response, you are on the last page.
+
+        Required scopes: [api:filesystem-read]
+
         :param page_size: The page size to use for the endpoint.
         :type page_size: Optional[PageSize]
         :param page_token: The page token indicates where to start paging. This should be omitted from the first page's request. To fetch the next page, clients should take the value from the `nextPageToken` field of the previous response and use it to populate the `pageToken` field of the next request.
@@ -308,6 +320,9 @@ class SpaceClient:
     ) -> filesystem_models.Space:
         """
         Replace the Space with the specified rid.
+
+        Required scopes: [api:filesystem-write]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param display_name:
@@ -445,6 +460,9 @@ class AsyncSpaceClient:
     ) -> typing.Awaitable[filesystem_models.Space]:
         """
         Creates a new Space.
+
+        Required scopes: [api:filesystem-write]
+
         :param deletion_policy_organizations: By default, this Space will use a Last Out deletion policy, meaning that this Space and its projects will be deleted when the last Organization listed here is deleted. Only Organizations in the Space's Enrollment can be included here.
         :type deletion_policy_organizations: List[OrganizationRid]
         :param display_name:
@@ -532,6 +550,9 @@ class AsyncSpaceClient:
         """
         Delete the space. This will only work if the Space is empty, meaning any Projects or resources have been deleted first.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param preview: Enables the use of preview functionality.
@@ -582,6 +603,9 @@ class AsyncSpaceClient:
     ) -> typing.Awaitable[filesystem_models.Space]:
         """
         Get the Space with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param preview: Enables the use of preview functionality.
@@ -632,6 +656,9 @@ class AsyncSpaceClient:
         Lists all Spaces.
 
         This is a paged endpoint. Each page may be smaller or larger than the requested page size. However, it is guaranteed that if there are more results available, the `nextPageToken` field will be populated. To get the next page, make the same request again, but set the value of the `pageToken` query parameter to be value of the `nextPageToken` value of the previous response. If there is no `nextPageToken` field in the response, you are on the last page.
+
+        Required scopes: [api:filesystem-read]
+
         :param page_size: The page size to use for the endpoint.
         :type page_size: Optional[PageSize]
         :param page_token: The page token indicates where to start paging. This should be omitted from the first page's request. To fetch the next page, clients should take the value from the `nextPageToken` field of the previous response and use it to populate the `pageToken` field of the next request.
@@ -679,6 +706,9 @@ class AsyncSpaceClient:
     ) -> typing.Awaitable[filesystem_models.Space]:
         """
         Replace the Space with the specified rid.
+
+        Required scopes: [api:filesystem-write]
+
         :param space_rid:
         :type space_rid: SpaceRid
         :param display_name:

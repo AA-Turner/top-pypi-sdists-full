@@ -7,14 +7,12 @@ from typing import TYPE_CHECKING, Annotated, List, Literal, Optional, Union
 import pyarrow as pa
 
 from chalk.utils.json import is_pyarrow_json_type, pyarrow_json_type
+from chalk.utils.pydanticutil.sdk import USE_PYDANTIC_V2
 
 if TYPE_CHECKING:
     from pydantic import BaseModel, Field
 else:
-    try:
-        from pydantic.v1 import BaseModel, Field
-    except ImportError:
-        from pydantic import BaseModel, Field
+    from chalk.utils.pydanticutil.sdk import BaseModel, Field
 
 __all__ = [
     "deserialize_dtype",
@@ -72,7 +70,7 @@ class _DTypeCode(enum.IntEnum):
 _TimeUnitCode = Literal["s", "ms", "us", "ns"]
 
 
-class _BaseSerializedDType(BaseModel, frozen=True, use_enum_values=True):
+class _BaseSerializedDType(BaseModel, frozen=True):
     type_code: _DTypeCode
 
     def to_pyarrow_dtype(self) -> pa.DataType:
@@ -126,7 +124,7 @@ class _TimeUnitDType(_BaseSerializedDType, frozen=True):
 class _TimestampDType(_BaseSerializedDType, frozen=True):
     type_code: Literal[_DTypeCode.TIMESTAMP]
     time_unit: _TimeUnitCode
-    timezone: Optional[str]
+    timezone: Optional[str] = None
 
     def to_pyarrow_dtype(self) -> pa.DataType:
         return pa.timestamp(self.time_unit, self.timezone)
@@ -202,10 +200,11 @@ _SerializedDType = Annotated[
     Field(discriminator="type_code"),
 ]
 
-_Field.update_forward_refs()
-_ListDType.update_forward_refs()
-_LargeListDType.update_forward_refs()
-_MapDType.update_forward_refs()
+for _model in (_Field, _ListDType, _LargeListDType, _MapDType):
+    if USE_PYDANTIC_V2:
+        _model.model_rebuild()  # pyright: ignore[reportAttributeAccessIssue]
+    else:
+        _model.update_forward_refs()
 
 
 class _Deserializer(BaseModel):
@@ -219,7 +218,11 @@ def deserialize_dtype(serialized_dtype: str) -> pa.DataType:
 
 
 def serialize_dtype(pa_dtype: pa.DataType) -> str:
-    return _serialize_pyarrow_dtype(pa_dtype).json()
+    model = _serialize_pyarrow_dtype(pa_dtype)
+    if USE_PYDANTIC_V2:
+        # Keep the historical JSON spacing: dtype strings are embedded in plans.
+        return json.dumps(model.model_dump(mode="json"))  # pyright: ignore[reportAttributeAccessIssue]
+    return model.json()
 
 
 def _serialize_pyarrow_dtype(pa_dtype: pa.DataType) -> _SerializedDType:

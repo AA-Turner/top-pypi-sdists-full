@@ -244,6 +244,15 @@ class DatasetTemplateApi(BaseEntityApiMixin):
             "featureMetadata": {
                 "database": dataset_template.feature_metadata.database,
                 "table": dataset_template.feature_metadata.table,
+                **(
+                    {
+                        "monitoringGroup": (
+                            dataset_template.feature_metadata.monitoring_group
+                        )
+                    }
+                    if dataset_template.feature_metadata.monitoring_group
+                    else {}
+                ),
             },
         }
 
@@ -484,6 +493,14 @@ class DatasetTemplateApi(BaseEntityApiMixin):
             dataset_template.metadata = parse_metadata_from_response(
                 metadata, catalog_type, dataset_template
             )
+
+            feature_metadata = response.get("featureMetadata")
+            if isinstance(feature_metadata, dict):
+                dataset_template.feature_metadata = FeatureMetadata(
+                    feature_metadata.get("database"),
+                    feature_metadata.get("table"),
+                    feature_metadata.get("monitoringGroup"),
+                )
 
             return dataset_template
         except Exception as e:

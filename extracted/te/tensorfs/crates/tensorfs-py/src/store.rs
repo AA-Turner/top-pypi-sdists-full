@@ -962,13 +962,31 @@ impl PyStore {
         let (selected, skipped) = py
             .detach(|| {
                 if !files.is_empty() {
+                    // Exact names and `folder/` prefixes; every one must select a file.
+                    let wanted = |m: &str| {
+                        files
+                            .iter()
+                            .any(|f| m == f || (f.ends_with('/') && m.starts_with(f.as_str())))
+                    };
                     let resolved = providers::resolve_files(
                         &uri,
-                        &files,
+                        &wanted,
                         &endpoints,
                         &credentials,
                         transport::Deadline::none(),
                     )?;
+                    let resolved = resolved.filter(|found| {
+                        files.iter().all(|f| {
+                            found.members.iter().any(|row| {
+                                row.member == *f
+                                    || (f.ends_with('/') && row.member.starts_with(f.as_str()))
+                            })
+                        })
+                    });
+                    let resolved = resolved.ok_or_else(|| Refusal {
+                        code: Code::MISSING_FIELD,
+                        detail: "the source does not contain every requested file".into(),
+                    })?;
                     return Ok((resolved, Vec::new()));
                 }
                 // Carriers named exactly: a file no selection can name is skipped, not refused.

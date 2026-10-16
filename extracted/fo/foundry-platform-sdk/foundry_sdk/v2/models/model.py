@@ -101,6 +101,9 @@ class ModelClient:
     ) -> models_models.Model:
         """
         Creates a new Model with no versions.
+
+        Required scopes: [api:models-write]
+
         :param name:
         :type name: ModelName
         :param parent_folder_rid:
@@ -157,6 +160,9 @@ class ModelClient:
     ) -> models_models.Model:
         """
         Retrieves a Model by its Resource Identifier (RID).
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param preview: Enables the use of preview functionality.
@@ -207,6 +213,9 @@ class ModelClient:
     ) -> models_models.ModelVersion:
         """
         Promotes an existing Model Version to the target Model. The promoted Model Version will be copied to the target Model as the latest version on the specified branch, but will have a new Model Version RID.
+
+
+        Required scopes: [api:models-write]
 
         :param model_rid:
         :type model_rid: ModelRid
@@ -353,6 +362,9 @@ class AsyncModelClient:
     ) -> typing.Awaitable[models_models.Model]:
         """
         Creates a new Model with no versions.
+
+        Required scopes: [api:models-write]
+
         :param name:
         :type name: ModelName
         :param parent_folder_rid:
@@ -409,6 +421,9 @@ class AsyncModelClient:
     ) -> typing.Awaitable[models_models.Model]:
         """
         Retrieves a Model by its Resource Identifier (RID).
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param preview: Enables the use of preview functionality.
@@ -459,6 +474,9 @@ class AsyncModelClient:
     ) -> typing.Awaitable[models_models.ModelVersion]:
         """
         Promotes an existing Model Version to the target Model. The promoted Model Version will be copied to the target Model as the latest version on the specified branch, but will have a new Model Version RID.
+
+
+        Required scopes: [api:models-write]
 
         :param model_rid:
         :type model_rid: ModelRid

@@ -163,6 +163,7 @@ class _Open:
     resume_beneath: tuple[_Open, ...] = ()
     declared: bool = False
     claimed: bool = False
+    details: dict[str, Any] | None = None
 
 
 @dataclass(eq=False)
@@ -422,6 +423,7 @@ def _emit_entry(
 ) -> None:
     function_id, function_file, function_line = function_identity(session, entry.code)
     nested = entry.nested_trace
+    details = entry.details or {}
     session.emit(
         experiment_id=experiment_id,
         span_id=entry.span_id,
@@ -438,6 +440,8 @@ def _emit_entry(
         span_type=entry.span_type,
         variant=entry.variant,
         declared_node=entry.declared,
+        contexts=details.get("contexts") or None,
+        prompt=details.get("prompt"),
         nested_trace=(
             {
                 "trace_id": nested.trace_id,
@@ -510,6 +514,9 @@ def _on_start(code: Any, instruction_offset: int) -> Any:
                 started_at=session.now() if span_id else "",
                 nested_trace=nested if session is not innermost else None,
                 declared=declared,
+                details=nested.root_span_context
+                if nested is not None and session is not innermost
+                else None,
             )
             selective = (_replay_context.get() or {}).get("selective_replay")
             if selective is not None and span_id is not None and session is innermost:
@@ -853,6 +860,7 @@ class BorrowedSpan:
         kwargs: dict[str, Any] | None = None,
         experiment_id: str | None = None,
         variant: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self._code = code
         self._trace_id = trace_id
@@ -863,6 +871,7 @@ class BorrowedSpan:
         self._kwargs = kwargs
         self._experiment_id = experiment_id
         self._variant = variant
+        self._details = details
         self._entries: dict[Session, _Open] = {}
         self._done = False
 
@@ -903,6 +912,7 @@ class BorrowedSpan:
             mirror=True,
             variant=self._variant,
             declared=True,
+            details=self._details,
         )
 
     def __enter__(self) -> BorrowedSpan:
@@ -950,6 +960,7 @@ def borrowed_span(
     kwargs: dict[str, Any] | None = None,
     experiment_id: str | None = None,
     variant: str | None = None,
+    details: dict[str, Any] | None = None,
 ) -> BorrowedSpan:
     return BorrowedSpan(
         code,
@@ -961,6 +972,7 @@ def borrowed_span(
         kwargs=kwargs,
         experiment_id=experiment_id,
         variant=variant,
+        details=details,
     )
 
 

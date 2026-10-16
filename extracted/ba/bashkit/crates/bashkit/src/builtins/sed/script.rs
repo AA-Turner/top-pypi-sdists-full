@@ -142,14 +142,17 @@ struct Parser {
     chars: Vec<char>,
     pos: usize,
     extended: bool,
+    /// `-z`: in `M` mode `^`/`$` also match around NUL, the line separator.
+    null_data: bool,
     regex_seen: bool,
 }
 
-pub(super) fn parse(script: &str, extended: bool) -> ParseResult<Program> {
+pub(super) fn parse_with(script: &str, extended: bool, null_data: bool) -> ParseResult<Program> {
     let mut parser = Parser {
         chars: script.chars().collect(),
         pos: 0,
         extended,
+        null_data,
         regex_seen: false,
     };
     parser.program()
@@ -457,7 +460,8 @@ impl Parser {
             return Ok(None);
         }
         self.regex_seen = true;
-        match SedRegex::new(body, self.extended, case_insensitive, multi_line) {
+        let line_term = if self.null_data { b'\0' } else { b'\n' };
+        match SedRegex::new(body, self.extended, case_insensitive, multi_line, line_term) {
             Ok(re) => Ok(Some(Arc::new(re))),
             Err(e) => self.err(format!("invalid pattern: {}", flatten(&e))),
         }
@@ -482,7 +486,10 @@ impl Parser {
                 match self.bump() {
                     // `\<delim>` is the delimiter as an ordinary character.
                     Some(n) if n == delim => {
-                        if n.is_ascii_alphanumeric() {
+                        // In a regex GNU drops the backslash, so the
+                        // character keeps its plain regex meaning: `\|`
+                        // with `|` as delimiter is a literal `|` in BRE.
+                        if bracket_aware || n.is_ascii_alphanumeric() {
                             out.push(n);
                         } else {
                             out.push('\\');
@@ -574,6 +581,8 @@ impl Parser {
                 };
                 Ok(Kind::List(width))
             }
+            'a' if self.bare_backslash_text() => Ok(Kind::Nop),
+            'i' if self.bare_backslash_text() => Ok(Kind::Nop),
             'a' => Ok(Kind::Append(self.text())),
             'i' => Ok(Kind::Insert(self.text())),
             'c' => Ok(Kind::Change(self.text())),
@@ -641,6 +650,17 @@ impl Parser {
 
     /// Text argument of `a`, `i` and `c`, in both the POSIX `a\` + newline form
     /// and the GNU one-liner form.
+    /// `a\` / `i\` ending the script: GNU adds no line at all.
+    fn bare_backslash_text(&mut self) -> bool {
+        let save = self.pos;
+        self.skip_blanks();
+        if self.eat('\\') && self.peek().is_none() {
+            return true;
+        }
+        self.pos = save;
+        false
+    }
+
     fn text(&mut self) -> String {
         self.skip_blanks();
         if self.eat('\\') {
@@ -793,11 +813,19 @@ fn unescape_y(s: &str, delim: char) -> Vec<char> {
     let mut i = 0;
     while i < chars.len() {
         if chars[i] == '\\' && i + 1 < chars.len() {
+            if let Some((c, used)) = super::pattern::numeric_escape(&chars, i + 1) {
+                out.push(c);
+                i += 2 + used;
+                continue;
+            }
             let n = chars[i + 1];
             out.push(match n {
                 'n' => '\n',
                 't' => '\t',
                 'r' => '\r',
+                'f' => '\x0c',
+                'v' => '\x0b',
+                'a' => '\x07',
                 '\\' => '\\',
                 c if c == delim => c,
                 c => c,
@@ -839,6 +867,11 @@ pub(super) fn parse_replacement(text: &str) -> Vec<RepPart> {
             continue;
         }
         if c == '\\' && i + 1 < chars.len() {
+            if let Some((ch, used)) = super::pattern::numeric_escape(&chars, i + 1) {
+                lit.push(ch);
+                i += 2 + used;
+                continue;
+            }
             let n = chars[i + 1];
             i += 2;
             match n {

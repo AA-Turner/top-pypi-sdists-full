@@ -6,6 +6,7 @@ use crate::analysis;
 pub fn diagnostics(sql: &str) -> Vec<Diagnostic> {
     analysis::parse_errors(sql)
         .into_iter()
+        .chain(analysis::unsupported_syntax_errors(sql))
         .map(|e| {
             // sqlparser locations are 1-based; LSP positions are 0-based
             let line = e.line.saturating_sub(1);
@@ -29,6 +30,19 @@ mod tests {
     fn test_valid_sql_no_diagnostics() {
         let diags = diagnostics("SELECT 1");
         assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn test_bigquery_array_type_has_diagnostic() {
+        let diags = diagnostics("SELECT CAST(foo AS ARRAY<VARCHAR(123)>)");
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].severity, Some(DiagnosticSeverity::ERROR));
+        assert_eq!(diags[0].range.start, Position::new(0, 24));
+        assert!(
+            diags[0].message.contains("BigQuery"),
+            "{}",
+            diags[0].message
+        );
     }
 
     #[test]

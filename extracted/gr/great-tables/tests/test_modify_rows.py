@@ -4,6 +4,7 @@ import pytest
 
 from great_tables import GT, loc, style, vals
 from great_tables._utils_render_html import create_body_component_h
+from tests.utils import assert_rendered_body
 
 
 def render_only_body(gt) -> str:
@@ -11,12 +12,6 @@ def render_only_body(gt) -> str:
     body = create_body_component_h(built)
 
     return body
-
-
-def assert_rendered_body(snapshot, gt):
-    body = render_only_body(gt)
-
-    assert snapshot == body
 
 
 def mean_expr(df: pd.DataFrame):
@@ -240,9 +235,9 @@ def test_grand_summary_rows_with_rowname_and_groupname():
     )
     html = res.as_raw_html()
 
-    assert 'rowspan="2">x</th>' in html
+    assert 'rowspan="2" scope="rowgroup" id="x">x</th>' in html
     assert (
-        '<th class="gt_row gt_left gt_stub gt_grand_summary_row gt_first_grand_summary_row_bottom" colspan="2">Average</th>'
+        '<th class="gt_row gt_left gt_stub gt_grand_summary_row gt_first_grand_summary_row_bottom" colspan="2" scope="row" id="grand-summary-Average">Average</th>'
         in html
     )
 

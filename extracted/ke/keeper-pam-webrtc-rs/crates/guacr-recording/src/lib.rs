@@ -11,10 +11,13 @@
 
 mod asciicast;
 mod config;
+#[cfg(unix)]
+mod fifo_open;
 mod helpers;
 mod multi;
 mod ses;
 mod transport;
+mod writer_thread;
 #[cfg(feature = "zmq-transport")]
 pub mod zmq_transport;
 
@@ -22,7 +25,10 @@ pub use asciicast::{AsciicastHeader, AsciicastRecorder, EventType};
 pub use config::{find_unique_path, get_param, parse_bool, RecordingConfig, RecordingFormat};
 pub use helpers::{extract_opcode, inject_timestamp, is_drawing_instruction};
 pub use multi::MultiFormatRecorder;
-pub use ses::{GuacamoleSesRecorder, RecordingDirection, RecordingError, SessionRecorder};
+pub use ses::{
+    GuacamoleSesRecorder, RecordingDirection, RecordingError, SesPayload, SessionRecorder,
+    TERMINAL_SES_MARKER,
+};
 pub use transport::{
     ChannelRecordingTransport, FileRecordingTransport, MultiTransportRecorder, RecordingTransport,
 };

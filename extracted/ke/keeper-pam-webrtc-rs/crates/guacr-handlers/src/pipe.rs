@@ -57,6 +57,15 @@ pub const PIPE_STREAM_STDOUT: u32 = PIPE_STREAM_BASE;
 /// Stream ID for STDIN pipe
 pub const PIPE_STREAM_STDIN: u32 = PIPE_STREAM_BASE + 1;
 
+/// Stream ID for the terminal bell (BEL) audio notification.
+///
+/// The bell is an `audio` + `blob` + `end` triple, and the `end` closes whatever stream it
+/// names. Sending it on [`PIPE_STREAM_STDOUT`] therefore told the client the STDOUT pipe was
+/// finished, so from the first `\a` a server printed, every later pipe blob was dropped by a
+/// conforming client for the rest of the session. It needs an id of its own: outside the
+/// 1-99 image range and clear of the pipes.
+pub const BELL_AUDIO_STREAM: u32 = PIPE_STREAM_BASE + 50;
+
 // ============================================================================
 // Pipe Stream State
 // ============================================================================

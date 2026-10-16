@@ -7,7 +7,10 @@ a central registration or modification of the core workflows package.
 """
 
 import importlib
+import os
 import pkgutil
+import subprocess
+import tarfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -89,3 +92,22 @@ class TestContribNamespace:
             assert bar.dist_name == "workflows-plugins-bar"
             assert bar.dist_version == "2.3.1"
             assert bar.ispkg is True
+
+
+class TestNamespacePackaging:
+    def test_sdist_preserves_discovery_without_bundling_plugins(self, tmp_path: Path) -> None:
+        subprocess.run(
+            ["uv", "build", "--no-sources", "--sdist", str(HERE.parent), "--out-dir", str(tmp_path)],
+            env={**os.environ, "UV_DYNAMIC_VERSIONING_BYPASS": "3.15.0"},
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        (sdist,) = tmp_path.glob("*.tar.gz")
+        with tarfile.open(sdist) as archive:
+            members = {
+                Path(name).relative_to(sdist.name.removesuffix(".tar.gz")).as_posix() for name in archive.getnames()
+            }
+        assert "mistralai/workflows/plugins/_discovery.py" in members
+        assert not any(name.startswith("plugins/") for name in members)

@@ -1,64 +1,60 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, mem::take};
 
 use derive_where::derive_where;
 
 use crate::{
-	block::{Heading, List, Small, list::item::Item, quote, small},
-	inline::{
-		code, code_block::CodeBlock, emoji::Emoji, link::Link, mention::Mention,
-		timestamp::Timestamp,
-	},
-	range::Content,
+	range::{Content, delim::Delim},
 	rule::Rule,
 	span::{Span, Spanned},
-	unparse::Unparse,
 };
 
-use super::{Node, Sequence};
+use super::{
+	Sequence,
+	block::{Heading, List, Small},
+	inline::{
+		code_block::CodeBlock, emoji::Emoji, link::Link, mention::Mention, timestamp::Timestamp,
+	},
+};
 
-/// What the parser builds directly, as opposed to the modifiers resolved over it: the nodes both
-/// a [`Node`] and a [`super::ParsedNode`] can be, holding children of type `N`.
-#[derive_where(Debug, Clone, PartialEq, Eq; N)]
-#[cfg_attr(
-	feature = "serde",
-	derive(serde::Serialize, serde::Deserialize),
-	serde(
-		tag = "type",
-		content = "value",
-		rename_all = "snake_case",
-		bound(
-			serialize = "N: serde::Serialize",
-			deserialize = "N: serde::Deserialize<'de>"
-		)
-	)
-)]
-pub enum Element<'data, S: Span, N> {
+/// A node of the tree mid-parse. Modifiers are still the [`Delim`] runs that
+/// [`crate::range::resolve`] pairs into the modifiers of the finished tree, turning the rest into
+/// [`super::Block`]s and [`super::Inline`]s.
+#[derive_where(Debug, Clone, PartialEq, Eq)]
+pub enum Element<'data, S: Span> {
+	Delim(Delim),
+
 	// inline
 	Emoji(Emoji<'data>),
 	Timestamp(Timestamp),
 	Mention(Mention),
-	Link(Link<S, N>),
+	Link(Link<S, Element<'data, S>>),
 	Code(Cow<'data, str>),
 	CodeBlock(CodeBlock<'data>),
 	Text(Cow<'data, str>),
 
 	// block
-	Heading(Heading<S, N>),
-	List(List<S, N>),
+	Heading(Heading<S, Element<'data, S>>),
+	List(List<S, Element<'data, S>>),
 	/// Plain Node content.
-	Paragraph(Sequence<S, N>),
-	Quote(Sequence<S, N>),
-	Small(Small<S, N>),
+	Paragraph(Elements<'data, S>),
+	Quote(Elements<'data, S>),
+	Small(Small<S, Element<'data, S>>),
 	/// New line.
 	Empty,
 }
 
-impl<S: Span, N> Element<'_, S, N> {
-	/// The [`Rule`] that this element corresponds to. Returns [`None`] if this is a base rule.
+/// An [`Element`] wrapped in a span.
+pub type SpannedElement<'data, S> = Spanned<Element<'data, S>, S>;
+/// A vec of [`Element`]s, all of which are wrapped in a span.
+pub type Elements<'data, S> = Sequence<S, Element<'data, S>>;
+
+impl<S: Span> Element<'_, S> {
+	/// The [`Rule`] that this element corresponds to. Returns [`None`] if this is a base rule or a
+	/// delimiter.
 	#[must_use]
 	pub fn rule(&self) -> Option<Rule> {
 		Some(match self {
-			Self::Text(_) | Self::Paragraph(_) | Self::Empty => return None,
+			Self::Delim(_) | Self::Text(_) | Self::Paragraph(_) | Self::Empty => return None,
 			Self::Code(_) => Rule::Code,
 			Self::CodeBlock(_) => Rule::CodeBlock,
 			Self::Emoji(_) => Rule::Emoji,
@@ -85,7 +81,8 @@ impl<S: Span, N> Element<'_, S, N> {
 			}) => url.to_string(),
 			Self::Mention(mention) => mention.to_string(),
 			Self::Text(text) => text.clone().into_owned(),
-			Self::Heading(_)
+			Self::Delim(_)
+			| Self::Heading(_)
 			| Self::Timestamp(_)
 			| Self::List(_)
 			| Self::Paragraph(_)
@@ -97,6 +94,26 @@ impl<S: Span, N> Element<'_, S, N> {
 		})
 	}
 
+	/// Text content of this element and its children, as [`super::Inline::content`] reads it once
+	/// resolved, less the delimiters.
+	#[must_use]
+	pub fn content(&self) -> String {
+		let mut content = String::new();
+		self.push_content(&mut content);
+		content
+	}
+
+	fn push_content(&self, out: &mut String) {
+		if let Some(text) = self.text() {
+			out.push_str(&text);
+		}
+		for (_, content) in self.sequences() {
+			for node in &content.value {
+				node.value.push_content(out);
+			}
+		}
+	}
+
 	/// Whether this is a block container, which holds [`Self::sequences`].
 	#[must_use]
 	pub fn is_container(&self) -> bool {
@@ -106,103 +123,46 @@ impl<S: Span, N> Element<'_, S, N> {
 		)
 	}
 
-	/// The sequences a container holds directly: one per list item, otherwise its content. Link
-	/// text is not among them, being a scope of its own.
-	pub fn sequences(&self) -> impl Iterator<Item = &Sequence<S, N>> {
+	/// Whether this is a block: a container, or a blank line.
+	#[must_use]
+	pub fn is_block(&self) -> bool {
+		self.is_container() || matches!(self, Self::Empty)
+	}
+
+	/// The sequences a container holds directly, with what each holds: one per list item,
+	/// otherwise its content. Link text is not among them, being a scope of its own.
+	pub fn sequences(&self) -> impl Iterator<Item = (Content, &Elements<'_, S>)> {
 		let (content, items) = match self {
 			Self::Paragraph(content)
-			| Self::Quote(content)
 			| Self::Heading(Heading { content, .. })
-			| Self::Small(Small { content }) => (Some(content), &[][..]),
+			| Self::Small(Small { content }) => (Some((Content::Inline, content)), &[][..]),
+			Self::Quote(content) => (Some((Content::Blocks, content)), &[][..]),
 			Self::List(List { items, .. }) => (None, items.value.as_slice()),
 			_ => (None, &[][..]),
 		};
 		content
 			.into_iter()
-			.chain(items.iter().map(|item| &item.content))
-	}
-
-	/// As [`Self::sequences`], mutably.
-	pub fn sequences_mut(&mut self) -> impl Iterator<Item = &mut Sequence<S, N>> {
-		let (content, items) = match self {
-			Self::Paragraph(content)
-			| Self::Quote(content)
-			| Self::Heading(Heading { content, .. })
-			| Self::Small(Small { content }) => (Some(content), &mut [][..]),
-			Self::List(List { items, .. }) => (None, items.value.as_mut_slice()),
-			_ => (None, &mut [][..]),
-		};
-		content
-			.into_iter()
-			.chain(items.iter_mut().map(|item| &mut item.content))
+			.chain(items.iter().map(|item| (Content::Blocks, &item.content)))
 	}
 }
 
-impl<'data, S: Span, N> Element<'data, S, N> {
-	/// This element with children of type `M`: every sequence it holds, link text included, mapped
-	/// through `f` along with what it holds.
-	pub fn map_children<M>(
-		self,
-		mut f: impl FnMut(Sequence<S, N>, Content) -> Sequence<S, M>,
-	) -> Element<'data, S, M> {
-		match self {
-			Self::Paragraph(content) => Element::Paragraph(f(content, Content::Inline)),
-			Self::Heading(Heading { level, content }) => Element::Heading(Heading {
-				level,
-				content: f(content, Content::Inline),
+/// Merges adjacent text in a parsed sequence, which holds no markup to flatten yet.
+pub fn merge_text<S: Span>(nodes: &mut Vec<SpannedElement<'_, S>>) {
+	let mut merged: Vec<SpannedElement<'_, S>> = Vec::with_capacity(nodes.len());
+	for node in take(nodes) {
+		if let (
+			Some(Spanned {
+				value: Element::Text(current),
+				span,
 			}),
-			Self::Small(Small { content }) => Element::Small(Small {
-				content: f(content, Content::Inline),
-			}),
-			Self::Quote(content) => Element::Quote(f(content, Content::Blocks)),
-			Self::List(List { kind, items }) => Element::List(List {
-				kind,
-				items: Spanned {
-					value: items
-						.value
-						.into_iter()
-						.map(|item| Item {
-							content: f(item.content, Content::Blocks),
-						})
-						.collect(),
-					span: items.span,
-				},
-			}),
-			Self::Link(Link { text, url, title }) => Element::Link(Link {
-				text: text.map(|text| f(text, Content::Inline)),
-				url,
-				title,
-			}),
-			Self::Emoji(emoji) => Element::Emoji(emoji),
-			Self::Timestamp(timestamp) => Element::Timestamp(timestamp),
-			Self::Mention(mention) => Element::Mention(mention),
-			Self::Code(code) => Element::Code(code),
-			Self::CodeBlock(code_block) => Element::CodeBlock(code_block),
-			Self::Text(text) => Element::Text(text),
-			Self::Empty => Element::Empty,
+			Element::Text(text),
+		) = (merged.last_mut(), &node.value)
+		{
+			current.to_mut().push_str(text);
+			span.merge(&node.span);
+			continue;
 		}
+		merged.push(node);
 	}
-}
-
-impl<'data, S: Span> Unparse for Element<'data, S, Node<'data, S>> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match self {
-			// Inline nodes
-			Self::Emoji(emoji) => Unparse::fmt(emoji, f),
-			Self::Timestamp(timestamp) => Unparse::fmt(timestamp, f),
-			Self::Mention(mention) => Unparse::fmt(mention, f),
-			Self::Link(link) => Unparse::fmt(link, f),
-			Self::Code(code) => code::unparse(code, f),
-			Self::CodeBlock(code_block) => Unparse::fmt(code_block, f),
-			Self::Text(text) => f.write_str(text),
-
-			// Block nodes
-			Self::Heading(heading) => Unparse::fmt(heading, f),
-			Self::List(list) => Unparse::fmt(list, f),
-			Self::Paragraph(children) => Unparse::fmt(children, f),
-			Self::Quote(children) => quote::unparse(children, f),
-			Self::Small(small) => small::unparse(&small.content, f),
-			Self::Empty => f.write_str("\n"),
-		}
-	}
+	*nodes = merged;
 }

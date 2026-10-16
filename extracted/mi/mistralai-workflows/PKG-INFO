@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mistralai-workflows
-Version: 3.15.0
+Version: 3.16.0
 Summary: Mistral Workflows - Build reliable AI workflows with Python
 Project-URL: Homepage, https://mistral.ai
 Project-URL: Documentation, https://docs.mistral.ai/workflows/getting-started/introduction
@@ -28,15 +28,16 @@ Requires-Dist: opentelemetry-sdk<2.0.0,>=1.30.0
 Requires-Dist: orjson<4.0.0,>=3.10.15
 Requires-Dist: pydantic-settings<3.0.0,>=2.9.0
 Requires-Dist: pydantic<3.0.0,>=2.12.0
-Requires-Dist: pyjwt<3.0.0,>=2.13.0
+Requires-Dist: pyjwt<3.0.0,>=2.15.0
+Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: starlette>=1.3.1
 Requires-Dist: structlog<26,>=24
 Requires-Dist: temporalio<1.30.0,>=1.29.0
 Requires-Dist: tenacity<10.0.0,>=9.1.2
-Requires-Dist: urllib3>=2.7.0
+Requires-Dist: urllib3>=2.8.0
 Provides-Extra: all
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all'
-Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all'
+Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all'
@@ -45,7 +46,7 @@ Requires-Dist: mistralai[workflow-payload-encryption]; extra == 'all'
 Requires-Dist: mistralai[workflow-payload-offloading]; extra == 'all'
 Provides-Extra: all-plugins
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'all-plugins'
-Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'all-plugins'
+Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-evaluations<1.0.0,>=0.5.0; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'all-plugins'
 Requires-Dist: mistralai-workflows-plugins-webhook<4.0.0,>=3.0.0a1; extra == 'all-plugins'
@@ -64,7 +65,7 @@ Provides-Extra: gcs
 Requires-Dist: mistralai[workflow-payload-offloading-gcs]; extra == 'gcs'
 Provides-Extra: mistralai
 Requires-Dist: aiocache<1.0.0,>=0.12.3; extra == 'mistralai'
-Requires-Dist: mcp<2.0.0,>=1.12.4; extra == 'mistralai'
+Requires-Dist: mcp<2.0.0,>=1.27.2; extra == 'mistralai'
 Requires-Dist: mistralai-workflows-plugins-mistralai<4.0.0,>=3.0.0a1; extra == 'mistralai'
 Provides-Extra: s3
 Requires-Dist: mistralai[workflow-payload-offloading-s3]; extra == 's3'
@@ -104,10 +105,12 @@ from datetime import timedelta
 
 from mistralai.workflows import workflow, activity
 
+
 @activity
 async def get_weather(city: str) -> str:
     # Your activity implementation
     return f"Weather in {city}: Sunny"
+
 
 @workflow.define
 class WeatherWorkflow:

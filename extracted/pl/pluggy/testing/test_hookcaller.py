@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from collections.abc import Generator
 from collections.abc import Sequence
-from typing import Callable
 from typing import TypeVar
 
 import pytest
@@ -304,15 +304,15 @@ def test_adding_wrappers_complex(hc: HookCaller, addmeth: AddMeth) -> None:
 def test_hookspec(pm: PluginManager) -> None:
     class HookSpec:
         @hookspec()
-        def he_myhook1(arg1) -> None:
+        def he_myhook1(self, arg1) -> None:
             pass
 
         @hookspec(firstresult=True)
-        def he_myhook2(arg1) -> None:
+        def he_myhook2(self, arg1) -> None:
             pass
 
         @hookspec(firstresult=False)
-        def he_myhook3(arg1) -> None:
+        def he_myhook3(self, arg1) -> None:
             pass
 
     pm.add_hookspecs(HookSpec)
@@ -327,7 +327,7 @@ def test_hookspec(pm: PluginManager) -> None:
 @pytest.mark.parametrize("name", ["hookwrapper", "optionalhook", "tryfirst", "trylast"])
 @pytest.mark.parametrize("val", [True, False])
 def test_hookimpl(name: str, val: bool) -> None:
-    @hookimpl(**{name: val})  # type: ignore[misc,call-overload]
+    @hookimpl(**{name: val})  # type: ignore[untyped-decorator,call-overload]
     def he_myhook1(arg1) -> None:
         pass
 
@@ -511,3 +511,25 @@ def test_call_extra_hook_order(hc: HookCaller, addmeth: AddMeth) -> None:
         "2",
         "3",
     ]
+
+
+def test_remove_plugin_not_found_raises(hc: HookCaller, pm: PluginManager) -> None:
+    """_remove_plugin() raises ValueError for a plugin that never registered
+    an implementation on this particular hook caller."""
+
+    class Plugin:
+        @hookimpl
+        def he_method1(self, arg):
+            pass  # pragma: no cover
+
+    plugin = Plugin()
+    pm.register(plugin)
+    assert len(hc.get_hookimpls()) == 1
+
+    other = Plugin()
+    with pytest.raises(ValueError, match=f"plugin {other!r} not found"):
+        hc._remove_plugin(other)
+
+    # the failed removal must not have touched the existing registration
+    assert len(hc.get_hookimpls()) == 1
+    pm.unregister(plugin)

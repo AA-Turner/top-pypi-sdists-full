@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import logging
 import re
+import uuid
 from time import sleep
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
@@ -16,6 +17,7 @@ from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 from .ApiImplType1 import (
+    USER_AGENT_OK_HTTP,
     ApiImplSession,
     ApiImplType1,
     _check_response_for_errors,
@@ -40,8 +42,10 @@ from .const import (
     TEMPERATURE_UNITS,
 )
 from .exceptions import (
+    APIError,
     AuthenticationError,
     ConsentRequiredError,
+    DeviceIDError,
 )
 from .Token import Token
 from .utils import (
@@ -56,9 +60,7 @@ from .Vehicle import (
 
 _LOGGER = logging.getLogger(__name__)
 
-USER_AGENT_OK_HTTP: str = "okhttp/3.12.0"
 USER_AGENT_MOZILLA: str = "Mozilla/5.0 (Linux; Android 4.1.1; Galaxy Nexus Build/JRO03C) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.166 Mobile Safari/535.19"
-ACCEPT_HEADER_ALL: str = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
 
 SUPPORTED_LANGUAGES_LIST = [
     "en",  # English
@@ -195,7 +197,18 @@ class KiaUvoApiEU(ApiImplType1):
         pin: str | None = None,
     ) -> Token:
         stamp = self._get_stamp()
-        device_id = self._get_device_id(stamp)
+        try:
+            device_id = self._get_device_id(stamp)
+        except (AuthenticationError, DeviceIDError, APIError) as ex:
+            # The legacy register endpoint is the first thing login(), and
+            # therefore every full-login recovery, depends on. When it is
+            # down or rejects the request, the CCI login itself is fine —
+            # fall back to a random device identity (the GspaApiEU login
+            # path always used one) instead of failing the whole login.
+            _LOGGER.warning(
+                f"Legacy device register failed ({ex}), using a random device identity"
+            )
+            device_id = str(uuid.uuid4())
         cookies = self._get_cookies()
         self._set_session_language(cookies)
 
@@ -1376,7 +1389,7 @@ class KiaUvoApiEU(ApiImplType1):
             _LOGGER.debug(f"{DOMAIN} - _get_location failed")
             return
 
-    def _get_location(self, token: Token, vehicle: Vehicle) -> dict:
+    def _get_location(self, token: Token, vehicle: Vehicle) -> dict | None:
         url = self.SPA_API_URL + "vehicles/" + vehicle.id + "/location"
 
         try:

@@ -7,13 +7,56 @@ import builtins
 import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.common.v1.address_pb2
 import sentry_protos.billing.v1.common.v1.external_billing_provider_pb2
+import sys
 import typing
 
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
+
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
+
+class _FailurePolicy:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _FailurePolicyEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_FailurePolicy.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    FAILURE_POLICY_UNSPECIFIED: _FailurePolicy.ValueType  # 0
+    """Account dunning: a failed payment makes the account past due and, once
+    retries run out, downgrades it or disables on-demand; a successful payment
+    reactivates it. Every invoice written before policies existed has this.
+    """
+    FAILURE_POLICY_RETRY_ONLY: _FailurePolicy.ValueType  # 1
+    """Payment state never changes account status, in either direction. The
+    service that requested the invoice (client_id) owns the consequences of
+    non-payment and reads the outcome from the invoice, so an invoice with
+    this policy always has a client_id.
+    """
+
+class FailurePolicy(_FailurePolicy, metaclass=_FailurePolicyEnumTypeWrapper):
+    """What paying, or failing to pay, an invoice does to the organization's
+    account status. Retries and payment emails apply under every policy.
+    """
+
+FAILURE_POLICY_UNSPECIFIED: FailurePolicy.ValueType  # 0
+"""Account dunning: a failed payment makes the account past due and, once
+retries run out, downgrades it or disables on-demand; a successful payment
+reactivates it. Every invoice written before policies existed has this.
+"""
+FAILURE_POLICY_RETRY_ONLY: FailurePolicy.ValueType  # 1
+"""Payment state never changes account status, in either direction. The
+service that requested the invoice (client_id) owns the consequences of
+non-payment and reads the outcome from the invoice, so an invoice with
+this policy always has a client_id.
+"""
+global___FailurePolicy = FailurePolicy
 
 @typing.final
 class InvoiceLineItem(google.protobuf.message.Message):
@@ -70,6 +113,9 @@ class Invoice(google.protobuf.message.Message):
     EXTERNAL_BILLING_PROVIDER_FIELD_NUMBER: builtins.int
     EXTERNAL_INVOICE_ID_FIELD_NUMBER: builtins.int
     HIDE_FROM_CUSTOMER_RECEIPTS_FIELD_NUMBER: builtins.int
+    FAILURE_POLICY_FIELD_NUMBER: builtins.int
+    IDEMPOTENCY_KEY_FIELD_NUMBER: builtins.int
+    CLIENT_ID_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     amount_billed: builtins.int
     """Not just a sum of line items since there may be credit applied"""
@@ -95,6 +141,16 @@ class Invoice(google.protobuf.message.Message):
     (e.g. pre-migration shadow rollovers and the $0 migration stub). Default
     false means the invoice is visible on receipts.
     """
+    failure_policy: global___FailurePolicy.ValueType
+    idempotency_key: builtins.str
+    """Caller-supplied key that makes off-cycle invoice creation safe to retry.
+    Unique per organization and client_id; unset on contract invoices.
+    """
+    client_id: builtins.str
+    """Identifies the service that requested the invoice, which reads the
+    invoice to learn its outcome and maps idempotency_key back to its own
+    records. Unset on contract invoices.
+    """
     @property
     def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___InvoiceLineItem]: ...
     @property
@@ -119,13 +175,20 @@ class Invoice(google.protobuf.message.Message):
         external_billing_provider: sentry_protos.billing.v1.common.v1.external_billing_provider_pb2.ExternalBillingProvider.ValueType | None = ...,
         external_invoice_id: builtins.str | None = ...,
         hide_from_customer_receipts: builtins.bool = ...,
+        failure_policy: global___FailurePolicy.ValueType = ...,
+        idempotency_key: builtins.str | None = ...,
+        client_id: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_external_billing_provider", b"_external_billing_provider", "_external_invoice_id", b"_external_invoice_id", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "date_added", b"date_added", "external_billing_provider", b"external_billing_provider", "external_invoice_id", b"external_invoice_id", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_external_billing_provider", b"_external_billing_provider", "_external_invoice_id", b"_external_invoice_id", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "amount_billed", b"amount_billed", "date_added", b"date_added", "external_billing_provider", b"external_billing_provider", "external_invoice_id", b"external_invoice_id", "guid", b"guid", "hide_from_customer_receipts", b"hide_from_customer_receipts", "invoice_id", b"invoice_id", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_client_id", b"_client_id", "_external_billing_provider", b"_external_billing_provider", "_external_invoice_id", b"_external_invoice_id", "_idempotency_key", b"_idempotency_key", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "client_id", b"client_id", "date_added", b"date_added", "external_billing_provider", b"external_billing_provider", "external_invoice_id", b"external_invoice_id", "idempotency_key", b"idempotency_key", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_client_id", b"_client_id", "_external_billing_provider", b"_external_billing_provider", "_external_invoice_id", b"_external_invoice_id", "_idempotency_key", b"_idempotency_key", "_tax_number", b"_tax_number", "_tax_transaction_code", b"_tax_transaction_code", "address", b"address", "amount_billed", b"amount_billed", "client_id", b"client_id", "date_added", b"date_added", "external_billing_provider", b"external_billing_provider", "external_invoice_id", b"external_invoice_id", "failure_policy", b"failure_policy", "guid", b"guid", "hide_from_customer_receipts", b"hide_from_customer_receipts", "idempotency_key", b"idempotency_key", "invoice_id", b"invoice_id", "is_reverse_charge", b"is_reverse_charge", "line_items", b"line_items", "needs_charged", b"needs_charged", "organization_id", b"organization_id", "paid", b"paid", "tax_number", b"tax_number", "tax_transaction_code", b"tax_transaction_code"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_client_id", b"_client_id"]) -> typing.Literal["client_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_external_billing_provider", b"_external_billing_provider"]) -> typing.Literal["external_billing_provider"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_external_invoice_id", b"_external_invoice_id"]) -> typing.Literal["external_invoice_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_idempotency_key", b"_idempotency_key"]) -> typing.Literal["idempotency_key"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_tax_number", b"_tax_number"]) -> typing.Literal["tax_number"] | None: ...
     @typing.overload

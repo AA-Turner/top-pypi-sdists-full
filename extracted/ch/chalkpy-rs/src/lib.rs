@@ -77,7 +77,7 @@ fn nested_kwarg_location_map_to_python(
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "StdAstFileSystem", skip_from_py_object)]
+#[pyclass(name = "StdAstFileSystem")]
 #[derive(Clone, Debug)]
 struct PyStdAstFileSystem {
     inner: Arc<chalk_ast::StdAstFileSystem>,
@@ -106,7 +106,7 @@ impl PyStdAstFileSystem {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "AstFileParserCache", skip_from_py_object)]
+#[pyclass(name = "AstFileParserCache")]
 #[derive(Clone, Debug)]
 struct PyAstFileParserCache {
     inner: chalk_ast::AstFileParserCache,
@@ -161,7 +161,7 @@ impl PyAstFileParserCache {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "FeatureFieldAST", skip_from_py_object)]
+#[pyclass(name = "FeatureFieldAST")]
 #[derive(Clone, Debug)]
 struct PyFeatureFieldAST {
     inner: chalk_ast::FeatureFieldAST,
@@ -222,7 +222,7 @@ impl PyFeatureFieldAST {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "FeatureClassAST", skip_from_py_object)]
+#[pyclass(name = "FeatureClassAST")]
 #[derive(Clone, Debug)]
 struct PyFeatureClassAST {
     inner: chalk_ast::FeatureClassAST,
@@ -304,7 +304,7 @@ impl PyFeatureClassAST {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "FunctionArgAST", skip_from_py_object)]
+#[pyclass(name = "FunctionArgAST")]
 #[derive(Clone, Debug)]
 struct PyFunctionArgAST {
     inner: chalk_ast::FunctionArgAST,
@@ -330,7 +330,7 @@ impl PyFunctionArgAST {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "ResolverAST", skip_from_py_object)]
+#[pyclass(name = "ResolverAST")]
 #[derive(Clone, Debug)]
 struct PyResolverAST {
     inner: chalk_ast::ResolverAST,
@@ -434,7 +434,7 @@ impl PyResolverAST {
 }
 
 #[cfg(feature = "python")]
-#[pyclass(name = "AstProjectIndex", skip_from_py_object)]
+#[pyclass(name = "AstProjectIndex")]
 #[derive(Clone, Debug)]
 struct PyAstProjectIndex {
     inner: chalk_ast::AstProjectIndex,

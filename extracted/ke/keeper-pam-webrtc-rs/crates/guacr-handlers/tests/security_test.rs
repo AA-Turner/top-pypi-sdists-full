@@ -859,7 +859,7 @@ mod zk_boundary_tests {
         // 3. Asserting a base64 representation of the secret does appear.
 
         use base64::Engine;
-        use guacr_handlers::format_clipboard_instructions;
+        use guacr_terminal::format_clipboard_instructions;
 
         let secret = "TOP_SECRET_CLIPBOARD_DATA_7x9z";
         let stream_id: u32 = 1;

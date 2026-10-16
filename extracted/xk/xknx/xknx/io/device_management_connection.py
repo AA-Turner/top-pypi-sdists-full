@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 import asyncio
 from collections.abc import Callable
 import logging
+from typing import Self
 
 from xknx.cemi import (
     CEMIErrorCode,
@@ -20,6 +21,7 @@ from xknx.cemi import (
 from xknx.exceptions import (
     CommunicationError,
     CouldNotParseCEMI,
+    RequestResponseError,
     UnsupportedCEMIMessage,
 )
 from xknx.knxip import (
@@ -28,14 +30,13 @@ from xknx.knxip import (
     DeviceConfigurationRequest,
     DisconnectRequest,
     DisconnectResponse,
+    ErrorCode,
     HostProtocol,
     KNXIPFrame,
     KNXIPServiceType,
 )
 from xknx.knxip.knxip_enum import ConnectRequestType
 from xknx.profile.const import ResourceObjectType, ResourcePropertyId
-from xknx.typing import Self
-from xknx.util import asyncio_timeout
 
 from .const import (
     DEVICE_CONFIGURATION_REQUEST_REPETITIONS,
@@ -199,18 +200,13 @@ class _DeviceManagementConnection(ABC):
                 connection_type=ConnectRequestType.DEVICE_MGMT_CONNECTION,
             ),
         )
-        await connect.start()
-        if not connect.success:
-            raise CommunicationError(
-                f"ConnectRequest failed. Status code: {connect.response_status_code}"
-            )
-
-        self.communication_channel = connect.communication_channel
+        response = await connect.request()
+        self.communication_channel = response.communication_channel
         self.sequence_number = 0
         self._data_endpoint_addr = (
             None
-            if connect.data_endpoint.route_back
-            else connect.data_endpoint.addr_tuple
+            if response.data_endpoint.route_back
+            else response.data_endpoint.addr_tuple
         )
         self._start_receiving()
         self._disconnect_callback = self.transport.register_callback(
@@ -236,14 +232,10 @@ class _DeviceManagementConnection(ABC):
                     communication_channel_id=channel,
                     local_hpai=self.local_hpai,
                 )
-                await disconnect.start()
-                if not disconnect.success:
-                    logger.debug(
-                        "DisconnectRequest was not answered by the server (%s).",
-                        "timeout"
-                        if disconnect.response_status_code is None
-                        else disconnect.response_status_code,
-                    )
+                try:
+                    await disconnect.request()
+                except RequestResponseError as err:
+                    logger.debug("DisconnectRequest failed. %s", err)
         finally:
             self.transport.stop()
 
@@ -296,11 +288,11 @@ class _DeviceManagementConnection(ABC):
             communication_channel_id=self.communication_channel,
             local_hpai=self.local_hpai,
         )
-        await conn_state.start()
-        status_code: str | None = None
-        if error_code := conn_state.response_status_code:
-            status_code = error_code.name
-        return conn_state.success, status_code
+        try:
+            await conn_state.request()
+        except RequestResponseError as err:
+            return False, err.error_code.name if err.error_code is not None else None
+        return True, None
 
     ####################
     #
@@ -341,7 +333,7 @@ class _DeviceManagementConnection(ABC):
                 await self._send_request(cemi)
                 # The spec defines this timeout for the acknowledgement only;
                 # reusing it as the answer deadline is merely a sensible choice.
-                async with asyncio_timeout(DEVICE_CONFIGURATION_REQUEST_TIMEOUT):
+                async with asyncio.timeout(DEVICE_CONFIGURATION_REQUEST_TIMEOUT):
                     while True:
                         answer = await pending
                         if matches is None or matches(answer):
@@ -352,7 +344,7 @@ class _DeviceManagementConnection(ABC):
                         )
                         pending = asyncio.get_running_loop().create_future()
                         self._pending = pending
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 raise CommunicationError(
                     f"No answer to {cemi.code} within "
                     f"{DEVICE_CONFIGURATION_REQUEST_TIMEOUT} seconds."
@@ -573,24 +565,27 @@ class UDPDeviceManagementConnection(_DeviceManagementConnection):
                 ),
                 timeout_in_seconds=DEVICE_CONFIGURATION_REQUEST_TIMEOUT,
             )
-            await device_configuration.start()
-            answered = (
-                # The acknowledgement went missing, but the answer arrived -
-                # so the server did accept the request.
-                self._pending is not None
-                and self._pending.done()
-                and not self._pending.cancelled()
-            )
-            if device_configuration.success or answered:
+            error_code: ErrorCode | None = None
+            acknowledged = True
+            try:
+                await device_configuration.request()
+            except RequestResponseError as err:
+                error_code = err.error_code
+                acknowledged = (
+                    # The acknowledgement went missing, but the answer arrived -
+                    # so the server did accept the request.
+                    self._pending is not None
+                    and self._pending.done()
+                    and not self._pending.cancelled()
+                )
+            if acknowledged:
                 self.sequence_number = self.sequence_number + 1 & 0xFF
                 return
             logger.debug(
                 "DeviceConfigurationRequest was not acknowledged (attempt %s of %s%s).",
                 attempt + 1,
                 DEVICE_CONFIGURATION_REQUEST_REPETITIONS + 1,
-                ""
-                if device_configuration.response_status_code is None
-                else f"; error status {device_configuration.response_status_code.name}",
+                "" if error_code is None else f"; error status {error_code.name}",
             )
 
         # Repeated to no avail, so the connection is terminated as required.

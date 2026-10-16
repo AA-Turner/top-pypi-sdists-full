@@ -21,9 +21,15 @@ class ExternalPaymentListParams(TypedDict, total=False):
     business_account_token: str
 
     category: Literal[
-        "EXTERNAL_WIRE", "EXTERNAL_ACH", "EXTERNAL_CHECK", "EXTERNAL_FEDNOW", "EXTERNAL_RTP", "EXTERNAL_TRANSFER"
+        "EXTERNAL_WIRE",
+        "EXTERNAL_ACH",
+        "EXTERNAL_CHECK",
+        "EXTERNAL_FEDNOW",
+        "EXTERNAL_RTP",
+        "EXTERNAL_STABLECOIN",
+        "EXTERNAL_TRANSFER",
     ]
-    """External Payment category to be returned."""
+    """The external rail the funds moved on"""
 
     end: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Date string in RFC 3339 format.

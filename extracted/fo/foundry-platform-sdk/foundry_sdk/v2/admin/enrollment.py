@@ -102,6 +102,9 @@ class EnrollmentClient:
     ) -> admin_models.Enrollment:
         """
         Get the Enrollment with the specified rid.
+
+        Required scopes: [api:admin-read]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param preview: Enables the use of preview functionality.
@@ -149,6 +152,9 @@ class EnrollmentClient:
     ) -> admin_models.Enrollment:
         """
         Returns the Enrollment associated with the current User's primary organization.
+
+
+        Required scopes: [api:admin-read]
 
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
@@ -278,6 +284,9 @@ class AsyncEnrollmentClient:
     ) -> typing.Awaitable[admin_models.Enrollment]:
         """
         Get the Enrollment with the specified rid.
+
+        Required scopes: [api:admin-read]
+
         :param enrollment_rid:
         :type enrollment_rid: EnrollmentRid
         :param preview: Enables the use of preview functionality.
@@ -325,6 +334,9 @@ class AsyncEnrollmentClient:
     ) -> typing.Awaitable[admin_models.Enrollment]:
         """
         Returns the Enrollment associated with the current User's primary organization.
+
+
+        Required scopes: [api:admin-read]
 
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]

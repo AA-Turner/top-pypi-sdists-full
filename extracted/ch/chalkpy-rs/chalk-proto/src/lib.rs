@@ -50,9 +50,21 @@ pub mod chalk {
         }
     }
 
+    pub mod primitive {
+        pub mod v1 {
+            include!("gen/proto/chalk.primitive.v1.rs");
+        }
+    }
+
     pub mod python {
         pub mod v1 {
             include!("gen/proto/chalk.python.v1.rs");
+        }
+    }
+
+    pub mod symbolic_value {
+        pub mod v1 {
+            include!("gen/proto/chalk.symbolic_value.v1.rs");
         }
     }
 }

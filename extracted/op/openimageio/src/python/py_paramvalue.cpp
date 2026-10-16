@@ -11,9 +11,26 @@ static ParamValue
 ParamValue_from_pyobject(string_view name, TypeDesc type, int nvalues,
                          ParamValue::Interp interp, const py::object& obj)
 {
+    ParamValue pv;
+    // Unsized uint8[] + bytes infers arraylen — must run before numelements().
+    if (type.basetype == TypeDesc::UINT8 && type.arraylen
+        && py::isinstance<py::bytes>(obj)) {
+        TypeDesc t          = type;
+        py::bytes b         = py::cast<py::bytes>(obj);
+        const std::string s = oiio_py::bytes_to_stdstring(b);
+        if (type.arraylen < 0)
+            t.arraylen = int(s.size()) / nvalues;
+        if (t.arraylen * nvalues == int(s.size())) {
+            std::vector<uint8_t> vals((const uint8_t*)s.data(),
+                                      (const uint8_t*)s.data() + s.size());
+            pv.init(name, t, nvalues, interp, vals.data());
+            return pv;
+        }
+        return pv;
+    }
+
     size_t expected_size = size_t(type.numelements() * type.aggregate
                                   * nvalues);
-    ParamValue pv;
     if (type.basetype == TypeDesc::INT) {
         std::vector<int> vals;
         py_to_stdvector(vals, obj);
@@ -43,18 +60,6 @@ ParamValue_from_pyobject(string_view name, TypeDesc type, int nvalues,
             for (auto& val : vals)
                 u.emplace_back(val);
             pv.init(name, type, nvalues, interp, &u[0]);
-            return pv;
-        }
-    } else if (type.basetype == TypeDesc::UINT8 && type.arraylen
-               && py::isinstance<py::bytes>(obj)) {
-        // Special case: converting a "bytes" object to a byte array
-        std::string s = obj.cast<py::bytes>();
-        if (type.arraylen < 0)  // convert un-specified length to real length
-            type.arraylen = int(s.size()) / nvalues;
-        if (type.arraylen * nvalues == int(s.size())) {
-            std::vector<uint8_t> vals((const uint8_t*)s.data(),
-                                      (const uint8_t*)s.data() + s.size());
-            pv.init(name, type, nvalues, interp, vals.data());
             return pv;
         }
     } else if (type.basetype == TypeDesc::UINT8) {
@@ -136,10 +141,8 @@ attribute_typed(T& myobj, string_view name, TypeDesc type, int nvalues,
 
 
 void
-declare_paramvalue(py::module& m)
+declare_paramvalue(py_module& m)
 {
-    using namespace pybind11::literals;
-
     py::enum_<ParamValue::Interp>(m, "Interp")
         .value("CONSTANT", ParamValue::INTERP_CONSTANT)
         .value("PERPIECE", ParamValue::INTERP_PERPIECE)
@@ -151,25 +154,42 @@ declare_paramvalue(py::module& m)
         .value("INTERP_LINEAR", ParamValue::INTERP_LINEAR)
         .value("INTERP_VERTEX", ParamValue::INTERP_VERTEX);
 
+
     py::class_<ParamValue>(m, "ParamValue")
-        .def_property_readonly("name",
-                               [](const ParamValue& self) {
-                                   return PY_STR(self.name().string());
-                               })
-        .def_property_readonly("type",
-                               [](const ParamValue& self) {
-                                   return self.type();
-                               })
-        .def_property_readonly("value",
-                               [](const ParamValue& self) {
-                                   return make_pyobject(self.data(),
-                                                        self.type(),
-                                                        self.nvalues());
-                               })
-        .def_property_readonly("__len__", &ParamValue::nvalues)
+        .OIIO_PY_PROP_RO("name",
+                         [](const ParamValue& self) {
+                             return py_str_escaped(self.name().string());
+                         })
+        .OIIO_PY_PROP_RO("type",
+                         [](const ParamValue& self) { return self.type(); })
+        .OIIO_PY_PROP_RO("value",
+                         [](const ParamValue& self) {
+                             return make_pyobject(self.data(), self.type(),
+                                                  self.nvalues());
+                         })
+        .OIIO_PY_PROP_RO("__len__", &ParamValue::nvalues)
         .def(py::init<const std::string&, int>())
         .def(py::init<const std::string&, float>())
         .def(py::init<const std::string&, const std::string&>())
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+        .def(
+            "__init__",
+            [](ParamValue* self, const std::string& name, TypeDesc type,
+               const py::object& obj) {
+                new (self) ParamValue(
+                    ParamValue_from_pyobject(name, type, 1,
+                                             ParamValue::INTERP_CONSTANT, obj));
+            },
+            "name"_a, "type"_a, "value"_a)
+        .def(
+            "__init__",
+            [](ParamValue* self, const std::string& name, TypeDesc type,
+               int nvalues, ParamValue::Interp interp, const py::object& obj) {
+                new (self) ParamValue(
+                    ParamValue_from_pyobject(name, type, nvalues, interp, obj));
+            },
+            "name"_a, "type"_a, "nvalues"_a, "interp"_a, "value"_a);
+#else
         .def(py::init([](const std::string& name, TypeDesc type,
                          const py::object& obj) {
                  return ParamValue_from_pyobject(name, type, 1,
@@ -183,6 +203,8 @@ declare_paramvalue(py::module& m)
                                                  obj);
              }),
              "name"_a, "type"_a, "nvalues"_a, "interp"_a, "value"_a);
+#endif
+
 
     py::class_<ParamValueList>(m, "ParamValueList")
         .def(py::init<>())
@@ -193,17 +215,18 @@ declare_paramvalue(py::module& m)
                     throw py::index_error();
                 return self[i];
             },
-            py::return_value_policy::reference_internal)
+            oiio_py::ref_internal)
         // __getitem__ is the dict-like `pvl[key]` lookup
         .def(
             "__getitem__",
             [](const ParamValueList& self, const std::string& key) {
                 auto p = self.find(key);
                 if (p == self.end())
-                    throw py::key_error("key '" + key + "' does not exist");
+                    oiio_py::throw_key_error("key '" + key
+                                             + "' does not exist");
                 return make_pyobject(p->data(), p->type());
             },
-            py::return_value_policy::reference_internal)
+            oiio_py::ref_internal)
         // __setitem__ is the dict-like `pvl[key] = value` assignment
         .def("__setitem__",
              [](ParamValueList& self, const std::string& key, py::object val) {
@@ -221,7 +244,7 @@ declare_paramvalue(py::module& m)
         .def(
             "__iter__",
             [](const ParamValueList& self) {
-                return py::make_iterator(self.begin(), self.end());
+                return oiio_py::make_iterator(self);
             },
             py::keep_alive<0, 1>())
         .def("append", [](ParamValueList& p,

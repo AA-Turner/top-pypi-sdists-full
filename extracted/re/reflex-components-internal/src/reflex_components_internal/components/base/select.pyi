@@ -1058,7 +1058,7 @@ class HighLevelSelect(SelectRoot):
             value: The value of the select
             default_open: Whether the select popup is initially open. To render a controlled select popup, use the `open` prop instead.
             open: Whether the select popup is currently open
-            actions_ref: A ref to imperative actions. When specified, the select will not be unmounted when closed. Instead, the `unmount` function must be called to unmount the select manually. Useful when the select's animation is controlled by an external library.
+            actions_ref: A ref to the imperative `close` and `unmount` actions. Supplying this ref does not disable automatic unmounting. Manual exit animations require Base UI's eventDetails, which this wrapper's on_open_change handler does not expose.
             is_item_equal_to_value: Custom comparison logic used to determine if a select item value matches the current selected value. Useful when item values are objects without matching referentially. Defaults to `Object.is` comparison.
             item_to_string_label: When the item values are objects, this function converts the object value to a string representation for display in the trigger. If the shape of the object is `{ value, label }`, the label will be used automatically without needing to specify this prop.
             item_to_string_value: When the item values are objects, this function converts the object value to a string representation for form submission. If the shape of the object is `{ value, label }`, the value will be used automatically without needing to specify this prop.
@@ -1191,7 +1191,7 @@ class Select(ComponentNamespace):
             value: The value of the select
             default_open: Whether the select popup is initially open. To render a controlled select popup, use the `open` prop instead.
             open: Whether the select popup is currently open
-            actions_ref: A ref to imperative actions. When specified, the select will not be unmounted when closed. Instead, the `unmount` function must be called to unmount the select manually. Useful when the select's animation is controlled by an external library.
+            actions_ref: A ref to the imperative `close` and `unmount` actions. Supplying this ref does not disable automatic unmounting. Manual exit animations require Base UI's eventDetails, which this wrapper's on_open_change handler does not expose.
             is_item_equal_to_value: Custom comparison logic used to determine if a select item value matches the current selected value. Useful when item values are objects without matching referentially. Defaults to `Object.is` comparison.
             item_to_string_label: When the item values are objects, this function converts the object value to a string representation for display in the trigger. If the shape of the object is `{ value, label }`, the label will be used automatically without needing to specify this prop.
             item_to_string_value: When the item values are objects, this function converts the object value to a string representation for form submission. If the shape of the object is `{ value, label }`, the value will be used automatically without needing to specify this prop.

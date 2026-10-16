@@ -205,6 +205,13 @@ def test_every_cli_command_has_an_owner():
     # An unknown flag first must not hide the claim from the resilient parser.
     (["experiment", "set", "e", "--conclusion", "x", "--directed", "--authored-by=human"], False),
     (["run", "set", "r1", "--name", "x", "--directed", "--authored-by", "human"], False),
+    # Every command with `--authored-by`, not only run/experiment set: a
+    # project or experiment name claimed as a person's is locked forever.
+    (["project", "set", "p", "--name", "Digits", "--authored-by", "human"], False),
+    (["project", "create", "p", "--kind", "general", "--name", "Digits", "--authored-by", "human"], False),
+    (["experiment", "create", "e", "--project", "p", "--question", "q", "--authored-by", "human"], False),
+    (["experiment", "fork", "a", "b", "--question", "q", "--authored-by", "human"], False),
+    (["project", "set", "p", "--name", "Digits", "--authored-by", "agent"], True),
     # A description written here locks the server's description lane out (L15).
     (["project", "set", "p", "--description", "digits classifiers"], False),
     (["project", "create", "p", "--kind", "general", "--description", "x"], False),
@@ -279,6 +286,31 @@ def test_the_daemon_uploads_up_to_5_gb_and_scans_the_first_scan_bytes(tmp_path, 
     block = add(_sparse_file(tmp_path, "huge.bin", precheck.MAX_UPLOAD_BYTES + 1))
     assert block is not None and block.check == "secret" and "5.01 GB, over the 5 GB limit" in block.why
     assert add(_sparse_file(tmp_path, "ckpt.pt", 1 << 30)) is None  # refused at 50 MB before
+    # A pointer sends no bytes: over 5 GB is exactly when track-work says to use one.
+    pointer = precheck.parse(["artifact", "add", "r1", "huge.bin", "--reference"])
+    assert precheck.check(pointer, cwd=tmp_path) is None
+    # ...unless the CLI uploads it anyway: a code kind is stored, never pointed at.
+    for kind in ("code", "script"):
+        stored = precheck.parse(["artifact", "add", "r1", "huge.bin", "--reference", "--kind", kind])
+        block = precheck.check(stored, cwd=tmp_path)
+        assert block is not None and "over the 5 GB limit" in block.why, kind
+    # A manifest row over the cap is recorded as a pointer by the CLI (`--reference-over`).
+    (tmp_path / "rows.jsonl").write_text('{"path": "huge.bin"}\n')
+    rows = precheck.parse(["artifact", "add", "--from-manifest", "rows.jsonl", "--project", "p"])
+    assert precheck.check(rows, cwd=tmp_path) is None
+    # A workspace or Shared file IS its bytes: the CLI never makes it a pointer.
+    rows = precheck.parse(["artifact", "add", "--from-manifest", "rows.jsonl", "--workspace", "w"])
+    assert precheck.check(rows, cwd=tmp_path) is not None
+    (tmp_path / "shared.jsonl").write_text('{"path": "huge.bin", "shared": true}\n')
+    rows = precheck.parse(["artifact", "add", "--from-manifest", "shared.jsonl", "--project", "p"])
+    assert precheck.check(rows, cwd=tmp_path) is not None
+    # A kind that is no string is checked as an upload, not a crash.
+    (tmp_path / "odd.jsonl").write_text('{"path": "huge.bin", "reference": true, "kind": 5}\n')
+    rows = precheck.parse(["artifact", "add", "--from-manifest", "odd.jsonl", "--project", "p"])
+    assert precheck.check(rows, cwd=tmp_path) is not None
+    (tmp_path / "code.jsonl").write_text('{"path": "huge.bin", "kind": "code"}\n')
+    rows = precheck.parse(["artifact", "add", "--from-manifest", "code.jsonl", "--project", "p"])
+    assert precheck.check(rows, cwd=tmp_path) is not None
     monkeypatch.setattr(precheck, "SCAN_BYTES", 1 << 20)
     monkeypatch.setattr(precheck, "BINARY_SCAN_BYTES", 3 << 20)
     (tmp_path / "train.log").write_text("step 1 loss 0.5\n" * 800_000)  # 12.8 MB of text

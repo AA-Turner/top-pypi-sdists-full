@@ -5,10 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_python::ignore::TypeIgnoreUnknownTagBehavior as UnknownTagBehavior;
+
 use crate::state::require::Require;
 use crate::test::util::TestEnv;
 use crate::testcase;
-use pyrefly_python::ignore::TypeIgnoreUnknownTagBehavior as UnknownTagBehavior;
 
 testcase!(
     test_pyrefly_suppression,
@@ -122,6 +123,16 @@ testcase!(
     r#"
 def foo() -> str:
   return 1  # pyrefly: ignore[bad-return]
+"#,
+);
+
+testcase!(
+    test_pyrefly_suppression_after_multiline_fstring_expression,
+    r#"
+_ = f'start{"""message
+"""}end'
+y: int = "hello"  # pyrefly: ignore[bad-assignment]
+z: int = "world"  # E: not assignable
 "#,
 );
 

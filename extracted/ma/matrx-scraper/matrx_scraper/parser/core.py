@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import re
 from typing import Any
 from uuid import uuid4
@@ -447,7 +446,12 @@ async def parse_html(html_content: str, page_url: str | None = None) -> dict[str
     Convenience async wrapper — returns the extraction-rules dict
     (compatible with the old API).  Also now includes a ``links`` key.
     """
-    return await asyncio.to_thread(_parse_html_sync, html_content, page_url)
+    # The crawl lane picks the thread pool: a bulk crawl's parse never fills
+    # the pool an interactive one is waiting on (cpu_lane.py). Imported here —
+    # cpu_lane reads parser.knobs, and this package's __init__ imports core.
+    from matrx_scraper.cpu_lane import run_cpu
+
+    return await run_cpu(_parse_html_sync, html_content, page_url)
 
 
 def extract_text_by_selector(html_content: str, selector: str) -> str:

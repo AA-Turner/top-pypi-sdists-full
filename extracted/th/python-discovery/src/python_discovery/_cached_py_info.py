@@ -30,15 +30,16 @@ if TYPE_CHECKING:
     from ._cache import ContentStore, PyInfoCache
 
     class CacheEntryMeta(TypedDict):
-        """Identity of a cached interrogation result: the queried binary and the script that produced it."""
+        """Identity of a cached interrogation result: the queried binary, its arguments and the script."""
 
         st_mtime: float
         path: str
         hash: str | None
+        arguments: str | None
 
 
-_CACHE: OrderedDict[Path, PythonInfo | Exception] = OrderedDict()
-_CACHE[Path(sys.executable)] = PythonInfo()
+_CACHE: OrderedDict[tuple[Path, str | None], PythonInfo | Exception] = OrderedDict()
+_CACHE[Path(sys.executable), None] = PythonInfo()
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 _PY_INFO_SCRIPT: Final[Path] = Path(__file__).resolve().parent / "_py_info_collect.py"
 _DEFAULT_QUERY_TIMEOUT: Final[float] = 15.0
@@ -58,9 +59,10 @@ def from_exe(  # ruff:ignore[too-many-arguments]
     *,
     raise_on_error: bool = True,
     ignore_cache: bool = False,
+    executable_args: str | None = None,
 ) -> PythonInfo | None:
     env = os.environ if env is None else env
-    result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache)
+    result = _get_from_cache(cls, cache, exe, env, ignore_cache=ignore_cache, executable_args=executable_args)
     if isinstance(result, Exception):
         if raise_on_error:
             raise result
@@ -69,31 +71,34 @@ def from_exe(  # ruff:ignore[too-many-arguments]
     return result
 
 
-def _get_from_cache(
+def _get_from_cache(  # ruff:ignore[too-many-arguments]
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     exe: str,
     env: Mapping[str, str],
     *,
     ignore_cache: bool = True,
+    executable_args: str | None = None,
 ) -> PythonInfo | Exception:
-    exe_path = Path(exe)
-    if not ignore_cache and exe_path in _CACHE:
-        result = _CACHE[exe_path]
+    key = Path(exe), executable_args
+    if not ignore_cache and key in _CACHE:
+        result = _CACHE[key]
     else:
-        py_info = _get_via_file_cache(cls, cache, exe_path, exe, env)
-        result = _CACHE[exe_path] = py_info
-    if isinstance(result, PythonInfo):
+        result = _CACHE[key] = _get_via_file_cache(cls, cache, key[0], exe, env, executable_args=executable_args)
+    # with launcher arguments the queried binary is not the interpreter, so keep the one the query reported
+    if isinstance(result, PythonInfo) and executable_args is None:
         result.executable = exe
     return result
 
 
-def _get_via_file_cache(
+def _get_via_file_cache(  # ruff:ignore[too-many-arguments]
     cls: type[PythonInfo],
     cache: PyInfoCache | None,
     path: Path,
     exe: str,
     env: Mapping[str, str],
+    *,
+    executable_args: str | None = None,
 ) -> PythonInfo | Exception:
     path_text = str(path)
     try:
@@ -107,17 +112,22 @@ def _get_via_file_cache(
 
     resolved_cache = cache if cache is not None else NoOpCache()
     py_info_store = resolved_cache.py_info(path)
-    entry_meta: CacheEntryMeta = {"st_mtime": path_modified, "path": path_text, "hash": py_info_hash}
+    entry_meta: CacheEntryMeta = {
+        "st_mtime": path_modified,
+        "path": path_text,
+        "hash": py_info_hash,
+        "arguments": executable_args,
+    }
     with py_info_store.locked():
         cached = _read_cache_entry(cls, py_info_store, entry_meta)
         if isinstance(cached, _UnsupportedInterpreterError):
             return cached
         py_info = cached
         if py_info is None:
-            failure, py_info = _run_subprocess(cls, exe, env)
+            failure, py_info = _run_subprocess(cls, exe, env, executable_args)
             if failure is not None and not isinstance(failure, _UnsupportedInterpreterError):
                 _LOGGER.debug("first subprocess attempt failed for %s (%s), retrying", exe, failure)
-                failure, py_info = _run_subprocess(cls, exe, env)
+                failure, py_info = _run_subprocess(cls, exe, env, executable_args)
             if isinstance(failure, _UnsupportedInterpreterError):
                 _LOGGER.warning("%s", failure)  # the verdict is permanent, warn once and remember it
                 py_info_store.write({**entry_meta, "unsupported": str(failure)})
@@ -214,16 +224,20 @@ def _run_subprocess(
     cls: type[PythonInfo],
     exe: str,
     env: Mapping[str, str],
+    executable_args: str | None = None,
 ) -> tuple[Exception | None, PythonInfo | None]:
     start_cookie = gen_cookie()
     end_cookie = gen_cookie()
     timeout = _query_timeout(env.get("PY_DISCOVERY_TIMEOUT"))
     with _resolve_py_info_script() as py_info_script:
-        cmd = [exe, str(py_info_script), start_cookie, end_cookie]
+        cmd: list[str] | str = [exe, str(py_info_script), start_cookie, end_cookie]
+        if executable_args is not None:
+            # PEP 514 ExecutableArguments is raw command line text, placed before the script per the PEP
+            cmd = f"{subprocess.list2cmdline(cmd[:1])} {executable_args} {subprocess.list2cmdline(cmd[1:])}"
         env = dict(env)
         env.pop("__PYVENV_LAUNCHER__", None)
         env["PYTHONUTF8"] = "1"
-        _LOGGER.debug("get interpreter info via cmd: %s", LogCmd(cmd))
+        _LOGGER.debug("get interpreter info via cmd: %s", cmd if isinstance(cmd, str) else LogCmd(cmd))
         try:
             process = Popen(  # ruff:ignore[subprocess-without-shell-equals-true]
                 cmd,
@@ -248,7 +262,8 @@ def _run_subprocess(
     out, raw_out, out_starts, out_ends = _extract_between_cookies(out, start_cookie, end_cookie)
     try:
         result = cls.from_json(out)
-        result.executable = exe
+        if executable_args is None:
+            result.executable = exe
     except json.JSONDecodeError as exc:
         _LOGGER.warning(
             "subprocess %s returned invalid JSON; raw stdout %d chars, start cookie %s, end cookie %s, "

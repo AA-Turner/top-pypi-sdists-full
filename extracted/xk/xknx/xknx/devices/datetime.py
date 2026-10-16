@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import datetime
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Self, TypeVar
 
 from xknx.core import Task
 from xknx.dpt.dpt_10 import KNXDay, KNXTime
@@ -20,12 +20,11 @@ from xknx.remote_value import (
     RemoteValueDateTime,
     RemoteValueTime,
 )
-from xknx.typing import Self
 
 from .device import Device, DeviceCallbackType
 
 if TYPE_CHECKING:
-    from xknx.telegram import Telegram
+    from xknx.telegram import GroupReadTelegram, GroupValueTelegram
     from xknx.xknx import XKNX
 
 logger = logging.getLogger("xknx.log")
@@ -48,7 +47,8 @@ class _DateTimeBase(Device, Generic[_RemoteValueTimeT]):
     def __init__(
         self,
         xknx: XKNX,
-        name: str,
+        *,
+        name: str | None = None,
         localtime: bool | datetime.tzinfo = True,
         group_address: GroupAddressesType = None,
         group_address_state: GroupAddressesType = None,
@@ -57,7 +57,7 @@ class _DateTimeBase(Device, Generic[_RemoteValueTimeT]):
         device_updated_cb: DeviceCallbackType[Self] | None = None,
     ) -> None:
         """Initialize DateTime class."""
-        super().__init__(xknx, name, device_updated_cb)
+        super().__init__(xknx, name=name, device_updated_cb=device_updated_cb)
         self.localtime = bool(localtime)
         self._localtime_zone = (
             localtime if isinstance(localtime, datetime.tzinfo) else None
@@ -76,7 +76,7 @@ class _DateTimeBase(Device, Generic[_RemoteValueTimeT]):
             group_address=group_address,
             group_address_state=group_address_state,
             sync_state=sync_state,
-            device_name=name,
+            device_name=self.name,
             after_update_cb=self.after_update,
         )
         self._broadcast_task: Task | None = None
@@ -120,11 +120,11 @@ class _DateTimeBase(Device, Generic[_RemoteValueTimeT]):
         """Set time and send to KNX bus."""
         # self.remote_value.set(value)
 
-    def process_group_write(self, telegram: Telegram) -> None:
+    def process_group_write(self, telegram: GroupValueTelegram) -> None:
         """Process incoming and outgoing GROUP WRITE telegram."""
         self.remote_value.process(telegram)
 
-    def process_group_read(self, telegram: Telegram) -> None:
+    def process_group_read(self, telegram: GroupReadTelegram) -> None:
         """Process incoming GROUP READ telegram."""
         if self.localtime:
             self.broadcast_localtime(True)

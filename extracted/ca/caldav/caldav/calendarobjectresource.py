@@ -51,6 +51,10 @@ from .lib.url import URL
 
 log = logging.getLogger("caldav")
 
+## Which tag save() and delete(if_match=True) send as precondition.
+## https://github.com/python-caldav/caldav/issues/762
+Precondition = Literal["auto", "etag"]
+
 
 def _quote_uid(uid: str, features: Any = None) -> str:
     """URL-quote a UID for use in a CalDAV object URL.
@@ -845,12 +849,12 @@ class CalendarObjectResource(DAVObject):
                     existing = cal.event_by_uid(uid)
                     existing.load()
                     existing.change_attendee_status(partstat=partstat)
-                    existing.save()
+                    existing.save(increase_seqno=False)
                     return
                 except error.NotFoundError:
                     pass
         try:
-            calendar.add_event(self.data)
+            calendar.add_event(self.data, increase_seqno=False)
         except Exception:
             ## add_event() failed — the event likely already exists (e.g. non-auto-scheduling
             ## server that still rejects duplicate UIDs).  Reload self from the inbox so we have
@@ -866,7 +870,7 @@ class CalendarObjectResource(DAVObject):
             if calendar.url != outbox.url:
                 self._reply_to_invite_request(partstat, calendar=outbox)
             else:
-                self.save()
+                self.save(increase_seqno=False)
 
     async def _async_reply_to_invite_request(self, partstat: str, calendar) -> None:
         """Async implementation of _reply_to_invite_request()."""
@@ -879,63 +883,27 @@ class CalendarObjectResource(DAVObject):
         if not calendar:
             calendar = (await principal.get_calendars())[0]
         self.icalendar_instance.pop("METHOD")
-        ## change_attendee_status() resolves the attendee from self.client.principal()
-        ## internally; that returns a coroutine in async mode so we resolve addresses here
-        ## and pass them explicitly.
-        addresses_el = await principal.get_property(
-            cdav.CalendarUserAddressSet(), parse_props=False
-        )
-        if addresses_el is not None:
-            addresses = sorted(list(addresses_el), key=lambda x: -int(x.get("preferred", 0)))
-            attendee_addresses = [x.text for x in addresses]
-        else:
-            username = getattr(self.client, "username", None)
-            if username and "@" in str(username):
-                attendee_addresses = ["mailto:" + username]
-            else:
-                raise error.NotFoundError(
-                    "Server does not provide the calendar-user-address-set property "
-                    "(RFC6638 §2.4.1) and the client username is not an email address. "
-                    "Cannot determine which attendee to update."
-                )
-        cnt = 0
-        for addr in attendee_addresses:
-            try:
-                self.change_attendee_status(addr, partstat=partstat)
-                cnt += 1
-            except error.NotFoundError:
-                pass
-        if not cnt:
-            raise error.NotFoundError("Principal is not invited to event")
-        error.assert_(cnt == 1)
+        await self.change_attendee_status(principal, partstat=partstat)
         uid = self.id
         if uid and self.client.features.is_supported("scheduling.auto-schedule"):
             for cal in await principal.calendars():
                 try:
                     existing = await cal.event_by_uid(uid)
                     await existing.load()
-                    cnt2 = 0
-                    for addr in attendee_addresses:
-                        try:
-                            existing.change_attendee_status(addr, partstat=partstat)
-                            cnt2 += 1
-                        except error.NotFoundError:
-                            pass
-                    if not cnt2:
-                        raise error.NotFoundError("Principal is not invited to existing event")
-                    await existing.save()
+                    await existing.change_attendee_status(principal, partstat=partstat)
+                    await existing.save(increase_seqno=False)
                     return
                 except error.NotFoundError:
                     pass
         try:
-            await calendar.add_event(self.data)
+            await calendar.add_event(self.data, increase_seqno=False)
         except Exception:
             await self.load()
             outbox = await principal.schedule_outbox()
             if calendar.url != outbox.url:
                 await self._reply_to_invite_request(partstat, calendar=outbox)
             else:
-                await self.save()
+                await self.save(increase_seqno=False)
 
     def copy(self, keep_uid: bool = False, new_parent: Any | None = None) -> Self:
         """
@@ -1007,7 +975,7 @@ class CalendarObjectResource(DAVObject):
         try:
             r = self.client.request(str(self.url))
             if r.status and r.status == 404:
-                raise error.NotFoundError(errmsg(r))
+                raise error.error_from_response(error.NotFoundError, r)
             self.data = r.raw  # type: ignore
         except error.NotFoundError:
             # Only attempt fallbacks if the object was previously loaded
@@ -1057,7 +1025,7 @@ class CalendarObjectResource(DAVObject):
         try:
             r = await self.client.request(str(self.url))
             if r.status and r.status == 404:
-                raise error.NotFoundError(errmsg(r))
+                raise error.error_from_response(error.NotFoundError, r)
             self.data = r.raw  # type: ignore
         except error.NotFoundError:
             uid = self.id
@@ -1118,7 +1086,8 @@ class CalendarObjectResource(DAVObject):
             ## As of 2025-05-20, this code section is used by
             ## TestForServerECloud::testCreateOverwriteDeleteEvent
             raise error.NotFoundError(self.url)
-        _url, self.data = url_data
+        _url, self.data, tags = url_data
+        self.props.update(tags)
         error.assert_(self.data)
         error.assert_(next(items, None) is None)
         return self
@@ -1170,24 +1139,29 @@ class CalendarObjectResource(DAVObject):
 
         self.url = URL.objectify(path)
 
-    def _put(self, retry_on_failure=True) -> "None | Coroutine[Any, Any, None]":
+    def _put(
+        self, retry_on_failure=True, precondition: Precondition = "auto"
+    ) -> "None | Coroutine[Any, Any, None]":
         ## TODO: quite much overlapping with _async_put, should consolidate
         ## TODO: this is low-level http-communication - shouldn't it be in the davclient file rather than in calendarobjectresource.py?
         ## SECURITY TODO: we should probably have a check here to verify that no such object exists already
-        headers = {}  ## TODO: use some caseinsensitivedict
-        if self.schedule_tag:
-            headers["if-schedule-tag-match"] = self.schedule_tag
-        elif self.etag:
-            headers["if-match"] = self.etag
-        headers |= ICALH
+        headers = self._precondition_headers(precondition) | ICALH
         if self.is_async_client:
-            return self._async_put(headers, retry_on_failure)
-        r = self.client.put(self.url, self.data, headers)
-        return self._post_put(r, retry_on_failure)
+            return self._async_put(headers, retry_on_failure, precondition)
+        try:
+            r = self.client.put(self.url, self.data, headers)
+        except error.AuthorizationError as e:
+            self._raise_uid_conflict(e)
+            raise
+        return self._post_put(r, retry_on_failure, precondition)
 
-    async def _async_put(self, headers, retry_on_failure=True):
-        r = await self.client.put(str(self.url), str(self.data), headers | ICALH)
-        result = self._post_put(r, retry_on_failure)
+    async def _async_put(self, headers, retry_on_failure=True, precondition: Precondition = "auto"):
+        try:
+            r = await self.client.put(str(self.url), str(self.data), headers | ICALH)
+        except error.AuthorizationError as e:
+            self._raise_uid_conflict(e)
+            raise
+        result = self._post_put(r, retry_on_failure, precondition)
         if result is not None:
             # _post_put returned a retry coroutine (self._put(False) for async client)
             await result
@@ -1198,28 +1172,137 @@ class CalendarObjectResource(DAVObject):
         Called after both PUT (`_post_put`) and GET (`load`/`_async_load`);
         keys are matched case-insensitively by the response header dict.
         See RFC 6638 for Schedule-Tag.
+
+        A tag missing from the response is dropped from the cache: a PUT
+        that changed the data must not return a strong ETag (RFC 4791
+        section 5.3.4), and the one cached from before (from a search,
+        say) is stale.  Sent with the next save(), it would get 412.
         """
-        if not r.headers:
-            return
-        if "Etag" in r.headers:
-            etag = r.headers["Etag"]
+        headers = r.headers or {}
+        if "Etag" not in headers:
+            self.props.pop(dav.GetEtag.tag, None)
+        else:
+            etag = headers["Etag"]
             ## Bedework 5 percent-encodes the quotes in a PUT response and then
             ## refuses that form in If-Match.  RFC 9110 has an entity-tag start
             ## with '"' or 'W/"', so a leading %22 can only be that encoding.
             if etag.startswith(("%22", "W/%22")):
                 etag = unquote(etag)
             self.props[dav.GetEtag.tag] = etag
-        if r.headers.get("Schedule-Tag"):
-            self.props[cdav.ScheduleTag.tag] = r.headers["Schedule-Tag"]
+        if headers.get("Schedule-Tag"):
+            self.props[cdav.ScheduleTag.tag] = headers["Schedule-Tag"]
+        else:
+            self.props.pop(cdav.ScheduleTag.tag, None)
 
-    def _post_put(self, r, retry_on_failure):
+    @staticmethod
+    def _check_precondition(precondition: Precondition) -> None:
+        if precondition not in ("auto", "etag"):
+            raise ValueError(f"precondition must be 'auto' or 'etag', not {precondition!r}")
+
+    def _precondition_headers(self, precondition: Precondition = "auto") -> dict[str, str]:
+        """The conditional-request header for the cached version, if any.
+
+        With ``precondition="auto"`` a Schedule-Tag (RFC 6638 section
+        3.2) takes precedence over an ETag; with ``"etag"`` the ETag
+        does, and the Schedule-Tag is only the fallback.  Used by both
+        ``save()`` and ``delete(if_match=True)``.
+
+        A weak ETag is not sent: If-Match compares strongly (RFC 9110
+        section 13.1.1), so it could never match.  GMX hands out weak
+        ETags on PUT; an update after that goes out unconditionally.
+        """
+        self._check_precondition(precondition)
+        headers = {}  ## TODO: use some caseinsensitivedict
+        strong_etag = self.etag if self.etag and not self.etag.startswith("W/") else None
+        if self.schedule_tag and not (precondition == "etag" and strong_etag):
+            headers["if-schedule-tag-match"] = self.schedule_tag
+        elif strong_etag:
+            headers["if-match"] = strong_etag
+        return headers
+
+    def delete(
+        self, if_match: bool | str | None = False, precondition: Precondition = "auto"
+    ) -> "None | Coroutine[Any, Any, None]":
+        """Delete the object from the server.
+
+        By default the DELETE is unconditional, and a 404 counts as
+        success.
+
+        With ``if_match=True`` the DELETE carries the same precondition
+        ``save()`` sends: ``If-Schedule-Tag-Match`` if a Schedule-Tag is
+        cached, otherwise ``If-Match`` with the cached ETag.  A string
+        is sent verbatim as ``If-Match``.  If someone else changed the
+        object in the meantime, the server answers 412 and
+        ``ScheduleTagMismatchError`` or ``ETagMismatchError`` is
+        raised; if it is already gone, ``NotFoundError`` is raised,
+        since the caller asked to delete a specific version.
+        ``if_match=True`` with neither tag cached, or an empty string,
+        raises ``ValueError`` rather than deleting unconditionally;
+        so does a cached ETag that is weak, as it can never match.
+
+        ``precondition`` works as in ``save()``: ``"etag"`` makes
+        ``if_match=True`` prefer ``If-Match`` over a cached Schedule-Tag.
+
+        See https://github.com/python-caldav/caldav/issues/740
+
+        For async clients, returns a coroutine that must be awaited.
+        """
+        ## Checked up front, so a typo is not ignored on a plain delete
+        self._check_precondition(precondition)
+        if if_match is False or if_match is None:
+            return super().delete()
+        if if_match == "":
+            raise ValueError("delete(if_match=''): an empty ETag cannot be a precondition")
+        if if_match is True:
+            headers = self._precondition_headers(precondition)
+            if not headers and self.etag:
+                raise ValueError(
+                    f"delete(if_match=True): only a weak ETag ({self.etag}) is known "
+                    "for this object, which If-Match cannot match - load() it first "
+                    "or pass the ETag explicitly"
+                )
+            if not headers:
+                raise ValueError(
+                    "delete(if_match=True): no ETag or Schedule-Tag is known for this "
+                    "object - load() it first or pass the ETag explicitly"
+                )
+        else:
+            headers = {"if-match": if_match}
+        return self._delete(headers)
+
+    @staticmethod
+    def _raise_uid_conflict(e: error.DAVError) -> None:
+        """Raise UidConflictError if ``e`` names a UID precondition.
+
+        Where ``e`` is what earlier versions raised (AuthorizationError for
+        Cyrus' 403, which the client raises before ``_post_put`` sees it, or
+        an ETag/Schedule-Tag mismatch), the UidConflictError is that too,
+        so existing handlers keep catching it (issue #756)."""
+        if error.UID_CONFLICT_PRECONDITIONS.intersection(e.preconditions):
+            cls = error.UID_CONFLICT_ERRORS.get(type(e), error.UidConflictError)
+            raise cls(e.url, e.reason, preconditions=e.preconditions, body=e.body) from e
+
+    def _post_put(
+        self, r, retry_on_failure, precondition: Precondition = "auto"
+    ) -> "None | Coroutine[Any, Any, None]":
+        if r.status >= 400:
+            ## The UID is taken (RFC 4791 section 5.3.2.1): not something a
+            ## retry would fix (issue #756).  A 412 on a conditional save
+            ## used to raise the mismatch error, so it still is one.
+            headers = self._precondition_headers(precondition)
+            cls = error.PutError
+            if r.status == 412 and headers:
+                cls = (
+                    error.ScheduleTagMismatchError
+                    if "if-schedule-tag-match" in headers
+                    else error.ETagMismatchError
+                )
+            self._raise_uid_conflict(error.error_from_response(cls, r))
         if r.status == 412:
-            if self.schedule_tag:
-                raise error.ScheduleTagMismatchError(errmsg(r))
-            elif self.etag:
-                raise error.ETagMismatchError(errmsg(r))
-            else:
-                raise error.PutError(errmsg(r))
+            headers = self._precondition_headers(precondition)
+            if headers:
+                self._raise_precondition_failed(r, headers)
+            raise error.error_from_response(error.PutError, r)
         elif r.status == 302:
             self.url = URL.objectify(r.headers.get("location"))
         elif r.status not in (204, 201):
@@ -1232,23 +1315,27 @@ class CalendarObjectResource(DAVObject):
                 ## Accessing vobject_instance may "clean" the object.
                 ## See https://github.com/python-caldav/caldav/issues/43
                 self.get_vobject_instance()
-                return self._put(False)
+                return self._put(False, precondition)
             else:
-                raise error.PutError(errmsg(r))
+                raise error.error_from_response(error.PutError, r)
         self._update_tag_props(r)
+        return None
 
     def _create(
-        self, id=None, path=None, retry_on_failure=True
+        self, id=None, path=None, retry_on_failure=True, precondition: Precondition = "auto"
     ) -> "None | Coroutine[Any, Any, None]":
         ## TODO: Find a better method name
         self._find_id_path(id=id, path=path)
         if self.is_async_client:
-            return self._async_create(retry_on_failure)
-        self._put(retry_on_failure)
+            return self._async_create(retry_on_failure, precondition)
+        self._put(retry_on_failure, precondition)
+        return None
 
-    async def _async_create(self, retry_on_failure=True) -> None:
+    async def _async_create(
+        self, retry_on_failure=True, precondition: Precondition = "auto"
+    ) -> None:
         """Async implementation of _create."""
-        await self._put(retry_on_failure)
+        await self._put(retry_on_failure, precondition)
 
     def _generate_url(self):
         ## See https://github.com/python-caldav/caldav/issues/143 for the rationale behind double-quoting slashes
@@ -1259,54 +1346,26 @@ class CalendarObjectResource(DAVObject):
         assert " " not in str(url)
         return url
 
-    def change_attendee_status(self, attendee: Any | None = None, **kwargs) -> None:
-        """
-        Updates the attendee-line according to the arguments received
-        """
-        from .collection import Principal  ## late import to avoid cycling imports
+    def _resolve_attendee_addresses(
+        self, principal: Any, address_set: list[str | None] | None
+    ) -> list[str]:
+        """Resolve a principal's usable attendee addresses from its address set."""
+        if address_set is None:
+            username = getattr(self.client, "username", None)
+            if username and "@" in str(username):
+                return ["mailto:" + username]
+            raise error.NotFoundError(
+                "Server does not provide the calendar-user-address-set property "
+                "(RFC6638 §2.4.1) and the client username is not an email address. "
+                "Cannot determine which attendee to update. "
+                "Pass the attendee email address explicitly to change_attendee_status()."
+            )
 
-        if not attendee:
-            if self.client is None:
-                raise ValueError("Unexpected value None for self.client")
+        addresses = [address for address in address_set if address]
+        return addresses or [str(principal.url)]
 
-            attendee = self.client.principal()
-
-        cnt = 0
-
-        if isinstance(attendee, Principal):
-            try:
-                attendee_emails = attendee.calendar_user_address_set()
-                ## Served but empty: the principal has no address of its own,
-                ## so it was invited under its URL - see get_vcal_address()
-                ## and RFC 6638 section 2.4.1.
-                if not attendee_emails:
-                    attendee_emails = [str(attendee.url)]
-            except error.NotFoundError:
-                ## Server does not expose calendar-user-address-set (RFC6638 §2.4.1).
-                ## Fall back to client.username if it looks like an email address.
-                ## See https://github.com/python-caldav/caldav/issues/399
-                username = getattr(self.client, "username", None)
-                if username and "@" in str(username):
-                    attendee_emails = ["mailto:" + username]
-                else:
-                    raise error.NotFoundError(
-                        "Server does not provide the calendar-user-address-set property "
-                        "(RFC6638 §2.4.1) and the client username is not an email address. "
-                        "Cannot determine which attendee to update. "
-                        "Pass the attendee email address explicitly to change_attendee_status()."
-                    ) from None
-            for addr in attendee_emails:
-                try:
-                    self.change_attendee_status(addr, **kwargs)
-                    ## TODO: can probably just return now
-                    cnt += 1
-                except error.NotFoundError:
-                    pass
-            if not cnt:
-                raise error.NotFoundError("Principal %s is not invited to event" % str(attendee))
-            error.assert_(cnt == 1)
-            return
-
+    def _change_attendee_status_for_address(self, attendee: Any, **kwargs) -> None:
+        """Update one explicit attendee address without principal auto-detection."""
         ical_obj = self.icalendar_component
         try:
             attendee_lines = ical_obj["attendee"]
@@ -1320,6 +1379,7 @@ class CalendarObjectResource(DAVObject):
         def strip_mailto(x):
             return str(x).lower().replace("mailto:", "")
 
+        cnt = 0
         for attendee_line in attendee_lines:
             if strip_mailto(attendee_line) == strip_mailto(attendee):
                 attendee_line.params.update(kwargs)
@@ -1327,6 +1387,70 @@ class CalendarObjectResource(DAVObject):
         if not cnt:
             raise error.NotFoundError(f"Participant {attendee!r} not found in attendee list")
         error.assert_(cnt == 1)
+
+    def _change_attendee_status_for_addresses(self, attendee_addresses: list[str], **kwargs) -> int:
+        """Update matching addresses directly and return the number changed."""
+        cnt = 0
+        for address in attendee_addresses:
+            try:
+                self._change_attendee_status_for_address(address, **kwargs)
+                cnt += 1
+            except error.NotFoundError:
+                pass
+        return cnt
+
+    def _change_attendee_status_for_principal(
+        self, principal: Any, address_set: list[str | None] | None, **kwargs
+    ) -> None:
+        """Update the attendee matching a principal's resolved address set."""
+        attendee_addresses = self._resolve_attendee_addresses(principal, address_set)
+        cnt = self._change_attendee_status_for_addresses(attendee_addresses, **kwargs)
+        if not cnt:
+            raise error.NotFoundError(f"Principal {principal.url} is not invited to event")
+        error.assert_(cnt == 1)
+
+    def change_attendee_status(
+        self, attendee: Any | None = None, **kwargs
+    ) -> "None | Coroutine[Any, Any, None]":
+        """
+        Updates the attendee line according to the arguments received.
+
+        For async clients, omitting *attendee* or passing a Principal returns a
+        coroutine that must be awaited while the principal is resolved. Passing
+        an explicit attendee address remains synchronous because it only changes
+        the in-memory iCalendar data.
+        """
+        from .collection import Principal  ## late import to avoid cycling imports
+
+        if self.is_async_client and (attendee is None or isinstance(attendee, Principal)):
+            return self._async_change_attendee_status(attendee=attendee, **kwargs)
+
+        if attendee is None:
+            if self.client is None:
+                raise ValueError("Unexpected value None for self.client")
+            attendee = self.client.principal()
+
+        if isinstance(attendee, Principal):
+            try:
+                address_set = attendee.calendar_user_address_set()
+            except error.NotFoundError:
+                address_set = None
+            self._change_attendee_status_for_principal(attendee, address_set, **kwargs)
+            return
+
+        self._change_attendee_status_for_address(attendee, **kwargs)
+
+    async def _async_change_attendee_status(self, attendee: Any | None = None, **kwargs) -> None:
+        """Async implementation of change_attendee_status() principal resolution."""
+        if self.client is None:
+            raise ValueError("Unexpected value None for self.client")
+
+        principal = attendee if attendee is not None else await self.client.principal()
+        try:
+            address_set = await principal.calendar_user_address_set()
+        except error.NotFoundError:
+            address_set = None
+        self._change_attendee_status_for_principal(principal, address_set, **kwargs)
 
     def save(
         self,
@@ -1336,6 +1460,7 @@ class CalendarObjectResource(DAVObject):
         increase_seqno: bool = True,
         only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
+        precondition: Precondition = "auto",
     ) -> "Self | Coroutine[Any, Any, Self]":
         """Save the object, can be used for creation and update.
 
@@ -1348,13 +1473,33 @@ class CalendarObjectResource(DAVObject):
 
         Conditional requests are handled automatically: if a
         Schedule-Tag or an ETag has been cached for the object, an
-        ``If-Schedule-Tag-Match`` or ``If-Match`` header is sent, and a
+        ``If-Schedule-Tag-Match`` or ``If-Match`` header is sent (not
+        for a weak ETag, which If-Match never matches), and a
         412 response is raised as ``ScheduleTagMismatchError`` or
         ``ETagMismatchError``.
 
-        The SEQUENCE should be increased when saving a new version of
-        the object.  If this behaviour is unwanted, then
-        increase_seqno should be set to False.
+        ``precondition="etag"`` prefers ``If-Match`` over a cached
+        Schedule-Tag.  Under ``If-Schedule-Tag-Match`` the server merges
+        an attendee's reply into the write instead of refusing it
+        (:rfc:`6638#section-3.2.10`), so the client is never told that
+        its copy is stale.  That is what an organizer's client wants; a
+        sync client wants a 412 for any change since it last saw the
+        object, and should pass ``"etag"`` - the RFC itself keeps ETag
+        preconditions for synchronization.  With no strong ETag cached,
+        ``"etag"`` falls back to the Schedule-Tag rather than saving
+        unconditionally.
+
+        SEQUENCE: by default (``increase_seqno=True``) every save is
+        treated as a new revision by the organizer, so if the component
+        has a SEQUENCE property it is incremented before the PUT
+        (:rfc:`5545#section-3.8.7.4`).  Pass ``increase_seqno=False``
+        to store the data as it is - for cosmetic edits, and always
+        when syncing, copying, restoring or migrating data read from
+        elsewhere; otherwise each sync round bumps SEQUENCE again.  An
+        object without SEQUENCE is left without one.  When saving a
+        single recurrence, the recurrence's SEQUENCE is incremented,
+        not the master's.  ``Calendar.add_event()`` and friends take
+        the same parameter.  See also :ref:`howtos:sequence`.
 
         The behaviour when saving a single recurrence object to the
         server is as far as I can understand not defined in the RFCs,
@@ -1383,6 +1528,9 @@ class CalendarObjectResource(DAVObject):
         # TODO: the overwrite/no-overwrite logic can be handled server-side for
         # servers that adheres to the RFC: "If-Match: *" and "If-None-Match: *"
 
+        ## Checked before anything is sent
+        self._check_precondition(precondition)
+
         # Early return if there's no data (no-op case)
         if not self.is_loaded():
             return self
@@ -1397,6 +1545,7 @@ class CalendarObjectResource(DAVObject):
                 increase_seqno=increase_seqno,
                 only_this_recurrence=only_this_recurrence,
                 all_recurrences=all_recurrences,
+                precondition=precondition,
             )
 
         # Helper function to get the full object by UID
@@ -1440,17 +1589,24 @@ class CalendarObjectResource(DAVObject):
                     raise error.NotFoundError("Could not find parent recurring event")
                 ## only_this_recurrence is None: master not found, fall through to PUT as-is
             else:
+                master_seqno = self._bump_sequence_before_merge(
+                    obj, increase_seqno, all_recurrences
+                )
                 self._incorporate_recurrence_into_parent(
                     obj, only_this_recurrence is not False, all_recurrences
                 )
                 ## obj now holds the whole resource; PUT it as-is.  Treating it
                 ## as a recurrence again recursed forever on an orphan, which
                 ## is its own "master" in the UID lookup.
-                return obj.save(increase_seqno=increase_seqno, only_this_recurrence=False)
+                return obj.save(
+                    increase_seqno=master_seqno,
+                    only_this_recurrence=False,
+                    precondition=precondition,
+                )
 
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
-        self._create(id=self.id, path=path)
+        self._create(id=self.id, path=path, precondition=precondition)
         return self
 
     def _validate_save_constraints(self, existing, uid, no_overwrite, no_create):
@@ -1526,6 +1682,27 @@ class CalendarObjectResource(DAVObject):
             seqno = self.icalendar_component.pop("SEQUENCE", 0)
             self.icalendar_component.add("SEQUENCE", seqno + 1)
 
+    def _bump_sequence_before_merge(self, master, increase_seqno, all_recurrences) -> bool:
+        """SEQUENCE handling when a recurrence instance is merged into its
+        master before saving.  SEQUENCE is per component: when only this
+        recurrence is saved, the override is what changed, so bump it
+        here and leave the master alone.  An override without SEQUENCE
+        under a master that has one gets the master's SEQUENCE + 1.
+        With all_recurrences the master is replaced by this instance and
+        is bumped on save.
+
+        Returns the increase_seqno value to pass to the master's save().
+        """
+        if all_recurrences:
+            return increase_seqno
+        comp = self.icalendar_component
+        master_comp = master.icalendar_component
+        if increase_seqno and "SEQUENCE" not in comp and "SEQUENCE" in master_comp:
+            comp.add("SEQUENCE", int(master_comp["SEQUENCE"]) + 1)
+        else:
+            self._maybe_increment_sequence(increase_seqno)
+        return False
+
     async def _async_save(
         self,
         no_overwrite: bool = False,
@@ -1534,6 +1711,7 @@ class CalendarObjectResource(DAVObject):
         increase_seqno: bool = True,
         only_this_recurrence: bool | None = True,
         all_recurrences: bool = False,
+        precondition: Precondition = "auto",
     ) -> Self:
         """Async implementation of save() for async clients."""
         from caldav.lib import error
@@ -1567,17 +1745,24 @@ class CalendarObjectResource(DAVObject):
                     raise error.NotFoundError("Could not find parent recurring event")
                 ## only_this_recurrence is None: master not found, fall through to PUT as-is
             else:
+                master_seqno = self._bump_sequence_before_merge(
+                    obj, increase_seqno, all_recurrences
+                )
                 self._incorporate_recurrence_into_parent(
                     obj, only_this_recurrence is not False, all_recurrences
                 )
                 ## obj now holds the whole resource; PUT it as-is.  An orphan
                 ## is its own "master" in the UID lookup, so merging again
                 ## would recurse forever (see the twin comment in save()).
-                return await obj.save(increase_seqno=increase_seqno, only_this_recurrence=False)
+                return await obj.save(
+                    increase_seqno=master_seqno,
+                    only_this_recurrence=False,
+                    precondition=precondition,
+                )
 
         self._maybe_increment_sequence(increase_seqno)
         path = self.url.path if self.url else None
-        await self._create(id=self.id, path=path)
+        await self._create(id=self.id, path=path, precondition=precondition)
         return self
 
     def is_loaded(self):
@@ -2190,11 +2375,15 @@ class Todo(CalendarObjectResource):
         copy (one PUT each).
         """
         ## If count is one, then it is not really recurring
-        if not self._reduce_count():
+        count = self.icalendar_component["RRULE"].get("COUNT")
+        if count and count[0] == 1:
             return None
+        ## Look for the next occurrence before touching COUNT, so the
+        ## plain-completion fallback does not save a lowered COUNT
         next_dtstart = self._next(completion_timestamp)
         if not next_dtstart:
             return None
+        self._reduce_count()
 
         completed = self.copy()
         completed.url = self.parent.url.join(completed.id + ".ics")
@@ -2217,7 +2406,7 @@ class Todo(CalendarObjectResource):
         """
         completed = self._build_recurring_safe_completed(completion_timestamp)
         if completed is None:
-            self.complete(handle_rrule=False)
+            self.complete(completion_timestamp=completion_timestamp, handle_rrule=False)
             return
         completed.save()
         self.save()
@@ -2319,7 +2508,7 @@ class Todo(CalendarObjectResource):
         self,
         completion_timestamp: datetime | None = None,
         handle_rrule: bool = False,
-        rrule_mode: Literal["safe", "this_and_future"] = "safe",
+        rrule_mode: Literal["safe", "this_and_future", "thisandfuture"] = "safe",
     ) -> "None | Coroutine[Any, Any, None]":
         """Marks the task as completed.
 
@@ -2335,11 +2524,15 @@ class Todo(CalendarObjectResource):
             The RFC leaves a lot of room for interpretation on how
             to handle recurring tasks, and what works on one server may break at
             another.  The following modes are accepted:
-            * this_and_future - see doc for _complete_recurring_thisandfuture for details
+            * this_and_future (or thisandfuture) - see doc for
+              _complete_recurring_thisandfuture for details
             * safe - see doc for _complete_recurring_safe for details
         """
         if not completion_timestamp:
             completion_timestamp = datetime.now(timezone.utc)
+
+        if rrule_mode == "this_and_future":
+            rrule_mode = "thisandfuture"
 
         if self.is_async_client:
             return self._async_complete(completion_timestamp, handle_rrule, rrule_mode)

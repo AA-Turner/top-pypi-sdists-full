@@ -251,3 +251,103 @@ echo "$f" | grep -q "^/tmp/custom/" && echo "in_custom"
 in_custom
 exists
 ### end
+
+### touch_date_reference_nocreate
+rm -rf /tmp/tdr && mkdir -p /tmp/tdr && cd /tmp/tdr
+TZ=UTC touch -d '2001-02-03 04:05:06' old
+TZ=UTC date -r old '+%Y-%m-%d %H:%M:%S' 2>/dev/null || stat -c %Y old
+touch -r old copy
+[ old -nt copy ] || [ copy -nt old ] || echo same-mtime
+touch -c missing; ls missing 2>/dev/null || echo not-created
+touch -cm --date=@0 old; TZ=UTC date -r old +%Y
+touch -t 200102030405.06 stamp; TZ=UTC date -r stamp '+%m/%d %H:%M:%S'
+touch --bogus 2>/dev/null; echo rc=$?
+### expect
+2001-02-03 04:05:06
+same-mtime
+not-created
+1970
+02/03 04:05:06
+rc=1
+### end
+
+### cp_recursive_tree
+# cp -r copies a tree, refuses to copy into itself, and skips dirs without -r
+rm -rf /tmp/cpr && mkdir -p /tmp/cpr/a/b && cd /tmp/cpr
+echo x > a/b/f; ln -s f a/b/l
+cp -r a c; cat c/b/f; readlink c/b/l
+cp -R a c; ls c
+cp -r a/ a/z 2>&1; echo "exit=$?"
+mkdir q; cp q q2 2>&1; echo "exit=$?"
+### expect
+x
+f
+a
+b
+cp: cannot copy a directory, 'a/', into itself, 'a/z'
+exit=1
+cp: -r not specified; omitting directory 'q'
+exit=1
+### end
+
+### rmdir_verbose_parents
+# rmdir -v reports each removal; -p walks the operand's prefixes
+rm -rf /tmp/rmv && mkdir -p /tmp/rmv/a/b/c /tmp/rmv/x/y && cd /tmp/rmv
+rmdir -v a/b/c; ls a
+rmdir -pv x/y
+touch a/b/f; rmdir a/b 2>&1; rmdir --ignore-fail-on-non-empty a/b; echo "exit=$?"
+### expect
+rmdir: removing directory, 'a/b/c'
+b
+rmdir: removing directory, 'x/y'
+rmdir: removing directory, 'x'
+rmdir: failed to remove 'a/b': Directory not empty
+exit=0
+### end
+
+### mktemp_template_rules
+# mktemp replaces the trailing X run, keeps a relative template relative
+# (stderr dropped: GNU quotes the template with locale quotes)
+rm -rf /tmp/mkt && mkdir -p /tmp/mkt && cd /tmp/mkt
+mktemp fooXXXX | grep -c '^foo[A-Za-z0-9]\{4\}$'
+mktemp -u -p /tmp/mkt barXXX.txt | grep -c '^/tmp/mkt/bar...\.txt$'
+mktemp fooXX 2>/dev/null; echo "exit=$?"
+mktemp -q -p /nonexist fooXXX; echo "exit=$?"
+### expect
+1
+1
+exit=1
+exit=1
+### end
+
+### cp_no_clobber_skips_existing
+# cp -n leaves an existing destination alone (status 0); --no-clobber too
+echo a > f; echo b > g; cp -n g f; echo $?; cat f; cp --no-clobber g f; cat f; cp -n g new; cat new
+### expect
+0
+a
+a
+b
+### end
+
+### ls_almost_all
+# -A shows dotfiles but never . or ..
+mkdir -p /tmp/lsA && cd /tmp/lsA
+touch .hid vis
+ls -A
+ls -A | wc -l
+### expect
+.hid
+vis
+2
+### end
+
+### stat_format_mtime_epoch
+# %Y is the modification time in seconds since the epoch
+cd /tmp && touch -d @1000000000 mt-old && touch -d @1041379200 mt-new
+stat -c '%n %Y' mt-old
+[ "$(stat -c %Y mt-old)" -lt "$(stat -c %Y mt-new)" ] && echo older
+### expect
+mt-old 1000000000
+older
+### end

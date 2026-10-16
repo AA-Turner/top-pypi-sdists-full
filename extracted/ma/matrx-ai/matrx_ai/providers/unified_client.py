@@ -973,6 +973,23 @@ def _restore_decision_text_gate(request: Any) -> None:
         set_app_context(ctx.with_overrides(emitter=original))
 
 
+async def catalog_cost_or_none(usage: Any) -> float | None:
+    """The call's catalog cost, or None when its price is UNKNOWN (never a silent 0.0).
+
+    ``usage is None`` (nothing was billed) is a real 0.0. Spend guards use this so an unpriced
+    call is counted at a conservative estimate instead of vanishing from caps."""
+    if usage is None:
+        return 0.0
+    try:
+        from matrx_ai.config.usage_config import ensure_pricing_lookup
+
+        pricing = await ensure_pricing_lookup()
+        cost = usage.calculate_catalog_cost(pricing)
+    except Exception:  # noqa: BLE001 — pricing must never fail a completed turn
+        return None
+    return None if cost is None else float(cost)
+
+
 async def _catalog_cost_of(usage: Any) -> float:
     """What the turn cost at catalog prices, for the decision answer's cost_usd.
 
@@ -982,16 +999,7 @@ async def _catalog_cost_of(usage: Any) -> float:
     the usage row still carries the offering so the gap is visible in spend,
     never hidden behind a made-up figure.
     """
-    if usage is None:
-        return 0.0
-    try:
-        from matrx_ai.config.usage_config import ensure_pricing_lookup
-
-        pricing = await ensure_pricing_lookup()
-        cost = usage.calculate_catalog_cost(pricing)
-    except Exception:  # noqa: BLE001 — pricing must never fail a completed turn
-        return 0.0
-    return float(cost or 0.0)
+    return float(await catalog_cost_or_none(usage) or 0.0)
 
 
 def _remember_passing_wire(profile: Any) -> None:

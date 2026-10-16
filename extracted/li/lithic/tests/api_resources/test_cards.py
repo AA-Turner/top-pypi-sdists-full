@@ -20,6 +20,8 @@ from lithic.types import (
 from lithic._utils import parse_datetime
 from lithic.pagination import SyncCursorPage, AsyncCursorPage
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -68,6 +70,7 @@ class TestCards:
             spend_limit=1000,
             spend_limit_duration="TRANSACTION",
             state="OPEN",
+            tags={"risk-level": "high"},
         )
         assert_matches_type(Card, card, path=["response"])
 
@@ -154,6 +157,7 @@ class TestCards:
             spend_limit_duration="FOREVER",
             state="OPEN",
             substatus="LOST",
+            tags={"risk-level": "high"},
         )
         assert_matches_type(Card, card, path=["response"])
 
@@ -326,18 +330,21 @@ class TestCards:
 
     @parametrize
     def test_method_embed(self, client: Lithic) -> None:
-        card = client.cards.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        )
+        with pytest.warns(DeprecationWarning):
+            card = client.cards.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            )
+
         assert_matches_type(str, card, path=["response"])
 
     @parametrize
     def test_raw_response_embed(self, client: Lithic) -> None:
-        response = client.cards.with_raw_response.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.cards.with_raw_response.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -346,15 +353,16 @@ class TestCards:
 
     @parametrize
     def test_streaming_response_embed(self, client: Lithic) -> None:
-        with client.cards.with_streaming_response.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.cards.with_streaming_response.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            card = response.parse()
-            assert_matches_type(str, card, path=["response"])
+                card = response.parse()
+                assert_matches_type(str, card, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -382,8 +390,8 @@ class TestCards:
         card = client.cards.provision(
             card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             certificate="U3RhaW5sZXNzIHJvY2tz",
-            client_device_id="client_device_id",
-            client_wallet_account_id="client_wallet_account_id",
+            client_device_id="d3538acf-e5df-4446-8ce6-588fa4472ac1",
+            client_wallet_account_id="d3538acf-e5df-4446-8ce6-588fa4472ac1",
             digital_wallet="GOOGLE_PAY",
             nonce="U3RhaW5sZXNzIHJvY2tz",
             nonce_signature="U3RhaW5sZXNzIHJvY2tz",
@@ -419,6 +427,48 @@ class TestCards:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `card_token` but received ''"):
             client.cards.with_raw_response.provision(
                 card_token="",
+            )
+
+    @parametrize
+    def test_method_reassign_account(self, client: Lithic) -> None:
+        card = client.cards.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        )
+        assert_matches_type(Card, card, path=["response"])
+
+    @parametrize
+    def test_raw_response_reassign_account(self, client: Lithic) -> None:
+        response = client.cards.with_raw_response.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        card = response.parse()
+        assert_matches_type(Card, card, path=["response"])
+
+    @parametrize
+    def test_streaming_response_reassign_account(self, client: Lithic) -> None:
+        with client.cards.with_streaming_response.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            card = response.parse()
+            assert_matches_type(Card, card, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_reassign_account(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `card_token` but received ''"):
+            client.cards.with_raw_response.reassign_account(
+                card_token="",
+                new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
             )
 
     @parametrize
@@ -785,6 +835,7 @@ class TestAsyncCards:
             spend_limit=1000,
             spend_limit_duration="TRANSACTION",
             state="OPEN",
+            tags={"risk-level": "high"},
         )
         assert_matches_type(Card, card, path=["response"])
 
@@ -871,6 +922,7 @@ class TestAsyncCards:
             spend_limit_duration="FOREVER",
             state="OPEN",
             substatus="LOST",
+            tags={"risk-level": "high"},
         )
         assert_matches_type(Card, card, path=["response"])
 
@@ -1043,18 +1095,21 @@ class TestAsyncCards:
 
     @parametrize
     async def test_method_embed(self, async_client: AsyncLithic) -> None:
-        card = await async_client.cards.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        )
+        with pytest.warns(DeprecationWarning):
+            card = await async_client.cards.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            )
+
         assert_matches_type(str, card, path=["response"])
 
     @parametrize
     async def test_raw_response_embed(self, async_client: AsyncLithic) -> None:
-        response = await async_client.cards.with_raw_response.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.cards.with_raw_response.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1063,15 +1118,16 @@ class TestAsyncCards:
 
     @parametrize
     async def test_streaming_response_embed(self, async_client: AsyncLithic) -> None:
-        async with async_client.cards.with_streaming_response.embed(
-            embed_request="embed_request",
-            hmac="hmac",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.cards.with_streaming_response.embed(
+                embed_request="embed_request",
+                hmac="hmac",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            card = await response.parse()
-            assert_matches_type(str, card, path=["response"])
+                card = await response.parse()
+                assert_matches_type(str, card, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -1099,8 +1155,8 @@ class TestAsyncCards:
         card = await async_client.cards.provision(
             card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             certificate="U3RhaW5sZXNzIHJvY2tz",
-            client_device_id="client_device_id",
-            client_wallet_account_id="client_wallet_account_id",
+            client_device_id="d3538acf-e5df-4446-8ce6-588fa4472ac1",
+            client_wallet_account_id="d3538acf-e5df-4446-8ce6-588fa4472ac1",
             digital_wallet="GOOGLE_PAY",
             nonce="U3RhaW5sZXNzIHJvY2tz",
             nonce_signature="U3RhaW5sZXNzIHJvY2tz",
@@ -1136,6 +1192,48 @@ class TestAsyncCards:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `card_token` but received ''"):
             await async_client.cards.with_raw_response.provision(
                 card_token="",
+            )
+
+    @parametrize
+    async def test_method_reassign_account(self, async_client: AsyncLithic) -> None:
+        card = await async_client.cards.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        )
+        assert_matches_type(Card, card, path=["response"])
+
+    @parametrize
+    async def test_raw_response_reassign_account(self, async_client: AsyncLithic) -> None:
+        response = await async_client.cards.with_raw_response.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        card = response.parse()
+        assert_matches_type(Card, card, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_reassign_account(self, async_client: AsyncLithic) -> None:
+        async with async_client.cards.with_streaming_response.reassign_account(
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            card = await response.parse()
+            assert_matches_type(Card, card, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_reassign_account(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `card_token` but received ''"):
+            await async_client.cards.with_raw_response.reassign_account(
+                card_token="",
+                new_account_token="82d7c408-2bbb-4f63-889a-8a2a2b1601af",
             )
 
     @parametrize

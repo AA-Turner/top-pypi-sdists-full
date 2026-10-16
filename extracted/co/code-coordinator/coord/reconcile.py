@@ -590,6 +590,7 @@ def reconcile_completed_assignments(
             propagate_smoke_terminal_failure(
                 parent_assignment_id=a.review_of_assignment_id,
                 failure_reason=_failure_reason,
+                exit_code=entry.get("exit_code"),
             )
 
         # #666 Gap A: best-effort cost/token capture from the agent completed
@@ -940,9 +941,14 @@ def _environmental_cause_phrase(classification: "FailureClassification") -> str:
         KIND_API_ERROR,
         KIND_INFRA,
         KIND_NETWORK,
+        KIND_SILENT,
         KIND_USAGE_LIMIT,
     )
 
+    if classification.kind == KIND_SILENT:
+        # #3705: a Test-stage worker that died reporting nothing at all —
+        # not a provider signal, just no diagnostic to hand anyone.
+        return "a Test-stage worker repeatedly dying with no reason recorded (#1605)"
     if classification.kind == KIND_USAGE_LIMIT:
         return "an exhausted account usage limit"
     if classification.kind == KIND_API_ERROR:
@@ -969,6 +975,7 @@ def propagate_smoke_terminal_failure(
     environmental: bool | None = None,
     fanout_parent_id: str | None = None,
     operator_cancelled: bool = False,
+    exit_code: int | None = None,
 ) -> None:
     """#1605: resolve a work row's ``test_state`` when its Test-stage
     (``type="smoke"``) child dies without ever reporting pass/fail.
@@ -1036,6 +1043,30 @@ def propagate_smoke_terminal_failure(
       ``test_state="failed"`` exactly like a normal non-zero-exit smoke
       completion already does (`coord/notify.py`'s completion handler), so
       the existing bounded `coord fix` loop picks it up from there.
+    * **silent** (#3705: *failure_reason* itself is empty — no usage-limit,
+      API, network, or infra token to classify, because there is no text at
+      all) — this is the #1605 class the module docstring above describes,
+      and it is treated like **environmental**, not **work**: there is
+      nothing for a `coord fix` worker to act on, so dispatching one only
+      adds a full Work→Test→Review cycle onto a row whose original Work may
+      already be approved, for zero actionable content. Reclassified via
+      :func:`coord.failure_class.silent_test_death` and folded into the same
+      bounded clear-and-retry-then-park machinery as a genuine environmental
+      death, sharing its budget and tally. Deliberately distinct from
+      **work**'s "no RECOGNIZED signal" case, which still has real
+      diagnostic text worth a fix worker's time and keeps its current
+      ``test_state="failed"`` handling unchanged.
+
+    *exit_code* (#3705) is the deciding evidence for that **silent** branch,
+    and every automatic caller must forward it: the dying worker's own
+    process exit status, when the agent recorded one. A non-zero exit means
+    the worker ran and returned an error — real evidence of a work failure,
+    even with no reason text — so only ``exit_code in {0, None}`` reclassifies
+    as silent. *operator_cancelled* overrides this, since a `coord stop`
+    kills the process group and its exit status reflects the operator's
+    signal rather than the code under test. Leaving *exit_code* unset means
+    "no exit status is known", which is itself the #1605 shape, so a caller
+    that CAN see one and omits it would reclassify genuine failures as silent.
 
     *environmental* (#2275) overrides that classification when the CALLER
     already knows the answer.  Default ``None`` means "classify from
@@ -1134,6 +1165,48 @@ def propagate_smoke_terminal_failure(
     if environmental is None:
         is_environmental = classification.is_environmental
         cause = classification.reason
+        if (
+            not is_environmental
+            and not (failure_reason or "").strip()
+            and (operator_cancelled or exit_code in (0, None))
+        ):
+            # #3705: `classify_failure` correctly calls this WORK — its own
+            # "no evidence at all defaults to WORK" rule — but that rule is
+            # about an UNRECOGNIZED signal, not an ABSENT one. There is a
+            # real difference between "the worker's own terminal text didn't
+            # match any environmental pattern" (real diagnostic content, a
+            # genuine work failure worth a fix worker's time) and "there is
+            # no `failure_reason` text at all" (a dead agent, a killed
+            # process group — the #1605 class this function exists for,
+            # with nothing for a fix worker to act on). Only this caller can
+            # tell the two apart, since only it sees whether
+            # *failure_reason* itself was ever populated.
+            #
+            # The additional *exit_code* guard keeps a non-zero exit code
+            # (e.g. exit_code=1: the `claude -p` process actually ran and
+            # returned an error) as a genuine WORK failure even when the
+            # agent captured no classified reason text — a non-zero exit IS
+            # a signal, just one without a human-readable reason string.
+            # Only `exit_code in {0, None}` qualifies as truly silent.
+            #
+            # *operator_cancelled* overrides that guard: a `coord stop` kills
+            # the worker's process group, so its exit status reports the
+            # OPERATOR'S signal, not a verdict on the code under test. Every
+            # cancellation is therefore silent by construction, whatever exit
+            # code the kill happened to leave behind — the same reasoning as
+            # the sibling-protection branch above, applied to a solo leg that
+            # has no live sibling left to protect.
+            # Treat all of the above like an environmental death: bounded
+            # clear-and-retry of the Test stage, parking (never a blind
+            # `coord fix`) once the shared #3315 budget is exhausted —
+            # instead of ever recording a `test_state="failed"` work verdict
+            # with a synthetic placeholder reason and no actual failure
+            # behind it.
+            from coord.failure_class import silent_test_death  # noqa: PLC0415
+
+            classification = silent_test_death()
+            is_environmental = True
+            cause = classification.reason
     else:
         is_environmental = bool(environmental)
         cause = failure_reason or classification.reason

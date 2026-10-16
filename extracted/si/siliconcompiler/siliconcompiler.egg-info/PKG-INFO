@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.38.10
+Version: 0.38.11
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -71,7 +71,7 @@ Provides-Extra: s3
 Requires-Dist: boto3>=1.28.0; extra == "s3"
 Provides-Extra: dashboard
 Requires-Dist: pandas>=1.1.5; extra == "dashboard"
-Requires-Dist: streamlit==1.64.0; extra == "dashboard"
+Requires-Dist: streamlit==1.65.0; extra == "dashboard"
 Requires-Dist: streamlit_agraph==0.0.45; extra == "dashboard"
 Requires-Dist: streamlit-antd-components==0.3.2; extra == "dashboard"
 Requires-Dist: streamlit_javascript==0.1.5; extra == "dashboard"

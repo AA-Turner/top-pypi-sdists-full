@@ -1,14 +1,13 @@
 import json
 import logging
-from types import SimpleNamespace
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from mistralai.client import Mistral
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk._logs.export import LogRecordExportResult
 from opentelemetry.sdk.metrics.export import MetricExportResult, MetricsData
 from opentelemetry.sdk.trace import TracerProvider
@@ -19,6 +18,7 @@ from temporalio.testing import WorkflowEnvironment
 
 from mistralai.workflows.core._events.event_context import EventContext
 from mistralai.workflows.core.task.task import Task
+from mistralai.workflows.core.tracing import exporters
 from mistralai.workflows.core.tracing._otel_config import (
     FORCE_SPAN_ID_ATTRIBUTE,
     FORCE_TRACE_ID_ATTRIBUTE,
@@ -36,6 +36,7 @@ from .fixtures_task import (
     simple_task_activity,
     stateful_task_activity,
 )
+from .otel_endpoints import RecordingTelemetryEndpoint
 from .utils import create_test_worker, create_test_worker_with_events
 
 # Module-level exporter/provider (avoids "Overriding TracerProvider" warnings); the forced id
@@ -325,98 +326,104 @@ async def test_nested_tasks_create_parent_child_spans(temporal_env: WorkflowEnvi
             assert span.parent.span_id == inner_root.context.span_id
 
 
-_NOT_FOUND_RESPONSE = SimpleNamespace(ok=False, status_code=404, text="not found", reason="Not Found")
-_FORBIDDEN_RESPONSE = SimpleNamespace(ok=False, status_code=403, text="forbidden", reason="Forbidden")
+@contextmanager
+def _export_failure_endpoint(status_code: int) -> Iterator[RecordingTelemetryEndpoint]:
+    """In-process endpoint answering every export POST with the given status (404/403 are not retried)."""
+    endpoint = RecordingTelemetryEndpoint(status_code=status_code)
+    try:
+        yield endpoint
+    finally:
+        endpoint.close()
+
+
+@contextmanager
+def _failing_otlp_exporter(exporter_cls: Any, signal_path: str, status_code: int) -> Iterator[Any]:
+    """Build a _Logging* exporter whose OTLP endpoint answers every export with the given status.
+
+    The failure travels the full public path (injected session -> response hook -> status recorder),
+    so the throttled warning carries the endpoint's real HTTP status.
+    """
+    with _export_failure_endpoint(status_code) as endpoint:
+        yield exporter_cls.build(endpoint=f"{endpoint.url}/{signal_path}")
 
 
 def test_span_export_failure_warns_with_404_hint_and_status() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+    from mistralai.workflows.core.tracing.exporters import _LoggingOTLPSpanExporter
 
-    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
-    with patch.object(OTLPSpanExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
-        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+    with _failing_otlp_exporter(_LoggingOTLPSpanExporter, "v1/traces", 404) as exporter:
+        with patch("mistralai.workflows.core.tracing.exporters.logger.warning") as mock_warning:
             result = exporter.export([])
 
     assert result is SpanExportResult.FAILURE
     mock_warning.assert_called_once_with(
-        f"Failed to export OpenTelemetry traces: {_otel_config._OTLP_404_HINT}",
-        endpoint="http://invalid-endpoint:4318/v1/traces",
+        f"Failed to export OpenTelemetry traces: {exporters._OTLP_404_HINT}",
+        endpoint=exporter._endpoint,
         status_code=404,
     )
 
 
 def test_metric_export_failure_warns_with_404_hint_and_status() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPMetricExporter
+    from mistralai.workflows.core.tracing.exporters import _LoggingOTLPMetricExporter
 
-    exporter = _LoggingOTLPMetricExporter(endpoint="http://invalid-endpoint:4318/v1/metrics")
-    with patch.object(OTLPMetricExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
-        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+    with _failing_otlp_exporter(_LoggingOTLPMetricExporter, "v1/metrics", 404) as exporter:
+        with patch("mistralai.workflows.core.tracing.exporters.logger.warning") as mock_warning:
             result = exporter.export(MetricsData(resource_metrics=[]))
 
     assert result is MetricExportResult.FAILURE
     mock_warning.assert_called_once_with(
-        f"Failed to export OpenTelemetry metrics: {_otel_config._OTLP_404_HINT}",
-        endpoint="http://invalid-endpoint:4318/v1/metrics",
+        f"Failed to export OpenTelemetry metrics: {exporters._OTLP_404_HINT}",
+        endpoint=exporter._endpoint,
         status_code=404,
     )
 
 
 def test_log_export_failure_warns_with_404_hint_and_status() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPLogExporter
+    from mistralai.workflows.core.tracing.exporters import _LoggingOTLPLogExporter
 
-    exporter = _LoggingOTLPLogExporter(endpoint="http://invalid-endpoint:4318/v1/logs")
-    with patch.object(OTLPLogExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
-        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+    with _failing_otlp_exporter(_LoggingOTLPLogExporter, "v1/logs", 404) as exporter:
+        with patch("mistralai.workflows.core.tracing.exporters.logger.warning") as mock_warning:
             result = exporter.export([])
 
     assert result is LogRecordExportResult.FAILURE
     mock_warning.assert_called_once_with(
-        f"Failed to export OpenTelemetry logs: {_otel_config._OTLP_404_HINT}",
-        endpoint="http://invalid-endpoint:4318/v1/logs",
+        f"Failed to export OpenTelemetry logs: {exporters._OTLP_404_HINT}",
+        endpoint=exporter._endpoint,
         status_code=404,
     )
 
 
 def test_non_404_export_failure_reports_status_without_hint() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+    from mistralai.workflows.core.tracing.exporters import _LoggingOTLPSpanExporter
 
-    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
-    with patch.object(OTLPSpanExporter, "_export", return_value=_FORBIDDEN_RESPONSE):
-        with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
+    with _failing_otlp_exporter(_LoggingOTLPSpanExporter, "v1/traces", 403) as exporter:
+        with patch("mistralai.workflows.core.tracing.exporters.logger.warning") as mock_warning:
             result = exporter.export([])
 
     assert result is SpanExportResult.FAILURE
     mock_warning.assert_called_once_with(
         "Failed to export OpenTelemetry traces", endpoint=exporter._endpoint, status_code=403
     )
-    assert _otel_config._OTLP_404_HINT not in mock_warning.call_args_list[0].args[0]
+    assert exporters._OTLP_404_HINT not in mock_warning.call_args_list[0].args[0]
 
 
 def test_export_failure_warning_is_throttled_per_interval() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _LoggingOTLPSpanExporter
+    from mistralai.workflows.core.tracing.exporters import _LoggingOTLPSpanExporter
 
-    exporter = _LoggingOTLPSpanExporter(endpoint="http://invalid-endpoint:4318/v1/traces")
-    # 1st call logs, 2nd (1s later) is suppressed, 3rd (past the interval) logs again with the count.
-    clock = iter([100.0, 101.0, 101.0 + _otel_config._EXPORT_WARN_INTERVAL_SECONDS + 1.0])
-    with patch.object(OTLPSpanExporter, "_export", return_value=_NOT_FOUND_RESPONSE):
-        with patch("mistralai.workflows.core.tracing._otel_config.time.monotonic", side_effect=lambda: next(clock)):
-            with patch("mistralai.workflows.core.tracing._otel_config.logger.warning") as mock_warning:
-                exporter.export([])
-                exporter.export([])
-                exporter.export([])
+    with _failing_otlp_exporter(_LoggingOTLPSpanExporter, "v1/traces", 404) as exporter:
+        with patch("mistralai.workflows.core.tracing.exporters.logger.warning") as mock_warning:
+            # 1st failure logs immediately; the 2nd falls inside the warn interval and is suppressed.
+            exporter.export([])
+            exporter.export([])
+            # Pretend the warn interval elapsed; the 3rd failure logs again, reporting the suppressed one.
+            exporter._last_export_warn -= exporters._EXPORT_WARN_INTERVAL_SECONDS + 1.0
+            exporter.export([])
 
     assert mock_warning.call_count == 2
     assert mock_warning.call_args_list[1].kwargs["suppressed_failures"] == 1
 
 
 def test_export_diagnostics_filter_excludes_otel_from_log_export() -> None:
-    from mistralai.workflows.core.tracing import _otel_config
-    from mistralai.workflows.core.tracing._otel_config import _DropOtelExportDiagnosticsFilter
+    from mistralai.workflows.core.tracing.exporters import _DropOtelExportDiagnosticsFilter
 
     log_filter = _DropOtelExportDiagnosticsFilter()
 
@@ -425,7 +432,7 @@ def test_export_diagnostics_filter_excludes_otel_from_log_export() -> None:
 
     # Our own export-failure warnings and OTel SDK logs must not be re-exported (feedback loop),
     # while application logs still flow to the OTel log exporter.
-    assert log_filter.filter(record(_otel_config.__name__)) is False
+    assert log_filter.filter(record(exporters.__name__)) is False
     assert log_filter.filter(record("opentelemetry.exporter.otlp.proto.http._log_exporter")) is False
     assert log_filter.filter(record("mistralai.workflows.core.worker")) is True
 

@@ -1,0 +1,42 @@
+version: 7.28.2
+type: DeclarativeSource
+
+definitions:
+  requester_base:
+    type: HttpRequester
+    url_base: "{{ config.get('api_url', 'https://api.github.com').rstrip('/') }}"
+    http_method: GET
+
+  issues_stream:
+    type: DeclarativeStream
+    name: issues
+    retriever:
+      type: SimpleRetriever
+      requester:
+        $ref: "#/definitions/requester_base"
+        path: "/repos/{{ config['owner'] }}/{{ config['repo'] }}/issues"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+
+streams:
+  - $ref: "#/definitions/issues_stream"
+
+check:
+  type: CheckStream
+  stream_names: []
+
+spec:
+  type: Spec
+  connection_specification:
+    type: object
+    properties:
+      owner:
+        type: string
+      repo:
+        type: string
+      api_url:
+        type: string
+        default: https://api.github.com/

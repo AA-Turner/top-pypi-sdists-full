@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chalkpy"
 description = "Python SDK for Chalk"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 authors = [
     { name = "Chalk AI, Inc." }
 ]
@@ -16,11 +16,11 @@ classifiers = [
     # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Scientific/Engineering :: Information Analysis",
@@ -31,7 +31,8 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "chalkpy-rs>=0.1.0,<0.2.0",
+    # This is the SDK's native extension dependency, not a chalkpy version pin.
+    "chalkpy-rs>=0.1.2,<0.2.0", # nosemgrep: chalk_ai.chalkpy_in_shared_only
     "dataclasses_json>=0.5.7",
     "executing>=1.2.0,<3",
     "googleapis-common-protos>=1.56.0",
@@ -41,7 +42,10 @@ dependencies = [
     "orjson",
     "protobuf>=4.25,<8",
     "pyarrow>=16.1.0",
-    "pydantic>=1.0.0,<3",
+    "pydantic>=1.0.0,<3; python_version < '3.14'",
+    # Python 3.14 needs v1 >=1.10.25 or the updated v1 compatibility package in v2 >=2.13.
+    "pydantic>=1.10.25,<3,!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,!=2.8.*,!=2.9.*,!=2.10.*,!=2.11.*,!=2.12.*; python_version == '3.14'",
+    "pydantic>=2.14,<3; python_version >= '3.15'",
     "pyopenssl>=23.2.0",
     "pyyaml>=6.0,<7",
     "requests>=2.31,<2.33.0",
@@ -55,7 +59,8 @@ base = []
 dev = [
     "boto3-stubs[s3]",
     "grpc-stubs",
-    "pandas>=1.5.1,<3",
+    "pandas>=1.5.1,<3; python_version < '3.15'",
+    "pandas>=3.0.6,<4; python_version >= '3.15'",
     "prek",
     "pytest-asyncio>=0.24.0",
     "pytest-env",
@@ -69,7 +74,6 @@ dev = [
     # pyright can resolve chalk.workflows._temporal and so the Temporal compilation tests actually
     # run in CI instead of skipping.
     "temporalio>=1.7,<2",
-    "tomli>=2.0; python_version < '3.11'",
     "types-protobuf<6",
     "types-psycopg2",
     "types-pymysql",
@@ -80,7 +84,10 @@ dev = [
 runtime = [
     # Dependencies needed to execute resolvers
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    # duckdb ships Python 3.14 wheels only from 1.4.4; building an older one from source there
+    # runs a compiler per CPU, which exhausts the CI runners.
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
@@ -88,7 +95,8 @@ runtime = [
     "s3fs>=2024.2.0",
     "python-json-logger>=3.0.0,<4.0.0",
     "sqlglot>=19.0.0,<21.2.0",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32"
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
 ]
 
 training = [
@@ -101,7 +109,8 @@ training = [
 openai = [
     "openai>=1.3.2,<1.53",
     "httpx<0.28.0", # httpx 0.28.0 introduces for a breaking change for `proxies`
-    "tiktoken>=0.12.0,<0.13",
+    "tiktoken>=0.12.0,<0.13; python_version < '3.15'",
+    "tiktoken>=0.14,<0.15; python_version >= '3.15'",
 ]
 
 cohere = [
@@ -118,7 +127,7 @@ sentence-transformers = [
 
 # Direct scaling-group model calls via chalkcompute's native client.
 compute = [
-    "chalkcompute>=2.6.0; python_version >= '3.11'",
+    "chalkcompute>=2.6.0",
 ]
 
 # SQL-specific
@@ -131,12 +140,14 @@ sql = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlglot>=19.0.0,<21.2.0",
@@ -152,12 +163,14 @@ athena = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -176,12 +189,14 @@ bigquery = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -199,12 +214,14 @@ clickhouse = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -223,12 +240,14 @@ spanner = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -238,7 +257,8 @@ spanner = [
 
 postgresql = [
     "psycopg2-binary>=2.9.4,<3",
-    "psycopg[binary]>=3.1.9,<3.3",
+    "psycopg[binary]>=3.1.9,<3.3; python_version < '3.15'",
+    "psycopg[binary]>=3.3,<3.4; python_version >= '3.15'",
     "packaging",
     # And the sql dependencies
     # [[[cog
@@ -247,12 +267,14 @@ postgresql = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -270,12 +292,14 @@ snowflake = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -292,12 +316,14 @@ sqlite = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -307,7 +333,9 @@ sqlite = [
 
 redshift = [
     "chalk-sqlalchemy-redshift>=0.8.11,<0.9",
-    "redshift_connector>=2.0.909,<2.2",
+    "redshift_connector>=2.0.909,<2.3",
+    # redshift_connector < 2.2 needs lxml 5, which has no Python 3.14 wheels.
+    "lxml>=6.1; python_version >= '3.14'",
     "boto3",
     # And the postgresql dependencies
     # [[[cog
@@ -316,15 +344,18 @@ redshift = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
     "packaging",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "psycopg2-binary>=2.9.4,<3",
-    "psycopg[binary]>=3.1.9,<3.3",
+    "psycopg[binary]>=3.1.9,<3.3; python_version < '3.15'",
+    "psycopg[binary]>=3.3,<3.4; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -346,12 +377,14 @@ mysql = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -368,12 +401,14 @@ trino = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -382,7 +417,11 @@ trino = [
 ]
 
 databricks = [
-    "databricks-sql-connector>=2.5.2,<3.5",
+    "databricks-sql-connector>=2.5.2,<3.5; python_version < '3.15'",
+    "databricks-sql-connector>=4.3,<4.4; python_version >= '3.15'",
+    # Connector 4 unbundled its SQLAlchemy dialect. This release supports our
+    # SQLAlchemy 1.4 integration without newer dialects' PyArrow <17 constraint.
+    "databricks-sqlalchemy==1.0.2; python_version >= '3.15'",
     "databricks-sdk>=0.29.0,<1.0.0",
     # And the sql dependencies
     # [[[cog
@@ -391,12 +430,14 @@ databricks = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -414,12 +455,14 @@ dynamodb = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
@@ -463,8 +506,11 @@ all = [
     "clickhouse-sqlalchemy",
     "cohere==5.11.4",
     "databricks-sdk>=0.29.0,<1.0.0",
-    "databricks-sql-connector>=2.5.2,<3.5",
-    "duckdb>=0.6,<1.2.0",
+    "databricks-sql-connector>=2.5.2,<3.5; python_version < '3.15'",
+    "databricks-sql-connector>=4.3,<4.4; python_version >= '3.15'",
+    "databricks-sqlalchemy==1.0.2; python_version >= '3.15'",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
@@ -473,17 +519,20 @@ all = [
     "google-cloud-bigquery>=3.25.0,<4",
     "google-cloud-storage",
     "httpx<0.28.0",
+    "lxml>=6.1; python_version >= '3.14'",
     "openai>=1.3.2,<1.53",
     "opentelemetry-api>=1.29.0",
     "opentelemetry-sdk>=1.29.0",
     "packaging",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "psycopg2-binary>=2.9.4,<3",
-    "psycopg[binary]>=3.1.9,<3.3",
+    "psycopg[binary]>=3.1.9,<3.3; python_version < '3.15'",
+    "psycopg[binary]>=3.3,<3.4; python_version >= '3.15'",
     "pydynamodb>=0.6,<0.9",
     "pymysql>=1.1.1,<2",
     "python-json-logger>=3.0.0,<4.0.0",
-    "redshift_connector>=2.0.909,<2.2",
+    "redshift_connector>=2.0.909,<2.3",
     "s3fs>=2024.2.0",
     "snowflake-connector-python>=3.12.4,<5",
     "snowflake-sqlalchemy>=1.5.0,<1.11",
@@ -491,7 +540,8 @@ all = [
     "sqlalchemy-spanner<1.12.0",
     "sqlalchemy[asyncio]>=1.4.26,<2",
     "sqlglot>=19.0.0,<21.2.0",
-    "tiktoken>=0.12.0,<0.13",
+    "tiktoken>=0.12.0,<0.13; python_version < '3.15'",
+    "tiktoken>=0.14,<0.15; python_version >= '3.15'",
     "trino[sqlalchemy]",
     # [[[end]]]
 ]
@@ -505,12 +555,14 @@ polars = [
     #     print(f'    "{dep}",')
     # ]]]
     "adlfs",
-    "duckdb>=0.6,<1.2.0",
+    "duckdb>=0.6,<1.2.0; python_version < '3.14'",
+    "duckdb>=1.4.4,<1.6; python_version >= '3.14'",
     "fsspec",
     "gcsfs",
     "google-auth",
     "google-cloud-storage",
-    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32",
+    "polars[timezone]>=0.17.2,<1.34.1,!=1.0,!=1.1,!=1.2,!=1.3,!=1.4,!=1.5,!=1.6,!=1.7,!=1.8,!=1.9,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=1.15,!=1.16,!=1.17,!=1.18,!=1.19,!=1.20,!=1.21,!=1.22,!=1.23,!=1.24,!=1.25,!=1.26,!=1.27,!=1.28,!=1.29,!=1.30,!=1.31,!=1.32; python_version < '3.15'",
+    "polars[timezone]>=2.0,<2.1; python_version >= '3.15'",
     "python-json-logger>=3.0.0,<4.0.0",
     "s3fs>=2024.2.0",
     "sqlglot>=19.0.0,<21.2.0",
@@ -535,13 +587,13 @@ version = { attr = "chalk._version.__version__" }
 
 [tool.isort]
 profile = "black"
-py_version = 310
+py_version = 311
 line_length = 120
 known_first_party = ["chalk", "chalk_rs"]
 skip = ["chalk/feature_n/__init__.py"]
 
 [tool.black]
-target-version = ['py310']
+target-version = ['py311']
 line-length = 120
 
 [tool.autoflake]
@@ -561,6 +613,7 @@ filterwarnings = [
     "ignore:Retrieving Arrow record batches directly via google-cloud-bigquery-storage is deprecated.*:PendingDeprecationWarning",
     "ignore:The GenericFunction 'flatten' is already registered and is going to be overridden.",
     "ignore:You are using a Python version:FutureWarning",
+    "ignore:You are using a non-supported Python version:FutureWarning",
     "ignore:Resolving the schema of a LazyFrame",
     "ignore:Determining the column names of a LazyFrame",
     "ignore:Determining the data types of a LazyFrame",

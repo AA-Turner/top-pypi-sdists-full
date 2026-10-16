@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tensorfs
-Version: 0.9.0
+Version: 0.9.4
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust

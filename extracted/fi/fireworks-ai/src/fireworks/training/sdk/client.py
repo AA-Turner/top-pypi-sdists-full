@@ -127,6 +127,10 @@ class _CreateModelResponse(types.CreateModelResponse):
     # on FiretitanTrainingClient.
     supports_router_replay: bool | None = None
     supports_target_logprob_support: bool | None = None
+    supports_reinforce: bool | None = None
+    supports_score_centering: bool | None = None
+    supports_policy_importance_sampling: bool | None = None
+    supports_policy_diagnostics: bool | None = None
     supports_rdma_weight_sync: bool = False
     rdma_weight_sync_enabled: bool | None = None
     model_config = {"protected_namespaces": ()}
@@ -143,7 +147,14 @@ class _CreateModelResponse(types.CreateModelResponse):
         return "parquet_v1" if value == "parquet_v1" else "base64_inline"
 
     @field_validator(
-        "supports_router_replay", "supports_target_logprob_support", "rdma_weight_sync_enabled", mode="before"
+        "supports_router_replay",
+        "supports_target_logprob_support",
+        "rdma_weight_sync_enabled",
+        "supports_reinforce",
+        "supports_score_centering",
+        "supports_policy_importance_sampling",
+        "supports_policy_diagnostics",
+        mode="before",
     )
     @classmethod
     def _known_router_replay_capability(cls, value: Any) -> bool | None:
@@ -891,6 +902,10 @@ def _create_base_only_training_client(
         routing_matrix_format=response.routing_matrix_format,
         supports_router_replay=getattr(response, "supports_router_replay", None),
         supports_target_logprob_support=getattr(response, "supports_target_logprob_support", None),
+        supports_reinforce=getattr(response, "supports_reinforce", None),
+        supports_score_centering=getattr(response, "supports_score_centering", None),
+        supports_policy_importance_sampling=getattr(response, "supports_policy_importance_sampling", None),
+        supports_policy_diagnostics=getattr(response, "supports_policy_diagnostics", None),
     )
 
 
@@ -1329,6 +1344,10 @@ class FiretitanTrainingClient(TrainingClient):
         routing_matrix_format: RoutingMatrixFormat = "base64_inline",
         supports_router_replay: bool | None = None,
         supports_target_logprob_support: bool | None = None,
+        supports_reinforce: bool | None = None,
+        supports_score_centering: bool | None = None,
+        supports_policy_importance_sampling: bool | None = None,
+        supports_policy_diagnostics: bool | None = None,
         supports_rdma_weight_sync: bool = False,
         rdma_weight_sync_enabled: bool | None = None,
     ):
@@ -1345,6 +1364,10 @@ class FiretitanTrainingClient(TrainingClient):
         # which a private early-access model rejects with 403.
         self.supports_router_replay = supports_router_replay if isinstance(supports_router_replay, bool) else None
         self.supports_target_logprob_support = supports_target_logprob_support is True
+        self.supports_reinforce = supports_reinforce is True
+        self.supports_score_centering = supports_score_centering is True
+        self.supports_policy_importance_sampling = supports_policy_importance_sampling is True
+        self.supports_policy_diagnostics = supports_policy_diagnostics is True
         self._trainer_supports_rdma_weight_sync = supports_rdma_weight_sync is True
         self._trainer_rdma_weight_sync_enabled = rdma_weight_sync_enabled
         super().__init__(holder=holder, model_seq_id=model_seq_id, model_id=model_id)
@@ -1710,6 +1733,25 @@ class FiretitanTrainingClient(TrainingClient):
                 await asyncio.gather(*tasks, return_exceptions=True)
             raise
 
+    def _validate_loss_capabilities(
+        self,
+        loss_fn: types.LossFnType,
+        loss_fn_config: dict[str, float | str | bool] | None,
+    ) -> None:
+        config = loss_fn_config or {}
+        if config.get("report_policy_diagnostics") is True and not getattr(
+            self, "supports_policy_diagnostics", False
+        ):
+            raise ValueError("Trainer does not advertise replay policy diagnostics; upgrade the trainer")
+        if loss_fn == "reinforce":
+            if not getattr(self, "supports_reinforce", False):
+                raise ValueError("Trainer does not advertise built-in REINFORCE; upgrade the trainer")
+            if config.get("score_centering") is True and not getattr(self, "supports_score_centering", False):
+                raise ValueError("Trainer does not advertise REINFORCE score centering; upgrade the trainer")
+        elif config.get("weighting") in ("tis", "mis") or config.get("anchor_logprob_source") == "current_detached":
+            if not getattr(self, "supports_policy_importance_sampling", False):
+                raise ValueError("Trainer does not advertise server policy TIS/MIS; upgrade the trainer")
+
     async def _send_single_forward_request(
         self,
         request_id: int,
@@ -1738,6 +1780,7 @@ class FiretitanTrainingClient(TrainingClient):
         loss_fn_config: dict[str, float | str | bool] | None = None,
     ) -> APIFuture[types.ForwardBackwardOutput]:
         """Compute a forward pass, using Fireworks' JSON path with parallel chunks."""
+        self._validate_loss_capabilities(loss_fn, loss_fn_config)
         support = _target_logprob_support(loss_fn_config)
         if support != "full_vocabulary":
             raise ValueError(f"target_logprob_support='{support}' requires forward_backward, not forward")
@@ -1884,6 +1927,7 @@ class FiretitanTrainingClient(TrainingClient):
         loss_fn_config: dict[str, float | str | bool] | None = None,
     ) -> APIFuture[types.ForwardBackwardOutput]:
         support = _target_logprob_support(loss_fn_config)
+        self._validate_loss_capabilities(loss_fn, loss_fn_config)
         if support == "sampling_support" and not getattr(self, "supports_target_logprob_support", False):
             raise ValueError(
                 "Trainer does not advertise target_logprob_support='sampling_support'; "
@@ -3672,9 +3716,7 @@ class FiretitanServiceClient(ServiceClient):
 
         if managed_config is not None:
             if base_model is not None:
-                _warn_deprecated_override(
-                    "create_training_client", "base_model", base_model, managed_config.base_model
-                )
+                _warn_deprecated_override("create_training_client", "base_model", base_model, managed_config.base_model)
             _warn_deprecated_override("create_training_client", "lora_rank", lora_rank, managed_config.lora_rank)
             if projection_head_dim is not None and projection_head_dim != managed_config.projection_head_dim:
                 raise ValueError(
@@ -3769,6 +3811,10 @@ class FiretitanServiceClient(ServiceClient):
             routing_matrix_format=response.routing_matrix_format,
             supports_router_replay=getattr(response, "supports_router_replay", None),
             supports_target_logprob_support=getattr(response, "supports_target_logprob_support", None),
+            supports_reinforce=getattr(response, "supports_reinforce", None),
+            supports_score_centering=getattr(response, "supports_score_centering", None),
+            supports_policy_importance_sampling=getattr(response, "supports_policy_importance_sampling", None),
+            supports_policy_diagnostics=getattr(response, "supports_policy_diagnostics", None),
             supports_rdma_weight_sync=response.supports_rdma_weight_sync,
             rdma_weight_sync_enabled=response.rdma_weight_sync_enabled,
         )
@@ -4375,9 +4421,7 @@ class FiretitanServiceClient(ServiceClient):
             )
 
         ready = deploy_mgr.wait_for_ready(resolved_config.deployment_id, timeout_s=timeout_s)
-        model = (
-            ready.inference_model or f"accounts/{deploy_mgr.account_id}/deployments/{resolved_config.deployment_id}"
-        )
+        model = ready.inference_model or f"accounts/{deploy_mgr.account_id}/deployments/{resolved_config.deployment_id}"
         return self.create_deployment_sampler_for_model(
             model,
             tokenizer=tokenizer,

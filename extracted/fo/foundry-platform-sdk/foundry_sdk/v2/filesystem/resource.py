@@ -89,6 +89,9 @@ class ResourceClient:
     ) -> None:
         """
         Adds a list of Markings to a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param marking_ids:
@@ -148,6 +151,9 @@ class ResourceClient:
         Move the given resource to the trash. Following this operation, the resource can be restored, using the
         `restore` operation, or permanently deleted using the `permanentlyDelete` operation.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -197,6 +203,9 @@ class ResourceClient:
     ) -> filesystem_models.Resource:
         """
         Get the Resource with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -245,6 +254,9 @@ class ResourceClient:
         """
         Returns a list of access requirements a user needs in order to view a resource. Access requirements are
         composed of Organizations and Markings, and can either be applied directly to the resource or inherited.
+
+
+        Required scopes: [api:filesystem-read]
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -299,6 +311,9 @@ class ResourceClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:filesystem-read]
+
         :param body: Body of the request
         :type body: List[GetResourcesBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -337,6 +352,9 @@ class ResourceClient:
     ) -> filesystem_models.Resource:
         """
         Get a resource by its absolute path.
+
+        Required scopes: [api:filesystem-read]
+
         :param path: The path to the resource. The leading slash is optional.
         :type path: ResourcePath
         :param request_timeout: timeout setting for this request in seconds.
@@ -399,6 +417,9 @@ class ResourceClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:filesystem-read]
+
         :param body: Body of the request
         :type body: List[GetByPathResourcesBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -439,6 +460,9 @@ class ResourceClient:
         """
         Get the resources most recently viewed by the calling user. If a resource is now inaccessible or has
         been trashed, it will not be included in the response.
+
+
+        Required scopes: [api:filesystem-read]
 
         :param limit: The maximum number of recently viewed resources to return. Defaults to 100, with a maximum of 100. Values above 100 are clamped to 100.
         :type limit: Optional[RecentlyViewedLimit]
@@ -489,6 +513,9 @@ class ResourceClient:
         """
         List of Markings directly applied to a resource. The number of Markings on a resource is typically small
         so the `pageSize` and `pageToken` parameters are not required.
+
+
+        Required scopes: []
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -542,6 +569,9 @@ class ResourceClient:
         Permanently delete the given resource from the trash. If the resource is not directly trashed, a
         `ResourceNotTrashed` error will be thrown.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -588,6 +618,9 @@ class ResourceClient:
     ) -> None:
         """
         Removes Markings from a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param marking_ids:
@@ -646,6 +679,9 @@ class ResourceClient:
         """
         Restore the given resource and any directly trashed ancestors from the trash. If the resource is not
         trashed, this operation will be ignored.
+
+
+        Required scopes: [api:filesystem-write]
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -803,6 +839,9 @@ class AsyncResourceClient:
     ) -> typing.Awaitable[None]:
         """
         Adds a list of Markings to a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param marking_ids:
@@ -862,6 +901,9 @@ class AsyncResourceClient:
         Move the given resource to the trash. Following this operation, the resource can be restored, using the
         `restore` operation, or permanently deleted using the `permanentlyDelete` operation.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -911,6 +953,9 @@ class AsyncResourceClient:
     ) -> typing.Awaitable[filesystem_models.Resource]:
         """
         Get the Resource with the specified rid.
+
+        Required scopes: [api:filesystem-read]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -959,6 +1004,9 @@ class AsyncResourceClient:
         """
         Returns a list of access requirements a user needs in order to view a resource. Access requirements are
         composed of Organizations and Markings, and can either be applied directly to the resource or inherited.
+
+
+        Required scopes: [api:filesystem-read]
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -1013,6 +1061,9 @@ class AsyncResourceClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:filesystem-read]
+
         :param body: Body of the request
         :type body: List[GetResourcesBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -1051,6 +1102,9 @@ class AsyncResourceClient:
     ) -> typing.Awaitable[filesystem_models.Resource]:
         """
         Get a resource by its absolute path.
+
+        Required scopes: [api:filesystem-read]
+
         :param path: The path to the resource. The leading slash is optional.
         :type path: ResourcePath
         :param request_timeout: timeout setting for this request in seconds.
@@ -1113,6 +1167,9 @@ class AsyncResourceClient:
 
 
         The maximum batch size for this endpoint is 1000.
+
+        Required scopes: [api:filesystem-read]
+
         :param body: Body of the request
         :type body: List[GetByPathResourcesBatchRequestElement]
         :param request_timeout: timeout setting for this request in seconds.
@@ -1153,6 +1210,9 @@ class AsyncResourceClient:
         """
         Get the resources most recently viewed by the calling user. If a resource is now inaccessible or has
         been trashed, it will not be included in the response.
+
+
+        Required scopes: [api:filesystem-read]
 
         :param limit: The maximum number of recently viewed resources to return. Defaults to 100, with a maximum of 100. Values above 100 are clamped to 100.
         :type limit: Optional[RecentlyViewedLimit]
@@ -1203,6 +1263,9 @@ class AsyncResourceClient:
         """
         List of Markings directly applied to a resource. The number of Markings on a resource is typically small
         so the `pageSize` and `pageToken` parameters are not required.
+
+
+        Required scopes: []
 
         :param resource_rid:
         :type resource_rid: ResourceRid
@@ -1256,6 +1319,9 @@ class AsyncResourceClient:
         Permanently delete the given resource from the trash. If the resource is not directly trashed, a
         `ResourceNotTrashed` error will be thrown.
 
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param request_timeout: timeout setting for this request in seconds.
@@ -1302,6 +1368,9 @@ class AsyncResourceClient:
     ) -> typing.Awaitable[None]:
         """
         Removes Markings from a resource.
+
+        Required scopes: [api:filesystem-write]
+
         :param resource_rid:
         :type resource_rid: ResourceRid
         :param marking_ids:
@@ -1360,6 +1429,9 @@ class AsyncResourceClient:
         """
         Restore the given resource and any directly trashed ancestors from the trash. If the resource is not
         trashed, this operation will be ignored.
+
+
+        Required scopes: [api:filesystem-write]
 
         :param resource_rid:
         :type resource_rid: ResourceRid

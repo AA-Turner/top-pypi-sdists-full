@@ -12,7 +12,7 @@ from tinybird.tb.client import AuthNoTokenException
 from tinybird.tb.modules.cli import (
     cli,
     get_current_git_branch,
-    get_tinybird_branch_name_from_git_branch,
+    get_local_workspace_name_from_git_branch,
     is_main_git_branch,
 )
 from tinybird.tb.modules.common import (
@@ -96,7 +96,7 @@ def clear_local_workspace() -> None:
     ws_name = config.get("name")
     git_branch = get_current_git_branch()
     if git_branch and not is_main_git_branch(git_branch):
-        branch_ws_name = get_tinybird_branch_name_from_git_branch(git_branch)
+        branch_ws_name = get_local_workspace_name_from_git_branch(git_branch)
         if branch_ws_name:
             ws_name = branch_ws_name
     if not ws_name:

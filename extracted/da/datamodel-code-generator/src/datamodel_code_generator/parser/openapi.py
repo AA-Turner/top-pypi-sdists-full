@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._types import OpenAPIParserConfigDict
     from datamodel_code_generator.config import OpenAPIParserConfig
-    from datamodel_code_generator.model import DataModelFieldBase
+    from datamodel_code_generator.model import DataModel, DataModelFieldBase
     from datamodel_code_generator.parser.schema_version import OpenAPISchemaFeatures
 
 
@@ -260,12 +260,13 @@ class OpenAPIParser(JsonSchemaParser):
         self._discriminator_documents: set[str] = set()
         self._discriminator_schemas: dict[str, dict[str, Any]] = {}
         self._discriminator_subtypes: dict[str, list[str]] = defaultdict(list)
+        self._parameter_models: list[tuple[DataModel, tuple[str, ...]]] = []
 
     def get_ref_model(self, ref: str) -> dict[str, Any]:
         """Resolve a reference to its model definition."""
         ref_file, ref_path = self.model_resolver.resolve_ref(ref).split("#", 1)
         ref_body = self._get_ref_body(ref_file) if ref_file else self.raw_obj
-        return get_model_by_path(ref_body, ref_path.split("/")[1:])
+        return cast("dict[str, Any]", get_model_by_path(ref_body, ref_path.split("/")[1:]))
 
     @contextmanager
     def openapi_self_context(self, specification: dict[str, Any]) -> Generator[None, None, None]:
@@ -533,7 +534,7 @@ class OpenAPIParser(JsonSchemaParser):
 
         result_fields: list[DataModelFieldBase] = []
         for field_obj in fields:
-            field = properties.get(field_obj.original_name)  # ty: ignore[invalid-argument-type]
+            field = properties.get(field_obj.original_name)
 
             if (
                 isinstance(field, JsonSchemaObject)
@@ -550,7 +551,7 @@ class OpenAPIParser(JsonSchemaParser):
                     result_fields.append(field_obj)
                     continue
                 normalized_discriminator = self._normalize_discriminator(discriminator)
-                field_obj = self.data_model_field_type(**{  # noqa: PLW2901  # ty: ignore[invalid-argument-type]
+                field_obj = self.data_model_field_type(**{  # noqa: PLW2901
                     **field_obj.__dict__,
                     "data_type": new_field_type,
                     "extras": {**field_obj.extras, "discriminator": normalized_discriminator},
@@ -823,6 +824,7 @@ class OpenAPIParser(JsonSchemaParser):
     ) -> DataType | None:
         """Parse all operation parameters into a data model."""
         fields: list[DataModelFieldBase] = []
+        field_schemas: list[tuple[JsonSchemaObject, list[str]]] = []
         exclude_field_names: set[str] = set()
         seen_parameter_names: set[str] = set()
         reference = self.model_resolver.add(path, name, class_name=True, unique=True)
@@ -855,6 +857,7 @@ class OpenAPIParser(JsonSchemaParser):
                 param_schema = parameter.schema_
                 if param_schema.has_ref_with_schema_keywords and not param_schema.is_ref_with_nullable_only:
                     param_schema = self._merge_ref_with_schema(param_schema)
+                field_schemas.append((param_schema, [*path, name, parameter_name]))
                 effective_required = parameter.required
                 effective_default, effective_has_default, use_default_with_required = self._effective_default_state(
                     parameter_name,
@@ -903,6 +906,7 @@ class OpenAPIParser(JsonSchemaParser):
                             schema_path,
                         )
                     )
+                    field_schemas.append((object_schema, schema_path))
 
                 if not data_types:
                     continue
@@ -938,20 +942,24 @@ class OpenAPIParser(JsonSchemaParser):
                 )
 
         if OpenAPIScope.Parameters in self.open_api_scopes and fields:
+            if self._types_nullable_map_values:
+                for field_schema, schema_path in field_schemas:
+                    self.parse_ref(field_schema, schema_path)
             # Using _create_data_model from parent class JsonSchemaParser
             # This method automatically adds frozen=True for DataClass types
-            self.generation_store.register_model(
-                self._create_data_model(
-                    fields=fields,
-                    reference=reference,
-                    custom_base_class=self._resolve_base_class(name),
-                    custom_template_dir=self.custom_template_dir,
-                    extra_template_data=self.extra_template_data,
-                    keyword_only=self.keyword_only,
-                    treat_dot_as_module=self.treat_dot_as_module,
-                    dataclass_arguments=self.dataclass_arguments,
-                )
+            model = self._create_data_model(
+                fields=fields,
+                reference=reference,
+                custom_base_class=self._resolve_base_class(name),
+                custom_template_dir=self.custom_template_dir,
+                extra_template_data=self.extra_template_data,
+                keyword_only=self.keyword_only,
+                treat_dot_as_module=self.treat_dot_as_module,
+                dataclass_arguments=self.dataclass_arguments,
             )
+            self.generation_store.register_model(model)
+            if not self._types_nullable_map_values:
+                self._parameter_models.append((model, tuple(self.model_resolver.current_root)))
             return self.data_type(reference=reference)
 
         return None
@@ -1012,6 +1020,7 @@ class OpenAPIParser(JsonSchemaParser):
         self._discriminator_documents.clear()
         self._discriminator_schemas.clear()
         self._discriminator_subtypes.clear()
+        self._parameter_models.clear()
         try:
             for source, path_parts in self._get_context_source_path_parts():
                 if self.validation:
@@ -1050,10 +1059,50 @@ class OpenAPIParser(JsonSchemaParser):
 
             self._parse_dynamic_specializations()
             self._resolve_unparsed_json_pointer()
+            if self._parameter_models:
+                self._load_references_of_parameter_models()
             self._generate_forced_base_models()
         finally:
             self._clear_inherited_field_caches()
             self._reset_local_source_cache()
+
+    def _load_references_of_parameter_models(self) -> None:
+        """Load the models parameter models use that nothing else loaded, following only the references types use.
+
+        Without --use-typed-nullable-map-values, parameter schemas load no references, as in 0.83.0, which failed
+        when a parameter used a model nothing else loaded.
+        """
+        roots = {"/".join(root): root for _, root in self._parameter_models}
+        attempted: set[str] = set()
+        while missing := self._missing_references_of_parameter_models() - attempted:
+            attempted |= missing
+            self._loads_only_used_references = True
+            try:
+                with self.model_resolver.current_base_path_context(Path()):
+                    for path in sorted(missing):
+                        if (root := roots.get(path.split("#", 1)[0])) is None:
+                            self.resolve_ref(path)
+                        else:
+                            self.reserved_refs[root].add(path)
+                self._resolve_unparsed_json_pointer()
+            finally:
+                self._loads_only_used_references = False
+
+    def _missing_references_of_parameter_models(self) -> set[str]:
+        """Return the paths of the models that parameter models use, directly or through others, but lack."""
+        models = {model.path: model for model in self.results}
+        pending = [model for model, _ in self._parameter_models]
+        seen = {model.path for model in pending}
+        missing: set[str] = set()
+        while pending:
+            model = pending.pop()
+            for path in model.reference_classes.union(model.additional_properties_reference_classes) - seen:
+                seen.add(path)
+                if (used := models.get(path)) is None:
+                    missing.add(path)
+                else:
+                    pending.append(used)
+        return missing
 
     def _get_ref_body(self, resolved_ref: str) -> dict[str, YamlValue]:
         """Index discriminator metadata when the existing loader reads an external document."""

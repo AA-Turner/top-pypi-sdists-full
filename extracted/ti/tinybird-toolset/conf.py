@@ -95,9 +95,6 @@ def apply_patches():
     # Unwind with external code leads to crashes
     apply_patch("patches/unwind.patch")
 
-    # Sets timezone to UTC manually and avoids reading system files
-    apply_patch("patches/timezone.patch")
-
     # This patch is used to make it possible to use valgrind with the module
     # see https://jira.mongodb.org/browse/SERVER-25771
     apply_patch("patches/boost_flags.patch")

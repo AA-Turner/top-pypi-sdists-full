@@ -7,10 +7,7 @@ from chalk.utils.duration import Duration
 if TYPE_CHECKING:
     from pydantic import BaseModel, Field
 else:
-    try:
-        from pydantic.v1 import BaseModel, Field
-    except ImportError:
-        from pydantic import BaseModel, Field
+    from chalk.utils.pydanticutil.sdk import BaseModel, Field
 
 _PUBSUB_PROJECT_ID_NAME = "PUBSUB_PROJECT_ID"
 _PUBSUB_SUBSCRIPTION_ID_NAME = "PUBSUB_SUBSCRIPTION_ID"

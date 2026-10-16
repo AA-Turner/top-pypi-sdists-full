@@ -150,6 +150,12 @@ class TestGetLeftTable(unittest.TestCase):
         self.assertEqual(chquery.format(chquery.rewrite_aggregation_states(sql)), chquery.format(expected))
 
     def test_throws_with_explain_and_describe(self):
-        for sql in ["EXPLAIN SELECT avg(value) FROM table", "DESCRIBE TABLE table"]:
+        for sql in [
+            "EXPLAIN SELECT avg(value) FROM table",
+            "EXPLAIN AST SELECT avg(value) FROM table",
+            "EXPLAIN PIPELINE SELECT avg(value) FROM table",
+            "EXPLAIN ESTIMATE SELECT avg(value) FROM table",
+            "DESCRIBE TABLE table",
+        ]:
             with self.assertRaisesRegex(ValueError, "Only SELECT queries are supported"):
                 chquery.rewrite_aggregation_states(sql)

@@ -33,6 +33,7 @@ from abx_plugins.plugins.base.url_cleaning import (
 from abx_plugins.plugins.base.utils import (
     emit_archive_result_record,
     emit_snapshot_record,
+    build_request,
     load_config,
     read_file_url_text,
     write_text_atomic,
@@ -249,7 +250,8 @@ def main(
 
             import urllib.request
 
-            req = urllib.request.Request(url, headers={"User-Agent": user_agent})
+            # IRIs (/über) and URL credentials need the shared request builder.
+            req = build_request(url, headers={"User-Agent": user_agent})
             response = urllib.request.urlopen(req, timeout=timeout)
             readers = [io.TextIOWrapper(response, encoding="utf-8", errors="replace")]
         else:

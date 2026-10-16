@@ -11,6 +11,7 @@ from airbyte_ops_mcp.registry.yank import (
     YankedVersion,
     YankMarkerDetail,
     _yanked_version_from_marker_path,
+    build_yank_marker_content,
     get_yank_marker,
     list_yanked_versions,
     yank_connector_version,
@@ -119,6 +120,20 @@ def test_yank_connector_version_records_approval_url(monkeypatch) -> None:
         "https://github.com/airbytehq/airbyte/pull/123#issuecomment-456"
     )
     assert marker["reason"] == "bad release"
+
+
+def test_build_yank_marker_content_includes_optional_fields() -> None:
+    marker = yaml.safe_load(
+        build_yank_marker_content(
+            reason="bad release",
+            approval_url="https://example.com/approval",
+        )
+    )
+
+    assert marker["yanked"] is True
+    assert marker["reason"] == "bad release"
+    assert marker["approval_url"] == "https://example.com/approval"
+    assert marker["yanked_at"].endswith("+00:00")
 
 
 _BUCKET = "prod-airbyte-cloud-connector-metadata-service"

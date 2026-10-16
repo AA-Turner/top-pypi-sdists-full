@@ -128,8 +128,8 @@ class TextContent:
         )
         self.text = replaced_text
         role = (self.metadata or {}).get("role")
-        had_template = "{{" in original_text and "}}" in original_text
-        if role and had_template and not replaced_text.strip():
+        # Dropped only when the pass itself emptied it — never by searching the text for braces.
+        if role and replaced_text != original_text and not replaced_text.strip():
             return True
         return False
 

@@ -7,13 +7,10 @@ For every workflow execution the interceptor:
 
    a. If ``credentials_name`` is set, verifies that credential exists.
    b. Otherwise checks for existing user credentials.
-   c. If no user credentials but the connector has preset OAuth2 app
-      config, emits a marker activity with the OAuth URL and
-      polls the connector credentials API until the user completes
-      the OAuth flow.
-   d. If no credentials and no preset, inspects the connector's
-      authentication methods and redirects to OAuth2 when available.
-      Bearer tokens must be configured beforehand.
+   c. If no usable credentials, inspects the connector's authentication
+      methods. For OAuth2, emits a marker activity with the OAuth URL and
+      polls the connector credentials API until the user completes the
+      OAuth flow. Bearer tokens must be configured beforehand.
 
 Usage — register alongside the existing ``ContextHandlerInterceptor``::
 
@@ -301,14 +298,12 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                 # 1. List user credentials for this connector.
                 creds_info = await connector_list_user_credentials(resolved.id, run_as=run_as)
                 user_creds = creds_info.credentials
-                preset_auth = creds_info.connector_preset_credentials_for_auth
 
                 logger.info(
                     "Credential check",
                     connector_name=slot.connector_name,
                     credentials_name=slot.credentials_name,
                     credential_count=len(user_creds),
-                    preset_auth_types=preset_auth,
                 )
 
                 # 2. When a specific credentials_name is requested, verify it exists.
@@ -366,7 +361,7 @@ class ConnectorAuthWorkflowInboundInterceptor(temporalio.worker.WorkflowInboundI
                         )
 
                 if not credentials_verified:
-                    # 4. No credentials and no preset — check the connector's
+                    # 4. No usable credentials — check the connector's
                     #    authentication methods to decide the flow.
                     auth_methods = await connector_get_auth_methods(resolved.id, run_as=run_as)
                     method_types = {m.method_type for m in auth_methods}

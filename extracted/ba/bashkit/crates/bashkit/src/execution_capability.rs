@@ -243,8 +243,10 @@ impl<T> ExecutionCapability<T> {
         self.scope.cleanup_report()
     }
 
-    #[cfg(feature = "scripted_tool")]
-    pub(crate) fn derive<U>(&self, value: U) -> Option<ExecutionCapability<U>>
+    /// Bind another host value to the same execution lease as this handle.
+    ///
+    /// Returns `None` once the originating execution has ended.
+    pub fn derive<U>(&self, value: U) -> Option<ExecutionCapability<U>>
     where
         U: Send + Sync + 'static,
     {
@@ -429,6 +431,10 @@ impl crate::FileSystem for ExecutionFileSystem {
 
     async fn stat(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
         self.run(self.inner.stat(path)).await?
+    }
+
+    async fn lstat(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.run(self.inner.lstat(path)).await?
     }
 
     async fn read_dir(&self, path: &std::path::Path) -> crate::Result<Vec<crate::DirEntry>> {

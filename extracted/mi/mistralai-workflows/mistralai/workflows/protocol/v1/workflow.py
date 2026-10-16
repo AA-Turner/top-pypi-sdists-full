@@ -37,10 +37,15 @@ DEPLOYMENT_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 TRACEPARENT_PATTERN = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
 
 
-def _validate_deployment_name(v: str | None) -> str | None:
+def _validate_deployment_name(v: object) -> str | None:
     if v is None:
         return v
-    if not DEPLOYMENT_NAME_PATTERN.match(v):
+    if not isinstance(v, str):
+        raise ValueError(
+            f"Deployment name must be a string, got `{type(v).__name__}`. "
+            "Names can only contain alphanumeric characters, hyphens (-), underscores (_), and dots (.)."
+        )
+    if not DEPLOYMENT_NAME_PATTERN.fullmatch(v):
         raise ValueError(
             f"Deployment name `{v}` is invalid. "
             "Names can only contain alphanumeric characters, hyphens (-), underscores (_), and dots (.)."
@@ -347,13 +352,6 @@ class RunSummary(BaseModel):
 
 
 class WorkflowBasicDefinitionWithMetadata(WorkflowBasicDefinition):
-    run_count: int | float = Field(
-        description="The total number of runs of the workflow, including retries. Deprecated: prefer execution_count.",
-        deprecated=True,
-    )
-    execution_count: int | float = Field(
-        description="The number of distinct executions of the workflow (excludes retried runs of the same execution)"
-    )
     last_run: WorkflowExecutionWithoutResultResponse | None = Field(
         default=None, description="The last run of the workflow"
     )
@@ -367,6 +365,9 @@ class RunMetricsResponse(BaseModel):
     stats: dict[str, list[RunSummary]] = Field(description="Mapping of workflow ID to its recent run summaries")
     reliability: dict[str, float | None] = Field(
         description="Mapping of workflow ID to overall success rate (0.0–1.0), null if no runs"
+    )
+    execution_counts: dict[str, int] = Field(
+        description="Mapping of workflow ID to its total number of distinct executions"
     )
 
 

@@ -15,7 +15,7 @@ from ...helpers.ip import is_unusable_address
 from ...helpers.metadata_sidecar import metadata_transaction
 from .._device_builder_base import DeviceBuilderBase
 from .._device_scanner import DeviceFileMetadata, MetadataResolver
-from ._metadata_store import STORE_FIELDS
+from ._metadata_store import STORE_FIELDS, stored_str_tuple
 
 if TYPE_CHECKING:
     from ...models import Device
@@ -153,6 +153,7 @@ class DeviceMetadataBase(DeviceBuilderBase):
             api_encryption_active=api_encryption_active,
             deployed_name=deployed_name,
             offline_since=max(stamps, default=None),
+            dependencies=stored_str_tuple(store_md.get("dependencies")),
         )
 
     def _make_metadata_resolver(self) -> MetadataResolver:

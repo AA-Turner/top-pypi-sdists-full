@@ -7,19 +7,24 @@ can still squeeze. Real planes, a real allocator under a real cap, on one CUDA c
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 torch = pytest.importorskip("torch")
 
-from cozy_runtime.internal import accel, plane  # noqa: E402
+from cozy_runtime.author._loader import census  # noqa: E402
+from cozy_runtime.internal import accel, plane, weight_policy  # noqa: E402
 from cozy_runtime.internal import weights as weights_module  # noqa: E402
-from cozy_runtime.internal.weights import Weights  # noqa: E402
+from cozy_runtime.internal.derive import Observations, serving_substrate  # noqa: E402
+from cozy_runtime.internal.pieces import Pieces  # noqa: E402
+from cozy_runtime.internal.weights import PlaneBackend, WeightResidency, Weights  # noqa: E402
 from test_device_tier import Custody, executor_with  # noqa: E402
 from test_weight_plane import (  # noqa: E402
     BLOCKS,
     HIDDEN,
+    Stack,
     load,
     run,
     same,
@@ -104,19 +109,21 @@ def test_a_squeezed_stage_pages_out_the_component_it_does_not_read(tmp_path: Pat
         assert abs(squeezed - room) < 8 * MIB, "the room that entry had"
         assert weights.resident_bytes(other) == idle, "nothing left the device during it"
 
-        # Before the next entry the idle component leaves: torch has its bytes too. From an
-        # empty cache (as a new process starts) one drop is left: the last buffer's.
+        # Before the next entry the idle component gives torch what it lacks, its last blocks
+        # first. From an empty cache (as a new process starts) one drop is left: the last
+        # buffer's.
         torch.cuda.empty_cache()
         dropped = weights.retries()
         assert same(growing(a, x), expected)
         assert weights.retries() - dropped == 1
-        assert (weights.resident_bytes(stack), weights.resident_bytes(other)) == (own, 0)
+        left = weights.resident_bytes(other)
+        assert weights.resident_bytes(stack) == own and 0 < left < idle
         assert weights.facts().squeezed["run"] == squeezed, "that entry did not squeeze"
 
-        # Its own stage fills it again, unmodified.
+        # Its own stage fills it again, unmodified: only what it gave.
         copied = weights.facts().h2d_bytes
         assert same(rest(b, x), expected_rest)
-        assert weights.facts().h2d_bytes - copied == idle
+        assert weights.facts().h2d_bytes - copied == idle - left
 
         # A component an open stage scopes (spared by `_spare` or not) is never paged out:
         # with both stages open there is nothing to give.
@@ -237,3 +244,112 @@ def test_a_component_mapped_from_the_machine_is_given_back_and_fills_again(tmp_p
         for model in opened:
             model.backend.close()
         custody.close()
+
+
+def pair(weights: Weights, root: Path) -> Any:
+    """One model of two components, as a package's: "run" reads `stack`, "rest" reads `other`."""
+    a, b = write_checkpoint(root / "a")[0], other_checkpoint(root / "b")
+    backend = PlaneBackend.for_script(
+        {"stack": a, "other": b},
+        [*a.rows("stack"), *b.rows("other")],
+        weights=weights,
+        construction="pair",
+        release="plane-test/1",
+    )
+    major, minor = torch.cuda.get_device_capability(0)
+    with serving_substrate(f"sm{major}{minor}", Observations()):
+        holder = SimpleNamespace(components={"stack": Stack(), "other": Stack()})
+    walked = census(holder)
+    backend.expect(
+        {n: [d.key for d in walked.destinations if d.component == n] for n in ("stack", "other")}
+    )
+    live = backend.materialize(holder, walked)
+    for destination in walked.destinations:
+        backend.fill(destination.key, destination.spec, live[destination.key])
+    backend.commit()
+    residency = WeightResidency(
+        weights, backend.components, {"run": ("stack",), "rest": ("other",)}, refine=backend.refine
+    )
+    stack, other = holder.components["stack"], holder.components["other"]
+    return SimpleNamespace(stack=stack, other=other, residency=residency, backend=backend)
+
+
+def other_stage(model: Any, x: Any) -> list[Any]:
+    model.residency.admit("rest", ("other",))
+    try:
+        with torch.inference_mode():
+            return [model.other(x)]
+    finally:
+        model.residency.release("rest", ("other",))
+
+
+def test_weights_a_stage_gave_to_activations_map_again_once_the_attempt_ends(
+    tmp_path: Path,
+) -> None:
+    """A later stage took part of an idle component (qwen's decode, part of its transformer):
+    the attempt's end maps it again on the copy streams, so the next request copies it once,
+    before its stage asks for it."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    weights.set_cap(4 << 30)
+    model = pair(weights, tmp_path)
+    try:
+        x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+        expected, expected_rest = run(model, x, passes=1), other_stage(model, x)
+        stack, other = (model.backend.components[n] for n in ("stack", "other"))
+        idle = weights.resident_bytes(other)
+        assert weights.page_out({stack.key}, 3 * 16 * MIB)
+        left = weights.resident_bytes(other)
+        assert 0 < left < idle, "its last blocks only"
+
+        committed, copied = (
+            plane.stats(weights.plane).device(0).committed,
+            weights.facts().h2d_bytes,
+        )
+        model.residency.restore()
+        given = weights.facts().paged_out_bytes
+        assert plane.stats(weights.plane).device(0).committed - committed == given
+        assert same(other_stage(model, x), expected_rest)
+        assert weights.facts().h2d_bytes - copied == idle - left, "copied once"
+        assert weights.resident_bytes(other) == idle
+        assert same(run(model, x, passes=1), expected)
+    finally:
+        model.backend.close()
+
+
+def test_an_op_cut_into_pieces_leaves_its_models_whole_components_mapped(tmp_path: Path) -> None:
+    """SeedVR2's encode: more pieces cost less than the transformer read back each window. The
+    room for its pieces leaves out a component of its model placed whole, and its stage then
+    fits itself to the room it finds: an activation estimate larger than the card no longer
+    unmaps that component."""
+    weights = Weights(torch, torch.device("cuda", 0), "cuda")
+    weights.set_budget(-1, pinned=1 << 30)
+    weights.set_cap(4 << 30)
+    model = pair(weights, tmp_path)
+    try:
+        x = torch.randn(64, HIDDEN, device="cuda", dtype=torch.float16)
+        expected_rest, expected = other_stage(model, x), run(model, x, passes=1)
+        stack, other = (model.backend.components[n] for n in ("stack", "other"))
+        own, idle = weights.resident_bytes(stack), weights.resident_bytes(other)
+        assert "other" in model.residency.whole()
+        capped(weights, own + idle)
+
+        model.residency.admit("run", ("stack",))
+        try:
+            free, movable = weights.activation_room()
+            assert movable >= idle, "any other op may have it"
+            _, room = Pieces(weights).room("op")
+            assert room <= free + movable - idle - weight_policy.MARGIN
+        finally:
+            model.residency.release("run", ("stack",))
+        assert "run" in weights.adaptive
+
+        weights.seed_activations({"run": 2 * weights.cap})
+        copied = weights.facts().h2d_bytes
+        assert same(run(model, x, passes=1), expected)
+        assert weights.resident_bytes(other) == idle
+        assert same(other_stage(model, x), expected_rest)
+        assert weights.facts().h2d_bytes == copied, "nothing was read back"
+    finally:
+        torch.cuda.set_per_process_memory_fraction(1.0, 0)
+        model.backend.close()

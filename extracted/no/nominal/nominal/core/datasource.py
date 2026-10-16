@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Iterable, Literal, Mapping, Protocol, Sequence, TypeAlias, overload
 
+from google.protobuf.field_mask_pb2 import FieldMask
 from nominal_api import (
     api,
     datasource_api,
@@ -17,10 +18,6 @@ from nominal_api import (
     scout_datasource_connection,
     scout_video,
     storage_writer_api,
-    timeseries_channelmetadata,
-    timeseries_channelmetadata_api,
-    timeseries_metadata,
-    timeseries_metadata_api,
     upload_api,
 )
 
@@ -31,14 +28,17 @@ from nominal.core._stream.batch_processor_proto import process_batch
 from nominal.core._stream.write_stream import DataStream, WriteStream
 from nominal.core._types import PathLike
 from nominal.core._utils.api_tools import HasRid
+from nominal.core._utils.grpc_tools import translate_grpc_errors
 from nominal.core.channel import Channel, ChannelDataType
 from nominal.core.marking import MarkableMixin
-from nominal.core.unit import UnitMapping, _build_unit_update, _error_on_invalid_units
+from nominal.core.unit import UnitMapping, _error_on_invalid_units, _unit_symbol_from_unit_like
 from nominal.protos.authentication.users.v1 import users_pb2_grpc
 from nominal.protos.authorization.markings.v1 import markings_pb2_grpc
 from nominal.protos.authorization.roles.v1 import roles_pb2_grpc
+from nominal.protos.channelmetadata.v1 import channel_metadata_pb2
 from nominal.protos.ingest.v2 import containerized_extractor_pb2_grpc
 from nominal.protos.registry.v2 import registry_pb2_grpc
+from nominal.protos.seriesmetadata.v1 import series_metadata_pb2, series_metadata_pb2_grpc
 from nominal.protos.units.v1 import units_pb2_grpc
 from nominal.ts import (
     _AnyExportableTimestampType,
@@ -48,6 +48,7 @@ from nominal.ts import (
 logger = logging.getLogger(__name__)
 
 _DEFAULT_CHANNEL_BATCH_SIZE = 500
+_MAX_CHANNEL_UPDATE_BATCH_SIZE = 10_000
 
 
 @dataclass(frozen=True)
@@ -93,9 +94,7 @@ class DataSource(HasRid, MarkableMixin):
         @property
         def proto_write(self) -> ProtoWriteService: ...
         @property
-        def channel_metadata(self) -> timeseries_channelmetadata.ChannelMetadataService: ...
-        @property
-        def series_metadata(self) -> timeseries_metadata.SeriesMetadataService: ...
+        def series_metadata(self) -> series_metadata_pb2_grpc.SeriesMetadataServiceStub: ...
         @property
         def containerized_extractor(
             self,
@@ -133,20 +132,15 @@ class DataSource(HasRid, MarkableMixin):
             names = [channel.name for channel in self.search_channels()]
 
         for batch_channel_names in batched(names, _DEFAULT_CHANNEL_BATCH_SIZE):
-            requests = [
-                timeseries_channelmetadata_api.GetChannelMetadataRequest(
-                    channel_identifier=timeseries_channelmetadata_api.ChannelIdentifier(
-                        channel_name=channel_name, data_source_rid=self.rid
-                    )
-                )
-                for channel_name in batch_channel_names
-            ]
-
-            batch_request = timeseries_channelmetadata_api.BatchGetChannelMetadataRequest(requests=requests)
-            response = self._clients.channel_metadata.batch_get_channel_metadata(
-                self._clients.auth_header, batch_request
+            request = channel_metadata_pb2.BatchGetChannelMetadataRequest(
+                channel_identifiers=[
+                    channel_metadata_pb2.ChannelIdentifier(channel_name=name, data_source_rid=self.rid)
+                    for name in batch_channel_names
+                ]
             )
-            yield from (Channel._from_channel_metadata_api(self._clients, channel) for channel in response.responses)
+            with translate_grpc_errors():
+                response = self._clients.channel_metadata.BatchGetChannelMetadata(request)
+            yield from (Channel._from_proto(self._clients, channel) for channel in response.channel_metadata)
 
     @property
     def _write_rid(self) -> str:
@@ -165,6 +159,7 @@ class DataSource(HasRid, MarkableMixin):
         file_fallback: PathLike | None = None,
         log_level: str | None = None,
         num_workers: int | None = None,
+        track_metrics: bool = False,
     ) -> DataStream: ...
     @overload
     def get_write_stream(
@@ -183,6 +178,7 @@ class DataSource(HasRid, MarkableMixin):
         file_fallback: PathLike | None = None,
         log_level: str | None = None,
         num_workers: int | None = None,
+        track_metrics: bool = False,
     ) -> DataStream: ...
     @overload
     def get_write_stream(
@@ -205,6 +201,7 @@ class DataSource(HasRid, MarkableMixin):
         file_fallback: PathLike | None = None,
         log_level: str | None = None,
         num_workers: int | None = None,
+        track_metrics: bool = False,
         *,
         data_format: Literal["python", "rust", "json", "protobuf", "experimental", "rust_experimental"] | None = None,
     ) -> DataStream:
@@ -217,13 +214,14 @@ class DataSource(HasRid, MarkableMixin):
             max_wait: How long a batch can exist before being flushed to Nominal.
             implementation: Streaming implementation to use: 'rust' or 'python'. When omitted, uses 'rust'
                 if `nominal-streaming` is available, otherwise 'python'. Automatic selection cannot fall back
-                to 'python' when `file_fallback`, `log_level`, or `num_workers` is supplied.
+                to 'python' when ``file_fallback``, ``log_level``, or ``num_workers`` is supplied,
+                or when ``track_metrics=True``.
 
                 **Note:** 'json', 'protobuf', and 'rust_experimental' are deprecated spellings of
                 'python', 'python', and 'rust' respectively.
 
-                **Note:** 'experimental' is deprecated too. It is not an alias while it remains the
-                only implementation that streams runtime metrics.
+                **Note:** 'experimental' is deprecated and retains its Python metrics implementation.
+                Use ``implementation='rust'`` with ``track_metrics=True`` to migrate.
             file_fallback: Filepath to write failed batches to during streaming.
 
                 **Note:** Expects a .avro filename.
@@ -234,9 +232,20 @@ class DataSource(HasRid, MarkableMixin):
                 **Note:** Should be a rust log level e.g. 'debug', 'trace', 'info', etc.
 
                 **Note:** Supported only by the Rust backend.
-            num_workers: Number of worker threads to use in underlying rust streaming code.
+            num_workers: Number of Rust upload workers and runtime worker threads.
 
                 **Note:** Use with care-- this may have large impacts on streaming performance.
+
+                **Note:** Supported only by the Rust backend.
+            track_metrics: Emit request round-trip time and point staleness in seconds as
+                ``__nominal.metric.*`` channels on the same dataset. Staleness is the SDK machine's
+                wall-clock UTC time minus the point timestamp; future timestamps produce negative values.
+                Request metrics measure the oldest and newest points immediately before and after a
+                successful upload. ``enqueue_from_dict`` also emits ``enque_dict_start_staleness`` and
+                ``enque_dict_end_staleness``, measured at the start and end of the enqueue. Disabled by default.
+
+                **Note:** Request metrics are best-effort and travel with later data uploads. Pending request
+                metrics are not sent separately on close and may be dropped if their buffer fills.
 
                 **Note:** Supported only by the Rust backend.
             data_format: Deprecated name for `implementation`. Passing both is an error.
@@ -259,6 +268,7 @@ class DataSource(HasRid, MarkableMixin):
             file_fallback=file_fallback,
             log_level=log_level,
             num_workers=num_workers,
+            track_metrics=track_metrics,
             write_rid=self._write_rid,
             clients=self._clients,
         )
@@ -320,6 +330,10 @@ class DataSource(HasRid, MarkableMixin):
     ) -> None:
         """Set units for channels based on a provided mapping of channel names to units.
 
+        Updates are sent sequentially in batches of at most 10,000 matching channels.
+        Each batch is atomic. If a later batch fails, earlier batches remain applied and
+        subsequent batches are not sent.
+
         Args:
             channels_to_units: A mapping of channel names to unit symbols.
 
@@ -330,7 +344,7 @@ class DataSource(HasRid, MarkableMixin):
 
         Raises:
             ValueError: Unsupported unit symbol provided
-            NominalError: Error validating units via gRPC (e.g. NominalNotFoundError, NominalPermissionDeniedError).
+            NominalError: Error validating or updating units via gRPC (e.g. NominalNotFoundError).
             conjure_python_client.ConjureHTTPError: Error completing requests.
         """
         channel_names = set(channel.name for channel in self.get_channels())
@@ -351,20 +365,23 @@ class DataSource(HasRid, MarkableMixin):
         if not allow_display_only_units:
             _error_on_invalid_units(channels_to_units, self._clients.units)
 
-        # For each channel / unit combination, create an update request
-        update_requests = [
-            timeseries_channelmetadata_api.UpdateChannelMetadataRequest(
-                channel_identifier=timeseries_channelmetadata_api.ChannelIdentifier(
-                    channel_name=channel_name, data_source_rid=self.rid
-                ),
-                unit_update=_build_unit_update(unit),
-            )
-            for channel_name, unit in channels_to_units.items()
-        ]
-
-        # Set units in database using batch update
-        batch_request = timeseries_channelmetadata_api.BatchUpdateChannelMetadataRequest(requests=update_requests)
-        self._clients.channel_metadata.batch_update_channel_metadata(self._clients.auth_header, batch_request)
+        for batch in batched(channels_to_units.items(), _MAX_CHANNEL_UPDATE_BATCH_SIZE):
+            update_requests = [
+                channel_metadata_pb2.UpdateChannelMetadataRequest(
+                    channel_metadata=channel_metadata_pb2.ChannelMetadata(
+                        channel_identifier=channel_metadata_pb2.ChannelIdentifier(
+                            channel_name=channel_name, data_source_rid=self.rid
+                        ),
+                        unit=_unit_symbol_from_unit_like(unit),
+                    ),
+                    # A selected but unset unit clears it; an unselected field is unchanged.
+                    update_mask=FieldMask(paths=["unit"]),
+                )
+                for channel_name, unit in batch
+            ]
+            request = channel_metadata_pb2.BatchUpdateChannelMetadataRequest(requests=update_requests)
+            with translate_grpc_errors():
+                self._clients.channel_metadata.BatchUpdateChannelMetadata(request)
 
     def set_channel_prefix_tree(self, delimiter: str = ".") -> None:
         """Index channels hierarchically by a given delimiter.
@@ -395,16 +412,19 @@ class DataSource(HasRid, MarkableMixin):
             unit: Optional unit symbol to associate with the channel.
 
         Returns:
-            The created Channel object.
+            The created or existing Channel object. Existing channels are returned unchanged.
 
         Raises:
-            conjure_python_client.ConjureHTTPError: If a channel with this name already exists
-                or if there's an error creating the channel.
+            NominalError: Error creating the channel or fetching its metadata via gRPC.
+            ValueError: Channel metadata was not found after creation.
         """
         request = _build_series_metadata_request(
-            self.rid, CreateChannelRequest(name=name, data_type=data_type, description=description, unit=unit)
+            self.rid,
+            CreateChannelRequest(name=name, data_type=data_type, description=description, unit=unit),
+            if_exists=series_metadata_pb2.RETURN_EXISTING,
         )
-        self._clients.series_metadata.create(self._clients.auth_header, request)
+        with translate_grpc_errors():
+            self._clients.series_metadata.CreateSeriesMetadata(request)
         return self.get_channel(name)
 
     def batch_add_channels(
@@ -420,13 +440,22 @@ class DataSource(HasRid, MarkableMixin):
             A BatchAddChannelsResult with the created channels and any requests that were
             not found after creation (i.e. silently dropped by the server).
 
+        Raises:
+            ValueError: A channel name appears more than once in ``channels``.
+            NominalError: Error creating channels or fetching their metadata via gRPC.
+
         Note:
-            This operation is idempotent with respect to channels that already exist — they are
-            silently skipped. However, if the same channel name appears more than once within a
-            single batch, the entire batch will fail. Callers are responsible for deduplicating
-            channel names before passing them to this method.
+            Existing channels are returned unchanged. Repeated names anywhere in ``channels``
+            raise ValueError before any requests are sent, even if their metadata matches.
+
+            Batches are written sequentially; earlier batches remain applied if a later batch fails.
         """
-        return self._batch_write_channels(channels, update_existing=False)
+        seen: set[str] = set()
+        for request in channels:
+            if request.name in seen:
+                raise ValueError(f"Repeated channel name {request.name!r} in channels")
+            seen.add(request.name)
+        return self._batch_write_channels(channels, if_exists=series_metadata_pb2.RETURN_EXISTING)
 
     def batch_update_or_create_channels(
         self,
@@ -448,25 +477,23 @@ class DataSource(HasRid, MarkableMixin):
         Note:
             If the same channel name appears more than once within a single batch, the entire
             batch will fail. Callers are responsible for deduplicating channel names before
-            passing them to this method.
+            passing them to this method. Earlier batches remain applied if a later batch fails.
         """
-        return self._batch_write_channels(channels, update_existing=True)
+        return self._batch_write_channels(channels, if_exists=series_metadata_pb2.UPDATE_EXISTING)
 
     def _batch_write_channels(
         self,
         channels: Sequence[CreateChannelRequest],
         *,
-        update_existing: bool,
+        if_exists: series_metadata_pb2.IfSeriesMetadataExists.ValueType,
     ) -> BatchAddChannelsResult:
         if not channels:
             return BatchAddChannelsResult(channels=[], missing=[])
         for batch in batched(channels, _DEFAULT_CHANNEL_BATCH_SIZE):
-            requests = [_build_series_metadata_request(self.rid, req) for req in batch]
-            batch_request = timeseries_metadata_api.BatchCreateSeriesMetadataRequest(requests=requests)
-            if update_existing:
-                self._clients.series_metadata.batch_create_or_update(self._clients.auth_header, batch_request)
-            else:
-                self._clients.series_metadata.batch_create(self._clients.auth_header, batch_request)
+            requests = [_build_series_metadata_request(self.rid, req, if_exists=if_exists) for req in batch]
+            batch_request = series_metadata_pb2.BatchCreateSeriesMetadataRequest(requests=requests)
+            with translate_grpc_errors():
+                self._clients.series_metadata.BatchCreateSeriesMetadata(batch_request)
         created = {ch.name: ch for ch in self.get_channels(names=[req.name for req in channels])}
         return BatchAddChannelsResult(
             channels=list(created.values()),
@@ -475,22 +502,22 @@ class DataSource(HasRid, MarkableMixin):
 
 
 def _build_series_metadata_request(
-    data_source_rid: str, req: CreateChannelRequest
-) -> timeseries_metadata_api.CreateSeriesMetadataRequest:
-    nominal_data_type = req.data_type._to_conjure()
-    locator = timeseries_metadata_api.LocatorTemplate(
-        nominal=timeseries_metadata_api.NominalLocatorTemplate(
-            channel=req.name,
-            type=nominal_data_type,
-        )
+    data_source_rid: str,
+    req: CreateChannelRequest,
+    *,
+    if_exists: series_metadata_pb2.IfSeriesMetadataExists.ValueType,
+) -> series_metadata_pb2.CreateSeriesMetadataRequest:
+    nominal_data_type = req.data_type._to_proto()
+    locator = series_metadata_pb2.LocatorTemplate(
+        nominal=series_metadata_pb2.NominalLocatorTemplate(channel=req.name, data_type=nominal_data_type)
     )
-    return timeseries_metadata_api.CreateSeriesMetadataRequest(
+    return series_metadata_pb2.CreateSeriesMetadataRequest(
         channel=req.name,
         data_source_rid=data_source_rid,
-        locator=locator,
-        tags={},
+        locator_template=locator,
         description=req.description,
         unit=req.unit,
+        if_exists=if_exists,
     )
 
 
@@ -534,21 +561,19 @@ def _construct_export_request(
 # the literals out so they render in the docs; the plumbing below uses this.
 _AnyImplementation: TypeAlias = Literal["python", "rust", "json", "protobuf", "experimental", "rust_experimental"]
 
+
 # Superseded spellings. Each still works and each warns; the value is the guidance in the warning.
 _DEPRECATED_IMPLEMENTATIONS = {
     "json": "use implementation='python'",
     "protobuf": "use implementation='python'",
     "rust_experimental": "use implementation='rust'",
-    "experimental": "use implementation='rust', which does not carry streaming metrics yet",
+    "experimental": "use implementation='rust' with track_metrics=True to keep runtime metrics",
 }
 
 # _resolve_implementation -> _get_write_stream -> get_write_stream -> the
 # @warn_on_deprecated_argument wrapper -> the caller we want to blame.
 #
-# KEEP IN SYNC BY HAND. Anything that adds or removes a layer between this warning and the caller --
-# inlining a helper, stacking another decorator, a new wrapper -- makes it blame the wrong frame,
-# silently, with no test to catch it. Accepted because it is short-lived: it goes when these
-# deprecations do.
+# Update this when changing the call chain.
 _DEPRECATION_STACKLEVEL = 5
 
 
@@ -584,8 +609,6 @@ def _resolve_implementation(
         case "rust_experimental":
             return "rust"
         case "python" | "rust" | "experimental":
-            # 'experimental' is not aliased away while it is the only implementation that streams
-            # runtime metrics.
             return implementation
         case _:
             raise ValueError(
@@ -617,20 +640,27 @@ def _get_write_stream(
     file_fallback: PathLike | None,
     log_level: str | None,
     num_workers: int | None,
+    track_metrics: bool,
     write_rid: str,
     clients: DataSource._Clients,
 ) -> DataStream:
     requested = _resolve_implementation(implementation, data_format)
-    rust_only_arguments: Mapping[str, object] = {
-        "file_fallback": file_fallback,
-        "log_level": log_level,
-        "num_workers": num_workers,
-    }
+
+    used = [
+        key
+        for key, value in {
+            "file_fallback": file_fallback,
+            "log_level": log_level,
+            "num_workers": num_workers,
+        }.items()
+        if value is not None
+    ]
+    if track_metrics:
+        used.append("track_metrics")
 
     if requested is not None and requested != "rust":
-        for key, value in rust_only_arguments.items():
-            if value is not None:
-                logger.warning("Argument %s has no effect unless `implementation='rust'`", key)
+        for key in used:
+            logger.warning("Argument %s has no effect unless `implementation='rust'`", key)
 
     if requested == "python":
         return _python_write_stream(batch_size, max_wait, write_rid, clients)
@@ -660,7 +690,6 @@ def _get_write_stream(
     except ImportError as ex:
         # Falling back would drop rust-only arguments. `file_fallback` in particular is a durability
         # feature, and silently turning it into a no-op is worse than refusing.
-        used = sorted(key for key, value in rust_only_arguments.items() if value is not None)
         if requested == "rust" or used:
             reason = (
                 f"Using {', '.join(used)} requires the Rust streaming backend. nominal-streaming could not be imported."
@@ -686,4 +715,5 @@ def _get_write_stream(
         file_fallback=file_fallback,
         log_level=log_level,
         num_workers=num_workers,
+        track_metrics=track_metrics,
     )

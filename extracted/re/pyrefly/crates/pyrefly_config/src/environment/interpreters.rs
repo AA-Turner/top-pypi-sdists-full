@@ -25,6 +25,7 @@ use which::which_in;
 
 use crate::environment::active_environment::ActiveEnvironment;
 use crate::environment::conda;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::environment::environment::PythonEnvironment;
 use crate::environment::venv;
 use crate::util::ConfigOrigin;
@@ -234,7 +235,7 @@ impl Interpreters {
         }
 
         Err(anyhow::anyhow!(
-            "Python environment (version, platform, or site-package-path) has value unset, \
+            "Python environment (version, platform, or site-packages-path) has value unset, \
                 but no Python interpreter could be found to query for values. Falling back to \
                 Pyrefly defaults for missing values."
         ))

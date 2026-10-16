@@ -81,6 +81,7 @@ from cozy_runtime.author._errors import (
     InvalidRequest,
     Outcome,
     classify,
+    ends,
     is_device_oom,
 )
 from cozy_runtime.author._executor_requests import (
@@ -124,7 +125,7 @@ from cozy_runtime.author._services import Attempt as AuthorAttempt
 from cozy_runtime.author._services import CheckpointConflict, ProgressFrame
 from cozy_runtime.author._split import install as install_pieces
 from cozy_runtime.author.kernels import _SETS as KERNEL_SETS
-from cozy_runtime.author.kernels import Launch, Plan
+from cozy_runtime.author.kernels import Launch, Plan, TritonKernels
 from cozy_runtime.internal import (
     accel,
     attention,
@@ -144,12 +145,13 @@ from cozy_runtime.internal import (
     prepare_diagnostics,
     proctree,
     sandbox,
+    spawn,
     stage_memo,
     tolerant,
     weight_policy,
     zygote,
 )
-from cozy_runtime.internal.config import restore_seal, seal_snapshot
+from cozy_runtime.internal.config import inherited_environment, restore_seal, seal_snapshot
 from cozy_runtime.internal.discovery import discover_distribution, discover_installed
 from cozy_runtime.internal.executor_commands import (
     LOAD_ATTENTION_PIN,
@@ -210,6 +212,7 @@ from cozy_runtime.internal.parallel.plan import (
     rank_invariant_digest,
 )
 from cozy_runtime.internal.pieces import Pieces
+from cozy_runtime.internal.resolution import RefusedLeaves
 from cozy_runtime.internal.seam import (
     EXECUTOR_PROTOCOL_REVISION,
     RESULT_DOCUMENT,
@@ -280,12 +283,6 @@ def _sealed_entries() -> tuple[str, ...]:
     )
 
 
-def _links_directory() -> Path | None:
-    """Measured links live beside the kernels: one machine's, kept across its executors."""
-    own = _SEALED.get(kernel_cache.OWN_ENV, "").strip()
-    return Path(own) / "links" if own and Path(own).is_absolute() else None
-
-
 def _gpu_numbers(degree: int) -> list[int]:
     """The group's GPUs as nvidia-smi numbers them, from the seal's entries."""
     entries = _sealed_entries()[:degree]
@@ -304,7 +301,7 @@ def _qualification_cache() -> str:
     the worker through it — and the worker already keeps node-local caches under it. This
     is a path, not a switch: an unset or relative value means nowhere to keep a result and
     the suite simply runs, which is what every executor did before cr-103. The directory
-    is not created here; `probe.qualified` makes it when it has something to keep.
+    is not created here; `qualification.qualified` makes it when it has something to keep.
     """
     home = _SEALED.get("COZY_HOME", "").strip()
     if not home or not Path(home).is_absolute():
@@ -459,6 +456,10 @@ class _CompositeResidency:
     def unpark(self) -> None:
         for row in self.rows.values():
             row.unpark()
+
+    def restore(self) -> None:
+        for row in self.rows.values():
+            row.restore()
 
     def vacate(self) -> dict[str, Any]:
         freed = sum(int(row.vacate()["freed_bytes"]) for row in self.rows.values())
@@ -659,12 +660,16 @@ class Executor:
         self.attention_defaults = attention.Snapshot(())
         #: this construction's selection, made again between requests (`_upgrade_attention`)
         self._reselect: Callable[[], attention.Applied] | None = None
+        #: kernel installs waiting for their build (`Plan.when_ready`), tried between requests
+        self._installs: list[tuple[Callable[[], Launch | None], Callable[[Launch], None]]] = []
         #: Device facts for this prepared generation, reused for per-request pin checks.
         self.device_facts: Any = None
         #: a follower's hold of rank 0's attention selection for the current attempt
         self._attention_hold = contextlib.ExitStack()
         self._producer_hold: tuple[str, dict[str, object]] | None = None
         self.facts: dict[str, Any] = {}
+        #: what this generation's plan serves decoded because the device refused its leaf
+        self.refused_leaves: tuple[RefusedLeaves, ...] = ()
         self.schema_digests: dict[str, str] = {}
         #: request_id -> the record `prepare_request` resolved, run by `invoke`
         self.prepared: dict[str, PreparedRequest] = {}
@@ -1150,7 +1155,13 @@ class Executor:
                 served = stack.enter_context(attention_ulysses.observing())
                 args, kwargs = wire.run_call(
                     command,
-                    wire.TensorSpool(spool / str(command.get("payloads", "ranks")), references),
+                    wire.Broadcast(references).receive(
+                        command, self.pg, self._rank_device(self.torch)
+                    )
+                    if command.get("broadcast")
+                    else wire.TensorSpool(
+                        spool / str(command.get("payloads", "ranks")), references
+                    ),
                     device=self._rank_device(self.torch),
                 )
                 if spread:
@@ -1318,6 +1329,7 @@ class Executor:
                     ),
                     rerun=owner._group_rerun,
                     journaled=owner._call_journal,
+                    device=self._rank_device(torch),
                 )
         hosted = mirror.hosting_plan(
             placeable=tuple(getattr(type(model), "__placeable__", ())),
@@ -1515,6 +1527,7 @@ class Executor:
                         forward=self.channel.send,
                         relay=self._relay,
                         devices=_sealed_entries(),
+                        launch=self._follower,
                     )
                 if not self.group.followers:
                     self.group.spawn()
@@ -1574,6 +1587,7 @@ class Executor:
                 stage("package_warmup")
             if self.group is not None:
                 replies = self.group.collect("start")
+                stage("group_start")
                 self.follower_stages = [list(reply.get("stages") or []) for reply in replies]
                 for follower, reply in zip(self.group.followers, replies, strict=True):
                     if not reply.get("ok"):
@@ -1583,9 +1597,7 @@ class Executor:
                             code="group_unformed",
                         )
                 if not command.import_only:
-                    measured = links.measured(
-                        _links_directory(), _SEALED.get("CUDA_VISIBLE_DEVICES", ""), degree
-                    )
+                    measured = links.measured(links.directory(_SEALED), _sealed_entries()[:degree])
                     stage("group_links")
                     self.transport = links.Transport(
                         degree, _gpu_numbers(degree), "nccl", measured.nccl(), measured
@@ -1652,6 +1664,41 @@ class Executor:
         pid = zygote.fork(command.environment, functools.partial(self._forked, command, started))
         self.forked.add(pid)
         return {"ok": True, "pid": pid}
+
+    def _follower(self, module_argv: list[str], rank_fd: int) -> spawn.Child:
+        """A follower rank forked from this process when its imports are done and it holds no
+        thread or device (`zygote`): it starts with torch, the Runtime and the package already
+        imported, which a spawned one pays again (run 6351: 6.6 s of rank 0 waiting on them).
+        Otherwise it is spawned."""
+        assert self.group is not None
+        if not self.imported or zygote.unsafe(sys.modules.get("torch")):
+            return self.group._spawn_follower(module_argv, rank_fd)
+        rank, world = (int(module_argv[module_argv.index(f) + 1]) for f in ("--rank", "--world"))
+        siblings = [follower.channel for follower in self.group.followers]
+
+        def follower() -> int:
+            self.channel.sock.close()
+            for sibling in siblings:
+                sibling.sock.close()
+            stdin = os.open(os.devnull, os.O_RDONLY)
+            os.dup2(stdin, 0)
+            os.close(stdin)
+            channel = Channel(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=rank_fd))
+            child = Executor(
+                channel,
+                self.root,
+                fill_forensics_dir=_SEALED.get(child_env.FILL_FORENSICS_DIR, "").strip(),
+                rank=rank,
+                world=world,
+            )
+            child.imported = True
+            child.discovered = self.discovered
+            child.surface_names = dict(self.surface_names)
+            return serve(child, channel)
+
+        pid = zygote.fork(inherited_environment(), follower, group=False)
+        gc.unfreeze()  # rank 0 serves on: its own heap is collected as before
+        return spawn.Child(pid)
 
     def _forked(self, command: Fork, started: float) -> int:
         """In the child: an executor on its own seam, keeping this process's imports."""
@@ -1728,11 +1775,7 @@ class Executor:
         try:
             entries = _sealed_entries()
             if isolated:
-                modules = {
-                    entry.kernel.fn.__module__
-                    for name in sets
-                    for entry in KERNEL_SETS[name].entries
-                }
+                modules = set().union(*(KERNEL_SETS[name].modules for name in sets))
                 return zygote.expect_kernels(entries, sorted(modules))
             archs = sorted({accel.device_capability(entry) for entry in entries} - {0})
             built = importlib.import_module("cozy_runtime.internal.triton_kernels")
@@ -1745,15 +1788,32 @@ class Executor:
             return f"kernel compiles not started: {type(exc).__name__}: {exc}"[:300]
 
     def _execution_plan(
-        self, model: Model[object], torch: object, load: Callable[..., Launch]
+        self,
+        model: Model[object],
+        torch: object,
+        load: Callable[..., Launch],
+        ready: Callable[..., Launch | None],
     ) -> str:
         """The model's own execution plan on its filled components, on this GPU: its
         identity, "" when it installs none. A raise refuses the construction, typed."""
         if type(model).execution_plan is Model.execution_plan:
             return ""
         device = self._rank_device(torch)
+
+        def when_ready(kernels: TritonKernels, install: Callable[[Launch], None]) -> bool:
+            launch = (
+                load(kernels, device=device) if self.world > 1 else ready(kernels, device=device)
+            )
+            if launch is None:
+                self._installs.append((functools.partial(ready, kernels, device=device), install))
+                return False
+            install(launch)
+            return True
+
         try:
-            identity = model.execution_plan(Plan(device, functools.partial(load, device=device)))
+            identity = model.execution_plan(
+                Plan(device, functools.partial(load, device=device), when_ready)
+            )
         except Exception as exc:
             code = getattr(exc, "code", "")
             raise _PlanRefusal(
@@ -2164,7 +2224,7 @@ class Executor:
         from cozy_runtime.internal.encoding import launch_providers, measure_device, measure_runtime
         from cozy_runtime.internal.fill import Checkpoint, FillRefusal, dtype_name, tensor_schema_of
         from cozy_runtime.internal.planfacts import PlanFacts
-        from cozy_runtime.internal.probe import qualified
+        from cozy_runtime.internal.qualification import qualified
         from cozy_runtime.internal.resolution import (
             ConstructionFacts,
             PlanRefusal,
@@ -2172,6 +2232,7 @@ class Executor:
             resolve,
         )
         from cozy_runtime.internal.triton_kernels import load as load_kernels
+        from cozy_runtime.internal.triton_kernels import ready as kernels_ready
 
         stage("runtime_imports")
         _restore_seal()
@@ -2535,7 +2596,7 @@ class Executor:
             return {"ok": False, "code": exc.code, "detail": str(exc).splitlines()[0][:900]}
         try:
             # THE MODEL'S OWN EXECUTION PLAN: its fused kernels, glue and hooks.
-            planned = self._execution_plan(model, torch, load_kernels)
+            planned = self._execution_plan(model, torch, load_kernels, kernels_ready)
             roots = backend.roots
             stage("execution_plan")
             # THE FASTEST KERNEL THIS DEVICE AND IMAGE SUPPORT, PINNED POST-FILL (cr-124),
@@ -2581,6 +2642,14 @@ class Executor:
         )
         record = registry.generations()[0].record
         self.plan = plan
+        self.refused_leaves = plan.refused_leaves()
+        for group in self.refused_leaves:
+            print(
+                f"[executor] {group.component}: {group.tensors} {group.lane} tensor(s) serve "
+                f"decoded, leaf {group.leaf} refused on {device_facts.predicate}: {group.reason}",
+                file=sys.stderr,
+                flush=True,
+            )
         self.attention = applied
         constructed_preimage = canonical.write(
             {
@@ -2700,8 +2769,6 @@ class Executor:
             "ready": True,
             "constructed_model_digest": self.constructed_model_digest,
             "entrypoints": sorted(self.surface_names),
-            "plan": plan.seam_document(),
-            "delivery": self.facts["delivery"],
             "facts": self.facts,
         }
 
@@ -2827,13 +2894,12 @@ class Executor:
         )
         routes: dict[str, int] = {}
         kernels: dict[str, int] = {}
-        for _, _, reply in children:
-            delivery = reply.get("delivery") or {}
+        deliveries = {parameter: facts.get("delivery") or {} for parameter, facts in facts_rows}
+        for delivery in deliveries.values():
             for name, count in (delivery.get("routes") or {}).items():
                 routes[str(name)] = routes.get(str(name), 0) + int(count)
             for name, count in (delivery.get("kernels") or {}).items():
                 kernels[str(name)] = kernels.get(str(name), 0) + int(count)
-        deliveries = {parameter: reply["delivery"] for parameter, _, reply in children}
         materializations = {row.get("materialization", "") for row in deliveries.values()}
         delivery = {
             "variant": ", ".join(
@@ -2854,9 +2920,7 @@ class Executor:
             ),
             "routes": routes,
             "kernels": kernels,
-            "calibrated": all(
-                bool(reply.get("delivery", {}).get("calibrated")) for _, _, reply in children
-            ),
+            "calibrated": all(bool(row.get("calibrated")) for row in deliveries.values()),
             "objective": ", ".join(
                 sorted({str(row.get("objective", "")) for row in deliveries.values()})
             ),
@@ -2899,16 +2963,6 @@ class Executor:
             "torch_version": str(last.get("torch_version", "")),
             "cuda_version": str(last.get("cuda_version", "")),
             "custody": "joint",
-            "ignored_extra_keys": [
-                f"{parameter}/{key}"
-                for parameter, facts in facts_rows
-                for key in facts.get("ignored_extra_keys", [])
-            ],
-            "ignored_extra_warnings": [
-                f"{parameter}: {line}"
-                for parameter, facts in facts_rows
-                for line in facts.get("ignored_extra_warnings", [])
-            ],
             "delivery": delivery,
             "models": {parameter: facts for parameter, facts in facts_rows},
         }
@@ -2918,7 +2972,6 @@ class Executor:
             "ready": True,
             "constructed_model_digest": self.constructed_model_digest,
             "entrypoints": sorted(self.surface_names),
-            "delivery": delivery,
             "facts": self.facts,
         }
 
@@ -2968,7 +3021,6 @@ class Executor:
             "weightless": True,
             "constructed_model_digest": "",
             "entrypoints": sorted(self.surface_names),
-            "delivery": {},
             "facts": self.facts,
         }
 
@@ -3098,7 +3150,7 @@ class Executor:
             return {
                 "ok": False,
                 "code": outcome.code,
-                "detail": outcome.message[:1024],
+                "detail": ends(outcome.message, 1024),
                 "terminal": outcome.terminal,
                 "origin": outcome.origin,
                 "fields": list(outcome.fields),
@@ -3150,6 +3202,7 @@ class Executor:
         # and the worker reports a run none of whose calls applied it.
         pin = requested if requested and self._attention_reaches(requested) else ""
         self._upgrade_attention()
+        self._install_ready_kernels()
         try:
             swap = self._attention_plan(pin) if pin else None
             self._restore_attention()
@@ -3273,6 +3326,11 @@ class Executor:
                 record = AuthorAttempt(command.request_id, spool, 0, sink=progress)
         assert record is not None
         self.handled = (outcome, stage[0], record)
+        if self.rank == 0:
+            for member in self.model_executors or [self]:
+                for group in member.refused_leaves:
+                    fields = dataclasses.asdict(group)
+                    record.emit("log", "encoded leaf refused, served decoded", "warn", **fields)
         stage_memo.ENGINE.close(record.emit)
         if later:
             # The override put back the run's first selection; the construction keeps its last.
@@ -3309,6 +3367,8 @@ class Executor:
                 record.emit(
                     "confession", "attention.sol.kernel", fields.pop("source"), rank=0, **fields
                 )
+            for row in attention.failures(served_attention.totals(), sol_kernels):
+                record.emit("log", "attention kernel failed, a fallback served", "warn", **row)
         # Nothing was swapped, so the restore left the sites exactly as the entry walk read them.
         restored = (
             served_attention
@@ -3343,6 +3403,17 @@ class Executor:
             self.residency.unpark()  # a repeating stage closes with its attempt
         if torch is not None:
             accel.drain(torch, self.device_kind)
+        if self.residency is not None:
+            # Weights the attempt's activations took map again on the plane's copy streams:
+            # keeping hot is never the attempt's verdict.
+            try:
+                self.residency.restore()
+            except Exception as exc:
+                record.emit("confession", "weights.restore", f"{type(exc).__name__}: {exc}"[:300])
+            # The owner charges this process what its reply says it holds: bytes mapped after
+            # the reply read as foreign memory, and shrank the next grant (an 8 GiB pool's
+            # upsampler got a 3.1 GB cap beside 4-5 GB "external", runs 8420-8437).
+            plane_facts = self._plane_facts()
         d2h_ms = (time.perf_counter() - d2h_started) * 1000
         released_us = execution_evidence.now_us()
         peak_vram = accel.peak_allocated(torch, self.device_kind) if torch is not None else 0
@@ -3377,7 +3448,7 @@ class Executor:
             "terminal": outcome.terminal,
             "origin": outcome.origin,
             "code": outcome.code,
-            "message": outcome.message[:2048],
+            "message": ends(outcome.message, 2048),
             "fields": list(outcome.fields),
             "traceback": outcome.traceback,
         }
@@ -3528,6 +3599,21 @@ class Executor:
         ):
             return None
         return attention.plan(self._attention_device(pin), roots, pin, self.world)
+
+    def _install_ready_kernels(self) -> None:
+        """Between requests: each execution plan's install whose kernels finished compiling
+        since (`Plan.when_ready`). One that fails leaves its construction serving as it was."""
+        for executor in self.model_executors or [self]:
+            waiting, executor._installs = executor._installs, []
+            for ready, install in waiting:
+                try:
+                    launch = ready()
+                    if launch is None:
+                        executor._installs.append((ready, install))
+                    else:
+                        install(launch)
+                except Exception as exc:  # an upgrade is never worth a failed run
+                    print(f"[kernels] deferred install refused: {exc}"[:600], file=sys.stderr)
 
     def _upgrade_attention(self) -> bool:
         """A RUN WITHOUT AN OVERRIDE NEVER WAITS FOR A COMPILE: at each step or stage boundary
@@ -4001,7 +4087,7 @@ class Executor:
                 "terminal": outcome.terminal,
                 "origin": outcome.origin,
                 "code": outcome.code,
-                "message": outcome.message[:2048],
+                "message": ends(outcome.message, 2048),
                 "fields": list(outcome.fields),
                 "traceback": outcome.traceback,
             },
@@ -4888,7 +4974,7 @@ class Executor:
                 "terminal": "failed",
                 "origin": first.origin,
                 "code": first.code,
-                "message": message[:2048],
+                "message": ends(message, 2048),
                 "fields": list(first.fields),
                 "traceback": first.traceback or later.traceback,
             },
@@ -4933,126 +5019,23 @@ class Executor:
         }
 
 
-#: Telemetry a reply can lose to fit one frame; the worker reads each as optional.
-_SHEDDABLE = ("execution", "attribution")
-
-#: The keys the minimal reply below actually carries. A reply whose own keys are a subset
-#: of these loses nothing by being reduced; anything else would be silently mutilated.
-_MINIMAL_KEYS = frozenset(
-    {
-        "reply",
-        "ok",
-        "code",
-        "detail",
-        "outcome",
-        "execution_observation",
-        "capture",
-        "quiescent",
-        "env_intact",
-        "env_changed",
-        "poisoned",
-        "metrics",
-        "outputs",
-        "result_ref",
-        "result_schema_digest",
-        "oversize_result_bytes",
-        "shortfall",
-        "residency",
-        "adjustments",
-        "observations",
-        "observation_caps",
-        "terminal",
-        "origin",
-        "fields",
-    }
-)
+#: Telemetry the worker reads as optional: what a reply loses when an author's key reads as
+#: a credential (`tel.log(..., token=1)`) and the seam refuses the frame.
+_TELEMETRY = ("observations", "execution", "attribution")
 
 
 def _send_reply(channel: Channel, reply: dict[str, Any]) -> None:
-    """Put ONE reply on the seam, and MAKE IT FIT.
-
-    The observation ring's own budget is 128 KiB and one control frame is 64 KiB, so a tail
-    the emit boundary bounded correctly can still produce a reply the seam refuses. That
-    refusal used to fire HERE, outside every handler, killing the executor — and the attempt
-    lost its real terminal to an ABANDONED that named the death instead of the refusal.
-    Reproduced from job-001's shape: a body that narrates a border and then refuses at the
-    host-fit point sends 134,743 B over a 65,536 B cap.
-
-    The TAIL is the only part of a reply that can grow, so the tail is what gives way, and
-    what it gave up is a NUMBER on `observation_caps` — the same rule the ring already
-    follows. A reply that does not fit even empty ships the OUTCOME, which is the one thing
-    a RecordOwner cannot reconstruct from anywhere else.
-
-    AND THE FALLBACK NEVER CLAIMS SUCCESS. It was written for INVOKE and used for every
-    command, and it copied `ok` through while dropping every key that makes an ok reply
-    mean anything — so an oversized PREPARE reply arrived as `{"ok": True}` with no
-    construction digest, no plan and no facts, and the worker read a key that was not
-    there. That KeyError killed the control stream AFTER the fill had put 90.84 GiB on the
-    card; the client reconnected, the placement was re-accepted, and prepare ran a SECOND
-    time in the SAME executor — 90.84 + 48.18 GiB on a 139.81 GiB card, which is the whole
-    of the "the fill allocates 63% more than it accounts for" gap (#574b). The fill plane
-    was never wrong. A reply this path had to mutilate is a REFUSAL that names itself, so
-    the caller takes the refusal branch instead of reading a success that is not one.
-    """
-    held = len(reply.get("observations") or ())
-    rows = list(reply.get("observations") or ())
-    # Telemetry the worker reads as optional goes next, before any result is refused.
-    shed = [key for key in _SHEDDABLE if key in reply]
-    while True:
-        try:
-            channel.send(reply)
-            return
-        except SeamError as exc:
-            # A telemetry key the seam reads as a credential sheds the same way.
-            if exc.code not in ("frame_too_large", "credential_at_seam") or not (rows or shed):
-                break
-            caps = dict(reply.get("observation_caps") or {})
-            if rows:
-                rows = rows[(len(rows) + 1) // 2 :]
-                reply["observations"] = rows
-                caps["dropped_for_frame"] = held - len(rows)
-            else:
-                key = shed.pop()
-                del reply[key]
-                caps[f"dropped_{key}_for_frame"] = 1
-            reply["observation_caps"] = caps
-    reduced = not reply.get("ok") or set(reply) <= _MINIMAL_KEYS
-    channel.send(
-        {
-            "reply": reply.get("reply"),
-            "ok": reply.get("ok") if reduced else False,
-            "code": reply.get("code") if reduced else "reply_too_large",
-            "detail": str(reply.get("detail", ""))[:512]
-            if reduced
-            else (
-                f"the {reply.get('reply')!r} reply does not fit one control frame and the "
-                f"keys it declares ({', '.join(sorted(set(reply) - _MINIMAL_KEYS))[:200]}) "
-                "cannot be dropped without inventing a success. It refuses instead: a "
-                "RecordOwner acting on a reply that lost its own contents is worse than one "
-                "told the reply could not be sent"
-            ),
-            "outcome": reply.get("outcome"),
-            "quiescent": reply.get("quiescent"),
-            "env_intact": reply.get("env_intact"),
-            "env_changed": reply.get("env_changed") or [],
-            "poisoned": reply.get("poisoned"),
-            **(
-                {"traceback": "\n".join(prepare_diagnostics.activity_lines(reply["traceback"]))}
-                if reply.get("reply") in _TRACED_COMMANDS and reply.get("traceback")
-                else {}
-            ),
-            "metrics": reply.get("metrics"),
-            "outputs": reply.get("outputs") or [],
-            "result_ref": reply.get("result_ref"),
-            "result_schema_digest": reply.get("result_schema_digest"),
-            "oversize_result_bytes": reply.get("oversize_result_bytes"),
-            "shortfall": reply.get("shortfall"),
-            "residency": reply.get("residency") or {},
-            "adjustments": reply.get("adjustments") or [],
-            "observations": [],
-            "observation_caps": {"dropped_for_frame": held, "minimal_reply": 1},
-        }
-    )
+    """Put ONE reply on the seam. Telemetry never costs a reply its outcome."""
+    try:
+        channel.send(reply)
+    except SeamError as exc:
+        if exc.code != "credential_at_seam" or not any(key in reply for key in _TELEMETRY):
+            raise
+        dropped = {f"dropped_{key}_for_credential": 1 for key in _TELEMETRY if key in reply}
+        for key in _TELEMETRY:
+            reply.pop(key, None)
+        reply["observation_caps"] = {**(reply.get("observation_caps") or {}), **dropped}
+        channel.send(reply)
 
 
 def _serialize_result(
@@ -5072,12 +5055,10 @@ def _serialize_result(
     into the grant: two outputs arriving in a different order must still land in their own
     destinations, and position cannot express that.
 
-    Returns `(result_ref, outputs, oversize_bytes)`. The BYTES land in the attempt spool and
-    only their digest and length ride the reply: the public door admits 4 MiB inline and one
-    control frame admits 64 KiB, so a result between the two was an executor fault instead of
-    a served result until the bytes moved to the spool the worker already brokers.
-    `oversize_bytes` is non-zero when the canonical result exceeds the inline door, which
-    cr-007 REFUSES rather than papering over with a receipt for bytes nobody wrote.
+    Returns `(result_ref, outputs, oversize_bytes)`. The BYTES land in the attempt spool the
+    worker brokers and only their digest and length ride the reply. `oversize_bytes` is
+    non-zero when the canonical result exceeds the 4 MiB inline door, which cr-007 REFUSES
+    rather than papering over with a receipt for bytes nobody wrote.
     """
     import msgspec
 

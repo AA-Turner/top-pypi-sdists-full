@@ -6,13 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "Timer.h"
 #include "atoms/affine.h"
 #include "atoms/elementwise_full_dom.h"
 #include "expr.h"
 #include "minunit.h"
-#include "utils/Timer.h"
-#include "utils/permuted_dense.h"
-#include "utils/permuted_dense_linalg.h"
+#include "sparsediff_linalg/matmul.h"
+#include "sparsediff_linalg/matrix.h"
 
 /* Profile and validate Jacobian + Hessian of obj = sum(logistic(A x)).
 
@@ -70,11 +70,8 @@ const char *profile_log_reg(void)
     for (int j = 0; j < n; j++) full_cols[j] = j;
 
     matrix *A_pd_M = new_permuted_dense(m, n, m, n, full_rows, full_cols, A_data);
-    permuted_dense *A_pd = (permuted_dense *) A_pd_M;
     matrix *Jlog_M = new_permuted_dense(m, n, m, n, full_rows, full_cols, NULL);
-    permuted_dense *Jlog_pd = (permuted_dense *) Jlog_M;
-    matrix *H_pd_M = ATA_pd_alloc(A_pd);
-    permuted_dense *H_pd = (permuted_dense *) H_pd_M;
+    matrix *H_pd_M = ATA_matrices_alloc(A_pd_M);
 
     free(full_rows);
     free(full_cols);
@@ -96,12 +93,12 @@ const char *profile_log_reg(void)
        dwork) as sigmas read by local_wsum_hess. */
     clock_gettime(CLOCK_MONOTONIC, &t_b_jac.start);
     log_obj->local_jacobian(log_obj, log_obj->work->dwork);
-    DA_pd_fill_values(log_obj->work->dwork, A_pd, Jlog_pd);
+    DA_matrices_fill_values(log_obj->work->dwork, A_pd_M, Jlog_M);
     Jlog_M->row_reduce_fill_values(Jlog_M, Jobj);
     clock_gettime(CLOCK_MONOTONIC, &t_b_jac.end);
     clock_gettime(CLOCK_MONOTONIC, &t_b_hess.start);
     log_obj->local_wsum_hess(log_obj, d2, w_ones);
-    ATDA_pd_fill_values(A_pd, d2, H_pd);
+    ATDA_matrices_fill_values(A_pd_M, d2, H_pd_M);
     clock_gettime(CLOCK_MONOTONIC, &t_b_hess.end);
     double sec_b_jac = GET_ELAPSED_SECONDS(t_b_jac);
     double sec_b_hess = GET_ELAPSED_SECONDS(t_b_hess);
@@ -131,10 +128,8 @@ const char *profile_log_reg(void)
     mu_assert("Jacobian mismatch", max_J_diff < 1e-10);
 
     /* ---- Compare Hessian (n x n): scatter Path A's CSR_matrix into a dense
-       n x n array, compare to H_pd->X (already dense row-major).
-       Extract the CSR_matrix view ONCE: PD's to_csr does an O(m0 * n0)
-       memcpy refresh per call, so calling it inside the inner loop is
-       quadratically expensive. ---- */
+       n x n array, compare to H_pd_M->x (a full PD: already dense row-major).
+       Extract the CSR_matrix view ONCE outside the loop. ---- */
     CSR_matrix *H_a = obj->wsum_hess->to_csr(obj->wsum_hess);
     double *H_a_dense = (double *) calloc((size_t) n * n, sizeof(double));
     for (int i = 0; i < n; i++)
@@ -148,7 +143,7 @@ const char *profile_log_reg(void)
     double max_H_diff = 0.0;
     for (size_t k = 0; k < (size_t) n * n; k++)
     {
-        double diff = fabs(H_a_dense[k] - H_pd->X[k]);
+        double diff = fabs(H_a_dense[k] - H_pd_M->x[k]);
         if (diff > max_H_diff) max_H_diff = diff;
     }
     printf("  Hessian max abs diff:    %10.3e\n", max_H_diff);

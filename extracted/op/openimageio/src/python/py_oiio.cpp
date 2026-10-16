@@ -4,6 +4,14 @@
 
 #include "py_oiio.h"
 
+#include <array>
+#include <cstring>
+#include <optional>
+#include <type_traits>
+
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+#    include <OpenImageIO/oiioversion.h>
+#endif
 #include <OpenImageIO/sysutil.h>
 
 namespace PyOpenImageIO {
@@ -66,16 +74,60 @@ typedesc_from_python_array_code(string_view code)
 
 
 
-oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf)
+oiio_py_buffer_view
+oiio_py_request_buffer(const py::object& obj)
 {
-    if (pybuf.format.size())
+    oiio_py_buffer_view info;
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+    Py_buffer view;
+    if (PyObject_GetBuffer(obj.ptr(), &view, PyBUF_STRIDES | PyBUF_FORMAT)
+        != 0) {
+        PyErr_Clear();
+        return info;
+    }
+    info.ptr      = view.buf;
+    info.itemsize = view.itemsize;
+    info.ndim     = view.ndim;
+    if (view.ndim > 0) {
+        info.shape.assign(view.shape, view.shape + view.ndim);
+        info.strides.assign(view.strides, view.strides + view.ndim);
+        info.size = 1;
+        for (int i = 0; i < view.ndim; ++i) {
+            info.size *= view.shape[i];
+        }
+    } else {
+        info.size = view.len / std::max<Py_ssize_t>(view.itemsize, 1);
+    }
+    if (view.format && view.format[0]) {
+        info.format = view.format;
+    }
+    PyBuffer_Release(&view);
+#else
+    const py::buffer_info req = py::cast<py::buffer>(obj).request();
+    info.ptr                  = req.ptr;
+    info.itemsize             = req.itemsize;
+    info.size                 = req.size;
+    info.ndim                 = req.ndim;
+    info.shape.assign(req.shape.begin(), req.shape.end());
+    info.strides.assign(req.strides.begin(), req.strides.end());
+    info.format = req.format;
+#endif
+    return info;
+}
+
+
+
+oiio_bufinfo::oiio_bufinfo(const oiio_py_buffer_view& pybuf)
+{
+    if (pybuf.format.size()) {
         format = typedesc_from_python_array_code(pybuf.format);
+    }
     if (format != TypeUnknown) {
         data    = pybuf.ptr;
         xstride = format.size();
         size    = 1;
         for (int i = pybuf.ndim - 1; i >= 0; --i) {
-            if (pybuf.strides[i] != py::ssize_t(size * xstride)) {
+            if (pybuf.strides[i] != Py_ssize_t(size * xstride)) {
                 // Just can't handle non-contiguous strides
                 format = TypeUnknown;
                 size   = 0;
@@ -88,11 +140,12 @@ oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf)
 
 
 
-oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf, int nchans, int width,
-                           int height, int depth, int pixeldims)
+oiio_bufinfo::oiio_bufinfo(const oiio_py_buffer_view& pybuf, int nchans,
+                           int width, int height, int depth, int pixeldims)
 {
-    if (pybuf.format.size())
+    if (pybuf.format.size()) {
         format = typedesc_from_python_array_code(pybuf.format);
+    }
     if (size_t(pybuf.itemsize) != format.size()
         || pybuf.size
                != int64_t(width) * int64_t(height) * int64_t(depth * nchans)) {
@@ -134,10 +187,10 @@ oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf, int nchans, int width,
             // Somebody collapsed a dimension. Is it [pixel][c] with x&y
             // combined, or is it [y][xpixel] with channels mushed together?
             if (pybuf.shape[0] == int64_t(width) * int64_t(height)
-                && pybuf.shape[1] == nchans)
+                && pybuf.shape[1] == nchans) {
                 xstride = pybuf.strides[0];
-            else if (pybuf.shape[0] == height
-                     && pybuf.shape[1] == int64_t(width) * int64_t(nchans)) {
+            } else if (pybuf.shape[0] == height
+                       && pybuf.shape[1] == int64_t(width) * int64_t(nchans)) {
                 ystride = pybuf.strides[1];
                 xstride = pybuf.strides[0] * nchans;
             } else {
@@ -156,7 +209,8 @@ oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf, int nchans, int width,
             format = TypeUnknown;  // No idea what's going on -- error
             error  = Strutil::fmt::format(
                 "Python array shape is [{:,}] but expecting h={}, w={}, ch={}",
-                cspan<py::ssize_t>(pybuf.shape), height, width, nchans);
+                cspan<const Py_ssize_t>(pybuf.shape.data(), pybuf.shape.size()),
+                height, width, nchans);
         }
     } else if (pixeldims == 1) {
         // Reading a 1D scanline span
@@ -180,13 +234,145 @@ oiio_bufinfo::oiio_bufinfo(const py::buffer_info& pybuf, int nchans, int width,
             pybuf.ndim);
     }
 
-    if (nchans > 1 && format.size()
+    if (nchans > 1 && format.size() && pybuf.ndim > 0
         && size_t(pybuf.strides.back()) != format.size()) {
         format = TypeUnknown;  // can't handle noncontig channels
         error  = "Can't handle numpy array with noncontiguous channels";
     }
-    if (format != TypeUnknown)
+    if (format != TypeUnknown) {
         data = pybuf.ptr;
+    }
+}
+
+
+
+namespace {
+
+    // Shared image layout → NumPy shape (C-contiguous pixel data).
+    void numpy_image_shape(std::vector<size_t>& shape, int dims, size_t chans,
+                           size_t width, size_t height, size_t depth,
+                           size_t size)
+    {
+        if (dims == 4) {  // volumetric
+            shape.assign({ depth, height, width, chans });
+        } else if (dims == 3 && depth == 1) {  // 2D+channels
+            shape.assign({ height, width, chans });
+        } else if (dims == 2 && depth == 1
+                   && height == 1) {  // 1D (scanline) + channels
+            shape.assign({ width, chans });
+        } else {  // punt -- make it a 1D array
+            shape.assign({ size });
+        }
+    }
+
+
+
+    template<class T>
+    py::object make_numpy_array_t(T* data, int dims, size_t chans, size_t width,
+                                  size_t height, size_t depth)
+    {
+        const size_t size = chans * width * height * depth;
+        T* mem            = data ? data : new T[size];
+        std::vector<size_t> shape;
+        numpy_image_shape(shape, dims, chans, width, height, depth, size);
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+        py::capsule owner(mem, [](void* p) noexcept {
+            delete[] reinterpret_cast<T*>(p);
+        });
+        // nullptr strides → C-contiguous (element strides).
+        return py::cast(py::ndarray<py::numpy, T>(mem, shape.size(),
+                                                  shape.data(), owner),
+                        py::rv_policy::move);
+#else
+        // Create a Python object that will free the allocated memory when
+        // destroyed. Shape-only ctor assumes C-contiguous byte layout.
+        py::capsule free_when_done(mem, [](void* f) {
+            delete[] (reinterpret_cast<T*>(f));
+        });
+        return py::array_t<T>(shape, mem, free_when_done);
+#endif
+    }
+
+
+
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+    // Build a real numpy float16 array (nanobind has no half dtype).
+    template<>
+    py::object make_numpy_array_t<half>(half* data, int dims, size_t chans,
+                                        size_t width, size_t height,
+                                        size_t depth)
+    {
+        const size_t size = chans * width * height * depth;
+        half* mem         = data ? data : new half[size];
+        std::vector<size_t> shape;
+        numpy_image_shape(shape, dims, chans, width, height, depth, size);
+        py::object np = py::module_::import_("numpy");
+        py::list shape_list;
+        for (size_t d : shape)
+            shape_list.append(d);
+        py::object arr = np.attr("empty")(py::tuple(shape_list), "float16");
+        // Write through a uint16 view of the same buffer.
+        auto u16 = py::cast<py::ndarray<py::numpy, uint16_t>>(
+            arr.attr("view")(np.attr("uint16")));
+        std::memcpy(u16.data(), mem, size * sizeof(half));
+        delete[] mem;
+        return arr;
+    }
+#endif
+
+}  // namespace
+
+
+
+template<class T>
+py::object
+make_numpy_array(T* data, int dims, size_t chans, size_t width, size_t height,
+                 size_t depth)
+{
+    return make_numpy_array_t(data, dims, chans, width, height, depth);
+}
+
+
+
+py::object
+make_numpy_array(TypeDesc format, void* data, int dims, size_t chans,
+                 size_t width, size_t height, size_t depth)
+{
+    if (format == TypeDesc::FLOAT) {
+        return make_numpy_array((float*)data, dims, chans, width, height,
+                                depth);
+    }
+    if (format == TypeDesc::UINT8) {
+        return make_numpy_array((unsigned char*)data, dims, chans, width,
+                                height, depth);
+    }
+    if (format == TypeDesc::UINT16) {
+        return make_numpy_array((unsigned short*)data, dims, chans, width,
+                                height, depth);
+    }
+    if (format == TypeDesc::INT8) {
+        return make_numpy_array((char*)data, dims, chans, width, height, depth);
+    }
+    if (format == TypeDesc::INT16) {
+        return make_numpy_array((short*)data, dims, chans, width, height,
+                                depth);
+    }
+    if (format == TypeDesc::DOUBLE) {
+        return make_numpy_array((double*)data, dims, chans, width, height,
+                                depth);
+    }
+    if (format == TypeDesc::HALF) {
+        return make_numpy_array((half*)data, dims, chans, width, height, depth);
+    }
+    if (format == TypeDesc::UINT) {
+        return make_numpy_array((unsigned int*)data, dims, chans, width, height,
+                                depth);
+    }
+    if (format == TypeDesc::INT) {
+        return make_numpy_array((int*)data, dims, chans, width, height, depth);
+    }
+    delete[] (char*)data;
+    return py::none();
 }
 
 
@@ -195,8 +381,9 @@ py::object
 make_pyobject(const void* data, TypeDesc type, int nvalues,
               py::object defaultvalue)
 {
-    if (!data || !nvalues)
-        return defaultvalue;
+    if (!data || !nvalues) {
+        return oiio_py::return_object(defaultvalue);
+    }
     if (type.basetype == TypeDesc::INT32)
         return C_to_val_or_tuple((const int*)data, type, nvalues);
     if (type.basetype == TypeDesc::FLOAT)
@@ -223,16 +410,15 @@ make_pyobject(const void* data, TypeDesc type, int nvalues,
         // take possession of it.
         int n = type.arraylen * nvalues;
         if (n <= 0)
-            return defaultvalue;
-        uint8_t* ucdata(new uint8_t[n]);
-        std::memcpy(ucdata, data, n);
-        return make_numpy_array(ucdata, 1, 1, size_t(type.arraylen),
-                                size_t(nvalues));
+            return oiio_py::return_object(defaultvalue);
+        auto* copy = new uint8_t[n];
+        std::memcpy(copy, data, static_cast<size_t>(n));
+        return oiio_py::make_numpy_array(copy, static_cast<size_t>(n));
     }
     if (type.basetype == TypeDesc::UINT8)
         return C_to_val_or_tuple((const unsigned char*)data, type, nvalues);
     debugfmt("Don't know how to handle type {}\n", type);
-    return defaultvalue;
+    return oiio_py::return_object(defaultvalue);
 }
 
 
@@ -240,7 +426,7 @@ make_pyobject(const void* data, TypeDesc type, int nvalues,
 static py::object
 oiio_getattribute_typed(const std::string& name, TypeDesc type = TypeUnknown)
 {
-    if (type == TypeDesc::UNKNOWN)
+    if (type == TypeUnknown)
         return py::none();
     char* data = OIIO_ALLOCA(char, type.size());
     if (!OIIO::getattribute(name, type, data))
@@ -270,21 +456,9 @@ struct oiio_global_attrib_wrapper {
 };
 
 
-
-// This OIIO_DECLARE_PYMODULE mojo is necessary if we want to pass in the
-// MODULE name as a #define. Google for Argument-Prescan for additional
-// info on why this is necessary
-
-#define OIIO_DECLARE_PYMODULE(x) PYBIND11_MODULE(x, m)
-
-OIIO_DECLARE_PYMODULE(PYMODULE_NAME)
+static void
+declare_global_bindings(py_module& m)
 {
-    using namespace pybind11::literals;
-
-    if (Sysutil::getenv("OPENIMAGEIO_DEBUG_PYTHON") != "")
-        Sysutil::setup_crash_stacktrace("stdout");
-
-    // Basic helper classes
     declare_typedesc(m);
     declare_paramvalue(m);
     declare_imagespec(m);
@@ -306,9 +480,13 @@ OIIO_DECLARE_PYMODULE(PYMODULE_NAME)
     declare_texturesystem(m);
 
     declare_imagebufalgo(m);
+}
 
-    // Global (OpenImageIO scope) functions and symbols
-    m.def("geterror", &OIIO::geterror, "clear"_a = true);
+
+
+static void
+declare_global_attribute_functions(py_module& m)
+{
     m.def("attribute", [](const std::string& name, const py::object& obj) {
         oiio_global_attrib_wrapper wrapper;
         attribute_onearg(wrapper, name, obj);
@@ -324,55 +502,157 @@ OIIO_DECLARE_PYMODULE(PYMODULE_NAME)
         [](const std::string& name, int def) {
             return OIIO::get_int_attribute(name, def);
         },
-        py::arg("name"), py::arg("defaultval") = 0);
+        "name"_a, "defaultval"_a = 0);
     m.def(
         "get_float_attribute",
         [](const std::string& name, float def) {
             return OIIO::get_float_attribute(name, def);
         },
-        py::arg("name"), py::arg("defaultval") = 0.0f);
+        "name"_a, "defaultval"_a = 0.0f);
     m.def(
         "get_string_attribute",
         [](const std::string& name, const std::string& def) {
-            return PY_STR(std::string(OIIO::get_string_attribute(name, def)));
+            return py_str_escaped(OIIO::get_string_attribute(name, def));
         },
-        py::arg("name"), py::arg("defaultval") = "");
+        "name"_a, "defaultval"_a = "");
+    m.def("getattribute", &oiio_getattribute_typed, "name"_a,
+          "type"_a = TypeUnknown);
+    m.def("geterror", &OIIO::geterror, "clear"_a = true);
     m.def(
         "get_bytes_attribute",
-        [](const std::string& name, const std::string& def) {
-            return py::bytes(
-                std::string(OIIO::get_string_attribute(name, def)));
+        [](const std::string& name, const py::object& def) {
+            // Accept str, bytes, or None (None → empty default).
+            std::string defstr;
+            if (!def.is_none()) {
+                if (PyBytes_Check(def.ptr())) {
+                    defstr = oiio_py::bytes_to_stdstring(
+                        py::cast<py::bytes>(def));
+                } else {
+                    defstr = oiio_py::str_to_stdstring(def);
+                }
+            }
+            std::string s(OIIO::get_string_attribute(name, defstr));
+            return py::bytes(s.data(), s.size());
         },
-        py::arg("name"), py::arg("defaultval") = "");
-    m.def("getattribute", &oiio_getattribute_typed);
+        "name"_a, "defaultval"_a.none() = "");
     m.def(
         "set_colorspace",
         [](ImageSpec& spec, const std::string& name) {
             set_colorspace(spec, name);
         },
-        py::arg("spec"), py::arg("name"));
-    m.def("set_colorspace_rec709_gamma", [](ImageSpec& spec, float gamma) {
-        set_colorspace_rec709_gamma(spec, gamma);
-    });
-    m.def("equivalent_colorspace",
-          [](const std::string& a, const std::string& b) {
-              return equivalent_colorspace(a, b);
-          });
+        "spec"_a, "name"_a);
+    m.def(
+        "set_colorspace_rec709_gamma",
+        [](ImageSpec& spec, float gamma) {
+            set_colorspace_rec709_gamma(spec, gamma);
+        },
+        "spec"_a, "gamma"_a);
+    m.def(
+        "is_colorspace_srgb",
+        [](const ImageSpec& spec, bool default_to_srgb) {
+            return is_colorspace_srgb(spec, default_to_srgb);
+        },
+        "spec"_a, "default_to_srgb"_a = true);
+    m.def(
+        "get_colorspace_icc_profile",
+        [](const ImageSpec& spec,
+           bool from_colorspace) -> std::optional<py::bytes> {
+            std::vector<uint8_t> icc_profile
+                = get_colorspace_icc_profile(spec, from_colorspace);
+            if (icc_profile.empty())
+                return std::nullopt;
+            return py::bytes(reinterpret_cast<const char*>(icc_profile.data()),
+                             icc_profile.size());
+        },
+        "spec"_a, "from_colorspace"_a = true);
+    m.def(
+        "get_colorspace_cicp",
+        [](const ImageSpec& spec,
+           bool from_colorspace) -> std::optional<std::array<int, 4>> {
+            cspan<int> cicp = get_colorspace_cicp(spec, from_colorspace);
+            if (cicp.empty())
+                return std::nullopt;
+            return std::array<int, 4>({ cicp[0], cicp[1], cicp[2], cicp[3] });
+        },
+        "spec"_a, "from_colorspace"_a = true);
+    m.def(
+        "equivalent_colorspace",
+        [](const std::string& a, const std::string& b) {
+            return equivalent_colorspace(a, b);
+        },
+        "a"_a, "b"_a);
     m.def(
         "is_imageio_format_name",
         [](const std::string& name) {
             return OIIO::is_imageio_format_name(name);
         },
-        py::arg("name"));
+        "name"_a);
+}
+
+
+
+static void
+declare_module_attributes(py_module& m)
+{
     m.attr("AutoStride")          = AutoStride;
     m.attr("openimageio_version") = OIIO_VERSION;
     m.attr("VERSION")             = OIIO_VERSION;
-    m.attr("VERSION_STRING")      = PY_STR(OIIO_VERSION_STRING);
+    m.attr("VERSION_STRING")      = oiio_py::str(OIIO_VERSION_STRING);
     m.attr("VERSION_MAJOR")       = OIIO_VERSION_MAJOR;
     m.attr("VERSION_MINOR")       = OIIO_VERSION_MINOR;
     m.attr("VERSION_PATCH")       = OIIO_VERSION_PATCH;
-    m.attr("INTRO_STRING")        = PY_STR(OIIO_INTRO_STRING);
-    m.attr("__version__")         = PY_STR(OIIO_VERSION_STRING);
+    m.attr("INTRO_STRING")        = oiio_py::str(OIIO_INTRO_STRING);
+    m.attr("__version__")         = oiio_py::str(OIIO_VERSION_STRING);
+}
+
+
+
+#if defined(OIIO_PY_BACKEND_NANOBIND)
+
+}  // namespace PyOpenImageIO
+
+#    define OIIO_DECLARE_NB_MODULE(x) NB_MODULE(x, m)
+
+#    if defined(OIIO_PY_NANOBIND_ISOLATED_PACKAGE)
+OIIO_DECLARE_NB_MODULE(_OpenImageIO)
+#    else
+OIIO_DECLARE_NB_MODULE(OpenImageIO)
+#    endif
+{
+    m.doc() = "OpenImageIO nanobind bindings.";
+
+#    if PY_VERSION_HEX < 0x030a0000 /* less than 3.10 */
+    // Python 3.9's interpreter shutdown/refcounting order triggers bogus
+    // nanobind leak warnings that don't occur on 3.10+. Silence them only for
+    // the affected old version.
+    // https://github.com/wjakob/nanobind/discussions/1405
+    // https://nanobind.readthedocs.io/en/latest/refleaks.html#disabling-leak-warnings
+    py::set_leak_warnings(false);
+#    endif
+
+    PyOpenImageIO::declare_global_bindings(m);
+    PyOpenImageIO::declare_global_attribute_functions(m);
+    PyOpenImageIO::declare_module_attributes(m);
+}
+
+#else  // pybind11
+
+// This OIIO_DECLARE_PYMODULE mojo is necessary if we want to pass in the
+// MODULE name as a #define. Google for Argument-Prescan for additional
+// info on why this is necessary
+
+#    define OIIO_DECLARE_PYMODULE(x) PYBIND11_MODULE(x, m)
+
+OIIO_DECLARE_PYMODULE(PYMODULE_NAME)
+{
+    if (Sysutil::getenv("OPENIMAGEIO_DEBUG_PYTHON") != "")
+        Sysutil::setup_crash_stacktrace("stdout");
+
+    declare_global_bindings(m);
+    declare_global_attribute_functions(m);
+    declare_module_attributes(m);
 }
 
 }  // namespace PyOpenImageIO
+
+#endif  // OIIO_PY_BACKEND_NANOBIND

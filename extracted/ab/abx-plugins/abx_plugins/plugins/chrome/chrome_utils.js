@@ -35,6 +35,138 @@ ensureNodeModuleResolution(module);
 
 const exportFocusSessions = new WeakMap();
 
+async function captureOriginalResponseBodies(page, { resourceTypes = null } = {}) {
+  // Network.getResponseBody applies MIME-driven text decoding, corrupting
+  // binary downloads mislabeled as text. Inline PDFs become viewer HTML too.
+  // Preserve raw bytes from the original request without refetching resources.
+  // Ordinary documents retain Network's text handling: Fetch body reads hold
+  // navigation until EOF, preventing streamed HTML from rendering as it arrives.
+  const session = await page.createCDPSession();
+  const bodies = new Map();
+  const streams = new Map();
+  // Spool raw chunks to local scratch instead of retaining concurrent bodies
+  // or decoding them according to potentially incorrect server MIME headers.
+  session.on("Network.dataReceived", (event) => {
+    const stream = streams.get(event.requestId);
+    if (!stream || stream.error || !event.data) return;
+    try {
+      fs.appendFileSync(stream.filename, Buffer.from(event.data, "base64"));
+    } catch (error) {
+      stream.error = error;
+    }
+  });
+  session.on("Network.loadingFinished", ({ requestId }) => streams.get(requestId)?.finish());
+  session.on("Network.loadingFailed", ({ requestId, errorText }) => {
+    const stream = streams.get(requestId);
+    if (stream) {
+      stream.error = new Error(errorText);
+      stream.finish();
+    }
+  });
+  const onClosed = () => {
+    for (const stream of streams.values()) {
+      if (stream.complete) continue;
+      stream.error ||= new Error("Chrome disconnected before response capture completed");
+      stream.finish();
+    }
+  };
+  page.once("close", onClosed);
+  page.browser().once("disconnected", onClosed);
+  const pdfUrls = new Set();
+  const wireDocuments = new Set();
+  const pending = new Set();
+  let directory;
+  session.on("Fetch.requestPaused", (event) => {
+    if (event.resourceType === "Document") wireDocuments.add(event.networkId);
+    const work = (async () => {
+      const header = (name) => event.responseHeaders?.find(
+        (item) => item.name.toLowerCase() === name
+      )?.value || "";
+      try {
+        const isPdf = header("content-type").split(";")[0].trim() === "application/pdf";
+        if (event.resourceType === "Document" && isPdf &&
+            !/\battachment\b/i.test(header("content-disposition")) &&
+            event.responseStatusCode >= 200 && event.responseStatusCode < 300) {
+          if (isPdf) pdfUrls.add(event.request.url);
+          // Inline PDFs become synthetic viewer documents after commit, so
+          // preserve the original body before Chrome substitutes that viewer.
+          const result = await session.send("Fetch.getResponseBody", { requestId: event.requestId });
+          // Keep only paths while the ordinary response writer drains its queue.
+          directory ||= fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "pdf-responses-"));
+          const filename = path.join(await directory, crypto.randomUUID());
+          await fs.promises.writeFile(filename, Buffer.from(result.body, result.base64Encoded ? "base64" : "utf8"));
+          bodies.set(event.networkId, filename);
+        } else if (resourceTypes && event.resourceType !== "Document" && event.networkId &&
+                   (!resourceTypes.length || resourceTypes.includes(event.resourceType.toLowerCase())) &&
+                   event.responseStatusCode >= 200 && event.responseStatusCode < 300 &&
+                   !/\battachment\b/i.test(header("content-disposition"))) {
+          directory ||= fs.promises.mkdtemp(path.join(getEnv("TMP_DIR", os.tmpdir()), "response-bodies-"));
+          const filename = path.join(await directory, crypto.randomUUID());
+          const stream = { filename };
+          stream.done = new Promise((resolve) => { stream.finish = () => { stream.complete = true; resolve(); }; });
+          streams.set(event.networkId, stream);
+          fs.writeFileSync(filename, "");
+          // Enable while headers are paused: responseReceived alone races fast
+          // downloads. Continue immediately after setup, not after body arrival.
+          const { bufferedData } = await session.send("Network.streamResourceContent", { requestId: event.networkId });
+          fs.appendFileSync(filename, Buffer.from(bufferedData, "base64"));
+        }
+      } catch (error) {
+        const stream = streams.get(event.networkId);
+        if (stream) {
+          stream.error = error;
+          stream.finish();
+        }
+        bodies.set(event.networkId, error);
+      } finally {
+        await session.send("Fetch.continueResponse", { requestId: event.requestId });
+      }
+    })();
+    pending.add(work);
+    work.catch((error) => bodies.set(event.networkId, error)).finally(() => pending.delete(work));
+  });
+  if (resourceTypes) await session.send("Network.enable");
+  await session.send("Fetch.enable", { patterns: [resourceTypes
+    ? { requestStage: "Response" }
+    : { resourceType: "Document", requestStage: "Response" }] });
+  return {
+    async read(response) {
+      const id = response.request().id;
+      const stream = streams.get(id);
+      if (stream) {
+        await stream.done;
+        streams.delete(id);
+        if (stream.error) throw stream.error;
+        const body = await fs.promises.readFile(stream.filename);
+        await fs.promises.unlink(stream.filename);
+        return body;
+      }
+      if (bodies.get(id) instanceof Error) throw bodies.get(id);
+      if (response.request().isNavigationRequest() && pdfUrls.has(response.url()) &&
+          !wireDocuments.has(id)) return null;
+      const filename = bodies.get(id);
+      bodies.delete(id);
+      if (filename instanceof Error) throw filename;
+      // Chrome's synthetic viewer documents have no intercepted wire response.
+      if (!filename) return response.request().isNavigationRequest() && pdfUrls.has(response.url()) ? null : undefined;
+      const body = await fs.promises.readFile(filename);
+      await fs.promises.unlink(filename);
+      return body;
+    },
+    async close() {
+      page.off("close", onClosed);
+      page.browser().off("disconnected", onClosed);
+      await Promise.allSettled(pending);
+      try {
+        if (!session.detached) await session.detach();
+      } catch (error) {
+        if (!session.detached) throw error;
+      }
+      if (directory) await fs.promises.rm(await directory, { recursive: true, force: true });
+    },
+  };
+}
+
 const CHROME_SESSION_REQUIRED_ERROR =
   "No Chrome session found (chrome plugin must run first)";
 const CHROME_PROFILE_LOCK_FILES = [
@@ -68,6 +200,21 @@ function configuredChromeUserAgent(userAgent, version = "") {
   // Generic HTTP identities are not browser fingerprints.
   if (["Mozilla/5.0 (compatible; ArchiveBox/1.0)", "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)"].includes(userAgent)) return "";
   return replaceChromeUserAgentVersion(userAgent, version);
+}
+
+// OS named by a UA string, as Chrome reports it in client hints and
+// navigator.platform. Order matters: Android and ChromeOS UAs also say Linux.
+const USER_AGENT_PLATFORMS = [
+  [/Android/, "Android", "Linux armv81"],
+  [/CrOS/, "Chrome OS", "Linux x86_64"],
+  [/Windows/, "Windows", "Win32"],
+  [/Mac OS X|Macintosh/, "macOS", "MacIntel"],
+  [/Linux|X11/, "Linux", "Linux x86_64"],
+];
+
+function userAgentPlatform(userAgent) {
+  const match = USER_AGENT_PLATFORMS.find(([pattern]) => pattern.test(userAgent || ""));
+  return match ? { platform: match[1], navigatorPlatform: match[2] } : null;
 }
 
 function getOption(options, key, fallback) {
@@ -445,6 +592,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
     if (depth > 10) return results || { chromePids: [], hookPids: [], personaDirs: [] };
 
     const found = results || { chromePids: [], hookPids: [], personaDirs: [] };
+    const resolvedDir = path.resolve(dir);
+    const isRuntimeDir =
+      excludeSessionDirs.has(resolvedDir) || excludeCrawlDirs.has(resolvedDir);
     const normalizeHookPidFileName = (fileName) =>
       fileName.slice(0, -4).replace(/\.[0-9a-f]{32}$/i, "");
 
@@ -494,7 +644,16 @@ async function killZombieChrome(snapDir = null, options = {}) {
           continue;
         }
 
-        if (!entry.name.startsWith(".") && entry.name !== "node_modules") {
+        // SNAP_DIR/CRAWL_DIR already identify a runtime root. Its other
+        // children are archived plugin outputs, not more Chrome sessions.
+        // Walking them hits remote storage and can mistake captured .pid
+        // files for our own bookkeeping. Collection-level sweeps can still
+        // descend until they reach a known runtime root.
+        if (
+          !isRuntimeDir &&
+          !entry.name.startsWith(".") &&
+          entry.name !== "node_modules"
+        ) {
           findChromeRuntimeFiles(fullPath, depth + 1, found);
         }
       }
@@ -913,6 +1072,39 @@ async function launchChromium(options = {}) {
   // Combine all args: base (from config) + dynamic (runtime) + extra (user overrides)
   // Dynamic args come after base so they can override if needed
   const chromiumArgs = [...baseArgs, ...dynamicArgs, ...extraArgs];
+
+  // All tabs of one browser share Chrome's HTTP/1.1 connection pool, which
+  // allows only 6 connections per host. With CHROME_ISOLATION=crawl those tabs
+  // are concurrent snapshots: a page that never finishes loading can hold all
+  // 6 sockets to a host with requests that never complete, and every other
+  // snapshot's requests to that host (usually the same site or CDN) then queue
+  // until that tab closes. A concurrent screenshot waiting for its own visible
+  // images stalled for the stuck page's entire navigation timeout this way.
+  // Chrome has no per-tab pool, so give the shared one a per-host budget that
+  // leaves room beyond what one stuck page typically holds: 32, Chrome's own
+  // default cap on connections to a single proxy server, so a host never sees
+  // more than Chrome already sends one proxy. Only the HappyEyeballsV3 stream
+  // pool exposes that limit. A user setting for HappyEyeballsV3 takes precedence.
+  // Chrome honors only the last --enable-features switch, so merge them all.
+  const featureList = (flag) =>
+    chromiumArgs
+      .filter((arg) => arg.startsWith(`${flag}=`))
+      .flatMap((arg) => arg.slice(flag.length + 1).split(","))
+      .filter(Boolean);
+  const enabledFeatures = featureList("--enable-features");
+  if (
+    ![...enabledFeatures, ...featureList("--disable-features")].some(
+      (feature) => feature.split(":")[0] === "HappyEyeballsV3"
+    )
+  ) {
+    enabledFeatures.push("HappyEyeballsV3:max_stream_per_group/32");
+  }
+  for (let index = chromiumArgs.length - 1; index >= 0; index -= 1) {
+    if (chromiumArgs[index].startsWith("--enable-features=")) {
+      chromiumArgs.splice(index, 1);
+    }
+  }
+  chromiumArgs.push(`--enable-features=${[...new Set(enabledFeatures)].join(",")}`);
 
   // Ensure keychain prompts are disabled on macOS
   if (!chromiumArgs.includes("--use-mock-keychain")) {
@@ -1576,7 +1768,7 @@ async function waitForExtensionTargetHandle(
           await wakePage.close();
         } catch (closeError) {}
       }
-      return null;
+      throw error;
     }
   }
 
@@ -1584,12 +1776,19 @@ async function waitForExtensionTargetHandle(
     target.type() === "service_worker" &&
     getExtensionIdFromUrl(target.url()) === extensionId &&
     (!preferredTargetUrl || target.url() === preferredTargetUrl);
-  const targetPromise = browser.waitForTarget(matchesExtensionTarget, { timeout });
+  const controller = new AbortController();
+  const targetPromise = browser.waitForTarget(matchesExtensionTarget, {
+    timeout, signal: controller.signal,
+  });
   const wakePagePromise = wakeExtension();
   try {
-    return await targetPromise;
+    // A rejected extension navigation is terminal, not a sleeping MV3 worker.
+    // Preserve that error even if Chrome still exposes an obsolete target.
+    const [target] = await Promise.all([targetPromise, wakePagePromise]);
+    return target;
   } finally {
-    const wakePage = await wakePagePromise;
+    controller.abort();
+    const wakePage = await wakePagePromise.catch(() => null);
     if (wakePage) {
       await wakePage.close().catch(() => {});
     }
@@ -2077,19 +2276,21 @@ function readBrowserMetadata(chromeSessionDir) {
     return {
       ready: parsed.ready === true,
       extensions: Array.isArray(parsed.extensions) ? parsed.extensions : [],
+      ...(parsed.userAgentOverride ? { userAgentOverride: parsed.userAgentOverride } : {}),
     };
   } catch (e) {
     return null;
   }
 }
 
-function writeBrowserMetadata(chromeSessionDir, extensions = []) {
+function writeBrowserMetadata(chromeSessionDir, extensions = [], userAgentOverride = null) {
   writeFileAtomic(
     path.join(path.resolve(chromeSessionDir), "browser.json"),
     JSON.stringify(
       {
         ready: true,
         extensions: Array.isArray(extensions) ? extensions : [],
+        ...(userAgentOverride ? { userAgentOverride } : {}),
       },
       null,
       2
@@ -2316,14 +2517,32 @@ async function connectToBrowserEndpoint(
   return puppeteer.connect(options);
 }
 
-async function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
+async function withTimeout(
+  promiseFactory,
+  timeoutMs,
+  timeoutMessage,
+  disposeLateResult
+) {
   let timeoutHandle = null;
+  let timedOut = false;
   try {
     return await Promise.race([
-      promiseFactory(),
+      Promise.resolve()
+        .then(promiseFactory)
+        .then(async (result) => {
+          // A timeout does not cancel the operation. Retain ownership of any
+          // resource that arrives after the caller has stopped waiting for it.
+          if (timedOut && disposeLateResult) {
+            await disposeLateResult(result);
+          }
+          return result;
+        }),
       new Promise((_, reject) => {
         timeoutHandle = setTimeout(
-          () => reject(new Error(timeoutMessage)),
+          () => {
+            timedOut = true;
+            reject(new Error(timeoutMessage));
+          },
           timeoutMs
         );
       }),
@@ -2344,7 +2563,8 @@ async function canConnectToChromeBrowser(cdpUrl, options = {}) {
       () =>
         connectToBrowserEndpoint(puppeteer, cdpUrl, { defaultViewport: null }),
       timeoutMs,
-      `Timed out connecting to browser at ${cdpUrl}`
+      `Timed out connecting to browser at ${cdpUrl}`,
+      (lateBrowser) => lateBrowser.disconnect()
     );
     return true;
   } catch (error) {
@@ -2443,7 +2663,8 @@ async function inspectChromeSessionArtifacts(chromeSessionDir, options = {}) {
             defaultViewport: null,
           }),
         probeTimeoutMs,
-        `Timed out connecting to browser at ${state.cdpUrl}`
+        `Timed out connecting to browser at ${state.cdpUrl}`,
+        (lateBrowser) => lateBrowser.disconnect()
       );
       const page = await resolvePageByTargetId(
         browser,
@@ -2928,6 +3149,7 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs, signal) {
 
 /** Capture downloads initiated by this tab (including its download iframes).
  * trigger must resolve only once the provider has finished preparing its batch.
+ * expectedDownloads keeps a known batch open while later files are prepared.
  * Keep the persona's existing download directory; never claim another tab's file.
  */
 async function captureBrowserDownloads({
@@ -2936,8 +3158,11 @@ async function captureBrowserDownloads({
   downloadPath,
   timeoutMs,
   trigger,
+  expectedDownloads = 1,
 }) {
   if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
+  if (!Number.isInteger(expectedDownloads) || expectedDownloads < 1)
+    throw new Error("Expected download count must be a positive integer");
   let succeeded = false;
   let captureError = null;
   let releaseDownloadLock;
@@ -2968,7 +3193,7 @@ async function captureBrowserDownloads({
   const check = () => {
     if (
       prepared &&
-      downloads.size &&
+      downloads.size >= expectedDownloads &&
       [...downloads.values()].every((item) => item.state === "completed")
     )
       resolve([...downloads.values()]);
@@ -2980,7 +3205,14 @@ async function captureBrowserDownloads({
     if (frames.has(event.frameId)) {
       downloads.set(event.guid, { ...event, state: "inProgress" });
       resolveStarted();
-      console.error("Provider browser download started");
+      console.error("Provider browser download started:", JSON.stringify({
+        filename: event.suggestedFilename,
+        guid: event.guid,
+        frameId: event.frameId,
+        elapsedMs: Date.now() - (deadline - timeoutMs),
+      }));
+    } else {
+      console.error("Ignoring browser download from another frame:", event.frameId);
     }
   };
   const progress = (event) => {
@@ -3272,7 +3504,10 @@ async function closeExistingTabs(browser) {
     const url = page.target().url() || "";
     if (
       page === aboutBlankPage ||
-      url.startsWith(CHROME_EXTENSION_URL_PREFIX)
+      // Chrome's first-run welcome is exposed as a page target, but it is
+      // browser UI: Page.close can wait forever for its target destruction.
+      // Preserve internal browser/extension pages and clean up web tabs only.
+      /^(chrome|chrome-extension|chrome-untrusted|devtools):/.test(url)
     ) {
       continue;
     }
@@ -3460,10 +3695,11 @@ async function getBrowserCdpUrl(chromeSessionDir = "../chrome", options = {}) {
  * @param {Object} options - Tab open options
  * @param {string} options.cdpUrl - Browser CDP websocket URL
  * @param {Object} options.puppeteer - Puppeteer module
+ * @param {boolean} options.newWindow - Create without inheriting the active tab's native opener
  * @returns {Promise<{targetId: string}>}
  */
 async function openTabInChromeSession(options = {}) {
-  const { cdpUrl, puppeteer, timeoutMs = 10000, initialUrl = "about:blank", browserContextId } = options;
+  const { cdpUrl, puppeteer, timeoutMs = 10000, initialUrl = "about:blank", browserContextId, newWindow = false } = options;
   if (!cdpUrl) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
@@ -3496,10 +3732,20 @@ async function openTabInChromeSession(options = {}) {
         try {
           targetId = await withTimeout(
             async () => {
+              let needsWindow = newWindow;
+              if (!needsWindow) {
+                const { targetInfos } = await sendBrowserCommand(browser, "Target.getTargets");
+                // Chrome can outlive its last window. A tab needs a window
+                // in the requested context before it can reuse one.
+                needsWindow = !targetInfos.some(target =>
+                  target.type === "page" &&
+                  (!browserContextId || target.browserContextId === browserContextId)
+                );
+              }
               const created = await sendBrowserCommand(
                 browser,
                 "Target.createTarget",
-                { url: initialUrl, background: true, ...(browserContextId ? { browserContextId } : {}) }
+                { url: initialUrl, background: true, newWindow: needsWindow, ...(browserContextId ? { browserContextId } : {}) }
               );
               return created.targetId;
             },
@@ -3526,7 +3772,6 @@ async function openTabInChromeSession(options = {}) {
 }
 
 const EXPORT_PAGE_MAX_LIFETIME_MS = 60 * 60 * 1000;
-const exportPageOperations = new Set();
 const exportPageOwners = new Map();
 let exportShutdownInstalled = false;
 let exportShutdownPromise = null;
@@ -3539,7 +3784,9 @@ function installExportPageShutdown() {
     if (exportShutdownPromise) return exportShutdownPromise;
     const exitCode = process.exitCode ?? (signal === "SIGINT" ? 130 : 143);
     exportShutdownPromise = (async () => {
-      await Promise.allSettled([...exportPageOperations]);
+      // Close published targets immediately. Waiting for page attachment here
+      // delays SIGTERM by the creation timeout. The existing nonce lease lets
+      // the snapshot daemon reap a createTarget response that arrives after exit.
       for (const owner of exportPageOwners.values()) {
         try {
           await sweepExportPages({
@@ -3727,18 +3974,12 @@ async function openExportPage({
     `${path.resolve(chromeSessionDir)}:${owner.ownerTargetId}`,
     owner
   );
-  const operation = createExportPage({
+  return createExportPage({
     page,
     chromeSessionDir,
     timeoutMs,
     isolateStorage,
   });
-  exportPageOperations.add(operation);
-  try {
-    return await operation;
-  } finally {
-    exportPageOperations.delete(operation);
-  }
 }
 
 async function createExportPage({
@@ -3838,6 +4079,8 @@ async function createExportPage({
       timeoutMs: remaining(),
       initialUrl: lease.initialUrl,
       browserContextId: lease.ephemeralContextId || targetInfo.browserContextId,
+      // A fresh isolated context has no window in which Chrome can add a tab.
+      newWindow: Boolean(lease.ephemeralContextId),
     });
     lease.targetId = opened.targetId;
     checkLease();
@@ -4076,8 +4319,8 @@ async function connectToPage(options = {}) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
   getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
+  const sessionPaths = getChromeSessionPaths(chromeSessionDir);
   if (!initialInspection.state?.targetId) {
-    const sessionPaths = getChromeSessionPaths(chromeSessionDir);
     const hasLaterSnapshotMarkers = [
       sessionPaths.urlFile,
       sessionPaths.navigationFile,
@@ -4107,6 +4350,12 @@ async function connectToPage(options = {}) {
   );
 
   while (Date.now() < deadline) {
+    // The tab monitor may invalidate a crashed target while attachment is
+    // already waiting. A completed/failed navigation distinguishes it from
+    // a target that has not been published yet during normal startup.
+    if (!readSessionTextFile(sessionPaths.targetIdFile) && fs.existsSync(sessionPaths.navigationFile)) {
+      throw new Error("No target_id.txt found");
+    }
     const remainingMs = Math.max(deadline - Date.now(), 0);
     const state = await waitForChromeSessionState(chromeSessionDir, {
       timeoutMs: Math.min(remainingMs, 500),
@@ -4132,7 +4381,8 @@ async function connectToPage(options = {}) {
           protocolTimeout: remainingMs,
         }),
       operationTimeoutMs,
-      `Timed out connecting to page browser at ${state.cdpUrl}`
+      `Timed out connecting to page browser at ${state.cdpUrl}`,
+      (lateBrowser) => lateBrowser.disconnect()
     ).catch((error) => {
       lastError = error instanceof Error ? error : new Error(String(error));
       return null;
@@ -4555,12 +4805,18 @@ async function closeBrowserInChromeSession(options = {}) {
   if (cdpUrl) {
     let browser = null;
     try {
-      await withTimeout(
-        async () => {
-          browser = await connectToBrowserEndpoint(puppeteer, cdpUrl, {
+      browser = await withTimeout(
+        () =>
+          connectToBrowserEndpoint(puppeteer, cdpUrl, {
             defaultViewport: null,
             protocolTimeout: Math.max(1, remainingCdpMs()),
-          });
+          }),
+        Math.max(1, remainingCdpMs()),
+        `Timed out connecting to browser at ${cdpUrl}`,
+        (lateBrowser) => lateBrowser.disconnect()
+      );
+      await withTimeout(
+        async () => {
           browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
         },
@@ -4640,6 +4896,69 @@ function personaImportState(outputDir, cdpUrl, cookiesFile, config) {
   return { imported, save: () => writeFileAtomic(filename, digest) };
 }
 
+// Chrome has ONE device-emulation size and ONE focus-emulation flag per tab,
+// not one per CDP session. When any session that set a viewport or focus
+// override ends (explicit detach or its client disconnecting), Chrome resets
+// that slot for the whole tab: the view returns to its unemulated window size
+// and focus emulation can turn off, even though this persona session still
+// holds its own override. Hidden tabs defer that resize, which used to mask it.
+// The persona session therefore owns the tab's baseline for its lifetime:
+// it keeps web tabs visible and focused (hidden tabs defer <video>/MediaSource
+// loading, so recorders miss media) and re-applies the persona viewport
+// whenever another client's override has ended. Hooks' own temporary sizes
+// are left alone: only Chrome's unemulated fallback size triggers a restore.
+// Extension and browser UI pages (e.g. recorder helper popups) stay
+// unfocused background tools.
+async function holdBaselineEmulation(session, metrics, unemulated, focus) {
+  let restoring = false;
+  let resizedAgain = false;
+  const restore = async () => {
+    // A reset during an in-flight check must be checked again afterwards.
+    if (restoring) {
+      resizedAgain = true;
+      return;
+    }
+    restoring = true;
+    do {
+      resizedAgain = false;
+      try {
+        const { cssLayoutViewport: viewport } = await session.send(
+          "Page.getLayoutMetrics",
+        );
+        if (
+          viewport.clientWidth === unemulated.clientWidth &&
+          viewport.clientHeight === unemulated.clientHeight &&
+          (viewport.clientWidth !== metrics.width ||
+            viewport.clientHeight !== metrics.height)
+        ) {
+          // This session still believes its override is active, so setting
+          // the same metrics again would only resize the view and leave
+          // Chrome's device emulation (e.g. deviceScaleFactor) disabled.
+          await session.send("Emulation.clearDeviceMetricsOverride");
+          await session.send("Emulation.setDeviceMetricsOverride", metrics);
+        }
+        // Chrome applies this flag to the tab on every call, even when this
+        // session already enabled it, so it also repairs another client's reset.
+        if (focus) {
+          await session.send("Emulation.setFocusEmulationEnabled", {
+            enabled: true,
+          });
+        }
+      } catch (error) {
+        if (!session.detached)
+          console.error(`Baseline emulation restore failed: ${error.message}`);
+      }
+    } while (resizedAgain && !session.detached);
+    restoring = false;
+  };
+  if (focus) {
+    await session.send("Emulation.setFocusEmulationEnabled", { enabled: true });
+  }
+  // The reset resizes the main frame, which Page reports to every session.
+  session.on("Page.frameResized", restore);
+  await session.send("Page.enable");
+}
+
 async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage = true, outputDir } = {}) {
   // This connection belongs to the launch daemon. Keep emulation sessions alive:
   // disconnecting them clears CDP overrides, including for other CDP clients.
@@ -4652,8 +4971,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
   const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
-  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product);
-  const overrideIdentity = userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM;
+  // Headless Chromium announces itself in its default UA (not in its hints).
+  const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product)
+    || version.userAgent.replace("HeadlessChrome/", "Chrome/");
+  const overrideIdentity = userAgent !== version.userAgent || config.BROWSER_LANGUAGE || config.BROWSER_PLATFORM;
   let userAgentMetadata = config.BROWSER_USER_AGENT_METADATA;
   if (overrideIdentity && !Object.keys(userAgentMetadata || {}).length) {
     // CDP clears *all* UA hints when only UA/language/platform are overridden.
@@ -4668,6 +4989,7 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
       ]));
     } finally { await page.close(); }
   }
+  let navigatorPlatform = config.BROWSER_PLATFORM || "";
   if (overrideIdentity) {
     // UA versions already follow the installed Chromium. Keep the corresponding
     // brand hints in step while retaining the persona's actual OS/CPU metadata
@@ -4680,7 +5002,26 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
           ? { ...entry, version: key === "brands" ? fullVersion.split(".")[0] : fullVersion }
           : entry);
     }
+    // Hints and navigator.platform must never contradict the UA they ship
+    // with; bot checks compare them. When the UA names another OS than the
+    // metadata (e.g. a persona UA without exported hints, replayed on this
+    // host), follow the UA and leave its unknown OS version empty.
+    const claimed = userAgentPlatform(userAgent);
+    if (claimed && claimed.platform !== userAgentMetadata.platform) {
+      userAgentMetadata.platform = claimed.platform;
+      userAgentMetadata.platformVersion = "";
+      userAgentMetadata.mobile = claimed.platform === "Android" && /Mobile/.test(userAgent);
+    }
+    if (claimed && !navigatorPlatform && userAgentPlatform(version.userAgent)?.platform !== claimed.platform) {
+      navigatorPlatform = claimed.navigatorPlatform;
+    }
   }
+  const userAgentOverride = overrideIdentity ? {
+    userAgent,
+    userAgentMetadata,
+    ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
+    ...(navigatorPlatform ? { platform: navigatorPlatform } : {}),
+  } : null;
   const { readStorageState, restoreOriginStorage } = require("./persona_storage.js");
   const { origins, tabs } = importStorage ? readStorageState(config.AUTH_STORAGE_FILE) : { origins: [], tabs: [] };
   // Import persistent storage once, before publishing readiness. All clients
@@ -4698,21 +5039,36 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   const pending = new Set();
   let startup = true;
   let failure = null;
-  async function hydrate(session) {
+  async function hydrate(session, { type: targetType, url: targetUrl }) {
     const { width, height } = parseResolution(config.CHROME_RESOLUTION || config.RESOLUTION || "1440,2000");
-    await session.send("Emulation.setDeviceMetricsOverride", {
+    const metrics = {
       width, height, deviceScaleFactor: Number(config.BROWSER_DEVICE_SCALE_FACTOR || 1), mobile: false,
-    });
-    if (overrideIdentity) {
-      await session.send("Emulation.setUserAgentOverride", {
-        userAgent: userAgent || version.userAgent,
-        userAgentMetadata,
-        ...(config.BROWSER_LANGUAGE ? { acceptLanguage: config.BROWSER_LANGUAGE } : {}),
-        ...(config.BROWSER_PLATFORM ? { platform: config.BROWSER_PLATFORM } : {}),
-      });
+    };
+    // Tabs keep the size Chrome reverts to when emulation ends: read it while
+    // this target is still paused, before any client has emulated a size.
+    const unemulated = targetType === "page"
+      ? (await session.send("Page.getLayoutMetrics")).cssLayoutViewport
+      : null;
+    await session.send("Emulation.setDeviceMetricsOverride", metrics);
+    if (unemulated) {
+      const webContent = !/^(chrome|chrome-extension|chrome-untrusted|devtools):/.test(targetUrl);
+      await holdBaselineEmulation(session, metrics, unemulated, webContent);
     }
-    if (config.BROWSER_LANGUAGE) await session.send("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
-    if (config.BROWSER_TIMEZONE) await session.send("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
+    if (userAgentOverride) await session.send("Emulation.setUserAgentOverride", userAgentOverride);
+    // Blink holds locale and timezone overrides per renderer process, owned by
+    // the first DevTools session that set them. Targets sharing a process (all
+    // pages of one extension, same-site popups) get "already in effect" for
+    // the persona value an earlier hydration applied there; nothing else in
+    // this browser sets these overrides.
+    const setProcessOverride = async (method, params) => {
+      try {
+        await session.send(method, params);
+      } catch (error) {
+        if (!String(error?.message).includes("override is already in effect")) throw error;
+      }
+    };
+    if (config.BROWSER_LANGUAGE) await setProcessOverride("Emulation.setLocaleOverride", { locale: config.BROWSER_LANGUAGE });
+    if (config.BROWSER_TIMEZONE) await setProcessOverride("Emulation.setTimezoneOverride", { timezoneId: config.BROWSER_TIMEZONE });
     if (config.BROWSER_GEOLOCATION && Object.keys(config.BROWSER_GEOLOCATION).length) {
       await session.send("Emulation.setGeolocationOverride", { accuracy: 0, ...config.BROWSER_GEOLOCATION });
     }
@@ -4752,7 +5108,16 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
         })()`;
         const { identifier } = await session.send("Page.addScriptToEvaluateOnNewDocument", { source });
         scripts.set(origin, identifier);
-        await session.send("Runtime.evaluate", { expression: source });
+        try {
+          // Seed the document that existed before the script was registered.
+          await session.send("Runtime.evaluate", { expression: source });
+        } catch (error) {
+          // CDP reports this when that document is replaced or the target is
+          // closed mid-evaluate. A replacement document committed after the
+          // registration above and runs the script itself, so the tab is fully
+          // hydrated; treating it as failure closed live snapshot tabs.
+          if (!String(error?.message).includes("Inspected target navigated or closed")) throw error;
+        }
       }
     }
   }
@@ -4760,9 +5125,12 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     const session = root.connection().session(sessionId);
     const work = (async () => {
       try {
-        await hydrate(session);
+        await hydrate(session, targetInfo);
         if (!session.detached) await session.send("Runtime.runIfWaitingForDebugger");
       } catch (error) {
+        // A target that closed mid-hydration never ran without its persona:
+        // there is nothing left to close and nothing failed.
+        if (session.detached) return;
         failure = error;
         // Never allow a newly opened target to run with only half its persona.
         await root.send("Target.closeTarget", { targetId: targetInfo.targetId });
@@ -4782,10 +5150,10 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
     startup = false;
     if (outputDir && (config.ABX_RUNTIME === "archivebox" || config.OPENCODE_ENABLED)) {
       // Optional observation must never turn a working capture into a failure.
-      void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, outputDir))
+      void Promise.resolve().then(() => require("./browser_observer.js").observeBrowser(browser, outputDir, config.TMP_DIR))
         .catch(error => console.error(`Browser observer unavailable: ${error.message}`));
     }
-    return () => browser.disconnect();
+    return { stop: () => browser.disconnect(), userAgentOverride };
   } catch (error) {
     await browser.disconnect();
     throw error;
@@ -5013,14 +5381,15 @@ async function ensureChromeSession(options = {}) {
     });
   }
 
-  const stopPersonaHydration = personaConfig
+  const personaHydration = personaConfig
     ? await startPersonaHydration(puppeteer, resolvedCdpUrl, personaConfig, { importStorage: !importState.imported, outputDir })
     : null;
   importState.save();
-  writeBrowserMetadata(outputDir, installedExtensions);
+  // Snapshot hooks inherit browser.json; navigation re-applies this identity.
+  writeBrowserMetadata(outputDir, installedExtensions, personaHydration?.userAgentOverride);
 
     return {
-      stopPersonaHydration,
+      stopPersonaHydration: personaHydration?.stop || null,
       cdpUrl: resolvedCdpUrl,
       pid: resolvedPid,
       port: getChromeDebugPortFromCdpUrl(resolvedCdpUrl),
@@ -5042,7 +5411,7 @@ async function ensureChromeSession(options = {}) {
  * Wait for the snapshot navigation hook to publish a successful navigation result.
  *
  * This does not perform navigation by itself. It only watches the
- * `navigation.json` artifact emitted by `chrome_navigate` and optionally waits
+ * `navigation.json` emitted by `chrome_navigate` (or a terminal tab failure) and optionally waits
  * a bit longer for late network work that should remain within the same
  * snapshot lifecycle.
  *
@@ -5104,6 +5473,34 @@ async function waitForNavigationComplete(
 }
 
 /**
+ * Read the requested and post-redirect URLs that `chrome_navigate` recorded.
+ *
+ * Site-specific hooks use this to rule themselves out before connecting to
+ * Chrome. A puppeteer CDP connect plus target discovery costs seconds on a
+ * loaded host, and 20+ such hooks run on every snapshot, so connecting only to
+ * read `page.url()` for an unrelated site dominated snapshot time.
+ *
+ * @param {string} chromeSessionDir - Path to the snapshot chrome session directory
+ * @returns {string[]|null} - `[url, finalUrl]`, or null when navigation.json is
+ *   missing, malformed, or lacks an observed page URL; callers must then
+ *   inspect the live page as before.
+ */
+function readNavigatedUrls(chromeSessionDir) {
+  try {
+    const { navigationFile } = getChromeSessionPaths(chromeSessionDir);
+    const navigation = JSON.parse(fs.readFileSync(navigationFile, "utf8"));
+    // Failed navigation can still leave a known page (including about:blank).
+    // This is the same cached page.url() provider hooks otherwise connect to read.
+    const urls = [navigation?.url, navigation?.finalUrl || navigation?.pageUrl];
+    if (!urls.every((value) => URL.canParse(value)))
+      return null;
+    return urls;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Read all browser cookies from a running Chrome CDP debug port.
  * Uses existing CDP bootstrap helpers and puppeteer connection logic.
  *
@@ -5134,7 +5531,7 @@ async function getCookiesViaCdp(port, options = {}) {
   );
 }
 
-async function waitForVisibleImages(page, timeoutMs) {
+async function waitForVisibleImages(page, timeoutMs, chromeSessionDir) {
   // A navigation marker (even `load`) does not include lazy images in nested
   // frames. Wait for the pixels we are actually about to capture, not all
   // network traffic: hidden alternatives, tracking images and offscreen lazy
@@ -5146,9 +5543,45 @@ async function waitForVisibleImages(page, timeoutMs) {
     if (ms <= 0) throw new Error("Timed out waiting for visible screenshot images");
     return ms;
   };
-  const visit = async (frame, waitForDocument) => {
-    await frame.waitForFunction(async (needsDocument) => {
-      if (needsDocument && location.href === "about:blank") return false;
+  const targetId = getTargetIdFromPage(page);
+  const frameStoppedLoading = (frameId) => {
+    if (!chromeSessionDir || !frameId) return false;
+    try {
+      const state = JSON.parse(fs.readFileSync(path.join(chromeSessionDir, "frame_loads.json"), "utf8"));
+      return state.targetId === targetId && state.frames[frameId] === "stopped";
+    } catch (error) {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    }
+  };
+  const visit = async (frame, waitForDocument, frameId) => {
+    // Log before the wait: the runner's hook deadline can expire before this
+    // helper's timeout, otherwise leaving no evidence of the blocking frame.
+    const state = await frame.evaluate(() => {
+      const visible = [...document.images].filter((img) => {
+        const rect = img.getBoundingClientRect();
+        return rect.bottom >= 0 && rect.right >= 0
+          && rect.top < innerHeight && rect.left < innerWidth
+          && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
+      });
+      return {
+        url: /^https?:$/.test(location.protocol)
+          ? `${location.origin}${location.pathname}` : location.protocol,
+        readyState: document.readyState,
+        visibleImages: visible.length,
+        incompleteImages: visible.filter((img) => !img.complete).length,
+      };
+    }).catch(() => ({readyState: "unavailable during frame navigation"}));
+    const kind = frame === page.mainFrame() ? "main" : "child";
+    console.error(`[screenshot] ${kind} frame readiness ${JSON.stringify(state)}`);
+    // Poll the lifecycle evidence as well as the document: a pending request
+    // may finish with no document after this visit begins. Never infer that
+    // outcome from the parent's readyState or from missing resource timings.
+    while (waitForDocument && await frame.evaluate(() => location.href === "about:blank")) {
+      if (frameStoppedLoading(frameId)) break;
+      await new Promise(resolve => setTimeout(resolve, Math.min(50, remaining())));
+    }
+    const images = await frame.waitForFunction(() => {
       if (document.readyState === "loading") return false;
       const images = [...document.images].filter((img) => {
         const rect = img.getBoundingClientRect();
@@ -5160,11 +5593,23 @@ async function waitForVisibleImages(page, timeoutMs) {
           && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
       });
       if (images.some((img) => !img.complete)) return false;
-      // The caller keeps this target paintable during capture. In a hidden
-      // target, decode() can remain pending despite valid natural dimensions.
-      await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
-      return true;
-    }, {timeout: remaining()}, waitForDocument);
+      return images.filter((img) => img.naturalWidth > 0);
+    }, {timeout: remaining()});
+    try {
+      // Keep the exact images selected by the readiness check. Separate the
+      // phases so a stalled renderer/decode is not reported as network loading.
+      console.error(`[screenshot] ${kind} frame decoding images ${JSON.stringify(state.url || "")}`);
+      await withTimeout(
+        () => images.evaluate(async (readyImages) => {
+          await Promise.all(readyImages.map((img) => img.decode()));
+        }),
+        remaining(),
+        "Timed out decoding visible screenshot images"
+      );
+    } finally {
+      await images.dispose();
+    }
+    console.error(`[screenshot] ${kind} frame images ready ${JSON.stringify(state.url || "")}`);
 
     // Inspect each child only after its parent document exists. This includes
     // cross-origin frames via CDP without changing sandbox or loading policy.
@@ -5173,17 +5618,27 @@ async function waitForVisibleImages(page, timeoutMs) {
       try {
         const state = await element.evaluate((el) => {
           const rect = el.getBoundingClientRect();
+          // A completed 204/205 iframe navigation deliberately keeps its old
+          // document (often about:blank). It will never become a nonblank page.
+          const response = performance.getEntriesByName(el.src).at(-1);
+          const noContent = response?.initiatorType === "iframe"
+            && response.responseEnd > 0 && [204, 205].includes(response.responseStatus);
           return {
             visible: rect.width > 0 && rect.height > 0 && rect.bottom > 0
               && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth
               && el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}),
             waitForDocument: !el.hasAttribute("srcdoc") && Boolean(el.getAttribute("src"))
-              && el.src !== "about:blank",
+              && el.src !== "about:blank" && !noContent,
           };
         });
         if (!state.visible) return;
         const child = await element.contentFrame();
-        if (child) await visit(child, state.waitForDocument);
+        if (child) {
+          const {node} = await element.client.send("DOM.describeNode", {
+            backendNodeId: await element.backendNodeId(),
+          });
+          await visit(child, state.waitForDocument, node.frameId);
+        }
       } finally {
         await element.dispose();
       }
@@ -5194,6 +5649,7 @@ async function waitForVisibleImages(page, timeoutMs) {
 
 // Export all functions
 module.exports = {
+  captureOriginalResponseBodies,
   captureBrowserDownloads,
   withTimeout,
   // Environment helpers
@@ -5268,6 +5724,7 @@ module.exports = {
   connectToPage,
   downloadBrowserResource,
   waitForNavigationComplete,
+  readNavigatedUrls,
   waitForVisibleImages,
   setBrowserDownloadBehavior,
   waitForBrowserDownload,

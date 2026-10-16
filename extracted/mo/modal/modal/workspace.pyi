@@ -186,6 +186,15 @@ class Workspace(modal.object.Object):
         """Namespace for Workspace settings APIs."""
         ...
 
+    @property
+    def service_users(self) -> WorkspaceServiceUserManager:
+        """Namespace for managing Service Users in a Workspace.
+
+        See [the guide](https://modal.com/docs/guide/service-users) for more information about Service
+        Users.
+        """
+        ...
+
 class WorkspaceMembersManager:
     """mdmd:namespace"""
     def __init__(self, workspace: Workspace):
@@ -631,7 +640,9 @@ class WorkspaceSettingsManager:
         ...
 
     @classmethod
-    def valid_settings(cls): ...
+    def _valid_settings(cls):
+        """mdmd:hidden"""
+        ...
 
     class __list_spec(typing_extensions.Protocol):
         def __call__(self, /):
@@ -718,3 +729,230 @@ class WorkspaceSettingsManager:
             ...
 
     set: __set_spec
+
+class WorkspaceServiceUserManager:
+    """mdmd:namespace"""
+    def __init__(self, workspace: Workspace):
+        """mdmd:hidden"""
+        ...
+
+    class __create_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str, *, expires_in: typing.Optional[int]) -> modal.types.TokenData:
+            """Create a new Service User in the current workspace.
+
+            To call this function, you are required to have Manager permissions in the Workspace.
+
+            Args:
+                name: The name of the new Service User. Must consistent only of alphanumeric, '-', or '_'
+                    characters.
+                expires_in: An expiration time, in seconds, after which the token will stop working. If
+                    `None`, the token will never expire.
+
+            Returns:
+                A `TokenData` dataclass containing the credentials for the Service User. Note that this
+                is the only time you will be able to view these credentials.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+
+            # Creates a Service User named "test-service-user", whose credentials expire after one year.
+            service_user_token_data = ws.service_users.create(
+                "test-service-user",
+                expires_in=datetime.timedelta(days=365).total_seconds(),
+            )
+            ```
+            """
+            ...
+
+        async def aio(self, /, name: str, *, expires_in: typing.Optional[int]) -> modal.types.TokenData:
+            """Create a new Service User in the current workspace.
+
+            To call this function, you are required to have Manager permissions in the Workspace.
+
+            Args:
+                name: The name of the new Service User. Must consistent only of alphanumeric, '-', or '_'
+                    characters.
+                expires_in: An expiration time, in seconds, after which the token will stop working. If
+                    `None`, the token will never expire.
+
+            Returns:
+                A `TokenData` dataclass containing the credentials for the Service User. Note that this
+                is the only time you will be able to view these credentials.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+
+            # Creates a Service User named "test-service-user", whose credentials expire after one year.
+            service_user_token_data = ws.service_users.create(
+                "test-service-user",
+                expires_in=datetime.timedelta(days=365).total_seconds(),
+            )
+            ```
+            """
+            ...
+
+    create: __create_spec
+
+    class __set_role_spec(typing_extensions.Protocol):
+        def __call__(self, /, service_user_name: str, environment_name: str, *, role: str) -> None:
+            """Set the role of a specified Service User within an Environment.
+
+            To call this function, you are required to have Manager permissions in the Workspace.
+
+            Args:
+                service_user_name: The name of the Service User.
+                environment_name: The name of the Environment to which the Service User's new role will
+                    apply.
+                role: The access level to grant this Service User.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            # Grants Service User "test-service-user" the Viewer role in Environment "production"
+            ws.service_users.set_role("test-service-user", "production", role="viewer")
+
+            # Revokes access to "production" from Service User "test-service-user"
+            ws.service_users.set_role("test-service-user", "production", role="no-access")
+            ```
+            """
+            ...
+
+        async def aio(self, /, service_user_name: str, environment_name: str, *, role: str) -> None:
+            """Set the role of a specified Service User within an Environment.
+
+            To call this function, you are required to have Manager permissions in the Workspace.
+
+            Args:
+                service_user_name: The name of the Service User.
+                environment_name: The name of the Environment to which the Service User's new role will
+                    apply.
+                role: The access level to grant this Service User.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            # Grants Service User "test-service-user" the Viewer role in Environment "production"
+            ws.service_users.set_role("test-service-user", "production", role="viewer")
+
+            # Revokes access to "production" from Service User "test-service-user"
+            ws.service_users.set_role("test-service-user", "production", role="no-access")
+            ```
+            """
+            ...
+
+    set_role: __set_role_spec
+
+    class __info_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str) -> modal.types.ServiceUserInfo:
+            """Get information about a specific Service User.
+
+            Args:
+                name: The name of the Service User to introspect.
+
+            Returns:
+                A `ServiceUserInfo` dataclass containing information about the Service User.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            service_user = ws.service_users.info("test-service-user")
+            ```
+            """
+            ...
+
+        async def aio(self, /, name: str) -> modal.types.ServiceUserInfo:
+            """Get information about a specific Service User.
+
+            Args:
+                name: The name of the Service User to introspect.
+
+            Returns:
+                A `ServiceUserInfo` dataclass containing information about the Service User.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            service_user = ws.service_users.info("test-service-user")
+            ```
+            """
+            ...
+
+    info: __info_spec
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> list[modal.types.ServiceUserInfo]:
+            """List all Service Users in the current workspace.
+
+            Returns:
+                A list of `ServiceUserInfo` dataclasses.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            for service_user in ws.service_users.list():
+                print(service_user.name)
+            ```
+            """
+            ...
+
+        async def aio(self, /) -> list[modal.types.ServiceUserInfo]:
+            """List all Service Users in the current workspace.
+
+            Returns:
+                A list of `ServiceUserInfo` dataclasses.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            for service_user in ws.service_users.list():
+                print(service_user.name)
+            ```
+            """
+            ...
+
+    list: __list_spec
+
+    class __delete_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str, *, allow_missing: bool = False) -> None:
+            """Permanently delete a Service User.
+
+            Args:
+                name: The name of the Service User to delete.
+                allow_missing: If `True`, do not throw an exception if the Service User does not exist.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.service_users.delete("test-service-user")
+            ```
+            """
+            ...
+
+        async def aio(self, /, name: str, *, allow_missing: bool = False) -> None:
+            """Permanently delete a Service User.
+
+            Args:
+                name: The name of the Service User to delete.
+                allow_missing: If `True`, do not throw an exception if the Service User does not exist.
+
+            Examples:
+
+            ```python notest
+            ws = modal.Workspace.from_context()
+            ws.service_users.delete("test-service-user")
+            ```
+            """
+            ...
+
+    delete: __delete_spec

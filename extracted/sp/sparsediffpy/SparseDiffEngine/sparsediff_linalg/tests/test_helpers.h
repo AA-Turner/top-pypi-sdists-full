@@ -1,0 +1,67 @@
+#ifndef TEST_HELPERS_H
+#define TEST_HELPERS_H
+
+#include "sparsediff_linalg/CSC_matrix.h"
+#include "sparsediff_linalg/CSR_matrix.h"
+#include "sparsediff_linalg/matrix.h"
+
+/* Compare two double arrays directly
+ * Returns 1 if all values match, 0 otherwise */
+int cmp_double_array(const double *actual, const double *expected, int size);
+
+/* Compare two int arrays directly
+ * Returns 1 if all values match, 0 otherwise */
+int cmp_int_array(const int *actual, const int *expected, int size);
+
+/* Verify M has shape (m, *) with exactly nnz entries, and that M's CSR_matrix
+ * row pointers and column indices match exp_p (length m+1) and exp_i
+ * (length nnz). Returns 1 on full match, 0 otherwise. */
+int cmp_sparsity(matrix *M, const int *exp_p, const int *exp_i, int m, int nnz);
+
+/* Verify M has nnz entries and that its value array matches exp_x of
+ * length nnz. Returns 1 on full match, 0 otherwise. */
+int cmp_values(const matrix *M, const double *exp_x, int nnz);
+
+/* Check the CSR invariants: p[0] == 0, p nondecreasing, p[m] == nnz, and
+ * all column indices in [0, n). Returns 1 if valid, 0 otherwise. Use on
+ * hand-built fixtures before handing them to the code under test. */
+int csr_is_valid(const CSR_matrix *A);
+
+/* Create a random m x n CSR_matrix matrix with approximate nonzero density
+ * in [0, 1]. Nonzero values are standard Gaussian (Box-Muller). */
+CSR_matrix *new_csr_random(int m, int n, double density);
+
+/* Random m x n CSR with the given density; column dense_col is full, row
+ * skip_row and column skip_col are empty (-1 disables each). Values uniform
+ * in [-0.5, 0.5). */
+CSR_matrix *new_csr_random_ex(int m, int n, double density, int dense_col,
+                              int skip_row, int skip_col);
+
+/* Format conversions (values copied). */
+CSR_matrix *new_csr_of_csc(const CSC_matrix *A);
+CSC_matrix *new_csc_of_csr(const CSR_matrix *A);
+
+/* Same shape and pattern exactly, values within tol. */
+int csr_equal_tol(const CSR_matrix *A, const CSR_matrix *B, double tol);
+
+/* Only available with -DSP_TRACK_MEMORY=ON: reads the tracked allocator
+ * counters, which do not exist in a default build. */
+#ifdef SP_TRACK_MEMORY
+#include "sparsediff_linalg/tracked_alloc.h"
+
+/* No-alloc-in-fill contract: after alloc and one warm-up fill, a second fill
+ * must not touch the tracked allocator at all. Any transient sp_malloc inside
+ * the fill raises the peak above the baseline even if freed before returning;
+ * a permanent one raises the live count. */
+static inline int fill_is_alloc_free(void (*fill)(const void *ctx), const void *ctx)
+{
+    size_t base, live, peak;
+    sp_memory_stats(&base, NULL);
+    sp_memory_reset_peak();
+    fill(ctx);
+    sp_memory_stats(&live, &peak);
+    return live == base && peak == base;
+}
+#endif
+
+#endif /* TEST_HELPERS_H */

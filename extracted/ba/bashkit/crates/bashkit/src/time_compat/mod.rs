@@ -30,28 +30,28 @@ pub mod host_clock;
     target_os = "unknown",
     not(feature = "wasm_js")
 ))]
-pub(crate) use host_clock::{Instant, SystemTime, UNIX_EPOCH};
+pub use host_clock::{Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown", feature = "wasm_js"))]
-pub(crate) use web_time::{Instant, SystemTime, UNIX_EPOCH};
+pub use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 // WASI targets (wasip1, wasip2, wasip1-threads) have real clocks in std, and
 // no tokio timer driver worth routing `Instant` through.
 #[cfg(all(target_arch = "wasm32", not(target_os = "unknown")))]
-pub(crate) use std::time::{Instant, SystemTime, UNIX_EPOCH};
+pub use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) use std::time::{SystemTime, UNIX_EPOCH};
+pub use std::time::{SystemTime, UNIX_EPOCH};
 
 // Tokio's instant follows the runtime's paused/advanced monotonic clock. This
 // makes shell deadlines and `time` deterministic under virtual-time runtimes.
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) use tokio::time::Instant;
+pub use tokio::time::Instant;
 
 /// Portable timer future. JS-host wasm uses `setTimeout`; native targets keep
 /// tokio's runtime timer. The wasm future is wrapped as `Send` because the
 /// target is deliberately single-threaded (the same invariant as JS builtins).
-pub(crate) async fn sleep(duration: Duration) {
+pub async fn sleep(duration: Duration) {
     #[cfg(all(
         target_arch = "wasm32",
         target_os = "unknown",
@@ -77,10 +77,11 @@ pub(crate) async fn sleep(duration: Duration) {
     tokio::time::sleep(duration).await;
 }
 
-pub(crate) struct TimeoutElapsed;
+#[derive(Debug)]
+pub struct TimeoutElapsed;
 
 /// Race a future against a host wall-clock deadline on every supported target.
-pub(crate) async fn timeout<F: Future>(
+pub async fn timeout<F: Future>(
     duration: Duration,
     future: F,
 ) -> Result<F::Output, TimeoutElapsed> {
@@ -98,10 +99,16 @@ pub(crate) async fn timeout<F: Future>(
 
         let deadline = Instant::now() + duration;
         let mut future = pin!(future);
-        return std::future::poll_fn(move |cx| match future.as_mut().poll(cx) {
-            Poll::Ready(output) => Poll::Ready(Ok(output)),
-            Poll::Pending if Instant::now() >= deadline => Poll::Ready(Err(TimeoutElapsed)),
-            Poll::Pending => Poll::Pending,
+        return std::future::poll_fn(move |cx| {
+            let result = future.as_mut().poll(cx);
+            // A non-yielding operation may have consumed the remaining budget
+            // before returning Ready, so deadline precedence must be checked
+            // after every poll, not only after Pending.
+            if Instant::now() >= deadline {
+                Poll::Ready(Err(TimeoutElapsed))
+            } else {
+                result.map(Ok)
+            }
         })
         .await;
     }
@@ -260,5 +267,110 @@ mod tests {
         let original = UNIX_EPOCH + std::time::Duration::from_millis(500);
         let round_tripped = from_chrono(to_chrono_utc(original));
         assert_eq!(round_tripped, original);
+    }
+}
+
+/// Tracks time an execution spends blocked on interactive terminal input.
+///
+/// THREAT[TM-DOS-120]: see the threat model for why this is safe.
+///
+/// Important decision: the execution timeout (TM-DOS-057) bounds work the
+/// sandbox does, not how long a human or agent takes to type. A `vi` session
+/// waiting for the next keystroke burns no CPU, and the host controls when
+/// input arrives, so that wait is excluded from the deadline. Everything else
+/// (loops, `sleep`, pending callbacks) still counts.
+#[cfg(feature = "terminal")]
+#[derive(Clone, Default)]
+pub(crate) struct InputWaitClock {
+    inner: std::sync::Arc<std::sync::Mutex<InputWaitState>>,
+}
+
+#[cfg(feature = "terminal")]
+#[derive(Default)]
+struct InputWaitState {
+    paused_since: Option<Instant>,
+    total: Duration,
+}
+
+#[cfg(feature = "terminal")]
+impl InputWaitClock {
+    fn lock(&self) -> std::sync::MutexGuard<'_, InputWaitState> {
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Start excluding time until the returned guard drops.
+    pub(crate) fn pause(&self) -> InputWaitGuard {
+        let mut state = self.lock();
+        if state.paused_since.is_none() {
+            state.paused_since = Some(Instant::now());
+        }
+        InputWaitGuard {
+            clock: self.clone(),
+        }
+    }
+
+    /// Total excluded time, including a wait still in progress.
+    fn excluded(&self) -> Duration {
+        let state = self.lock();
+        state.total
+            + state
+                .paused_since
+                .map(|since| {
+                    Instant::now()
+                        .checked_duration_since(since)
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default()
+    }
+}
+
+/// Ends an input wait started by [`InputWaitClock::pause`].
+#[cfg(feature = "terminal")]
+pub(crate) struct InputWaitGuard {
+    clock: InputWaitClock,
+}
+
+#[cfg(feature = "terminal")]
+impl Drop for InputWaitGuard {
+    fn drop(&mut self) {
+        let mut state = self.clock.lock();
+        if let Some(since) = state.paused_since.take() {
+            state.total += Instant::now()
+                .checked_duration_since(since)
+                .unwrap_or_default();
+        }
+    }
+}
+
+/// [`timeout`], but time recorded on `clock` as input wait does not count.
+///
+/// Re-arms the portable timer with the remaining active budget each time it
+/// fires, so it works on every target `timeout` supports. A long input wait
+/// costs one wakeup per remaining-budget interval, never a busy loop.
+#[cfg(feature = "terminal")]
+pub(crate) async fn timeout_excluding_input_wait<F: Future>(
+    duration: Duration,
+    clock: &InputWaitClock,
+    future: F,
+) -> Result<F::Output, TimeoutElapsed> {
+    let start = Instant::now();
+    let excluded_at_start = clock.excluded();
+    let mut future = std::pin::pin!(future);
+    let mut remaining = duration;
+    loop {
+        if let Ok(output) = timeout(remaining, future.as_mut()).await {
+            return Ok(output);
+        }
+        let elapsed = Instant::now()
+            .checked_duration_since(start)
+            .unwrap_or_default();
+        let excluded = clock.excluded().saturating_sub(excluded_at_start);
+        let active = elapsed.saturating_sub(excluded);
+        remaining = duration.saturating_sub(active);
+        if remaining.is_zero() {
+            return Err(TimeoutElapsed);
+        }
     }
 }

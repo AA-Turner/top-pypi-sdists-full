@@ -19,6 +19,8 @@ from tmo.types.dataset_metadata import (
 
 logger = logging.getLogger(__name__)
 
+STRING_DATA_TYPE_ALIAS = "string"
+
 
 def parse_metadata_from_response(
     metadata_dict: dict,
@@ -128,6 +130,34 @@ def _parse_no_catalog_metadata(metadata_dict: dict, target_object) -> dict:
     return metadata_dict
 
 
+def _parse_data_type(value, variable_name: str = None) -> DataType:
+    """
+    Convert a raw dataType value to DataType, falling back to VARCHAR.
+
+    "string" is a known alias of VARCHAR and maps silently. Any other unknown
+    value must not make the whole entity unparsable, so it logs a warning and
+    is treated as VARCHAR.
+
+    Parameters:
+        value: Raw dataType value from the API response
+        variable_name (str): Variable name, used for the warning message
+
+    Returns:
+        DataType: The matching DataType, or DataType.VARCHAR if unsupported
+    """
+    normalized = str(value).lower()
+    if normalized == STRING_DATA_TYPE_ALIAS:
+        return DataType.VARCHAR
+    try:
+        return DataType(normalized)
+    except ValueError:
+        logger.warning(
+            f"Unsupported dataType '{value}' for variable '{variable_name}', "
+            f"falling back to '{DataType.VARCHAR.value}'."
+        )
+        return DataType.VARCHAR
+
+
 def _dict_list_to_variable_list(variables: list[dict]) -> list[Variable]:
     """
     Convert a list of variable dictionaries to Variable objects.
@@ -141,7 +171,7 @@ def _dict_list_to_variable_list(variables: list[dict]) -> list[Variable]:
     return [
         Variable()
         .set_name(var.get("name"))
-        .set_data_type(DataType(var.get("dataType")))
+        .set_data_type(_parse_data_type(var.get("dataType"), var.get("name")))
         .set_type(TypeEnum(var.get("type")))
         for var in variables
     ]

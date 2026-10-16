@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pipx
-Version: 1.17.14
+Version: 1.18.1
 Summary: Install and Run Python Applications in Isolated Environments
 Project-URL: Issue Tracker, https://github.com/pypa/pipx/issues
 Project-URL: Release Notes, https://pipx.pypa.io/latest/changelog.html
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Requires-Dist: argcomplete>=3.7.2
 Requires-Dist: colorama>=0.4.6; sys_platform == 'win32'
-Requires-Dist: filelock>=4.0.9
+Requires-Dist: filelock>=4.2
 Requires-Dist: packaging>=26.3
 Requires-Dist: platformdirs>=4.12.2
 Requires-Dist: userpath!=1.9,>=1.9.2
@@ -63,8 +63,8 @@ pipx is a tool to help you install and run end-user applications written in Pyth
 `brew`, JavaScript's [npx](https://medium.com/@maybekatz/introducing-npx-an-npm-package-runner-55f7d4bd282b), and
 Linux's `apt`.
 
-It's closely related to pip. In fact, it uses pip, but is focused on installing and managing Python packages that can be
-run from the command line directly as applications.
+It's closely related to pip. It installs with uv when available and pip otherwise, but is focused on installing and
+managing Python packages that can be run from the command line directly as applications.
 
 ### Features
 
@@ -107,7 +107,7 @@ For more detailed installation instructions, see the
 
 ## Quick Start
 
-Install an application globally:
+Install an application for your user:
 
 ```
 pipx install pycowsay

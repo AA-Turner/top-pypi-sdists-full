@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 class RemoteValueByLength(RemoteValue[float]):
     """RemoteValue with DPT detection based on payload length of first received value."""
 
+    __slots__ = ("_dpt_classes", "_internal_dpt_class")
+
     def __init__(
         self,
         xknx: XKNX,
@@ -78,13 +80,6 @@ class RemoteValueByLength(RemoteValue[float]):
         if not self._internal_dpt_class:
             return None
         return self._internal_dpt_class.unit
-
-    @property
-    def ha_device_class(self) -> str | None:
-        """Return a string representing the home assistant device class."""
-        if not self._internal_dpt_class:
-            return None
-        return getattr(self._internal_dpt_class, "ha_device_class", None)
 
     def _determine_dpt_class(self, payload: DPTArray | DPTBinary) -> type[DPTNumeric]:
         """Test if telegram payload may be parsed."""

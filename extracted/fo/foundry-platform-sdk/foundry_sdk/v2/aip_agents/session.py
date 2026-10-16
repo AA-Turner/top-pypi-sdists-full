@@ -101,6 +101,9 @@ class SessionClient:
         Concurrent requests to continue the same session are not supported.
         Clients should wait to receive a response before sending the next message.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -206,6 +209,9 @@ class SessionClient:
         Canceling an exchange allows clients to prevent the exchange from being added to the session, or to provide a response to replace the Agent-generated response.
         Note that canceling an exchange does not terminate the stream returned by `streamingContinue`; clients should close the stream on triggering the cancellation request to stop reading from the stream.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -273,6 +279,9 @@ class SessionClient:
         """
         Create a new conversation session between the calling user and an Agent.
         Use `blockingContinue` or `streamingContinue` to start adding exchanges to the session.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -352,6 +361,9 @@ class SessionClient:
         Delete a conversation session between the calling user and an Agent.
         Once deleted, the session can no longer be accessed and will not appear in session lists.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -406,6 +418,9 @@ class SessionClient:
     ) -> aip_agents_models.Session:
         """
         Get the details of a conversation session between the calling user and an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -464,6 +479,9 @@ class SessionClient:
         This does not list sessions for the user created by other clients.
         For example, any sessions created by the user in AIP Chatbot Studio will not be listed here.
         Sessions are returned in order of most recently updated first.
+
+
+        Required scopes: [api:aip-agents-read]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -525,6 +543,9 @@ class SessionClient:
         """
         Retrieve relevant [context](https://palantir.com/docs/foundry/chatbot-studio/core-concepts/#retrieval-context) for a user message from the data sources configured for the session.
         This allows clients to pre-retrieve context for a user message before sending it to the Agent with the `contextsOverride` option when continuing a session, to allow any pre-processing of the context before sending it to the Agent.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -611,6 +632,9 @@ class SessionClient:
         Streamed exchanges also support cancellation; see `cancel` for details.
         Concurrent requests to continue the same session are not supported.
         Clients should wait to receive a response, or cancel the in-progress exchange, before sending the next message.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -705,6 +729,9 @@ class SessionClient:
         """
         Update the title for a session.
         Use this to set a custom title for a session to help identify it in the list of sessions with an Agent.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -876,6 +903,9 @@ class AsyncSessionClient:
         Concurrent requests to continue the same session are not supported.
         Clients should wait to receive a response before sending the next message.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -981,6 +1011,9 @@ class AsyncSessionClient:
         Canceling an exchange allows clients to prevent the exchange from being added to the session, or to provide a response to replace the Agent-generated response.
         Note that canceling an exchange does not terminate the stream returned by `streamingContinue`; clients should close the stream on triggering the cancellation request to stop reading from the stream.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -1048,6 +1081,9 @@ class AsyncSessionClient:
         """
         Create a new conversation session between the calling user and an Agent.
         Use `blockingContinue` or `streamingContinue` to start adding exchanges to the session.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -1127,6 +1163,9 @@ class AsyncSessionClient:
         Delete a conversation session between the calling user and an Agent.
         Once deleted, the session can no longer be accessed and will not appear in session lists.
 
+
+        Required scopes: [api:aip-agents-write]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -1181,6 +1220,9 @@ class AsyncSessionClient:
     ) -> typing.Awaitable[aip_agents_models.Session]:
         """
         Get the details of a conversation session between the calling user and an Agent.
+
+        Required scopes: [api:aip-agents-read]
+
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
         :param session_rid: The Resource Identifier (RID) of the conversation session.
@@ -1239,6 +1281,9 @@ class AsyncSessionClient:
         This does not list sessions for the user created by other clients.
         For example, any sessions created by the user in AIP Chatbot Studio will not be listed here.
         Sessions are returned in order of most recently updated first.
+
+
+        Required scopes: [api:aip-agents-read]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -1300,6 +1345,9 @@ class AsyncSessionClient:
         """
         Retrieve relevant [context](https://palantir.com/docs/foundry/chatbot-studio/core-concepts/#retrieval-context) for a user message from the data sources configured for the session.
         This allows clients to pre-retrieve context for a user message before sending it to the Agent with the `contextsOverride` option when continuing a session, to allow any pre-processing of the context before sending it to the Agent.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -1386,6 +1434,9 @@ class AsyncSessionClient:
         Streamed exchanges also support cancellation; see `cancel` for details.
         Concurrent requests to continue the same session are not supported.
         Clients should wait to receive a response, or cancel the in-progress exchange, before sending the next message.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid
@@ -1480,6 +1531,9 @@ class AsyncSessionClient:
         """
         Update the title for a session.
         Use this to set a custom title for a session to help identify it in the list of sessions with an Agent.
+
+
+        Required scopes: [api:aip-agents-write]
 
         :param agent_rid: An RID identifying an Agent created in [AIP Chatbot Studio](https://palantir.com/docs/foundry/chatbot-studio/overview/).
         :type agent_rid: AgentRid

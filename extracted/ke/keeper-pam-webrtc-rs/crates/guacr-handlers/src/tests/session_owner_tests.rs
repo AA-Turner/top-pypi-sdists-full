@@ -26,6 +26,28 @@ async fn test_new_has_no_session_and_zero_viewers() {
     assert_eq!(sender.viewer_count(), 0, "no viewers before attach_session");
 }
 
+/// The owner disconnect notice is control traffic; it must not become the frame a
+/// late-joining viewer is handed as initial state.
+#[tokio::test]
+async fn test_owner_disconnect_does_not_poison_frame_cache() {
+    let (tx, _rx) = mpsc::channel(4);
+    let mut sender = SessionOwnerSender::new(tx);
+
+    let id = unique_id("disconnect_cache_");
+    let handle = session_sharing::register(&id).unwrap();
+    sender.attach_session(handle.clone());
+
+    let frame = Bytes::from_static(b"4.img,1.0;");
+    sender.send(frame.clone()).await.unwrap();
+    sender.owner_disconnect(&id);
+
+    assert_eq!(
+        handle.last_frame(),
+        Some(frame),
+        "the disconnect notice must not overwrite the cached frame"
+    );
+}
+
 #[tokio::test]
 async fn test_transport_sender_is_the_provided_channel() {
     let (tx, mut rx) = mpsc::channel(4);

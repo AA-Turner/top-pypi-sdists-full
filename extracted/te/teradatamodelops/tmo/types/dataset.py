@@ -1,15 +1,15 @@
 import logging
 import uuid
-from enum import Enum
 from typing import Optional, Union
 
 from tmo.types.base_dataset import BaseDatasetMixin
 from tmo.types.dataset_metadata import Metadata, CatalogType
+from tmo.types.enums import ValueEnum
 
 logger = logging.getLogger(__name__)
 
 
-class Scope(Enum):
+class Scope(ValueEnum):
     TRAIN = "train"
     EVALUATE = "evaluate"
 

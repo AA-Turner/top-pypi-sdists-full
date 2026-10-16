@@ -5,7 +5,7 @@ import ctranslate2
 import numpy as np
 
 from .tokenizer import Tokenizer
-from .hf_utils import download_model
+from ...hub import _n_mels, _normalize_compute_type, download_model
 
 
 from .. import WhisperModel
@@ -14,15 +14,10 @@ from ...configs import *
 
 FAST_ASR_OPTIONS = {
     "beam_size": 1,
-    "best_of": 1,
     "patience": 1,
     "length_penalty": 1,
     "repetition_penalty": 1.01,
     "no_repeat_ngram_size": 0,
-    "compression_ratio_threshold": 2.4,
-    "log_prob_threshold": -1.0,
-    "no_speech_threshold": 0.5,
-    "prefix": None,
     "suppress_blank": True,
     "suppress_tokens": [-1],
     "without_timestamps": True,
@@ -37,15 +32,10 @@ FAST_ASR_OPTIONS = {
 
 BEST_ASR_CONFIG = {
     "beam_size": 5,
-    "best_of": 1,
     "patience": 2,
     "length_penalty": 1,
     "repetition_penalty": 1.01,
     "no_repeat_ngram_size": 0,
-    "compression_ratio_threshold": 2.4,
-    "log_prob_threshold": -1.0,
-    "no_speech_threshold": 0.5,
-    "prefix": None,
     "suppress_blank": True,
     "suppress_tokens": [-1],
     "without_timestamps": True,
@@ -58,15 +48,6 @@ BEST_ASR_CONFIG = {
 }
 
 
-_SUPPORTED_COMPUTE_TYPES = {"float32", "float16", "bfloat16"}
-
-
-def _normalize_compute_type(compute_type: str) -> str:
-    if compute_type in _SUPPORTED_COMPUTE_TYPES:
-        return compute_type
-    return "float32"
-
-
 class WhisperModelCT2(WhisperModel):
     def __init__(self,
                  model_name_or_path: str,
@@ -77,14 +58,22 @@ class WhisperModelCT2(WhisperModel):
                  compute_type="float16",
                  max_text_token_len=MAX_TEXT_TOKEN_LENGTH,
                  asr_options=None,
+                 *,
+                 cache_dir=None,
+                 local_files_only=False,
                  **model_kwargs):
 
         compute_type = _normalize_compute_type(compute_type)
 
+        for key in ('use_dynamic_time_axis', 'dta_padding'):
+            if model_kwargs.pop(key, None) is not None:
+                warnings.warn(f"'{key}' is no longer supported and is ignored.")
+
         if os.path.isdir(model_name_or_path):
             self.model_path = model_name_or_path
         else:
-            self.model_path = download_model(model_name_or_path, compute_type=compute_type)
+            self.model_path = download_model(model_name_or_path, compute_type=compute_type,
+                                             local_files_only=local_files_only, cache_dir=cache_dir)
 
         self.model = ctranslate2.models.Whisper(self.model_path,
                                                 device=device,
@@ -107,36 +96,48 @@ class WhisperModelCT2(WhisperModel):
             asr_options = {}
         self.asr_options = FAST_ASR_OPTIONS.copy()
         self.asr_options.update(asr_options)
+        model_kwargs.setdefault('without_timestamps', self.asr_options['without_timestamps'])
 
         if self.asr_options['word_timestamps']:
             aligner_name = self.asr_options['word_aligner_model']
             if (not self.model.is_multilingual) and aligner_name == 'tiny':
                 aligner_name = 'tiny.en'
 
-            self.aligner_model_path = download_model(aligner_name, compute_type=compute_type)
-            if os.path.normpath(self.aligner_model_path) == os.path.normpath(self.model_path):
-                self.aligner_model = self.model
-            else:
-                self.aligner_model = ctranslate2.models.Whisper(self.aligner_model_path,
-                                                                device=device,
-                                                                device_index=device_index,
-                                                                compute_type=compute_type,
-                                                                intra_threads=cpu_threads,
-                                                                inter_threads=num_workers)
-
-                if self.aligner_model.n_mels != self.model.n_mels:
+            if _n_mels(aligner_name) not in (None, self.model.n_mels):
+                if 'word_aligner_model' in asr_options:
                     warnings.warn(
-                        f"word_aligner_model '{aligner_name}' expects {self.aligner_model.n_mels} mel bins "
+                        f"word_aligner_model '{aligner_name}' expects {_n_mels(aligner_name)} mel bins "
                         f"but the main model produces {self.model.n_mels}; "
                         f"using the main model for word alignment instead."
                     )
+                self.aligner_model_path = self.model_path
+                self.aligner_model = self.model
+            else:
+                self.aligner_model_path = download_model(aligner_name, compute_type=compute_type,
+                                                         local_files_only=local_files_only, cache_dir=cache_dir)
+                if os.path.normpath(self.aligner_model_path) == os.path.normpath(self.model_path):
                     self.aligner_model = self.model
-                elif self.aligner_model.is_multilingual != self.model.is_multilingual:
-                    warnings.warn(
-                        f"word_aligner_model '{aligner_name}' (multilingual={self.aligner_model.is_multilingual}) "
-                        f"does not match the main model (multilingual={self.model.is_multilingual}); "
-                        f"word timestamps may be inaccurate due to a tokenizer mismatch."
-                    )
+                else:
+                    self.aligner_model = ctranslate2.models.Whisper(self.aligner_model_path,
+                                                                    device=device,
+                                                                    device_index=device_index,
+                                                                    compute_type=compute_type,
+                                                                    intra_threads=cpu_threads,
+                                                                    inter_threads=num_workers)
+
+                    if self.aligner_model.n_mels != self.model.n_mels:
+                        warnings.warn(
+                            f"word_aligner_model '{aligner_name}' expects {self.aligner_model.n_mels} mel bins "
+                            f"but the main model produces {self.model.n_mels}; "
+                            f"using the main model for word alignment instead."
+                        )
+                        self.aligner_model = self.model
+                    elif self.aligner_model.is_multilingual != self.model.is_multilingual:
+                        warnings.warn(
+                            f"word_aligner_model '{aligner_name}' (multilingual={self.aligner_model.is_multilingual}) "
+                            f"does not match the main model (multilingual={self.model.is_multilingual}); "
+                            f"word timestamps may be inaccurate due to a tokenizer mismatch."
+                        )
 
         self.generate_kwargs = {
             "max_length": max_text_token_len,
@@ -256,6 +257,10 @@ class WhisperModelCT2(WhisperModel):
 
         return word_timings
 
+    def _collapsed(self, sequence, frames):
+        seconds = frames/FRAMES_PER_SECOND
+        return seconds >= 5 and len([t for t in sequence if t < self.tokenizer.eot]) < seconds
+
     def generate_segment_batched(self, features, prompts, seq_lens=None, seg_metadata=None):
 
         if self.device == 'cpu':
@@ -266,6 +271,18 @@ class WhisperModelCT2(WhisperModel):
         result = self.model.generate(ctranslate2.StorageView.from_array(features),
                                      prompts,
                                      **self.generate_kwargs)
+
+        if seq_lens is not None:
+            retry = [idx for idx, r in enumerate(result)
+                     if prompts[idx][-1] == self.tokenizer.no_timestamps
+                     and self._collapsed(r.sequences_ids[0], int(seq_lens[idx]))]
+            if retry:
+                retried = self.model.generate(ctranslate2.StorageView.from_array(features[retry]),
+                                              [prompts[idx][:-1] + [self.tokenizer.timestamp_begin] for idx in retry],
+                                              **self.generate_kwargs)
+                for idx, r in zip(retry, retried):
+                    if not self._collapsed(r.sequences_ids[0], int(seq_lens[idx])):
+                        result[idx] = r
 
         texts = self.tokenizer.decode_batch([x.sequences_ids[0] for x in result])
 
@@ -282,7 +299,7 @@ class WhisperModelCT2(WhisperModel):
                 response[-1]['no_speech_prob'] = r.no_speech_prob
 
         if self.asr_options['word_timestamps']:
-            text_tokens = [x.sequences_ids[0]+[self.tokenizer.eot] for x in result]
+            text_tokens = [[t for t in x.sequences_ids[0] if t < self.tokenizer.eot]+[self.tokenizer.eot] for x in result]
             sot_len = 4 if self.tokenizer.multilingual else 2
             sot_seqs = [tuple(_[-sot_len:]) for _ in prompts]
             word_timings = self.align_words(features, texts, text_tokens, sot_seqs, seq_lens, seg_metadata)

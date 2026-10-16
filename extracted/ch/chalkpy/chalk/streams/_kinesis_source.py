@@ -7,10 +7,7 @@ from chalk.utils.duration import Duration
 if TYPE_CHECKING:
     from pydantic import BaseModel, Field
 else:
-    try:
-        from pydantic.v1 import BaseModel, Field
-    except ImportError:
-        from pydantic import BaseModel, Field
+    from chalk.utils.pydanticutil.sdk import BaseModel, Field
 
 _KINESIS_STREAM_NAME_NAME = "KINESIS_STREAM_NAME"
 _KINESIS_STREAM_ARN_NAME = "KINESIS_STREAM_ARN"

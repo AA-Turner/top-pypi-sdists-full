@@ -1,10 +1,12 @@
+# TODO: type stub overloads for unbound methods?
+# pyright: reportCallIssue=false
+
 import unittest
-import unittest.mock
 import warnings
 
 from cachetools import Cache, cachedmethod, keys
 
-from . import CountedCondition, CountedLock, _TestCaseProtocol
+from . import CountedCondition, CountedLock, SimplifiedTestCaseProtocol
 
 
 class Cached:
@@ -77,7 +79,7 @@ class Unhashable(Cached):
         raise TypeError("unhashable type")
 
 
-class MethodDecoratorTestMixin(_TestCaseProtocol):
+class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
     def cache(self, _minsize, **_kwargs):
         raise NotImplementedError
 
@@ -632,6 +634,69 @@ class CacheMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
         self.assertEqual(cached.get(2), 2)
         self.assertNotIn(2, cache.values())
 
+    def test_undecorated_override(self):
+        class Child(Cached):
+            def get_info(self, value):  # type: ignore[reportIncompatibleVariableOverride]
+                return super().get_info(value) + 1
+
+        cache = self.cache(2)
+        cached = Child(cache)
+        self.assertEqual(cached.get_info(0), 1)
+        self.assertEqual(cached.get_info(0), 1)
+        self.assertEqual(super(Child, cached).get_info(0), 0)
+        self.assertEqual(cached.get_info(1), 2)
+        self.assertEqual(super(Child, cached).get_info(1), 1)
+        self.assertNotIn("get_info", vars(cached))
+        self.assertEqual(super(Child, cached).get_info.cache_info(), (3, 2, 2, 2))
+
+    def test_decorated_override(self):
+        class Child(Cached):
+            def __init__(self, base_cache, child_cache):
+                super().__init__(base_cache)
+                self.child_cache = child_cache
+
+            @cachedmethod(lambda self: self.child_cache, info=True)
+            def get_info(self, value):
+                return super().get_info(value) + 1
+
+        cached = Child(self.cache(2), self.cache(2))
+        self.assertEqual(cached.get_info(0), 1)
+        self.assertEqual(cached.get_info(0), 1)
+        self.assertEqual(super(Child, cached).get_info(0), 0)
+        self.assertEqual(cached.get_info(1), 2)
+        self.assertEqual(super(Child, cached).get_info(1), 1)
+        self.assertIn("get_info", vars(cached))
+        self.assertEqual(cached.get_info.cache_info(), (1, 2, 2, 2))
+        self.assertEqual(super(Child, cached).get_info.cache_info(), (2, 2, 2, 2))
+        cached.get_info.cache_clear()
+        self.assertEqual(cached.get_info.cache_info(), (0, 0, 2, 0))
+        self.assertEqual(super(Child, cached).get_info.cache_info(), (2, 2, 2, 2))
+        self.assertEqual(cached.get_info(0), 1)
+        self.assertEqual(cached.get_info.cache_info(), (0, 1, 2, 1))
+        self.assertEqual(super(Child, cached).get_info.cache_info(), (3, 2, 2, 2))
+        super(Child, cached).get_info.cache_clear()
+        self.assertEqual(cached.get_info.cache_info(), (0, 1, 2, 1))
+        self.assertEqual(super(Child, cached).get_info.cache_info(), (0, 0, 2, 0))
+
+    def test_multilevel_override(self):
+        class Child(Cached):
+            @cachedmethod(lambda self: self.cache, key=keys.typedmethodkey)
+            def get_typed(self, value):
+                return super().get_typed(float(value)) + 1
+
+        class GrandChild(Child):
+            @cachedmethod(lambda self: self.cache, key=keys.typedmethodkey, info=True)
+            def get_typed(self, value):
+                return super().get_typed(int(value)) + 1
+
+        cache = self.cache(5)  # shared cache, but different key types
+        cached = GrandChild(cache)
+        self.assertEqual(cached.get_typed("0"), 2)
+        self.assertEqual(cached.get_typed("0"), 2)
+        self.assertEqual(cached.get_typed.cache_info(), (1, 1, 5, 3))
+        self.assertEqual(super(GrandChild, cached).get_typed(0), 1)
+        self.assertEqual(super(Child, cached).get_typed(0.0), 0)
+
 
 class DictMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
     def cache(self, minsize, **_kwargs):
@@ -683,8 +748,51 @@ class NoneMethodTest(unittest.TestCase):
             wrapper.cache_info()
 
 
-class AutospecTest(unittest.TestCase):
+class UnboundMethodTest(unittest.TestCase):
+    def test_class_call(self):
+        cached = Cached(Cache(2))
+        self.assertEqual(Cached.get(cached, 1), 0)
+        self.assertEqual(cached.get(1), 0)
+        self.assertEqual(Cached.get(cached, 2), 1)
+        self.assertEqual(cached.get(2), 1)
+        self.assertEqual(cached.count, 2)
+        other = Cached(Cache(2), count=10)
+        self.assertEqual(Cached.get(other, 1), 10)
+        self.assertEqual(cached.get(1), 0)
+
+    def test_class_call_info(self):
+        cached = Cached(Cache(2))
+        self.assertEqual(Cached.get_info(cached, 1), 0)
+        self.assertEqual(cached.get_info(1), 0)
+        self.assertEqual(Cached.get_info(cached, 2), 1)
+        self.assertEqual(cached.get_info(2), 1)
+        self.assertEqual(cached.count, 2)
+        self.assertEqual(cached.get_info.cache_info(), (2, 2, 2, 2))
+        other = Cached(Cache(2), count=10)
+        self.assertEqual(Cached.get_info(other, 1), 10)
+        self.assertEqual(cached.get_info(1), 0)
+
+    def test_base_class_call(self):
+        cached = Unhashable(Cache(2))
+        self.assertEqual(Cached.get(cached, 1), 0)
+        self.assertEqual(cached.get(1), 0)
+        self.assertEqual(cached.count, 1)
+
+    def test_class_access_identity(self):
+        self.assertIs(Cached.get, Cached.get)
+        self.assertIs(Cached.get_info, Cached.get_info)
+        self.assertIs(Unhashable.get, Cached.get)
+        self.assertIsNot(Cached.get, Cached.get_info)
+
+    def test_wrapped_method(self):
+        cached = Cached(Cache(2))
+        self.assertIs(Cached.get.__wrapped__, cached.get.__wrapped__)
+        self.assertEqual(Cached.get.__wrapped__(cached, 1), 0)
+        self.assertEqual(Cached.get.__wrapped__(cached, 1), 1)
+        self.assertEqual(len(cached.cache), 0)
+
     def test_autospec_no_warnings(self):
+        import unittest.mock
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.2.7
+Version: 2.2.8
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -25,7 +25,7 @@ Requires-Python: >=3.10
 Requires-Dist: click>=8.5.0
 Requires-Dist: lib-cli-exit-tools>=2.4.1
 Requires-Dist: lib-layered-config>=7.1.9
-Requires-Dist: lib-log-rich>=6.5.2
+Requires-Dist: lib-log-rich>=6.5.3
 Requires-Dist: orjson>=3.13.0
 Requires-Dist: pydantic>=2.14.1
 Requires-Dist: python-dotenv>=1.2.4
@@ -34,6 +34,7 @@ Requires-Dist: wcmatch>=11.1
 Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
+Requires-Dist: hatchling>=1.32.4; extra == 'dev'
 Requires-Dist: httpx2>=2.13.1; extra == 'dev'
 Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'

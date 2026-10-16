@@ -2,6 +2,12 @@
 
 .PHONY: onboarding lint format typecheck check-api-surface test integration-tests dev installdeps lock
 
+# xdist worker count for integration-tests. `auto` is what the invoke task
+# defaults to, but with psutil importable xdist resolves it to *physical*
+# cores, which is half the vCPU a Buildkite step reserves. CI exports
+# PYTEST_WORKERS=logical, and `?=` lets that environment value win.
+PYTEST_WORKERS ?= auto
+
 onboarding:
 	@echo "🛠️  Setting up workflow_sdk..."
 	@$(MAKE) installdeps
@@ -23,7 +29,7 @@ test:
 	uv run invoke tests
 
 integration-tests:
-	uv run invoke integration-tests -v
+	uv run invoke integration-tests -v -n $(PYTEST_WORKERS)
 
 dev:
 	@echo "Development environment setup"

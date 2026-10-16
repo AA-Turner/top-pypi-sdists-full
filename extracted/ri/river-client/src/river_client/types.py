@@ -143,6 +143,22 @@ class PolicyVersion:
         return cls(value.id, value.lineage_id, value.step, value.parent_id or None)
 
 
+@dataclass(frozen=True)
+class PolicySpan:
+    """Policy of generated tokens up to exclusive offset ``end``."""
+
+    end: int
+    policy_version: PolicyVersion
+
+    def __post_init__(self):
+        if isinstance(self.policy_version, dict):
+            object.__setattr__(
+                self, "policy_version", PolicyVersion(**self.policy_version)
+            )
+        if self.end <= 0 or self.policy_version is None:
+            raise ValueError("a policy span needs a positive end and a policy")
+
+
 @dataclass
 class Sample:
     """A generated sample.
@@ -182,6 +198,7 @@ class Sample:
     # High-level RL refuses these samples rather than training on token skew.
     token_data_is_exact: bool = True
     policy_version: PolicyVersion | None = None
+    policy_spans: list[PolicySpan] = field(default_factory=list)
     # Acknowledges the retained-KV mode, including on a cold cache miss.
     kv_cache_policy_version: PolicyVersion | None = None
     retained_kv: bool = False
@@ -418,7 +435,7 @@ class Checkpoint:
 
     path: str  # river://run-id/weights/name
     step: int
-    checkpoint_type: str  # "training" or "inference"
+    checkpoint_type: str  # "training", "inference" or "publish"
     policy_version: PolicyVersion | None = None
 
     def __post_init__(self):
@@ -428,6 +445,36 @@ class Checkpoint:
 
 class RiverError(Exception):
     """Base exception for River client errors."""
+
+
+class AutoCheckpointFailedError(RiverError):
+    """A full-weight run's training operation was refused: the run's last
+    automatic checkpoint failed, and so did the save the server tried again
+    before the operation.
+
+    A full-weight run, SFT or RL, never trains past a missing recovery point.
+    The refused operation is the step's first ``forward_backward`` (or a
+    bare ``optim_step``), so no gradients are pending. Free space if
+    ``message`` says the volume is full (delete a saved checkpoint), then
+    submit the operation again, which saves again first. ``Model.step``
+    counts a refused optimizer step until ``Model.sync_committed_policy()``
+    resynchronizes it.
+    """
+
+    #: The error category the server fails the operation with.
+    CATEGORY = "auto_checkpoint_failed"
+
+    def __init__(self, message: str):
+        # The server's message already names the category.
+        super().__init__(message)
+        self.message = message
+
+
+def failed_operation_error(category: str, message: str) -> RiverError:
+    """The exception for an operation the server failed with ``category``."""
+    if category == AutoCheckpointFailedError.CATEGORY:
+        return AutoCheckpointFailedError(message)
+    return RiverError(f"{category}: {message}")
 
 
 class RiverTimeoutError(RiverError):

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import platform
 import subprocess
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,7 +36,9 @@ from cozy_runtime.internal import accel, canonical
 from cozy_runtime.internal.encoding.formats import (
     MX_BLOCK,
     Encoded,
+    Int8ConvRotDequant,
     MicroScaledDequant,
+    Nvfp4Dequant,
     Provider,
     RowwiseDequant,
     ScaledScalarDequant,
@@ -44,7 +47,12 @@ from cozy_runtime.internal.encoding.formats import (
     refuse,
     registry_digests,
 )
-from cozy_runtime.internal.encoding.leaves import MicroScaledNativeLeaf, RowwiseNativeLeaf
+from cozy_runtime.internal.encoding.leaves import (
+    Int8ConvRotNativeLeaf,
+    MicroScaledNativeLeaf,
+    Nvfp4NativeLeaf,
+    RowwiseNativeLeaf,
+)
 
 # `torch: Any` is the torch module, which the check venv does not carry.
 
@@ -388,8 +396,14 @@ OBJECTIVE_AXIS: dict[str, str] = {
 class Capabilities:
     """The fail-closed admission table. No default branch, no "unknown means allowed"."""
 
-    def __init__(self, records: Sequence[CapabilityRecord] = ()) -> None:
+    def __init__(
+        self,
+        records: Sequence[CapabilityRecord] = (),
+        refusals: Mapping[tuple[str, str, str], str] | None = None,
+    ) -> None:
         self.records = list(records)
+        #: (encoding, implementation digest, output dtype) -> why that cell minted no record
+        self.refusals = dict(refusals or {})
 
     def add(self, record: CapabilityRecord) -> None:
         self.records.append(record)
@@ -515,20 +529,14 @@ NAMED_SEAMS: dict[str, tuple[str, str]] = {
         "encoded-provider leg; on sm89 the qualified route is decoded_float, which this "
         "runtime serves",
     ),
-    # `fp8-rowwise/1` and `mxfp8/1` LEFT THIS TABLE when their encoded-GEMM leaves were
-    # built. A seam entry means "this runtime recognises the bytes and executes none of
-    # them"; both now have TWO providers each, a decode floor and an encoded leaf, and the
+    # `fp8-rowwise/1`, `mxfp8/1` and `nvfp4-w4a4/1` LEFT THIS TABLE when their encoded-GEMM
+    # leaves were built. A seam entry means "this runtime recognises the bytes and executes
+    # none of them"; each now has TWO providers, a decode floor and an encoded leaf, and the
     # honest answer for a device that serves neither is the candidate list the refusal
     # prints. sm100 (B200) stays UNMEASURED: no card was rented, so no record and no floor.
-    "nvfp4-w4a4/1": (
-        "cuda.sm100+",
-        "the v1 SVDQuant/W4A4 native stack, ported as providers with its layout contracts "
-        "already registered as encoding rules; sequences with its consuming lane's tier. "
-        "PAUSED behind #549's plan-identity gates — no new provider lands until they do",
-    ),
     "svdq-microscale/1": (
         "cuda.sm100+",
-        "svdq micro-scale, same port as nvfp4-w4a4/1; its wscale geometry is PROVISIONAL "
+        "svdq micro-scale; its wscale geometry is PROVISIONAL "
         "pending producer-mined confirmation (tfs-008)",
     ),
 }
@@ -537,29 +545,22 @@ NAMED_SEAMS: dict[str, tuple[str, str]] = {
 # ------------------------------------------------------------------------ the launch table
 
 
-class SpecUnreviewed(Exception):
-    """A provider in this build declares a spec digest the compiled registry does not carry.
-
-    Loud at LAUNCH, by construction (#549.4). The alternative — silently dropping the
-    provider — is how a registry bump turns into an `encoding_unqualified` on a production
-    artifact three deploys later, with nothing pointing at the bump.
-    """
+#: Spec digests already reported as absent from this process's TensorFS registry.
+_ABSENT: set[str] = set()
 
 
 def launch_providers() -> dict[str, tuple[Provider, ...]]:
     """The LAUNCH TIER provider set: spec digest -> the ORDERED CANDIDATES for that digest.
 
     **Built from `reviewed_specs`, not from aliases** (#549.4). Each provider names the exact
-    digests it was reviewed against; this function inverts that into digest -> providers and
-    checks every declared digest against the compiled registry. Two consequences, both the
-    point:
+    digests it was reviewed against; this function inverts that into digest -> providers. A
+    NEW digest the registry files under an existing alias therefore acquires no provider: a
+    semantically different `mxfp8/1` is never decoded by `cozy.mxfp8.dequant/1` on the
+    strength of its display name.
 
-    * a NEW digest the registry files under an existing alias acquires NO PROVIDER. Under
-      the alias-keyed spelling it inherited the sibling's decoder — a semantically different
-      `mxfp8/1` would have been decoded by `cozy.mxfp8.dequant/1` on the strength of its
-      display name.
-    * a digest that LEAVES the registry raises `SpecUnreviewed` here, at launch, naming the
-      provider and the digest, instead of quietly unregistering a route.
+    A reviewed digest the installed TensorFS does not carry (an older TensorFS than this
+    Runtime's newest encoding) is skipped with one warning: executors launch, and bytes in
+    that encoding are refused at bind (`unknown_encoding`), so a lane falls back to another.
 
     The order within a digest is REGISTRATION order and it decides NOTHING. Selection among
     candidates is `resolution.py`'s joint plan decision over records that exist only where a
@@ -567,7 +568,6 @@ def launch_providers() -> dict[str, tuple[Provider, ...]]:
     """
     known = registry_digests()
     out: dict[str, list[Provider]] = {}
-    declared: list[tuple[str, str]] = []
     builds: tuple[Callable[[str], Provider], ...] = (
         Verbatim,
         ScaledScalarDequant,
@@ -575,26 +575,25 @@ def launch_providers() -> dict[str, tuple[Provider, ...]]:
         RowwiseNativeLeaf,
         MicroScaledDequant,
         MicroScaledNativeLeaf,
+        Int8ConvRotDequant,
+        Int8ConvRotNativeLeaf,
+        Nvfp4Dequant,
+        Nvfp4NativeLeaf,
     )
     for build in builds:
         # The provider is instantiated once per digest it reviewed, which is what makes
         # `provider.encoding` a fact rather than a lookup.
         probe = build("")
         for digest in sorted(probe.reviewed_specs):
-            declared.append((probe.name, digest))
-            if digest not in known:
-                continue
-            out.setdefault(digest, []).append(build(digest))
-    missing = [(name, digest) for name, digest in declared if digest not in known]
-    if missing:
-        raise SpecUnreviewed(
-            "this build declares spec digests the compiled registry does not carry: "
-            + " | ".join(f"{name} -> {digest}" for name, digest in sorted(missing))
-            + ". A provider's reviewed digest set is its claim about which physical byte "
-            "contracts it was read against; a registry that moved one has changed what "
-            "those bytes mean, and inferring the replacement by ALIAS is exactly the "
-            "substitution #549.4 forbids"
-        )
+            if digest in known:
+                out.setdefault(digest, []).append(build(digest))
+            elif digest not in _ABSENT:
+                _ABSENT.add(digest)
+                print(
+                    f"[encoding] the installed TensorFS registry carries no spec {digest}: "
+                    f"{probe.name} and every other provider of it are not served",
+                    file=sys.stderr,
+                )
     return {digest: tuple(candidates) for digest, candidates in out.items()}
 
 
@@ -644,6 +643,17 @@ class Selection:
 
 
 @dataclass(frozen=True, slots=True)
+class Refusal:
+    """A leaf this device REFUSED for a tensor whose bytes and shape admit it: its qualification
+    failed, its kernel is unavailable here, or it raised. Never a by-design route: a geometry
+    the format rules out is `TensorCandidates.geometry_refused`, and a recipe's float layer is
+    stored plain."""
+
+    leaf: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class TensorCandidates:
     """Every route this tensor CAN take on this device, plus what refused the others.
 
@@ -664,6 +674,8 @@ class TensorCandidates:
     routes_offered: frozenset[str] = frozenset()
     """Every route this tensor's BYTES and SHAPE admit on some device, qualified here or
     not. `by_route` minus this is what this card did not qualify."""
+    refused: tuple[Refusal, ...] = ()
+    """The encoded leaves this card refused for this tensor, with why."""
 
 
 class Selector:
@@ -766,7 +778,19 @@ class Selector:
                 continue
             reason = self._reason(provider, record, among, geometry)
             best[provider.route] = Selection(provider, record, encoded, reason)
-        return TensorCandidates(key, encoded, output_dtype, best, tuple(geometry), "", offered)
+        refused = tuple(
+            Refusal(
+                provider.name,
+                self.capabilities.refusals.get(
+                    (encoded.encoding, digest, output_dtype), "no qualification record"
+                ),
+            )
+            for digest, provider in among.items()
+            if provider.route == "encoded_gemm" and "encoded_gemm" not in best
+        )
+        return TensorCandidates(
+            key, encoded, output_dtype, best, tuple(geometry), "", offered, refused
+        )
 
     def _reason(
         self,

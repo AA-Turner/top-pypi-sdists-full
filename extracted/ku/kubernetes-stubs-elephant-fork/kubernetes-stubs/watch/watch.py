@@ -2,8 +2,8 @@ from collections.abc import Callable, Iterable
 from typing import (Generic, Literal, ParamSpec, Protocol, TypedDict, TypeVar,
                     Union)
 
-_T = TypeVar("T")
-_P = ParamSpec("P")
+_T = TypeVar("_T")
+_P = ParamSpec("_P")
 
 
 class _ObjectEvent(TypedDict, Generic[_T]):

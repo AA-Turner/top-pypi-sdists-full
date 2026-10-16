@@ -1311,3 +1311,119 @@ class F(NamedTuple):
         return super(F, self).__repr__()
 "#,
 );
+
+testcase!(
+    test_untyped_namedtuple,
+    TestEnv::new().enable_untyped_namedtuple_error(),
+    r#"
+import collections
+from collections import namedtuple
+
+Point = namedtuple("Point", ["x", "y"])  # E: `namedtuple` does not declare field types
+Pair = collections.namedtuple("Pair", "a b")  # E: `namedtuple` does not declare field types
+Empty = namedtuple("Empty", [])  # E: `namedtuple` does not declare field types
+
+class Base(namedtuple("Base", ["v"])):  # E: `namedtuple` does not declare field types
+    pass
+"#,
+);
+
+testcase!(
+    test_untyped_namedtuple_typed_forms_no_error,
+    TestEnv::new().enable_untyped_namedtuple_error(),
+    r#"
+from typing import NamedTuple
+
+Point = NamedTuple("Point", [("x", int), ("y", int)])
+
+class Pair(NamedTuple):
+    a: int
+    b: str
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/5224
+testcase!(
+    test_named_tuple_custom_new_inherited,
+    r#"
+from typing import NamedTuple, assert_type
+
+class Base(NamedTuple):
+    a: int
+    b: str
+
+class Mid(Base):
+    def __new__(cls, t: tuple[int, str]) -> "Mid":
+        return super().__new__(cls, *t)
+
+class Child(Mid):
+    pass
+
+class GrandChild(Child):
+    pass
+
+Mid((1, "x"))
+Child((1, "x"))
+GrandChild((1, "x"))
+assert_type(Child((1, "x")).a, int)
+Child(1, "x")  # E: Argument `Literal[1]` is not assignable to parameter `t`  # E: Expected 1 positional argument, got 2
+    "#,
+);
+
+testcase!(
+    test_named_tuple_custom_new_inherited_self,
+    r#"
+from typing import NamedTuple, Self, assert_type
+
+class Base(NamedTuple):
+    a: int
+
+class Mid(Base):
+    def __new__(cls, s: str) -> Self:
+        return super().__new__(cls, int(s))
+
+class Child(Mid):
+    pass
+
+assert_type(Child("1"), Child)
+Child(1)  # E: Argument `Literal[1]` is not assignable to parameter `s` with type `str`
+    "#,
+);
+
+testcase!(
+    test_named_tuple_custom_new_overridden_again,
+    r#"
+from typing import NamedTuple, Self
+
+class Base(NamedTuple):
+    a: int
+
+class Mid(Base):
+    def __new__(cls, s: str) -> Self:
+        return super().__new__(cls, int(s))
+
+class Child(Mid):
+    def __new__(cls, f: float) -> Self:
+        return super().__new__(cls, str(f))
+
+Child(1.0)
+Child("1")  # E: Argument `Literal['1']` is not assignable to parameter `f` with type `float`
+    "#,
+);
+
+testcase!(
+    test_named_tuple_plain_subclass_still_synthesized,
+    r#"
+from typing import NamedTuple
+
+class Base(NamedTuple):
+    a: int
+    b: str
+
+class Child(Base):
+    pass
+
+Child(1, "x")
+Child(1)  # E: Missing argument `b`
+    "#,
+);

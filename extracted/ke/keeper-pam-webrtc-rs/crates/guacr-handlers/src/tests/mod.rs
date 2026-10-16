@@ -12,7 +12,6 @@ mod multi_channel_tests;
 mod params_tests;
 mod pipe_tests;
 mod registry_tests;
-mod resource_browser_tests;
 mod security_tests;
 mod session_owner_tests;
 mod session_sharing_tests;

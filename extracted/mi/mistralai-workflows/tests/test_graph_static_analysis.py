@@ -1,6 +1,6 @@
 import ast
 
-from mistralai.workflows import workflow
+from mistralai.workflows import activity, workflow
 from mistralai.workflows.core._graph import (
     _activity_connectors_from_ast,
     _collect_connector_bindings,
@@ -77,6 +77,45 @@ def test_dynamic_agent_connectors_ignore_non_connectors_inline_factory() -> None
 
     assert len(agent_nodes) == 1
     assert agent_nodes[0].connectors == ["bound_connector"]
+
+
+@activity(name="captured_graph_activity")
+async def _captured_graph_activity(value: str) -> str:
+    return value
+
+
+def _make_synthesized_workflow() -> type:
+    activity_fn = _captured_graph_activity
+
+    async def run(self: object, value: str) -> str:
+        return await activity_fn(value)
+
+    async def handle_signal(self: object, value: str) -> None:
+        pass
+
+    def read_status(self: object) -> str:
+        return "ready"
+
+    workflow_cls = type(
+        "SynthesizedWorkflow",
+        (),
+        {
+            "__module__": __name__,
+            "run": workflow.entrypoint(run),
+            "handle_signal": workflow.signal(name="synthetic_signal")(handle_signal),
+            "read_status": workflow.query(name="synthetic_status")(read_status),
+        },
+    )
+    return workflow.define(name="synthesized-workflow")(workflow_cls)
+
+
+def test_dynamic_graph_supports_synthesized_workflow_classes() -> None:
+    graph = build_graph_dynamically(_make_synthesized_workflow())
+
+    assert {"workflow", "entrypoint", "output"}.issubset(node.type for node in graph.nodes)
+    assert [node.name for node in graph.nodes if node.type == "activity"] == ["captured_graph_activity"]
+    assert [signal.name for signal in graph.signals] == ["synthetic_signal"]
+    assert [query.name for query in graph.queries] == ["synthetic_status"]
 
 
 def test_static_connectors_ignore_same_named_third_party_factory() -> None:

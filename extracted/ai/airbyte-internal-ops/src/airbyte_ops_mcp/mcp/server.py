@@ -593,7 +593,7 @@ def register_server_assets(app: FastMCP) -> None:
     - `data_ops`: data warehouse (airbyte-warehouse) on-demand dbt dispatch
     - `human_in_the_loop`: human escalation, team-roster lookup, Slack newsletter posting
     - `devin_ops`: reminders, secret requests, session feedback and naming
-    - `zendesk_ops`: read-only Zendesk Support ticket retrieval
+    - `zendesk_ops`: Zendesk Support ticket retrieval, updates, and spam alerts
     - `prompts`: prompt templates for common workflows
 
     Tools annotated with `requires_client_filesystem=True` are automatically

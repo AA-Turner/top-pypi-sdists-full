@@ -19,6 +19,8 @@ from probe import cli
 from probe.sdk.agent_session import resolve_agent_session, session_id_from_env
 
 PI = "pi-4444-5555-666666666666"
+DAEMON_WATCHES = "d6a1c0de-0000-4000-8000-000000000001"
+NO_SESSION = "no session id: pass --session, or run inside a coding agent"
 
 
 @pytest.fixture
@@ -34,6 +36,7 @@ def isolated(tmp_path, monkeypatch):
         "CODEX_THREAD_ID",
         "PI_CODING_AGENT",
         "PI_SESSION_ID",
+        "PROBE_DAEMON_SESSION",
     ):
         monkeypatch.delenv(spec_env, raising=False)
 
@@ -81,4 +84,61 @@ def test_detection_wins_over_a_stray_variable(isolated, monkeypatch):
 def test_no_agent_is_still_an_error(isolated, capsys):
     """The failure mode stays a loud exit 1, never a guessed id."""
     assert cli.main(["session", "status"]) == 1
-    assert "no session id" in capsys.readouterr().err
+    assert NO_SESSION in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# The Probe daemon's own reads. Its `probe` calls carry no coding agent's
+# variables, only the session it watches (`PROBE_DAEMON_SESSION`), and its
+# `probe session status` used to answer "no session id" -- 62 times in 14 days
+# for one pi user -- after which it hunted for the id with `printenv`, each hunt
+# a question for the researcher.
+# ---------------------------------------------------------------------------
+
+
+def test_the_daemons_status_read_names_the_session_it_watches(isolated, monkeypatch, capsys):
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", DAEMON_WATCHES)
+    assert cli.main(["session", "status"]) in (0, None)
+    assert json.loads(capsys.readouterr().out)["session_id"] == DAEMON_WATCHES
+
+
+def test_an_explicit_session_still_wins_over_the_daemons(isolated, monkeypatch, capsys):
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", DAEMON_WATCHES)
+    assert cli.main(["session", "status", "--session", PI]) in (0, None)
+    assert json.loads(capsys.readouterr().out)["session_id"] == PI
+
+
+def test_the_agents_own_session_wins_over_a_stray_daemon_variable(isolated, monkeypatch, capsys):
+    """A fallback, never a preference: an agent's shell resolves as before."""
+    monkeypatch.setenv("PI_CODING_AGENT", "true")
+    monkeypatch.setenv("PI_SESSION_ID", PI)
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", DAEMON_WATCHES)
+    assert cli.main(["session", "status"]) in (0, None)
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["session_id"] == PI
+    # The agent's own read: its capture and its writes, as before.
+    assert isinstance(payload["capture"], dict) and isinstance(payload["writes_allowed"], bool)
+    assert "note" not in payload
+
+
+def test_the_daemons_companion_reads_name_the_session_too(isolated, monkeypatch, capsys):
+    """The same read door: past "no session id" to the session's own ledger."""
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", DAEMON_WATCHES)
+    assert cli.main(["companion", "trace"]) == 1
+    err = capsys.readouterr().err
+    assert NO_SESSION not in err and DAEMON_WATCHES in err
+
+
+@pytest.mark.parametrize("args", [["session", "untrack"], ["session", "track"], ["session", "toggle"],
+                                  ["session", "state"]])
+def test_the_daemons_session_never_names_the_switch(isolated, monkeypatch, capsys, args):
+    """Only reads fall back: the switch stays the researcher's, however it is run."""
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", DAEMON_WATCHES)
+    assert cli.main(args) == 1
+    assert NO_SESSION in capsys.readouterr().err
+
+
+def test_a_malformed_daemon_variable_is_ignored(isolated, monkeypatch, capsys):
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", "../../etc/passwd")
+    assert cli.main(["session", "status"]) == 1
+    assert NO_SESSION in capsys.readouterr().err

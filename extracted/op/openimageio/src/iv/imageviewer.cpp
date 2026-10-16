@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause and Apache-2.0
 // https://github.com/AcademySoftwareFoundation/OpenImageIO
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #ifndef _WIN32
@@ -28,6 +29,7 @@
 #include <QProgressBar>
 #include <QResizeEvent>
 #include <QSettings>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTimer>
@@ -39,6 +41,7 @@
 #include <OpenImageIO/color.h>
 #include <OpenImageIO/dassert.h>
 #include <OpenImageIO/filesystem.h>
+#include <OpenImageIO/imagebufalgo.h>
 #include <OpenImageIO/imagecache.h>
 #include <OpenImageIO/strutil.h>
 #include <OpenImageIO/sysutil.h>
@@ -46,18 +49,6 @@
 
 
 #include "ivutils.h"
-
-
-namespace {
-
-inline bool
-IsSpecSrgb(const ImageSpec& spec)
-{
-    return equivalent_colorspace(spec.get_string_attribute("oiio:ColorSpace"),
-                                 "srgb_rec709_scene");
-}
-
-}  // namespace
 
 
 // clang-format off
@@ -417,6 +408,12 @@ ImageViewer::createActions()
     //    toggleImageAct->setEnabled(true);
     connect(toggleImageAct, SIGNAL(triggered()), this, SLOT(toggleImage()));
 
+    comparisonAct = new QAction(tr("Wipe comparison"), this);
+    comparisonAct->setCheckable(true);
+    comparisonAct->setShortcut(tr("W"));
+    connect(comparisonAct, &QAction::toggled, this,
+            &ImageViewer::toggleComparison);
+
     toggleWindowGuidesAct
         = new QAction(tr("Show display and data window borders"), this);
     toggleWindowGuidesAct->setCheckable(true);
@@ -568,9 +565,11 @@ ImageViewer::createOCIOMenus(QMenu* parent)
         for (int i = 0; i < config.getNumColorSpaces(); i++) {
             const char* colorSpaceName = config.getColorSpaceNameByIndex(i);
 
-            if (colorSpaceName && *colorSpaceName) {
-                // If no color space provided via command line parameters, select the top color space in the list.
-                if (m_ocioColourSpace == "" && i == 0) {
+            if (colorSpaceName && *colorSpaceName
+                && config.isColorSpaceActive(colorSpaceName)) {
+                // If no color space provided via command line parameters,
+                // select the top active color space in the list.
+                if (m_ocioColourSpace == "") {
                     m_ocioColourSpace = colorSpaceName;
                 }
 
@@ -767,6 +766,7 @@ ImageViewer::createMenus()
     viewMenu->addAction(prevImageAct);
     viewMenu->addAction(nextImageAct);
     viewMenu->addAction(toggleImageAct);
+    viewMenu->addAction(comparisonAct);
     viewMenu->addAction(toggleWindowGuidesAct);
     viewMenu->addSeparator();
     viewMenu->addAction(zoomInAct);
@@ -854,7 +854,6 @@ ImageViewer::createStatusBar()
     mouseModeComboBox = new QComboBox;
     mouseModeComboBox->addItem(tr("Zoom"));
     mouseModeComboBox->addItem(tr("Pan"));
-    mouseModeComboBox->addItem(tr("Wipe"));
     mouseModeComboBox->addItem(tr("Select"));
     mouseModeComboBox->addItem(tr("Annotate"));
     // Note: the order of the above MUST match the order of enum MouseMode
@@ -1045,13 +1044,24 @@ ImageViewer::add_image(const std::string& filename)
     if (filename.empty())
         return;
     IvImage* newimage = nullptr;
+    ImageSpec config;
+    bool have_config = false;
     if (rawcolor()) {
-        ImageSpec config;
         config.attribute("oiio:RawColor", 1);
-        newimage = new IvImage(filename, &config);
-    } else {
-        newimage = new IvImage(filename);
+        have_config = true;
     }
+    if (tolerate_missing_pixels()) {
+        // Ask readers that support it (OpenEXR) to fill unreadable
+        // scanlines or tiles of a partially-written file with black
+        // instead of failing the read. Readers without that support
+        // ignore the option.
+        config.attribute("oiio:missingcolor", "0");
+        have_config = true;
+    }
+    if (have_config)
+        newimage = new IvImage(filename, &config);
+    else
+        newimage = new IvImage(filename);
     newimage->gamma(m_default_gamma);
     m_images.push_back(newimage);
     addRecentFile(filename);
@@ -1074,6 +1084,7 @@ ImageViewer::add_image(const std::string& filename)
         displayCurrentImage();
         fitWindowToImage(true, true);
     }
+    updateActions();
 }
 
 
@@ -1105,13 +1116,31 @@ ImageViewer::saveWindowAs()
     IvImage* img = cur();
     if (!img)
         return;
+    ROI roi;
+    glwin->get_visible_image_roi(roi);
+    if (!roi.defined() || roi.width() <= 0 || roi.height() <= 0) {
+        // TODO: May not be visible. This should be replaced with a GUI dialog.
+        OIIO::print(stderr,
+                    "Save failed: no pixels of the image are visible\n");
+        return;
+    }
     QString name;
     name = QFileDialog::getSaveFileName(this, tr("Save Window"),
                                         QString(img->uname().c_str()));
     if (name.isEmpty())
         return;
-    img->write(name.toStdString(), TypeUnknown, "", image_progress_callback,
-               this);
+    ImageBuf cropped;
+    if (!ImageBufAlgo::cut(cropped, *img, roi)) {
+        // TODO: May not be visible. This should be replaced with a GUI dialog.
+        OIIO::print(stderr, "Crop failed: {}\n", cropped.geterror());
+        return;
+    }
+    bool ok = cropped.write(name.toStdString(), TypeUnknown, "",
+                            image_progress_callback, this);
+    if (!ok) {
+        // TODO: May not be visible. This should be replaced with a GUI dialog.
+        OIIO::print(stderr, "Save failed: {}\n", cropped.geterror());
+    }
 }
 
 
@@ -1174,7 +1203,27 @@ ImageViewer::updateStatusBar()
     message = Strutil::fmt::format("({}/{}) : ", m_current_image + 1,
                                    (int)m_images.size());
     message += cur()->shortinfo();
+    if (cur()->partially_loaded()) {
+        message += "  [partially readable file: ";
+        message += cur()->partial_error();
+        message += "]";
+    }
     statusImgInfo->setText(message.c_str());
+    if (m_comparison_image) {
+        std::string first_name  = Filesystem::filename(cur()->name());
+        std::string second_name = Filesystem::filename(
+            m_comparison_image->name());
+        if (first_name == second_name) {
+            first_name  = cur()->name();
+            second_name = m_comparison_image->name();
+        }
+        const char* first_side  = glwin->wipe_horizontal() ? "top" : "left";
+        const char* second_side = glwin->wipe_horizontal() ? "bottom" : "right";
+        message += Strutil::format("  |  {}: {}  {}: {}  (inspecting {})",
+                                   first_side, first_name, second_side,
+                                   second_name, first_side);
+        statusImgInfo->setText(message.c_str());
+    }
 
     message.clear();
     switch (m_color_mode) {
@@ -1228,12 +1277,8 @@ ImageViewer::updateStatusBar()
 
 
 bool
-ImageViewer::loadCurrentImage(int subimage, int miplevel)
+ImageViewer::loadImage(IvImage* img, int subimage, int miplevel)
 {
-    if (m_current_image < 0 || m_current_image >= (int)m_images.size()) {
-        m_current_image = 0;
-    }
-    IvImage* img = cur();
     if (img) {
         // We need the spec available to compare the image format with
         // opengl's capabilities.
@@ -1263,7 +1308,8 @@ ImageViewer::loadCurrentImage(int subimage, int miplevel)
                 //std::cerr << "Loading HALF-FLOAT as FLOAT\n";
                 read_format = TypeDesc::FLOAT;
             }
-            if (IsSpecSrgb(image_spec) && !glwin->is_srgb_capable()) {
+            if (is_colorspace_srgb(image_spec, false)
+                && !glwin->is_srgb_capable()) {
                 // If the image is in sRGB, but OpenGL can't load sRGB textures then
                 // we'll need to do the transformation on the CPU after loading the
                 // image. We (so far) can only do this with UINT8 images, so make
@@ -1278,7 +1324,8 @@ ImageViewer::loadCurrentImage(int subimage, int miplevel)
             read_format      = TypeDesc::UINT8;
             allow_transforms = true;
 
-            if (IsSpecSrgb(image_spec) && !glwin->is_srgb_capable())
+            if (is_colorspace_srgb(image_spec, false)
+                && !glwin->is_srgb_capable())
                 srgb_transform = true;
         }
 
@@ -1317,6 +1364,17 @@ ImageViewer::loadCurrentImage(int subimage, int miplevel)
 
 
 
+bool
+ImageViewer::loadCurrentImage(int subimage, int miplevel)
+{
+    if (m_current_image < 0 || m_current_image >= (int)m_images.size()) {
+        m_current_image = 0;
+    }
+    return loadImage(cur(), subimage, miplevel);
+}
+
+
+
 void
 ImageViewer::displayCurrentImage(bool update)
 {
@@ -1324,6 +1382,11 @@ ImageViewer::displayCurrentImage(bool update)
         m_current_image = 0;
     IvImage* img = cur();
     if (img) {
+        if (m_comparison_image == img && m_images.size() > 1) {
+            int previous       = (m_current_image + (int)m_images.size() - 1)
+                                 % (int)m_images.size();
+            m_comparison_image = m_images[previous];
+        }
         if (!img->image_valid()) {
             bool load_result = false;
 
@@ -1337,6 +1400,20 @@ ImageViewer::displayCurrentImage(bool update)
             if (load_result) {
                 update = true;
             } else {
+                return;
+            }
+        }
+        if (m_comparison_image && m_comparison_image != img
+            && !m_comparison_image->image_valid()) {
+            if (!loadImage(m_comparison_image,
+                           std::max(0, m_comparison_image->subimage()),
+                           std::max(0, m_comparison_image->miplevel()))) {
+                m_comparison_image = nullptr;
+                QSignalBlocker blocker(comparisonAct);
+                comparisonAct->setChecked(false);
+                glwin->reset_wipe();
+                glwin->update();
+                updateActions();
                 return;
             }
         }
@@ -1399,6 +1476,9 @@ ImageViewer::current_image(int newimage)
     if (m_images.empty() || newimage < 0 || newimage >= (int)m_images.size())
         m_current_image = 0;
     if (m_current_image != newimage) {
+        IvImage* old_image = cur();
+        if (m_comparison_image && old_image)
+            m_comparison_image = old_image;
         m_last_image    = (m_current_image >= 0) ? m_current_image : newimage;
         m_current_image = newimage;
         displayCurrentImage();
@@ -1442,7 +1522,41 @@ ImageViewer::nextImage()
 void
 ImageViewer::toggleImage()
 {
-    current_image(m_last_image);
+    if (m_comparison_image) {
+        auto found = std::find(m_images.begin(), m_images.end(),
+                               m_comparison_image);
+        if (found != m_images.end())
+            current_image(int(found - m_images.begin()));
+    } else {
+        current_image(m_last_image);
+    }
+}
+
+void
+ImageViewer::toggleComparison(bool enabled)
+{
+    if (enabled) {
+        if (!glwin->is_glsl_capable() || m_images.size() < 2 || !cur()) {
+            QSignalBlocker blocker(comparisonAct);
+            comparisonAct->setChecked(false);
+            return;
+        }
+        int index = m_last_image;
+        if (index < 0 || index >= (int)m_images.size()
+            || index == m_current_image)
+            index = (m_current_image + (int)m_images.size() - 1)
+                    % (int)m_images.size();
+        m_comparison_image = m_images[index];
+        glwin->reset_wipe();
+        displayCurrentImage();
+    } else {
+        m_comparison_image = nullptr;
+        if (comparisonAct && comparisonAct->isChecked()) {
+            QSignalBlocker blocker(comparisonAct);
+            comparisonAct->setChecked(false);
+        }
+        displayCurrentImage();
+    }
 }
 
 
@@ -1464,7 +1578,7 @@ ImageViewer::exposureMinusOneTenthStop()
     img->exposure(img->exposure() - 0.1);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1483,7 +1597,7 @@ ImageViewer::exposureMinusOneHalfStop()
     img->exposure(img->exposure() - 0.5);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1502,7 +1616,7 @@ ImageViewer::exposurePlusOneTenthStop()
     img->exposure(img->exposure() + 0.1);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1521,7 +1635,7 @@ ImageViewer::exposurePlusOneHalfStop()
     img->exposure(img->exposure() + 0.5);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1541,7 +1655,7 @@ ImageViewer::gammaMinus()
     img->gamma(img->gamma() - 0.05);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1560,7 +1674,7 @@ ImageViewer::gammaPlus()
     img->gamma(img->gamma() + 0.05);
     if (!glwin->is_glsl_capable()) {
         bool srgb_transform = (!glwin->is_srgb_capable()
-                               && IsSpecSrgb(img->spec()));
+                               && is_colorspace_srgb(img->spec(), false));
         img->pixel_transform(srgb_transform, (int)current_color_mode(),
                              current_channel());
         displayCurrentImage();
@@ -1593,7 +1707,8 @@ ImageViewer::viewChannel(int c, COLOR_MODE colormode)
             IvImage* img = cur();
             if (img) {
                 bool srgb_transform = (!glwin->is_srgb_capable()
-                                       && IsSpecSrgb(img->spec()));
+                                       && is_colorspace_srgb(img->spec(),
+                                                             false));
                 img->pixel_transform(srgb_transform, (int)colormode, c);
             }
         } else {
@@ -2029,6 +2144,10 @@ ImageViewer::keyPressEvent(QKeyEvent* event)
     case Qt::Key_Down:
     case Qt::Key_PageDown: nextImage(); return;  //break;
     case Qt::Key_Escape:
+        if (m_comparison_image) {
+            toggleComparison(false);
+            return;
+        }
         if (m_fullscreen)
             fullScreenToggle();
         return;
@@ -2211,8 +2330,8 @@ ImageViewer::fitWindowToImage(bool zoomok, bool minsize)
     // (or we failed to open it).
     if (!img || !img->image_valid())
         return;
-        // FIXME -- figure out a way to make it exactly right, even for the
-        // main window border, etc.
+    // FIXME -- figure out a way to make it exactly right, even for the
+    // main window border, etc.
 #ifdef __APPLE__
     int extraw = 0;  //12; // width() - minimumWidth();
     int extrah = statusBar()->height()
@@ -2338,6 +2457,17 @@ ImageViewer::updateActions()
     //    zoomInAct->setEnabled(!fitImageToWindowAct->isChecked());
     //    zoomOutAct->setEnabled(!fitImageToWindowAct->isChecked());
     //    normalSizeAct->setEnabled(!fitImageToWindowAct->isChecked());
+    const bool can_compare = m_images.size() >= 2 && glwin->is_glsl_capable();
+    if (comparisonAct) {
+        comparisonAct->setEnabled(can_compare);
+        QSignalBlocker blocker(comparisonAct);
+        comparisonAct->setChecked(can_compare && m_comparison_image);
+    }
+    if (!can_compare && m_comparison_image) {
+        m_comparison_image = nullptr;
+        glwin->reset_wipe();
+        glwin->update();
+    }
 }
 
 
@@ -2348,7 +2478,7 @@ calc_subimage_from_zoom(const IvImage* img, int& subimage, float& zoom,
 {
     int rel_subimage = std::trunc(std::log2(1.0f / zoom));
     subimage         = clamp<int>(img->subimage() + rel_subimage, 0,
-                          img->nsubimages() - 1);
+                                  img->nsubimages() - 1);
     if (!(img->subimage() == 0 && zoom > 1)
         && !(img->subimage() == img->nsubimages() - 1 && zoom < 1)) {
         float pow_zoom = powf(2.0f, (float)rel_subimage);
@@ -2388,7 +2518,7 @@ ImageViewer::view(float xcenter, float ycenter, float newzoom, bool smooth,
         }
     }
 
-    if (img->auto_subimage()) {
+    if (img->auto_subimage() && !m_comparison_image) {
         int subimage = 0;
         calc_subimage_from_zoom(img, subimage, m_zoom, xcenter, ycenter);
         if (subimage != img->subimage()) {

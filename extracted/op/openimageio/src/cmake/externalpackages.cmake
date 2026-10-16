@@ -52,21 +52,25 @@ endif ()
 # IlmBase & OpenEXR
 checked_find_package (Imath REQUIRED
     VERSION_MIN 3.1
-    PRINT IMATH_INCLUDES OPENEXR_INCLUDES Imath_VERSION
 )
 
-checked_find_package (OpenEXR REQUIRED
+checked_find_package (OpenEXR REQUIRED CONFIG
     VERSION_MIN 3.1
     NO_FP_RANGE_CHECK
-    PRINT IMATH_INCLUDES OPENEXR_INCLUDES Imath_VERSION
     )
+
+# Set variables for two things that imported targets can't express: the global
+# ordering below, and the PUBLIC/PRIVATE choice for Imath in libOpenImageIO.
+# Everything else uses the targets.
+get_target_property (IMATH_INCLUDES Imath::Imath
+                     INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property (OPENEXR_INCLUDES OpenEXR::OpenEXR
+                     INTERFACE_INCLUDE_DIRECTORIES)
 
 # Force Imath includes to be before everything else to ensure that we have
 # the right Imath/OpenEXR version, not some older version in the system
 # library.
 include_directories(BEFORE ${IMATH_INCLUDES} ${OPENEXR_INCLUDES})
-set (OPENIMAGEIO_IMATH_TARGETS Imath::Imath)
-set (OPENIMAGEIO_OPENEXR_TARGETS OpenEXR::OpenEXR)
 set (OPENIMAGEIO_IMATH_DEPENDENCY_VISIBILITY "PRIVATE" CACHE STRING
      "Should we expose Imath library dependency as PUBLIC or PRIVATE")
 set (OPENIMAGEIO_CONFIG_DO_NOT_FIND_IMATH OFF CACHE BOOL
@@ -82,7 +86,8 @@ if (TARGET libjpeg-turbo::jpeg) # Try to find the non-turbo version
     set (JPEG_FOUND TRUE)
 else ()
     # Try to find the non-turbo version
-    checked_find_package (JPEG REQUIRED)
+    checked_find_package (JPEG REQUIRED
+                          VERSION_MIN 9.0)
 endif ()
 
 
@@ -90,20 +95,29 @@ endif ()
 checked_find_package (libuhdr
                       VERSION_MIN 1.3)
 
-# Static libtiff configs may reference Deflate::Deflate without importing it
-# (https://gitlab.com/libtiff/libtiff/-/work_items/871), so libdeflate must be
-# located before TIFF discovery. In particular, a previously auto-built static
-# TIFF rediscovered from the local deps cache needs this; the libdeflate found
-# during build_TIFF.cmake does not carry over to later reconfigures.
+# Static libtiff configs may reference Deflate::Deflate and ZSTD::ZSTD without
+# importing them (https://gitlab.com/libtiff/libtiff/-/work_items/871), so
+# libdeflate and zstd must be located before TIFF discovery. In particular, a
+# previously auto-built static TIFF rediscovered from the local deps cache
+# needs this; the packages found during build_TIFF.cmake do not carry over to
+# later reconfigures.
 if (NOT TARGET Deflate::Deflate)
     checked_find_package (libdeflate
                           VERSION_MIN 1.18)
     alias_library_if_not_exists (Deflate::Deflate libdeflate::libdeflate_static)
     alias_library_if_not_exists (Deflate::Deflate libdeflate::libdeflate_shared)
 endif ()
+if (NOT TARGET ZSTD::ZSTD)
+    checked_find_package (zstd VERSION_MIN 1.4)
+    alias_library_if_not_exists (ZSTD::ZSTD zstd::libzstd_static)
+    alias_library_if_not_exists (ZSTD::ZSTD zstd::libzstd_shared)
+endif ()
+
+# WebP must be found before TIFF, so that an auto-built libtiff can use it.
+checked_find_package (WebP VERSION_MIN 1.1)
 
 checked_find_package (TIFF REQUIRED
-                      VERSION_MIN 4.0
+                      VERSION_MIN 4.1
                       RECOMMEND_MIN 4.5
                       RECOMMEND_MIN_REASON "4.2+ for GPS, 4.5+ various security fixes")
 alias_library_if_not_exists (TIFF::TIFF TIFF::tiff)
@@ -119,8 +133,8 @@ checked_find_package (JXL
 # allow this to be overridden to use the distro-provided package if desired.
 option (USE_EXTERNAL_PUGIXML "Use an externally built shared library version of the pugixml library" OFF)
 if (USE_EXTERNAL_PUGIXML)
-    checked_find_package (pugixml REQUIRED
-                          VERSION_MIN 1.8
+    checked_find_package (pugixml CONFIG REQUIRED
+                          VERSION_MIN 1.11
                           DEFINITIONS USE_EXTERNAL_PUGIXML=1)
 else ()
     message (STATUS "Using internal PugiXML")
@@ -131,8 +145,15 @@ set_option (USE_PYTHON "Enable support of Python bindings" ON)
 if (USE_PYTHON)
     find_python()
 endif ()
-if (USE_PYTHON)
+if (USE_PYTHON AND OIIO_BUILD_PYTHON_PYBIND11)
     checked_find_package (pybind11 REQUIRED VERSION_MIN 2.7)
+endif ()
+if (USE_PYTHON AND OIIO_BUILD_PYTHON_NANOBIND)
+    discover_nanobind_cmake_dir()
+    checked_find_package (nanobind CONFIG REQUIRED
+                          VERSION_MIN 2.8.0 VERSION_MAX 3.9
+                          NO_FP_RANGE_CHECK
+                          BUILD_LOCAL missing)
 endif ()
 
 
@@ -171,7 +192,7 @@ checked_find_package (TBB 2017
                       PREFER_CONFIG)
 
 # DCMTK is used to read DICOM images
-checked_find_package (DCMTK CONFIG VERSION_MIN 3.6.1)
+checked_find_package (DCMTK CONFIG VERSION_MIN 3.6.2)
 
 checked_find_package (FFmpeg VERSION_MIN 4.0)
 
@@ -184,7 +205,7 @@ checked_find_package (Libheif VERSION_MIN 1.11
                       RECOMMEND_MIN_REASON "1.16 for orientation support, 1.17 for monochrome support")
 
 checked_find_package (LibRaw
-                      VERSION_MIN 0.20.0
+                      VERSION_MIN 0.21.0
                       RECOMMEND_MIN 0.21.3
                       RECOMMEND_MIN_REASON "0.21.3 for many security fixes"
                       PRINT LibRaw_r_LIBRARIES)
@@ -210,8 +231,6 @@ if (NOT Ptex_FOUND OR NOT Ptex_VERSION)
     unset (Ptex_FOUND)
     checked_find_package (Ptex)
 endif ()
-
-checked_find_package (WebP VERSION_MIN 1.1)
 
 option (USE_R3DSDK "Enable R3DSDK (RED camera) support" OFF)
 checked_find_package (R3DSDK NO_RECORD_NOTFOUND)  # RED camera
@@ -242,19 +261,40 @@ if (USE_QT AND OPENGL_FOUND)
 endif ()
 
 
-# Tessil/robin-map
-checked_find_package (Robinmap REQUIRED
-                      VERSION_MIN 1.2.0
+# Google Highway for SIMD (optional optimization)
+if (OIIO_USE_HWY)
+    checked_find_package (hwy)
+endif ()
+
+# Tessil/robin-map. Use its own exported CMake config (target tsl::robin_map)
+# rather than a bespoke Find module. This also means that when the nanobind
+# Python backend is enabled, nanobind's own CMake code will detect and reuse
+# this exact target/version instead of compiling against its private vendored
+# copy (see nanobind_build_library()'s `NOT TARGET tsl::robin_map` check).
+checked_find_package (Robinmap CONFIG REQUIRED
+                      NAMES tsl-robin-map
+                      VERSION_MIN 1.3.0
+                      NO_FP_RANGE_CHECK
                       BUILD_LOCAL missing
                      )
 
 # fmtlib
-option (OIIO_INTERNALIZE_FMT "Copy fmt headers into <install>/include/OpenImageIO/detail/fmt" ON)
+set_option (OIIO_INTERNALIZE_FMT "Copy fmt headers into <install>/include/OpenImageIO/detail/fmt" ON)
+set_option (OIIO_USE_COMPILED_FMT "Link against compiled fmt::fmt instead of header-only fmt" OFF)
+if (OIIO_USE_COMPILED_FMT)
+    set (OIIO_USE_COMPILED_FMT_VALUE 1)
+else ()
+    set (OIIO_USE_COMPILED_FMT_VALUE 0)
+endif ()
 checked_find_package (fmt REQUIRED
-                      VERSION_MIN 7.0
+                      VERSION_MIN 9.0
                       BUILD_LOCAL missing
                      )
-get_target_property(FMT_INCLUDE_DIR fmt::fmt-header-only INTERFACE_INCLUDE_DIRECTORIES)
+if (OIIO_USE_COMPILED_FMT)
+    get_target_property(FMT_INCLUDE_DIR fmt::fmt INTERFACE_INCLUDE_DIRECTORIES)
+else ()
+    get_target_property(FMT_INCLUDE_DIR fmt::fmt-header-only INTERFACE_INCLUDE_DIRECTORIES)
+endif ()
 
 
 ###########################################################################

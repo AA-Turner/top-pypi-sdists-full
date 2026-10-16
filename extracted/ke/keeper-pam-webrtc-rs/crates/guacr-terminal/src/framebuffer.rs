@@ -327,6 +327,14 @@ impl FrameBuffer {
         full_screen_pixels: &[u8],
         src_width: u32,
     ) {
+        let width = width
+            .min(self.width.saturating_sub(x))
+            .min(src_width.saturating_sub(x));
+        let height = height.min(self.height.saturating_sub(y));
+        if width == 0 || height == 0 {
+            return;
+        }
+        let mut copied_rows = 0;
         for row in 0..height {
             let dst_y = y + row;
             let src_y = y + row;
@@ -342,15 +350,20 @@ impl FrameBuffer {
                     &mut self.data[dst_offset..dst_offset + len],
                     &full_screen_pixels[src_offset..src_offset + len],
                 );
+                copied_rows += 1;
+            } else {
+                break;
             }
         }
 
-        self.dirty_rects.push(FrameRect {
-            x,
-            y,
-            width,
-            height,
-        });
+        if copied_rows > 0 {
+            self.dirty_rects.push(FrameRect {
+                x,
+                y,
+                width,
+                height: copied_rows,
+            });
+        }
     }
 
     /// Get dirty rectangles

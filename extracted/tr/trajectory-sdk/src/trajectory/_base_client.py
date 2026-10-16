@@ -29,6 +29,7 @@ from trajectory._exceptions import (
   ConflictError,
   InternalServerError,
   NotFoundError,
+  PaymentRequiredError,
   PermissionDeniedError,
   RateLimitError,
   ServiceUnavailableError,
@@ -577,6 +578,7 @@ class APIClient:
     error_types = {
       400: BadRequestError,
       401: AuthenticationError,
+      402: PaymentRequiredError,
       403: PermissionDeniedError,
       404: NotFoundError,
       409: ConflictError,

@@ -4,10 +4,12 @@
 // concurrent access, and '$' prefix enforcement.
 
 use crate::session_sharing::{
-    active_session_ids, deregister, lookup, register, SessionHandle, BROADCAST_CHANNEL_CAPACITY,
+    active_session_ids, deregister, lookup, register, SessionHandle, ViewerInput,
+    BROADCAST_CHANNEL_CAPACITY,
 };
 use bytes::Bytes;
 use std::sync::Arc;
+use uuid::Uuid;
 
 fn unique_id(prefix: &str) -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -313,6 +315,14 @@ fn test_session_handle_clone_shares_broadcast_channel() {
 // Viewer input forwarding (PRIV_CONTROL — Phase 6b)
 // -------------------------------------------------------------------------
 
+fn viewer_input(bytes: &'static [u8], display_name: &str) -> ViewerInput {
+    ViewerInput {
+        bytes: Bytes::from_static(bytes),
+        guid: Uuid::nil(),
+        display_name: display_name.to_string(),
+    }
+}
+
 /// Prove that a viewer input registered on the handle is delivered to the owner.
 ///
 /// This test FAILS until SessionHandle gains a viewer_input channel:
@@ -320,13 +330,12 @@ fn test_session_handle_clone_shares_broadcast_channel() {
 #[test]
 fn test_viewer_input_forwarded_to_owner_channel() {
     use tokio::sync::mpsc;
-    let (tx, mut rx) = mpsc::unbounded_channel::<Bytes>();
+    let (tx, mut rx) = mpsc::unbounded_channel::<ViewerInput>();
 
     let handle = SessionHandle::new();
     handle.set_viewer_input_channel(tx);
 
-    let input = Bytes::from_static(b"4.key,5.65507,1.1;");
-    let forwarded = handle.forward_viewer_input(input.clone());
+    let forwarded = handle.forward_viewer_input(viewer_input(b"4.key,5.65507,1.1;", "Alice"));
     assert!(
         forwarded,
         "forward_viewer_input must return true when channel is registered"
@@ -335,17 +344,83 @@ fn test_viewer_input_forwarded_to_owner_channel() {
     let received = rx
         .try_recv()
         .expect("owner channel must receive viewer input");
-    assert_eq!(received, input);
+    assert_eq!(received.bytes, Bytes::from_static(b"4.key,5.65507,1.1;"));
 }
 
 /// Prove that forward_viewer_input returns false when no channel is registered.
 #[test]
 fn test_viewer_input_not_forwarded_without_channel() {
     let handle = SessionHandle::new();
-    let input = Bytes::from_static(b"4.key,5.65507,1.1;");
-    let forwarded = handle.forward_viewer_input(input);
+    let forwarded = handle.forward_viewer_input(viewer_input(b"4.key,5.65507,1.1;", "Alice"));
     assert!(
         !forwarded,
         "forward_viewer_input must return false when no channel registered"
+    );
+}
+
+/// The forwarded input must name its sender, or the owner's handler cannot tell a
+/// viewer's keystroke from the owner's own and records both as the owner's.
+#[test]
+fn test_forwarded_input_carries_sender_identity() {
+    use tokio::sync::mpsc;
+    let (tx, mut rx) = mpsc::unbounded_channel::<ViewerInput>();
+
+    let handle = SessionHandle::new();
+    handle.set_viewer_input_channel(tx);
+
+    let guid = Uuid::new_v4();
+    handle.forward_viewer_input(ViewerInput {
+        bytes: Bytes::from_static(b"4.key,5.65507,1.1;"),
+        guid,
+        display_name: "Bob".into(),
+    });
+
+    let received = rx.try_recv().expect("input must arrive");
+    assert_eq!(received.display_name, "Bob");
+    assert_eq!(received.guid, guid, "guid must survive the hand-off");
+}
+
+// -------------------------------------------------------------------------
+// Late-join frame cache vs. control traffic
+// -------------------------------------------------------------------------
+
+/// A late-joining viewer's state sync replays `last_frame`. Control traffic is not
+/// screen state, so caching it hands the next joiner a participant-list update
+/// where a picture belongs.
+#[test]
+fn test_broadcast_control_does_not_disturb_frame_cache() {
+    let handle = SessionHandle::new();
+    let frame = Bytes::from_static(b"4.img,1.0;");
+    handle.broadcast(frame.clone());
+
+    handle.broadcast_control(Bytes::from_static(b"18.participant_update,2.{};"));
+
+    assert_eq!(
+        handle.last_frame(),
+        Some(frame),
+        "control traffic must not overwrite the cached frame"
+    );
+}
+
+/// Control traffic must still reach every connected viewer — only the cache is skipped.
+#[test]
+fn test_broadcast_control_still_reaches_viewers() {
+    let handle = SessionHandle::new();
+    let mut rx = handle.subscribe();
+
+    let notice = Bytes::from_static(b"18.participant_update,2.{};");
+    assert_eq!(handle.broadcast_control(notice.clone()), 1);
+    assert_eq!(rx.try_recv().expect("viewer must receive it"), notice);
+}
+
+/// With nothing but control traffic sent, the cache stays empty rather than
+/// offering a control message as a first frame.
+#[test]
+fn test_control_only_session_has_no_cached_frame() {
+    let handle = SessionHandle::new();
+    handle.broadcast_control(Bytes::from_static(b"18.participant_update,2.{};"));
+    assert!(
+        handle.last_frame().is_none(),
+        "a session that has sent no frames must have no cached frame"
     );
 }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import json
 import logging
 import numbers
@@ -100,7 +100,11 @@ class AmazonCloudWatchEMFProvider(BaseProvider):
         self._metric_unit_valid_options = list(MetricUnit.__members__)
         self._metric_resolutions = [resolution.value for resolution in MetricResolution]
 
-        self.dimension_set.update(**self.default_dimensions)
+        self.dimension_set.update(
+            **{
+                name: value if isinstance(value, str) else str(value) for name, value in self.default_dimensions.items()
+            },
+        )
 
     def add_metric(
         self,
@@ -268,7 +272,7 @@ class AmazonCloudWatchEMFProvider(BaseProvider):
 
         return {
             "_aws": {
-                "Timestamp": self.timestamp or int(datetime.datetime.now().timestamp() * 1000),  # epoch
+                "Timestamp": self.timestamp or int(dt.datetime.now().timestamp() * 1000),  # epoch
                 "CloudWatchMetrics": [
                     {
                         "Namespace": self.namespace,  # "test_namespace"
@@ -422,7 +426,7 @@ class AmazonCloudWatchEMFProvider(BaseProvider):
         else:
             self.metadata_set[str(key)] = value
 
-    def set_timestamp(self, timestamp: int | datetime.datetime):
+    def set_timestamp(self, timestamp: int | dt.datetime):
         """
         Set the timestamp for the metric.
 

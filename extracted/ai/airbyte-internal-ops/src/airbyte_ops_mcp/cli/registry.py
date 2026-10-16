@@ -568,7 +568,10 @@ def progressive_rollout_finalize_marker(
     ],
     outcome: Annotated[
         Literal["promoted", "aborted"],
-        Parameter(help="Marker outcome used in the dated audit filename."),
+        Parameter(
+            help="Marker outcome used in the dated audit filename. Aborted first "
+            "writes version-yank.yml so the version cannot become latest."
+        ),
     ],
     *,
     version: Annotated[
@@ -582,7 +585,7 @@ def progressive_rollout_finalize_marker(
         Parameter(help="Show what would be done without making changes."),
     ] = False,
 ) -> None:
-    """Rename an active `progressive-rollout.yml` marker to an audit marker."""
+    """Finalize a rollout marker; aborted first yanks the version so it cannot become latest."""
     registry = _resolve_store(store)
     result = registry.finalize_progressive_rollout_marker(
         connector_name=name,

@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 from collections.abc import Coroutine, Iterable, Iterator, Sequence
 from typing import Literal
 
-from .base_client import ICALH, _warn_unreadable_display_name
+from .base_client import ICALH, _raise_unless_propfind_ok, _warn_unreadable_display_name
 from .calendarobjectresource import (
     CalendarObjectResource,
     Event,
@@ -51,6 +51,7 @@ from .lib import error, vcal
 from .lib.error import errmsg
 from .lib.python_utilities import to_wire
 from .lib.url import URL, normalise_path, requote_path
+from .response import _status_to_code
 
 _CC = TypeVar("_CC", bound="CalendarObjectResource")
 log = logging.getLogger("caldav")
@@ -74,7 +75,7 @@ def _assert_created(response, method: str) -> None:
     """
     if response.status == 201 or response.all_statuses_ok():
         return
-    raise error.exception_by_method[method](errmsg(response))
+    raise error.error_from_response(error.exception_by_method[method], response)
 
 
 # ---------------------------------------------------------------------------
@@ -225,10 +226,13 @@ class CalendarSet(DAVObject):
     A CalendarSet is a set of calendars.
     """
 
-    def _calendars_from_results(self, results) -> list["Calendar"]:
-        """Convert PropfindResult list into Calendar objects."""
+    def _calendars_from_response(self, response) -> list["Calendar"]:
+        """Convert a calendar-list PROPFIND response into Calendar objects."""
+        _raise_unless_propfind_ok(response)
         features = self.client.features if self.client else None
-        calendar_infos = _extract_calendars_from_propfind_results(results, features=features)
+        calendar_infos = _extract_calendars_from_propfind_results(
+            response.results, features=features
+        )
         return [
             Calendar(client=self.client, url=info.url, name=info.name, id=info.cal_id, parent=self)
             for info in calendar_infos
@@ -256,14 +260,14 @@ class CalendarSet(DAVObject):
         response = self.client.propfind(
             str(self.url), props=self.client.CALENDAR_LIST_PROPS, depth=1
         )
-        return self._calendars_from_results(response.results)
+        return self._calendars_from_response(response)
 
     async def _async_get_calendars(self) -> list["Calendar"]:
         """Async implementation of get_calendars()."""
         response = await self.client.propfind(
             str(self.url), props=self.client.CALENDAR_LIST_PROPS, depth=1
         )
-        return self._calendars_from_results(response.results)
+        return self._calendars_from_response(response)
 
     def calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
         """
@@ -573,9 +577,12 @@ class Principal(DAVObject):
             return self._calendar_home_set
 
         calendar_home_set_url = await self.get_property(cdav.CalendarHomeSet())
-        self.calendar_home_set = _sanitize_calendar_home_set_url(
-            calendar_home_set_url, features=self.client.features
-        )
+        if calendar_home_set_url:
+            self.calendar_home_set = _sanitize_calendar_home_set_url(
+                calendar_home_set_url, features=self.client.features
+            )
+        else:
+            self.calendar_home_set = CalendarSet(client=self.client, url=self.url)
         return self._calendar_home_set
 
     ## TODO: the parameter names name, cal_id and cal_url is quite inconsistent
@@ -683,9 +690,12 @@ class Principal(DAVObject):
     def calendar_home_set(self):
         if not self._calendar_home_set:
             calendar_home_set_url = self.get_property(cdav.CalendarHomeSet())
-            self.calendar_home_set = _sanitize_calendar_home_set_url(
-                calendar_home_set_url, features=self.client.features
-            )
+            if calendar_home_set_url:
+                self.calendar_home_set = _sanitize_calendar_home_set_url(
+                    calendar_home_set_url, features=self.client.features
+                )
+            else:
+                self.calendar_home_set = CalendarSet(client=self.client, url=self.url)
         return self._calendar_home_set
 
     @calendar_home_set.setter
@@ -698,16 +708,7 @@ class Principal(DAVObject):
         ## research.  added here as it solves real-world issues, ref
         ## https://github.com/python-caldav/caldav/pull/56
         if sanitized_url is not None:
-            if sanitized_url.hostname and sanitized_url.hostname != self.client.url.hostname:
-                # icloud (and others?) having a load balanced system,
-                # where each principal resides on one named host
-                ## TODO:
-                ## Here be dragons.  sanitized_url will be the root
-                ## of all future objects derived from client.  Changing
-                ## the client.url root by doing a principal.get_calendars()
-                ## is an unacceptable side effect and may be a cause of
-                ## incompatibilities with icloud.  Do more research!
-                self.client.url = sanitized_url
+            self.client._follow_calendar_home(sanitized_url)
         self._calendar_home_set = CalendarSet(self.client, self.client.url.join(sanitized_url))
 
     def get_calendars(self) -> "list[Calendar] | Coroutine[Any, Any, list[Calendar]]":
@@ -1138,7 +1139,7 @@ class Calendar(DAVObject):
           False          – always attempt to delete the calendar via HTTP DELETE
         """
         if self.is_async_client:
-            return self._async_delete(wipe=wipe)
+            return self._async_delete_calendar(wipe=wipe)
 
         if wipe is True:
             try:
@@ -1182,7 +1183,7 @@ class Calendar(DAVObject):
         if deletion_delay:
             self._wait_until(lambda: not self._exists(), deletion_delay, "the calendar to go away")
 
-    async def _async_delete(self, wipe=None):
+    async def _async_delete_calendar(self, wipe=None):
         """Async implementation of Calendar.delete()."""
         import asyncio
 
@@ -1206,7 +1207,7 @@ class Calendar(DAVObject):
             # Do some retries on deleting the calendar
             for _ in range(0, 20):
                 try:
-                    await DAVObject._async_delete(self)
+                    await self._async_delete()
                 except error.DeleteError:
                     pass
                 try:
@@ -1217,9 +1218,9 @@ class Calendar(DAVObject):
                     break
 
         if wipe:
-            await self._async_delete(wipe=True)
+            await self._async_delete_calendar(wipe=True)
             return
-        await DAVObject._async_delete(self)
+        await self._async_delete()
 
         # See delete() (sync) - wait for an asynchronous deletion to land.
         deletion_delay = self._settle_delay("synchronous-write.delete-calendar")
@@ -1277,16 +1278,21 @@ class Calendar(DAVObject):
         return self._supported_components_from_response(response, with_fallback)
 
     def save_with_invites(
-        self, ical: str, attendees, **attendeeoptions
+        self, ical: str, attendees, increase_seqno: bool = True, **attendeeoptions
     ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """
         sends a schedule request to the server.  Equivalent with add_event, add_todo, etc,
         but the attendees will be added to the ical object before sending it to the server.
 
+        ``increase_seqno`` is passed on to
+        :meth:`CalendarObjectResource.save`, see there.
+
         For async clients, returns a coroutine that must be awaited.
         """
         if self.is_async_client:
-            return self._async_save_with_invites(ical, attendees, **attendeeoptions)
+            return self._async_save_with_invites(
+                ical, attendees, increase_seqno=increase_seqno, **attendeeoptions
+            )
         ## TODO: consolidate together with save_*
         obj = self._calendar_comp_class_by_data(ical)(data=ical, client=self.client)
         obj.parent = self
@@ -1294,10 +1300,12 @@ class Calendar(DAVObject):
         for attendee in attendees:
             obj.add_attendee(attendee, **attendeeoptions)
         obj.id = obj.icalendar_instance.walk("vevent")[0]["uid"]
-        obj.save()
+        obj.save(increase_seqno=increase_seqno)
         return obj
 
-    async def _async_save_with_invites(self, ical: str, attendees, **attendeeoptions):
+    async def _async_save_with_invites(
+        self, ical: str, attendees, increase_seqno: bool = True, **attendeeoptions
+    ):
         """Async implementation of save_with_invites() for async clients."""
         obj = self._calendar_comp_class_by_data(ical)(data=ical, client=self.client)
         obj.parent = self
@@ -1307,7 +1315,7 @@ class Calendar(DAVObject):
                 attendee = await attendee.get_vcal_address()
             obj.add_attendee(attendee, **attendeeoptions)
         obj.id = obj.icalendar_instance.walk("vevent")[0]["uid"]
-        await obj.save()
+        await obj.save(increase_seqno=increase_seqno)
         return obj
 
     def _use_or_create_ics(self, ical, objtype, **ical_data):
@@ -1330,6 +1338,7 @@ class Calendar(DAVObject):
         ical: str | None = None,
         no_overwrite: bool = False,
         no_create: bool = False,
+        increase_seqno: bool = True,
         **ical_data,
     ) -> "CalendarObjectResource | Coroutine[Any, Any, CalendarObjectResource]":
         """Add a new calendar object (event, todo, journal) to the calendar.
@@ -1342,6 +1351,9 @@ class Calendar(DAVObject):
           ical: ical object (text, icalendar or vobject instance)
           no_overwrite: existing calendar objects should not be overwritten
           no_create: don't create a new object, existing calendar objects should be updated
+          increase_seqno: bump SEQUENCE if the ical data carries one.  Defaults to
+            True; pass False when storing data verbatim (sync, copy, import).
+            See :meth:`CalendarObjectResource.save`.
           dtstart: properties to be inserted into the icalendar object
           dtend: properties to be inserted into the icalendar object
           summary: properties to be inserted into the icalendar object
@@ -1361,8 +1373,15 @@ class Calendar(DAVObject):
             parent=self,
         )
         if self.is_async_client:
-            return self._async_add_object_finish(o, no_overwrite=no_overwrite, no_create=no_create)
-        o = o.save(no_overwrite=no_overwrite, no_create=no_create, only_this_recurrence=None)
+            return self._async_add_object_finish(
+                o, no_overwrite=no_overwrite, no_create=no_create, increase_seqno=increase_seqno
+            )
+        o = o.save(
+            no_overwrite=no_overwrite,
+            no_create=no_create,
+            increase_seqno=increase_seqno,
+            only_this_recurrence=None,
+        )
         ## TODO: Saving nothing is currently giving an object with None as URL.
         ## This should probably be changed in some future version to raise an error
         ## See also CalendarObjectResource.save()
@@ -1370,9 +1389,16 @@ class Calendar(DAVObject):
             o._handle_reverse_relations(fix=True)
         return o
 
-    async def _async_add_object_finish(self, o, no_overwrite=False, no_create=False):
+    async def _async_add_object_finish(
+        self, o, no_overwrite=False, no_create=False, increase_seqno=True
+    ):
         """Async helper for add_object(): awaits save() then handles reverse relations."""
-        o = await o.save(no_overwrite=no_overwrite, no_create=no_create, only_this_recurrence=None)
+        o = await o.save(
+            no_overwrite=no_overwrite,
+            no_create=no_create,
+            increase_seqno=increase_seqno,
+            only_this_recurrence=None,
+        )
         if o.url is not None:
             await o._handle_reverse_relations(fix=True)
         return o
@@ -1475,27 +1501,38 @@ class Calendar(DAVObject):
         """
         if self.url is None:
             raise ValueError("Unexpected value None for self.url")
-        prop = dav.Prop() + cdav.CalendarData()
+        prop = dav.Prop() + [cdav.CalendarData(), dav.GetEtag(), cdav.ScheduleTag()]
         return cdav.CalendarMultiGet() + prop + [dav.Href(value=u.path) for u in event_urls]
 
     def _extract_multiget_results(
         self, response: Any, raise_notfound: bool
-    ) -> list[tuple[str, str]]:
-        """Turn a multiget REPORT response into ``(href, calendar_data)`` tuples.
+    ) -> list[tuple[str, str, dict[str, str]]]:
+        """Turn a multiget REPORT response into ``(href, calendar_data, tags)``
+        tuples, ``tags`` being the ETag and Schedule-Tag props found.
 
         Pure (no I/O) — shared by the sync and async multiget twins.
         """
-        results = response.expand_simple_props([cdav.CalendarData()])
+        tag_names = (dav.GetEtag.tag, cdav.ScheduleTag.tag)
+        results = response.expand_simple_props(
+            [cdav.CalendarData(), dav.GetEtag(), cdav.ScheduleTag()]
+        )
         if raise_notfound:
             for href, status in response.statuses.items():
                 if status and "404" in status:
                     raise error.NotFoundError(f"Status {status} in {href}")
-        return [(r, results[r][cdav.CalendarData.tag]) for r in results]
+        return [
+            (
+                r,
+                results[r][cdav.CalendarData.tag],
+                {t: results[r][t] for t in tag_names if results[r].get(t)},
+            )
+            for r in results
+        ]
 
     def _multiget(
         self, event_urls: Iterable[URL], raise_notfound: bool = False
-    ) -> list[tuple[str, str]]:
-        """get multiple events' data.
+    ) -> list[tuple[str, str, dict[str, str]]]:
+        """get multiple events' data, ETags and Schedule-Tags.
 
         TODO: Does it overlap the _request_report_build_resultlist method?
         """
@@ -1504,7 +1541,7 @@ class Calendar(DAVObject):
         response = self._query(self._build_multiget_root(event_urls), None, "report")
         return self._extract_multiget_results(response, raise_notfound)
 
-    def _post_multiget(self, results: Iterable[tuple[str, str]]) -> list[_CC]:
+    def _post_multiget(self, results: Iterable[tuple[str, str, dict[str, str]]]) -> list[_CC]:
         """Post-processing shared by multiget and _async_multiget_objects."""
         return [
             self._calendar_comp_class_by_data(data)(
@@ -1515,8 +1552,9 @@ class Calendar(DAVObject):
                 ),
                 data=data,
                 parent=self,
+                props=dict(tags) or None,
             )
-            for url, data in results
+            for url, data, tags in results
         ]
 
     def multiget(self, event_urls: Iterable[URL], raise_notfound: bool = False) -> Iterable[_CC]:
@@ -1531,7 +1569,7 @@ class Calendar(DAVObject):
 
     async def _async_multiget(
         self, event_urls: Iterable[URL], raise_notfound: bool = False
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[str, str, dict[str, str]]]:
         response = await self._query(self._build_multiget_root(event_urls), None, "report")
         return self._extract_multiget_results(response, raise_notfound)
 
@@ -1543,8 +1581,10 @@ class Calendar(DAVObject):
             await self._async_multiget(event_urls, raise_notfound=raise_notfound)
         )
 
-    def _assign_multiget_data(self, unloaded: list, results: Iterable[tuple[str, str]]) -> None:
-        """Assign multiget (href, data) results onto the matching unloaded objects.
+    def _assign_multiget_data(
+        self, unloaded: list, results: Iterable[tuple[str, str, dict[str, str]]]
+    ) -> None:
+        """Assign multiget (href, data, tags) results onto the matching unloaded objects.
 
         Shared post-processing for _batch_load_objects and its async twin: index
         the results by normalised URL (quoting to match servers that return
@@ -1558,13 +1598,14 @@ class Calendar(DAVObject):
         spellings equal instead of silently dropping the object.
         """
         url_to_data = {
-            unquote(str(self.url.join(quote(unquote(str(href)), safe="/:@")))): data
-            for href, data in results
+            unquote(str(self.url.join(quote(unquote(str(href)), safe="/:@")))): (data, tags)
+            for href, data, tags in results
         }
         for obj in unloaded:
             key = unquote(str(obj.url))
             if key in url_to_data:
-                obj.data = url_to_data[key]
+                obj.data, tags = url_to_data[key]
+                obj.props.update(tags)
 
     def _batch_load_objects(self, objects: list) -> None:
         """Load unloaded objects from the list in a single calendar-multiget REPORT.
@@ -1705,9 +1746,18 @@ class Calendar(DAVObject):
     def _post_request_report_build_resultlist(self, response, comp_class, props_):
         """Shared post-processing for _request_report_build_resultlist."""
         matches = []
+        ## The search REPORT asks for getetag and schedule-tag (and some
+        ## servers, like GMX, send getetag anyway); left unexpanded they
+        ## would be cached as XML elements rather than as strings
+        for tag_prop in (dav.GetEtag, cdav.ScheduleTag):
+            if not any(p.tag == tag_prop.tag for p in props_):
+                props_ = props_ + [tag_prop()]
         results = response.expand_simple_props(props_)
         for r in results:
             pdata = results[r]
+            for tag in (dav.GetEtag.tag, cdav.ScheduleTag.tag):
+                if pdata.get(tag) is None:
+                    pdata.pop(tag, None)
             if cdav.CalendarData.tag in pdata:
                 cdata = pdata.pop(cdav.CalendarData.tag)
                 comp_class_ = (
@@ -1718,10 +1768,7 @@ class Calendar(DAVObject):
             if comp_class_ is None:
                 ## no CalendarData fetched - which is normal i.e. when doing a sync-token report and only asking for the URLs
                 comp_class_ = CalendarObjectResource
-            url = URL(r)
-            if url.hostname is None:
-                # Quote when result is not a full URL
-                url = requote_path(r) if self._preserve_at else quote(r)
+            url = self._href_to_url(r)
             ## icloud hack - icloud returns the calendar URL as well as the calendar item URLs
             if self.url.join(url) == self.url:
                 continue
@@ -1735,6 +1782,14 @@ class Calendar(DAVObject):
                 )
             )
         return (response, matches)
+
+    def _href_to_url(self, href: str) -> "URL | str":
+        """An href from a multistatus, ready for ``self.url.join()``."""
+        url = URL(href)
+        if url.hostname is None:
+            # Quote when result is not a full URL
+            return requote_path(href) if self._preserve_at else quote(href)
+        return url
 
     def _request_report_build_resultlist(
         self, xml, comp_class=None, props=None, no_calendardata=False
@@ -1880,6 +1935,13 @@ class Calendar(DAVObject):
         it's recommended to use closed ranges (i.e. have an "event
         horizon" of a year and ask for "everything from now and one
         year ahead") and get the data expanded.
+
+        All-day events and floating times have no time zone.  With a
+        timezone-aware ``start``/``end`` they are matched in that time
+        zone, otherwise in the time zone of the Python process; a plain
+        ``date`` is taken as midnight UTC.  As the server can't do this,
+        a time-range search asks it for one extra day on each side and
+        filters the result client-side, unless ``post_filter=False``.
 
         With the boolean ``expand`` set, you don't have to think too
         much about recurrences - they will be expanded, and with the
@@ -2084,9 +2146,10 @@ class Calendar(DAVObject):
         if self.is_async_client:
             return self._async_get_object_by_uid(uid, comp_filter, comp_class)
         ## Use self.search() rather than CalDAVSearcher directly, so that any
-        ## monkey-patching of Calendar.search (e.g. the search-cache delay for
-        ## servers with lazy search indexes) is respected.  This mirrors the
-        ## pattern used in get_todos() and get_events().
+        ## monkey-patching of Calendar.search (e.g. the search-cache delay that
+        ## tests/test_caldav.py wraps it with for servers with lazy search
+        ## indexes) is respected.  This mirrors the pattern used in get_todos()
+        ## and get_events().
         ##
         ## search(uid=...) does substring matching on the server side, so we
         ## apply an exact match filter afterwards to preserve the semantics of
@@ -2259,9 +2322,87 @@ class Calendar(DAVObject):
         hash_value = hashlib.md5(combined.encode(), usedforsecurity=False).hexdigest()
         return f"fake-{hash_value}"
 
-    ## The three helpers below carry the pure (no-I/O) logic shared between the
+    ## The helpers below carry the pure (no-I/O) logic shared between the
     ## get_objects_by_sync_token sync/async twins, so only the awaited
     ## server round-trips differ between them.
+
+    #: How many truncated sync-collection pages (RFC 6578 section 3.6)
+    #: get_objects_by_sync_token follows before giving up and returning a
+    #: collection flagged ``truncated``.
+    sync_max_pages: int = 100
+
+    def _sync_page_truncated(self, response: Any) -> bool:
+        """Did the server truncate this sync-collection reply?
+
+        RFC 6578 section 3.6 marks a truncated reply with a 507 response
+        for the request URL.  A 507 for some other href is not that marker,
+        and is reported as the failure it is.
+        """
+        href = getattr(response, "sync_truncated_href", None)
+        if href is None:
+            return False
+        ## Compare unquoted: the marker href went through quote() (@ -> %40)
+        ## while the calendar URL may keep a literal @ (Nextcloud).
+        marker = unquote(self.url.join(self._href_to_url(href)).path).rstrip("/")
+        if marker != unquote(self.url.path).rstrip("/"):
+            raise error.ResponseError(f"sync-collection: 507 Insufficient Storage for {href}")
+        return True
+
+    def _absorb_sync_page(
+        self, response: Any, objects: list, collected: dict, previous_token: Any, deleted: set
+    ) -> tuple[Any, bool, bool]:
+        """Add one sync-collection page to ``collected`` (url -> object), and
+        the URLs of removed members to ``deleted``.
+
+        A member may turn up on more than one page; the later page wins.
+        Within one page, an ETag in any of its entries makes it changed.
+        A removed member has a 404 status and no propstat (RFC 6578 section
+        3.2), so no ETag; one also listed as changed (Cyrus) has one.
+        Returns ``(sync_token, truncated, fetch_another_page)``.
+        """
+        removed = {
+            self.url.join(self._href_to_url(href)).canonical()
+            for (href, status) in response.statuses.items()
+            if _status_to_code(status) == 404
+        }
+        for obj in objects:
+            url = obj.url.canonical()
+            collected[url] = obj
+            if url in removed and dav.GetEtag.tag not in obj.props:
+                deleted.add(url)
+            else:
+                deleted.discard(url)
+        token = response.sync_token
+        truncated = self._sync_page_truncated(response)
+        again = truncated and bool(token) and token != previous_token
+        if truncated and not again:
+            log.warning(
+                "Server truncated the sync-collection reply without a new sync-token; "
+                "returning an incomplete result"
+            )
+        return (token, truncated, again)
+
+    def _initial_sync_cannot_be_paged(self, sync_token: Any, truncated: bool) -> bool:
+        """Does this truncated initial sync have a checkpoint that skips members?
+
+        Stalwart's checkpoint token of a truncated initial sync is its newest
+        token, so the remaining members are never reported (feature
+        ``sync-token.limit.initial-sync``).  It truncates on its own at its
+        maxResults setting, and caps a PROPFIND the same way, so the client
+        cannot list them either: the page is returned flagged truncated.
+        """
+        if sync_token or not truncated:
+            return False
+        support = self.client.features.is_supported(
+            "sync-token.limit.initial-sync", return_type=dict
+        )
+        if support.get("support") != "broken":
+            return False
+        log.warning(
+            "The server truncated the initial sync, and its checkpoint token skips the "
+            "remaining objects; returning an incomplete result"
+        )
+        return True
 
     def _should_use_sync_token(self, sync_token: Any, disable_fallback: bool) -> bool:
         """Decide whether to attempt a real sync-collection REPORT.
@@ -2278,6 +2419,32 @@ class Calendar(DAVObject):
         if sync_token and isinstance(sync_token, str) and sync_token.startswith("fake-"):
             return False
         return True
+
+    def _is_genuine_authorization_error(self, e: Exception) -> bool:
+        """True for an AuthorizationError that is not an expired sync token.
+
+        RFC 6578 section 3.2 answers an invalid sync token with 403 and a
+        DAV:valid-sync-token precondition; that one should trigger a full
+        resync, and so does DAV:supported-report (RFC 3253, Zimbra: the
+        report is not supported).  A 401/403 naming some other precondition is a real
+        permission problem and must not be hidden by the fallback (issue
+        #738).  A 401/403 naming no precondition at all is only taken as a
+        permission problem when the server is configured with full
+        sync-token support; otherwise (unconfigured, or fragile like
+        Zimbra) it is taken as "can't sync" and the fallback is used.
+        """
+        if not isinstance(e, error.AuthorizationError):
+            return False
+        ## An expired token, or (Zimbra) a server refusing the
+        ## sync-collection REPORT altogether: neither is a permission problem
+        if dav.ValidSyncToken.tag in e.preconditions or dav.SupportedReport.tag in e.preconditions:
+            return False
+        if e.preconditions:
+            return True
+        support = self.client.features.is_supported(
+            "sync-token", return_type=dict, return_defaults=False
+        )
+        return bool(support) and support.get("support") == "full"
 
     def _apply_fallback_etags(self, response: Any, all_objects: list) -> None:
         """Map ETags from a depth-1 PROPFIND response onto the given objects.
@@ -2346,6 +2513,10 @@ class Calendar(DAVObject):
         This method transparently falls back to retrieving all objects if the server
         doesn't support sync tokens. The fallback behavior is identical from the user's
         perspective, but less efficient as it transfers the entire calendar on each sync.
+        An expired sync token (DAV:valid-sync-token, RFC 6578 section 3.2 - a 403, or a 412
+        on Xandikos) also triggers the fallback, while any other AuthorizationError is
+        raised.  With disable_fallback, the raised error's ``preconditions`` tells an
+        expired token apart from other failures.
 
         If disable_fallback is set to True, the method will raise an exception instead
         of falling back to retrieving all objects. This is useful for testing whether
@@ -2356,26 +2527,51 @@ class Calendar(DAVObject):
 
         if self._should_use_sync_token(sync_token, disable_fallback):
             try:
-                root = self.client._build_sync_collection_body(
-                    sync_token=sync_token, props=["getetag"]
-                )
-                (response, objects) = self._request_report_build_resultlist(
-                    root, props=[dav.GetEtag()], no_calendardata=True
-                )
+                ## A truncated reply (RFC 6578 section 3.6) is followed up
+                ## with the new token until the server says it is complete
+                collected: dict = {}
+                deleted: set = set()
+                token = sync_token
+                for _page in range(max(1, self.sync_max_pages)):
+                    root = self.client._build_sync_collection_body(
+                        sync_token=token, props=["getetag"]
+                    )
+                    (response, objects) = self._request_report_build_resultlist(
+                        root, props=[dav.GetEtag()], no_calendardata=True
+                    )
+                    (token, truncated, again) = self._absorb_sync_page(
+                        response, objects, collected, token, deleted
+                    )
+                    if self._initial_sync_cannot_be_paged(sync_token, truncated):
+                        token = sync_token
+                        break
+                    if not again:
+                        break
+                else:
+                    log.warning(f"sync-collection still truncated after {_page + 1} pages")
+                objects = list(collected.values())
 
                 ## this is not quite right - the etag we've fetched can already be outdated
                 if load_objects:
                     for obj in objects:
+                        if obj.url.canonical() in deleted:
+                            continue
                         try:
                             obj.load()
                         except error.NotFoundError:
                             ## The object was deleted
                             pass
                 return SynchronizableCalendarObjectCollection(
-                    calendar=self, objects=objects, sync_token=response.sync_token
+                    calendar=self,
+                    objects=objects,
+                    sync_token=token,
+                    truncated=truncated,
+                    deleted_urls=deleted,
                 )
             except (error.ReportError, error.DAVError) as e:
                 ## Server doesn't support sync tokens or the sync-collection REPORT failed
+                if self._is_genuine_authorization_error(e):
+                    raise
                 if disable_fallback:
                     raise
                 log.info(f"Sync-collection REPORT failed ({e}), falling back to full retrieval")
@@ -2434,22 +2630,45 @@ class Calendar(DAVObject):
         """Async implementation of get_objects_by_sync_token."""
         if self._should_use_sync_token(sync_token, disable_fallback):
             try:
-                root = self.client._build_sync_collection_body(
-                    sync_token=sync_token, props=["getetag"]
-                )
-                (response, objects) = await self._request_report_build_resultlist(
-                    root, props=[dav.GetEtag()], no_calendardata=True
-                )
+                collected: dict = {}
+                deleted: set = set()
+                token = sync_token
+                for _page in range(max(1, self.sync_max_pages)):
+                    root = self.client._build_sync_collection_body(
+                        sync_token=token, props=["getetag"]
+                    )
+                    (response, objects) = await self._request_report_build_resultlist(
+                        root, props=[dav.GetEtag()], no_calendardata=True
+                    )
+                    (token, truncated, again) = self._absorb_sync_page(
+                        response, objects, collected, token, deleted
+                    )
+                    if self._initial_sync_cannot_be_paged(sync_token, truncated):
+                        token = sync_token
+                        break
+                    if not again:
+                        break
+                else:
+                    log.warning(f"sync-collection still truncated after {_page + 1} pages")
+                objects = list(collected.values())
                 if load_objects:
                     for obj in objects:
+                        if obj.url.canonical() in deleted:
+                            continue
                         try:
                             await obj.load()
                         except error.NotFoundError:
                             pass
                 return SynchronizableCalendarObjectCollection(
-                    calendar=self, objects=objects, sync_token=response.sync_token
+                    calendar=self,
+                    objects=objects,
+                    sync_token=token,
+                    truncated=truncated,
+                    deleted_urls=deleted,
                 )
             except (error.ReportError, error.DAVError) as e:
+                if self._is_genuine_authorization_error(e):
+                    raise
                 if disable_fallback:
                     raise
                 log.info(f"Sync-collection REPORT failed ({e}), falling back to full retrieval")
@@ -2651,12 +2870,33 @@ class SynchronizableCalendarObjectCollection:
 
     To create a SynchronizableCalendarObjectCollection object, use
     calendar.objects(load_objects=True)
+
+    ``truncated`` is set when the server kept truncating the sync-collection
+    reply (RFC 6578 section 3.6) beyond ``Calendar.sync_max_pages`` pages,
+    or without moving the token on: the collection is then incomplete, and
+    ``sync()`` will continue from ``sync_token``.
+
+    ``deleted_urls`` holds the canonical URLs of the members the server
+    reported as removed, as RFC 6578 section 3.2 specifies: a 404 status
+    and no properties.  Their objects are among the ``objects`` too, without
+    data or ETag.  It is empty after the full-retrieval fallback, which
+    reports no removals, and after ``sync()``, which returns the removed
+    objects and drops them from ``objects``.
     """
 
-    def __init__(self, calendar, objects, sync_token) -> None:
+    def __init__(
+        self,
+        calendar,
+        objects,
+        sync_token,
+        truncated: bool = False,
+        deleted_urls: Iterable[URL] | None = None,
+    ) -> None:
         self.calendar = calendar
         self.sync_token = sync_token
         self.objects = objects
+        self.truncated = truncated
+        self.deleted_urls = set(deleted_urls) if deleted_urls else set()
         self._objects_by_url = None
 
     def __iter__(self) -> Iterator[Any]:
@@ -2702,6 +2942,8 @@ class SynchronizableCalendarObjectCollection:
         self.objects = list(current_by_url.values())
         self._objects_by_url = None
         self.sync_token = self.calendar._generate_fake_sync_token(self.objects)
+        self.truncated = False
+        self.deleted_urls = set()
         return (updated_objs, deleted_objs)
 
     def sync(
@@ -2745,19 +2987,32 @@ class SynchronizableCalendarObjectCollection:
                         ):
                             if obu[obj.url].props[dav.GetEtag.tag] == obj.props[dav.GetEtag.tag]:
                                 continue
-                        obu[obj.url] = obj
+                        ## A removal of something we never held (e.g.
+                        ## Nextcloud purging a trashed object) is no news
+                        known = obu.pop(obj.url, None) is not None
+                        if obj.url in updates.deleted_urls:
+                            if known:
+                                deleted_objs.append(obj)
+                            continue
                         try:
                             obj.load()
-                            updated_objs.append(obj)
                         except error.NotFoundError:
-                            deleted_objs.append(obj)
-                            obu.pop(obj.url)
+                            if known:
+                                deleted_objs.append(obj)
+                            continue
+                        obu[obj.url] = obj
+                        updated_objs.append(obj)
 
                     self.objects = list(obu.values())
                     self._objects_by_url = None
                     self.sync_token = updates.sync_token
+                    self.truncated = updates.truncated
+                    ## the removed members are handed back and dropped
+                    self.deleted_urls = set()
                     return (updated_objs, deleted_objs)
-            except (error.ReportError, error.DAVError):
+            except (error.ReportError, error.DAVError) as e:
+                if self.calendar._is_genuine_authorization_error(e):
+                    raise
                 is_fake_token = True
 
         ## FALLBACK: fetch all objects and compare
@@ -2801,19 +3056,32 @@ class SynchronizableCalendarObjectCollection:
                         ):
                             if obu[obj.url].props[dav.GetEtag.tag] == obj.props[dav.GetEtag.tag]:
                                 continue
-                        obu[obj.url] = obj
+                        ## A removal of something we never held (e.g.
+                        ## Nextcloud purging a trashed object) is no news
+                        known = obu.pop(obj.url, None) is not None
+                        if obj.url in updates.deleted_urls:
+                            if known:
+                                deleted_objs.append(obj)
+                            continue
                         try:
                             await obj.load()
-                            updated_objs.append(obj)
                         except error.NotFoundError:
-                            deleted_objs.append(obj)
-                            obu.pop(obj.url)
+                            if known:
+                                deleted_objs.append(obj)
+                            continue
+                        obu[obj.url] = obj
+                        updated_objs.append(obj)
 
                     self.objects = list(obu.values())
                     self._objects_by_url = None
                     self.sync_token = updates.sync_token
+                    self.truncated = updates.truncated
+                    ## the removed members are handed back and dropped
+                    self.deleted_urls = set()
                     return (updated_objs, deleted_objs)
-            except (error.ReportError, error.DAVError):
+            except (error.ReportError, error.DAVError) as e:
+                if self.calendar._is_genuine_authorization_error(e):
+                    raise
                 is_fake_token = True
 
         ## FALLBACK: fetch all objects and compare

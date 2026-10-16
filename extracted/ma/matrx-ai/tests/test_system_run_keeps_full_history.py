@@ -58,7 +58,7 @@ async def test_run_agent_system_run_forks_context_flag():
 
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()
@@ -112,7 +112,7 @@ async def test_run_agent_default_is_not_system_run():
     set_app_context(AppContext(emitter=ConsoleEmitter(), user_id=USER_ID, request_id=REQUEST_ID))
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         seen["system_run"] = getattr(get_app_context(), "system_run", None)
@@ -160,7 +160,7 @@ async def test_system_run_can_stream_without_enabling_chat_persistence():
     )
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()
@@ -562,7 +562,7 @@ def test_run_agent_has_no_history_switch():
 
 
 def _capturing_agent(seen: dict[str, Any], *, name: str = "mandate-holder") -> Any:
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()

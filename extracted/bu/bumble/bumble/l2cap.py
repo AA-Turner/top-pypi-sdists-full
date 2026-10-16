@@ -1742,6 +1742,7 @@ class LeCreditBasedChannel(utils.EventEmitter):
 
         if self.state != self.State.CONNECTED:
             logger.warning('received PDU while not connected, dropping')
+            return
 
         # Manage the peer credits
         if self.peer_credits == 0:
@@ -1768,29 +1769,33 @@ class LeCreditBasedChannel(utils.EventEmitter):
             self.in_sdu += pdu
 
         # Check if the SDU is complete
-        if self.in_sdu_length == 0:
-            # We don't know the size yet, check if we have received the header to
-            # compute it
-            if len(self.in_sdu) >= 2:
-                self.in_sdu_length = struct.unpack_from('<H', self.in_sdu, 0)[0]
-        if self.in_sdu_length == 0:
-            # We'll compute it later
+        if len(self.in_sdu) < 2:
+            # We don't know the size yet, we'll compute it later
+            return
+        self.in_sdu_length = struct.unpack_from('<H', self.in_sdu, 0)[0]
+        if self.in_sdu_length > self.mtu or len(self.in_sdu) > 2 + self.in_sdu_length:
+            # Overflow
+            logger.warning(
+                f'SDU overflow: sdu_length={self.in_sdu_length}, mtu={self.mtu}, '
+                f'received {len(self.in_sdu) - 2}'
+            )
+            self.in_sdu = None
+            self.in_sdu_length = 0
+            self._change_state(self.State.DISCONNECTING)
+            self.flush_output()
+            self.send_control_frame(
+                L2CAP_Disconnection_Request(
+                    identifier=self.manager.next_identifier(self.connection),
+                    destination_cid=self.destination_cid,
+                    source_cid=self.source_cid,
+                )
+            )
             return
         if len(self.in_sdu) < 2 + self.in_sdu_length:
             # Not complete yet
             logger.debug(
                 f'SDU: {len(self.in_sdu) - 2} of {self.in_sdu_length} bytes received'
             )
-            return
-        if len(self.in_sdu) != 2 + self.in_sdu_length:
-            # Overflow
-            logger.warning(
-                f'SDU overflow: sdu_length={self.in_sdu_length}, '
-                f'received {len(self.in_sdu) - 2}'
-            )
-            # TODO: we should disconnect
-            self.in_sdu = None
-            self.in_sdu_length = 0
             return
 
         # Send the SDU to the sink
@@ -2548,15 +2553,17 @@ class ChannelManager:
                     result=L2CAP_CONNECTION_PARAMETERS_ACCEPTED_RESULT,
                 ),
             )
-            self.host.send_command_sync(
-                hci.HCI_LE_Connection_Update_Command(
-                    connection_handle=connection.handle,
-                    connection_interval_min=request.interval_min,
-                    connection_interval_max=request.interval_max,
-                    max_latency=request.latency,
-                    supervision_timeout=request.timeout,
-                    min_ce_length=0,
-                    max_ce_length=0,
+            utils.AsyncRunner.spawn(
+                self.host.send_async_command(
+                    hci.HCI_LE_Connection_Update_Command(
+                        connection_handle=connection.handle,
+                        connection_interval_min=request.interval_min,
+                        connection_interval_max=request.interval_max,
+                        max_latency=request.latency,
+                        supervision_timeout=request.timeout,
+                        min_ce_length=0,
+                        max_ce_length=0,
+                    )
                 )
             )
         else:

@@ -1,5 +1,6 @@
 use crate::recorder::{DualFormatRecorder, EventType};
 use bytes::Bytes;
+use guacr_protocol::GuacamoleParser;
 
 #[test]
 fn test_event_types() {
@@ -28,21 +29,15 @@ fn test_dual_format_creates_files() {
     assert!(cast_path.exists());
     assert!(ses_path.exists());
 
-    // Verify .ses format is raw protocol (not timestamp.direction.instruction)
-    let ses_content = std::fs::read_to_string(&ses_path).unwrap();
-    for line in ses_content.lines() {
-        if line.is_empty() {
-            continue;
-        }
-        assert!(line.ends_with(';'), "Should end with semicolon: {}", line);
-        assert!(line.contains('.'), "Should have Guacamole protocol format");
-        // Should NOT match the old broken format "TIMESTAMP.DIRECTION.INSTRUCTION"
-        let first_char = line.chars().next().unwrap();
-        assert!(
-            first_char.is_ascii_digit(),
-            "Should start with length prefix"
-        );
-    }
+    // Verify .ses format is raw protocol (not timestamp.direction.instruction).
+    // Instructions are written back to back with nothing between them, so parsing
+    // by length prefix is the only way to recover them — and any stray separator or
+    // timestamp prefix fails the parse.
+    let ses_content = Bytes::from(std::fs::read(&ses_path).unwrap());
+    let instructions = GuacamoleParser::parse_instructions(&ses_content)
+        .expect("recording should parse as Guacamole protocol");
+    let opcodes: Vec<&str> = instructions.iter().map(|instr| instr.opcode).collect();
+    assert_eq!(opcodes, ["size"]);
 
     std::fs::remove_file(cast_path).ok();
     std::fs::remove_file(ses_path).ok();

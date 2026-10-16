@@ -19,6 +19,8 @@ from temporalio.converter import DataConverter
 from temporalio.exceptions import ActivityError, ApplicationError, CancelledError
 from temporalio.exceptions import TimeoutError as TemporalTimeoutError
 from temporalio.testing import WorkflowEnvironment
+from temporalio.worker import Replayer
+from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 
 from mistralai.workflows.core._registration.execution_registration_interceptor import (
     ExecutionRegistrationInterceptor,
@@ -37,6 +39,7 @@ from mistralai.workflows.core.config.config import (
     MAX_SEARCH_KEYS,
 )
 from mistralai.workflows.core.definition.workflow_definition import get_workflow_definition
+from mistralai.workflows.core.sandbox import get_sandbox_restrictions
 from mistralai.workflows.core.temporal.context_handler_interceptor import ContextHandlerInterceptor
 from mistralai.workflows.core.temporal.payload_converter import MistralWorkflowsPayloadConverter
 from mistralai.workflows.models import PayloadWithContext, WorkflowContext
@@ -50,9 +53,12 @@ from mistralai.workflows.worker_client.models import (
 from mistralai.workflows.worker_client.sdk import PrivateWorkerClient
 
 from .fixtures_add_search_keys import (
+    AddAllNoneSearchKeysWorkflow,
     AddInvalidSearchKeysWorkflow,
+    AddNoneSearchKeysWorkflow,
     AddSearchKeysFromActivityWorkflow,
     AddSearchKeysWorkflow,
+    LegacyAddAllNoneSearchKeysWorkflow,
     tag_from_activity,
 )
 from .utils import create_test_worker
@@ -80,8 +86,8 @@ class TestValidateAndCoerce:
     def test_date_value_uses_isoformat(self) -> None:
         assert _validate_and_coerce({"on": date(2026, 7, 27)}) == {"on": "2026-07-27"}
 
-    def test_none_value_is_skipped(self) -> None:
-        assert _validate_and_coerce({"a": None, "b": "x"}) == {"b": "x"}
+    def test_none_value_is_stored_as_none(self) -> None:
+        assert _validate_and_coerce({"a": None, "b": "x"}) == {"a": None, "b": "x"}
 
     def test_empty_payload_returns_empty(self) -> None:
         assert _validate_and_coerce({}) == {}
@@ -97,9 +103,10 @@ class TestValidateAndCoerce:
         value = "x" * (MAX_SEARCH_KEY_VALUE_CHARS + 10)
         assert _validate_and_coerce({"a": value}) == {"a": "x" * MAX_SEARCH_KEY_VALUE_CHARS}
 
-    def test_overlong_key_is_dropped_but_others_kept(self) -> None:
+    def test_overlong_key_raises(self) -> None:
         long_key = "k" * (MAX_SEARCH_KEY_CHARS + 1)
-        assert _validate_and_coerce({long_key: "v", "ok": "v"}) == {"ok": "v"}
+        with pytest.raises(ApplicationError, match="at most"):
+            _validate_and_coerce({long_key: "v", "ok": "v"})
 
     def test_more_than_max_keys_raises(self) -> None:
         payload: dict[str, str] = {f"k{i}": "v" for i in range(MAX_SEARCH_KEYS + 1)}
@@ -115,6 +122,10 @@ class TestValidateAndCoerce:
         with pytest.raises(ApplicationError, match="':'"):
             _validate_and_coerce({"a:b": "v"})
 
+    def test_key_ending_in_equals_raises(self) -> None:
+        with pytest.raises(ApplicationError, match=r"Search key `a=` must not end with '='"):
+            _validate_and_coerce({"a=": "v"})
+
     def test_non_string_key_raises(self) -> None:
         with pytest.raises(ApplicationError):
             _validate_and_coerce({1: "v"})  # type: ignore[dict-item]
@@ -122,6 +133,24 @@ class TestValidateAndCoerce:
     def test_reserved_prefix_raises_for_callers(self) -> None:
         with pytest.raises(ApplicationError, match="reserves"):
             _validate_and_coerce({"internal.execution.state": "v"})
+
+    def test_error_messages_name_the_offending_key(self) -> None:
+        with pytest.raises(ApplicationError, match=r"Search key `a:b` must not contain ':'"):
+            _validate_and_coerce({"a:b": "v"})
+
+    def test_collects_all_key_errors_before_raising(self) -> None:
+        with pytest.raises(ApplicationError) as exc_info:
+            _validate_and_coerce({"a:b": "v", "ok": "x", "c:d": "v"})
+        message = str(exc_info.value)
+        assert "Search key `a:b` must not contain ':'" in message
+        assert "Search key `c:d` must not contain ':'" in message
+
+    def test_collects_key_and_value_errors_before_raising(self) -> None:
+        with pytest.raises(ApplicationError) as exc_info:
+            _validate_and_coerce({"a:b": [1, 2], "ok": "x"})
+        message = str(exc_info.value)
+        assert "Search key `a:b` must not contain ':'" in message
+        assert "Search key `a:b` must map to a scalar value, got list" in message
 
     def test_reserved_prefix_allowed_for_sdk(self) -> None:
         assert _validate_and_coerce({"internal.execution.state": "v"}, allow_reserved=True) == {
@@ -211,7 +240,13 @@ class _UpsertTracker:
         if self._hang_on_upsert:
             await asyncio.Event().wait()  # block until the test cancels the workflow
         if self._upsert_error is not None:
-            raise self._upsert_error
+            error = (
+                self._upsert_error(kwargs["search_key_metadata"])
+                if callable(self._upsert_error)
+                else self._upsert_error
+            )
+            if error is not None:
+                raise error
         return self._upsert_response
 
     @contextmanager
@@ -280,6 +315,62 @@ class TestDispatch:
         assert call["search_key_metadata"] == {"customer.tier": "gold"}
 
     @pytest.mark.asyncio
+    async def test_none_valued_key_is_upserted_as_null(self) -> None:
+        tracker = _UpsertTracker()
+
+        await _run(AddNoneSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-none")
+
+        assert len(tracker.upsert_calls) == 1
+        assert tracker.upsert_calls[0]["search_key_metadata"] == {"unset.key": None, "set.key": "v"}
+
+    @pytest.mark.asyncio
+    async def test_all_none_payload_is_upserted_as_null(self) -> None:
+        tracker = _UpsertTracker()
+
+        await _run(AddAllNoneSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-all-none")
+
+        assert len(tracker.upsert_calls) == 1
+        assert tracker.upsert_calls[0]["search_key_metadata"] == {"unset.key": None}
+
+    @pytest.mark.asyncio
+    async def test_backend_rejecting_nulls_keeps_non_null_siblings(self) -> None:
+        tracker = _UpsertTracker(
+            upsert_error=lambda metadata: (
+                _sdk_error(422, "Unprocessable Entity") if any(value is None for value in metadata.values()) else None
+            )
+        )
+
+        await _run(AddNoneSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-422-strip")
+
+        assert [call["search_key_metadata"] for call in tracker.upsert_calls] == [
+            {"unset.key": None, "set.key": "v"},
+            {"set.key": "v"},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_backend_rejecting_all_none_payloads_upserts_nothing(self) -> None:
+        tracker = _UpsertTracker(
+            upsert_error=lambda metadata: (
+                _sdk_error(422, "Unprocessable Entity") if any(value is None for value in metadata.values()) else None
+            )
+        )
+
+        await _run(AddAllNoneSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-422-all-none")
+
+        assert [call["search_key_metadata"] for call in tracker.upsert_calls] == [
+            {"unset.key": None},
+            {},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_422_without_nulls_is_not_retried(self) -> None:
+        tracker = _UpsertTracker(upsert_error=_sdk_error(422, "Unprocessable Entity"))
+
+        await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-422-no-nulls")
+
+        assert len(tracker.upsert_calls) == 1
+
+    @pytest.mark.asyncio
     async def test_activity_can_upsert_search_keys(self) -> None:
         tracker = _UpsertTracker()
 
@@ -306,13 +397,13 @@ class TestDispatch:
         assert "execution_token_hash" not in call
 
     @pytest.mark.asyncio
-    async def test_upserts_even_when_registration_left_no_token(self) -> None:
+    async def test_registration_failure_prevents_upserts(self) -> None:
         tracker = _UpsertTracker(register_error=_sdk_error(404, "Not Found"))
 
-        await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-no-token")
+        with pytest.raises(WorkflowFailureError):
+            await _run(AddSearchKeysWorkflow, tracker, workflow_id="wf-search-keys-no-token")
 
-        assert len(tracker.upsert_calls) == 1
-        assert tracker.upsert_calls[0]["temporal_run_id"]
+        assert not tracker.upsert_calls
 
     @pytest.mark.asyncio
     async def test_upsert_timeout_does_not_fail_workflow(self) -> None:
@@ -386,7 +477,40 @@ class TestDispatch:
                     with pytest.raises(WorkflowFailureError) as exc_info:
                         await handle.result()
 
-                    assert isinstance(exc_info.value.cause, CancelledError)
+                assert isinstance(exc_info.value.cause, CancelledError)
+
+    @pytest.mark.asyncio
+    async def test_all_none_upsert_replays_against_pre_patch_history(self) -> None:
+        record_tracker = _UpsertTracker()
+        async with _env_with_converter() as env:
+            with record_tracker.activate():
+                async with create_test_worker(
+                    env,
+                    workflows=[LegacyAddAllNoneSearchKeysWorkflow],
+                    activities=[_register_execution, _upsert_search_keys],
+                    interceptors=[ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()],
+                ):
+                    handle = await env.client.start_workflow(
+                        "test-add-all-none-search-keys-from-workflow",
+                        _initial_arg(),
+                        id="wf-search-keys-legacy-history",
+                        task_queue="test-task-queue",
+                    )
+                    await handle.result()
+                    history = await handle.fetch_history()
+        assert record_tracker.upsert_calls == []
+
+        replay_tracker = _UpsertTracker()
+        with replay_tracker.activate():
+            replayer = Replayer(
+                workflows=[AddAllNoneSearchKeysWorkflow],
+                interceptors=[ContextHandlerInterceptor(), ExecutionRegistrationInterceptor()],
+                data_converter=DataConverter(payload_converter_class=MistralWorkflowsPayloadConverter),
+                workflow_runner=SandboxedWorkflowRunner(restrictions=get_sandbox_restrictions()),
+            )
+            await replayer.replay_workflow(history)
+
+        assert replay_tracker.upsert_calls == []
 
 
 class TestFailureMatrix:

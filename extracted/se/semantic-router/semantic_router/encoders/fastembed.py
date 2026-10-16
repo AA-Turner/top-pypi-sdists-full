@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, List, Optional
 
 import numpy as np
@@ -23,14 +24,9 @@ class FastEmbedEncoder(DenseEncoder):
     threads: Optional[int] = None
     _client: Any = PrivateAttr()
 
-    def __init__(self, score_threshold: float = 0.5, **data):
-        """Initialize the FastEmbed encoder.
-
-        :param score_threshold: The threshold for the score of the embedding.
-        :type score_threshold: float
-        """
-        # TODO default score_threshold not thoroughly tested, should optimize
-        super().__init__(score_threshold=score_threshold, **data)
+    def __init__(self, **data):
+        """Initialize the FastEmbed encoder."""
+        super().__init__(**data)
         self._client = self._initialize_client()
 
     def _initialize_client(self):
@@ -71,3 +67,17 @@ class FastEmbedEncoder(DenseEncoder):
             return embeddings
         except Exception as e:
             raise ValueError(f"FastEmbed embed failed. Error: {e}") from e
+
+    async def acall(self, docs: List[str]) -> List[List[float]]:
+        """Embed a list of documents asynchronously. Supports text only.
+
+        FastEmbed itself is synchronous, so this offloads the embedding call to a
+        thread to avoid blocking the event loop.
+
+        :param docs: The documents to embed.
+        :type docs: List[str]
+        :raise ValueError: If the embedding fails.
+        :return: The vector embeddings of the documents.
+        :rtype: List[List[float]]
+        """
+        return await asyncio.to_thread(lambda: self.__call__(docs))

@@ -261,10 +261,63 @@ def test_meta_refresh_with_valueless_content_has_no_link() -> None:
         pytest.param("background:url('unclosed", ["unclosed"], id="unclosed-quote-runs-to-end"),
         pytest.param("background:url(", [], id="empty-url-at-end"),
         pytest.param("a-b_c:url(z.png)", ["z.png"], id="dash-and-underscore-are-identifier-bytes"),
+        pytest.param("/* url(hidden.png) */a{background:url(real.png)}", ["real.png"], id="comment"),
+        pytest.param("/* *x url(hidden.png) */url(real.png)", ["real.png"], id="comment-with-star"),
+        pytest.param("/**/url(real.png)", ["real.png"], id="empty-comment"),
+        pytest.param("/*", [], id="bare-unclosed-comment"),
+        pytest.param("/", [], id="trailing-slash"),
+        pytest.param("a/b", [], id="slash-without-comment"),
+        pytest.param("a{background:url(real.png)}/* url(hidden.png)", ["real.png"], id="unclosed-comment"),
+        pytest.param('a{content:"url(hidden.png)";background:url(real.png)}', ["real.png"], id="string"),
+        pytest.param(
+            'a{content:"url(hidden.png)\\\ncontinued";background:url(real.png)}', ["real.png"], id="escaped-newline"
+        ),
+        pytest.param(
+            'a{content:"url(hidden.png)\\\r\ncontinued";background:url(real.png)}', ["real.png"], id="escaped-crlf"
+        ),
+        pytest.param('a{content:"bad\nbackground:url(real.png)}', ["real.png"], id="bad-string-newline"),
+        pytest.param('a{content:"bad\rbackground:url(real.png)}', ["real.png"], id="bad-string-cr"),
+        pytest.param('a{content:"bad\fbackground:url(real.png)}', ["real.png"], id="bad-string-form-feed"),
+        pytest.param('a{content:"url(hidden.png)', [], id="unclosed-string"),
+        pytest.param('a{content:"url(hidden.png)\\', [], id="trailing-string-escape"),
+        pytest.param("'url(hidden.png)' url(real.png)", ["real.png"], id="single-quoted-string"),
+        pytest.param('url("bad\n) url(real.png)', ["real.png"], id="bad-url-string"),
+        pytest.param('@import "bad\nurl(real.png)', ["real.png"], id="bad-import-string"),
+        pytest.param("éurl(hidden.png) url(real.png)", ["real.png"], id="non-ascii-identifier-prefix"),
+        pytest.param("aurl(hidden.png) URL(real.png)", ["real.png"], id="ascii-identifier-prefix"),
+        pytest.param("a_url(hidden.png) a-url(hidden.png) url(real.png)", ["real.png"], id="identifier-punctuation"),
+        pytest.param("u @import 'a.css'", ["a.css"], id="short-ident-before-import"),
+        pytest.param("a@import 'hidden.css'", [], id="import-in-identifier"),
+        pytest.param(
+            'a{content:"skip \\" url(hidden.png)";background:url(real.png)}', ["real.png"], id="escaped-quote"
+        ),
+        pytest.param('@import "a.css";a{background:url(real.png)}', ["a.css", "real.png"], id="import-then-url"),
+        pytest.param(
+            'a{background:url("a)b.png");mask:url(real.png)}', ["a)b.png", "real.png"], id="url-with-parenthesis"
+        ),
+        pytest.param(
+            'a{background:url("a\\"b.png");mask:url(real.png)}', ['a\\"b.png', "real.png"], id="url-with-escaped-quote"
+        ),
     ],
 )
 def test_style_element_css_parsing(css: str, expected: list[str]) -> None:
     assert _urls(f"<style>{css}</style>") == expected
+
+
+@pytest.mark.parametrize(
+    ("css", "expected"),
+    [
+        pytest.param('a{content:"url(hidden)\\\r\ncontinued";background:url(real)}', ["real"], id="escaped-crlf"),
+        pytest.param('a{content:"url(hidden)\\\rcontinued";background:url(real)}', ["real"], id="escaped-cr"),
+        pytest.param('a{content:"url(hidden)\\\r', [], id="trailing-escaped-cr"),
+        pytest.param('a{content:"bad\rbackground:url(real)}', ["real"], id="bad-string-cr"),
+        pytest.param('a{content:"bad\fbackground:url(real)}', ["real"], id="bad-string-form-feed"),
+    ],
+)
+def test_style_text_css_boundaries(css: str, expected: list[str]) -> None:
+    style: Final = Element("style")
+    style.append(Text(css))
+    assert [link.url for link in style.links()] == expected
 
 
 def test_whitespace_only_space_list_yields_nothing() -> None:
@@ -275,24 +328,68 @@ def _enumerated_urls(html: str) -> list[tuple[str, str | None, str]]:
     return [(link.element.tag, link.attribute, link.url) for link in parse_fragment(html).links()]
 
 
-def test_anchor_href_is_enumerated() -> None:
-    assert _enumerated_urls('<a href="a/b.html">x</a>') == [("a", "href", "a/b.html")]
+@pytest.mark.parametrize(
+    ("markup", "expected"),
+    [
+        pytest.param('<a href="a/b.html">x</a>', [("a", "href", "a/b.html")], id="anchor-href-is-enumerated"),
+        pytest.param(
+            '<a href="  a/b.html  ">x</a>',
+            [("a", "href", "a/b.html")],
+            id="value-is-reported-with-surrounding-whitespace-trimmed",
+        ),
+        # &#13; injects a real U+000D past the input preprocessor's CR->LF fold, and CR is
+        # HTML ASCII whitespace, so "strip leading/trailing ASCII whitespace" must drop it.
+        # 13;a/b.html&#13;">x</a>') == [("a", "href", "a/b.html")]
+        pytest.param(
+            '<a href="&#13;a/b.html&#13;">x</a>',
+            [("a", "href", "a/b.html")],
+            id="carriage-return-from-char-ref-is-trimmed",
+        ),
+        pytest.param('<a class="c" href="u">x</a>', [("a", "href", "u")], id="non-link-attribute-is-ignored"),
+        pytest.param(
+            '<a href="h" ping="  p1   p2 p3 ">x</a>',
+            [
+                ("a", "href", "h"),
+                ("a", "ping", "p1"),
+                ("a", "ping", "p2"),
+                ("a", "ping", "p3"),
+            ],
+            id="ping-is-a-whitespace-separated-list",
+        ),
+        pytest.param('<div archive="j1.jar j2.jar"></div>', [], id="archive-is-ignored-off-object-and-applet"),
+        pytest.param('<input placeholder="javascript:not-a-url">', [], id="placeholder-is-not-imagesrcset"),
+        pytest.param(
+            '<meta http-equiv="refresh" content="5; url=next.html">',
+            [("meta", "content", "next.html")],
+            id="meta-refresh-url-is-enumerated",
+        ),
+        pytest.param(
+            '<meta http-equiv="REFRESH" content="0;URL=&#39;n.html&#39;">',
+            [("meta", "content", "n.html")],
+            id="meta-refresh-url-is-case-insensitive-and-unquotes",
+        ),
+        pytest.param(
+            "<p style='background:url(\"bg.png\")'></p>",
+            [("p", "style", "bg.png")],
+            id="css-url-double-quoted-in-single-quoted-attribute",
+        ),
+        pytest.param("<style></style>", [], id="empty-style-element-has-no-link"),
+        pytest.param('<style>@import "a.css";</style>', [("style", None, "a.css")], id="css-import-double-quoted"),
+        pytest.param(
+            "<style>@import url(a.css);</style>",
+            [("style", None, "a.css")],
+            id="css-import-without-string-defers-to-url-form",
+        ),
+    ],
+)
+def test_enumerated_urls(markup: str, expected: list[tuple[str, str | None, str]]) -> None:
+    assert _enumerated_urls(markup) == expected
 
 
 def test_many_elements_grow_the_snapshot() -> None:
     # The pure-C element snapshot starts at 16 slots; >16 elements exercise its regrow.
     html = "".join(f'<a href="p{index}">{index}</a>' for index in range(40))
     assert _enumerated_urls(html) == [("a", "href", f"p{index}") for index in range(40)]
-
-
-def test_value_is_reported_with_surrounding_whitespace_trimmed() -> None:
-    assert _enumerated_urls('<a href="  a/b.html  ">x</a>') == [("a", "href", "a/b.html")]
-
-
-def test_carriage_return_from_char_ref_is_trimmed() -> None:
-    # &#13; injects a real U+000D past the input preprocessor's CR->LF fold, and CR is
-    # HTML ASCII whitespace, so "strip leading/trailing ASCII whitespace" must drop it.
-    assert _enumerated_urls('<a href="&#13;a/b.html&#13;">x</a>') == [("a", "href", "a/b.html")]
 
 
 @pytest.mark.parametrize(
@@ -304,10 +401,6 @@ def test_carriage_return_from_char_ref_is_trimmed() -> None:
 )
 def test_empty_url_attribute_is_skipped(markup: str) -> None:
     assert _enumerated_urls(markup) == []
-
-
-def test_non_link_attribute_is_ignored() -> None:
-    assert _enumerated_urls('<a class="c" href="u">x</a>') == [("a", "href", "u")]
 
 
 @pytest.mark.parametrize(
@@ -341,15 +434,6 @@ def test_same_length_non_url_attributes_are_ignored(attr: str) -> None:
     assert _enumerated_urls(f'<input {attr}="not-a-url">') == []
 
 
-def test_ping_is_a_whitespace_separated_list() -> None:
-    assert _enumerated_urls('<a href="h" ping="  p1   p2 p3 ">x</a>') == [
-        ("a", "href", "h"),
-        ("a", "ping", "p1"),
-        ("a", "ping", "p2"),
-        ("a", "ping", "p3"),
-    ]
-
-
 def test_ping_only_counts_on_anchor_and_area() -> None:
     assert _enumerated_urls('<div ping="p1 p2">x</div>') == []
     assert ("area", "ping", "p1") in _enumerated_urls('<map><area ping="p1 p2"></map>')
@@ -361,10 +445,6 @@ def test_archive_is_a_whitespace_list_on_object_and_applet() -> None:
         ("object", "archive", "j2.jar"),
     ]
     assert ("applet", "archive", "j1.jar") in _enumerated_urls('<applet archive="j1.jar"></applet>')
-
-
-def test_archive_is_ignored_off_object_and_applet() -> None:
-    assert _enumerated_urls('<div archive="j1.jar j2.jar"></div>') == []
 
 
 @pytest.mark.parametrize("attr", [pytest.param("srcset", id="srcset"), pytest.param("imagesrcset", id="imagesrcset")])
@@ -379,26 +459,21 @@ def test_srcset_with_a_trailing_comma_and_varied_whitespace() -> None:
     assert [url for _, _, url in found] == ["a.png", "b.png"]
 
 
-def test_srcset_candidate_ending_directly_at_a_comma() -> None:
-    # no descriptor or space before the comma, so the URL run stops on the comma itself
-    found = _enumerated_urls('<img srcset="a.png,b.png 2x">')
-    assert [url for _, _, url in found] == ["a.png", "b.png"]
-
-
-def test_placeholder_is_not_imagesrcset() -> None:
-    assert _enumerated_urls('<input placeholder="javascript:not-a-url">') == []
-
-
-def test_meta_refresh_url_is_enumerated() -> None:
-    assert _enumerated_urls('<meta http-equiv="refresh" content="5; url=next.html">') == [
-        ("meta", "content", "next.html")
-    ]
-
-
-def test_meta_refresh_url_is_case_insensitive_and_unquotes() -> None:
-    assert _enumerated_urls('<meta http-equiv="REFRESH" content="0;URL=&#39;n.html&#39;">') == [
-        ("meta", "content", "n.html")
-    ]
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param("a.png,b.png 2x", ["a.png,b.png"], id="internal-comma"),
+        pytest.param(
+            "data:image/gif;base64,R0lGODlh 1x, b.png 2x", ["data:image/gif;base64,R0lGODlh", "b.png"], id="data-url"
+        ),
+        pytest.param("a.png, b.png 2x", ["a.png", "b.png"], id="trailing-comma"),
+        pytest.param("a.png,, b.png 2x", ["a.png", "b.png"], id="multiple-trailing-commas"),
+        pytest.param("a.png,b.png,", ["a.png,b.png"], id="internal-and-trailing-comma"),
+    ],
+)
+def test_srcset_url_boundaries(value: str, expected: list[str]) -> None:
+    found = _enumerated_urls(f'<img srcset="{value}">')
+    assert [url for _, _, url in found] == expected
 
 
 @pytest.mark.parametrize(
@@ -430,10 +505,6 @@ def test_css_url_in_style_attribute(style: str, expected: list[str]) -> None:
     assert [url for _, _, url in found] == expected
 
 
-def test_css_url_double_quoted_in_single_quoted_attribute() -> None:
-    assert _enumerated_urls("<p style='background:url(\"bg.png\")'></p>") == [("p", "style", "bg.png")]
-
-
 def test_style_element_text_is_scanned_as_css() -> None:
     found = _enumerated_urls("<style>a{background:url(bg.png)} @import 'theme.css'; @media x {}</style>")
     assert [(link[0], link[1], link[2]) for link in found] == [
@@ -442,24 +513,12 @@ def test_style_element_text_is_scanned_as_css() -> None:
     ]
 
 
-def test_empty_style_element_has_no_link() -> None:
-    assert _enumerated_urls("<style></style>") == []
-
-
 def test_style_with_a_non_text_child_skips_it() -> None:
     # a parsed <style> is always rawtext, but a programmatic tree can give it an element child to skip
     style = Element("style")
     style.append(Element("span"))
     style.append(Text("a{background:url(bg.png)}"))
     assert [link.url for link in style.links()] == ["bg.png"]
-
-
-def test_css_import_double_quoted() -> None:
-    assert _enumerated_urls('<style>@import "a.css";</style>') == [("style", None, "a.css")]
-
-
-def test_css_import_without_string_defers_to_url_form() -> None:
-    assert _enumerated_urls("<style>@import url(a.css);</style>") == [("style", None, "a.css")]
 
 
 def test_many_links_in_one_value_grow_the_span_buffer() -> None:
@@ -513,6 +572,11 @@ def test_srcset_candidates_are_each_resolved() -> None:
     assert out == '<img srcset="https://example.com/dir/a.png 1x, https://example.com/dir/b.png 2x">'
 
 
+def test_srcset_url_with_comma_is_resolved_as_one_link() -> None:
+    out = _resolved('<img srcset="a,b 1x, c 2x">')
+    assert out == '<img srcset="https://example.com/dir/a,b 1x, https://example.com/dir/c 2x">'
+
+
 def test_ping_list_entries_are_each_resolved() -> None:
     out = _resolved('<a href="h" ping="p1 p2">x</a>')
     assert 'ping="https://example.com/dir/p1 https://example.com/dir/p2"' in out
@@ -528,6 +592,14 @@ def test_css_url_in_style_element_is_resolved() -> None:
     root.resolve_links(_RESOLVE_BASE)
     assert root.inner_html == (
         "<style>a{background:url(https://example.com/dir/bg.png)} @import 'https://example.com/dir/theme.css';</style>"
+    )
+
+
+def test_css_comments_and_strings_are_not_resolved() -> None:
+    html: Final = "<style>/* url(hidden.png) */a{content:'url(fake.png)';background:url(real.png)}</style>"
+    assert _resolved(html) == (
+        "<style>/* url(hidden.png) */a{content:'url(fake.png)';"
+        "background:url(https://example.com/dir/real.png)}</style>"
     )
 
 
@@ -680,6 +752,11 @@ def test_returning_the_same_string_is_not_a_mutation() -> None:
 def test_only_some_candidates_change() -> None:
     out = _rewritten('<img srcset="a.png 1x, b.png 2x">', lambda url: "X" if url == "a.png" else None)
     assert out == '<img srcset="X 1x, b.png 2x">'
+
+
+def test_rewrite_srcset_url_with_comma() -> None:
+    out = _rewritten('<img srcset="a,b 1x, c 2x">', lambda url: "X" if url == "a,b" else None)
+    assert out == '<img srcset="X 1x, c 2x">'
 
 
 def test_a_shorter_replacement_shrinks_the_value() -> None:

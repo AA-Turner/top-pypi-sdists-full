@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bernstein"
-version = "3.21.0"
+version = "3.22.0"
 description = "The open-source governance layer for AI agents. No model in the coordination loop, so replaying a plan reproduces its task graph byte-identically, and run receipts are byte-identical across independent builds. Signed lineage plus an opt-in HMAC audit chain a reviewer checks offline, without rerunning it. Runs Claude Code, Codex, Gemini CLI, and 40+ CLI agents; governs any deliverable from code to research to audit evidence packs. Cluster mode, air-gap deploy."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -159,6 +159,7 @@ dev = [
     "hypothesis>=6.100",
     "respx>=0.22",
     "ruff>=0.9",
+    "vulture==2.14",  # Gate-evasion baseline: hermetic dead-code gate tool
     "pyright>=1.1",
     # Declared so `uv run mypy` resolves the project interpreter instead of
     # falling through to whatever `mypy` sits on PATH. A PATH mypy bound to
@@ -876,6 +877,7 @@ dev = [
     "hypothesis>=6.100",
     "respx>=0.22",
     "ruff>=0.9",
+    "vulture==2.14",  # Gate-evasion baseline: mirror the dev extra
     "pyright>=1.1",
     # Declared so `uv run mypy` resolves the project interpreter instead of
     # falling through to whatever `mypy` sits on PATH. A PATH mypy bound to

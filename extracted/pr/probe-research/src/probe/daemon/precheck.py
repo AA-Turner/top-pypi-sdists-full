@@ -272,10 +272,15 @@ class Parsed:
     params: dict[str, Any]
     root_options: list[str]
     argv: list[str]
+    #: click takes `--help` here as the help flag: the CLI prints the command's
+    #: help and does nothing else, so it is a read whoever owns the command. Never
+    #: when `--help` is an option's value (`notes delete --note --help --yes`
+    #: deletes the note titled `--help`).
+    help: bool = False
 
     @property
     def owner(self) -> str | None:
-        return OWNERS.get(self.path)
+        return READ if self.help else OWNERS.get(self.path)
 
 
 @dataclass
@@ -313,11 +318,9 @@ def _root():
     return _ROOT
 
 
-def parse(argv: list[str]) -> Parsed:
-    """Resolve `argv` (the words after `probe`) with the CLI's own parser, without running it."""
-    import click
-
-    root = _root()
+def _walk(argv: list[str]) -> tuple[list[str], list[str], list[str], Any]:
+    """`(root options, command words, the words after them, the click command or
+    group they name)` for `argv`, the words after `probe`."""
     args = list(argv)
     root_options: list[str] = []
     while args and args[0].startswith("-"):
@@ -326,7 +329,7 @@ def parse(argv: list[str]) -> Parsed:
         if option in ("--base-url", "--spool-dir") and args:
             args.pop(0)
     path: list[str] = []
-    cmd: Any = root
+    cmd: Any = _root()
     while hasattr(cmd, "commands") and args and not args[0].startswith("-"):
         name = args[0]
         sub = cmd.commands.get(name)
@@ -335,6 +338,24 @@ def parse(argv: list[str]) -> Parsed:
         path.append(name)
         cmd = sub
         args.pop(0)
+    return root_options, path, args, cmd
+
+
+def _help_flag(cmd: Any, ctx: Any) -> bool:
+    """Asked of click, never of the words: `--help` given as `cmd`'s help flag is
+    the one way its parameter source reads COMMANDLINE (by name: typer may carry
+    its own copy of click). `probe artifact delete --help` was held twice as a
+    delete that cannot be undone, and `notes delete --note --help --yes` deletes."""
+    option = cmd.get_help_option(ctx)
+    source = ctx.get_parameter_source(option.name) if option is not None else None
+    return getattr(source, "name", None) == "COMMANDLINE"
+
+
+def parse(argv: list[str]) -> Parsed:
+    """Resolve `argv` (the words after `probe`) with the CLI's own parser, without running it."""
+    import click
+
+    root_options, path, args, cmd = _walk(argv)
     if not path:
         raise ParseError(f"`probe {' '.join(argv[:2])}` is not a probe command")
     if getattr(cmd, "commands", None):
@@ -343,7 +364,23 @@ def parse(argv: list[str]) -> Parsed:
         ctx = cmd.make_context(" ".join(path), args, resilient_parsing=True)
     except click.ClickException as exc:
         raise ParseError(str(exc.format_message())) from None
-    return Parsed(path=" ".join(path), params=dict(ctx.params), root_options=root_options, argv=list(argv))
+    return Parsed(path=" ".join(path), params=dict(ctx.params), root_options=root_options, argv=list(argv),
+                  help=_help_flag(cmd, ctx))
+
+
+def asks_help(argv: list[str]) -> bool:
+    """Does `probe <argv>` only print help? click takes `--help` as the help flag
+    of the command or group it names, or of `probe` itself. The one help check:
+    `Parsed.help` for the daemon, this for the agent's write gate
+    (`cli/write_gate.py`). Anything click cannot place is not help, so the gate
+    applies to it."""
+    try:
+        root_options, path, args, cmd = _walk(argv)
+        if "--help" in root_options:
+            return True
+        return _help_flag(cmd, cmd.make_context(" ".join(path) or "probe", args, resilient_parsing=True))
+    except Exception:  # noqa: BLE001 - not help: the gate decides
+        return False
 
 
 def command(path: str) -> Any:
@@ -406,7 +443,7 @@ def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | N
     if "--async" in parsed.root_options or parsed.params.get("write_mode") is True:
         return Block(new_block_id(), ASYNC_REFUSED, "option", argv=parsed.argv, overridable=False)
     bad_root = [o for o in parsed.root_options if o not in _ROOT_OK]
-    if parsed.path in DELETES:
+    if parsed.path in DELETES and not parsed.help:  # a help request deletes nothing (`Parsed.help`)
         if trash is None:
             return Block(new_block_id(), TRASH_UNKNOWN, "no_trash", argv=parsed.argv, overridable=False)
         if not trash:
@@ -427,8 +464,13 @@ def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | N
     for (path, param), why in _FORBIDDEN_OPTIONS.items():
         if path == parsed.path and parsed.params.get(param) and why:
             return Block(new_block_id(), why, "option", argv=parsed.argv)
-    if parsed.path in ("run set", "experiment set") and _claims_human(parsed):
-        return Block(new_block_id(), "the daemon can't mark its own words as a human's (use `--authored-by agent`)",
+    # Every command that takes `--authored-by` (project create/set, experiment
+    # create/fork/set, run set/start/...), not two of them: `human` locks a
+    # name or description against generation forever, and that is the
+    # researcher's claim to make. The override asks them.
+    if _claims_human(parsed):
+        return Block(new_block_id(), "the daemon can't mark its own words as a human's: words the researcher chose "
+                     "go through the override, which asks them; for your own, use `--authored-by agent`",
                      "option", argv=parsed.argv)
     if owner == READ:
         # A read sends no text worth scanning, but a spec file it evaluates is uploaded.
@@ -453,8 +495,10 @@ def check(parsed: Parsed, *, cwd: Path, trash: bool | None = False) -> Block | N
             if found:
                 return Block(new_block_id(), f"the text looks like it contains a credential ({found[0].rule})",
                              "secret", flagged=_mask_finding(text, found[0]), argv=parsed.argv)
+    artifact = _artifact_file(parsed)
+    pointer = _stays_a_pointer(parsed.params.get("reference"), parsed.params.get("kind"))
     for path in _files_it_reads(parsed):
-        block = _check_file(_resolve(path, cwd), parsed)
+        block = _check_file(_resolve(path, cwd), parsed, pointer=pointer and path == artifact)
         if block:
             return block
     for key in (n for c, n in MANIFEST_PARAMS if c == parsed.path):
@@ -546,9 +590,17 @@ def _check_manifest(path: Path, parsed: Parsed, cwd: Path) -> Block | None:
         if not isinstance(row, dict):
             return Block(new_block_id(), f"line {lineno} of the manifest isn't a JSON object",
                          "secret", argv=parsed.argv)
+        # A row the CLI records as a pointer: `"reference": true`, or any file at
+        # or over `--reference-over` (so every file over the upload cap, while that
+        # is at most the cap) -- never a code kind, which is always stored, and
+        # never by size on a workspace or Shared row, whose files ARE their bytes.
+        over = parsed.params.get("reference_over")
+        file_anchor = any(row.get(a) or parsed.params.get(a) for a in ("workspace", "shared"))
+        big_rows_point = isinstance(over, int) and over <= MAX_UPLOAD_BYTES and not file_anchor
+        pointer = _stays_a_pointer(row.get("reference") is True or big_rows_point, row.get("kind"))
         for text in _strings(row.get("path")):
             if text and text != "-":
-                block = _check_file(_resolve(text, cwd), parsed)
+                block = _check_file(_resolve(text, cwd), parsed, pointer=pointer)
                 if block:
                     return block
     return None
@@ -701,7 +753,24 @@ def _protected() -> list[Path]:
     return out
 
 
-def _check_file(path: Path, parsed: Parsed) -> Block | None:
+def _artifact_file(parsed: Parsed) -> str | None:
+    """The FILE `artifact add` records: its PATH, or the RUN slot when an anchor
+    flag is set (`_files_it_reads`)."""
+    if parsed.path != "artifact add":
+        return None
+    return parsed.params.get("path") or parsed.params.get("run")
+
+
+def _stays_a_pointer(reference: Any, kind: Any) -> bool:
+    """`--reference` that the CLI keeps a pointer: it records where the bytes are
+    and sends none. A code kind never is -- the CLI uploads it whatever
+    `--reference` said (`_reference_after_code_check`)."""
+    if reference is not True or not (kind is None or isinstance(kind, str)):
+        return False  # a kind that is no string: the CLI refuses the row itself
+    return not importlib.import_module("probe.cli.main")._is_code_kind(kind)
+
+
+def _check_file(path: Path, parsed: Parsed, *, pointer: bool = False) -> Block | None:
     """The SAFETY stops on a file a command sends. There is deliberately no bound on
     WHERE it lives (Richard, 2026-09-25: the daemon may upload files adjacent to
     the session's work, relevance is the model's call): only Probe's own protected
@@ -730,7 +799,10 @@ def _check_file(path: Path, parsed: Parsed) -> Block | None:
         return Block(new_block_id(), f"{resolved.name} has a name credentials are kept under", "secret",
                      argv=parsed.argv)
     size = resolved.stat().st_size
-    if size > MAX_UPLOAD_BYTES:
+    # A pointer sends none of the bytes, so the upload cap is not its limit
+    # (track-work: "Over 5 GB: `--reference`"). Its name and its first bytes
+    # are still checked: a pointer to a credential is refused too.
+    if size > MAX_UPLOAD_BYTES and not pointer:
         return Block(new_block_id(), f"{resolved.name} is {_size(size)}, over the {_size(MAX_UPLOAD_BYTES)} limit",
                      "secret", argv=parsed.argv)
     with resolved.open("rb") as handle:

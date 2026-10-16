@@ -697,67 +697,132 @@ mod builtins {
 
     /// Converts a value into an integer.
     ///
+    /// Strings are parsed in the given `base` (10 by default).  For bases 2, 8
+    /// and 16 the string may carry a `0b`, `0o` or `0x` prefix.  If the value
+    /// cannot be converted and a `default` is given, the default is returned
+    /// instead of an error.  `none` converts to the default or 0.
+    ///
     /// ```jinja
     /// {{ "42"|int == 42 }} -> true
+    /// {{ "0x1f"|int(base=16) }} -> 31
+    /// {{ "n/a"|int(default=0) }} -> 0
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
-    pub fn int(state: &State, value: &Value) -> Result<Value, Error> {
-        match &value.0 {
+    pub fn int(
+        state: &State,
+        value: &Value,
+        default: Option<Value>,
+        base: Option<u32>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
+        let default = match default {
+            Some(default) => Some(default),
+            None => ok!(kwargs.get::<Option<Value>>("default")),
+        };
+        let base = match base {
+            Some(base) => base,
+            None => ok!(kwargs.get::<Option<u32>>("base")).unwrap_or(10),
+        };
+        ok!(kwargs.assert_all_used());
+
+        let rv = match &value.0 {
             ValueRepr::Undefined(..) | ValueRepr::None => {
                 ok!(state.undefined_behavior().assert_value_not_undefined(value));
-                Ok(Value::from(0))
+                return Ok(default.unwrap_or(Value::from(0)));
             }
-            ValueRepr::Bool(x) => Ok(Value::from(*x as u64)),
+            ValueRepr::Bool(x) => return Ok(Value::from(*x as u64)),
             ValueRepr::U64(_) | ValueRepr::I64(_) | ValueRepr::U128(_) | ValueRepr::I128(_) => {
-                Ok(value.clone())
+                return Ok(value.clone())
             }
-            ValueRepr::F64(v) => Ok(Value::from(*v as i128)),
+            ValueRepr::F64(v) => return Ok(Value::from(*v as i128)),
             ValueRepr::String(..) | ValueRepr::SmallStr(_) => {
                 let s = value.as_str().unwrap();
-                if let Ok(i) = s.parse::<i128>() {
-                    Ok(Value::from(i))
-                } else {
-                    match s.parse::<f64>() {
-                        Ok(f) => Ok(Value::from(f as i128)),
-                        Err(err) => Err(Error::new(ErrorKind::InvalidOperation, err.to_string())),
-                    }
+                if let Some(i) = parse_int(s, base) {
+                    return Ok(Value::from(i));
                 }
+                s.parse::<f64>()
+                    .map(|f| Value::from(f as i128))
+                    .map_err(|err| Error::new(ErrorKind::InvalidOperation, err.to_string()))
             }
             ValueRepr::Bytes(_) | ValueRepr::Object(_) => Err(Error::new(
                 ErrorKind::InvalidOperation,
                 format!("cannot convert {} to integer", value.kind()),
             )),
-            ValueRepr::Invalid(_) => value.clone().validate(),
+            ValueRepr::Invalid(_) => return value.clone().validate(),
+        };
+        rv.or_else(|err| default.ok_or(err))
+    }
+
+    /// Parses an integer like Python's `int(s, base)` does, except that
+    /// underscores and surrounding whitespace are not accepted.
+    fn parse_int(s: &str, base: u32) -> Option<i128> {
+        let prefix = match base {
+            2 => "0b",
+            8 => "0o",
+            16 => "0x",
+            3..=36 => "",
+            _ => return None,
+        };
+        let (negative, digits) = match s.strip_prefix('-') {
+            Some(rest) => (true, rest),
+            None => (false, s.strip_prefix('+').unwrap_or(s)),
+        };
+        let digits = match digits.get(..prefix.len()) {
+            Some(p) if !prefix.is_empty() && p.eq_ignore_ascii_case(prefix) => {
+                &digits[prefix.len()..]
+            }
+            _ => digits,
+        };
+        if digits.starts_with(['+', '-']) {
+            return None;
         }
+        let rv = i128::from_str_radix(digits, base).ok()?;
+        Some(if negative { -rv } else { rv })
     }
 
     /// Converts a value into a float.
     ///
+    /// If the value cannot be converted and a `default` is given, the default
+    /// is returned instead of an error.  `none` converts to the default or 0.0.
+    ///
     /// ```jinja
     /// {{ "42.5"|float == 42.5 }} -> true
+    /// {{ "n/a"|float(default=0.0) }} -> 0.0
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
-    pub fn float(state: &State, value: &Value) -> Result<Value, Error> {
-        match &value.0 {
+    pub fn float(
+        state: &State,
+        value: &Value,
+        default: Option<Value>,
+        kwargs: Kwargs,
+    ) -> Result<Value, Error> {
+        let default = match default {
+            Some(default) => Some(default),
+            None => ok!(kwargs.get::<Option<Value>>("default")),
+        };
+        ok!(kwargs.assert_all_used());
+
+        let rv = match &value.0 {
             ValueRepr::Undefined(..) | ValueRepr::None => {
                 ok!(state.undefined_behavior().assert_value_not_undefined(value));
-                Ok(Value::from(0.0))
+                return Ok(default.unwrap_or(Value::from(0.0)));
             }
-            ValueRepr::Bool(x) => Ok(Value::from(*x as u64 as f64)),
+            ValueRepr::Bool(x) => return Ok(Value::from(*x as u64 as f64)),
             ValueRepr::String(..) | ValueRepr::SmallStr(_) => value
                 .as_str()
                 .unwrap()
                 .parse::<f64>()
                 .map(Value::from)
                 .map_err(|err| Error::new(ErrorKind::InvalidOperation, err.to_string())),
-            ValueRepr::Invalid(_) => value.clone().validate(),
+            ValueRepr::Invalid(_) => return value.clone().validate(),
             _ => as_f64(value, true).map(Value::from).ok_or_else(|| {
                 Error::new(
                     ErrorKind::InvalidOperation,
                     format!("cannot convert {} to float", value.kind()),
                 )
             }),
-        }
+        };
+        rv.or_else(|err| default.ok_or(err))
     }
 
     /// Sums up all the values in a sequence.
@@ -977,44 +1042,66 @@ mod builtins {
 
     /// Returns the smallest item from an iterable.
     ///
+    /// The filter accepts a few keyword arguments:
+    ///
+    /// * `case_sensitive`: set to `true` to compare strings case sensitively.
+    /// * `attribute`: can be set to an attribute or dotted path to compare by
+    ///   that attribute.  The whole item is returned.
+    ///
     /// ```jinja
     /// {{ [1, 2, 3, 4]|min }} -> 1
+    /// {{ users|min(attribute="age") }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
-    pub fn min(state: &State, value: Value) -> Result<Value, Error> {
-        let iter = ok!(state.undefined_behavior().try_iter(value).map_err(|err| {
-            Error::new(ErrorKind::InvalidOperation, "cannot convert value to list").with_source(err)
-        }));
+    pub fn min(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
         // like `Iterator::min` this returns the first of equal minimums
-        let mut rv = None::<Value>;
-        for item in iter {
-            ok!(item.check());
-            if rv.as_ref().map_or(true, |rv| item < *rv) {
-                rv = Some(item);
-            }
-        }
-        Ok(rv.unwrap_or(Value::UNDEFINED))
+        min_max(state, value, kwargs, |ordering| ordering == Ordering::Less)
     }
 
     /// Returns the largest item from an iterable.
     ///
+    /// The filter accepts a few keyword arguments:
+    ///
+    /// * `case_sensitive`: set to `true` to compare strings case sensitively.
+    /// * `attribute`: can be set to an attribute or dotted path to compare by
+    ///   that attribute.  The whole item is returned.
+    ///
     /// ```jinja
     /// {{ [1, 2, 3, 4]|max }} -> 4
+    /// {{ users|max(attribute="age") }}
     /// ```
     #[cfg_attr(docsrs, doc(cfg(feature = "builtins")))]
-    pub fn max(state: &State, value: Value) -> Result<Value, Error> {
+    pub fn max(state: &State, value: Value, kwargs: Kwargs) -> Result<Value, Error> {
+        // like `Iterator::max` this returns the last of equal maximums
+        min_max(state, value, kwargs, |ordering| ordering != Ordering::Less)
+    }
+
+    fn min_max(
+        state: &State,
+        value: Value,
+        kwargs: Kwargs,
+        replaces: fn(Ordering) -> bool,
+    ) -> Result<Value, Error> {
         let iter = ok!(state.undefined_behavior().try_iter(value).map_err(|err| {
             Error::new(ErrorKind::InvalidOperation, "cannot convert value to list").with_source(err)
         }));
-        // like `Iterator::max` this returns the last of equal maximums
-        let mut rv = None::<Value>;
+        let case_sensitive = ok!(kwargs.get::<Option<bool>>("case_sensitive")).unwrap_or(false);
+        let attr = ok!(kwargs.get::<Option<&str>>("attribute"));
+        let mut rv = None::<(Value, Value)>;
         for item in iter {
             ok!(item.check());
-            if rv.as_ref().map_or(true, |rv| item >= *rv) {
-                rv = Some(item);
+            let key = match attr {
+                Some(attr) => item.get_path_or_default(attr, &Value::UNDEFINED),
+                None => item.clone(),
+            };
+            if rv.as_ref().map_or(true, |(rv_key, _)| {
+                replaces(cmp_helper(&key, rv_key, case_sensitive, false))
+            }) {
+                rv = Some((key, item));
             }
         }
-        Ok(rv.unwrap_or(Value::UNDEFINED))
+        ok!(kwargs.assert_all_used());
+        Ok(rv.map_or(Value::UNDEFINED, |(_, item)| item))
     }
 
     /// Returns the sorted version of the given list.
@@ -1023,16 +1110,20 @@ mod builtins {
     ///
     /// * `case_sensitive`: set to `true` to make the sorting of strings case sensitive.
     /// * `attribute`: can be set to an attribute or dotted path to sort by that attribute.
+    ///   Numeric path segments index into sequences, so `"1"` sorts a list of
+    ///   pairs by their second item and `"1.name"` sorts by the `name` of it.
     ///   can be a comma-separated list of attributes forming a composite key like "age, name".
     /// * `reverse`: set to `true` to sort in reverse.
     ///
     /// ```jinja
-    /// {{ [1, 3, 2, 4]|sort }} -> [4, 3, 2, 1]
-    /// {{ [1, 3, 2, 4]|sort(reverse=true) }} -> [1, 2, 3, 4]
-    /// # Sort users by age attribute in descending order.
-    /// {{ users|sort(attribute="age") }}
+    /// {{ [1, 3, 2, 4]|sort }} -> [1, 2, 3, 4]
+    /// {{ [1, 3, 2, 4]|sort(reverse=true) }} -> [4, 3, 2, 1]
     /// # Sort users by age attribute in ascending order.
+    /// {{ users|sort(attribute="age") }}
+    /// # Sort users by age attribute in descending order.
     /// {{ users|sort(attribute="age", reverse=true) }}
+    /// # Sort (key, user) pairs by the user's name.
+    /// {{ pairs|sort(attribute="1.name") }}
     /// # Sort cities by their name, and sort those with the same name by their state.
     /// {{ cities|sort(attribute="name, state") }}
     /// ```

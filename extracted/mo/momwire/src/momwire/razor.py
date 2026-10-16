@@ -352,6 +352,7 @@ it on, and each is gated with it on.
 """
 
 from dataclasses import dataclass
+import functools
 import os
 import warnings
 
@@ -359,15 +360,18 @@ import math
 
 import numpy as np
 
+from ._far_readout import _libm
 from . import (
     _below_interface,
     _feed_snap,
     _ground_refl,
     _ground_spec,
+    _lapack,
     _medium_spec,
     _crossing_fill,
     _exact_kernel,
     _exact_kernel_seam,
+    _exact_kernel_series,
     _near_interface,
     _potential_ground,
     _razor_class,
@@ -413,6 +417,7 @@ from ._port_solution import (
 )
 from . import _quadrature
 from ._quadrature import leggauss
+from ._vec3 import norm3
 
 # Two wire endpoints this close are a junction, not a coincidence. The rule
 # and the value both live in `_junction_rule` now (momwire#590 step 1); this
@@ -802,7 +807,7 @@ def derive_n_qp_path(k, wires_polylines, n_per_edge_per_wire):
     h_max = 0.0
     for pl, npe in zip(wires_polylines, n_per_edge_per_wire):
         for e_idx in range(pl.shape[0] - 1):
-            edge_len = float(np.linalg.norm(pl[e_idx + 1] - pl[e_idx]))
+            edge_len = float(norm3(pl[e_idx + 1] - pl[e_idx]))
             h_max = max(h_max, edge_len / npe[e_idx])
     if k * h_max <= PATH_ORDER_KH_SWITCH:
         return PATH_ORDER_FINE
@@ -813,6 +818,17 @@ def derive_n_qp_path(k, wires_polylines, n_per_edge_per_wire):
 _HAVE_EXACT_POINT_ASSEMBLE_ACCEL = _acc is not None and hasattr(
     _acc, "exact_kernel_point_assemble"
 )
+
+
+def _window_rows(rows):
+    """A one-radius point-moment source's ``rows(x)`` in the correction
+    loop's ``(x, o0, o1)`` form, which a cross job also reads its observers'
+    radii and labels by (momwire#1438)."""
+
+    def call(x, _o0, _o1):
+        return rows(x)
+
+    return call
 
 
 def _point_assemble_numpy(
@@ -1530,7 +1546,10 @@ class RazorSolver(
         `_exact_kernel_seam`: False (the default) is structurally absent and
         bit-for-bit the fill without it; True replaces, after the free-space
         fill, the kernel of every pair of segments on ONE line at ONE radius
-        by K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2); "auto"
+        by K(z) = (1/2π)∮e^{-jkR}/(4πR)dφ, R² = z² + 4a²sin²(φ/2), and of
+        every pair on one line across a radius step by the two-radius
+        kernel, observer ring on its own surface and source ring on its own,
+        R² = z² + a_o² + a_s² - 2a_o a_s cos φ (momwire#1438); "auto"
         resolves at construction to True iff it is served and some segment
         is shorter than 3 radii. Razor's rows are path-tested, so the
         correction is the kernel layer's 1-D point moments ∫τ'^q K dτ' at the
@@ -2185,7 +2204,7 @@ class RazorSolver(
         for i, (w_i, end_i, _v) in enumerate(self.node_gaps):
             if (w_i, end_i) in grounded_members:
                 raise ValueError(
-                    f"node_gaps[{i}]: wire {w_i} {end_i!r} stands in the "
+                    f"node_gaps[{i}]: the {end_i} of wire {w_i} stands in the "
                     "ground plane, and a grounded end's tent is already the "
                     "series path between that wire and the plane (momwire#151"
                     " grounds the node through the image) — drive it with "
@@ -2790,7 +2809,7 @@ class RazorSolver(
             w_p0, w_tan, w_h = [], [], []
             for e_idx in range(pl.shape[0] - 1):
                 edge = pl[e_idx + 1] - pl[e_idx]
-                edge_len = float(np.linalg.norm(edge))
+                edge_len = float(norm3(edge))
                 if edge_len < 1e-15:
                     raise ValueError(f"wire {w_idx} edge {e_idx} has zero length")
                 tan = edge / edge_len
@@ -4556,7 +4575,14 @@ class RazorSolver(
     # ------------------------------------------------------------------
 
     def _add_exact_kernel_correction(self, Z, geom, k, omega):
-        """Z += (Z_exact - Z_base) over every coaxial equal-radius group.
+        """Z += (Z_exact - Z_base) over every coaxial equal-radius group,
+        and over the cross-radius pairs of every line with a radius step
+        (momwire#1438): there the observer point's ring is on ITS segment's
+        surface and the source's on the source's (`_exact_kernel.
+        PointCrossRows`), and the base is masked to those pairs. Those are
+        the plan's cross jobs (`_razor_exact_plan.build_plan`), after the
+        groups; they always take the direct rule, and their moment source is
+        rebuilt each call and never kept.
 
         Razor's matrix element is linear in two moment tables, M0[o, j] =
         ∫_seg_j g dl' and M1[o, j] = ∫_seg_j τ' g dl', taken at observer
@@ -4594,6 +4620,13 @@ class RazorSolver(
         (momwire#1454: the resident server's repeat calls). Both are reused
         only on exactly the inputs they were computed from, so a hit adds the
         same bits a fresh call does.
+
+        Under `_exact_kernel_series.ENABLED` (step 3 of momwire#1454, off by
+        default) a group whose segments are short enough at this k takes its
+        exact moments from the k-series on geometry-only coefficients
+        instead: the plan keeps that source for its lifetime, whatever the
+        frequency, so a sweep integrates each pair once. Derivation and
+        measurements: `docs/design/exact-kernel-static-dynamic-split.md`.
         """
         seg_a = np.asarray(self._seg_radius(geom), dtype=float)
         pts, tans, wts = self._testing_paths(geom)
@@ -4617,26 +4650,79 @@ class RazorSolver(
         plan, cached = _razor_exact_plan.plan_for(
             geom, seg_a, pts, tans, wts, src_lab, on_cent, _CHUNK_ELEMS, context
         )
-        keep = cached and _razor_exact_plan.rows_cacheable(k)
+        # Which rule serves each group's exact moments: the k-series on
+        # geometry-only coefficients where the group is short enough at this
+        # k (`_exact_kernel_series.serves`), the direct rule otherwise. The
+        # choice reads the geometry and k alone, never what is cached.
+        ser_on = _exact_kernel_series.ENABLED and _exact_kernel_series.accel_serves(
+            k, 2
+        )
+        # A cross-radius job (momwire#1438, `g.lab` set) is never the
+        # series': its coefficients are written for one radius.
+        by_series = [
+            ser_on and g.lab is None and _exact_kernel_series.serves(k, g.reach)
+            for g in plan.groups
+        ]
+        one = [g.lab is None for g in plan.groups]
+        n_groups = len(plan.groups)
+        keep_ser = cached and any(by_series)
+        skey = _razor_exact_plan.series_key() if keep_ser else None
+        series = plan.take_series(skey) if keep_ser else None
+        if series is None:
+            series = [None] * n_groups
+        ser_count = [(s.built, s.reused, s.evaluated) for s in series if s is not None]
+        keep = (
+            cached
+            and not all(ser for ser, o in zip(by_series, one) if o)
+            and _razor_exact_plan.rows_cacheable(k)
+        )
         rkey = _razor_exact_plan.rows_key(k) if keep else None
         sources = plan.take_rows(rkey) if keep else None
         if sources is None:
-            sources = [None] * len(plan.groups)
+            sources = [None] * n_groups
         for i, g in enumerate(plan.groups):
             r_A = _razor_exact_plan.row_cA(g, c_A)
             r_P = _razor_exact_plan.row_cP(g, c_Phi)
-            exact = sources[i]
-            if exact is None:
-                exact = sources[i] = _exact_kernel.point_rows(
-                    g.x0, g.sgn, g.h, g.a, k, 2, max_cached=4 * g.n + 1024
+            cross_lab = None
+            if g.lab is not None:
+                # A cross job: the two-radius moments, the observer's ring on
+                # its own segment's surface and the source's on its own
+                # (`_exact_kernel.PointCrossRows`), on the direct rule. Built
+                # each call and never kept (the numpy source, like
+                # `PointRows`), so `sources[i]` stays None.
+                cross = _exact_kernel.PointCrossRows(
+                    g.x0, g.sgn, g.h, g.a, g.lab, k, 2, max_cached=4 * g.n + 1024
                 )
+
+                def exact_rows(x, o0, o1, _c=cross, _g=g):
+                    return _c.rows(x, _g.obs_a[o0:o1], _g.obs_lab[o0:o1])
+
+                cross_lab = g.lab
+            elif by_series[i]:
+                if series[i] is None:
+                    series[i] = _exact_kernel_series.PointSeriesAccel(
+                        g.x0, g.sgn, g.h, g.a, 2, max_cached=4 * g.n + 1024
+                    )
+                exact_rows = _window_rows(functools.partial(series[i].rows, k=k))
+            else:
+                if sources[i] is None:
+                    sources[i] = _exact_kernel.point_rows(
+                        g.x0, g.sgn, g.h, g.a, k, 2, max_cached=4 * g.n + 1024
+                    )
+                exact_rows = _window_rows(sources[i].rows)
             for o0, o1, e0, e1, r_o_win, ek_win in g.windows:
                 self._checkpoint()
-                mom = exact.rows(g.obs_x[o0:o1])  # (2, rows, n)
+                mom = exact_rows(g.obs_x[o0:o1], o0, o1)  # (2, rows, n)
                 ek = None
                 if ek_win is not None:
                     ek = _EK(None, *ek_win)
                 M0b, M1b = self._seg_moments(g.obs_pt[o0:o1], dict(g.sub), k, ek=ek)
+                if cross_lab is not None:
+                    # The same-radius pairs are the one-radius groups'.
+                    on = g.obs_lab[o0:o1, None] == cross_lab[None, :]
+                    M0b[on] = 0.0
+                    M1b[on] = 0.0
+                    del on
                 dM0 = np.subtract(mom[0], M0b, out=M0b)
                 dM1 = np.subtract(mom[1], M1b, out=M1b)
                 del mom
@@ -4658,8 +4744,15 @@ class RazorSolver(
                     )
         # Only a completed correction's sources go back: a cancelled one may
         # stop mid-window, and a group it never reached has none.
-        if keep and all(isinstance(s, _exact_kernel.PointRowsAccel) for s in sources):
+        direct = [s for s, ser, o in zip(sources, by_series, one) if o and not ser]
+        if keep and all(isinstance(s, _exact_kernel.PointRowsAccel) for s in direct):
             plan.give_rows(rkey, sources)
+        if any(by_series):
+            now = [(s.built, s.reused, s.evaluated) for s in series if s is not None]
+            was = np.sum(ser_count, axis=0) if ser_count else np.zeros(3, dtype=int)
+            _razor_exact_plan.count_series(*(np.sum(now, axis=0) - was).tolist())
+            if keep_ser:
+                plan.give_series(skey, series)
 
     # ------------------------------------------------------------------
     # the crossing trunk's view of this solver (momwire#813)
@@ -4838,7 +4931,7 @@ class RazorSolver(
             skip = np.asarray(plan_skip, dtype=float).reshape(-1, 3)
             keep = np.ones(pts.shape[0], dtype=bool)
             for node in skip:
-                keep &= np.linalg.norm(pts - node[None, :], axis=1) > _JUNCTION_TOL
+                keep &= norm3(pts - node[None, :]) > _JUNCTION_TOL
             pts = pts[keep]
         d = gz - pts[:, 2]
         # `np.min` first: on an empty point set it raises the same ValueError
@@ -4938,7 +5031,7 @@ class RazorSolver(
         gz = float(self.ground_z)
         obs = self._testing_paths(geom)[0].reshape(-1, 3)
         seg_h, seg_t, seg_p0 = geom["seg_h"], geom["seg_t"], geom["seg_p0"]
-        xg, _wg = np.polynomial.legendre.leggauss(self.n_qp_sommerfeld)
+        xg, _wg = leggauss(self.n_qp_sommerfeld)
         tq = 0.5 * (xg + 1.0)
         src = (
             seg_p0[:, None, :]
@@ -6529,7 +6622,7 @@ class RazorSolver(
         self._checkpoint()
         # In place, as in `compute_impedance`: Z is dead after this solve.
         X = _bspline._lu_solve(Z, cols.astype(np.complex128), overwrite_a=True)
-        Y = cols.T @ X
+        Y = _lapack.matmul(cols.T, X)
         return PortSolution(
             y=Y,
             coeffs=X,
@@ -6769,9 +6862,16 @@ class RazorSolver(
         np.add.at(i_lo, ent_seg[~ent_rise], ent_val[~ent_rise])
 
         h = np.asarray(geom["seg_h"], dtype=np.float64)
+        # |I| through libm's hypot (`_far_readout._libm(abs, ...)`), not numpy's
+        # complex absolute, whose AVX-512 and AVX2 loops disagree in the last
+        # bit: the WIRE LOSS line is a printed number (momwire#1479).
         int_abs_i2 = (
             h
-            * (np.abs(i_lo) ** 2 + np.real(i_lo * np.conj(i_hi)) + np.abs(i_hi) ** 2)
+            * (
+                _libm(abs, i_lo) ** 2
+                + np.real(i_lo * np.conj(i_hi))
+                + _libm(abs, i_hi) ** 2
+            )
             / 3.0
         )
         # zeros where switched off. `geom` goes in even though only `z_wire`
@@ -6784,7 +6884,7 @@ class RazorSolver(
         np.add.at(per_wire, wire_of, 0.5 * r_w[wire_of] * int_abs_i2)
         zq_loss = _wire_loading.jacket_loss_charge(self, omega)
         if zq_loss is not None:
-            int_abs_di2 = np.abs(i_hi - i_lo) ** 2 / h
+            int_abs_di2 = _libm(abs, i_hi - i_lo) ** 2 / h
             np.add.at(per_wire, wire_of, 0.5 * np.real(zq_loss)[wire_of] * int_abs_di2)
         return float(per_wire.sum()), per_wire
 

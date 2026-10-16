@@ -30,7 +30,6 @@ ERROR_STATES = {
 }
 
 PRE_VALIDATE_STATES = {
-    "created",
     "draft",
     "validating",
     "validate",

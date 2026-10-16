@@ -509,6 +509,16 @@ class QueryCacheGrpcClient:
             response
         ).fqn_by_unique_id
 
+    def update_execution_metadata(
+        self, request: execution_service_models.UpdateExecutionMetadataRequest
+    ) -> execution_service_models.UpdateExecutionMetadataResponse:
+        """Update execution metadata after post-hooks."""
+        self._check_channel_state("update_execution_metadata")
+        response = self.execution_stub.UpdateExecutionMetadata(
+            request.to_proto(), timeout=self.timeout
+        )
+        return execution_service_models.UpdateExecutionMetadataResponse.from_proto(response)
+
     def close(self) -> None:
         """Close the gRPC channel."""
         if self._is_closed:

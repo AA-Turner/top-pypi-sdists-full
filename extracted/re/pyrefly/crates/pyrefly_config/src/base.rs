@@ -6,6 +6,9 @@
  */
 
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use clap::ValueEnum;
 use enum_iterator::Sequence;
@@ -73,7 +76,17 @@ pub struct RecursionLimitConfig {
 /// the base configuration. User-specified settings merge on top, overriding
 /// the preset. Explicit configuration always wins over the preset regardless
 /// of order in the config file.
-#[derive(Debug, PartialEq, Eq, Deserialize, Serialize, Clone, Copy, Sequence)]
+#[derive(
+    Debug,
+    PartialEq,
+    Eq,
+    Deserialize,
+    Serialize,
+    Clone,
+    Copy,
+    Sequence,
+    Hash
+)]
 #[derive(ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum Preset {
@@ -184,6 +197,7 @@ impl Preset {
                 let errors = HashMap::from([
                     (ErrorKind::DirectAbstractBaseInstantiation, Severity::Error),
                     (ErrorKind::ImplicitAny, Severity::Error),
+                    (ErrorKind::MethodAssign, Severity::Error),
                     (ErrorKind::MissingOverrideDecorator, Severity::Error),
                     (ErrorKind::OpenUnpacking, Severity::Error),
                     (ErrorKind::PotentialBadKeywordArgument, Severity::Error),
@@ -214,6 +228,32 @@ impl Preset {
                 }
             }
         }
+    }
+
+    /// Title-case name for user-facing UI surfaces such as the IDE status bar,
+    /// where the kebab-case config spelling reads poorly as a label.
+    pub fn label(self) -> &'static str {
+        match self {
+            Preset::Off => "Off",
+            Preset::Basic => "Basic",
+            Preset::Legacy => "Legacy",
+            Preset::Default => "Default",
+            Preset::Strict => "Strict",
+            Preset::All => "All",
+        }
+    }
+}
+
+/// Renders the canonical kebab-case name, matching how the preset is spelled in
+/// a config file and on the command line.
+impl Display for Preset {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Derived from clap's `ValueEnum` rather than `Debug` so that any
+        // future multi-word variant renders as `strict-plus`, not `StrictPlus`.
+        let value = self
+            .to_possible_value()
+            .expect("Preset has no skipped variants");
+        f.write_str(value.get_name())
     }
 }
 
@@ -310,9 +350,9 @@ pub struct ConfigBase {
     /// When true, parameter list compatibility is checked strictly even when `*args: Any, **kwargs: Any` is present.
     pub strict_callable_subtyping: Option<bool>,
 
-    /// Whether to strictly check the parameters of a `functools.partial(...)` residual when it is
-    /// assigned to a callable. When false (the default), the residual is treated as gradual (like
-    /// `...`) for subtyping, matching the typeshed `partial` stub. When true, the residual's
+    /// Whether to strictly check the remaining parameters of a `functools.partial(...)` when it is
+    /// assigned to a callable. When false (the default), its parameters are treated as gradual
+    /// (like `...`) for subtyping, matching the typeshed `partial` stub. When true, their
     /// parameter types and arity are checked precisely.
     pub strict_partial_subtyping: Option<bool>,
 
@@ -463,6 +503,18 @@ impl ConfigBase {
     pub fn get_treat_all_caps_as_final(base: &Self) -> Option<bool> {
         base.treat_all_caps_as_final
     }
+
+    /// Set `replace-imports-with-any` from module patterns such as `["pandas"]`.
+    /// This supports programmatic config construction, notably in tests.
+    pub fn set_replace_imports_with_any(&mut self, modules: &[&str]) -> anyhow::Result<()> {
+        self.replace_imports_with_any = Some(
+            modules
+                .iter()
+                .map(|m| ModuleWildcard::new(m))
+                .collect::<anyhow::Result<Vec<_>>>()?,
+        );
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -479,14 +531,9 @@ mod tests {
     use super::*;
 
     /// Canonical kebab-case name for a preset, matching the serde/clap form
-    /// (e.g., `StrictPlus` → `"strict-plus"`). Derived from clap's `ValueEnum`
-    /// rather than `Debug` so multi-word variants work correctly.
+    /// (e.g., `StrictPlus` → `"strict-plus"`).
     fn preset_name(preset: Preset) -> String {
-        preset
-            .to_possible_value()
-            .expect("Preset is a ValueEnum")
-            .get_name()
-            .to_owned()
+        preset.to_string()
     }
 
     /// Render the contents of `scripts/error_presets.json`: for every error

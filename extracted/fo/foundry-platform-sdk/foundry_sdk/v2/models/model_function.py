@@ -73,6 +73,9 @@ class ModelFunctionClient:
         """
         Creates a function for the model. If a function already exists for the model, the existing function is updated.
 
+
+        Required scopes: [api:models-write]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param api_name:
@@ -145,6 +148,9 @@ class ModelFunctionClient:
     ) -> models_models.ModelFunction:
         """
         Gets the function for the model.
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param preview: Enables the use of preview functionality.
@@ -198,6 +204,9 @@ class ModelFunctionClient:
     ) -> models_models.ModelFunction:
         """
         Replaces the function for the model.
+
+        Required scopes: [api:models-write]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param api_name:
@@ -326,6 +335,9 @@ class AsyncModelFunctionClient:
         """
         Creates a function for the model. If a function already exists for the model, the existing function is updated.
 
+
+        Required scopes: [api:models-write]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param api_name:
@@ -398,6 +410,9 @@ class AsyncModelFunctionClient:
     ) -> typing.Awaitable[models_models.ModelFunction]:
         """
         Gets the function for the model.
+
+        Required scopes: [api:models-read]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param preview: Enables the use of preview functionality.
@@ -451,6 +466,9 @@ class AsyncModelFunctionClient:
     ) -> typing.Awaitable[models_models.ModelFunction]:
         """
         Replaces the function for the model.
+
+        Required scopes: [api:models-write]
+
         :param model_rid:
         :type model_rid: ModelRid
         :param api_name:

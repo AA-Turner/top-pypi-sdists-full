@@ -4,14 +4,17 @@ Persistence layers supporting idempotency
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import hashlib
 import json
 import logging
 import os
 import warnings
 from abc import ABC, abstractmethod
+from enum import Enum
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 import jmespath
 
@@ -33,6 +36,23 @@ if TYPE_CHECKING:
     from aws_lambda_powertools.utilities.idempotency.config import IdempotencyConfig
 
 logger = logging.getLogger(__name__)
+
+
+class _IdempotencyKeyEncoder(Encoder):
+    """Extend hash serialization while preserving values the existing encoder supports."""
+
+    def default(self, obj: Any) -> Any:
+        try:
+            # Preserve existing encodings, including Decimal subclasses mixed with Enum.
+            return super().default(obj)
+        except TypeError:
+            if isinstance(obj, Enum):
+                return obj.value
+            if isinstance(obj, (dt.date, dt.time)):
+                return obj.isoformat()
+            if isinstance(obj, (UUID, PurePath)):
+                return str(obj)
+            raise
 
 
 class BasePersistenceLayer(ABC):
@@ -157,7 +177,10 @@ class BasePersistenceLayer(ABC):
         """
         if not self.payload_validation_enabled:
             return ""
-        data = self.validation_key_jmespath.search(data)
+        data = self.validation_key_jmespath.search(
+            data,
+            options=jmespath.Options(**(self.jmespath_options or {})),
+        )
         return self._generate_hash(data=data)
 
     def _generate_hash(self, data: Any) -> str:
@@ -175,7 +198,7 @@ class BasePersistenceLayer(ABC):
             Hashed representation of the provided data
 
         """
-        hashed_data = self.hash_function(json.dumps(data, cls=Encoder, sort_keys=True).encode())
+        hashed_data = self.hash_function(json.dumps(data, cls=_IdempotencyKeyEncoder, sort_keys=True).encode())
         return hashed_data.hexdigest()
 
     def _validate_payload(
@@ -217,8 +240,8 @@ class BasePersistenceLayer(ABC):
             unix timestamp of expiry date for idempotency record
 
         """
-        now = datetime.datetime.now()
-        period = datetime.timedelta(seconds=self.expires_after_seconds)
+        now = dt.datetime.now()
+        period = dt.timedelta(seconds=self.expires_after_seconds)
         return int((now + period).timestamp())
 
     def _save_to_cache(self, data_record: DataRecord):
@@ -322,8 +345,8 @@ class BasePersistenceLayer(ABC):
         # Therefore, we need to check if remaining_time_in_millis is not None (>=0) to handle this case.
         # See: https://github.com/aws-powertools/powertools-lambda-python/issues/4759
         if remaining_time_in_millis is not None:
-            now = datetime.datetime.now()
-            period = datetime.timedelta(milliseconds=remaining_time_in_millis)
+            now = dt.datetime.now()
+            period = dt.timedelta(milliseconds=remaining_time_in_millis)
             timestamp = (now + period).timestamp()
             data_record.in_progress_expiry_timestamp = int(timestamp * 1000)
         else:

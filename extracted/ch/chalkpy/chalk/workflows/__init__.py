@@ -7,6 +7,7 @@ from chalk.workflows._definitions import (
     task,
     workflow,
 )
+from chalk.workflows._messages import WorkflowMessage, WorkflowMessageTimeoutError, local_messages, wait_for_message
 
 __all__ = (
     "TASK_REGISTRY",
@@ -14,6 +15,10 @@ __all__ = (
     "TaskDefinition",
     "TaskHandle",
     "WorkflowDefinition",
+    "WorkflowMessage",
+    "WorkflowMessageTimeoutError",
+    "local_messages",
     "task",
+    "wait_for_message",
     "workflow",
 )

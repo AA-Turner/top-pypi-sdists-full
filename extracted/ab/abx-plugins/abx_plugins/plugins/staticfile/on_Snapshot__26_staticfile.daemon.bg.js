@@ -10,7 +10,9 @@
  * saving its own copy when that artifact is unavailable.
  *
  * Usage: on_Snapshot__26_staticfile.daemon.bg.js --url=<url>
- * Output: Emits the saved main-response path
+ * Output: Emits the saved main-response path. A successful result is also saved
+ * as result.json for sibling hooks, independently of the host's log layout.
+ * The next capture removes this record before accepting a new response.
  */
 
 
@@ -31,12 +33,14 @@ const {
   loadConfig,
   parseArgs,
   emitArchiveResultRecord,
+  writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 
 // Import chrome-specific utilities from chrome_utils.js
 const {
   connectToPage,
+  captureOriginalResponseBodies,
   acquireSessionLock,
   getBrowserConnection,
   resolvePuppeteerModule,
@@ -52,6 +56,7 @@ const SNAP_DIR = path.resolve((hookConfig.SNAP_DIR || ".").trim());
 const OUTPUT_DIR = path.join(SNAP_DIR, PLUGIN_DIR);
 const RESPONSES_INDEX_PATH = path.join(SNAP_DIR, "responses", "index.jsonl");
 const PRENAV_MARKER_PATH = path.join(OUTPUT_DIR, "prenav.json");
+const RESULT_PATH = path.join(OUTPUT_DIR, "result.json");
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
@@ -142,6 +147,9 @@ let isStaticFile = false;
 let savedOutputPath = null;
 let downloadError = null;
 let pendingMainResponse = null;
+// Last top-level 4xx/5xx document response. Keep listening after it because
+// bot challenges often answer 403 and then navigate to the real resource.
+let errorMainResponse = null;
 let page = null;
 let browser = null;
 let finalized = false;
@@ -301,10 +309,24 @@ async function waitForResponsesOutput(outputInfo, timeoutMs) {
 function buildArchiveResult() {
   const outputMimeType = detectedContentType || "unknown";
 
+  // Without a 2xx main document there is nothing static to save. The snapshot
+  // ending (SIGTERM) is the normal way this daemon learns that; the page
+  // failure itself belongs to chrome_navigate, not to staticfile.
+  if (!detectedContentType && errorMainResponse) {
+    return {
+      type: "ArchiveResult",
+      status: "noresults",
+      output_str: `Main response was HTTP ${errorMainResponse.status} ${
+        errorMainResponse.contentType || "unknown"
+      } (not staticfile)`,
+      plugin: PLUGIN_NAME,
+      content_type: errorMainResponse.contentType || undefined,
+    };
+  }
   if (!detectedContentType) {
     return {
       type: "ArchiveResult",
-      status: "failed",
+      status: "noresults",
       output_str: "No main response captured",
       plugin: PLUGIN_NAME,
     };
@@ -362,6 +384,8 @@ async function setupStaticFileListener() {
   });
   browser = connection.browser;
   page = connection.page;
+  const originalPdfResponses = getEnvBool("RESPONSES_ENABLED", true)
+    ? null : await captureOriginalResponseBodies(page);
 
   // Chrome handles Content-Disposition attachments as downloads, so their
   // response bodies are unavailable to response.buffer(). Keep the existing
@@ -462,6 +486,12 @@ async function setupStaticFileListener() {
   });
 
   const failTimer = setTimeout(() => {
+    // No 2xx main document yet means there is no static file to save, which
+    // is a noresults outcome rather than a staticfile failure.
+    if (!firstResponseHandled) {
+      finish();
+      return;
+    }
     rejectMainResponse(
       new Error(
         `Timed out waiting for main response after ${
@@ -491,8 +521,15 @@ async function setupStaticFileListener() {
       const status = response.status();
 
       // Only process the main document response
-      if (status < 200 || status >= 300) return;
       if (!isTopLevelNavigationRequest(request)) return;
+      if (status >= 400) {
+        errorMainResponse = {
+          status,
+          contentType: contentType.split(";")[0].trim(),
+        };
+        return;
+      }
+      if (status < 200 || status >= 300) return;
 
       firstResponseHandled = true;
       detectedContentType = contentType.split(";")[0].trim();
@@ -541,7 +578,12 @@ async function setupStaticFileListener() {
       const maxSize = getEnvInt("STATICFILE_MAX_SIZE", 1024 * 1024 * 1024); // 1GB default
       let buffer;
       try {
-        buffer = await response.buffer();
+        if (detectedContentType === "application/pdf") {
+          buffer = await originalPdfResponses?.read(response);
+          if (!buffer) throw new Error("Original PDF response was not captured");
+        } else {
+          buffer = await response.buffer();
+        }
       } catch (bodyError) {
         try {
           savedOutputPath = await saveBrowserDownload(
@@ -605,10 +647,14 @@ async function setupStaticFileListener() {
   });
 
   writePrenavMarker("ready");
-  return { browser, page, mainResponseHandled };
+  return { browser, page, mainResponseHandled, originalPdfResponses };
 }
 
 function emitResult(result) {
+  // Consumers must not depend on the host's per-attempt stdout log layout.
+  if (result.status === "succeeded") {
+    writeFileAtomic(RESULT_PATH, JSON.stringify(result));
+  }
   emitArchiveResultRecord(result.status, result.output_str, {
     plugin: result.plugin,
     content_type: result.content_type,
@@ -643,6 +689,7 @@ async function main() {
   }
 
   originalUrl = url;
+  fs.rmSync(RESULT_PATH, {force: true});
   writePrenavMarker("starting");
 
   if (!getEnvBool("STATICFILE_ENABLED", true)) {
@@ -665,6 +712,7 @@ async function main() {
     console.log("staticfile listener attached");
     console.error("waiting for initial response...");
     const result = await connection.mainResponseHandled;
+    await connection.originalPdfResponses?.close();
     finalized = true;
     removePrenavMarker();
     await emitResult(result);

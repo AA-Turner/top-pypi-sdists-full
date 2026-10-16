@@ -17,7 +17,7 @@ from .config import (
 from .engine import CompletedGroup, RolloutEngine
 from .env import Env, InfrastructureError, Tool, tool
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
-from .trainer import AsyncTrainer, Step, run
+from .trainer import AsyncTrainer, PolicyRewoundError, Step, run
 from .trajectory import Span, Trajectory
 
 __all__ = [
@@ -37,6 +37,7 @@ __all__ = [
     "GroupCompletion",
     "InfrastructureError",
     "KVCache",
+    "PolicyRewoundError",
     "RLConfigurationWarning",
     "RolloutEngine",
     "Schedule",

@@ -521,6 +521,8 @@ class SiteAggregates:
     # Page ids listed in any of the site's sitemaps (`web.page_sitemap`).
     # `None` = membership was not loaded, which no check may read as "absent".
     sitemap_page_ids: set[str] | None = None
+    # Failing pages that answered 2xx in ANY stored capture. `None` = not loaded.
+    ever_worked_page_ids: set[str] | None = None
     orphans: OrphanCensus = field(default_factory=lambda: OrphanCensus())
     # Google's own numbers for this site. The default says "not connected",
     # which is what every `search_signals` check reports until
@@ -775,8 +777,9 @@ def _check_meta_description_duplication(facts: PageFacts, site: SiteAggregates) 
     if not partners:
         return CheckOutcome("pass", 100, "Meta description is unique across the crawled site.")
     n = len(partners)
-    status = "warn" if n <= 2 else "fail"
-    score = clamp_score(50 - 10 * (n - 1)) if n <= 2 else clamp_score(28 - 2 * (n - 3))
+    # meta_description_duplication contract: 1-9 other pages 60, 10+ others 40.
+    score = 60 if n < 10 else 40
+    status = "warn" if score >= GSC_WARN_SCORE_FLOOR else "fail"
     return CheckOutcome(
         status,
         score,
@@ -815,7 +818,8 @@ def _check_broken_internal_links(facts: PageFacts, site: SiteAggregates) -> Chec
         evidence["blocked_targets"] = sample_urls(stats.blocked)
     return CheckOutcome(
         "fail",
-        clamp_score(60 - 15 * n),
+        # broken_internal_links contract: 1-2 broken 65, 3-9 broken 45, 10+ broken 20.
+        65 if n <= 2 else 45 if n <= 9 else 20,
         f"{n} internal link(s) on this page point at broken targets (4xx/5xx/no "
         f"response) — dead ends for users and crawlers.{blocked_note}",
         issue_count=n,
@@ -863,7 +867,8 @@ def _check_broken_external_links(facts: PageFacts, site: SiteAggregates) -> Chec
     # page trust and sends users to a dead end, so it is never silent.
     return CheckOutcome(
         "warn",
-        clamp_score(75 - 10 * n),
+        # broken_external_links contract: 1 broken 65, 2-4 broken 45, 5+ broken 25.
+        65 if n == 1 else 45 if n <= 4 else 25,
         f"{n} external link(s) on this page point at broken targets (4xx/5xx/no "
         f"response) — outbound rot sends users off a cliff and signals a stale page.{blocked_note}",
         issue_count=n,
@@ -885,9 +890,15 @@ def _check_internal_redirect_links(facts: PageFacts, site: SiteAggregates) -> Ch
             "pass", 100, "No verified internal link on this page goes through a redirect."
         )
     n = len(stats.redirecting)
+    # internal_redirect_links contract: round(100 * (1 - redirecting/internal
+    # outlinks)), floored at 40 once 20 or more of them redirect.
+    total = max(stats.internal_outlinks, stats.checked, n)
+    score = clamp_score(round(100 * (1 - n / total)))
+    if n >= 20:
+        score = max(score, 40)
     return CheckOutcome(
-        "warn",
-        clamp_score(85 - 10 * n),
+        "warn" if score >= GSC_WARN_SCORE_FLOOR else "fail",
+        score,
         f"{n} internal link(s) point at redirecting URLs — each hop wastes crawl "
         "budget and dilutes signals; link straight to the final URL.",
         issue_count=n,
@@ -1182,6 +1193,25 @@ def _weigh_broken_page(
     in_sitemap = (
         None if site.sitemap_page_ids is None else facts.page_id in site.sitemap_page_ids
     )
+    gsc = site.gsc.by_page.get(facts.page_id) if site.gsc.bound else None
+    google_shows = bool(gsc and (gsc.quarter.impressions or gsc.current.impressions))
+    ever_worked = (
+        site.ever_worked_page_ids is not None and facts.page_id in site.ever_worked_page_ids
+    )
+    if not (inlinks or in_sitemap or google_shows or ever_worked):
+        # THE EVIDENCE RULE (Arman, 2026-10-14): an address is only a broken
+        # page when something says it should exist — your links, your sitemap,
+        # Google, or a past life. Otherwise anyone could "find" /any/made-up/url
+        # broken on any site; a guessed or hand-seeded address that never
+        # existed is not a defect and never becomes a finding.
+        return CheckOutcome(
+            "n_a",
+            None,
+            "Nothing says this address should exist: none of your pages link to it, "
+            "your sitemap doesn't list it, Google doesn't show it, and it has never "
+            "loaded. It isn't a broken page.",
+            evidence={**(outcome.evidence or {}), "inlink_pages": 0, "in_sitemap": in_sitemap},
+        )
     if inlinks >= 10 or in_sitemap:
         score = 5
     elif inlinks >= 1:
@@ -3072,9 +3102,29 @@ async def _load_page_facts(
     await _load_link_stats(site_id, facts_list, aggregates, registry, root_url)
     summary.timings["link_stats"] = round(perf_counter() - step_start, 3)
     step_start = perf_counter()
+    await _load_ever_worked(facts_list, aggregates)
+    step_start = perf_counter()
     await _load_sitemap_membership(site_id, aggregates)
     summary.timings["sitemap_membership"] = round(perf_counter() - step_start, 3)
     return facts_list, aggregates
+
+
+async def _load_ever_worked(facts_list: list[PageFacts], aggregates: SiteAggregates) -> None:
+    """Which currently-failing pages ever answered 2xx — one query, failing ids only."""
+
+    failing = [
+        f.page_id
+        for f in facts_list
+        if f.page_id and f.http_status is not None and (f.http_status == 0 or f.http_status >= 400)
+    ]
+    aggregates.ever_worked_page_ids = set()
+    for start in range(0, len(failing), 500):
+        rows = await WebSnapshot.filter(
+            page_id__in=failing[start : start + 500],
+            http_status__gte=200,
+            http_status__lt=300,
+        ).values("page_id")
+        aggregates.ever_worked_page_ids.update(str(r["page_id"]) for r in rows if r["page_id"])
 
 
 async def _load_sitemap_membership(site_id: str, aggregates: SiteAggregates) -> None:

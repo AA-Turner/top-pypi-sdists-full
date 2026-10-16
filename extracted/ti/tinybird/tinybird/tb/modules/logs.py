@@ -6,7 +6,7 @@ import json
 import re
 import time
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import click
@@ -199,11 +199,11 @@ _MILLISECOND_DURATION_SOURCES: Set[str] = set()
 
 
 def _to_iso_utc(dt: datetime) -> str:
-    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return dt.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _parse_relative_time(value: str, now: Optional[datetime] = None) -> str:
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     cleaned_value = value.strip()
     match = _RELATIVE_TIME_RE.match(cleaned_value)
     if not match:
@@ -281,7 +281,7 @@ def _parse_sources(raw_sources: Sequence[str]) -> List[str]:
 def _format_time(timestamp_value: Any) -> str:
     timestamp = str(timestamp_value)
     try:
-        parsed_dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        parsed_dt = datetime.fromisoformat(timestamp)
         return parsed_dt.strftime("%Y-%m-%d %H:%M:%S")
     except ValueError:
         return timestamp
@@ -595,7 +595,7 @@ def logs(
         return
 
     client: TinyB = ctx.ensure_object(dict)["client"]
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     resolved_start = _parse_relative_time(start_time, now)
     resolved_end = _parse_relative_time(end_time, now) if end_time else _to_iso_utc(now)

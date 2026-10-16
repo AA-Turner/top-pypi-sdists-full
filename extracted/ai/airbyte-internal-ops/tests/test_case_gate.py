@@ -685,3 +685,230 @@ def test_the_reference_case_records_the_repository_pin():
     pin = case_gate.read_sandbox_pin(repo_root / case_gate.SANDBOX_PIN_FILE)
 
     assert json.loads(reference.read_text())["sandbox_ref"] == pin
+
+
+def _case_with_expectations(tmp_path: Path, **changes: object) -> Path:
+    case = tmp_path / "case"
+    shutil.copytree(CASE_FIXTURE, case)
+    expectations = json.loads((case / "expectations.json").read_text())
+    for key, value in changes.items():
+        if value is None:
+            expectations.pop(key, None)
+        else:
+            expectations[key] = value
+    (case / "expectations.json").write_text(json.dumps(expectations))
+    return case
+
+
+def _manifest_only(connector: Path) -> Path:
+    metadata = connector / "metadata.yaml"
+    metadata.write_text(
+        metadata.read_text() + "  tags:\n    - language:manifest-only\n"
+    )
+    return connector
+
+
+def test_a_new_stream_case_passes_when_the_affected_release_lacks_the_stream(
+    tmp_path,
+):
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+    connector = tmp_path / "source-slack"
+    shutil.copytree(CONNECTOR_FIXTURE, connector)
+
+    # The example connector defines no `threads` stream.
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=_manifest_only(connector),
+    )
+
+    assert report.problems == []
+    assert report.status == "pass"
+    assert report.support is not None
+    # Only the provider host is checked, since no other stream is configured.
+    assert (report.support["result"], report.support["operations"]) == ("supported", [])
+    assert report.support["new_streams_unchecked"] == ["threads"]
+
+
+def test_a_new_stream_the_affected_release_defines_fails_the_gate(
+    tmp_path, connector_dir
+):
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=_manifest_only(connector_dir),
+    )
+
+    assert report.status == "fail"
+    assert any("which the manifest at" in problem for problem in report.problems)
+
+
+def test_a_new_stream_needs_a_manifest_only_connector(tmp_path):
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+
+    # Without the manifest-only tag, Python streams could define it.
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=CONNECTOR_FIXTURE,
+    )
+
+    assert report.status == "fail"
+    assert any("manifest-only connector" in problem for problem in report.problems)
+
+
+def test_a_new_stream_needs_a_manifest_to_confirm_it(tmp_path):
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+    connector = tmp_path / "source-slack"
+    connector.mkdir()
+    shutil.copy(CONNECTOR_FIXTURE / "metadata.yaml", connector / "metadata.yaml")
+
+    report = check_case(
+        case, "source-slack", check_origin=_no_origin_problems, connector_dir=connector
+    )
+
+    assert report.status == "fail"
+    assert any("manifest-only connector" in problem for problem in report.problems)
+
+
+def test_a_check_case_checks_the_streams_the_check_reads(tmp_path, connector_dir):
+    case = _case_with_expectations(
+        tmp_path,
+        records=None,
+        final_state=None,
+        command="check",
+        check_status="SUCCEEDED",
+    )
+    manifest = connector_dir / "manifest.yaml"
+    manifest.write_text(
+        manifest.read_text().replace(
+            "stream_names: [channels]", "stream_names: [members]"
+        )
+    )
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=connector_dir,
+    )
+
+    # `members` calls an operation the twin does not list, unlike `threads`.
+    assert report.support is not None
+    assert {need["stream"] for need in report.support["operations"]} == {"members"}
+    assert report.status == "fail"
+
+
+def test_a_check_case_with_an_empty_catalog_still_checks_the_check(
+    tmp_path, connector_dir
+):
+    case = _case_with_expectations(
+        tmp_path,
+        records=None,
+        final_state=None,
+        command="check",
+        check_status="SUCCEEDED",
+    )
+    catalog = json.loads((case / "catalog.json").read_text())
+    (case / "catalog.json").write_text(json.dumps({**catalog, "streams": []}))
+    manifest = connector_dir / "manifest.yaml"
+    manifest.write_text(
+        manifest.read_text().replace(
+            "stream_names: [channels]", "stream_names: [members]"
+        )
+    )
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=connector_dir,
+    )
+
+    assert report.support is not None
+    assert {need["stream"] for need in report.support["operations"]} == {"members"}
+
+
+def test_a_manifest_that_does_not_resolve_confirms_no_new_stream(tmp_path):
+    case = _case_with_expectations(tmp_path, new_streams=["threads"])
+    connector = tmp_path / "source-slack"
+    shutil.copytree(CONNECTOR_FIXTURE, connector)
+    manifest = connector / "manifest.yaml"
+    manifest.write_text(
+        manifest.read_text().replace("#/definitions/requester", "#/definitions/nope")
+    )
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=_manifest_only(connector),
+    )
+
+    assert report.status == "fail"
+    assert any("cannot be confirmed" in problem for problem in report.problems)
+
+
+@pytest.mark.parametrize(
+    "api_url,result",
+    [
+        (None, "supported"),
+        ("https://slack.com/api/", "supported"),
+        ("https://slack.example.com/api/", "unsupported"),
+    ],
+)
+def test_the_support_check_reads_hosts_from_the_case_config(
+    tmp_path, connector_dir, api_url, result
+):
+    # The url_base reads `api_url`, which the spec defaults to the twin's host.
+    manifest = connector_dir / "manifest.yaml"
+    manifest.write_text(
+        manifest.read_text()
+        .replace(
+            "url_base: https://slack.com/api/",
+            "url_base: \"{{ config.get('api_url', 'https://slack.com/api/') }}\"",
+            1,
+        )
+        .replace(
+            "properties: {}",
+            "properties:\n      api_url:\n        default: https://slack.com/api/",
+        )
+    )
+    case = tmp_path / "case"
+    shutil.copytree(CASE_FIXTURE, case)
+    if api_url is not None:
+        template = case / "config.template.json"
+        template.write_text(
+            json.dumps({**json.loads(template.read_text()), "api_url": api_url})
+        )
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=connector_dir,
+    )
+
+    assert report.support and report.support["result"] == result
+    assert report.status == ("pass" if result == "supported" else "fail")
+
+
+def test_an_unreadable_case_config_fails_the_gate(tmp_path, connector_dir):
+    case = tmp_path / "case"
+    shutil.copytree(CASE_FIXTURE, case)
+    (case / "config.template.json").write_text("[]")
+
+    report = check_case(
+        case,
+        "source-slack",
+        check_origin=_no_origin_problems,
+        connector_dir=connector_dir,
+    )
+
+    assert report.status == "fail"
+    assert "config.template.json is not a JSON object" in report.problems

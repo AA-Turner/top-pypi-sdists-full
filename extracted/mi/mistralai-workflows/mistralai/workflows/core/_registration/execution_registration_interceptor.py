@@ -96,8 +96,8 @@ class _ExecutionRegistrationWorkflowInboundInterceptor(temporalio.worker.Workflo
 
         _, registered = unwrap_contextual_result(raw_result)
 
-        # Retrocompatibility: a 404 means the API version doesn't expose the
-        # /register endpoint yet — continue without setting the token.
+        # Older histories can contain False from the removed 404/405 fallback.
+        # Preserve their token context on replay. New registration calls raise on errors.
         if not registered:
             logger.info(
                 "Registration endpoint not available, continuing without it",

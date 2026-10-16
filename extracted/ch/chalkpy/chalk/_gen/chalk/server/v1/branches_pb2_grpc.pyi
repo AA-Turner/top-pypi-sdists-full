@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.branches_pb2 import (
+    DeleteBranchRequest,
+    DeleteBranchResponse,
     GetBranchDeploymentStateRequest,
     GetBranchDeploymentStateResponse,
     GetBranchVenvInstalledPackagesRequest,
@@ -40,6 +42,10 @@ class BranchServiceStub:
         GetBranchWithLatestDeploymentRequest,
         GetBranchWithLatestDeploymentResponse,
     ]
+    DeleteBranch: UnaryUnaryMultiCallable[
+        DeleteBranchRequest,
+        DeleteBranchResponse,
+    ]
     ListBranchWithLatestDeployments: UnaryUnaryMultiCallable[
         ListBranchWithLatestDeploymentsRequest,
         ListBranchWithLatestDeploymentsResponse,
@@ -68,6 +74,12 @@ class BranchServiceServicer(metaclass=ABCMeta):
         request: GetBranchWithLatestDeploymentRequest,
         context: ServicerContext,
     ) -> GetBranchWithLatestDeploymentResponse: ...
+    @abstractmethod
+    def DeleteBranch(
+        self,
+        request: DeleteBranchRequest,
+        context: ServicerContext,
+    ) -> DeleteBranchResponse: ...
     @abstractmethod
     def ListBranchWithLatestDeployments(
         self,

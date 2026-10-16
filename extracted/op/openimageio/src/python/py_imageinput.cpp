@@ -96,8 +96,8 @@ ImageInput_read_tiles(ImageInput& self, int subimage, int miplevel, int xbegin,
     size_t nchans    = size_t(chend - chbegin);
     size_t pixelsize = size_t(nchans * format.size());
     size_t size      = (xend - xbegin) * (yend - ybegin) * (zend - zbegin)
-                  * pixelsize;
-    int dims = spec.tile_depth > 1 ? 4 : 3;
+                       * pixelsize;
+    int dims         = spec.tile_depth > 1 ? 4 : 3;
     std::unique_ptr<char[]> data(new char[size]);
     bool ok;
     {
@@ -173,10 +173,8 @@ ImageInput_read_native_deep_image(ImageInput& self, int subimage, int miplevel)
 
 
 void
-declare_imageinput(py::module& m)
+declare_imageinput(py_module& m)
 {
-    using namespace pybind11::literals;
-
     py::class_<ImageInput>(m, "ImageInput")
         .def_static(
             "create",
@@ -335,7 +333,7 @@ declare_imageinput(py::module& m)
                 return buf;
             },
             "subimage"_a = 0)
-        .def_property_readonly("has_error", &ImageInput::has_error)
+        .OIIO_PY_PROP_RO("has_error", &ImageInput::has_error)
         .def(
             "geterror",
             [](ImageInput& self, bool clear) {

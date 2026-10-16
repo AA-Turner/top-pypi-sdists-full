@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__lazy_modules__ = ["pipx.self_install", "pipx.wrap", "typing"]
+
 import logging
 from functools import cached_property
 from pathlib import Path
@@ -8,7 +10,7 @@ from typing import Final
 from platformdirs import user_cache_path, user_data_path, user_log_path
 
 from pipx.constants import WINDOWS
-from pipx.self_install import get_environment_value
+from pipx.self_install import DEFAULT_PIPX_GLOBAL_HOME, get_environment_value
 from pipx.wrap import pipx_wrap
 
 DEFAULT_PIPX_HOME = Path(user_data_path("pipx"))
@@ -19,7 +21,6 @@ if WINDOWS:
 DEFAULT_PIPX_BIN_DIR: Final[Path] = Path.home() / ".local/bin"
 DEFAULT_PIPX_MAN_DIR: Final[Path] = Path.home() / ".local/share/man"
 DEFAULT_PIPX_COMPLETION_DIR: Final[Path] = Path.home() / ".local/share"
-DEFAULT_PIPX_GLOBAL_HOME: Final[Path] = Path("/opt/pipx")
 DEFAULT_PIPX_GLOBAL_BIN_DIR: Final[Path] = Path("/usr/local/bin")
 DEFAULT_PIPX_GLOBAL_MAN_DIR: Final[Path] = Path("/usr/local/share/man")
 DEFAULT_PIPX_GLOBAL_COMPLETION_DIR: Final[Path] = Path("/usr/local/share")
@@ -34,6 +35,7 @@ OVERRIDE_PIPX_GLOBAL_HOME = None
 OVERRIDE_PIPX_GLOBAL_BIN_DIR = None
 OVERRIDE_PIPX_GLOBAL_MAN_DIR = None
 OVERRIDE_PIPX_GLOBAL_COMPLETION_DIR = None
+OVERRIDE_PIPX_GLOBAL_SHARED_LIBS = None
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -144,7 +146,7 @@ class _PathContext:
         self._default_log = self._default_home / "logs"
         self._default_cache = self._default_home / ".cache"
         self._default_trash = self._default_home / "trash"
-        self._base_shared_libs = None
+        self._base_shared_libs = OVERRIDE_PIPX_GLOBAL_SHARED_LIBS
         self._fallback_home = None
         self._home_exists = self._base_home is not None
         self._clear_cached_paths()
@@ -161,7 +163,7 @@ class _PathContext:
                 pipx_wrap(
                     (
                         f"Both a specific pipx home folder ({self.home}) and the fallback "
-                        f"pipx home folder ({self._fallback_home}) exist. If you are done migrating from the"
+                        f"pipx home folder ({self._fallback_home}) exist. If you are done migrating from the "
                         "fallback to the new location, it is safe to delete the fallback location."
                     ),
                     subsequent_indent=" " * 4,
@@ -187,6 +189,7 @@ __all__ = [
     "OVERRIDE_PIPX_GLOBAL_COMPLETION_DIR",
     "OVERRIDE_PIPX_GLOBAL_HOME",
     "OVERRIDE_PIPX_GLOBAL_MAN_DIR",
+    "OVERRIDE_PIPX_GLOBAL_SHARED_LIBS",
     "OVERRIDE_PIPX_HOME",
     "OVERRIDE_PIPX_MAN_DIR",
     "OVERRIDE_PIPX_SHARED_LIBS",

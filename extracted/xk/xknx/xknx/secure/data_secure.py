@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from copy import copy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 import time
 
@@ -25,9 +25,8 @@ from .keyring import Keyring
 _LOGGER = logging.getLogger("xknx.data_secure")
 
 # Same timedelta in milliseconds as used in Falcon used for initial sequence_number_sending
-# py3.10 backwards compatibility - py3.11 "2018-01-05T00:00:00Z" is supported
 _SEQUENCE_NUMBER_INIT_TIMESTAMP = datetime.fromisoformat(
-    "2018-01-05T00:00:00+00:00"
+    "2018-01-05T00:00:00Z"
 ).timestamp()
 _SEQUENCE_NUMBER_MAX = 0xFFFFFFFFFFFF  # 48 bit max value
 
@@ -69,7 +68,7 @@ class DataSecure:
 
         if not 0 < self._sequence_number_sending <= _SEQUENCE_NUMBER_MAX:
             _local_time_info = (
-                f" Local time not set properly? {datetime.now(timezone.utc).isoformat()}"
+                f" Local time not set properly? {datetime.now(UTC).isoformat()}"
                 if not last_sequence_number_sending
                 else ""
             )
@@ -212,7 +211,8 @@ class DataSecure:
                 key=key,
                 scf=s_apdu.scf,
                 address_fields_raw=_address_fields_raw,
-                frame_flags=cemi_data.flags,
+                address_type=cemi_data.address_type,
+                frame_format=cemi_data.flags.frame_format,
                 tpci=cemi_data.tpci,
             )
         decrypted_payload = APCI.from_knx(plain_apdu_raw)
@@ -260,7 +260,8 @@ class DataSecure:
             sequence_number=self.get_sequence_number(),
             address_fields_raw=cemi_data.src_addr.to_knx()
             + cemi_data.dst_addr.to_knx(),
-            frame_flags=cemi_data.flags,
+            address_type=cemi_data.address_type,
+            frame_format=cemi_data.flags.frame_format,
             tpci=cemi_data.tpci,
         )
         secure_cemi_data = copy(cemi_data)

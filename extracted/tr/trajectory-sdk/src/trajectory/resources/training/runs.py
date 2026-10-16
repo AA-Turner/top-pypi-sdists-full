@@ -10,7 +10,7 @@ import httpx2
 from trajectory._base_client import SyncPage, make_request_options, path_template
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
-from trajectory._types import Headers, NotGiven, Omit, not_given, omit
+from trajectory._types import Headers, NotGiven, Omit, SequenceNotStr, not_given, omit
 from trajectory._utils import maybe_transform
 from trajectory.types.delete_training_run_response import DeleteTrainingRunResponse
 from trajectory.types.training.training_run_response import TrainingRunResponse
@@ -136,6 +136,7 @@ class Runs(APIResource):
     bench_id: str,
     *,
     has_training_execution: bool | None | Omit = omit,
+    status: SequenceNotStr[str] | None | Omit = omit,
     limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
     extra_headers: Headers | None = None,
@@ -147,6 +148,8 @@ class Runs(APIResource):
     snapshot.
 
     Args:
+      status: Return only runs in these statuses; repeat for each status.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -167,6 +170,7 @@ class Runs(APIResource):
         params=maybe_transform(
           {
             "has_training_execution": has_training_execution,
+            "status": status,
             "limit": limit,
             "cursor": cursor,
           }

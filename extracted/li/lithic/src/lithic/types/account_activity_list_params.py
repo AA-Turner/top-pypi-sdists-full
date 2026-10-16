@@ -27,6 +27,7 @@ class AccountActivityListParams(TypedDict, total=False):
     category: Literal[
         "ACH",
         "WIRE",
+        "STABLECOIN",
         "BALANCE_OR_FUNDING",
         "FEE",
         "REWARD",
@@ -38,6 +39,7 @@ class AccountActivityListParams(TypedDict, total=False):
         "EXTERNAL_CHECK",
         "EXTERNAL_FEDNOW",
         "EXTERNAL_RTP",
+        "EXTERNAL_STABLECOIN",
         "EXTERNAL_TRANSFER",
         "EXTERNAL_WIRE",
         "MANAGEMENT_ADJUSTMENT",
@@ -47,6 +49,7 @@ class AccountActivityListParams(TypedDict, total=False):
         "MANAGEMENT_DISBURSEMENT",
         "HOLD",
         "PROGRAM_FUNDING",
+        "PROGRAM_TRANSFER",
     ]
     """Filter by transaction category"""
 

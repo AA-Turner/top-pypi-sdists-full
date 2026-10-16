@@ -22,6 +22,8 @@ from pydantic import (
     ValidationError as PydanticValidationError,
 )
 
+from tidy3d._rf_migration import RF_SIMULATION_DEPRECATION_MESSAGE
+from tidy3d._runtime import always_validate, fast_validation_active
 from tidy3d.components.autograd.flux_monitor import (
     build_flux_monitor_adjoint_layout,
     is_flux_adjoint_helper_name,
@@ -283,6 +285,7 @@ def validate_boundaries_for_zero_dims(
     """Error if absorbing boundaries, bloch boundaries, unmatching pec/pmc, or symmetry is used along a zero dimension."""
 
     @model_validator(mode="after")
+    @always_validate
     def boundaries_for_zero_dims(self: AbstractYeeGridSimulation) -> AbstractYeeGridSimulation:
         """Error if absorbing boundaries, bloch boundaries, unmatching pec/pmc, or symmetry is used along a zero dimension."""
         val = self.boundary_spec
@@ -538,6 +541,7 @@ class AbstractYeeGridSimulation(AbstractSimulation, ABC):
 
     @field_validator("simulation_type")
     @classmethod
+    @always_validate
     def _validate_simulation_type_tidy3d(
         cls, val: Literal["autograd_fwd", "autograd_bwd", "tidy3d"] | None
     ) -> Literal["autograd_fwd", "autograd_bwd", "tidy3d"]:
@@ -3436,8 +3440,14 @@ class Simulation(AbstractYeeGridSimulation):
         return updater.update_to_current()
 
     @model_validator(mode="after")
+    @always_validate
     def _run_after_validators(self) -> Self:
         """Run post-init validations in an explicit, dependency-aware order."""
+        if fast_validation_active():
+            # fast mode keeps only the step that changes the model; every other call
+            # in this chain checks and would be skipped by the class-level guard
+            call_wrapped_validator(validate_boundaries_for_zero_dims, self)
+            return self
         call_wrapped_validator(validate_boundaries_for_zero_dims, self)
         self._validate_auto_grid_wavelength()
         super()._run_after_validators()
@@ -5613,6 +5623,9 @@ class Simulation(AbstractYeeGridSimulation):
         Warn about new licensing requirements for RF simulations. This function details all the conditions in which a
         simulation is categorised as RF simulation at the backend.
         """
+        if config.microwave.suppress_rf_license_warning:
+            return
+
         if not self.validate_rf_type():
             return
 
@@ -5639,8 +5652,7 @@ class Simulation(AbstractYeeGridSimulation):
                 rf_component_breakdown_msg += "\n - Contains monitors defined for RF wavelengths."
                 break
 
-        msg = "RF simulations and functionality will require new license requirements in an upcoming release. All RF-specific classes are now available within the sub-package 'tidy3d.rf'."
-        msg += rf_component_breakdown_msg
+        msg = RF_SIMULATION_DEPRECATION_MESSAGE + rf_component_breakdown_msg
         log.warning(msg, log_once=True)
 
     def _validate_mode_objects(self) -> None:
@@ -7216,7 +7228,7 @@ class Simulation(AbstractYeeGridSimulation):
         for structure in self.scene.sorted_structures:
             gds_layer, gds_dtype = gds_layer_dtype_map.get(structure.medium, (0, 0))
             structure_polygons = []
-            for polygon in structure.to_gdstk(
+            for polygon in structure._to_gdstk_within(
                 x=x,
                 y=y,
                 z=z,
@@ -7225,6 +7237,7 @@ class Simulation(AbstractYeeGridSimulation):
                 gds_layer=gds_layer,
                 gds_dtype=gds_dtype,
                 pixel_exact=pixel_exact,
+                bounds=self.bounds,
             ):
                 pmin, pmax = polygon.bounding_box()
                 if pmin[0] < bmin[0] or pmin[1] < bmin[1] or pmax[0] > bmax[0] or pmax[1] > bmax[1]:

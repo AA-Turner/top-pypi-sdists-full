@@ -66,6 +66,9 @@ class DevModeSettingsV2Client:
     ) -> widgets_models.DevModeSettingsV2:
         """
         Enable dev mode for the user associated with the provided token.
+
+        Required scopes: [api:widgets-write]
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
@@ -125,6 +128,9 @@ class DevModeSettingsV2Client:
 
         See https://github.com/palantir/osdk-ts for the widget library API types for the
         dev settings manifest.
+
+
+        Required scopes: [api:widgets-write]
 
         :param manifest:
         :type manifest: Any
@@ -243,6 +249,9 @@ class AsyncDevModeSettingsV2Client:
     ) -> typing.Awaitable[widgets_models.DevModeSettingsV2]:
         """
         Enable dev mode for the user associated with the provided token.
+
+        Required scopes: [api:widgets-write]
+
         :param preview: Enables the use of preview functionality.
         :type preview: Optional[PreviewMode]
         :param request_timeout: timeout setting for this request in seconds.
@@ -302,6 +311,9 @@ class AsyncDevModeSettingsV2Client:
 
         See https://github.com/palantir/osdk-ts for the widget library API types for the
         dev settings manifest.
+
+
+        Required scopes: [api:widgets-write]
 
         :param manifest:
         :type manifest: Any

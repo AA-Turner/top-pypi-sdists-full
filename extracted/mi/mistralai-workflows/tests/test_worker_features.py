@@ -1,3 +1,6 @@
+import asyncio
+import contextlib
+from http import HTTPStatus
 from typing import Annotated, Any
 
 import httpx
@@ -15,7 +18,8 @@ from mistralai.workflows.core.config.config import (
     config,
 )
 from mistralai.workflows.core.config.config_discovery import WorkerRuntimeConfig, apply_worker_runtime_config
-from mistralai.workflows.exceptions import WorkflowsException
+from mistralai.workflows.core.worker import run_worker
+from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
 from mistralai.workflows.protocol.v1.worker import WorkerFeatures
 from mistralai.workflows.worker_client.models import WorkerInfo as GeneratedWorkerInfo
 
@@ -134,10 +138,11 @@ class TestValueFeaturePrecedence:
     def test_unset_adopts_the_server_value(self, worker_config) -> None:
         worker = worker_config()
 
-        effective = _runtime_config(events_api_version="v2").apply()
+        # v1 differs from the SDK default, so this proves the server value was adopted.
+        effective = _runtime_config(events_api_version="v1").apply()
 
-        assert worker.events_api_version == EventsApiVersion.V2
-        assert effective["events_api_version"] == EventsApiVersion.V2
+        assert worker.events_api_version == EventsApiVersion.V1
+        assert effective["events_api_version"] == EventsApiVersion.V1
 
     def test_explicit_local_value_wins_over_the_server(self, worker_config) -> None:
         worker = worker_config("v1")
@@ -151,7 +156,7 @@ class TestValueFeaturePrecedence:
 
         _runtime_config().apply()
 
-        assert worker.events_api_version == EventsApiVersion.V1
+        assert worker.events_api_version == EventsApiVersion.V2
         assert "events_api_version" not in worker.model_fields_set
 
 
@@ -303,3 +308,51 @@ class TestConfigDiscoveryVersionSkew:
         await apply_worker_runtime_config()
 
         assert graph.upload_graph is False
+
+    async def test_unauthorized_response_preserves_status(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        transport = httpx.MockTransport(lambda _request: httpx.Response(HTTPStatus.UNAUTHORIZED, json={}))
+        client = create_http_test_worker_client(transport)
+        monkeypatch.setattr(config_discovery, "get_worker_client", lambda **kwargs: client)
+
+        with pytest.raises(WorkflowsException) as exc_info:
+            await apply_worker_runtime_config()
+
+        assert exc_info.value.status == HTTPStatus.UNAUTHORIZED
+        assert exc_info.value.code == ErrorCode.WORKER_RUNTIME_CONFIG_ERROR
+
+
+@pytest.mark.usefixtures("restore_config_sections")
+class TestDetachedWorkerConfigDiscovery:
+    """A detached caller connects to Temporal as soon as `run_worker` returns, from the discovered settings."""
+
+    async def test_discovered_temporal_settings_apply_while_the_detached_worker_runs(
+        self, temporal_config, whoami
+    ) -> None:
+        temporal = temporal_config()
+        settings_before = temporal.model_dump()
+        whoami(**BASE_PAYLOAD, tls=True)
+
+        task = await run_worker([], detach=True, enable_config_discovery=True)
+        assert task is not None
+        try:
+            assert temporal.namespace == "customer:workspace"
+            assert temporal.server_url == "temporal.example.com:7233"
+            assert temporal.tls is True
+        finally:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+        assert config.temporal.model_dump() == settings_before
+
+    async def test_a_failed_discovery_leaves_the_temporal_settings_untouched(self, temporal_config, whoami) -> None:
+        temporal = temporal_config()
+        settings_before = temporal.model_dump()
+        # Discovery adopts the namespace, then fails to parse the scheduler URL.
+        whoami(namespace="customer:workspace", scheduler_url="temporal.example.com")
+
+        with pytest.raises(ValueError):
+            await run_worker([], detach=True, enable_config_discovery=True)
+
+        assert config.temporal.model_dump() == settings_before
+        assert config.temporal.model_fields_set == set()

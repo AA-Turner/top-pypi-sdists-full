@@ -46,6 +46,7 @@ mod scroll_detector;
 mod selection_point;
 mod simd;
 mod terminal_input_handler;
+mod terminal_mouse;
 
 pub use clipboard::{RdpClipboard, CLIPBOARD_DEFAULT_SIZE, CLIPBOARD_MAX_SIZE, CLIPBOARD_MIN_SIZE};
 pub use config::{ColorScheme, TerminalConfig};
@@ -73,8 +74,9 @@ pub use recorder::{
 pub use recording_pipeline::{RecordingPipeline, RecordingTaskManager};
 pub use scroll_detector::{ScrollDetector, ScrollDirection, ScrollOperation};
 pub use selection_point::{points_enclose_text, ColumnSide, SelectionPoint};
-pub use simd::convert_bgr_to_rgba_simd;
+pub use simd::{convert_bgr_to_rgba_simd, convert_bgra_to_rgba};
 pub use terminal_input_handler::TerminalInputHandler;
+pub use terminal_mouse::{handle_mouse_event, MouseEventOutput, MousePermissions};
 
 // S3 recording transport available when s3 feature is enabled
 // #[cfg(feature = "s3")]

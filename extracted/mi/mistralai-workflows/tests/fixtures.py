@@ -379,7 +379,7 @@ class DeclaredTimeoutChildParams(BaseModel):
     tag: str
 
 
-@workflow.define(name="reports_execution_timeout_child", execution_timeout=timedelta(seconds=2))
+@workflow.define(name="reports_execution_timeout_child", execution_timeout=timedelta(seconds=60))
 class ReportsExecutionTimeoutChild:
     @workflow.entrypoint
     async def run(self, tag: str) -> float:

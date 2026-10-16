@@ -8,7 +8,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from .utils import download_file
+from .utils import _cache_dir, download_file, load_cache, save_cache
 
 
 @dataclass
@@ -41,7 +41,7 @@ class M5:
 
         Args:
             directory (str): Directory where data will be downloaded.
-            cache (bool): If `True` saves and loads.
+            cache (bool): If `True`, saves and loads a parquet cache under `{directory}/.cache`.
 
         Returns:
             Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -51,12 +51,12 @@ class M5:
                 and static variables.
         """
         path = f'{directory}/m5/datasets'
-        file_cache = f'{path}/m5.p'
-
-        if os.path.exists(file_cache) and cache:
-            Y_df, X_df, S_df = pd.read_pickle(file_cache)
-
-            return Y_df, X_df, S_df
+        cache_dir = _cache_dir(directory, 'm5', 'm5')
+        if cache:
+            cached = load_cache(cache_dir, ['Y_df', 'X_df', 'S_df'])
+            if cached is not None:
+                frames, _ = cached
+                return frames['Y_df'], frames['X_df'], frames['S_df']
 
         M5.download(directory)
         # Calendar data
@@ -133,7 +133,7 @@ class M5:
         X_df = long[x_cols]
 
         if cache:
-            pd.to_pickle((Y_df, X_df, S_df), file_cache)
+            save_cache(cache_dir, {'Y_df': Y_df, 'X_df': X_df, 'S_df': S_df}, root=directory)
 
         return Y_df, X_df, S_df
 
@@ -159,14 +159,14 @@ class M5Evaluation:
     def load_benchmark(directory: str,
                        source_url: Optional[str] = None,
                        validation: bool = False) -> np.ndarray:
-        """Downloads and loads a bechmark forecasts.
+        """Downloads and loads benchmark forecasts.
 
         Args:
             directory (str): Directory where data will be downloaded.
             source_url (str, optional): Optional benchmark url obtained from
                 https://github.com/Nixtla/m5-forecasts/tree/master/forecasts.
                 If `None` returns the M5 winner.
-            validation (bool): Wheter return validation forecasts.
+            validation (bool): Whether return validation forecasts.
                 Default False, return test forecasts.
 
         Returns:
@@ -179,12 +179,13 @@ class M5Evaluation:
         winner_evaluation = M5Evaluation.evaluate('data', winner_benchmark)
         ```
         """
-        path = f'{directory}/m5/datasets'
+        # user-supplied archives are kept apart from the dataset files
+        benchmarks_path = f'{directory}/m5/benchmarks'
         if source_url is not None:
             filename = source_url.split('/')[-1].replace('.rar', '.csv')
-            filepath = f'{path}/{filename}'
+            filepath = f'{benchmarks_path}/{filename}'
             if not os.path.exists(filepath):
-                download_file(path, source_url, decompress=True)
+                download_file(benchmarks_path, source_url, decompress=True)
 
         else:
             source_url = 'https://github.com/Nixtla/m5-forecasts/raw/main/forecasts/0001 YJ_STU.zip'
@@ -211,7 +212,7 @@ class M5Evaluation:
     def aggregate_levels(y_hat: pd.DataFrame,
                          categories: pd.DataFrame = None) -> pd.DataFrame:
         """
-        Aggregates the 30_480 series to get 42_840.
+        Aggregates the 30_490 series to get 42_840.
 
         Args:
             y_hat (pd.DataFrame): Forecasts as wide pandas dataframe with columns ['unique_id'].
@@ -223,14 +224,14 @@ class M5Evaluation:
         """
         y_hat_cat = y_hat.assign(total='Total')
 
-        df_agg = []
+        level_dfs = []
         for level, agg in M5Evaluation.levels.items():
             df = y_hat_cat.groupby(agg).sum(numeric_only=True).reset_index()
             renamer = dict(zip(agg, ['Agg_Level_1', 'Agg_Level_2']))
             df.rename(columns=renamer, inplace=True)
             df.insert(0, 'Level_id', level)
-            df_agg.append(df)
-        df_agg = pd.concat(df_agg)
+            level_dfs.append(df)
+        df_agg = pd.concat(level_dfs)
         df_agg = df_agg.fillna('X')
         df_agg = df_agg.set_index(['Level_id', 'Agg_Level_1', 'Agg_Level_2'])
         df_agg.columns = [f'd_{i+1}' for i in range(df_agg.shape[1])]
@@ -241,11 +242,11 @@ class M5Evaluation:
     def evaluate(directory: str,
                  y_hat: Union[pd.DataFrame, str],
                  validation: bool = False) -> pd.DataFrame:
-        """Evaluates y_hat according to M4 methodology.
+        """Evaluates y_hat according to M5 methodology.
 
         Args:
             directory (str): Directory where data will be downloaded.
-            validation (bool): Wheter perform validation evaluation.
+            validation (bool): Whether perform validation evaluation.
                 Default False, return test evaluation.
             y_hat (Union[pd.DataFrame, str]): Forecasts as wide pandas dataframe with columns
                 ['unique_id'] and forecasts or
@@ -253,8 +254,8 @@ class M5Evaluation:
                 https://github.com/Nixtla/m5-forecasts/tree/main/forecasts.
 
         Returns:
-            pd.DataFrame: DataFrame with columns OWA, SMAPE, MASE
-                and group as index.
+            pd.DataFrame: DataFrame with column wrmsse and Level_id
+                (plus a 'Total' row) as index.
 
         Examples:
 

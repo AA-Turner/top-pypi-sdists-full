@@ -33,7 +33,7 @@ async def test_sequential_independent_runs_each_get_their_own_request_linked_to_
     set_app_context(AppContext(emitter=ConsoleEmitter(), user_id=USER_ID, request_id=PARENT, store=False))
     seen: list[dict[str, Any]] = []
 
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()
@@ -75,7 +75,7 @@ async def test_a_shared_child_run_keeps_the_parent_request_and_claims_no_lineage
     set_app_context(AppContext(emitter=ConsoleEmitter(), user_id=USER_ID, request_id=PARENT, store=False))
     seen: dict[str, Any] = {}
 
-    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _capture_execute(user_input: Any = None, *, max_iterations: Any = None, **_: Any) -> Any:
         from matrx_connect.context.app_context import get_app_context
 
         ctx = get_app_context()

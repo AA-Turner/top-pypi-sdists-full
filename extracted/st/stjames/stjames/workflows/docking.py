@@ -134,7 +134,7 @@ class VinaSettings(DockingSettings):
     """
 
     settings_type: Literal["vina"] = "vina"
-    executable: Literal["qvina2", "qvina-w", "vina"] = "vina"
+    executable: Literal["qvina2", "qvina-w", "vina", "heron"] = "vina"
     scoring_function: Literal["vinardo", "vina"] = "vinardo"
     exhaustiveness: int = 8
 
@@ -143,6 +143,8 @@ class VinaSettings(DockingSettings):
         """Check if the combination of exectuable and scoring function is supported."""
         if (self.executable in {"qvina2", "qvina-w"}) and (self.scoring_function == "vinardo"):
             raise ValueError("QVina does not implement the Vinardo scoring function!")
+        if self.executable == "heron" and self.scoring_function != "vinardo":
+            raise ValueError("Heron implements Vinardo scoring only.")
         return self
 
 

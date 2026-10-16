@@ -9,7 +9,7 @@ PACKAGE_NAME = "dealcloud-sdk"
 
 # Version is injected at build time by CI pipeline
 # Format: MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH+PRERELEASE
-__version__ = "1.0.16"
+__version__ = "1.0.18"
 
 # SDK version string for X-Dealcloud-Sdk-Version header
 # Format: {package_name}.{version}

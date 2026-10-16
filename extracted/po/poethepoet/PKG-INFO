@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.48.0
+Version: 0.49.0
 Summary: A task runner that works well with poetry and uv.
 License-Expression: MIT
 License-File: LICENSE
@@ -25,7 +25,6 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Provides-Extra: poetry-plugin
-Requires-Dist: pastel (>=0.2.1,<0.3.0)
 Requires-Dist: poetry (>=1.2.0,<3.0.0) ; (python_version < "4.0") and (extra == "poetry-plugin")
 Requires-Dist: pyyaml (>=6.0.3,<7.0)
 Requires-Dist: tomli (>=1.3.0) ; python_version < "3.11"
@@ -96,7 +95,7 @@ Description-Content-Type: text/markdown
 
   ```toml
   [tool.poetry.requires-plugins]
-  poethepoet = ">=0.48"
+  poethepoet = ">=0.49"
   ```
 
 2. Define some tasks in your **pyproject.toml**

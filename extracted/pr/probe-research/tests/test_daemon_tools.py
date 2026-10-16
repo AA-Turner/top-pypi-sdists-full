@@ -661,3 +661,91 @@ def test_no_branch_fact_once_a_sibling_is_in_an_experiment(tmp_path, monkeypatch
     assert "branch from" not in out
     runs["a2"]["experiment_id"] = "e1"
     assert "branch from" not in _run(tools.run_probe_command(deps, ["run", "move", "a2", "--to", "sft-wave1"]))
+
+
+# ---------------------------------------------------------------------------
+# Skill hunting: the skills are a `read` away, so a shell guess at the agent's
+# install folders is refused with that pointer, never asked (14 questions in 14
+# days, most from one pi user). Bypass mode runs it as before.
+# ---------------------------------------------------------------------------
+
+
+class Ran:
+    """Stands in for `tools._run_shell_write`: records what an approval ran."""
+
+    def __init__(self) -> None:
+        self.commands: list[str] = []
+
+    async def __call__(self, deps, command, op_id, **kw):
+        from probe.daemon.shell import ShellResult
+
+        self.commands.append(command)
+        return ShellResult(exit_code=0, output="ran\n", truncated=False, timed_out=False)
+
+
+@pytest.mark.parametrize("command", [
+    "cat ~/.pi/agent/git/x/skills/track-work/reference.md",
+    "find ~/.pi/agent -path '*track-work/reference.md'",
+    "ls ~/.agents/skills/track-work",
+    "cat ~/.pi/agent/git/x/skills/edit-notes/SKILL.md",
+])
+def test_a_shell_hunt_for_a_skill_file_is_pointed_at_the_read_tool(tmp_path, monkeypatch, command):
+    ran = Ran()
+    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    deps = _deps(tmp_path)
+    out = _run(tools.shell(deps, command))
+    assert out.startswith("not run: It reads ") and "outside the working folders" in out, out
+    assert out.endswith(". The skills are read with the read tool, by their path in the skills folder: "
+                        "`read track-work/reference.md`."), out
+    assert deps.board.all() == [] and deps.asked == 0 and ran.commands == []
+    # A read pointed elsewhere, not a write that was lost: the run may end on it.
+    assert deps.lost_writes == 0
+
+
+def test_a_hunt_through_the_whole_disk_is_not_asked_either(tmp_path, monkeypatch):
+    """`find /` already stops at the every-mode refusal (a tree too big to check
+    for `.probe.config` `off` paths), which comes first and keeps its words."""
+    ran = Ran()
+    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    deps = _deps(tmp_path)
+    out = _run(tools.shell(deps, "find / -path '*track-work/reference.md'"))
+    assert out.startswith("not run: ") and out.endswith("This is refused in every mode."), out
+    assert deps.board.all() == [] and ran.commands == []
+
+
+def test_another_file_outside_the_folders_is_still_asked(tmp_path):
+    deps = _deps(tmp_path)
+    out = _run(tools.shell(deps, "cat /outside/other.md"))
+    req = deps.board.all()[0]
+    assert out == (f"held for the researcher (request {req.id}) - It reads /outside/other.md: outside the working "
+                   "folders. It runs if they say yes - the answer shows up in a later bite.")
+    assert req.policy == "shell.unsafe_command"
+    for near in ("cat /outside/my-track-work.md", "cat /outside/track-work.md", "cat /outside/track-workflow/a",
+                 # The skill's name as a word, not a folder on a path: a search for it.
+                 "grep -rn track-work /outside",
+                 # A path inside a git revision, not a file on this machine.
+                 "git -C /outside/repo show main:agent/skills/track-work/SKILL.md"):
+        assert _run(tools.shell(deps, near)).startswith("held for the researcher"), near
+
+
+def test_a_note_write_that_mentions_a_skill_keeps_the_hint_for_its_shape(tmp_path):
+    """The note's text names `edit-notes/SKILL.md`; the hint is still the shape that runs."""
+    from probe.daemon import shell as sh
+
+    notes = tmp_path / "state" / "probe" / "notes"
+    notes.mkdir(parents=True)
+    deps = _deps(tmp_path)
+    deps.write_dirs = [notes]
+    for command in (f"tee {notes / 'n.md'} <<'EOF'\nfollowed edit-notes/SKILL.md\nEOF",
+                    f"printf 'followed edit-notes/SKILL.md' > {notes / 'n.md'}"):
+        out = _run(tools.shell(deps, command))
+        assert sh.R_HEREDOC in out and "read with the read tool" not in out, out
+
+
+def test_bypass_mode_still_runs_a_skill_path_command(tmp_path, monkeypatch):
+    ran = Ran()
+    monkeypatch.setattr(tools, "_run_shell_write", ran)
+    deps = _deps(tmp_path, bypass=True)
+    command = "cat ~/.pi/agent/git/x/skills/track-work/reference.md"
+    out = _run(tools.shell(deps, command))
+    assert out.startswith(f"[{appr.AUTO} · exit 0]") and ran.commands == [command], out

@@ -1,3 +1,138 @@
+[build-system]
+# hatchling >= 1.27 is required for PEP 639 (`license` as an SPDX expression
+# plus `license-files`); older versions reject project.license-files. Pinning a
+# floor matters for --no-build-isolation builds, where the backend comes from
+# the environment rather than being resolved fresh.
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "internetarchive"
+description = "A Python interface to archive.org."
+readme = "README.rst"
+requires-python = ">=3.10"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "Jacob M. Johnson", email = "jake@archive.org" }]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "jsonpatch>=0.4",
+  "requests>=2.25.0,<3.0.0",
+  "tqdm>=4.0.0",
+  "urllib3>=1.26.0",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/jjjake/internetarchive"
+Documentation = "https://archive.org/developers/internetarchive/"
+Source = "https://github.com/jjjake/internetarchive"
+Changelog = "https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst"
+
+[project.scripts]
+ia = "internetarchive.cli.ia:main"
+
+[project.optional-dependencies]
+dev = [
+  "mypy",
+  "pre-commit",
+  "pytest",
+]
+docs = [
+  "alabaster==1.0.0",
+  "sphinx==8.1.3",
+  "sphinx-autodoc-typehints==3.0.0",
+  "typing-extensions",
+]
+test = [
+  "pytest==9.0.3",
+  "responses==0.26.1",
+  "ruff==0.14.1",
+]
+types = [
+  "tqdm-stubs>=0.2.0",
+  "types-colorama",
+  "types-jsonpatch>=0.1.0a0",
+  "types-pygments",
+  "types-requests>=2.25.0,<3.0.0",
+  "types-ujson>=4.2.0",
+  "types-urllib3>=1.26.0",
+]
+all = ["internetarchive[dev,docs,test,types]"]
+
+# Build and release tooling. These are PEP 735 dependency groups rather than
+# extras: uv.lock pins them exactly as it does extras, but they are not
+# published in the wheel's metadata, so `pip install internetarchive[pex]`
+# cannot hand an end user a build tool.
+[dependency-groups]
+# CI previously installed pex unpinned, which is how the pex bootstrap grew
+# ~500 KB between 5.11.0 and 5.11.1 (pex 2.98.2 -> 2.100.5) with no change on
+# our side.
+pex = ["pex"]
+# twine validates the built artifacts and packaging normalizes the tag for the
+# artifact-name assertion. Both run on the publish path, after `make release`
+# has already pushed the tag, so an unpinned upgrade there breaks a release
+# that is already in progress.
+release = ["twine", "packaging"]
+
+# The version is derived from the git tag rather than stored in a file, so a
+# release is `git tag vX.Y.Z` and nothing else -- no version-bump PR, and no
+# way for the tag and the packaged version to disagree. Working from a
+# checkout between tags yields the next patch version with a .devN suffix.
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+# Written at build time and imported by internetarchive/__version__.py.
+# Not tracked in git -- see .gitignore.
+[tool.hatch.build.hooks.vcs]
+version-file = "internetarchive/_version.py"
+
+# Selecting the `internetarchive` directory takes everything in it, including
+# any untracked-but-not-gitignored subdirectory that happens to be sitting
+# there (stale package dirs left behind by other branches, for instance).
+# Exclude subdirectories wholesale and add the one real subpackage back, so a
+# new subpackage has to be declared here to ship -- the constraint setup.cfg's
+# explicit `packages` list used to provide. Applies to both targets, since
+# `uv build` builds the wheel from the sdist.
+[tool.hatch.build]
+exclude = ["internetarchive/*/"]
+
+[tool.hatch.build.force-include]
+"internetarchive/cli" = "internetarchive/cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["internetarchive"]
+
+# only-include (not include): file selection otherwise falls back to VCS ignore
+# rules for anything not listed, which sweeps in whatever untracked directories
+# happen to sit in the working tree -- local virtualenvs, in particular.
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "internetarchive",
+  "tests",
+  "AUTHORS.rst",
+  "HISTORY.rst",
+  "LICENSE",
+  "README.rst",
+]
+
+# The tool that enforces `--locked` is itself a dependency of the build being
+# reproducible. This is a floor rather than a pin: CI's setup-uv is bumped by
+# the Actions Dependabot group, and this only fails if it goes backwards past
+# the version that authored the lockfile format.
+[tool.uv]
+required-version = ">=0.9"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--strict-markers"
@@ -103,3 +238,14 @@ max-statements = 124
 "tests/cli/test_ia_list.py" = ["E741"]
 "tests/test_api.py" = ["E712"]
 "tests/test_config.py" = ["PT011"]
+
+[tool.mypy]
+exclude = "^\\.git/|^__pycache__/|^docs/source/conf.py$|^old/|^build/|^dist/|\\.tox"
+python_version = "3.10"
+pretty = true
+scripts_are_modules = true
+show_error_codes = true
+show_error_context = true
+
+[tool.codespell]
+ignore-words-list = "alers"

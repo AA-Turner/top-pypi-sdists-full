@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import concurrent.futures
 import html
 import io
 import json
@@ -28,12 +27,8 @@ import tempfile
 import tokenize
 from collections import Counter
 from dataclasses import dataclass
-from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
 
 import yaml
 from spellchecker import SpellChecker
@@ -91,15 +86,6 @@ RUFF_WRITEBACK_SAFE_SELECTOR_RE = re.compile(r"^E\d*$")
 RUFF_WRITEBACK_UNSAFE_SELECTORS = {"E703"}
 ORDERED_LIST_START_RE = re.compile(r"^\d+[.)]\s+")
 LIST_ITEM_RE = re.compile(r"^(?:[-+*]|\d+[.)])\s+")
-MARKDOWN_LINK_RE = re.compile(r"!?\[[^\]]*\]\((<[^>\n]*>|[^\n)]*)\)")
-REFERENCE_LINK_RE = re.compile(r"^\s*\[[^\]]+\]:\s*(\S+)")
-HTML_LINK_ATTR_RE = re.compile(
-    r"\b(?:href|src)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))",
-    re.IGNORECASE,
-)
-HTML_TAG_RE = re.compile(r"<[^>\n]+>")
-BARE_HTTP_LINK_RE = re.compile(r"https?://[^\s<>\"]+")
-INLINE_CODE_RE = re.compile(r"`[^`]*`")
 DISALLOWED_FRONT_MATTER_KEYS = {
     "kernelspec",
     "language_info",
@@ -133,6 +119,9 @@ WRITE_VAR_PATTERNS = {
     "restart_fname",
     "stl_export_path",
 }
+UNPUBLISHED_NOTEBOOK_SLUGS = {
+    "AvalanchePhotodiode",
+}
 KNOWN_EXTERNAL_CATALOG_SLUGS = frozenset(
     {
         "AntennaCharacteristics",
@@ -160,13 +149,6 @@ KNOWN_EXTERNAL_CATALOG_SLUGS = frozenset(
         "WidebandBeamSteerableReflectarrayWithPRUC",
     }
 )
-IGNORED_LINK_SCHEMES = {"data", "javascript", "mailto", "tel"}
-REACHABLE_WITH_LIMITED_ACCESS_HTTP_STATUSES = {401, 403}
-LINKCHECK_USER_AGENT = "tidy3d-notebook-linkcheck/1.0 (+https://www.flexcompute.com)"
-TIDY3D_NOTEBOOK_DOCS_BASE_URL = "https://docs.flexcompute.com/projects/tidy3d/en/latest/notebooks/"
-DEFAULT_LINKCHECK_TIMEOUT_SECONDS = 10.0
-DEFAULT_LINKCHECK_WORKERS = 16
-MAX_FRAGMENT_HTML_BYTES = 5_000_000
 
 
 @dataclass(frozen=True)
@@ -189,28 +171,6 @@ class TextLine:
     line_number: int
     text: str
     source: str
-
-
-@dataclass(frozen=True)
-class NotebookLink:
-    document: QmdDocument
-    line_number: int
-    target: str
-    source: str
-
-
-class HtmlAnchorCollector(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.anchors: set[str] = set()
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        for name, value in attrs:
-            if value and name.lower() in {"id", "name"}:
-                self.anchors.add(html.unescape(value))
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self.handle_starttag(tag, attrs)
 
 
 @dataclass(frozen=True)
@@ -268,11 +228,6 @@ def parse_args() -> argparse.Namespace:
         help="Skip Ruff syntax checks for QMD Python code fences.",
     )
     parser.add_argument(
-        "--skip-linkcheck",
-        action="store_true",
-        help="Skip reachability checks for links in selected QMD files.",
-    )
-    parser.add_argument(
         "--fix-ruff-code",
         action="store_true",
         help="Apply Ruff fixes to selected QMD Python code fences and write them back.",
@@ -291,18 +246,6 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=3,
         help="Ignore words that appear in at least this many other QMD files.",
-    )
-    parser.add_argument(
-        "--link-timeout",
-        type=float,
-        default=DEFAULT_LINKCHECK_TIMEOUT_SECONDS,
-        help="Per-request timeout in seconds for HTTP link checks.",
-    )
-    parser.add_argument(
-        "--link-workers",
-        type=int,
-        default=DEFAULT_LINKCHECK_WORKERS,
-        help="Maximum concurrent HTTP link checks.",
     )
     parser.add_argument(
         "-v",
@@ -437,7 +380,7 @@ def validate_quarto_project(root: Path, documents: dict[str, QmdDocument]) -> li
         return ["_quarto.yml: project.render must be a list of QMD files"]
 
     rendered = set(render)
-    expected = {f"{slug}.qmd" for slug in documents}
+    expected = {f"{slug}.qmd" for slug in documents if slug not in UNPUBLISHED_NOTEBOOK_SLUGS}
     for filename in sorted(rendered - expected):
         errors.append(f"_quarto.yml: render entry has no QMD file: {filename}")
     for filename in sorted(expected - rendered):
@@ -523,7 +466,7 @@ def validate_publication_catalog(root: Path, documents: dict[str, QmdDocument]) 
                 f"{document.path.name}: example-library notebooks must define feature_image"
             )
 
-    uncataloged = sorted(set(documents) - seen)
+    uncataloged = sorted(set(documents) - seen - UNPUBLISHED_NOTEBOOK_SLUGS)
     if outside_corpus:
         logging.warning(
             "_publication.yml references %d notebook(s) outside this QMD corpus: %s",
@@ -760,427 +703,6 @@ def validate_list_spacing(documents: dict[str, QmdDocument]) -> list[str]:
     return errors
 
 
-def iter_non_code_body_lines(document: QmdDocument) -> list[TextLine]:
-    lines: list[TextLine] = []
-    in_code = False
-    in_html_comment = False
-    for index, line in enumerate(document.body.splitlines(), start=1):
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            in_code = not in_code
-            continue
-        if in_code:
-            continue
-        uncommented_line, in_html_comment = remove_html_comments(line, in_html_comment)
-        if not uncommented_line.strip():
-            continue
-        lines.append(
-            TextLine(
-                line_number=document.body_start_line + index - 1,
-                text=strip_inline_code_spans(uncommented_line),
-                source=line,
-            )
-        )
-    return lines
-
-
-def remove_html_comments(line: str, in_comment: bool) -> tuple[str, bool]:
-    chunks: list[str] = []
-    index = 0
-    while index < len(line):
-        if in_comment:
-            end = line.find("-->", index)
-            if end == -1:
-                return "".join(chunks), True
-            index = end + len("-->")
-            in_comment = False
-            continue
-
-        start = line.find("<!--", index)
-        if start == -1:
-            chunks.append(line[index:])
-            break
-        chunks.append(line[index:start])
-        index = start + len("<!--")
-        in_comment = True
-    return "".join(chunks), in_comment
-
-
-def strip_inline_code_spans(line: str) -> str:
-    return INLINE_CODE_RE.sub("", line)
-
-
-def extract_links_from_qmd(document: QmdDocument) -> list[NotebookLink]:
-    links: list[NotebookLink] = []
-    seen: set[tuple[int, str]] = set()
-    for text_line in iter_non_code_body_lines(document):
-        line = text_line.text
-        consumed_spans: list[tuple[int, int]] = []
-
-        for regex in (MARKDOWN_LINK_RE, REFERENCE_LINK_RE):
-            for match in regex.finditer(line):
-                raw_target = next((group for group in match.groups() if group is not None), "")
-                target = normalize_link_target(raw_target)
-                add_link_if_new(document, text_line, target, links, seen)
-                consumed_spans.append(match.span())
-
-        for tag_match in HTML_TAG_RE.finditer(line):
-            for match in HTML_LINK_ATTR_RE.finditer(tag_match.group(0)):
-                raw_target = next((group for group in match.groups() if group is not None), "")
-                target = normalize_link_target(raw_target)
-                add_link_if_new(document, text_line, target, links, seen)
-                consumed_spans.append(
-                    (
-                        tag_match.start() + match.start(),
-                        tag_match.start() + match.end(),
-                    )
-                )
-
-        for match in BARE_HTTP_LINK_RE.finditer(line):
-            if any(spans_overlap(match.span(), span) for span in consumed_spans):
-                continue
-            target = strip_trailing_url_punctuation(match.group(0))
-            add_link_if_new(document, text_line, target, links, seen)
-
-    return links
-
-
-def add_link_if_new(
-    document: QmdDocument,
-    text_line: TextLine,
-    target: str,
-    links: list[NotebookLink],
-    seen: set[tuple[int, str]],
-) -> None:
-    key = (text_line.line_number, target)
-    if key in seen:
-        return
-    seen.add(key)
-    links.append(
-        NotebookLink(
-            document=document,
-            line_number=text_line.line_number,
-            target=target,
-            source=text_line.source,
-        )
-    )
-
-
-def normalize_link_target(raw_target: str) -> str:
-    target = html.unescape(raw_target.strip())
-    if target.startswith("<") and ">" in target:
-        return target[1 : target.index(">")].strip()
-    if any(character.isspace() for character in target):
-        target = target.split(maxsplit=1)[0]
-    return target.strip()
-
-
-def strip_trailing_url_punctuation(url: str) -> str:
-    while url and url[-1] in ".,;:":
-        url = url[:-1]
-    while url.endswith(")") and url.count("(") < url.count(")"):
-        url = url[:-1]
-    while url.endswith("]") and url.count("[") < url.count("]"):
-        url = url[:-1]
-    return url
-
-
-def spans_overlap(left: tuple[int, int], right: tuple[int, int]) -> bool:
-    return left[0] < right[1] and right[0] < left[1]
-
-
-def check_links(
-    root: Path,
-    documents: dict[str, QmdDocument],
-    selected_slugs: list[str],
-    *,
-    timeout: float,
-    workers: int,
-) -> list[str]:
-    if not selected_slugs:
-        print("No changed QMD files selected for link checks.")
-        return []
-
-    links = [
-        link
-        for slug in selected_slugs
-        for link in extract_links_from_qmd(documents[slug])
-        if should_check_link_target(link.target)
-    ]
-    errors: list[str] = []
-    http_checks: list[tuple[NotebookLink, str]] = []
-    for link in links:
-        if not link.target:
-            errors.append(format_link_error(link, "empty link target"))
-            continue
-        scheme = urlsplit(link.target).scheme.lower()
-        if scheme in {"http", "https"}:
-            http_checks.append((link, link.target))
-            continue
-        local_error = check_local_link(root, documents, link.document, link.target)
-        if local_error:
-            published_url = published_docs_url_for_relative_link(link.document, link.target)
-            if published_url:
-                http_checks.append((link, published_url))
-                continue
-            errors.append(format_link_error(link, local_error))
-
-    http_results = check_http_links(
-        {checked_target for _, checked_target in http_checks},
-        timeout=timeout,
-        workers=workers,
-    )
-    for link, checked_target in http_checks:
-        http_error = http_results.get(checked_target)
-        if http_error:
-            if checked_target != link.target:
-                http_error = f"{http_error} when resolved as {checked_target}"
-            errors.append(format_link_error(link, http_error))
-
-    return errors
-
-
-def should_check_link_target(target: str) -> bool:
-    if target.startswith("#"):
-        return False
-    scheme = urlsplit(target).scheme.lower()
-    return scheme not in IGNORED_LINK_SCHEMES
-
-
-def check_local_link(
-    root: Path,
-    documents: dict[str, QmdDocument],
-    document: QmdDocument,
-    target: str,
-) -> str | None:
-    split_target = urlsplit(target)
-    if split_target.scheme:
-        return f"unsupported link scheme: {split_target.scheme}"
-    if split_target.netloc:
-        return "protocol-relative links must use https://"
-    if not split_target.path:
-        return None
-
-    raw_path = unquote(split_target.path)
-    if raw_path.startswith("/"):
-        return "site-root links must use an absolute URL"
-    candidate = (document.path.parent / raw_path).resolve()
-    if candidate.exists():
-        return None
-
-    path = Path(raw_path)
-    if path.suffix == ".html":
-        qmd_candidate = candidate.with_suffix(".qmd")
-        if qmd_candidate.exists():
-            return None
-
-    root_candidate = (root / raw_path).resolve()
-    if root_candidate.exists():
-        return None
-
-    return f"local link target does not exist: {target}"
-
-
-def published_docs_url_for_relative_link(document: QmdDocument, target: str) -> str | None:
-    split_target = urlsplit(target)
-    if split_target.scheme or split_target.netloc or not split_target.path:
-        return None
-    raw_path = unquote(split_target.path)
-    if raw_path.startswith("/") or not should_resolve_against_published_docs(raw_path):
-        return None
-    if PurePosixPath(raw_path).suffix == ".rst":
-        split_target = split_target._replace(
-            path=str(PurePosixPath(split_target.path).with_suffix(".html"))
-        )
-    base_url = f"{TIDY3D_NOTEBOOK_DOCS_BASE_URL}{document.path.stem}.html"
-    return urljoin(base_url, split_target.geturl())
-
-
-def should_resolve_against_published_docs(path: str) -> bool:
-    relative_path = PurePosixPath(path)
-    return (
-        path.startswith("../")
-        and "notebooks" not in relative_path.parts
-        and relative_path.suffix in {".html", ".rst"}
-    )
-
-
-def check_http_links(
-    targets: set[str],
-    *,
-    timeout: float,
-    workers: int,
-) -> dict[str, str | None]:
-    if not targets:
-        return {}
-    targets_by_page: dict[str, list[str]] = {}
-    for target in sorted(targets):
-        targets_by_page.setdefault(http_url_without_fragment(target), []).append(target)
-
-    max_workers = max(1, min(workers, len(targets_by_page)))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_targets = {
-            executor.submit(
-                check_http_link_group, tuple(page_targets), timeout=timeout
-            ): page_targets
-            for page_targets in targets_by_page.values()
-        }
-        results: dict[str, str | None] = {}
-        for future in concurrent.futures.as_completed(future_to_targets):
-            page_targets = future_to_targets[future]
-            try:
-                results.update(future.result())
-            except Exception as exc:  # pragma: no cover - defensive guard for CI linting
-                for target in page_targets:
-                    results[target] = f"HTTP link check failed unexpectedly: {exc}"
-        return results
-
-
-def check_http_link(url: str, *, timeout: float) -> str | None:
-    return check_http_link_group((url,), timeout=timeout)[url]
-
-
-def check_http_link_group(
-    urls: tuple[str, ...],
-    *,
-    timeout: float,
-) -> dict[str, str | None]:
-    last_error: str | None = None
-    base_url = http_url_without_fragment(urls[0])
-    fragments = {url: unquote(urlsplit(url).fragment) for url in urls}
-    needs_body = any(fragments.values())
-    request_plan = [("HEAD", False), ("GET", needs_body)]
-    while request_plan:
-        method, fetch_body = request_plan.pop(0)
-        request = Request(
-            base_url,
-            method=method,
-            headers=http_link_headers(method, fetch_body=fetch_body),
-        )
-        try:
-            with urlopen(request, timeout=timeout) as response:
-                status = response.getcode()
-                if is_reachable_http_status(status):
-                    if method == "HEAD" and needs_body:
-                        continue
-                    return http_link_results(
-                        fragments,
-                        response,
-                        assume_valid_for_non_html=(
-                            status not in REACHABLE_WITH_LIMITED_ACCESS_HTTP_STATUSES
-                        ),
-                    )
-                last_error = f"HTTP {status}"
-        except HTTPError as exc:
-            if method == "HEAD":
-                last_error = f"HTTP {exc.code}"
-                continue
-            if is_reachable_http_status(exc.code):
-                return http_link_results(
-                    fragments,
-                    exc,
-                    assume_valid_for_non_html=(
-                        exc.code not in REACHABLE_WITH_LIMITED_ACCESS_HTTP_STATUSES
-                    ),
-                )
-            if exc.code == 416 and request.get_header("Range"):
-                last_error = f"HTTP {exc.code}: {exc.reason}"
-                request_plan.insert(0, ("GET", True))
-                continue
-            error = f"HTTP {exc.code}: {exc.reason}"
-            return dict.fromkeys(urls, error)
-        except TimeoutError as exc:
-            last_error = f"timeout: {exc}"
-            if method == "HEAD":
-                continue
-        except (URLError, OSError) as exc:
-            last_error = f"request failed: {format_url_error(exc)}"
-            if method == "HEAD":
-                continue
-    return dict.fromkeys(urls, last_error)
-
-
-def http_link_headers(method: str, *, fetch_body: bool = False) -> dict[str, str]:
-    headers = {
-        "Accept": "*/*",
-        "User-Agent": LINKCHECK_USER_AGENT,
-    }
-    if method == "GET" and not fetch_body:
-        headers["Range"] = "bytes=0-0"
-    return headers
-
-
-def http_link_results(
-    fragments: dict[str, str],
-    response: Any,
-    *,
-    assume_valid_for_non_html: bool = True,
-) -> dict[str, str | None]:
-    if not any(fragments.values()):
-        return dict.fromkeys(fragments)
-
-    headers = getattr(response, "headers", None)
-    content_type = headers.get("Content-Type", "") if headers else ""
-    if content_type and "html" not in content_type.lower() and "xml" not in content_type.lower():
-        if assume_valid_for_non_html:
-            return dict.fromkeys(fragments)
-        anchors: set[str] = set()
-    else:
-        parser = HtmlAnchorCollector()
-        try:
-            body = response.read(MAX_FRAGMENT_HTML_BYTES)
-        except (OSError, ValueError):
-            body = b""
-        if isinstance(body, str):
-            parser.feed(body)
-        else:
-            parser.feed(body.decode("utf-8", errors="ignore"))
-        anchors = parser.anchors
-
-    return {
-        target: (
-            None if not fragment or fragment in anchors else f"missing URL fragment: #{fragment}"
-        )
-        for target, fragment in fragments.items()
-    }
-
-
-def is_reachable_http_status(status: int) -> bool:
-    return 200 <= status < 400 or status in REACHABLE_WITH_LIMITED_ACCESS_HTTP_STATUSES
-
-
-def format_url_error(exc: URLError | OSError) -> str:
-    if isinstance(exc, URLError):
-        return str(exc.reason)
-    return str(exc)
-
-
-def http_url_without_fragment(url: str) -> str:
-    split_url = urlsplit(url)
-    return urlunsplit(
-        (
-            split_url.scheme,
-            split_url.netloc,
-            split_url.path,
-            split_url.query,
-            "",
-        )
-    )
-
-
-def format_link_error(link: NotebookLink, message: str) -> str:
-    return (
-        f"{link.document.path.name}:{link.line_number}: link: {message}: "
-        f"{link.target} in {truncate_line(link.source.strip())}"
-    )
-
-
-def truncate_line(line: str, limit: int = 180) -> str:
-    if len(line) <= limit:
-        return line
-    return f"{line[: limit - 3]}..."
-
-
 def extract_identifiers_from_code(source: str) -> set[str]:
     identifiers: set[str] = set()
     try:
@@ -1231,14 +753,7 @@ def extract_text_from_qmd(document: QmdDocument) -> tuple[list[TextLine], set[st
     texts: list[TextLine] = []
     identifiers: set[str] = set()
 
-    for key in [
-        "title",
-        "seo_title",
-        "description",
-        "tags",
-        "applications",
-        "features",
-    ]:
+    for key in ["title", "seo_title", "description", "tags", "applications", "features"]:
         value = document.front_matter.get(key)
         if isinstance(value, str):
             texts.append(TextLine(line_number=1, text=value, source=f"{key}: {value}"))
@@ -1811,7 +1326,7 @@ def main() -> None:
 
     print(f"Structural notebook checks passed for {len(documents)} QMD files.")
     if selected_slugs:
-        print("Changed QMDs selected for spellcheck/Ruff/link checks: " + ", ".join(selected_slugs))
+        print("Changed QMDs selected for spellcheck/Ruff: " + ", ".join(selected_slugs))
 
     if not args.skip_spellcheck:
         fail(check_spelling(documents, selected_slugs, args.reference_threshold))
@@ -1826,17 +1341,6 @@ def main() -> None:
         )
         if ruff_exit:
             raise SystemExit(ruff_exit)
-
-    if not args.skip_linkcheck:
-        fail(
-            check_links(
-                root,
-                documents,
-                selected_slugs,
-                timeout=args.link_timeout,
-                workers=args.link_workers,
-            )
-        )
 
     print("Tidy3D notebook lint passed.")
 

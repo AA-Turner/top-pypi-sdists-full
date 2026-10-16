@@ -1,5 +1,17 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    "packaging.utils",
+    "pathlib",
+    "pipx",
+    "pipx.commands.common",
+    "pipx.commands.inject",
+    "pipx.commands.uninstall",
+    "pipx.util",
+    "pipx.venv",
+    "pipx.venv_inspect",
+]
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
@@ -8,7 +20,7 @@ from packaging.utils import canonicalize_name
 
 from pipx import paths
 from pipx.colors import bold
-from pipx.commands.common import add_suffix
+from pipx.commands.common import drop_copies_claimed_elsewhere, exposed_app_names
 from pipx.commands.inject import (
     InjectionData,
     InjectionPackage,
@@ -29,7 +41,12 @@ from pipx.emojis import stars
 from pipx.result import OperationError, OperationResult, OutputLevel, OutputMessage, OutputStream
 from pipx.util import pipx_wrap, safe_unlink
 from pipx.venv import Venv
-from pipx.venv_inspect import fetch_info_in_venv, get_distributions_by_name, get_required_dependency_names
+from pipx.venv_inspect import (
+    fetch_info_in_venv,
+    get_distributions_by_name,
+    get_required_dependency_names,
+    not_required_packages,
+)
 
 if TYPE_CHECKING:
     from importlib import metadata
@@ -146,26 +163,29 @@ def uninject_dep(
     package: Final[PackageInfo] = venv.package_metadata[package_name]
     need_app_uninstall: Final[bool] = package.include_apps
 
-    new_resource_paths = get_include_resource_paths(package_name, venv, local_bin_dir, local_man_dir)
+    new_resource_paths = drop_copies_claimed_elsewhere(
+        get_include_resource_paths(package_name, venv, local_bin_dir, local_man_dir), venv.bin_path
+    )
 
     if not leave_deps:
         orig_not_required_packages = venv.list_installed_packages(not_required=True)
         logger.info("Original not required packages: %s", orig_not_required_packages)
 
-    venv.uninstall_package(package=package_name, was_injected=True)
+    venv.uninstall_packages(package_name, was_injected=True)
 
     if not leave_deps:
-        new_not_required_packages = venv.list_installed_packages(not_required=True)
+        # inspect again: the uninstall can drop search path entries, such as an editable install's .pth
+        venv_sys_path, venv_env, _ = fetch_info_in_venv(venv.python_path)
+        new_not_required_packages = not_required_packages(venv_sys_path, venv_env)
         logger.info("New not required packages: %s", new_not_required_packages)
 
         deps_of_uninstalled = new_not_required_packages - orig_not_required_packages
         if deps_of_uninstalled:
-            remaining_deps = _get_remaining_dependencies(venv, package_name)
+            remaining_deps = _get_remaining_dependencies(venv, package_name, venv_sys_path, venv_env)
             deps_of_uninstalled -= remaining_deps
             logger.info("Dependencies of uninstalled package: %s", deps_of_uninstalled)
-
-        for dep_package_name in deps_of_uninstalled:
-            venv.uninstall_package(package=dep_package_name, was_injected=False)
+            if deps_of_uninstalled:
+                venv.uninstall_packages(*sorted(deps_of_uninstalled))
 
         deps_string = " and its dependencies"
     else:
@@ -244,7 +264,7 @@ def get_include_resource_paths(package_name: str, venv: Venv, local_bin_dir: Pat
         )
 
     pkg_metadata = venv.package_metadata[package_name]
-    all_apps = {add_suffix(app, pkg_metadata.suffix) for app in pkg_metadata.apps_to_expose}
+    all_apps = {name for app in pkg_metadata.apps_to_expose for name in exposed_app_names(app, pkg_metadata.suffix)}
     all_man_pages = set(pkg_metadata.man_pages_to_expose)
     all_completions = set(pkg_metadata.completions_to_expose)
 
@@ -264,8 +284,9 @@ def get_include_resource_paths(package_name: str, venv: Venv, local_bin_dir: Pat
     return need_to_remove
 
 
-def _get_remaining_dependencies(venv: Venv, excluded_package: str) -> set[str]:
-    venv_sys_path, venv_env, _ = fetch_info_in_venv(venv.python_path)
+def _get_remaining_dependencies(
+    venv: Venv, excluded_package: str, venv_sys_path: list[str], venv_env: dict[str, str]
+) -> set[str]:
     distributions = get_distributions_by_name(venv_sys_path)
 
     remaining_deps: set[str] = set()

@@ -1,6 +1,6 @@
 use crate::config::RecordingConfig;
 use crate::multi::MultiFormatRecorder;
-use crate::ses::RecordingDirection;
+use crate::ses::{RecordingDirection, RecordingError, SesPayload};
 use bytes::Bytes;
 use std::collections::HashMap;
 use tempfile::TempDir;
@@ -224,8 +224,8 @@ fn test_typescript_recording_with_timing() {
     );
     assert!(content.contains("[END TYPESCRIPT]"), "Should have footer");
 
-    // Timing file has same stem as typescript with .timing extension.
-    let timing_path = ts_path.with_extension("timing");
+    // Timing file is the typescript filename with ".timing" appended.
+    let timing_path = tmp_dir.path().join("typescript-test.timing");
     assert!(timing_path.exists(), "Timing file should exist");
 
     let timing_content = std::fs::read_to_string(&timing_path).unwrap();
@@ -243,6 +243,44 @@ fn test_typescript_recording_with_timing() {
     parts[1]
         .parse::<usize>()
         .expect("Second field should be byte count");
+}
+
+/// guacd builds the timing filename by appending (`"%s.%s"`,
+/// `src/terminal/typescript.c:133`), so a typescript named `<stamp>.tys` gets
+/// `<stamp>.tys.timing`. The gateway mkfifos exactly that name
+/// (`tunnel_recordings.py:1828`) and the FIFO has no other writer, so replacing the
+/// extension instead of appending leaves the gateway's reader blocked on a pipe that
+/// nothing ever opens.
+#[test]
+fn test_timing_filename_appends_to_typescript_name() {
+    let tmp_dir = TempDir::new().unwrap();
+
+    let mut params = HashMap::new();
+    params.insert(
+        "typescript-path".to_string(),
+        tmp_dir.path().to_string_lossy().to_string(),
+    );
+    // The gateway's spelling: recording name plus the ".tys" type suffix.
+    params.insert("typescript-name".to_string(), "20260915-120000.tys".into());
+    params.insert("create-typescript-path".to_string(), "true".to_string());
+
+    let config = RecordingConfig::from_params(&params);
+    let mut recorder = MultiFormatRecorder::new(&config, &params, "ssh", 80, 24).unwrap();
+    recorder.record_output(b"output\r\n").unwrap();
+    recorder.finalize().unwrap();
+
+    assert!(
+        tmp_dir.path().join("20260915-120000.tys").exists(),
+        "typescript file should exist"
+    );
+    assert!(
+        tmp_dir.path().join("20260915-120000.tys.timing").exists(),
+        "timing file should be the typescript name with .timing appended, found: {:?}",
+        std::fs::read_dir(tmp_dir.path())
+            .unwrap()
+            .filter_map(|entry| Some(entry.ok()?.file_name()))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -413,5 +451,236 @@ fn test_zmq_only_recorder_is_active() {
     assert!(
         recorder.is_active(),
         "ZMQ-only recorder must report active so Drop calls finalize"
+    );
+}
+
+/// A strict session whose recorder cannot be created must be refusable.
+///
+/// `recording-allow-unrecorded=false` (the default, config.rs:165) is the operator saying
+/// "no recording, no session". When the destination cannot be opened, `new_with_payload`
+/// reports `PathCreation` -- indistinguishable from an ordinary I/O hiccup. Both handler
+/// call sites read it that way and continue unrecorded: guacr-ssh/src/handler.rs:481-487
+/// and guacr-rdp/src/handler.rs:1058-1064 each `warn!` and fall through to `None`, without
+/// consulting `allow_unrecorded`. So the strict promise has no enforcement point and the
+/// session runs to completion with no recording and no user-visible failure.
+///
+/// `Unrecordable` is this crate's own signal for the condition (ses.rs:80-85: "no retry can
+/// help: the session itself has to end"), and the video path already uses it that way
+/// (guacr-recorder/src/video_sink.rs:166). Terminal recorder construction does not.
+///
+/// The vehicle is a missing directory with `create-recording-path` off, which is the
+/// platform-independent form of the condition. (This test previously used the Windows
+/// gateway's `ipc://` parameter shape, which reached the same failure by accident of that
+/// endpoint being treated as a directory; an endpoint is now a supported `.ses` destination
+/// in its own right, so it no longer demonstrates an unopenable one.)
+#[test]
+fn test_strict_recording_reports_recorder_init_failure_as_fatal() {
+    let mut params = HashMap::new();
+    params.insert("recordingname".to_string(), "session.ses".to_string());
+    params.insert(
+        "recordingpath".to_string(),
+        "/nonexistent-guacr-strict-recording-test/nested".to_string(),
+    );
+    params.insert("recordingwriteexisting".to_string(), "true".to_string());
+
+    let config = RecordingConfig::from_params(&params);
+    assert!(
+        !config.create_recording_path,
+        "create-recording-path is off, so the missing directory is not created for us"
+    );
+    assert!(
+        !config.allow_unrecorded,
+        "recording-allow-unrecorded defaults to false, so this session is strict"
+    );
+
+    let init = MultiFormatRecorder::new_with_payload(
+        &config,
+        &params,
+        "ssh",
+        80,
+        24,
+        SesPayload::Terminal,
+    );
+
+    let err = init
+        .err()
+        .expect("the destination directory does not exist, so init must fail");
+
+    assert!(
+        matches!(err, RecordingError::Unrecordable(_)),
+        "a strict session whose recorder cannot be created must report Unrecordable so a \
+         handler cannot mistake it for an ignorable I/O error; got {err:?}"
+    );
+}
+
+/// A `.ses` must reach the ZMQ endpoint the gateway bound, byte for byte.
+///
+/// This is the Windows recording path end to end. There is no FIFO on Windows, so
+/// `tunnel_recordings.py:1808-1813` binds a PAIR socket and passes its endpoint in
+/// `recordingpath`; the gateway's reader then streams **raw bytes** off that socket
+/// (`recv_into` with a fixed `memoryview`), encrypts them and uploads the `.ses`. So the
+/// recorder has to put the protocol stream on the socket unmodified -- the existing
+/// `zmq_addr` sender is not a substitute, it carries asciicast v2 JSON lines for the
+/// separate `-guacr.cast` stream (`tunnel_recordings.py:2018`).
+///
+/// Feature-gated because the sink is: `zmq-transport` is off by default, and the wheel
+/// that ships to Windows turns it on (`build-release-publish-wheels.yml:438`).
+#[cfg(feature = "zmq-transport")]
+#[test]
+fn test_ses_bytes_reach_the_zmq_endpoint_given_in_recording_path() {
+    // The gateway binds first and guacr connects, so bind before constructing.
+    let ctx = zmq::Context::new();
+    let backend = ctx.socket(zmq::PAIR).expect("PAIR socket");
+    let socket_path = std::env::temp_dir().join(format!(
+        "guacr-ses-zmq-{}-{}.ses",
+        std::process::id(),
+        line!()
+    ));
+    let _ = std::fs::remove_file(&socket_path);
+    let addr = format!("ipc://{}", socket_path.display());
+    backend.bind(&addr).expect("gateway binds the frontend");
+    backend
+        .set_rcvtimeo(5_000)
+        .expect("bounded wait so a missing sink fails instead of hanging");
+
+    // Verbatim shape from tunnel_recordings.py:1812-1814, plus include-keys because the
+    // recorded instruction is a key (production enables it).
+    let mut params = HashMap::new();
+    params.insert("recordingname".to_string(), "pair".to_string());
+    params.insert("recordingpath".to_string(), addr.clone());
+    params.insert("recordingwriteexisting".to_string(), "true".to_string());
+    params.insert("recordingincludekeys".to_string(), "true".to_string());
+
+    let config = RecordingConfig::from_params(&params);
+    let mut recorder = MultiFormatRecorder::new_with_payload(
+        &config,
+        &params,
+        "ssh",
+        80,
+        24,
+        SesPayload::Terminal,
+    )
+    .expect("an endpoint the gateway has bound is a valid .ses destination");
+
+    recorder
+        .record_instruction(
+            RecordingDirection::ClientToServer,
+            &Bytes::from_static(b"3.key,2.97,1.1;"),
+        )
+        .expect("recording a keystroke must succeed");
+    recorder.finalize().expect("finalize must flush and close");
+
+    // Concatenate every message: the writer buffers, so the split into ZMQ messages is
+    // not part of the contract -- the byte stream is.
+    let mut received: Vec<u8> = Vec::new();
+    while let Ok(msg) = backend.recv_bytes(0) {
+        received.extend_from_slice(&msg);
+    }
+    let _ = std::fs::remove_file(&socket_path);
+
+    assert!(
+        received.starts_with(b"5.guacr,8.terminal,1.1;"),
+        "the stream must open with TERMINAL_SES_MARKER (ses.rs:51) or the vault dispatches \
+         playback to the wrong player; got {:?}",
+        String::from_utf8_lossy(&received)
+    );
+    assert!(
+        String::from_utf8_lossy(&received).contains("3.key,"),
+        "the recorded keystroke must reach the endpoint; got {:?}",
+        String::from_utf8_lossy(&received)
+    );
+}
+
+/// A strict session whose recording breaks mid-session must be endable.
+///
+/// The init path already reports [`RecordingError::Unrecordable`]
+/// (`multi.rs:91-100`), but nothing covered the far more common case: the recording
+/// starts fine and stops working later. The gateway's reader dies, or falls behind far
+/// enough to fill the queue, and `writer_thread.rs:171-181` closes that destination. The
+/// error the handler sees is an ordinary `Io`, both call sites in `session.rs:74-76` and
+/// `:90-92` `warn!` and continue, and the user keeps working with
+/// `recording-allow-unrecorded=false` set and a `.ses` truncated at that instant.
+///
+/// Unix-only for the same reason as `writer_thread_tests`: a regular file does not fail a
+/// write, so provoking one needs a FIFO whose reader has gone.
+#[cfg(unix)]
+#[test]
+fn test_strict_session_reports_a_mid_session_write_failure_as_unrecordable() {
+    let tmp_dir = TempDir::new().unwrap();
+    let ses_path = tmp_dir.path().join("midsession.ses");
+    let status = std::process::Command::new("mkfifo")
+        .arg(&ses_path)
+        .status()
+        .expect("mkfifo is available on unix");
+    assert!(status.success(), "mkfifo {ses_path:?} failed");
+
+    // The gateway's reader: completes the FIFO rendezvous, then goes away. Every write
+    // after that fails with EPIPE, which is exactly what a crashed reader looks like.
+    let reader_path = ses_path.clone();
+    let reader = std::thread::spawn(move || {
+        let fifo = std::fs::File::open(&reader_path).expect("read end opens");
+        drop(fifo);
+    });
+
+    let mut params = HashMap::new();
+    params.insert(
+        "recording-path".to_string(),
+        tmp_dir.path().to_string_lossy().to_string(),
+    );
+    params.insert("recording-name".to_string(), "midsession.ses".to_string());
+    params.insert("recording-write-existing".to_string(), "true".to_string());
+
+    let config = RecordingConfig::from_params(&params);
+    assert!(
+        !config.allow_unrecorded,
+        "recording-allow-unrecorded defaults to false, so this session is strict"
+    );
+
+    let mut recorder = MultiFormatRecorder::new_with_payload(
+        &config,
+        &params,
+        "ssh",
+        80,
+        24,
+        SesPayload::Terminal,
+    )
+    .expect("the fifo exists and a reader arrived, so the recorder starts");
+    reader.join().expect("reader thread finished");
+
+    // 8 KiB payloads so each instruction clears the BufWriter and reaches the fifo; the
+    // failure is asynchronous (the writer thread hits it), so keep recording until it
+    // surfaces rather than assuming which call sees it.
+    let frame = {
+        let payload = [b'x'; 8192];
+        let mut bytes = Vec::with_capacity(8 + payload.len());
+        bytes.push(guacr_protocol::Opcode::TerminalData as u8);
+        bytes.push(0);
+        bytes.extend_from_slice(&0u16.to_le_bytes());
+        bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&payload);
+        Bytes::from(bytes)
+    };
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let mut failure = None;
+    while std::time::Instant::now() < deadline {
+        match recorder.record_instruction(RecordingDirection::ServerToClient, &frame) {
+            Ok(()) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            Err(e) => {
+                failure = Some(e);
+                break;
+            }
+        }
+    }
+
+    let failure = failure.expect(
+        "writes to a fifo whose reader is gone must be reported, not absorbed \
+         indefinitely",
+    );
+    assert!(
+        matches!(failure, RecordingError::Unrecordable(_)),
+        "a strict session whose recording stopped working must report Unrecordable, or the \
+         handler treats it as an ignorable I/O error and the session continues unrecorded; \
+         got {failure:?}"
     );
 }

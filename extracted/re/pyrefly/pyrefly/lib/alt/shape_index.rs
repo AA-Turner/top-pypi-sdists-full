@@ -41,7 +41,7 @@ impl<Ans: LookupAnswer> AnswersSolver<'_, '_, Ans> {
         expr: &Expr,
         errors: &ErrorCollector,
     ) -> Type {
-        if !self.solver().tensor_shapes {
+        if !self.solver().config.tensor_shapes {
             return self.expr_infer(expr, errors);
         }
         let parse_errors = self.error_swallower();
@@ -116,7 +116,7 @@ impl<Ans: LookupAnswer> AnswersSolver<'_, '_, Ans> {
             );
         }
 
-        let argument_context = TypeFormContext::TypeArgument(&type_form_context);
+        let argument_context = TypeFormContext::ShapeTypeArgument(&type_form_context);
         let shape = self.expr_untype(&call.arguments.args[0], argument_context, errors);
         let index = self.expr_untype(&call.arguments.args[1], argument_context, errors);
         if shape.is_error() {

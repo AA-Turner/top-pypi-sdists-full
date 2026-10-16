@@ -18,9 +18,13 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Include truncated trajectories in training.
   """
-  train_on_ungraded: bool | None
+  train_on_error: bool | None
   """
-  Include otherwise eligible trajectories without a recorded reward.
+  Train on error-terminated trajectories, using zero when no reward is recorded.
+  """
+  train_on_timeout: bool | None
+  """
+  Train on execution and sandbox timeouts, using zero when no reward is recorded.
   """
   evaluation_max_samples: int | None
   """
@@ -89,18 +93,9 @@ class RunOptionsParam(TypedDict, total=False):
   """
   max_total_tokens_per_trajectory: int | None
   """
-  Maximum total tokens available across one trajectory.
+  Maximum assistant output tokens across all steps of one trajectory.
   """
   max_turns_per_trajectory: int | None
   """
   Maximum agent and environment turns allowed in each trajectory.
-  """
-  max_tool_calls_per_step: int | None
-  """
-  Maximum tool calls executed from one assistant step (0 rejects all).
-  """
-  max_response_chars_per_tool_call: int | None
-  """
-  Maximum tool-response characters retained before truncation; at most 65,536 for training or
-  10,000,000 for standalone evaluation.
   """
